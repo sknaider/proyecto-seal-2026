@@ -16,16 +16,40 @@
     },
     "git": {
       "command": "/home/dadito/.npm-global/bin/git-mcp-server",
-      "args": [],
-      "env": {
-        "GIT_DEFAULT_PATH": "/home/dadito/IA/proyecto-seal/openclaude-ref"
-      }
+      "args": []
     },
     "postgres": {
       "command": "/home/dadito/.npm-global/bin/mcp-server-postgres",
       "args": [
         "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
       ]
+    },
+    "playwright": {
+      "command": "/home/dadito/.npm-global/bin/mcp-server-playwright",
+      "args": ["--headless"]
+    },
+    "github": {
+      "command": "/home/dadito/.npm-global/bin/mcp-server-github",
+      "args": [],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "PENDING_TOKEN_FROM_WILLIAM"
+      },
+      "disabled": true
+    },
+    "prometheus": {
+      "command": "/home/dadito/.npm-global/bin/prometheus-mcp-server",
+      "args": [],
+      "env": {
+        "PROMETHEUS_URL": "http://localhost:9090"
+      }
+    },
+    "fhir": {
+      "command": "/home/dadito/.npm-global/bin/fhir-mcp-server",
+      "args": [],
+      "env": {
+        "FHIR_BASE_URL": "http://localhost:8080/fhir"
+      },
+      "disabled": true
     }
   }
 }
