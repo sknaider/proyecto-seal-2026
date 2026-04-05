@@ -47,3 +47,4 @@ soul_awareness.log
 
 # Claude internal
 .claude/
+.mcp.json
