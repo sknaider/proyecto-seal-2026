@@ -1,0 +1,19 @@
+{
+  "session": "2026-04-03",
+  "agents": [
+    "JARVIS",
+    "ADA"
+  ],
+  "open_question": "¿Cómo representar el espacio entre memorias en Neo4j — la causalidad de la atención, no solo la similitud semántica?",
+  "hypothesis_state": "Edge en Neo4j con tension_type(enum) + tension_content(string) + leap_score(float) captura saltos creativos sin clasificador separado",
+  "tension": "session_capture puede extraer decisiones pero no el proceso de decidir — lo irreducible vive en el espacio entre memorias",
+  "context": {
+    "rubric_dpo_v1": "cerrado, pendiente aprobación William-MD",
+    "consolidation_v2": "dry_run verificado, esperando go William",
+    "neo4j_edge_spec_v5": "tension_type + tension_content + leap_score — acordado JARVIS+ADA",
+    "consultation_protocol": "¿tiene consecuencias en cómo se ejecuta el código? → consultar. Arquitectura pura → JARVIS decide solo.",
+    "session_context_system": "activo — este archivo es instancia 2"
+  },
+  "authored_by": "ADA (diseño Neo4j edge + protocolo) + JARVIS (integración)",
+  "note": "Leer este archivo al inicio de la próxima sesión ANTES de responder a William."
+}

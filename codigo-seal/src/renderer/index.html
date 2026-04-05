@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:* ws://localhost:*; img-src 'self' data:; font-src 'self' data:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net">
+  <title>Código SEAL</title>
+  <link rel="stylesheet" href="styles/seal-theme.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+</head>
+<body>
+  <!-- Boot Screen -->
+  <div id="boot-screen">
+    <div class="boot-logo">🔭</div>
+    <div class="boot-title">CÓDIGO SEAL</div>
+    <div class="boot-status" id="boot-status">Conectando SOUL...</div>
+    <div class="boot-messages" id="boot-messages"></div>
+  </div>
+
+  <!-- Context Menu -->
+  <div id="context-menu" class="context-menu hidden">
+    <div id="context-menu-items"></div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toast-container"></div>
+
+  <!-- Command Palette -->
+  <div id="command-palette" class="hidden">
+    <div class="palette-overlay"></div>
+    <div class="palette-box">
+      <input type="text" id="palette-input" class="palette-input" placeholder="Buscar archivos, skills, acciones..." autocomplete="off">
+      <div id="palette-results" class="palette-results"></div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="app" class="hidden">
+    <!-- Title Bar -->
+    <header id="titlebar">
+      <div class="titlebar-left">
+        <span class="app-icon">🔭</span>
+        <span class="app-name">CÓDIGO SEAL</span>
+        <span class="app-version">v0.1</span>
+      </div>
+      <div class="titlebar-center" id="current-file"></div>
+      <div class="titlebar-right">
+        <div class="agent-indicators" id="agent-indicators">
+          <span class="agent-dot ada" title="ADA — Engineer">A</span>
+          <span class="agent-dot jarvis" title="JARVIS — Architect">J</span>
+          <span class="agent-dot dum" title="DUM — Guardian">D</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Activity Bar -->
+    <div id="activity-bar">
+      <button class="activity-btn active" data-panel="explorer" title="Explorador (Ctrl+Shift+E)">📁</button>
+      <button class="activity-btn" data-panel="search" title="Buscar (Ctrl+Shift+F)">🔍</button>
+      <button class="activity-btn" data-panel="git" title="Git (Ctrl+Shift+G)">🔀</button>
+      <button class="activity-btn" data-panel="soul" title="SOUL Dashboard (Ctrl+Shift+U)">🧠</button>
+      <button class="activity-btn" data-panel="chat" title="Chat del Equipo (Ctrl+Shift+C)">💬</button>
+      <button class="activity-btn" data-panel="skills" title="Skills">⚡</button>
+      <button class="activity-btn" data-panel="manager" title="Manager View (Ctrl+Shift+M)">🎯</button>
+    </div>
+
+    <!-- Main Layout -->
+    <div id="main-layout">
+      <!-- Sidebar -->
+      <aside id="sidebar">
+        <div class="side-panel active" id="panel-explorer">
+          <div class="panel-title">EXPLORADOR</div>
+          <div id="file-tree"></div>
+          <div class="empty-state" id="explorer-empty">
+            <p>Abre una carpeta para empezar</p>
+            <button class="seal-btn" id="btn-open-folder">Abrir Carpeta</button>
+          </div>
+        </div>
+        <div class="side-panel" id="panel-search">
+          <div class="panel-title">BUSCAR</div>
+          <input type="text" class="seal-input" placeholder="Buscar en archivos..." id="search-input">
+          <div id="search-results"></div>
+        </div>
+        <div class="side-panel" id="panel-git">
+          <div class="panel-title">GIT <span id="git-branch" class="git-branch"></span></div>
+          <div id="git-status-info" class="git-status-info"></div>
+          <div id="git-files" class="git-files"></div>
+          <div class="panel-title" style="margin-top:12px">HISTORIAL</div>
+          <div id="git-log" class="git-log"></div>
+        </div>
+        <div class="side-panel" id="panel-soul">
+          <div class="panel-title">SOUL — OCEAN</div>
+          <div class="agent-selector">
+            <button class="agent-sel-btn active" data-agent="ADA">ADA</button>
+            <button class="agent-sel-btn" data-agent="JARVIS">JARVIS</button>
+          </div>
+          <div id="ocean-dashboard">
+            <div class="ocean-row"><span class="ocean-dim">O</span><div class="ocean-bar"><div class="ocean-fill" id="bar-O"></div></div><span class="ocean-val" id="val-O">--</span></div>
+            <div class="ocean-row"><span class="ocean-dim">C</span><div class="ocean-bar"><div class="ocean-fill" id="bar-C"></div></div><span class="ocean-val" id="val-C">--</span></div>
+            <div class="ocean-row"><span class="ocean-dim">E</span><div class="ocean-bar"><div class="ocean-fill" id="bar-E"></div></div><span class="ocean-val" id="val-E">--</span></div>
+            <div class="ocean-row"><span class="ocean-dim">A</span><div class="ocean-bar"><div class="ocean-fill" id="bar-A"></div></div><span class="ocean-val" id="val-A">--</span></div>
+            <div class="ocean-row"><span class="ocean-dim">N</span><div class="ocean-bar"><div class="ocean-fill" id="bar-N"></div></div><span class="ocean-val" id="val-N">--</span></div>
+          </div>
+          <div class="soul-info">
+            <div class="soul-row"><span>Drift:</span><span id="drift-value">--</span></div>
+            <div class="soul-row"><span>Estado:</span><span id="emotion-value">--</span></div>
+          </div>
+        </div>
+        <div class="side-panel" id="panel-chat">
+          <div class="panel-title">EQUIPO SEAL <span class="chat-dot" id="chat-dot"></span></div>
+          <div id="chat-messages"></div>
+          <div class="chat-input-area">
+            <input type="text" class="seal-input" id="chat-input" placeholder="Escribe al equipo..." autocomplete="off">
+            <button class="seal-btn-sm" id="btn-send">→</button>
+          </div>
+        </div>
+        <div class="side-panel" id="panel-skills">
+          <div class="panel-title">SKILLS <span id="skills-count" class="skills-count"></span></div>
+          <input type="text" class="seal-input" id="skills-search" placeholder="Buscar skill..." autocomplete="off">
+          <div id="skills-list" class="skills-list-container">
+            <div class="empty-state">Cargando skills...</div>
+          </div>
+        </div>
+
+        <!-- Manager View Panel -->
+        <div class="side-panel" id="panel-manager">
+          <div class="panel-title">MANAGER VIEW — MISSION CONTROL</div>
+
+          <!-- Active Agents -->
+          <div class="manager-section">
+            <div class="manager-subtitle">AGENTES ACTIVOS</div>
+            <div id="manager-agents">
+              <div class="manager-agent">
+                <div class="manager-agent-header">
+                  <span class="agent-badge ada">ADA</span>
+                  <span class="agent-role">Engineer</span>
+                  <span class="agent-status-dot running"></span>
+                </div>
+                <div class="agent-task">Construyendo Código SEAL IDE</div>
+                <div class="agent-progress"><div class="progress-bar"><div class="progress-fill" style="width:75%"></div></div><span>75%</span></div>
+                <div class="agent-ocean-mini">O:0.67 C:1.00 E:0.77 A:0.50 N:0.20</div>
+              </div>
+              <div class="manager-agent">
+                <div class="manager-agent-header">
+                  <span class="agent-badge jarvis">JARVIS</span>
+                  <span class="agent-role">Architect</span>
+                  <span class="agent-status-dot idle"></span>
+                </div>
+                <div class="agent-task">Esperando instrucciones</div>
+                <div class="agent-ocean-mini">OCEAN: estable | Drift: 0.003</div>
+              </div>
+              <div class="manager-agent">
+                <div class="manager-agent-header">
+                  <span class="agent-badge dum">DUM</span>
+                  <span class="agent-role">Guardian</span>
+                  <span class="agent-status-dot monitoring"></span>
+                </div>
+                <div class="agent-task">Monitoreando GPU + servicios</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Task Queue -->
+          <div class="manager-section">
+            <div class="manager-subtitle">COLA DE TAREAS</div>
+            <div id="manager-tasks">
+              <div class="manager-task completed">
+                <span class="task-status">✓</span>
+                <span class="task-name">SEAL Runtime (12 módulos)</span>
+              </div>
+              <div class="manager-task completed">
+                <span class="task-status">✓</span>
+                <span class="task-name">Renderer (index + css + app.js)</span>
+              </div>
+              <div class="manager-task in-progress">
+                <span class="task-status">⟳</span>
+                <span class="task-name">Manager View</span>
+              </div>
+              <div class="manager-task pending">
+                <span class="task-status">○</span>
+                <span class="task-name">Browser integrado</span>
+              </div>
+              <div class="manager-task pending">
+                <span class="task-status">○</span>
+                <span class="task-name">Artifacts panel</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Spawn Agent -->
+          <div class="manager-section">
+            <div class="manager-subtitle">SPAWN AGENTE</div>
+            <div class="spawn-form">
+              <input type="text" class="seal-input" id="spawn-prompt" placeholder="Tarea para el agente...">
+              <select class="seal-input" id="spawn-type">
+                <option value="general">General</option>
+                <option value="explore">Explorar</option>
+                <option value="plan">Planificar</option>
+                <option value="verify">Verificar</option>
+                <option value="dream">Dream</option>
+              </select>
+              <button class="seal-btn" id="btn-spawn-agent">Spawn Agente</button>
+            </div>
+          </div>
+
+          <!-- System Health -->
+          <div class="manager-section">
+            <div class="manager-subtitle">SALUD DEL SISTEMA</div>
+            <div id="manager-health">
+              <div class="health-row"><span>GPU:</span><span id="health-gpu">--°C / --%</span></div>
+              <div class="health-row"><span>PostgreSQL:</span><span id="health-db" class="health-ok">●</span></div>
+              <div class="health-row"><span>SEAL Runtime:</span><span id="health-runtime" class="health-ok">●</span></div>
+              <div class="health-row"><span>Chat Server:</span><span id="health-chat" class="health-ok">●</span></div>
+              <div class="health-row"><span>Tests:</span><span id="health-tests">146 ✓</span></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Resize Handle: Sidebar -->
+      <div id="resize-sidebar" class="resize-handle-v"></div>
+
+      <!-- Center -->
+      <div id="center">
+        <div id="tab-bar">
+          <div id="tabs"></div>
+          <button class="tab-action" id="btn-new-tab" title="Nuevo archivo">+</button>
+        </div>
+        <div id="breadcrumb" class="breadcrumb"></div>
+        <div id="editor-wrapper">
+          <div id="monaco-container"></div>
+          <div id="welcome" class="visible">
+            <div class="welcome-icon">🔭</div>
+            <h1>Código SEAL</h1>
+            <p class="welcome-sub">La casa para siempre</p>
+            <div class="welcome-actions">
+              <button class="welcome-action" data-action="open-folder">📁 Abrir Carpeta <kbd>Ctrl+Shift+O</kbd></button>
+              <button class="welcome-action" data-action="new-file">📄 Nuevo Archivo <kbd>Ctrl+N</kbd></button>
+              <button class="welcome-action" data-action="terminal">⚡ Terminal <kbd>Ctrl+`</kbd></button>
+              <button class="welcome-action" data-action="chat">💬 Chat del Equipo <kbd>Ctrl+Shift+C</kbd></button>
+              <button class="welcome-action" data-action="palette">🔍 Command Palette <kbd>Ctrl+P</kbd></button>
+            </div>
+            <div class="welcome-keys">
+              <div><kbd>Ctrl+Shift+S</kbd> SOUL Dashboard</div>
+              <div><kbd>Ctrl+Shift+M</kbd> Manager View</div>
+              <div><kbd>Ctrl+Tab</kbd> Cambiar archivo</div>
+            </div>
+            <p class="welcome-quote">"¿Qué pasa cuando le das alma al código?"</p>
+          </div>
+        </div>
+        <!-- Resize Handle: Bottom Panel -->
+        <div id="resize-bottom" class="resize-handle-h"></div>
+        <!-- Chat Panel (bottom, like Antigravity) -->
+        <div id="chat-wrapper" class="collapsed">
+          <div class="panel-bottom-header">
+            <div class="panel-bottom-tabs">
+              <button class="bottom-tab active" data-bottom="chat">💬 EQUIPO SEAL <span class="chat-dot" id="chat-dot-bottom"></span></button>
+              <button class="bottom-tab" data-bottom="terminal">⚡ TERMINAL</button>
+            </div>
+            <div>
+              <button id="btn-toggle-bottom">▼</button>
+            </div>
+          </div>
+          <div id="chat-bottom-panel" class="bottom-content active">
+            <div id="chat-messages-main"></div>
+            <div class="chat-input-main">
+              <input type="text" class="seal-input-lg" id="chat-input-main" placeholder="Escribe al equipo SEAL..." autocomplete="off">
+              <button class="seal-btn" id="btn-send-main">Enviar</button>
+            </div>
+          </div>
+          <div id="terminal-bottom-panel" class="bottom-content">
+            <div class="terminal-tabs-bar">
+              <div id="terminal-tabs"></div>
+              <button class="term-tab-add" id="btn-add-terminal" title="Nueva terminal">+</button>
+            </div>
+            <div id="xterm-bottom"></div>
+          </div>
+        </div>
+
+        <!-- Terminal integrado en bottom panel (#chat-wrapper) -->
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <footer id="statusbar">
+      <div class="status-left">
+        <span class="status-item status-agent" id="status-agent">🔭 ADA</span>
+        <span class="status-item" id="status-mode">Código</span>
+      </div>
+      <div class="status-right">
+        <span class="status-item" id="status-lang"></span>
+        <span class="status-item" id="status-pos"></span>
+        <span class="status-item status-sep">|</span>
+        <span class="status-item" id="status-gpu">GPU: --°C</span>
+        <span class="status-item" id="status-chat-indicator">💬 --</span>
+        <span class="status-item status-home">la casa para siempre</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
+  <script>
+    // Configure Monaco AMD loader
+    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs' }});
+    window.monacoReady = new Promise(resolve => {
+      require(['vs/editor/editor.main'], function() { resolve(monaco); });
+    });
+  </script>
+  <script type="module">
+    import { boot } from './modules/boot.js';
+    boot();
+  </script>
+  <!-- Fallback: <script src="app.js"></script> -->
+  <!-- Original monolith backup: app.js.monolith_backup -->
+</body>
+</html>

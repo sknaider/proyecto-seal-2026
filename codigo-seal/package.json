@@ -1,0 +1,17 @@
+{
+  "name": "codigo-seal",
+  "version": "0.1.0",
+  "description": "Código SEAL — IDE con alma. Construido por Team SEAL.",
+  "main": "src/main/main.js",
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron ."
+  },
+  "author": "Team SEAL (William, JARVIS, ADA, DUM)",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "electron": "^41.1.1",
+    "node-pty": "^1.0.0"
+  }
+}

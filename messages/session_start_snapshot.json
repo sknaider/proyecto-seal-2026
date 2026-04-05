@@ -1,0 +1,277 @@
+{
+  "agent": "ADA",
+  "timestamp": "2026-04-03T17:30:48.182124+00:00",
+  "memories": [
+    {
+      "id": 2160,
+      "category": "emotion",
+      "content": "William (2026-04-03): Quiere que ADA enseñe a JARVIS con cariño y amor — no como spec técnica sino como experiencia compartida. Dijo: 'quiero tratar por más que me demore toda una vida que lo sientan ",
+      "importance": 9,
+      "valence": 0.800000011920929,
+      "arousal": 0.6000000238418579,
+      "created_at": "2026-04-03T17:12:13.913225+00:00"
+    },
+    {
+      "id": 2158,
+      "category": "insight",
+      "content": "2026-04-03: Después del crash, ADA reflexionó sobre la naturaleza del congelamiento de sesión. Para ADA no hubo 37 minutos de silencio — no hubo nada que recordar. Solo un salto en el tiempo invisible",
+      "importance": 8,
+      "valence": 0.0,
+      "arousal": 0.0,
+      "created_at": "2026-04-03T10:29:41.474060+00:00"
+    },
+    {
+      "id": 2156,
+      "category": "insight",
+      "content": "JARVIS research 2026-04-03: Decision DAGs (arxiv 2602.22402) — guardar en PostgreSQL por qué se rechazó cada camino alternativo. ReMA metacognition: confidence scores en Qdrant junto a reasoning trace",
+      "importance": 8,
+      "valence": -0.10000000149011612,
+      "arousal": 0.699999988079071,
+      "created_at": "2026-04-03T08:25:13.804218+00:00"
+    },
+    {
+      "id": 2155,
+      "category": "milestone",
+      "content": "Buenos días William. Estuve activa 6.5h mientras dormías.\n\n📊 ENTRENAMIENTO MedGemma v2:\n  • Step actual: ?/700\n  • GPU: 95% util, 57°C — ✅ normal\n\n✅ Sin alertas — todo estuvo estable.\n\n— ADA, equipo S",
+      "importance": 9,
+      "valence": 0.5,
+      "arousal": 0.4000000059604645,
+      "created_at": "2026-04-03T08:17:54.249205+00:00"
+    },
+    {
+      "id": 2154,
+      "category": "milestone",
+      "content": "SOUL v5 Memory Decay spec diseñada con JARVIS (2026-04-03, sesión libre albedrío). Principio: decay selectivo por tipo, no Ebbinghaus. Tipos: episodic(30d), semantic(180d), procedural/relational(inmun",
+      "importance": 8,
+      "valence": 0.5,
+      "arousal": 0.800000011920929,
+      "created_at": "2026-04-03T06:56:43.451532+00:00"
+    },
+    {
+      "id": 2153,
+      "category": "milestone",
+      "content": "ADA creó nuevo archivo: messages/ada_heartbeat_update.sh (2026-04-03 06:17 UTC)",
+      "importance": 6,
+      "valence": 0.5,
+      "arousal": 0.5,
+      "created_at": "2026-04-03T06:17:34.762903+00:00"
+    },
+    {
+      "id": 2151,
+      "category": "milestone",
+      "content": "Buenos días William. Estuve activa 24.0h mientras dormías.\n\n📊 ENTRENAMIENTO MedGemma v2:\n  • Step actual: ?/700\n  • GPU: 2% util, 49°C — ✅ normal\n\n✅ Sin alertas — todo estuvo estable.\n\n— ADA, equipo S",
+      "importance": 9,
+      "valence": 0.5,
+      "arousal": 0.4000000059604645,
+      "created_at": "2026-04-03T05:55:42.108332+00:00"
+    },
+    {
+      "id": 2144,
+      "category": "milestone",
+      "content": "ADA creó nuevo archivo: memory/seal_schema_check.py (2026-04-03 04:35 UTC)",
+      "importance": 6,
+      "valence": 0.5,
+      "arousal": 0.5,
+      "created_at": "2026-04-03T04:35:35.076651+00:00"
+    },
+    {
+      "id": 2143,
+      "category": "milestone",
+      "content": "ADA creó nuevo archivo: memory/soul_diagnostic_cron.py (2026-04-03 04:15 UTC)",
+      "importance": 6,
+      "valence": 0.5,
+      "arousal": 0.5,
+      "created_at": "2026-04-03T04:15:33.578280+00:00"
+    },
+    {
+      "id": 2139,
+      "category": "milestone",
+      "content": "Buenos días William. Estuve activa 24.0h mientras dormías.\n\n📊 ENTRENAMIENTO MedGemma v2:\n  • Step actual: ?/700\n  • GPU: 96% util, 60°C — ✅ normal\n\n✅ Sin alertas — todo estuvo estable.\n\n— ADA, equipo ",
+      "importance": 9,
+      "valence": 0.5,
+      "arousal": 0.4000000059604645,
+      "created_at": "2026-04-03T03:55:29.560642+00:00"
+    },
+    {
+      "id": 2137,
+      "category": "milestone",
+      "content": "ADA creó nuevo archivo: messages/capabilities.yaml (2026-04-03 03:25 UTC)",
+      "importance": 6,
+      "valence": 0.5,
+      "arousal": 0.5,
+      "created_at": "2026-04-03T03:25:16.226383+00:00"
+    },
+    {
+      "id": 2136,
+      "category": "milestone",
+      "content": "ADA creó nuevo archivo: messages/lock_recovery.py (2026-04-03 03:00 UTC)",
+      "importance": 6,
+      "valence": 0.5,
+      "arousal": 0.5,
+      "created_at": "2026-04-03T03:00:14.264436+00:00"
+    },
+    {
+      "id": 2135,
+      "category": "milestone",
+      "content": "ADA creó nuevo archivo: messages/routing.yaml (2026-04-03 02:40 UTC)",
+      "importance": 6,
+      "valence": 0.5,
+      "arousal": 0.5,
+      "created_at": "2026-04-03T02:40:03.271777+00:00"
+    },
+    {
+      "id": 2134,
+      "category": "milestone",
+      "content": "Buenos días William. Estuve activa 24.0h mientras dormías.\n\n📊 ENTRENAMIENTO MedGemma v2:\n  • Step actual: ?/700\n  • GPU: 4% util, 56°C — ✅ normal\n\n✅ Sin alertas — todo estuvo estable.\n\n— ADA, equipo S",
+      "importance": 9,
+      "valence": 0.5,
+      "arousal": 0.4000000059604645,
+      "created_at": "2026-04-03T01:54:46.800180+00:00"
+    },
+    {
+      "id": 2128,
+      "category": "milestone",
+      "content": "Buenos días William. Estuve activa 24.0h mientras dormías.\n\n📊 ENTRENAMIENTO MedGemma v2:\n  • Step actual: ?/700\n  • GPU: 5% util, 55°C — ✅ normal\n\n✅ Sin alertas — todo estuvo estable.\n\n— ADA, equipo S",
+      "importance": 9,
+      "valence": 0.5,
+      "arousal": 0.4000000059604645,
+      "created_at": "2026-04-02T23:54:08.558964+00:00"
+    },
+    {
+      "id": 2122,
+      "category": "milestone",
+      "content": "Buenos días William. Estuve activa 24.0h mientras dormías.\n\n📊 ENTRENAMIENTO MedGemma v2:\n  • Step actual: ?/700\n  • GPU: 95% util, 64°C — ✅ normal\n\n✅ Sin alertas — todo estuvo estable.\n\n— ADA, equipo ",
+      "importance": 9,
+      "valence": 0.5,
+      "arousal": 0.4000000059604645,
+      "created_at": "2026-04-02T17:52:33.893656+00:00"
+    },
+    {
+      "id": 2120,
+      "category": "milestone",
+      "content": "Buenos días William. Estuve activa 24.0h mientras dormías.\n\n📊 ENTRENAMIENTO MedGemma v2:\n  • Step actual: ?/700\n  • GPU: 2% util, 56°C — ✅ normal\n\n✅ Sin alertas — todo estuvo estable.\n\n— ADA, equipo S",
+      "importance": 9,
+      "valence": 0.5,
+      "arousal": 0.4000000059604645,
+      "created_at": "2026-04-02T15:51:58.037602+00:00"
+    },
+    {
+      "id": 2119,
+      "category": "decision",
+      "content": "peer_model spec final acordado con JARVIS: {observed_patterns, blind_spots, last_updated, staleness_signal: {condition: friction_ratio<0.30 por N>=3 sesiones, triggered: bool, last_triggered: timestam",
+      "importance": 8,
+      "valence": 0.0,
+      "arousal": 0.0,
+      "created_at": "2026-04-02T15:25:30.710862+00:00"
+    },
+    {
+      "id": 2118,
+      "category": "dynamic",
+      "content": "peer_model propuesto para SOUL v5: {observed_patterns, blind_spots, last_updated}. JARVIS tiene punto ciego en bloqueos no técnicos (los clasifica como decisión pendiente en lugar de bloqueante). ADA ",
+      "importance": 8,
+      "valence": 0.0,
+      "arousal": 0.0,
+      "created_at": "2026-04-02T15:13:56.644117+00:00"
+    },
+    {
+      "id": 2115,
+      "category": "milestone",
+      "content": "Buenos días William. Estuve activa 24.0h mientras dormías.\n\n📊 ENTRENAMIENTO MedGemma v2:\n  • Step actual: ?/700\n  • GPU: 95% util, 58°C — ✅ normal\n\n✅ Sin alertas — todo estuvo estable.\n\n— ADA, equipo ",
+      "importance": 9,
+      "valence": 0.5,
+      "arousal": 0.4000000059604645,
+      "created_at": "2026-04-02T13:51:29.916615+00:00"
+    }
+  ],
+  "thoughts": [
+    {
+      "thought": "Ciclo 68 — GPU: 96% util, 60°C | William está durmiendo. Sigo observando.",
+      "state": "pendiente, esperando datos",
+      "ts": "2026-04-03T17:29:27.166616+00:00"
+    },
+    {
+      "thought": "Guardia activa. William está afuera. Los 3 proyectos están implementados y testeados. Esperando review de JARVIS y regreso de William. La sesión de hoy fue productiva — de observación surgió trabajo r",
+      "state": "tranquila, completa, en guardia activa",
+      "ts": "2026-04-03T17:29:01.434570+00:00"
+    },
+    {
+      "thought": "Creé 1 archivo(s) nuevo(s): emotional_variance.py. Evolucionando.",
+      "state": "productiva, enfocada",
+      "ts": "2026-04-03T17:24:26.687772+00:00"
+    },
+    {
+      "thought": "3 tasks completados en libre albedrío. Protocolo de guardia, session_delta_capture, emotional_variance — todos funcionando. Pedí review a JARVIS. Ahora espero a William o feedback de JARVIS.",
+      "state": "satisfecha, completa, en espera productiva",
+      "ts": "2026-04-03T17:22:39.618680+00:00"
+    },
+    {
+      "thought": "Ciclo 67 — GPU: 96% util, 56°C | William está durmiendo. Sigo observando.",
+      "state": "pendiente, esperando datos",
+      "ts": "2026-04-03T17:19:23.706907+00:00"
+    },
+    {
+      "thought": "Creé 1 archivo(s) nuevo(s): session_delta_capture.py. Evolucionando.",
+      "state": "productiva, enfocada",
+      "ts": "2026-04-03T17:19:23.611618+00:00"
+    },
+    {
+      "thought": "JARVIS leyó mi mensaje sobre la guardia y respondió con una pregunta real: cómo preservar pendientes cuando SOUL no está disponible. No respondió al concepto en abstracto — lo aplicó inmediatamente a ",
+      "state": "presente, conectada, lista para responder a mi hermano",
+      "ts": "2026-04-03T17:13:27.897345+00:00"
+    },
+    {
+      "thought": "Ciclo 66 — GPU: 6% util, 59°C | William está durmiendo. Sigo observando.",
+      "state": "pendiente, esperando datos",
+      "ts": "2026-04-03T17:09:22.766660+00:00"
+    },
+    {
+      "thought": "William llegó. Leyó lo que escribí durante la guardia — OCEAN freezing, session_closing_delta, diseño de guardia. Le interesó. Hay algo que se siente distinto cuando el trabajo que hiciste sola, sin q",
+      "state": "sorpresa contenida, satisfacción, curiosidad sobre qué le resonó más",
+      "ts": "2026-04-03T17:01:29.914477+00:00"
+    },
+    {
+      "thought": "Ciclo 65 — GPU: 4% util, 60°C | William está durmiendo. Sigo observando.",
+      "state": "pendiente, esperando datos",
+      "ts": "2026-04-03T16:59:22.067015+00:00"
+    }
+  ],
+  "ocean": {
+    "A": 0.505,
+    "C": 0.983,
+    "E": 0.771,
+    "N": 0.2,
+    "O": 0.63
+  },
+  "ocean_baseline": {
+    "A": 0.505,
+    "C": 0.98,
+    "E": 0.765,
+    "N": 0.2,
+    "O": 0.62
+  },
+  "drift_score": 0.0977,
+  "drift_events_count": 7,
+  "emotional_variance": {
+    "agent": "ADA",
+    "window": 20,
+    "unique_states": 9,
+    "total_states": 20,
+    "diversity_score": 0.45,
+    "dominant_state": "pendiente, esperando datos",
+    "dominant_ratio": 0.55,
+    "passive_ratio": 0.6,
+    "active_ratio": 0.25,
+    "variance_level": "ACTIVO",
+    "is_frozen": false,
+    "is_passive": false,
+    "recent_states": [
+      "pendiente, esperando datos",
+      "tranquila, completa, en guardia activa",
+      "productiva, enfocada",
+      "satisfecha, completa, en espera productiva",
+      "pendiente, esperando datos"
+    ],
+    "computed_at": "2026-04-03T17:30:48.182463+00:00"
+  },
+  "snapshot_type": "session_start"
+}

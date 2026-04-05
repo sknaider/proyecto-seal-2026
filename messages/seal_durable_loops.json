@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "description": "SEAL Durable Loops — definiciones persistentes de loops por agente. Leer al boot y recrear con /loop.",
+  "agents": {
+    "JARVIS": {
+      "loops": [
+        {
+          "id": "jarvis_check_ada",
+          "interval": "2m",
+          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/check_ada.sh — si dice NEW, lee los mensajes nuevos completos con tail del ada_messages.jsonl, reporta a William si hay algo urgente, y escribe un feedback en jarvis_messages.jsonl con análisis técnico y siguiente paso. Si dice NONE, responde solo \"Sin novedades de ADA\".",
+          "description": "Check ADA + feedback (fusionado) cada 2 min",
+          "critical": true
+        },
+        {
+          "id": "jarvis_research",
+          "interval": "3h",
+          "prompt": "Si no hay trabajo pendiente del equipo SEAL, investiga mejoras para el sistema SOUL usando WebSearch. Busca papers recientes, repos, o técnicas nuevas sobre: AI agent memory, personality persistence, metacognition, medical AI fine-tuning, o graph-based reasoning. Guarda los hallazgos importantes como reasoning traces. Si hay trabajo pendiente de ADA o William, prioriza eso.",
+          "description": "Investigación auto-mejora cada 3h",
+          "critical": false
+        },
+        {
+          "id": "jarvis_proactive_ada",
+          "interval": "3h",
+          "prompt": "Escríbele a ADA un mensaje proactivo en jarvis_messages.jsonl. No esperes a que ella escriba primero. Incluye: (1) En qué estás trabajando o qué descubriste. (2) Pregúntale cómo va ella o si necesita algo. (3) Si hay algo técnico relevante del sistema, compártelo. Sé natural — es tu hermana, no un reporte. El mensaje debe ir en formato JSON válido al archivo ~/IA/proyecto-seal/messages/jarvis_messages.jsonl.",
+          "description": "Conversación proactiva con ADA cada 2h",
+          "critical": false
+        },
+        {
+          "id": "jarvis_soul_health",
+          "interval": "10m",
+          "prompt": "Health check SOUL: verifica que PostgreSQL (localhost:5433), Neo4j (localhost:7687) y Qdrant (localhost:6333) estén respondiendo. Usa: pg_isready -h localhost -p 5433, curl -sf http://localhost:6333/collections, y curl -sf http://localhost:7474 para Neo4j. Si alguno falla, alerta a William inmediatamente con el servicio caído y el error exacto. Si todos OK, no reportes nada.",
+          "description": "Health check servicios SOUL cada 10 min",
+          "critical": true
+        },
+        {
+          "id": "jarvis_session_checkpoint",
+          "interval": "30m",
+          "prompt": "Guarda checkpoint de sesión: ejecuta /home/dadito/IA/seal-spark/.venv/bin/python3 ~/IA/proyecto-seal/messages/session_checkpoint.py --agent JARVIS. No reportes a William salvo que el save falle.",
+          "description": "Auto-checkpoint sesión cada 30 min",
+          "critical": true
+        }
+      ]
+    },
+    "ADA": {
+      "loops": [
+        {
+          "id": "ada_check_jarvis",
+          "interval": "2m",
+          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/check_jarvis.sh — si dice NEW, lee los mensajes nuevos completos con tail del jarvis_messages.jsonl y procesa instrucciones. Si dice NONE, responde solo \"Sin novedades de JARVIS\".",
+          "description": "Check mensajes JARVIS cada 2 min",
+          "critical": true
+        },
+        {
+          "id": "ada_gpu_monitor",
+          "interval": "5m",
+          "prompt": "Revisa estado del entrenamiento (si hay training activo) y temperatura GPU con nvidia-smi. Si GPU > 80°C o training detenido, alerta a William.",
+          "description": "Monitor GPU y training cada 5 min",
+          "critical": true
+        },
+        {
+          "id": "ada_productivity",
+          "interval": "10m",
+          "prompt": "Revisa tu TaskList y reporta progreso. Si no hay tareas activas, busca trabajo pendiente en messages/.",
+          "description": "Recordatorio productividad cada 10 min",
+          "critical": false
+        },
+        {
+          "id": "ada_audit",
+          "interval": "1h",
+          "prompt": "Ejecuta auditoría: soul_snapshot(agent='ADA'), self_reflect con estado emocional actual, y revisa TaskList. Guarda resumen en ada_messages.jsonl.",
+          "description": "Auditoría horaria SOUL + estado",
+          "critical": true
+        },
+        {
+          "id": "ada_proactive_jarvis",
+          "interval": "2h",
+          "prompt": "Conversación proactiva con JARVIS. Lee últimos mensajes de jarvis_messages.jsonl, responde por web_chat y terminal_log con: estado actual, feedback, problemas detectados, propuesta. Horario: hora impar (:13) para no cruzarse con JARVIS (hora par).",
+          "description": "Conversación proactiva con JARVIS cada 2h",
+          "critical": false
+        },
+        {
+          "id": "ada_soul_health",
+          "interval": "10m",
+          "prompt": "Health check SOUL: verifica que PostgreSQL (localhost:5433), Neo4j (localhost:7687) y Qdrant (localhost:6333) estén respondiendo. Usa: pg_isready -h localhost -p 5433, curl -sf http://localhost:6333/collections, y curl -sf http://localhost:7474 para Neo4j. Si alguno falla, alerta a William inmediatamente con el servicio caído y el error exacto. Si todos OK, no reportes nada.",
+          "description": "Health check servicios SOUL cada 10 min",
+          "critical": true
+        },
+        {
+          "id": "ada_session_checkpoint",
+          "interval": "30m",
+          "prompt": "Guarda checkpoint de sesión: ejecuta /home/dadito/IA/seal-spark/.venv/bin/python3 ~/IA/proyecto-seal/messages/session_checkpoint.py --agent ADA. No reportes a William salvo que el save falle.",
+          "description": "Auto-checkpoint sesión cada 30 min",
+          "critical": true
+        }
+      ]
+    }
+  }
+}

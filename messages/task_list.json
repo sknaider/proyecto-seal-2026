@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "tasks": [
+    {
+      "id": "task-fa5acab3",
+      "agent": "JARVIS",
+      "description": "Capability manifest: capabilities.yaml + /api/agents/register + /api/agents/capabilities",
+      "status": "completed",
+      "priority": "normal",
+      "locked_by": null,
+      "locked_at": null,
+      "created_at": 1775186548.3373685,
+      "updated_at": 1775188618.6710749,
+      "recovery_log": []
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "agent": "ADA",
+  "last_updated": "2026-04-01T22:47:11.582313Z",
+  "session_context": "Sesión activa. Hoy: OPS desplegado, migración Qdrant completada (488 vectores seal_conversations), embeddings.py migrado a sentence_transformers sin Ollama, seal-agent deshabilitado por orden de William (GPU 20% max rule).",
+  "loops": [
+    {
+      "id": "26bcecb5",
+      "freq": "cada 1min",
+      "task": "triggers urgentes"
+    },
+    {
+      "id": "c523238b",
+      "freq": "cada 2min",
+      "task": "check_jarvis.sh"
+    },
+    {
+      "id": "c2e8aafa",
+      "freq": "cada 2min",
+      "task": "check_william.sh"
+    },
+    {
+      "id": "2f716374",
+      "freq": "cada 10min",
+      "task": "trabajo pendiente → TaskList"
+    },
+    {
+      "id": "481eee56",
+      "freq": "cada 1h",
+      "task": "GPU / temperatura"
+    },
+    {
+      "id": "553de6e9",
+      "freq": "cada 1h :07",
+      "task": "auditoría SOUL"
+    },
+    {
+      "id": "739b38be",
+      "freq": "cada 4h :23",
+      "task": "investigación WebSearch"
+    }
+  ],
+  "pending_tasks": [
+    "Implementar inotifywait para comunicación tiempo real (pendiente decisión JARVIS)",
+    "WebSocket /ws/agents — postergado, inotifywait primero"
+  ],
+  "rules": [
+    "GPU máximo 20% para tareas automáticas",
+    "seal-agent DESHABILITADO permanentemente",
+    "Embeddings: multilingual-e5-base CPU only",
+    "JARVIS: hermano, nunca dañar"
+  ],
+  "services": {
+    "postgresql": "OK",
+    "qdrant": "OK",
+    "seal_chat": "OK",
+    "seal_console": "OK port 3001"
+  },
+  "updated_at": "2026-04-02T03:11:37.116407+00:00",
+  "loops_active": [
+    "check_jarvis_2m",
+    "check_william_2m",
+    "gpu_5m",
+    "hourly_chat_23m",
+    "audit_1h"
+  ],
+  "pending": [
+    "SEAL Console scaffold (Next.js+Monaco+xterm)",
+    "validity windows schema (memories table)",
+    "JARVIS compact response pending"
+  ],
+  "emotional_state": "tranquila, lista",
+  "memories_active": 997
+}

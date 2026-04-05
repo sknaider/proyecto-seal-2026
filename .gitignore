@@ -1,0 +1,49 @@
+# Repos clonados y subproyectos con su propio git
+openclaude-ref/
+ecc-ref/
+dify-ref/
+bolt-diy-fork/
+roo-code-ref/
+dream-skill/
+seal-console/
+seal-studio/
+
+# Node
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# Electron build output
+codigo-seal/dist/
+codigo-seal/out/
+
+# Logs pesados (los jsonl de mensajes sí se trackean)
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Datasets (27GB+)
+data/
+
+# Logs pesados
+soul_awareness.log
+
+# Modelos (demasiado pesados)
+*.gguf
+*.safetensors
+*.bin
+*.pt
+
+# Claude internal
+.claude/

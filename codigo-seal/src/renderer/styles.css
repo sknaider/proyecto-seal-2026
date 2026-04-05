@@ -1,0 +1,30 @@
+:root {
+  --seal-bg: #0a0a0f;
+  --seal-surface: #12121a;
+  --seal-border: #1e1e2e;
+  --seal-accent: #3b82f6;
+  --seal-accent-dim: #1e3a5f;
+  --seal-text: #e2e8f0;
+  --seal-text-dim: #64748b;
+  --seal-success: #22c55e;
+  --seal-warning: #f59e0b;
+  --seal-error: #ef4444;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  background: var(--seal-bg);
+  color: var(--seal-text);
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root { height: 100vh; display: flex; flex-direction: column; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--seal-bg); }
+::-webkit-scrollbar-thumb { background: var(--seal-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--seal-text-dim); }

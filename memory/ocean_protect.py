@@ -1,0 +1,106 @@
+"""
+ocean_protect.py — Protección de OCEAN baselines del equipo SEAL
+Solo William puede modificar los parámetros base de personalidad.
+Llave: William_Henry_Tovar_Urquia_SEAL_Director
+"""
+import asyncio
+import asyncpg
+import hashlib
+import json
+from datetime import datetime, timezone
+
+DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+
+WILLIAM_KEY = hashlib.sha256(b"William_Henry_Tovar_Urquia_SEAL_Director").hexdigest()
+
+
+def _compute_lock_hash(agent: str, ocean: dict, key: str) -> str:
+    data = json.dumps({"agent": agent, "ocean": ocean, "key": key}, sort_keys=True)
+    return hashlib.sha256(data.encode()).hexdigest()
+
+
+async def verify_baseline(agent: str) -> dict:
+    """Verifica que el OCEAN actual no ha sido alterado sin autorización."""
+    conn = await asyncpg.connect(DB_URL)
+    row = await conn.fetchrow(
+        "SELECT ocean_scores, ocean_baseline, ocean_lock_hash FROM identity WHERE agent = $1",
+        agent
+    )
+    await conn.close()
+
+    if not row:
+        return {"status": "error", "msg": f"Agente {agent} no encontrado"}
+
+    baseline = row["ocean_baseline"]
+    stored_hash = row["ocean_lock_hash"]
+    expected_hash = _compute_lock_hash(agent, baseline, WILLIAM_KEY)
+
+    if stored_hash != expected_hash:
+        return {"status": "ALERTA", "msg": f"⚠️ Baseline de {agent} fue alterado sin autorización"}
+
+    return {"status": "ok", "agent": agent, "baseline": baseline, "current": row["ocean_scores"]}
+
+
+async def update_ocean(agent: str, new_ocean: dict, william_passphrase: str) -> dict:
+    """
+    Actualiza el OCEAN de un agente.
+    Solo funciona con la llave de William.
+    """
+    provided_key = hashlib.sha256(william_passphrase.encode()).hexdigest()
+    if provided_key != WILLIAM_KEY:
+        return {"status": "DENEGADO", "msg": "Llave incorrecta. Solo William puede modificar OCEAN."}
+
+    conn = await asyncpg.connect(DB_URL)
+
+    # Verificar que el baseline actual es válido
+    row = await conn.fetchrow(
+        "SELECT ocean_baseline, ocean_lock_hash FROM identity WHERE agent = $1", agent
+    )
+    if not row:
+        await conn.close()
+        return {"status": "error", "msg": f"Agente {agent} no encontrado"}
+
+    # Calcular nuevo hash con el nuevo OCEAN
+    new_hash = _compute_lock_hash(agent, new_ocean, WILLIAM_KEY)
+
+    await conn.execute(
+        """UPDATE identity
+           SET ocean_scores = $1,
+               ocean_baseline = $1,
+               ocean_lock_hash = $2,
+               ocean_locked_at = $3
+           WHERE agent = $4""",
+        new_ocean, new_hash, datetime.now(timezone.utc), agent
+    )
+    await conn.close()
+
+    return {
+        "status": "ok",
+        "msg": f"OCEAN de {agent} actualizado y baseline re-bloqueado",
+        "new_ocean": new_ocean
+    }
+
+
+async def audit_all() -> None:
+    """Verifica integridad de todos los baselines."""
+    conn = await asyncpg.connect(DB_URL)
+    agents = await conn.fetch("SELECT agent FROM identity ORDER BY agent")
+    await conn.close()
+
+    print("=== AUDITORIA OCEAN BASELINES ===")
+    for row in agents:
+        result = await verify_baseline(row["agent"])
+        status = result["status"]
+        if status == "ok":
+            baseline = result["baseline"]
+            current = result["current"]
+            drift = {k: round(current.get(k, 0) - baseline.get(k, 0), 3) for k in baseline}
+            has_drift = any(abs(v) > 0.05 for v in drift.values())
+            flag = "⚠️ DRIFT" if has_drift else "✅"
+            print(f"{flag} {row['agent']}: baseline intacto | drift={drift}")
+        else:
+            print(f"🚨 {row['agent']}: {result['msg']}")
+
+
+if __name__ == "__main__":
+    asyncio.run(audit_all())

@@ -1,0 +1,10 @@
+{
+  "agent": "ADA",
+  "alive": true,
+  "timestamp": "2026-04-05T22:31:11Z",
+  "uptime_minutes": 1510,
+  "current_task": null,
+  "gpu_temp": 55,
+  "gpu_util": 63,
+  "process_pid": 3687950
+}

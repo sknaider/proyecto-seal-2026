@@ -1,0 +1,9 @@
+{
+  "mission": "MedGemma espa\u00f1ol nativo",
+  "total_time_hours": 10.01,
+  "train_time_hours": 9.9,
+  "items": 144480,
+  "steps": 631,
+  "final_loss": 1.6551896840003326,
+  "adapter_path": "results/medgemma_spanish_ft/lora_adapter"
+}

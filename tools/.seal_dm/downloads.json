@@ -1,0 +1,242 @@
+{
+  "unsloth/Qwen3-Coder-Next-GGUF:Qwen3-Coder-Next-Q4_K_M.gguf": {
+    "url": "https://huggingface.co/unsloth/Qwen3-Coder-Next-GGUF/resolve/main/Qwen3-Coder-Next-Q4_K_M.gguf",
+    "output_path": "/home/dadito/IA/modelos/llm/qwen3-coder-next/",
+    "filename": "Qwen3-Coder-Next-Q4_K_M.gguf",
+    "total_size": 48528320544,
+    "connections": 8,
+    "segments": [
+      {
+        "index": 0,
+        "start": 0,
+        "end": 6066040067,
+        "downloaded": 6066040068,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3-coder-next/.Qwen3-Coder-Next-Q4_K_M.gguf.part000"
+      },
+      {
+        "index": 1,
+        "start": 6066040068,
+        "end": 12132080135,
+        "downloaded": 6066040068,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3-coder-next/.Qwen3-Coder-Next-Q4_K_M.gguf.part001"
+      },
+      {
+        "index": 2,
+        "start": 12132080136,
+        "end": 18198120203,
+        "downloaded": 6066040068,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3-coder-next/.Qwen3-Coder-Next-Q4_K_M.gguf.part002"
+      },
+      {
+        "index": 3,
+        "start": 18198120204,
+        "end": 24264160271,
+        "downloaded": 6066040068,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3-coder-next/.Qwen3-Coder-Next-Q4_K_M.gguf.part003"
+      },
+      {
+        "index": 4,
+        "start": 24264160272,
+        "end": 30330200339,
+        "downloaded": 6066040068,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3-coder-next/.Qwen3-Coder-Next-Q4_K_M.gguf.part004"
+      },
+      {
+        "index": 5,
+        "start": 30330200340,
+        "end": 36396240407,
+        "downloaded": 6066040068,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3-coder-next/.Qwen3-Coder-Next-Q4_K_M.gguf.part005"
+      },
+      {
+        "index": 6,
+        "start": 36396240408,
+        "end": 42462280475,
+        "downloaded": 6066040068,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3-coder-next/.Qwen3-Coder-Next-Q4_K_M.gguf.part006"
+      },
+      {
+        "index": 7,
+        "start": 42462280476,
+        "end": 48528320543,
+        "downloaded": 6066040068,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3-coder-next/.Qwen3-Coder-Next-Q4_K_M.gguf.part007"
+      }
+    ],
+    "status": "complete",
+    "error": "",
+    "created_at": 1775421893.9667287,
+    "completed_at": 1775423470.0703897,
+    "supports_range": true,
+    "hf_repo": "unsloth/Qwen3-Coder-Next-GGUF",
+    "hf_file": "Qwen3-Coder-Next-Q4_K_M.gguf"
+  },
+  "llmfan46/gemma-4-31B-it-uncensored-heretic-GGUF:gemma-4-31B-it-uncensored-heretic-BF16.gguf": {
+    "url": "https://huggingface.co/llmfan46/gemma-4-31B-it-uncensored-heretic-GGUF/resolve/main/gemma-4-31B-it-uncensored-heretic-BF16.gguf",
+    "output_path": "/home/dadito/IA/modelos/llm/gemma4-heretic/",
+    "filename": "gemma-4-31B-it-uncensored-heretic-BF16.gguf",
+    "total_size": 61413182944,
+    "connections": 8,
+    "segments": [
+      {
+        "index": 0,
+        "start": 0,
+        "end": 7676647867,
+        "downloaded": 7676647868,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-BF16.gguf.part000"
+      },
+      {
+        "index": 1,
+        "start": 7676647868,
+        "end": 15353295735,
+        "downloaded": 7676647868,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-BF16.gguf.part001"
+      },
+      {
+        "index": 2,
+        "start": 15353295736,
+        "end": 23029943603,
+        "downloaded": 7676647868,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-BF16.gguf.part002"
+      },
+      {
+        "index": 3,
+        "start": 23029943604,
+        "end": 30706591471,
+        "downloaded": 7676647868,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-BF16.gguf.part003"
+      },
+      {
+        "index": 4,
+        "start": 30706591472,
+        "end": 38383239339,
+        "downloaded": 7676647868,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-BF16.gguf.part004"
+      },
+      {
+        "index": 5,
+        "start": 38383239340,
+        "end": 46059887207,
+        "downloaded": 7676647868,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-BF16.gguf.part005"
+      },
+      {
+        "index": 6,
+        "start": 46059887208,
+        "end": 53736535075,
+        "downloaded": 7676647868,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-BF16.gguf.part006"
+      },
+      {
+        "index": 7,
+        "start": 53736535076,
+        "end": 61413182943,
+        "downloaded": 7676647868,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-BF16.gguf.part007"
+      }
+    ],
+    "status": "complete",
+    "error": "",
+    "created_at": 1775423524.8833227,
+    "completed_at": 1775424129.9460826,
+    "supports_range": true,
+    "hf_repo": "llmfan46/gemma-4-31B-it-uncensored-heretic-GGUF",
+    "hf_file": "gemma-4-31B-it-uncensored-heretic-BF16.gguf"
+  },
+  "llmfan46/gemma-4-31B-it-uncensored-heretic-GGUF:gemma-4-31B-it-uncensored-heretic-Q8_0.gguf": {
+    "url": "https://huggingface.co/llmfan46/gemma-4-31B-it-uncensored-heretic-GGUF/resolve/main/gemma-4-31B-it-uncensored-heretic-Q8_0.gguf",
+    "output_path": "/home/dadito/IA/modelos/llm/gemma4-heretic/",
+    "filename": "gemma-4-31B-it-uncensored-heretic-Q8_0.gguf",
+    "total_size": 32635669984,
+    "connections": 8,
+    "segments": [
+      {
+        "index": 0,
+        "start": 0,
+        "end": 4079458747,
+        "downloaded": 4079458748,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-Q8_0.gguf.part000"
+      },
+      {
+        "index": 1,
+        "start": 4079458748,
+        "end": 8158917495,
+        "downloaded": 4079458748,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-Q8_0.gguf.part001"
+      },
+      {
+        "index": 2,
+        "start": 8158917496,
+        "end": 12238376243,
+        "downloaded": 4079458748,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-Q8_0.gguf.part002"
+      },
+      {
+        "index": 3,
+        "start": 12238376244,
+        "end": 16317834991,
+        "downloaded": 4079458748,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-Q8_0.gguf.part003"
+      },
+      {
+        "index": 4,
+        "start": 16317834992,
+        "end": 20397293739,
+        "downloaded": 4079458748,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-Q8_0.gguf.part004"
+      },
+      {
+        "index": 5,
+        "start": 20397293740,
+        "end": 24476752487,
+        "downloaded": 4079458748,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-Q8_0.gguf.part005"
+      },
+      {
+        "index": 6,
+        "start": 24476752488,
+        "end": 28556211235,
+        "downloaded": 4079458748,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-Q8_0.gguf.part006"
+      },
+      {
+        "index": 7,
+        "start": 28556211236,
+        "end": 32635669983,
+        "downloaded": 4079458748,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-heretic/.gemma-4-31B-it-uncensored-heretic-Q8_0.gguf.part007"
+      }
+    ],
+    "status": "complete",
+    "error": "",
+    "created_at": 1775425391.1945968,
+    "completed_at": 1775425704.0853574,
+    "supports_range": true,
+    "hf_repo": "llmfan46/gemma-4-31B-it-uncensored-heretic-GGUF",
+    "hf_file": "gemma-4-31B-it-uncensored-heretic-Q8_0.gguf"
+  }
+}

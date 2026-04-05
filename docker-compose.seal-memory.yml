@@ -1,0 +1,23 @@
+services:
+  seal-memory-db:
+    image: timescale/timescaledb-ha:pg17
+    container_name: seal-memory-db
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_USER: seal
+      POSTGRES_PASSWORD: seal_memory_2026
+      POSTGRES_DB: seal_memory
+    volumes:
+      - seal-pg-data:/home/postgres/pgdata/data
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seal -d seal_memory"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  seal-pg-data:
+    driver: local
