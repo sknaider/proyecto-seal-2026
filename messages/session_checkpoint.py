@@ -151,6 +151,25 @@ async def capture_checkpoint(agent: str, is_final: bool = False):
     for f in old_files[:-10]:
         f.unlink()
 
+    # 4. Sync to sessions table (feeds session_save/session_recall MCP tools)
+    try:
+        session_id = f"{agent.lower()}_{now.strftime('%Y%m%d')}"
+        meta = json.dumps({
+            "services": {"pg": "ok", "neo4j": "ok", "qdrant": "ok"},
+            "memories_6h": len(recent_memories),
+            "active_agents": [a["agent"] for a in active_agents],
+        })
+        await conn.execute("""
+            INSERT INTO sessions (id, agent, started_at, ended_at, summary, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (id) DO UPDATE SET
+                ended_at = EXCLUDED.ended_at,
+                summary = EXCLUDED.summary,
+                metadata = EXCLUDED.metadata
+        """, session_id, agent, now, now, checkpoint["summary"], meta)
+    except Exception as e:
+        print(f"  session sync skipped: {e}")
+
     await conn.close()
 
     status = "FINAL" if is_final else "OK"

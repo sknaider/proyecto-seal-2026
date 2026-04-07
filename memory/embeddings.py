@@ -4,6 +4,21 @@ from __future__ import annotations
 import os
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")  # CPU only — max 20% GPU rule
 
+# Patch: transformers 4.57+ removed find_pruneable_heads_and_indices from pytorch_utils
+# but sentence-transformers may still try to import it. Inject a stub if missing.
+try:
+    from transformers.pytorch_utils import find_pruneable_heads_and_indices  # noqa: F401
+except ImportError:
+    import transformers.pytorch_utils as _pu
+    def _find_stub(heads, n_heads, head_size, already_pruned):
+        import torch
+        mask = torch.ones(n_heads, head_size)
+        for h in already_pruned: mask[h] = 0
+        for h in heads: mask[h] = 0
+        index = torch.arange(len(mask.view(-1)))[mask.view(-1).bool()]
+        return heads, index
+    _pu.find_pruneable_heads_and_indices = _find_stub
+
 from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "intfloat/multilingual-e5-base"  # 768 dims — mismo que nomic-embed-text

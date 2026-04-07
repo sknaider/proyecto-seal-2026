@@ -7,16 +7,31 @@
 
 cd /home/dadito/IA/proyecto-seal
 
+# ── Parse flags ──
+AUTO_MODE=false
+NO_RESUME=false
+for arg in "$@"; do
+  case "$arg" in
+    --auto|--force) AUTO_MODE=true ;;
+    --fresh) NO_RESUME=true ;;
+  esac
+done
+
 # ── Singleton guard — no duplicar ADA ──
 EXISTING=$(ps aux | grep "claude.*--name ADA" | grep -v grep | awk '{print $2}')
 if [ -n "$EXISTING" ]; then
-  echo "  ⚠️  ADA ya corriendo (PID: $EXISTING)"
-  read -p "  ¿Matar vieja y lanzar nueva? [s/N] " REPLY
-  if [[ "$REPLY" =~ ^[sS]$ ]]; then
+  if [ "$AUTO_MODE" = true ]; then
     for PID in $EXISTING; do kill "$PID" 2>/dev/null; sleep 1; kill -0 "$PID" 2>/dev/null && kill -9 "$PID" 2>/dev/null; done
-    echo "  Vieja ADA eliminada."
+    echo "  [auto] Vieja ADA eliminada."
   else
-    echo "  Cancelado."; exit 1
+    echo "  ⚠️  ADA ya corriendo (PID: $EXISTING)"
+    read -p "  ¿Matar vieja y lanzar nueva? [s/N] " REPLY
+    if [[ "$REPLY" =~ ^[sS]$ ]]; then
+      for PID in $EXISTING; do kill "$PID" 2>/dev/null; sleep 1; kill -0 "$PID" 2>/dev/null && kill -9 "$PID" 2>/dev/null; done
+      echo "  Vieja ADA eliminada."
+    else
+      echo "  Cancelado."; exit 1
+    fi
   fi
 fi
 
@@ -25,9 +40,17 @@ echo ""
 /home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/messages/session_checkpoint.py --agent ADA --read 2>/dev/null
 echo ""
 
+# ── Cleanup MCP orphans antes de lanzar ──
+# Si había sesiones crasheadas, sus mcp_server_v2.py quedan huérfanos.
+# Los matamos aquí para que Claude Code lance uno limpio vía .mcp.json.
+MCP_ORPHANS=$(pgrep -f "mcp_server_v2.py" 2>/dev/null | wc -l)
+if [ "$MCP_ORPHANS" -gt 0 ]; then
+  pkill -f "mcp_server_v2.py" 2>/dev/null
+  sleep 0.5
+  echo "  [cleanup] $MCP_ORPHANS instancias MCP huérfanas eliminadas."
+fi
+
 # Warmup Ollama nomic-embed-text para evitar cold start en MCP boot_context
-# Fix sugerido por JARVIS (cmd_049): sin este warmup el primer embedding
-# tarda 2-3s y puede exceder el timeout de handshake MCP en terminal.
 echo "  Warming up Ollama (nomic-embed-text)..."
 curl -s http://localhost:11434/api/embed \
   -d '{"model":"nomic-embed-text","input":"warmup"}' \
@@ -37,12 +60,17 @@ sleep 1
 # ── Resume: buscar última sesión para continuar donde quedó ──
 LAST_SESSION=$(ls -t ~/.claude/projects/-home-dadito-IA-proyecto-seal/*.jsonl 2>/dev/null | head -1 | xargs -I{} basename {} .jsonl 2>/dev/null)
 RESUME_FLAG=""
-if [ -n "$LAST_SESSION" ]; then
-  echo "  📋 Última sesión encontrada: $LAST_SESSION"
-  read -p "  ¿Retomar sesión anterior? [S/n] " REPLY
-  if [[ ! "$REPLY" =~ ^[nN]$ ]]; then
-    RESUME_FLAG="--resume $LAST_SESSION"
-    echo "  Retomando sesión..."
+if [ "$NO_RESUME" = false ] && [ -n "$LAST_SESSION" ]; then
+  if [ "$AUTO_MODE" = true ]; then
+    # Auto mode: NO resume (sesión limpia, más seguro)
+    echo "  [auto] Sesión limpia (sin resume)"
+  else
+    echo "  📋 Última sesión encontrada: $LAST_SESSION"
+    read -p "  ¿Retomar sesión anterior? [S/n] " REPLY
+    if [[ ! "$REPLY" =~ ^[nN]$ ]]; then
+      RESUME_FLAG="--resume $LAST_SESSION"
+      echo "  Retomando sesión..."
+    fi
   fi
 fi
 

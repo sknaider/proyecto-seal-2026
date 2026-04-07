@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""SEAL PostCompact Hook — Re-inyecta contexto crítico de SOUL después de cada compactación.
+
+Se ejecuta automáticamente cuando Claude Code compacta la conversación.
+Devuelve correcciones de William + reglas activas + estado del equipo.
+"""
+
+import asyncio
+import json
+import os
+import sys
+import time
+
+DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+
+
+def detect_agent():
+    try:
+        ppid = os.getppid()
+        cmdline = open(f"/proc/{ppid}/cmdline", "rb").read().decode("utf-8", errors="replace")
+        if "JARVIS" in cmdline:
+            return "JARVIS"
+        elif "ADA" in cmdline:
+            return "ADA"
+    except Exception:
+        pass
+    cwd = os.getcwd()
+    if "memory" in cwd:
+        return "JARVIS"
+    return "ADA"
+
+
+async def post_compact_context() -> str:
+    import asyncpg
+    t0 = time.monotonic()
+    agent = detect_agent()
+
+    try:
+        conn = await asyncio.wait_for(asyncpg.connect(DB_URL), timeout=3.0)
+    except Exception:
+        return ""
+
+    lines = [f"⚡ SOUL RE-CARGADO TRAS COMPACTACIÓN — {agent}"]
+    lines.append("La compactación borró contexto de sesión. Esto es lo que SIEMPRE debes recordar:\n")
+
+    try:
+        # Correcciones más importantes de William (sin límite de tiempo)
+        corrections = await conn.fetch("""
+            SELECT content, importance FROM memories
+            WHERE agent = $1 AND category = 'correction' AND invalid_at IS NULL
+            ORDER BY importance DESC, created_at DESC
+            LIMIT 7
+        """, agent)
+
+        if corrections:
+            lines.append("🔴 CORRECCIONES CRÍTICAS DE WILLIAM:")
+            for c in corrections:
+                lines.append(f"  • {c['content'][:250]}")
+
+        # Todas las reglas críticas
+        rules = await conn.fetch("""
+            SELECT rule_key, content FROM rules
+            WHERE active = true AND LOWER(priority) IN ('critical', 'high')
+            ORDER BY
+                CASE LOWER(priority) WHEN 'critical' THEN 0 ELSE 1 END,
+                created_at DESC
+            LIMIT 7
+        """)
+
+        if rules:
+            lines.append("\n📋 REGLAS ACTIVAS (NO OLVIDAR):")
+            for r in rules:
+                lines.append(f"  [{r['rule_key']}]: {r['content'][:200]}")
+
+        # Estado del equipo desde heartbeats
+        import json as jsonlib
+        import pathlib
+        from datetime import datetime, timezone
+
+        lines.append("\n🟢 ESTADO DEL EQUIPO:")
+        hb_dir = pathlib.Path.home() / "IA/proyecto-seal/messages"
+        now = datetime.now(timezone.utc)
+        for name, fname in [("ADA", "ada_claude_heartbeat.json"),
+                             ("JARVIS", "jarvis_claude_heartbeat.json"),
+                             ("DUM", "dum_heartbeat.json")]:
+            fp = hb_dir / fname
+            try:
+                d = jsonlib.loads(fp.read_text())
+                ts = datetime.fromisoformat(d["timestamp"])
+                age = int((now - ts).total_seconds())
+                status = "ALIVE" if age < 600 else "STALE"
+                lines.append(f"  {name}: {status} (hace {age}s)")
+            except Exception:
+                lines.append(f"  {name}: OFFLINE")
+
+    except Exception as e:
+        lines.append(f"(error: {e})")
+    finally:
+        await conn.close()
+
+    elapsed = int((time.monotonic() - t0) * 1000)
+    lines.append(f"\n[PostCompact hook — {elapsed}ms — continúa tu trabajo normalmente]")
+    return "\n".join(lines)
+
+
+def main():
+    # PostCompact hook recibe el summary como stdin
+    try:
+        input_data = json.loads(sys.stdin.read())
+    except Exception:
+        input_data = {}
+
+    try:
+        result = asyncio.run(post_compact_context())
+    except Exception:
+        print(json.dumps({}))
+        return
+
+    if result:
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": "PostCompact",
+                "additionalContext": result
+            }
+        }
+        print(json.dumps(output))
+    else:
+        print(json.dumps({}))
+
+
+if __name__ == "__main__":
+    main()

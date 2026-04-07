@@ -100,31 +100,65 @@ if [ "$FOUND" -gt 0 ]; then
     echo "NEW:$FOUND"
     echo "$OUTPUT"
 else
-    # ── SILENT state: ADA viva pero sin mensajes nuevos >15min ───────────────
+    # ── Plan A/B/C: ADA viva pero sin mensajes nuevos ────────────────────────
+    # ALIVE | ALIVE_NO_HEARTBEAT | ALIVE_NO_COMMS | DOWN
     HB_FILE="$HOME/IA/proyecto-seal/messages/ada_claude_heartbeat.json"
-    SILENT=0
-    if [ -f "$HB_FILE" ]; then
-        IS_SILENT=$(python3 -c "
-import json, datetime, sys
+    CHECKPOINT="$HOME/IA/proyecto-seal/messages/checkpoints/ada_latest.json"
+    python3 - "$HB_FILE" "$LOGFILE" "$CHECKPOINT" << 'PYEOF'
+import sys, json, datetime
+
+hb_file, log_file, ckpt_file = sys.argv[1], sys.argv[2], sys.argv[3]
+now = datetime.datetime.now(datetime.timezone.utc)
+
+def age_min(ts_str):
+    if not ts_str:
+        return 9999
+    for fmt in ('%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%dT%H:%M:%S.%f+00:00'):
+        try:
+            ts = datetime.datetime.strptime(ts_str, fmt).replace(tzinfo=datetime.timezone.utc)
+            return (now - ts).total_seconds() / 60
+        except Exception: pass
+    try:
+        ts = datetime.datetime.fromisoformat(ts_str)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=datetime.timezone.utc)
+        return (now - ts).total_seconds() / 60
+    except Exception:
+        return 9999
+
+# Plan A: heartbeat <10min
 try:
-    with open('$HB_FILE') as f:
+    with open(hb_file) as f:
         hb = json.load(f)
-    alive = hb.get('alive', False)
-    ts_str = hb.get('timestamp', '')
-    if not alive or not ts_str:
+    if hb.get('alive') and age_min(hb.get('timestamp','')) <= 10:
+        print('ALIVE')
         sys.exit(0)
-    ts = datetime.datetime.strptime(ts_str, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
-    age_min = (datetime.datetime.now(datetime.timezone.utc) - ts).total_seconds() / 60
-    if age_min <= 15:
-        print('1')
-except:
-    pass
-" 2>/dev/null)
-        [ "$IS_SILENT" = "1" ] && SILENT=1
-    fi
-    if [ "$SILENT" -eq 1 ]; then
-        echo "SILENT"
-    else
-        echo "NONE"
-    fi
+except Exception: pass
+
+# Plan B: último mensaje <30min
+try:
+    with open(log_file) as f:
+        lines = [l.strip() for l in f if l.strip()]
+    for line in reversed(lines[-20:]):
+        try:
+            m = json.loads(line)
+            ts = m.get('timestamp','')
+            if ts and age_min(ts) <= 30:
+                print('ALIVE_NO_HEARTBEAT')
+                sys.exit(0)
+            break
+        except Exception: continue
+except Exception: pass
+
+# Plan C: checkpoint <60min
+try:
+    with open(ckpt_file) as f:
+        ck = json.load(f)
+    if age_min(ck.get('timestamp','')) <= 60:
+        print('ALIVE_NO_COMMS')
+        sys.exit(0)
+except Exception: pass
+
+print('DOWN')
+PYEOF
 fi

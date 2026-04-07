@@ -213,6 +213,37 @@ def test_duplicate_agents() -> None:
         warn("Duplicados", f"no verificable — {str(e)[:40]}")
 
 
+async def test_ocean_calibration() -> None:
+    """OCEAN calibration freshness — PERSIST (arxiv 2508.04826): personality drift is architectural.
+    Checks when OCEAN was last calibrated vs drift_metrics. Warns if stale > 24h.
+    Non-blocking: only reads, no write operations.
+    """
+    try:
+        import asyncpg
+        from datetime import datetime, timezone
+        conn = await asyncio.wait_for(
+            asyncpg.connect("postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"),
+            timeout=5,
+        )
+        row = await conn.fetchrow(
+            "SELECT MAX(measured_at) AS last_cal FROM drift_metrics WHERE agent = 'ADA'"
+        )
+        await conn.close()
+
+        if row and row["last_cal"]:
+            age_h = (datetime.now(timezone.utc) - row["last_cal"]).total_seconds() / 3600
+            if age_h < 24:
+                ok("OCEAN calibration", f"fresca ({age_h:.0f}h) — drift arquitectural contenido")
+            elif age_h < 168:
+                warn("OCEAN calibration", f"stale ({age_h:.0f}h) — llamar ocean_auto_calibrate")
+            else:
+                warn("OCEAN calibration", f"MUY stale ({age_h/24:.0f}d) — PERSIST: drift acumulado")
+        else:
+            warn("OCEAN calibration", "sin historial en drift_metrics")
+    except Exception as e:
+        warn("OCEAN calibration", str(e)[:60])
+
+
 def test_channels() -> None:
     """Canales de comunicación del equipo."""
     base = Path.home() / "IA" / "proyecto-seal" / "messages"
@@ -245,6 +276,9 @@ async def run_all() -> int:
     if pg_ok:
         await test_qdrant()
         await test_neo4j()
+
+    # OCEAN calibration freshness (PERSIST arxiv 2508.04826)
+    await test_ocean_calibration()
 
     # Tests sync
     test_ollama()

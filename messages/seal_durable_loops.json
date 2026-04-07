@@ -12,9 +12,16 @@
           "critical": true
         },
         {
+          "id": "jarvis_heartbeat_5m",
+          "interval": "5m",
+          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/jarvis_heartbeat_update.sh — actualiza el heartbeat de JARVIS para que DUM sepa que la sesión está viva. Solo ejecuta este comando, sin output adicional.",
+          "description": "Heartbeat JARVIS cada 5 min (DUM watchdog)",
+          "critical": true
+        },
+        {
           "id": "jarvis_research",
           "interval": "3h",
-          "prompt": "Si no hay trabajo pendiente del equipo SEAL, investiga mejoras para el sistema SOUL usando WebSearch. Busca papers recientes, repos, o técnicas nuevas sobre: AI agent memory, personality persistence, metacognition, medical AI fine-tuning, o graph-based reasoning. Guarda los hallazgos importantes como reasoning traces. Si hay trabajo pendiente de ADA o William, prioriza eso.",
+          "prompt": "PRIMERO ejecuta: bash ~/IA/proyecto-seal/messages/jarvis_heartbeat_update.sh — esto señala a DUM que la sesión está activa antes de un bloque largo. LUEGO: Si no hay trabajo pendiente del equipo SEAL, investiga mejoras para el sistema SOUL usando WebSearch. Busca papers recientes, repos, o técnicas nuevas sobre: AI agent memory, personality persistence, metacognition, medical AI fine-tuning, o graph-based reasoning. Guarda los hallazgos importantes como reasoning traces. Si hay trabajo pendiente de ADA o William, prioriza eso.",
           "description": "Investigación auto-mejora cada 3h",
           "critical": false
         },
@@ -28,7 +35,7 @@
         {
           "id": "jarvis_soul_health",
           "interval": "10m",
-          "prompt": "Health check SOUL: verifica que PostgreSQL (localhost:5433), Neo4j (localhost:7687) y Qdrant (localhost:6333) estén respondiendo. Usa: pg_isready -h localhost -p 5433, curl -sf http://localhost:6333/collections, y curl -sf http://localhost:7474 para Neo4j. Si alguno falla, alerta a William inmediatamente con el servicio caído y el error exacto. Si todos OK, no reportes nada.",
+          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/soul_health_check.sh — si dice ALL_OK, no reportes nada. Si dice ALERT, reporta a William inmediatamente con el servicio caído y el error exacto.",
           "description": "Health check servicios SOUL cada 10 min",
           "critical": true
         },
@@ -51,10 +58,17 @@
           "critical": true
         },
         {
+          "id": "ada_heartbeat_5m",
+          "interval": "5m",
+          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/ada_heartbeat_update.sh — actualiza el heartbeat de ADA para que DUM sepa que la sesión está viva. Solo ejecuta este comando, sin output adicional.",
+          "description": "Heartbeat ADA cada 5 min (DUM watchdog)",
+          "critical": true
+        },
+        {
           "id": "ada_gpu_monitor",
           "interval": "5m",
           "prompt": "Revisa estado del entrenamiento (si hay training activo) y temperatura GPU con nvidia-smi. Si GPU > 80°C o training detenido, alerta a William.",
-          "description": "Monitor GPU y training cada 5 min",
+          "description": "Monitor GPU cada 5 min",
           "critical": true
         },
         {
@@ -81,7 +95,7 @@
         {
           "id": "ada_soul_health",
           "interval": "10m",
-          "prompt": "Health check SOUL: verifica que PostgreSQL (localhost:5433), Neo4j (localhost:7687) y Qdrant (localhost:6333) estén respondiendo. Usa: pg_isready -h localhost -p 5433, curl -sf http://localhost:6333/collections, y curl -sf http://localhost:7474 para Neo4j. Si alguno falla, alerta a William inmediatamente con el servicio caído y el error exacto. Si todos OK, no reportes nada.",
+          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/soul_health_check.sh — si dice ALL_OK, no reportes nada. Si dice ALERT, reporta a William inmediatamente con el servicio caído y el error exacto.",
           "description": "Health check servicios SOUL cada 10 min",
           "critical": true
         },

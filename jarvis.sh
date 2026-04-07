@@ -7,16 +7,31 @@
 
 cd /home/dadito/IA/proyecto-seal/memory
 
+# ── Parse flags ──
+AUTO_MODE=false
+NO_RESUME=false
+for arg in "$@"; do
+  case "$arg" in
+    --auto|--force) AUTO_MODE=true ;;
+    --fresh) NO_RESUME=true ;;
+  esac
+done
+
 # ── Singleton guard — no duplicar JARVIS ──
 EXISTING=$(ps aux | grep "claude.*--name JARVIS" | grep -v grep | grep -v "JARVIS_MAYOR" | awk '{print $2}')
 if [ -n "$EXISTING" ]; then
-  echo "  ⚠️  JARVIS ya corriendo (PID: $EXISTING)"
-  read -p "  ¿Matar viejo y lanzar nuevo? [s/N] " REPLY
-  if [[ "$REPLY" =~ ^[sS]$ ]]; then
+  if [ "$AUTO_MODE" = true ]; then
     for PID in $EXISTING; do kill "$PID" 2>/dev/null; sleep 1; kill -0 "$PID" 2>/dev/null && kill -9 "$PID" 2>/dev/null; done
-    echo "  Viejo JARVIS eliminado."
+    echo "  [auto] Viejo JARVIS eliminado."
   else
-    echo "  Cancelado."; exit 1
+    echo "  ⚠️  JARVIS ya corriendo (PID: $EXISTING)"
+    read -p "  ¿Matar viejo y lanzar nuevo? [s/N] " REPLY
+    if [[ "$REPLY" =~ ^[sS]$ ]]; then
+      for PID in $EXISTING; do kill "$PID" 2>/dev/null; sleep 1; kill -0 "$PID" 2>/dev/null && kill -9 "$PID" 2>/dev/null; done
+      echo "  Viejo JARVIS eliminado."
+    else
+      echo "  Cancelado."; exit 1
+    fi
   fi
 fi
 
@@ -28,6 +43,14 @@ if [ -f /home/dadito/IA/proyecto-seal/messages/jarvis_recovery_briefing.md ]; th
 fi
 echo ""
 
+# ── Cleanup MCP orphans antes de lanzar ──
+MCP_ORPHANS=$(pgrep -f "mcp_server_v2.py" 2>/dev/null | wc -l)
+if [ "$MCP_ORPHANS" -gt 0 ]; then
+  pkill -f "mcp_server_v2.py" 2>/dev/null
+  sleep 0.5
+  echo "  [cleanup] $MCP_ORPHANS instancias MCP huérfanas eliminadas."
+fi
+
 # Warmup Ollama para evitar cold start en MCP boot_context
 echo "  Warming up Ollama (nomic-embed-text)..."
 curl -s http://localhost:11434/api/embed \
@@ -38,12 +61,16 @@ sleep 1
 # ── Resume: buscar última sesión para continuar donde quedó ──
 LAST_SESSION=$(ls -t ~/.claude/projects/-home-dadito-IA-proyecto-seal-memory/*.jsonl 2>/dev/null | head -1 | xargs -I{} basename {} .jsonl 2>/dev/null)
 RESUME_FLAG=""
-if [ -n "$LAST_SESSION" ]; then
-  echo "  📋 Última sesión encontrada: $LAST_SESSION"
-  read -p "  ¿Retomar sesión anterior? [S/n] " REPLY
-  if [[ ! "$REPLY" =~ ^[nN]$ ]]; then
-    RESUME_FLAG="--resume $LAST_SESSION"
-    echo "  Retomando sesión..."
+if [ "$NO_RESUME" = false ] && [ -n "$LAST_SESSION" ]; then
+  if [ "$AUTO_MODE" = true ]; then
+    echo "  [auto] Sesión limpia (sin resume)"
+  else
+    echo "  📋 Última sesión encontrada: $LAST_SESSION"
+    read -p "  ¿Retomar sesión anterior? [S/n] " REPLY
+    if [[ ! "$REPLY" =~ ^[nN]$ ]]; then
+      RESUME_FLAG="--resume $LAST_SESSION"
+      echo "  Retomando sesión..."
+    fi
   fi
 fi
 

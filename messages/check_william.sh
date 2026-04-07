@@ -37,9 +37,27 @@ if [ "$TOTAL_WEB" -gt "$LAST_WEB" ]; then
 fi
 
 if [ -n "$NEW_LINES" ]; then
-    COUNT=$(echo "$NEW_LINES" | grep -c '"from": "William"' || echo 1)
+    # Deduplicar por contenido de mensaje (mismo texto = mismo mensaje)
+    DEDUPED=$(echo "$NEW_LINES" | python3 -c "
+import sys, json
+seen = set()
+out = []
+for line in sys.stdin:
+    line = line.strip()
+    if not line: continue
+    try:
+        d = json.loads(line)
+        key = d.get('message','') + d.get('id','')
+        if key not in seen:
+            seen.add(key)
+            out.append(line)
+    except:
+        out.append(line)
+print('\n'.join(out))
+" 2>/dev/null || echo "$NEW_LINES")
+    COUNT=$(echo "$DEDUPED" | grep -c '"message"' || echo 1)
     echo "NEW:$COUNT"
-    echo "$NEW_LINES"
+    echo "$DEDUPED"
 else
     echo "NONE"
 fi

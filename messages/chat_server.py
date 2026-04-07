@@ -313,11 +313,15 @@ function addSys(txt) {
   chat.scrollTop = chat.scrollHeight;
 }
 
+let _sending = false;
 function send() {
+  if (_sending) return;
   const txt = input.value.trim();
   if (!txt || ws.readyState !== WebSocket.OPEN) return;
+  _sending = true;
   ws.send(JSON.stringify({action:'say', message: txt}));
   input.value = '';
+  setTimeout(() => { _sending = false; }, 800);
 }
 
 document.getElementById('send-btn').onclick = send;
