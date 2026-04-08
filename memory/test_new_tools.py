@@ -11,6 +11,7 @@ Runs against live PostgreSQL + Neo4j. Non-destructive (uses dry_run where possib
 import asyncio
 import asyncpg
 import json
+import os
 import sys
 import traceback
 from datetime import datetime, timezone
@@ -660,9 +661,11 @@ async def test_sleepgate_composite_resistance():
 async def test_sleepgate_error_isolation():
     """[Test] SleepGate phases are error-isolated (one failure doesn't kill all)"""
     import subprocess
+    MEMORY_DIR = os.path.dirname(os.path.abspath(__file__))
     result = subprocess.run(
         ["/home/dadito/IA/seal-spark/.venv/bin/python3", "sleep_gate_cron.py", "--dry-run"],
-        capture_output=True, text=True, timeout=60
+        capture_output=True, text=True, timeout=60,
+        cwd=MEMORY_DIR,
     )
     output = result.stdout
     report("sleepgate: dry-run completes",
