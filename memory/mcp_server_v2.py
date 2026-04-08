@@ -7472,6 +7472,185 @@ async def peer_model_query(
     return "\n".join(lines)
 
 
+# ── Reflection Synthesize (Hindsight Tier 5) ──
+
+@mcp.tool()
+async def reflection_synthesize(
+    agent: str,
+    topic: str,
+    max_memories: int = 20,
+) -> str:
+    """Synthesize high-level beliefs (Mental Models) from episodic memories.
+
+    Hindsight Tier 5 — reflects on past experiences to extract durable beliefs
+    without LLM calls. Idempotent: re-running with the same topic is safe.
+
+    Args:
+        agent: Agent whose memories to synthesize (e.g. 'ADA', 'JARVIS')
+        topic: Theme or topic to focus synthesis on
+        max_memories: Max memories to process (default 20, capped at 50)
+    """
+    import time
+    t0 = time.monotonic()
+    max_memories = min(max(1, max_memories), 50)
+
+    SOURCE_CATS = ("correction", "decision", "insight", "milestone", "fact", "pattern")
+    marker = f"[synthesized:{topic}]"
+
+    # ── 1. Semantic search via Qdrant ──
+    qdrant_ids: list[int] = []
+    try:
+        query_vec = await get_embedding(topic)
+        if query_vec:
+            qdrant = await get_qdrant()
+            resp = await asyncio.wait_for(
+                qdrant.query_points(
+                    collection_name=QDRANT_COLLECTION,
+                    query=query_vec,
+                    query_filter=Filter(
+                        must=[FieldCondition(key="agent", match=MatchValue(value=agent))],
+                        must_not=[FieldCondition(key="invalid", match=MatchValue(value=True))],
+                    ),
+                    limit=max_memories,
+                    with_payload=False,
+                ),
+                timeout=6.0,
+            )
+            qdrant_ids = [int(p.id) for p in resp.points if p.id]
+    except Exception as e:
+        LOG.debug("reflection_synthesize: Qdrant search skipped — %s", e)
+
+    pool = await get_pool()
+
+    async with pool.acquire() as conn:
+        # ── 2. Idempotency check ──
+        existing_count = await conn.fetchval(
+            "SELECT count(*) FROM memories WHERE agent = $1 AND category = 'insight' "
+            "AND content LIKE $2 AND invalid_at IS NULL",
+            agent, f"%{marker}%"
+        )
+        if existing_count > 0:
+            return (
+                f"Beliefs for topic '{topic}' already synthesized "
+                f"({existing_count} insight memories exist). "
+                f"Delete them first to re-synthesize."
+            )
+
+        # ── 3. Fetch memories: Qdrant hits first, PG keyword fallback ──
+        rows: list = []
+
+        if qdrant_ids:
+            rows = list(await conn.fetch(
+                """SELECT id, category, content, importance, confidence_score, created_at
+                   FROM memories
+                   WHERE agent = $1 AND id = ANY($2) AND invalid_at IS NULL
+                   AND category = ANY($3)
+                   ORDER BY importance DESC NULLS LAST, created_at DESC
+                   LIMIT $4""",
+                agent, qdrant_ids, list(SOURCE_CATS), max_memories,
+            ))
+
+        # Keyword fallback if Qdrant returned < 5 useful results
+        if len(rows) < 5:
+            keywords = [w for w in re.split(r"\W+", topic.lower()) if len(w) > 3]
+            if keywords:
+                ilike = "%" + keywords[0] + "%"
+                fallback = await conn.fetch(
+                    """SELECT id, category, content, importance, confidence_score, created_at
+                       FROM memories
+                       WHERE agent = $1 AND invalid_at IS NULL
+                       AND category = ANY($2)
+                       AND lower(content) LIKE $3
+                       ORDER BY importance DESC NULLS LAST, created_at DESC
+                       LIMIT $4""",
+                    agent, list(SOURCE_CATS), ilike, max_memories - len(rows),
+                )
+                seen = {r["id"] for r in rows}
+                rows += [r for r in fallback if r["id"] not in seen]
+
+        # Top-importance fill if still sparse
+        if len(rows) < max_memories:
+            seen = {r["id"] for r in rows}
+            top = await conn.fetch(
+                """SELECT id, category, content, importance, confidence_score, created_at
+                   FROM memories
+                   WHERE agent = $1 AND invalid_at IS NULL AND category = ANY($2)
+                   ORDER BY importance DESC NULLS LAST
+                   LIMIT $3""",
+                agent, list(SOURCE_CATS), min(10, max_memories - len(rows)),
+            )
+            rows += [r for r in top if r["id"] not in seen]
+
+        if not rows:
+            return f"No relevant memories found for agent='{agent}', topic='{topic}'."
+
+        memories_processed = len(rows)
+
+        # ── 4. Group by category ──
+        groups: dict[str, list] = {}
+        for r in rows:
+            groups.setdefault(r["category"], []).append(r)
+
+        # ── 5. Synthesize 1 belief per category ──
+        now = datetime.now(timezone.utc)
+        beliefs = []
+
+        for cat, mems in groups.items():
+            total_weight = sum(float(m["importance"] or 5) for m in mems)
+            if total_weight == 0:
+                total_weight = len(mems)
+
+            weighted_conf = sum(
+                float(m["confidence_score"] or 0.8) * float(m["importance"] or 5)
+                for m in mems
+            ) / total_weight
+            weighted_conf = round(min(1.0, max(0.0, weighted_conf)), 3)
+
+            avg_imp = round(sum(int(m["importance"] or 7) for m in mems) / len(mems), 1)
+
+            # Anchor: most important memory in group
+            anchor = max(mems, key=lambda m: int(m["importance"] or 0))
+            belief_text = (
+                f"[{cat}] Creencia sintetizada de {len(mems)} memorias "
+                f"sobre '{topic}': {anchor['content'][:200]} "
+                f"(conf={weighted_conf:.2f}, imp_avg={avg_imp}) "
+                f"{marker}"
+            )[:600]
+
+            beliefs.append({
+                "category": cat,
+                "confidence": weighted_conf,
+                "importance": avg_imp,
+                "sample_count": len(mems),
+                "text": belief_text,
+            })
+
+        # ── 6. Store beliefs as 'insight' imp=8 ──
+        beliefs_created = 0
+        for b in beliefs:
+            await conn.execute(
+                """INSERT INTO memories
+                   (agent, category, content, importance, confidence_score, created_at)
+                   VALUES ($1, 'insight', $2, 8, $3, $4)""",
+                agent, b["text"], b["confidence"], now,
+            )
+            beliefs_created += 1
+
+    elapsed = int((time.monotonic() - t0) * 1000)
+
+    return json.dumps({
+        "topic": topic,
+        "memories_processed": memories_processed,
+        "beliefs_created": beliefs_created,
+        "elapsed_ms": elapsed,
+        "beliefs": [
+            {"category": b["category"], "confidence": b["confidence"],
+             "sample_count": b["sample_count"], "text": b["text"]}
+            for b in beliefs
+        ],
+    }, ensure_ascii=False, indent=2)
+
+
 # ── Main ──
 
 if __name__ == "__main__":
