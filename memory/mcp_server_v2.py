@@ -6688,11 +6688,12 @@ async def sleep_gate_mood_retrieval(
         """, agent)
         mood_valence = float(mood_valence_row['avg_valence']) if mood_valence_row and mood_valence_row['avg_valence'] else 0.0
 
-        # Generate embedding for query
+        # Generate embedding for query — use centralized get_embedding (nomic-embed-text via Ollama)
+        # NOTE: must match the model used when storing memories, or cosine distances are meaningless
         try:
-            from sentence_transformers import SentenceTransformer
-            embed_model = SentenceTransformer("intfloat/multilingual-e5-base")
-            qvec = embed_model.encode(f"query: {query}").tolist()
+            qvec = await get_embedding(f"search_query: {query}")
+            if not qvec:
+                return "Error: embedding model not available"
         except Exception:
             return "Error: embedding model not available"
 
