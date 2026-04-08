@@ -3622,12 +3622,12 @@ async def instinct_list(
     }, ensure_ascii=False, indent=2)
 
 
-@mcp.tool()
 async def _reflexion_lesson(pool, agent: str, trigger: str, action: str, activation_count: int) -> None:
     """Reflexion (arxiv 2303.11366) — generate verbal lesson from a deactivated instinct.
     Called fire-and-forget when an instinct dies due to low confidence.
     Only fires for instincts that were actually used (activation_count > 0).
     Stores the lesson as a correction memory imp=7 for future instinct formation.
+    Internal helper — NOT an MCP tool (takes pool arg, not user-facing).
     """
     try:
         # Gather recent failure events that may relate to this instinct
