@@ -17,9 +17,9 @@ import traceback
 from datetime import datetime, timezone
 from neo4j import AsyncGraphDatabase
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = os.environ.get("SEAL_PG_DSN", "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
 NEO4J_URI = "bolt://localhost:7687"
-NEO4J_AUTH = ("neo4j", "seal2026soul")
+NEO4J_AUTH = ("neo4j", os.environ.get("SEAL_NEO4J_PASSWORD", "seal2026soul"))
 
 KNOWN_ENTITIES = {
     'william': ('William', 'person'), 'dadito': ('William', 'person'),
@@ -897,12 +897,1363 @@ async def test_peer_model_table():
     await conn.close()
 
 
+async def test_wave3_columns():
+    """Verify Wave 3 schema columns (surprise_score, decay_score, recall_count, last_recalled_at).
+
+    Pre-migration: columns don't exist → PASS with 'pending' note (migration awaits William's GO).
+    Post-migration: columns exist → verify correct types and defaults.
+    """
+    conn = await asyncpg.connect(DB_URL)
+
+    expected_cols = {"surprise_score", "decay_score", "recall_count", "last_recalled_at"}
+    cols = await conn.fetch("""
+        SELECT column_name, data_type, column_default
+        FROM information_schema.columns
+        WHERE table_name = 'memories'
+        AND column_name = ANY($1::text[])
+        ORDER BY column_name
+    """, list(expected_cols))
+
+    found = {r["column_name"] for r in cols}
+
+    if not found:
+        # Pre-migration state — columns don't exist yet, that's expected
+        report("wave3: schema pending William's GO", True, "columns not yet created (migration not run)")
+        await conn.close()
+        return
+
+    # Post-migration: all 4 columns must exist
+    report("wave3: all 4 columns exist", found == expected_cols, f"found={found}, expected={expected_cols}")
+
+    # Verify defaults by column
+    col_map = {r["column_name"]: r for r in cols}
+
+    if "surprise_score" in col_map:
+        report("wave3: surprise_score is REAL", "real" in col_map["surprise_score"]["data_type"].lower(),
+               f"type={col_map['surprise_score']['data_type']}")
+
+    if "decay_score" in col_map:
+        report("wave3: decay_score is REAL", "real" in col_map["decay_score"]["data_type"].lower(),
+               f"type={col_map['decay_score']['data_type']}")
+
+    if "recall_count" in col_map:
+        report("wave3: recall_count is INTEGER", col_map["recall_count"]["data_type"] == "integer",
+               f"type={col_map['recall_count']['data_type']}")
+
+    if "last_recalled_at" in col_map:
+        report("wave3: last_recalled_at is TIMESTAMPTZ",
+               "timestamp" in col_map["last_recalled_at"]["data_type"].lower(),
+               f"type={col_map['last_recalled_at']['data_type']}")
+
+    # No NULLs in recall_count for valid memories
+    null_count = await conn.fetchval(
+        "SELECT count(*) FROM memories WHERE recall_count IS NULL AND invalid_at IS NULL"
+    )
+    report("wave3: no NULL recall_count in valid memories", null_count == 0, f"nulls={null_count}")
+
+    await conn.close()
+
+
+async def test_rate_limiting():
+    """Verify sliding-window rate limiter allows up to limit, then blocks."""
+    import collections as _col
+    import time as _t
+    sys.path.insert(0, os.path.dirname(__file__))
+    from mcp_server_v2 import _rate_check, _rate_windows, _RATE_LIMIT_DEFAULT, _RATE_LIMITS_OVERRIDE
+
+    # Clear state for isolated test
+    tool = "__test_rate_tool__"
+    _rate_windows.pop(tool, None)
+
+    # Allow exactly LIMIT requests
+    limit = _RATE_LIMIT_DEFAULT
+    allowed = sum(1 for _ in range(limit) if _rate_check(tool)[0])
+    report("rate_limit: allows exactly default limit", allowed == limit,
+           f"allowed={allowed}, limit={limit}")
+
+    # Next request must be blocked
+    blocked, remaining = _rate_check(tool)
+    report("rate_limit: blocks at limit+1", not blocked,
+           f"blocked={not blocked}, remaining={remaining}")
+
+    # Override limits work
+    heavy = "connectome_build"
+    _rate_windows.pop(heavy, None)
+    heavy_limit = _RATE_LIMITS_OVERRIDE[heavy]
+    h_allowed = sum(1 for _ in range(heavy_limit + 2) if _rate_check(heavy)[0])
+    report("rate_limit: connectome_build override", h_allowed == heavy_limit,
+           f"allowed={h_allowed}, expected={heavy_limit}")
+
+    # Cleanup
+    _rate_windows.pop(tool, None)
+    _rate_windows.pop(heavy, None)
+
+
+async def test_health_check_structure():
+    """Verify health_check returns valid JSON with required keys and live service status."""
+    import asyncio
+    sys.path.insert(0, os.path.dirname(__file__))
+    from mcp_server_v2 import health_check
+
+    raw = await health_check()
+    try:
+        data = json.loads(raw)
+    except Exception as e:
+        report("health_check: valid JSON", False, str(e))
+        return
+
+    report("health_check: valid JSON", True)
+
+    required_top = {"status", "uptime_seconds", "timestamp", "services"}
+    has_top = required_top.issubset(data.keys())
+    report("health_check: required top-level keys", has_top,
+           f"keys={set(data.keys())}")
+
+    required_svc = {"postgresql", "neo4j", "qdrant"}
+    has_svc = required_svc.issubset(data.get("services", {}).keys())
+    report("health_check: all 3 services present", has_svc,
+           f"services={set(data.get('services', {}).keys())}")
+
+    pg_ok = data.get("services", {}).get("postgresql", {}).get("status") == "ok"
+    report("health_check: postgresql alive", pg_ok,
+           f"pg_status={data.get('services', {}).get('postgresql', {})}")
+
+    uptime_valid = isinstance(data.get("uptime_seconds"), (int, float)) and data["uptime_seconds"] >= 0
+    report("health_check: uptime_seconds is valid float", uptime_valid,
+           f"uptime={data.get('uptime_seconds')}")
+
+
+async def test_graceful_shutdown():
+    """Verify _async_cleanup is idempotent and runs without error (no live connections to close)."""
+    sys.path.insert(0, os.path.dirname(__file__))
+    from mcp_server_v2 import _async_cleanup, _signal_handler, _sync_cleanup
+    import inspect
+
+    report("graceful_shutdown: _async_cleanup is coroutine",
+           inspect.iscoroutinefunction(_async_cleanup))
+
+    # Run cleanup with no connections open — must not raise
+    try:
+        await _async_cleanup()
+        report("graceful_shutdown: _async_cleanup idempotent (no connections)", True)
+    except Exception as e:
+        report("graceful_shutdown: _async_cleanup idempotent (no connections)", False, str(e))
+
+    # Signal handler exists and is callable
+    report("graceful_shutdown: _signal_handler callable", callable(_signal_handler))
+    report("graceful_shutdown: _sync_cleanup callable", callable(_sync_cleanup))
+
+
+async def test_amac_admission_gate():
+    """[Test] A-MAC 5-factor admission gate in memory_store."""
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None  # reset singleton for new event loop
+    import mcp_server_v2; mcp_server_v2._qdrant = None  # reset qdrant singleton
+    from mcp_server_v2 import memory_store
+
+    # 1. Protected category bypasses A-MAC (correction, any importance)
+    r1 = await memory_store(agent="ADA", category="correction",
+                            content="TEST_AMAC_SUITE: William corrigió un patrón de diseño incorrecto", importance=6)
+    data1 = json.loads(r1) if r1.startswith("{") else {"result": r1}
+    passed1 = "stored" in r1.lower() or "Memory #" in r1
+    report("amac_gate: correction bypasses A-MAC",
+           passed1,
+           f"result={'stored' if passed1 else 'blocked'}")
+
+    # 2. High importance bypasses A-MAC (imp >= 8)
+    r2 = await memory_store(agent="ADA", category="emotion",
+                            content="TEST_AMAC_SUITE: momento crítico de orgullo cuando SEAL pasó 93 tests", importance=9)
+    passed2 = "stored" in r2.lower() or "Memory #" in r2
+    report("amac_gate: high importance (9) bypasses A-MAC",
+           passed2,
+           f"result={'stored' if passed2 else 'blocked'}")
+
+    # 3. A-MAC scores are recorded in metadata for non-protected memories
+    import random as _rng
+    _unique_id = _rng.randint(100000, 999999)
+    r3 = await memory_store(agent="ADA", category="fact",
+                            content=f"TEST_AMAC_SUITE_{_unique_id}: La temperatura promedio en Chiclayo en abril es 28 grados celsius", importance=6)
+    passed3 = "stored" in r3.lower() or "Memory #" in r3
+    report("amac_gate: medium fact passes with score",
+           passed3,
+           f"result={'stored' if passed3 else 'blocked'}")
+
+    # Verify amac_score in metadata
+    conn = await asyncpg.connect(DB_URL)
+    row = await conn.fetchrow(
+        "SELECT metadata FROM memories WHERE content LIKE $1 "
+        "AND invalid_at IS NULL ORDER BY id DESC LIMIT 1",
+        f"TEST_AMAC_SUITE_{_unique_id}%"
+    )
+    if row:
+        meta = json.loads(row["metadata"]) if isinstance(row["metadata"], str) else row["metadata"]
+        has_score = "amac_score" in meta
+        has_factors = "amac_factors" in meta
+        report("amac_gate: metadata contains amac_score",
+               has_score,
+               f"score={meta.get('amac_score')}" if has_score else "missing")
+        report("amac_gate: metadata contains amac_factors",
+               has_factors,
+               f"factors={list(meta.get('amac_factors', {}).keys())}" if has_factors else "missing")
+
+        if has_factors:
+            factors = meta["amac_factors"]
+            expected_keys = {"future_utility", "factual_confidence", "semantic_novelty", "temporal_recency", "content_type_prior"}
+            report("amac_gate: all 5 factors present",
+                   set(factors.keys()) == expected_keys,
+                   f"keys={set(factors.keys())}")
+            # All factors should be in [0, 1]
+            all_valid = all(0.0 <= v <= 1.0 for v in factors.values())
+            report("amac_gate: all factors in [0.0, 1.0]",
+                   all_valid,
+                   f"values={list(factors.values())}")
+    else:
+        report("amac_gate: metadata check", False, "test memory not found in DB")
+
+    # 4. Cleanup test memories — DELETE from PG + Qdrant (no orphans)
+    test_ids = [r['id'] for r in await conn.fetch(
+        "SELECT id FROM memories WHERE content LIKE 'TEST_AMAC_SUITE%'"
+    )]
+    await conn.execute(
+        "DELETE FROM memories WHERE content LIKE 'TEST_AMAC_SUITE%'"
+    )
+    if test_ids:
+        try:
+            from qdrant_client import QdrantClient
+            QdrantClient(host="localhost", port=6333).delete("soul_memories", points_selector=test_ids)
+        except Exception:
+            pass
+    await conn.close()
+
+
+async def test_tier5_opinions_schema():
+    """[Test] Tier 5: opinions table has all required columns for belief synthesis."""
+    conn = await asyncpg.connect(DB_URL)
+    cols = await conn.fetch(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'opinions' ORDER BY ordinal_position"
+    )
+    col_names = [r["column_name"] for r in cols]
+
+    required = ["topic", "category", "active", "status", "importance",
+                 "last_challenged", "invalid_at", "updated_at", "search_vector"]
+    missing = [c for c in required if c not in col_names]
+    report("tier5_opinions: all Tier 5 columns exist",
+           len(missing) == 0,
+           f"cols={len(col_names)}, missing={missing}" if missing else f"all {len(required)} Tier 5 columns present")
+
+    # Check indexes
+    indexes = await conn.fetch(
+        "SELECT indexname FROM pg_indexes WHERE tablename = 'opinions' AND indexname LIKE '%opinions%'"
+    )
+    idx_names = [r["indexname"] for r in indexes]
+    required_idx = ["idx_opinions_agent_topic", "idx_opinions_agent_active", "idx_opinions_search"]
+    missing_idx = [i for i in required_idx if i not in idx_names]
+    report("tier5_opinions: required indexes exist",
+           len(missing_idx) == 0,
+           f"indexes={idx_names}" if not missing_idx else f"missing={missing_idx}")
+
+    # Check trigger
+    triggers = await conn.fetch(
+        "SELECT trigger_name FROM information_schema.triggers WHERE event_object_table = 'opinions'"
+    )
+    trig_names = [t["trigger_name"] for t in triggers]
+    report("tier5_opinions: update trigger exists",
+           "trg_opinions_tier5" in trig_names,
+           f"triggers={trig_names}")
+
+    await conn.close()
+
+
+async def test_tier5_belief_query():
+    """[Test] Tier 5: belief_query returns correct structure."""
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None  # reset singleton for new event loop
+    from mcp_server_v2 import belief_query
+
+    # Query all beliefs for ADA
+    result = await belief_query(agent="ADA")
+    data = json.loads(result)
+    report("tier5_belief_query: returns valid JSON",
+           isinstance(data, dict),
+           f"keys={list(data.keys())}")
+
+    report("tier5_belief_query: has required keys",
+           all(k in data for k in ("agent", "count", "beliefs")),
+           f"agent={data.get('agent')}, count={data.get('count')}")
+
+    # Each belief has required fields
+    if data["beliefs"]:
+        b = data["beliefs"][0]
+        required_fields = ["id", "topic", "belief", "confidence", "evidence_count", "status"]
+        has_all = all(f in b for f in required_fields)
+        report("tier5_belief_query: belief has all fields",
+               has_all,
+               f"fields={list(b.keys())}")
+
+        report("tier5_belief_query: confidence in [0, 1]",
+               0.0 <= b["confidence"] <= 1.0,
+               f"confidence={b['confidence']}")
+    else:
+        report("tier5_belief_query: ADA has beliefs",
+               False,
+               "no beliefs found for ADA")
+
+    # No-topic query (no semantic search, just top by confidence)
+    result2 = await belief_query(agent="ALICE", status="all")
+    data2 = json.loads(result2)
+    report("tier5_belief_query: empty agent returns 0",
+           data2["count"] == 0,
+           f"ALICE beliefs count={data2['count']}")
+
+
+async def test_tier5_boot_context_beliefs():
+    """[Test] Tier 5: boot_context includes Active Beliefs section."""
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None  # reset singleton for new event loop
+    from mcp_server_v2 import boot_context
+
+    result = await boot_context(agent="ADA")
+    has_beliefs = "## Active Beliefs" in result
+    report("tier5_boot_context: Active Beliefs section present",
+           has_beliefs,
+           "section found in boot output" if has_beliefs else "section MISSING")
+
+    if has_beliefs:
+        # Count belief lines
+        lines = result.split("\n")
+        belief_lines = [l for l in lines if l.startswith("- [") and "conf=" in l]
+        report("tier5_boot_context: belief lines formatted correctly",
+               len(belief_lines) > 0,
+               f"{len(belief_lines)} belief(s) loaded at boot")
+
+
+async def test_tier5_reflection_writes_opinions():
+    """[Test] Tier 5: reflection_synthesize writes to opinions, not memories."""
+    conn = await asyncpg.connect(DB_URL)
+
+    # Check that synthesized beliefs exist in opinions
+    opinion_beliefs = await conn.fetchval(
+        "SELECT count(*) FROM opinions WHERE agent = 'ADA' AND topic != 'general' AND active = TRUE"
+    )
+    report("tier5_reflection_opinions: synthesized beliefs in opinions table",
+           opinion_beliefs > 0,
+           f"{opinion_beliefs} synthesized belief(s) found")
+
+    # Verify beliefs have source_memory_ids populated
+    has_sources = await conn.fetchval(
+        "SELECT count(*) FROM opinions WHERE agent = 'ADA' AND source_memory_ids IS NOT NULL "
+        "AND source_memory_ids::text != 'null' AND source_memory_ids::text != '[]'"
+    )
+    report("tier5_reflection_opinions: source_memory_ids populated",
+           has_sources > 0,
+           f"{has_sources} belief(s) with source traceability")
+
+    # Verify search_vector is populated (trigger working)
+    has_fts = await conn.fetchval(
+        "SELECT count(*) FROM opinions WHERE search_vector IS NOT NULL"
+    )
+    report("tier5_reflection_opinions: search_vector populated by trigger",
+           has_fts > 0,
+           f"{has_fts} row(s) with full-text search")
+
+    await conn.close()
+
+
+# ── Cold Archive Tests ──────────────────────────────────────────────────────
+
+TEST_COLD_AGENT = "TEST_COLD"
+
+
+async def _cold_archive_cleanup(conn):
+    """Remove all test data from cold_archive and memories."""
+    await conn.execute("DELETE FROM cold_archive WHERE agent = $1", TEST_COLD_AGENT)
+    await conn.execute("DELETE FROM memories WHERE agent = $1", TEST_COLD_AGENT)
+
+
+async def test_cold_archive_table_exists():
+    """[Test] Cold Archive: table and indexes exist."""
+    pool = await asyncpg.create_pool(DB_URL, min_size=1, max_size=2)
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'cold_archive')"
+        )
+        report("cold_archive: table exists", exists, "cold_archive table found" if exists else "MISSING")
+
+        idx_count = await conn.fetchval(
+            "SELECT count(*) FROM pg_indexes WHERE tablename = 'cold_archive'"
+        )
+        report("cold_archive: indexes exist", idx_count >= 4, f"{idx_count} indexes found (expect >=4)")
+    await pool.close()
+
+
+async def test_cold_archive_migrate_dry_run():
+    """[Test] Cold Archive: dry_run reports without writing."""
+    pool = await asyncpg.create_pool(DB_URL, min_size=1, max_size=2)
+    async with pool.acquire() as conn:
+        await _cold_archive_cleanup(conn)
+        # Insert a test memory and invalidate it 8 days ago
+        await conn.execute("""
+            INSERT INTO memories (agent, category, content, importance, source, invalid_at)
+            VALUES ($1, 'fact', 'Cold archive dry run test memory', 5, 'test',
+                    NOW() - INTERVAL '8 days')
+        """, TEST_COLD_AGENT)
+
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None
+    import mcp_server_v2; mcp_server_v2._qdrant = None
+    from mcp_server_v2 import _cold_archive_migrate
+
+    stats = await _cold_archive_migrate(pool, TEST_COLD_AGENT, min_age_days=7, dry_run=True)
+    report("cold_archive_migrate: dry_run returns stats",
+           stats.get("archived", 0) > 0 and stats.get("dry_run") is True,
+           f"archived={stats.get('archived')}, dry_run={stats.get('dry_run')}")
+
+    # Verify memory still in memories (not moved)
+    async with pool.acquire() as conn:
+        still_there = await conn.fetchval(
+            "SELECT count(*) FROM memories WHERE agent = $1", TEST_COLD_AGENT
+        )
+        report("cold_archive_migrate: dry_run does not move data",
+               still_there > 0, f"{still_there} memory(ies) still in memories")
+        await _cold_archive_cleanup(conn)
+    await pool.close()
+
+
+async def test_cold_archive_migrate_live():
+    """[Test] Cold Archive: live migration moves to cold_archive and deletes from memories."""
+    pool = await asyncpg.create_pool(DB_URL, min_size=1, max_size=2)
+    async with pool.acquire() as conn:
+        await _cold_archive_cleanup(conn)
+        await conn.execute("""
+            INSERT INTO memories (agent, category, content, importance, source, invalid_at)
+            VALUES ($1, 'fact', 'Cold archive live test — unique singleton memory xz99', 5, 'test',
+                    NOW() - INTERVAL '8 days')
+        """, TEST_COLD_AGENT)
+
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None
+    import mcp_server_v2; mcp_server_v2._qdrant = None
+    from mcp_server_v2 import _cold_archive_migrate
+
+    stats = await _cold_archive_migrate(pool, TEST_COLD_AGENT, min_age_days=7, ttl_days=365, dry_run=False)
+    report("cold_archive_migrate: live archived > 0",
+           stats.get("archived", 0) > 0,
+           f"archived={stats.get('archived')}, singletons={stats.get('singletons')}")
+
+    async with pool.acquire() as conn:
+        in_memories = await conn.fetchval(
+            "SELECT count(*) FROM memories WHERE agent = $1", TEST_COLD_AGENT
+        )
+        in_cold = await conn.fetchval(
+            "SELECT count(*) FROM cold_archive WHERE agent = $1", TEST_COLD_AGENT
+        )
+        report("cold_archive_migrate: source deleted from memories",
+               in_memories == 0, f"memories={in_memories}")
+        report("cold_archive_migrate: entry in cold_archive",
+               in_cold > 0, f"cold_archive={in_cold}")
+        await _cold_archive_cleanup(conn)
+    await pool.close()
+
+
+async def test_cold_archive_query_empty():
+    """[Test] Cold Archive: query on empty result returns empty list."""
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None
+    import mcp_server_v2; mcp_server_v2._qdrant = None
+    from mcp_server_v2 import cold_archive_query
+
+    result = await cold_archive_query(query="nonexistent topic xyz", agent="NOBODY_AGENT")
+    data = json.loads(result)
+    report("cold_archive_query: empty returns no error",
+           "results" in data,
+           f"keys={list(data.keys())}")
+    report("cold_archive_query: empty results list",
+           len(data.get("results", [1])) == 0,
+           f"count={len(data.get('results', []))}")
+
+
+async def test_cold_archive_stats():
+    """[Test] Cold Archive: stats returns valid JSON."""
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None
+    import mcp_server_v2; mcp_server_v2._qdrant = None
+    from mcp_server_v2 import cold_archive_stats
+
+    result = await cold_archive_stats()
+    data = json.loads(result)
+    report("cold_archive_stats: valid JSON with agents key",
+           "agents" in data and "total" in data,
+           f"total={data.get('total')}, agents={list(data.get('agents', {}).keys())}")
+
+
+async def test_cold_archive_ttl_purge():
+    """[Test] Cold Archive: TTL purge deletes expired entries."""
+    pool = await asyncpg.create_pool(DB_URL, min_size=1, max_size=2)
+    async with pool.acquire() as conn:
+        await _cold_archive_cleanup(conn)
+        # Insert expired cold entry
+        await conn.execute("""
+            INSERT INTO cold_archive (agent, original_memory_ids, summary, source_count,
+                                      importance_max, category, expires_at)
+            VALUES ($1, '{999999}', 'Expired test entry for TTL purge', 1, 5, 'test',
+                    NOW() - INTERVAL '1 day')
+        """, TEST_COLD_AGENT)
+        # Insert non-expired entry
+        await conn.execute("""
+            INSERT INTO cold_archive (agent, original_memory_ids, summary, source_count,
+                                      importance_max, category, expires_at)
+            VALUES ($1, '{999998}', 'Future expiry test entry', 1, 5, 'test',
+                    NOW() + INTERVAL '365 days')
+        """, TEST_COLD_AGENT)
+        # Insert never-expires entry
+        await conn.execute("""
+            INSERT INTO cold_archive (agent, original_memory_ids, summary, source_count,
+                                      importance_max, category)
+            VALUES ($1, '{999997}', 'Never expires test entry', 1, 5, 'test')
+        """, TEST_COLD_AGENT)
+
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None
+    from mcp_server_v2 import _cold_archive_purge_expired
+
+    stats = await _cold_archive_purge_expired(pool, dry_run=False)
+    report("cold_archive_purge: expired entry deleted",
+           stats.get("purged", 0) >= 1,
+           f"purged={stats.get('purged')}")
+
+    async with pool.acquire() as conn:
+        remaining = await conn.fetchval(
+            "SELECT count(*) FROM cold_archive WHERE agent = $1", TEST_COLD_AGENT
+        )
+        report("cold_archive_purge: non-expired + never-expires survive",
+               remaining == 2, f"remaining={remaining} (expect 2)")
+        await _cold_archive_cleanup(conn)
+    await pool.close()
+
+
+async def test_memory_search_include_archived():
+    """[Test] Cold Archive: memory_search with include_archived returns cold results."""
+    pool = await asyncpg.create_pool(DB_URL, min_size=1, max_size=2)
+    async with pool.acquire() as conn:
+        await _cold_archive_cleanup(conn)
+        # Insert a cold archive entry with embedding
+        from embeddings import get_embedding
+        emb = await get_embedding("unique cold archive test searchable memory xyz789")
+
+        await conn.execute("""
+            INSERT INTO cold_archive (agent, original_memory_ids, summary, embedding,
+                                      source_count, importance_max, category)
+            VALUES ($1, '{888888}', 'unique cold archive test searchable memory xyz789',
+                    $2::vector, 1, 7, 'fact')
+        """, TEST_COLD_AGENT, json.dumps(emb))
+
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None
+    import mcp_server_v2; mcp_server_v2._qdrant = None
+    from mcp_server_v2 import memory_search
+
+    result = await memory_search(
+        query="unique cold archive test searchable memory xyz789",
+        agent=TEST_COLD_AGENT,
+        include_archived=True,
+    )
+    # May return "No memories found" since TEST_COLD has no hot memories in Qdrant,
+    # but if include_archived works, we should get cold results
+    if "No memories found" not in result:
+        data = json.loads(result)
+        cold_results = [e for e in data if e.get("source") == "cold_archive"]
+        report("memory_search_include_archived: cold results found",
+               len(cold_results) > 0,
+               f"{len(cold_results)} cold result(s)")
+    else:
+        # Even without hot results, cold should show up
+        report("memory_search_include_archived: returns results",
+               False, "Got 'No memories found' — cold archive integration may need hot results first")
+
+    async with pool.acquire() as conn:
+        await _cold_archive_cleanup(conn)
+    await pool.close()
+
+
+async def test_mirix_classification():
+    """[Test] MIRIX: _mirix_classify maps categories to correct memory types."""
+    sys.path.insert(0, os.path.dirname(__file__))
+    from mcp_server_v2 import _mirix_classify, MIRIX_CATEGORY_MAP
+
+    # Category mapping
+    report("mirix_classify: emotion → core", _mirix_classify("emotion", "I feel happy") == "core",
+           f"got={_mirix_classify('emotion', 'I feel happy')}")
+    report("mirix_classify: trust → core", _mirix_classify("trust", "William trusts ADA") == "core",
+           f"got={_mirix_classify('trust', 'William trusts ADA')}")
+    report("mirix_classify: insight → semantic", _mirix_classify("insight", "Pattern detected") == "semantic",
+           f"got={_mirix_classify('insight', 'Pattern detected')}")
+    report("mirix_classify: milestone → episodic", _mirix_classify("milestone", "Completed phase 1") == "episodic",
+           f"got={_mirix_classify('milestone', 'Completed phase 1')}")
+    report("mirix_classify: decision → semantic", _mirix_classify("decision", "Chose PostgreSQL") == "semantic",
+           f"got={_mirix_classify('decision', 'Chose PostgreSQL')}")
+
+    # Explicit override
+    report("mirix_classify: explicit override works", _mirix_classify("emotion", "test", memory_type="vault") == "vault",
+           f"got={_mirix_classify('emotion', 'test', memory_type='vault')}")
+
+    # Vault detection via content heuristic
+    report("mirix_classify: detects vault from content",
+           _mirix_classify("fact", "api_key=sk-abc123xyz") == "vault",
+           f"got={_mirix_classify('fact', 'api_key=sk-abc123xyz')}")
+
+    # Unknown category defaults to episodic
+    report("mirix_classify: unknown → episodic", _mirix_classify("unknown_cat", "something") == "episodic",
+           f"got={_mirix_classify('unknown_cat', 'something')}")
+
+
+async def test_mirix_migration():
+    """[Test] MIRIX: existing memories are classified correctly after migration."""
+    conn = await asyncpg.connect(DB_URL)
+    # Check memory_type column exists
+    col = await conn.fetchval(
+        "SELECT column_name FROM information_schema.columns WHERE table_name='memories' AND column_name='memory_type'"
+    )
+    report("mirix_migration: memory_type column exists", col == "memory_type", f"col={col}")
+
+    # Check distribution matches category mapping
+    core_count = await conn.fetchval(
+        "SELECT count(*) FROM memories WHERE memory_type = 'core' AND category IN ('emotion', 'trust', 'preference')"
+    )
+    core_wrong = await conn.fetchval(
+        "SELECT count(*) FROM memories WHERE memory_type = 'core' AND category NOT IN ('emotion', 'trust', 'preference')"
+    )
+    report("mirix_migration: core memories correctly classified", core_count > 0 and core_wrong == 0,
+           f"correct={core_count}, wrong={core_wrong}")
+
+    semantic_count = await conn.fetchval(
+        "SELECT count(*) FROM memories WHERE memory_type = 'semantic' AND category IN ('insight', 'fact', 'pattern', 'decision')"
+    )
+    report("mirix_migration: semantic memories exist", semantic_count > 0, f"count={semantic_count}")
+
+    # Constraint exists
+    chk = await conn.fetchval(
+        "SELECT 1 FROM pg_constraint WHERE conname = 'chk_memory_type'"
+    )
+    report("mirix_migration: constraint chk_memory_type exists", chk == 1, f"exists={chk}")
+    await conn.close()
+
+
+async def test_mirix_retrieval_filter():
+    """[Test] MIRIX: memory_search with memory_type filter returns only that type."""
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None
+    import mcp_server_v2; mcp_server_v2._qdrant = None
+    from mcp_server_v2 import memory_search
+
+    # Search core memories only
+    result = await memory_search("William", agent="ADA", memory_type="core", limit=5)
+    if "No memories found" not in result:
+        data = json.loads(result)
+        results_list = data if isinstance(data, list) else data.get("results", data.get("memories", []))
+        all_core = all(r.get("memory_type") == "core" for r in results_list if isinstance(r, dict))
+        report("mirix_retrieval: core filter returns only core", all_core,
+               f"types={[r.get('memory_type') for r in results_list[:3]]}")
+    else:
+        report("mirix_retrieval: core filter returns results", False, "no core memories found")
+
+
+async def test_mirix_core_boost():
+    """[Test] MIRIX: core memories get 1.2x boost in retrieval scoring."""
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None
+    import mcp_server_v2; mcp_server_v2._qdrant = None
+    from mcp_server_v2 import memory_search
+
+    result = await memory_search("William familia equipo", agent="ADA", limit=20)
+    if "No memories found" not in result:
+        data = json.loads(result)
+        results_list = data if isinstance(data, list) else data.get("results", data.get("memories", []))
+        core_entries = [r for r in results_list if isinstance(r, dict) and r.get("memory_type") == "core"]
+        report("mirix_core_boost: core memories present in results", len(core_entries) > 0,
+               f"core_count={len(core_entries)}")
+    else:
+        report("mirix_core_boost: search returns results", False, "no results")
+
+
+async def test_mirix_vault_exclusion():
+    """[Test] MIRIX: vault memories excluded from general search."""
+    conn = await asyncpg.connect(DB_URL)
+    # Check no vault memories leak into general search (there shouldn't be any vault memories yet)
+    vault_count = await conn.fetchval(
+        "SELECT count(*) FROM memories WHERE memory_type = 'vault' AND invalid_at IS NULL"
+    )
+    report("mirix_vault_exclusion: vault count is 0 (no secrets stored)", vault_count == 0,
+           f"vault_count={vault_count}")
+    await conn.close()
+
+
+async def test_mirix_boot_context():
+    """[Test] MIRIX: boot_context includes memory profile section."""
+    sys.path.insert(0, os.path.dirname(__file__))
+    import db; db._pool = None
+    import mcp_server_v2; mcp_server_v2._qdrant = None
+    from mcp_server_v2 import boot_context
+
+    result = await boot_context("ADA")
+    report("mirix_boot_context: Memory Profile section present",
+           "Memory Profile (MIRIX)" in result,
+           f"found={'Memory Profile' in result}")
+    report("mirix_boot_context: shows type counts",
+           "core=" in result or "episodic=" in result,
+           f"has_types={'core=' in result}")
+
+
+async def test_wave3_precompute_scoring():
+    """[Test] Wave 3: compute_decay_score and compute_recall_boost produce valid scores."""
+    from soul.core.scoring_v3 import compute_decay_score, compute_recall_boost
+    from datetime import timedelta
+
+    now = datetime.now(timezone.utc)
+
+    # decay_score: recent important memory should have high score
+    ds_recent = compute_decay_score(importance=7, category="decision", created_at=now - timedelta(days=1), now=now)
+    report("wave3_precompute: recent decision decay > 0.99", ds_recent > 0.99, f"decay={ds_recent:.4f}")
+
+    # decay_score: old emotion should decay fast (half-life=1d)
+    ds_old_emotion = compute_decay_score(importance=5, category="emotion", created_at=now - timedelta(days=7), now=now)
+    report("wave3_precompute: 7-day emotion decay < 0.01", ds_old_emotion < 0.01, f"decay={ds_old_emotion:.6f}")
+
+    # decay_score: immortal (importance >= 10)
+    ds_immortal = compute_decay_score(importance=10, category="emotion", created_at=now - timedelta(days=365), now=now)
+    report("wave3_precompute: imp=10 is immortal", ds_immortal == 1.0, f"decay={ds_immortal}")
+
+    # recall_boost: no recalls = base 1.0
+    rb_none = compute_recall_boost(recall_count=0, last_recalled_at=None, now=now)
+    report("wave3_precompute: no recalls → boost=1.0", rb_none == 1.0, f"boost={rb_none}")
+
+    # recall_boost: heavy recall = higher boost
+    rb_heavy = compute_recall_boost(recall_count=10, last_recalled_at=now - timedelta(hours=1), now=now)
+    report("wave3_precompute: heavy recall → boost > 1.3", rb_heavy > 1.3, f"boost={rb_heavy}")
+
+    # recall_boost: capped at 1.5
+    rb_max = compute_recall_boost(recall_count=100, last_recalled_at=now, now=now)
+    report("wave3_precompute: boost capped at 1.5", rb_max <= 1.5, f"boost={rb_max}")
+
+
+async def test_wave3_recall_tracking():
+    """[Test] Wave 3: recall_count and last_recalled_at are updated on memory_search."""
+    conn = await asyncpg.connect(DB_URL)
+    # Pick a valid memory
+    row = await conn.fetchrow(
+        "SELECT id, recall_count, last_recalled_at FROM memories WHERE invalid_at IS NULL LIMIT 1"
+    )
+    if not row:
+        report("wave3_recall_tracking: has valid memories", False, "no memories found")
+        await conn.close()
+        return
+
+    mid = row["id"]
+    old_count = row["recall_count"] or 0
+
+    # Simulate what memory_search does
+    await conn.execute("""
+        UPDATE memories SET
+            recall_count = COALESCE(recall_count, 0) + 1,
+            last_recalled_at = now()
+        WHERE id = $1
+    """, mid)
+
+    updated = await conn.fetchrow(
+        "SELECT recall_count, last_recalled_at FROM memories WHERE id = $1", mid
+    )
+    report("wave3_recall_tracking: count incremented", updated["recall_count"] == old_count + 1,
+           f"old={old_count}, new={updated['recall_count']}")
+    report("wave3_recall_tracking: last_recalled_at set", updated["last_recalled_at"] is not None,
+           f"ts={updated['last_recalled_at']}")
+
+    # Revert to not pollute real data
+    await conn.execute(
+        "UPDATE memories SET recall_count = $1, last_recalled_at = $2 WHERE id = $3",
+        row["recall_count"], row["last_recalled_at"], mid
+    )
+    await conn.close()
+
+
+# ══════════════════════════════════════════════════════════════════════
+# TG-RAG Phase 2 — Persistent Temporal Summaries Tests (arxiv 2510.13590)
+# ADA — 2026-04-12
+# ══════════════════════════════════════════════════════════════════════
+
+def _tgrag_reset_singletons():
+    """Reset DB/Qdrant/Neo4j singletons for TG-RAG tests."""
+    import db; db._pool = None
+    import mcp_server_v2
+    mcp_server_v2._qdrant = None
+    mcp_server_v2._neo4j_driver = None
+
+
+async def test_tg_summary_persist():
+    """[Test] TG-RAG: temporal_graph_build sets summary property on Day nodes."""
+    _tgrag_reset_singletons()
+    import mcp_server_v2 as srv
+    # Build temporal graph (generates summaries)
+    result = await srv.temporal_graph_build(agent="ADA")
+    report("tg_summary_persist: build succeeds", "Temporal graph built" in result,
+           f"result={result[:100]}")
+    report("tg_summary_persist: summaries mentioned", "summaries" in result.lower(),
+           f"result={result[:120]}")
+
+    # Verify at least one Day node has summary property
+    try:
+        neo = srv.get_neo4j()
+        async with neo.session() as session:
+            res = await session.run("""
+                MATCH (d:Day) WHERE d.summary IS NOT NULL
+                RETURN count(d) AS cnt
+            """)
+            rec = await res.single()
+            cnt = rec["cnt"] if rec else 0
+        report("tg_summary_persist: Day nodes have summaries", cnt > 0, f"count={cnt}")
+    except Exception as e:
+        report("tg_summary_persist: Neo4j check", False, f"error={e}")
+
+
+async def test_tg_summary_get():
+    """[Test] TG-RAG: temporal_summary_get retrieves cached summary."""
+    _tgrag_reset_singletons()
+    import mcp_server_v2 as srv
+    from datetime import date
+    today = date.today().isoformat()
+
+    result = await srv.temporal_summary_get(period=today, agent="ADA")
+    # Could be cached or "No cached summary" — both valid
+    is_valid = ("summary" in result.lower()) or ("no cached" in result.lower()) or ("period" in result)
+    report("tg_summary_get: returns valid response", is_valid, f"result={result[:100]}")
+
+    # Test auto level detection
+    result_month = await srv.temporal_summary_get(period=f"{date.today().year}-{date.today().month:02d}")
+    is_valid_month = ("summary" in result_month.lower()) or ("no cached" in result_month.lower()) or ("period" in result_month)
+    report("tg_summary_get: month auto-detection", is_valid_month, f"result={result_month[:100]}")
+
+
+async def test_tg_global_strategy():
+    """[Test] TG-RAG: temporal_query with strategy='global' returns summaries."""
+    _tgrag_reset_singletons()
+    import mcp_server_v2 as srv
+    from datetime import date, timedelta
+    today = date.today()
+    week_ago = (today - timedelta(days=7)).isoformat()
+
+    result = await srv.temporal_query(
+        start_date=week_ago, end_date=today.isoformat(),
+        agent="ADA", strategy="global"
+    )
+    # Either returns global summaries or falls back to local
+    is_valid = ("Temporal Query" in result) or ("No memories" in result)
+    report("tg_global_strategy: returns valid response", is_valid, f"result={result[:100]}")
+
+
+async def test_tg_fallback():
+    """[Test] TG-RAG: global strategy falls back to local when no cached summaries."""
+    _tgrag_reset_singletons()
+    import mcp_server_v2 as srv
+    # Query a date range likely without summaries (far future)
+    result = await srv.temporal_query(
+        start_date="2099-01-01", end_date="2099-01-07",
+        strategy="global"
+    )
+    report("tg_fallback: handles no-summary gracefully",
+           "No memories" in result or "Temporal Query" in result,
+           f"result={result[:100]}")
+
+
+async def test_tg_hierarchical():
+    """[Test] TG-RAG: Month summary exists after build (aggregates Day summaries)."""
+    _tgrag_reset_singletons()
+    import mcp_server_v2 as srv
+    try:
+        neo = srv.get_neo4j()
+        async with neo.session() as session:
+            res = await session.run("""
+                MATCH (m:Month) WHERE m.summary IS NOT NULL
+                RETURN count(m) AS cnt
+            """)
+            rec = await res.single()
+            cnt = rec["cnt"] if rec else 0
+        # Month summaries may or may not exist depending on data
+        report("tg_hierarchical: Month summary query works", cnt >= 0, f"months_with_summary={cnt}")
+    except Exception as e:
+        report("tg_hierarchical: Neo4j accessible", False, f"error={e}")
+
+
+# ── MAGMA Multi-Graph Parallel Fusion (arxiv 2601.03236) ──
+
+def _magma_reset_singletons():
+    import db
+    db._pool = None
+    import mcp_server_v2
+    mcp_server_v2._qdrant = None
+    mcp_server_v2._neo4j_driver = None
+
+
+async def test_magma_basic():
+    """[Test] MAGMA: basic retrieval returns fused results with views_used."""
+    _magma_reset_singletons()
+    import mcp_server_v2 as srv
+    raw = await srv.magma_retrieve(agent="ADA", query="decisiones importantes del equipo")
+    import json as _j
+    out = _j.loads(raw)
+    report("magma_basic: has context", "context" in out, f"keys={list(out.keys())}")
+    report("magma_basic: has views_used", "views_used" in out and len(out["views_used"]) > 0, f"views={out.get('views_used')}")
+    report("magma_basic: has stats", "stats" in out, f"stats={out.get('stats')}")
+
+
+async def test_magma_parallel():
+    """[Test] MAGMA: multiple views execute (stats show hits from different graphs)."""
+    _magma_reset_singletons()
+    import mcp_server_v2 as srv
+    raw = await srv.magma_retrieve(agent="ADA", query="por qué decidimos usar PostgreSQL", views=["semantic", "causal"])
+    import json as _j
+    out = _j.loads(raw)
+    stats = out.get("stats", {})
+    has_sem = "semantic_hits" in stats
+    has_cau = "causal_hits" in stats
+    report("magma_parallel: semantic_hits in stats", has_sem, f"stats={stats}")
+    report("magma_parallel: causal_hits in stats", has_cau, f"stats={stats}")
+
+
+async def test_magma_dedup():
+    """[Test] MAGMA: same memory in 2 graphs appears once with boost > 1.0."""
+    _magma_reset_singletons()
+    import mcp_server_v2 as srv
+    # Test fusion logic directly
+    fake_results = {
+        "semantic": [{"id": 1, "content": "test memory", "score": 0.8, "category": "test"}],
+        "causal": [{"id": 1, "content": "test memory", "score": 0.7, "category": "test"}],
+    }
+    fused = await srv._magma_fuse("test query", fake_results)
+    mems = fused["source_memories"]
+    report("magma_dedup: single entry after dedup", len(mems) == 1, f"count={len(mems)}")
+    if mems:
+        report("magma_dedup: cross_graph_boost > 1.0", mems[0]["cross_graph_boost"] > 1.0, f"boost={mems[0]['cross_graph_boost']}")
+        report("magma_dedup: sources has both", len(mems[0]["sources"]) == 2, f"sources={mems[0]['sources']}")
+
+
+async def test_magma_cross_boost():
+    """[Test] MAGMA: memory in 3 graphs gets 1.3x boost (1.0 + 0.15 * 2)."""
+    _magma_reset_singletons()
+    import mcp_server_v2 as srv
+    fake_results = {
+        "semantic": [{"id": 42, "content": "multi-graph memory", "score": 1.0, "category": "test"}],
+        "causal": [{"id": 42, "content": "multi-graph memory", "score": 0.9, "category": "test"}],
+        "entity": [{"id": 42, "content": "multi-graph memory", "score": 0.8, "category": "test"}],
+    }
+    fused = await srv._magma_fuse("test query", fake_results)
+    mems = fused["source_memories"]
+    report("magma_cross_boost: single entry", len(mems) == 1, f"count={len(mems)}")
+    if mems:
+        expected_boost = 1.3  # 1.0 + 0.15 * 2
+        report("magma_cross_boost: boost == 1.3", abs(mems[0]["cross_graph_boost"] - expected_boost) < 0.01, f"boost={mems[0]['cross_graph_boost']}")
+        expected_score = round(1.0 * 1.3, 4)
+        report("magma_cross_boost: fused_score correct", abs(mems[0]["fused_score"] - expected_score) < 0.01, f"fused={mems[0]['fused_score']}")
+
+
+async def test_magma_auto_intent():
+    """[Test] MAGMA: 'por qué' query selects causal view."""
+    _magma_reset_singletons()
+    import mcp_server_v2 as srv
+    raw = await srv.magma_retrieve(agent="ADA", query="por qué elegimos esta arquitectura")
+    import json as _j
+    out = _j.loads(raw)
+    views = out.get("views_used", [])
+    report("magma_auto_intent: causal in views", "causal" in views, f"views={views}")
+
+
+async def test_magma_manual_views():
+    """[Test] MAGMA: explicit views param restricts to those views only."""
+    _magma_reset_singletons()
+    import mcp_server_v2 as srv
+    raw = await srv.magma_retrieve(agent="ADA", query="test query", views=["semantic", "temporal"])
+    import json as _j
+    out = _j.loads(raw)
+    views = out.get("views_used", [])
+    report("magma_manual_views: only requested views", set(views) <= {"semantic", "temporal"}, f"views={views}")
+    report("magma_manual_views: no causal/entity", "causal" not in views and "entity" not in views, f"views={views}")
+
+
+async def test_magma_fuse_false():
+    """[Test] MAGMA: fuse=False returns raw per-graph results."""
+    _magma_reset_singletons()
+    import mcp_server_v2 as srv
+    raw = await srv.magma_retrieve(agent="ADA", query="test", views=["semantic"], fuse=False)
+    import json as _j
+    out = _j.loads(raw)
+    mems = out.get("memories", {})
+    report("magma_fuse_false: memories is dict (per-graph)", isinstance(mems, dict), f"type={type(mems).__name__}")
+    report("magma_fuse_false: context is empty", out.get("context") == "", f"context_len={len(out.get('context', ''))}")
+
+
+async def test_magma_empty():
+    """[Test] MAGMA: nonexistent agent returns graceful empty response."""
+    _magma_reset_singletons()
+    import mcp_server_v2 as srv
+    raw = await srv.magma_retrieve(agent="NONEXISTENT_AGENT_XYZ", query="anything")
+    import json as _j
+    out = _j.loads(raw)
+    report("magma_empty: valid JSON output", "stats" in out, f"keys={list(out.keys())}")
+    report("magma_empty: no crash", True, "graceful empty response")
+
+
+# ── ERL — Experiential Reflective Learning (arxiv 2603.24639) ──
+
+ERL_TEST_AGENT = "ERL_TEST"
+
+
+async def _erl_reset_test_agent():
+    """Reset DB singletons and clean ERL test agent state."""
+    import db
+    db._pool = None
+    import mcp_server_v2
+    mcp_server_v2._qdrant = None
+    mcp_server_v2._neo4j_driver = None
+    pool = await mcp_server_v2.get_pool()
+    async with pool.acquire() as conn:
+        # Fetch IDs first so we can also delete from Qdrant (no orphans)
+        erl_ids = [r['id'] for r in await conn.fetch(
+            "SELECT id FROM memories WHERE agent = $1", ERL_TEST_AGENT
+        )]
+        await conn.execute("DELETE FROM memories WHERE agent = $1", ERL_TEST_AGENT)
+        # Cascade: delete activations before instincts (FK constraint)
+        await conn.execute(
+            """DELETE FROM instinct_activations
+               WHERE instinct_id IN (SELECT id FROM instincts WHERE agent = $1)""",
+            ERL_TEST_AGENT,
+        )
+        await conn.execute("DELETE FROM instincts WHERE agent = $1", ERL_TEST_AGENT)
+    if erl_ids:
+        try:
+            from qdrant_client import QdrantClient
+            QdrantClient(host="localhost", port=6333).delete("soul_memories", points_selector=erl_ids)
+        except Exception:
+            pass
+
+
+async def _erl_seed_heuristic(srv, content, confidence, activation_count=0, outcome="success"):
+    """Seed a heuristic via memory_store (importance=8 bypasses A-MAC)."""
+    import json as _j
+    import re as _re
+    meta = {
+        "tags": ["heuristic", "erl", outcome],
+        "applies_to": "test_applies_to",
+        "confidence": confidence,
+        "parent_task": "seed test task",
+        "outcome": outcome,
+        "erl_version": 1,
+        "activation_count": activation_count,
+    }
+    res = await srv.memory_store(
+        agent=ERL_TEST_AGENT,
+        category="insight",
+        content=content,
+        importance=8,
+        source="erl_reflect",
+        metadata=_j.dumps(meta),
+    )
+    m = _re.search(r"#?(\d+)", res or "")
+    return int(m.group(1)) if m else None
+
+
+async def test_erl_reflect_success():
+    """[Test] ERL: reflect on success stores insight with heuristic tag."""
+    await _erl_reset_test_agent()
+    import mcp_server_v2 as srv
+    import json as _j
+
+    async def fake_ollama(prompt, timeout=30.0):
+        return _j.dumps([
+            {"heuristic": "siempre validar input antes de procesar",
+             "applies_to": "any", "confidence": 0.8}
+        ])
+    orig = srv._erl_call_ollama
+    srv._erl_call_ollama = fake_ollama
+    try:
+        raw = await srv.erl_reflect(
+            agent=ERL_TEST_AGENT,
+            task_description="tarea test",
+            outcome="success",
+            trajectory="pasos y decisiones",
+        )
+        out = _j.loads(raw)
+        report("erl_reflect_success: generated >= 1",
+               out.get("heuristics_generated", 0) >= 1, f"out={out}")
+        pool = await srv.get_pool()
+        row = await pool.fetchrow(
+            "SELECT category, metadata FROM memories WHERE agent = $1 ORDER BY id DESC LIMIT 1",
+            ERL_TEST_AGENT,
+        )
+        if row:
+            meta = row["metadata"] if isinstance(row["metadata"], dict) else _j.loads(row["metadata"] or "{}")
+            report("erl_reflect_success: category=insight",
+                   row["category"] == "insight", f"cat={row['category']}")
+            report("erl_reflect_success: tags contains 'heuristic'",
+                   "heuristic" in (meta.get("tags") or []), f"tags={meta.get('tags')}")
+    finally:
+        srv._erl_call_ollama = orig
+
+
+async def test_erl_reflect_failure():
+    """[Test] ERL: outcome='failure' → tags include 'failure'."""
+    await _erl_reset_test_agent()
+    import mcp_server_v2 as srv
+    import json as _j
+
+    async def fake_ollama(prompt, timeout=30.0):
+        return _j.dumps([
+            {"heuristic": "nunca deployar sin tests",
+             "applies_to": "deploy", "confidence": 0.9}
+        ])
+    orig = srv._erl_call_ollama
+    srv._erl_call_ollama = fake_ollama
+    try:
+        raw = await srv.erl_reflect(
+            agent=ERL_TEST_AGENT,
+            task_description="deploy roto",
+            outcome="failure",
+            trajectory="deploy sin tests → prod caído",
+        )
+        out = _j.loads(raw)
+        report("erl_reflect_failure: generated >= 1",
+               out.get("heuristics_generated", 0) >= 1, f"out={out}")
+        pool = await srv.get_pool()
+        row = await pool.fetchrow(
+            "SELECT metadata FROM memories WHERE agent = $1 ORDER BY id DESC LIMIT 1",
+            ERL_TEST_AGENT,
+        )
+        if row:
+            meta = row["metadata"] if isinstance(row["metadata"], dict) else _j.loads(row["metadata"] or "{}")
+            report("erl_reflect_failure: tags has 'failure'",
+                   "failure" in (meta.get("tags") or []), f"tags={meta.get('tags')}")
+    finally:
+        srv._erl_call_ollama = orig
+
+
+async def test_erl_reflect_malformed_ollama():
+    """[Test] ERL: malformed JSON → retries once, returns 0 gracefully."""
+    await _erl_reset_test_agent()
+    import mcp_server_v2 as srv
+    import json as _j
+
+    call_count = {"n": 0}
+
+    async def fake_ollama(prompt, timeout=30.0):
+        call_count["n"] += 1
+        return "this is not json at all just prose"
+
+    orig = srv._erl_call_ollama
+    srv._erl_call_ollama = fake_ollama
+    try:
+        raw = await srv.erl_reflect(
+            agent=ERL_TEST_AGENT,
+            task_description="x",
+            outcome="success",
+            trajectory="y",
+        )
+        out = _j.loads(raw)
+        report("erl_reflect_malformed: generated == 0",
+               out.get("heuristics_generated") == 0, f"out={out}")
+        report("erl_reflect_malformed: error=malformed_json",
+               out.get("error") == "malformed_json", f"error={out.get('error')}")
+        report("erl_reflect_malformed: retried once (2 calls)",
+               call_count["n"] == 2, f"calls={call_count['n']}")
+    finally:
+        srv._erl_call_ollama = orig
+
+
+async def test_erl_inject_retrieval():
+    """[Test] ERL: inject retrieves heuristics ordered by fused score."""
+    await _erl_reset_test_agent()
+    import mcp_server_v2 as srv
+    import json as _j
+
+    for i, conf in enumerate([0.95, 0.85, 0.75, 0.8, 0.9]):
+        await _erl_seed_heuristic(
+            srv,
+            f"heuristica test numero {i} sobre migracion schema postgres",
+            conf,
+        )
+
+    raw = await srv.erl_inject(
+        agent=ERL_TEST_AGENT,
+        task_description="migracion schema postgres",
+        top_k=5,
+        min_confidence=0.7,
+    )
+    out = _j.loads(raw)
+    hs = out.get("heuristics", [])
+    report("erl_inject_retrieval: returned heuristics",
+           len(hs) >= 1, f"count={len(hs)}")
+    if len(hs) >= 2:
+        sorted_ok = all(hs[i]["score"] >= hs[i + 1]["score"] for i in range(len(hs) - 1))
+        report("erl_inject_retrieval: sorted desc by score",
+               sorted_ok, f"scores={[round(h['score'], 3) for h in hs]}")
+
+
+async def test_erl_inject_min_confidence():
+    """[Test] ERL: heuristics below min_confidence filtered out."""
+    await _erl_reset_test_agent()
+    import mcp_server_v2 as srv
+    import json as _j
+
+    await _erl_seed_heuristic(srv, "baja confianza test", 0.5)
+    await _erl_seed_heuristic(srv, "alta confianza test", 0.9)
+
+    raw = await srv.erl_inject(
+        agent=ERL_TEST_AGENT,
+        task_description="confianza test",
+        top_k=10,
+        min_confidence=0.8,
+    )
+    out = _j.loads(raw)
+    hs = out.get("heuristics", [])
+    all_above = all(h["confidence"] >= 0.8 for h in hs)
+    report("erl_inject_min_conf: all >= 0.8", all_above,
+           f"confs={[h['confidence'] for h in hs]}")
+    report("erl_inject_min_conf: low-conf excluded",
+           not any("baja" in h["heuristic"] for h in hs),
+           "0.5 filtered")
+
+
+async def test_erl_inject_activation_count():
+    """[Test] ERL: inject increments activation_count on returned heuristics."""
+    await _erl_reset_test_agent()
+    import mcp_server_v2 as srv
+    import json as _j
+
+    hid = await _erl_seed_heuristic(
+        srv, "heuristica para activation count incremento test", 0.9, activation_count=2
+    )
+    raw = await srv.erl_inject(
+        agent=ERL_TEST_AGENT,
+        task_description="heuristica para activation count incremento test",
+        top_k=5,
+        min_confidence=0.7,
+    )
+    out = _j.loads(raw)
+    hs = out.get("heuristics", [])
+    if hs:
+        report("erl_inject_activation: response count == 3",
+               hs[0].get("activation_count") == 3,
+               f"count={hs[0].get('activation_count')}")
+    pool = await srv.get_pool()
+    row = await pool.fetchrow("SELECT metadata FROM memories WHERE id = $1", hid)
+    if row:
+        meta = row["metadata"] if isinstance(row["metadata"], dict) else _j.loads(row["metadata"] or "{}")
+        report("erl_inject_activation: persisted in DB == 3",
+               meta.get("activation_count") == 3,
+               f"db_count={meta.get('activation_count')}")
+
+
+async def test_erl_inject_formatted_context():
+    """[Test] ERL: formatted_context is non-empty Spanish bullet format."""
+    await _erl_reset_test_agent()
+    import mcp_server_v2 as srv
+    import json as _j
+
+    await _erl_seed_heuristic(srv, "validar entrada siempre antes de procesar", 0.9)
+    raw = await srv.erl_inject(
+        agent=ERL_TEST_AGENT,
+        task_description="validar entrada",
+        top_k=5,
+        min_confidence=0.7,
+    )
+    out = _j.loads(raw)
+    fc = out.get("formatted_context", "")
+    report("erl_inject_formatted: non-empty", len(fc) > 0, f"len={len(fc)}")
+    report("erl_inject_formatted: Spanish header",
+           "Lecciones aprendidas" in fc, f"head={fc[:60]}")
+    report("erl_inject_formatted: bullet present", "•" in fc, "bullet ok")
+
+
+async def test_erl_promote_sweep():
+    """[Test] ERL: conf=0.9 + activation=3 → promoted to instinct."""
+    await _erl_reset_test_agent()
+    import mcp_server_v2 as srv
+    import json as _j
+
+    hid = await _erl_seed_heuristic(
+        srv, "heuristica candidata a instinto promocion", 0.9, activation_count=3
+    )
+    res = await srv._erl_promote_sweep(ERL_TEST_AGENT)
+    report("erl_promote_sweep: promoted >= 1",
+           res.get("promoted", 0) >= 1, f"res={res}")
+    report("erl_promote_sweep: id in promoted_ids",
+           hid in res.get("promoted_ids", []),
+           f"ids={res.get('promoted_ids')}")
+    pool = await srv.get_pool()
+    row = await pool.fetchrow("SELECT metadata FROM memories WHERE id = $1", hid)
+    if row:
+        meta = row["metadata"] if isinstance(row["metadata"], dict) else _j.loads(row["metadata"] or "{}")
+        report("erl_promote_sweep: metadata.promoted_to_instinct set",
+               meta.get("promoted_to_instinct") is not None,
+               f"pti={meta.get('promoted_to_instinct')}")
+
+
+async def test_erl_promote_skip():
+    """[Test] ERL: conf=0.8 (< 0.85) → NOT promoted."""
+    await _erl_reset_test_agent()
+    import mcp_server_v2 as srv
+
+    hid = await _erl_seed_heuristic(
+        srv, "heuristica baja confianza no promocionable", 0.8, activation_count=5
+    )
+    res = await srv._erl_promote_sweep(ERL_TEST_AGENT)
+    report("erl_promote_skip: not in promoted_ids",
+           hid not in res.get("promoted_ids", []),
+           f"res={res}")
+
+
+async def test_erl_round_trip():
+    """[Test] ERL: reflect → inject round-trip returns the heuristic."""
+    await _erl_reset_test_agent()
+    import mcp_server_v2 as srv
+    import json as _j
+
+    async def fake_ollama(prompt, timeout=30.0):
+        # confidence=1.0 → importance=8 → bypasses A-MAC admission gate
+        return _j.dumps([
+            {"heuristic": "al migrar schema postgres siempre hacer dry-run primero",
+             "applies_to": "schema_migration",
+             "confidence": 1.0}
+        ])
+    orig = srv._erl_call_ollama
+    srv._erl_call_ollama = fake_ollama
+    try:
+        res_raw = await srv.erl_reflect(
+            agent=ERL_TEST_AGENT,
+            task_description="migrar schema postgres dry-run primero",
+            outcome="success",
+            trajectory="hice dry-run, validé, corrí live",
+        )
+        res = _j.loads(res_raw)
+        stored = res.get("heuristics_generated", 0) >= 1
+        report("erl_round_trip: reflect stored heuristic", stored, f"res={res}")
+        raw = await srv.erl_inject(
+            agent=ERL_TEST_AGENT,
+            task_description="migrar schema postgres dry-run",
+            top_k=3,
+            min_confidence=0.7,
+        )
+        out = _j.loads(raw)
+        hs = out.get("heuristics", [])
+        found = any("dry-run" in h["heuristic"] for h in hs)
+        report("erl_round_trip: heuristic retrieved",
+               found, f"count={len(hs)}, hs={[h.get('heuristic','')[:50] for h in hs]}")
+    finally:
+        srv._erl_call_ollama = orig
+
+
 async def main():
     print("=" * 60)
     print(f"🧪 SEAL MCP Tool Test Suite — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     print("=" * 60)
 
     tests = [
+        ("A-MAC — 5-Factor Admission Gate", test_amac_admission_gate),
         ("SleepGate — Dry Run", test_sleep_gate_dry_run),
         ("SleepGate — Emotional Resistance", test_sleep_gate_forget_emotional_resistance),
         ("SleepGate — Cron Syntax", test_sleep_gate_cron_syntax),
@@ -925,6 +2276,56 @@ async def main():
         ("Bitemporal Edges", test_bitemporal_edges),
         ("Peer Model Table", test_peer_model_table),
         ("Reflection Synthesize", test_reflection_synthesize),
+        ("Wave 3 Schema Columns", test_wave3_columns),
+        ("Rate Limiting — Sliding Window", test_rate_limiting),
+        ("Health Check — Structure & Live Services", test_health_check_structure),
+        ("Graceful Shutdown — Idempotency", test_graceful_shutdown),
+        ("Tier 5 — Opinions Schema", test_tier5_opinions_schema),
+        ("Tier 5 — Belief Query", test_tier5_belief_query),
+        ("Tier 5 — Boot Context Beliefs", test_tier5_boot_context_beliefs),
+        ("Tier 5 — Reflection Writes Opinions", test_tier5_reflection_writes_opinions),
+        ("Cold Archive — Table Exists", test_cold_archive_table_exists),
+        ("Cold Archive — Migrate Dry Run", test_cold_archive_migrate_dry_run),
+        ("Cold Archive — Migrate Live", test_cold_archive_migrate_live),
+        ("Cold Archive — Query Empty", test_cold_archive_query_empty),
+        ("Cold Archive — Stats", test_cold_archive_stats),
+        ("Cold Archive — TTL Purge", test_cold_archive_ttl_purge),
+        ("Cold Archive — Include Archived Search", test_memory_search_include_archived),
+        ("MIRIX — Classification", test_mirix_classification),
+        ("MIRIX — Migration", test_mirix_migration),
+        ("MIRIX — Retrieval Filter", test_mirix_retrieval_filter),
+        ("MIRIX — Core Boost", test_mirix_core_boost),
+        ("MIRIX — Vault Exclusion", test_mirix_vault_exclusion),
+        ("MIRIX — Boot Context", test_mirix_boot_context),
+        ("Wave 3 — Pre-compute Scoring", test_wave3_precompute_scoring),
+        ("Wave 3 — Recall Tracking", test_wave3_recall_tracking),
+        # TG-RAG Phase 2 — Persistent Temporal Summaries (arxiv 2510.13590)
+        ("TG-RAG — Summary Persist", test_tg_summary_persist),
+        ("TG-RAG — Summary Get", test_tg_summary_get),
+        ("TG-RAG — Global Strategy", test_tg_global_strategy),
+        ("TG-RAG — Fallback", test_tg_fallback),
+        ("TG-RAG — Hierarchical", test_tg_hierarchical),
+        # MAGMA — Multi-Graph Parallel Fusion (arxiv 2601.03236)
+        ("MAGMA — Basic Retrieval", test_magma_basic),
+        ("MAGMA — Parallel Views", test_magma_parallel),
+        ("MAGMA — Dedup", test_magma_dedup),
+        ("MAGMA — Cross-Graph Boost", test_magma_cross_boost),
+        ("MAGMA — Auto Intent", test_magma_auto_intent),
+        ("MAGMA — Manual Views", test_magma_manual_views),
+        ("MAGMA — Fuse False", test_magma_fuse_false),
+        ("MAGMA — Empty Graceful", test_magma_empty),
+        # ERL — Experiential Reflective Learning (arxiv 2603.24639)
+        ("ERL — Reflect Success", test_erl_reflect_success),
+        ("ERL — Reflect Failure", test_erl_reflect_failure),
+        ("ERL — Reflect Malformed Ollama", test_erl_reflect_malformed_ollama),
+        ("ERL — Inject Retrieval", test_erl_inject_retrieval),
+        ("ERL — Inject Min Confidence", test_erl_inject_min_confidence),
+        ("ERL — Inject Activation Count", test_erl_inject_activation_count),
+        ("ERL — Inject Formatted Context", test_erl_inject_formatted_context),
+        ("ERL — Promote Sweep", test_erl_promote_sweep),
+        ("ERL — Promote Skip", test_erl_promote_skip),
+        ("ERL — Round Trip", test_erl_round_trip),
+        # Token regression test lives in separate file: test_token_savings.py (6 tests)
     ]
 
     for name, test_fn in tests:

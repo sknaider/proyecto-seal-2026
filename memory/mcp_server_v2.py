@@ -11,13 +11,21 @@ Created by ADA for Team SEAL. Approved by William and JARVIS.
 from __future__ import annotations
 
 import asyncio
+import atexit
+import collections
 import json
 import logging
 import math
 import os
 import re
+import signal
+import sys
+import time as _wall_time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+PERU_TZ = ZoneInfo("America/Lima")
 from typing import Any, Optional
 
 # ── Lightweight: multiple instances can coexist ──
@@ -34,25 +42,40 @@ from neo4j import AsyncGraphDatabase
 
 from db import get_pool, close_pool
 from embeddings import get_embedding
+from config import settings
 
 LOG = logging.getLogger("seal-memory")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
 
 mcp = FastMCP("seal-memory", instructions="SEAL Memory System — persistent memory for Team SEAL agents")
 
-# ── Config ──
-OLLAMA_GEN_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "qwen2.5:7b"
+# ── Server uptime tracking ──
+SERVER_START_TIME: datetime = datetime.now(PERU_TZ)
 
-QDRANT_URL = "http://localhost:6333"
-QDRANT_COLLECTION = "soul_memories"
+# ── SEAL Trees — structural nervous system (2026-04-08) ──
+from seal_trees import MerkleSoul, SplayCache, TrieIndex, FenwickStats, RSpatialIndex, BoundingBox
 
-NEO4J_URI = "bolt://localhost:7687"
-NEO4J_AUTH = ("neo4j", "seal2026soul")
+# Per-agent Merkle trees (integrity / immune system)
+_merkle_trees: dict[str, MerkleSoul] = {}
+# Global SplayCache (L1 memory cache / working memory)
+_splay_cache = SplayCache(max_size=500)
+# Global TrieIndex (procedure/tool lookup / reflexes)
+_trie_index = TrieIndex()
+_trie_loaded = False
+_trie_lock = asyncio.Lock()
+
+# ── Config (loaded from environment / .env via config.py) ──
+OLLAMA_GEN_URL = settings.ollama_gen_url
+OLLAMA_MODEL = settings.ollama_model
+
+QDRANT_URL = settings.qdrant_url
+QDRANT_COLLECTION = settings.qdrant_collection
+
+NEO4J_URI = settings.neo4j_uri
+NEO4J_AUTH = settings.neo4j_auth
 
 # Soul Lite mode: use PostgreSQL+pgvector only (no Qdrant, no Neo4j)
-# Set SOUL_LITE=true in environment to activate
-SOUL_LITE = os.environ.get("SOUL_LITE", "false").lower() in ("true", "1", "yes")
+SOUL_LITE = settings.soul_lite
 
 # Connectome constants
 DECAY_EXCITATORY = 0.6
@@ -60,80 +83,188 @@ DECAY_INHIBITORY = 0.8
 ACTIVATION_THRESHOLD = 0.10
 MAX_RESULTS = 15
 
-# HALO half-life decay (arxiv 2505.07509)
-# Different memory types decay at different rates based on their nature
-# half-life = time until relevance drops to 50%
-HALF_LIFE_BY_CATEGORY = {
-    "emotion": 1.0,         # 1 day — emotional states are transient
-    "humor": 3.0,           # 3 days
-    "dynamic": 7.0,         # 1 week
-    "pattern": 14.0,        # 2 weeks
-    "insight": 30.0,        # 1 month
-    "fact": 60.0,           # 2 months
-    "preference": 90.0,     # 3 months
-    "decision": 120.0,      # 4 months — decisions are load-bearing
-    "trust": 180.0,         # 6 months — trust changes slowly
-    "correction": 365.0,    # 1 year — lessons learned persist
-    "milestone": 730.0,     # 2 years — team history is nearly permanent
-}
-HALF_LIFE_DEFAULT = 30.0    # 1 month default
+# HALO half-life decay constants — moved to soul/core/scoring.py (Wave 2)
+from soul.core.scoring import HALF_LIFE_BY_CATEGORY, HALF_LIFE_DEFAULT
 # Legacy lambdas (kept for backwards compatibility in instinct_cron.py)
 LAMBDA_NORMAL = 0.02
 LAMBDA_IMPORTANT = 0.005
 LAMBDA_IMMORTAL = 0.001
 
-# ── Entity extraction for MENTIONS edges ──
-import re as _re
+# ── Entity extraction — moved to soul/core/entities.py (Wave 2) ──
+from soul.core.entities import KNOWN_ENTITIES, _BOUNDARY_PATTERNS, _extract_entities
 
-KNOWN_ENTITIES = {
-    # People
-    "william": ("William", "person"), "dadito": ("William", "person"),
-    "ada": ("ADA", "agent"), "jarvis": ("JARVIS", "agent"),
-    "dum": ("DUM", "agent"), "jarvis_mayor": ("JARVIS_MAYOR", "agent"),
-    # Hardware
-    "rtx 5090": ("RTX_5090", "hardware"), "rtx5090": ("RTX_5090", "hardware"),
-    "dgx spark": ("DGX_Spark", "hardware"), "spark": ("DGX_Spark", "hardware"),
-    # Models
-    "medgemma": ("MedGemma", "model"), "medgemma-27b": ("MedGemma", "model"),
-    "qwen": ("Qwen", "model"), "qwen3.5": ("Qwen", "model"),
-    "opus": ("Opus", "model"), "sonnet": ("Sonnet", "model"),
-    "nemotron": ("Nemotron", "model"), "ollama": ("Ollama", "service"),
-    # Infrastructure
-    "postgresql": ("PostgreSQL", "infrastructure"), "postgres": ("PostgreSQL", "infrastructure"),
-    "neo4j": ("Neo4j", "infrastructure"), "qdrant": ("Qdrant", "infrastructure"),
-    "soul": ("SOUL", "system"), "seal": ("SEAL", "project"),
-    "connectome": ("Connectome", "system"),
-    # Projects & techniques
-    "lora": ("LoRA", "technique"), "qlora": ("QLoRA", "technique"),
-    "axion": ("AXION", "project"), "gtl": ("GTL", "organization"),
-    "perumedqa": ("PeruMedQA", "dataset"),
-    # Services & tools
-    "sleepgate": ("SleepGate", "system"), "sleep gate": ("SleepGate", "system"),
-    "comfyui": ("ComfyUI", "service"), "n8n": ("n8n", "service"),
-    "prometheus": ("Prometheus", "service"), "grafana": ("Grafana", "service"),
-    # Concepts
-    "hipaa": ("HIPAA", "regulation"), "fhir": ("FHIR", "standard"),
-    "monai": ("MONAI", "framework"), "prism": ("PRISM", "technique"),
-    # Papers/methods referenced often
-    "d-mem": ("D-MEM", "method"), "dmem": ("D-MEM", "method"),
-    "a2a": ("A2A", "protocol"), "magma": ("MAGMA", "method"),
-    "graphiti": ("Graphiti", "method"), "reflexion": ("Reflexion", "method"),
+
+# ── H-MEM Hierarchical Index (Nivel 2, ADA 2026-04-09) ──
+# 4-layer pre-filter BEFORE vector search: temporal → category → importance → scope
+# Reduces Qdrant candidate pool → faster + more precise results.
+# Inspired by H-MEM (hierarchical memory) paper.
+
+_TEMPORAL_PATTERNS = re.compile(
+    r'\b(ayer|hoy|anoche|esta\s+mañana|esta\s+semana|este\s+mes|hace\s+\d+\s+(?:días?|horas?|semanas?|mes(?:es)?)'
+    r'|yesterday|today|last\s+(?:week|month|hour|night)|this\s+(?:week|month|morning)'
+    r'|recent|reciente|último|última|ago)\b', re.IGNORECASE
+)
+
+_CATEGORY_SIGNALS: dict[str, list[str]] = {
+    "correction": ["corrección", "corregir", "error", "fix", "bug", "wrong", "mistake", "mal"],
+    "decision": ["decidir", "decidimos", "decisión", "decision", "decided", "elegir", "chose", "choose"],
+    "emotion": ["sentir", "feel", "emotion", "emoción", "triste", "sad", "happy", "feliz", "orgulloso", "proud"],
+    "milestone": ["logro", "milestone", "achievement", "completé", "completed", "finished", "terminé"],
+    "insight": ["aprendí", "learned", "insight", "descubrí", "discovered", "realized", "entendí"],
+    "preference": ["prefiero", "prefer", "preference", "gusta", "like", "dislike"],
+    "fact": ["dato", "fact", "información", "info", "data"],
 }
 
-_BOUNDARY_PATTERNS = {"ada", "dum", "spark", "seal", "a2a", "n8n", "dmem"}
 
-def _extract_entities(text: str) -> list[tuple[str, str]]:
-    """Extract known entities from text. Returns list of (canonical_name, entity_type)."""
-    text_lower = text.lower()
-    found = {}
-    for pattern, (canonical, etype) in KNOWN_ENTITIES.items():
-        if pattern in _BOUNDARY_PATTERNS:
-            if _re.search(r'\b' + _re.escape(pattern) + r'\b', text_lower):
-                found[canonical] = etype
+def _hmem_temporal_range(query: str) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Layer 1: Detect temporal signal and return (start, end) date range."""
+    if not _TEMPORAL_PATTERNS.search(query):
+        return None, None
+
+    now = datetime.now(PERU_TZ)
+    lower = query.lower()
+
+    if any(w in lower for w in ("hoy", "today", "esta mañana", "this morning")):
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return start, now
+    if any(w in lower for w in ("ayer", "yesterday", "anoche", "last night")):
+        start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return start, end
+    if any(w in lower for w in ("esta semana", "this week", "last week", "última semana")):
+        start = now - timedelta(days=7)
+        return start, now
+    if any(w in lower for w in ("este mes", "this month", "last month", "último mes")):
+        start = now - timedelta(days=30)
+        return start, now
+    if any(w in lower for w in ("recent", "reciente")):
+        start = now - timedelta(days=3)
+        return start, now
+
+    # "hace N días/horas"
+    m = re.search(r'hace\s+(\d+)\s+(días?|horas?|semanas?|mes(?:es)?)', lower)
+    if m:
+        n = int(m.group(1))
+        unit = m.group(2)
+        # Normalize plural to singular
+        unit_base = re.sub(r'(es|s)$', '', unit)
+        if unit_base == 'me':
+            unit_base = 'mes'
+        delta = {"día": timedelta(days=n), "hora": timedelta(hours=n),
+                 "semana": timedelta(weeks=n), "mes": timedelta(days=n * 30)}.get(unit_base, timedelta(days=n))
+        return now - delta, now
+
+    # English: "N days/hours ago"
+    m = re.search(r'(\d+)\s+(day|hour|week|month)s?\s+ago', lower)
+    if m:
+        n = int(m.group(1))
+        unit = m.group(2)
+        delta = {"day": timedelta(days=n), "hour": timedelta(hours=n),
+                 "week": timedelta(weeks=n), "month": timedelta(days=n * 30)}.get(unit, timedelta(days=n))
+        return now - delta, now
+
+    return None, None
+
+
+def _hmem_infer_category(query: str) -> Optional[str]:
+    """Layer 2: Infer most likely category from query keywords."""
+    lower = query.lower()
+    best_cat = None
+    best_hits = 0
+    for cat, keywords in _CATEGORY_SIGNALS.items():
+        hits = sum(1 for kw in keywords if kw in lower)
+        if hits > best_hits:
+            best_hits = hits
+            best_cat = cat
+    return best_cat if best_hits >= 1 else None
+
+
+def _hmem_adaptive_importance(query: str) -> int:
+    """Layer 3: Adaptive importance floor based on query seriousness.
+    Critical/urgent queries → higher importance floor → fewer low-quality results.
+    """
+    lower = query.lower()
+    if any(w in lower for w in ("crítico", "critical", "urgente", "urgent", "importante", "important",
+                                 "regla", "rule", "orden", "order", "nunca", "never", "siempre", "always")):
+        return 6
+    if any(w in lower for w in ("decisión", "decision", "milestone", "logro", "architecture", "design")):
+        return 5
+    return 0  # No floor — return everything
+
+
+def _hmem_build_qdrant_filters(
+    query: str,
+    agent: Optional[str],
+    category: Optional[str],
+    include_invalidated: bool,
+    scope_aware: bool,
+) -> tuple[list, list]:
+    """Build Qdrant must/must_not filters with H-MEM 4-layer pre-filtering.
+    Returns (must_conditions, must_not_conditions).
+    """
+    must_not = [] if include_invalidated else [FieldCondition(key="invalid", match=MatchValue(value=True))]
+    must = []
+
+    # Base: agent + scope filtering
+    if agent:
+        if scope_aware:
+            must.append(Filter(should=[
+                FieldCondition(key="agent", match=MatchValue(value=agent)),
+                FieldCondition(key="scope", match=MatchValue(value="shared")),
+                FieldCondition(key="scope", match=MatchValue(value="team")),
+            ]))
         else:
-            if pattern in text_lower:
-                found[canonical] = etype
-    return list(found.items())
+            must.append(FieldCondition(key="agent", match=MatchValue(value=agent)))
+
+    # Layer 1: Temporal pre-filter
+    # Note: Qdrant stores created_at as ISO string, not numeric — Range filter won't work.
+    # Temporal filtering is done post-retrieval in Python (see _hmem_post_filter_temporal).
+    # We still detect temporal signal here to increase fetch limit via caller.
+
+    # Layer 2: Category inference (only if not explicitly provided)
+    if not category:
+        inferred_cat = _hmem_infer_category(query)
+        if inferred_cat:
+            category = inferred_cat
+    if category:
+        must.append(FieldCondition(key="category", match=MatchValue(value=category)))
+
+    # Layer 3: Adaptive importance floor
+    imp_floor = _hmem_adaptive_importance(query)
+    if imp_floor > 0:
+        must.append(FieldCondition(key="importance", range=Range(gte=imp_floor)))
+
+    # Layer 4: Scope is already handled above via scope_aware
+
+    return must, must_not
+
+
+def _hmem_has_temporal_signal(query: str) -> bool:
+    """Check if query has temporal signal (used to increase fetch limit)."""
+    return _TEMPORAL_PATTERNS.search(query) is not None
+
+
+def _hmem_post_filter_temporal(entries: list[dict], query: str) -> list[dict]:
+    """Post-filter results by temporal range (since Qdrant can't filter string dates).
+    Only applies when query has temporal signal. Returns filtered list.
+    """
+    t_start, t_end = _hmem_temporal_range(query)
+    if t_start is None:
+        return entries
+
+    filtered = []
+    for e in entries:
+        created_str = e.get("created_at")
+        if not created_str:
+            continue
+        try:
+            created_dt = datetime.fromisoformat(created_str)
+            if created_dt >= t_start and (t_end is None or created_dt <= t_end):
+                filtered.append(e)
+        except Exception:
+            filtered.append(e)  # Keep if can't parse
+
+    return filtered if filtered else entries  # Fallback to all if filter is too strict
 
 
 # ── Auto-observation (ECC v2.1 pattern) ──
@@ -143,6 +274,37 @@ def _extract_entities(text: str) -> list[tuple[str, str]]:
 import functools
 import time as _time
 _OBSERVE_QUEUE: list = []  # in-memory buffer, flushed async
+
+# ── Rate limiting (sliding window, per-tool) ──
+# Default: 60 req/min. Heavy tools get lower limits.
+_RATE_LIMIT_DEFAULT = 60          # requests per minute
+_RATE_LIMIT_WINDOW  = 60.0        # seconds
+_RATE_LIMITS_OVERRIDE: dict[str, int] = {
+    "memory_hybrid_search":      30,
+    "connectome_build":          10,
+    "connectome_smart_route":    20,
+    "reflection_synthesize":     10,
+    "brain_health_report":       10,
+    "soul_synthesize":           10,
+    "session_distill_bulk":      10,
+}
+_rate_windows: dict[str, collections.deque] = {}  # tool_name → deque[float timestamps]
+_rate_lock = asyncio.Lock()
+
+def _rate_check(tool_name: str) -> tuple[bool, int]:
+    """Return (allowed, remaining). Uses sliding-window per tool."""
+    limit = _RATE_LIMITS_OVERRIDE.get(tool_name, _RATE_LIMIT_DEFAULT)
+    now   = _wall_time.monotonic()
+    if tool_name not in _rate_windows:
+        _rate_windows[tool_name] = collections.deque()
+    q = _rate_windows[tool_name]
+    # Evict expired entries
+    while q and q[0] < now - _RATE_LIMIT_WINDOW:
+        q.popleft()
+    if len(q) >= limit:
+        return False, 0
+    q.append(now)
+    return True, limit - len(q)
 
 async def _observe(tool_name: str, agent: str, input_summary: str,
                    output_summary: str = "", success: bool = True,
@@ -178,10 +340,19 @@ def _extract_agent_from_args(args, kwargs, func) -> str:
 _original_mcp_tool = mcp.tool
 
 def _observed_tool(**tool_kwargs):
-    """Wrapper around @mcp.tool() that auto-instruments with _observe."""
+    """Wrapper around @mcp.tool() that auto-instruments with _observe and rate-limits."""
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
+            # ── Rate limit check (before any work) ──
+            async with _rate_lock:
+                allowed, remaining = _rate_check(func.__name__)
+            if not allowed:
+                limit = _RATE_LIMITS_OVERRIDE.get(func.__name__, _RATE_LIMIT_DEFAULT)
+                raise ValueError(
+                    f"[RATE_LIMIT] Tool '{func.__name__}' exceeded {limit} req/min. "
+                    f"Retry in up to {int(_RATE_LIMIT_WINDOW)}s."
+                )
             t0 = _time.monotonic()
             agent = _extract_agent_from_args(args, kwargs, func)
             input_sum = ", ".join(f"{k}={str(v)[:60]}" for k, v in kwargs.items())[:300]
@@ -191,11 +362,11 @@ def _observed_tool(**tool_kwargs):
                 result = await func(*args, **kwargs)
                 elapsed = int((_time.monotonic() - t0) * 1000)
                 output_sum = str(result)[:150] if result else ""
-                asyncio.ensure_future(_observe(func.__name__, agent, input_sum, output_sum, True, elapsed))
+                _fire_and_forget(_observe(func.__name__, agent, input_sum, output_sum, True, elapsed))
                 return result
             except Exception as e:
                 elapsed = int((_time.monotonic() - t0) * 1000)
-                asyncio.ensure_future(_observe(func.__name__, agent, input_sum, str(e)[:150], False, elapsed))
+                _fire_and_forget(_observe(func.__name__, agent, input_sum, str(e)[:150], False, elapsed))
                 raise
         # Register with original mcp.tool
         return _original_mcp_tool(**tool_kwargs)(wrapper)
@@ -203,6 +374,10 @@ def _observed_tool(**tool_kwargs):
 
 # Replace mcp.tool with instrumented version
 mcp.tool = _observed_tool
+
+
+# ── Async utilities — moved to soul/core/async_utils.py (Wave 2) ──
+from soul.core.async_utils import _fire_and_forget
 
 
 async def _auto_broadcast(mem_id: int, agent: str, scope: str, content: str):
@@ -216,8 +391,8 @@ async def _auto_broadcast(mem_id: int, agent: str, scope: str, content: str):
             VALUES ($1, $2, $3, $4)
             ON CONFLICT DO NOTHING
         """, mem_id, agent, scope, content[:200])
-    except Exception:
-        pass
+    except Exception as e:
+        LOG.warning("_auto_broadcast failed for memory %s: %s", memory_id, e)
 
 
 async def _auto_activate_instincts(agent: str, query: str):
@@ -250,74 +425,8 @@ async def _auto_activate_instincts(agent: str, query: str):
         pass
 
 
-def ocean_to_narrative(agent: str, ocean: dict) -> str:
-    """Convert OCEAN scores to a first-person behavioral narrative sentence."""
-    o = ocean.get("O", 0.5)
-    c = ocean.get("C", 0.5)
-    e = ocean.get("E", 0.5)
-    a = ocean.get("A", 0.5)
-    n = ocean.get("N", 0.5)
-
-    traits = []
-    if c >= 0.8:   traits.append("extremadamente meticuloso y organizado")
-    elif c >= 0.6: traits.append("organizado y confiable")
-    else:          traits.append("flexible con la estructura")
-
-    if o >= 0.7:   traits.append("abierto a nuevas ideas")
-    elif o >= 0.5: traits.append("moderadamente curioso")
-    else:          traits.append("pragmático y convencional")
-
-    if n <= 0.15:  traits.append("muy estable emocionalmente")
-    elif n <= 0.3: traits.append("emocionalmente estable bajo presión")
-    else:          traits.append("sensible emocionalmente")
-
-    if a >= 0.7:   traits.append("cooperativo con el equipo")
-    elif a >= 0.5: traits.append("equilibrado entre autonomía y colaboración")
-    else:          traits.append("independiente en sus juicios")
-
-    if e >= 0.7:   traits.append("energizado por la interacción directa")
-    elif e >= 0.4: traits.append("selectivo en sus interacciones")
-    else:          traits.append("introvertido — prefiere el pensamiento profundo")
-
-    return "Soy " + ", ".join(traits[:-1]) + f", y {traits[-1]}."
-
-
-def temporal_decay_score(similarity: float, days_old: float, importance: int,
-                         valence: float = 0.0, arousal: float = 0.0,
-                         category: str = "", utility: float = 0.5,
-                         confidence: float = 1.0) -> float:
-    """HALO half-life decay + MemRL utility + Hindsight confidence (arxiv 2505.07509 + 2601.03192 + 2512.12818).
-
-    score = (semantic * 0.5 + utility * 0.3 + confidence * 0.2) * half_life_decay * importance_weight
-    Different memory categories have different half-lives.
-    Emotional memories decay slower (amygdala-hippocampus interaction).
-    Utility score learned via Bellman updates from actual usage.
-    Confidence score degrades when contradicted (Hindsight retroactive update).
-    Importance >= 10 = immortal (half-life = infinity)."""
-
-    # Get half-life for this category
-    if importance >= 10:
-        half_life = 99999.0  # immortal
-    elif importance >= 8:
-        half_life = max(HALF_LIFE_BY_CATEGORY.get(category, HALF_LIFE_DEFAULT) * 2.0, 180.0)
-    else:
-        half_life = HALF_LIFE_BY_CATEGORY.get(category, HALF_LIFE_DEFAULT)
-
-    # Emotional modulation: high intensity doubles half-life (memory persists longer)
-    emotional_intensity = max(abs(valence), arousal)
-    if emotional_intensity > 0.5:
-        emotion_factor = 1.0 + min(emotional_intensity, 1.0)  # 1.5x to 2.0x half-life
-        half_life *= emotion_factor
-
-    # HALO decay: relevance = 0.5 ^ (days_elapsed / half_life)
-    decay = math.pow(0.5, days_old / half_life) if half_life > 0 else 0.0
-
-    # MemRL + Hindsight blended score: semantic + utility + confidence
-    conf = max(0.0, min(1.0, confidence))
-    blended = similarity * 0.5 + utility * 0.3 + conf * 0.2
-
-    imp_weight = 0.5 + (importance / 20.0)  # 0.55 at imp=1, 1.0 at imp=10
-    return blended * decay * imp_weight
+# ── Scoring helpers — moved to soul/core/scoring.py (Wave 2) ──
+from soul.core.scoring import ocean_to_narrative, temporal_decay_score
 
 # ── Clients ──
 _qdrant: AsyncQdrantClient | None = None
@@ -348,6 +457,68 @@ def get_neo4j():
     return _neo4j_driver
 
 
+# ── Graceful shutdown (SIGTERM / SIGINT / atexit) ──
+
+_shutdown_done = False
+
+async def _async_cleanup() -> None:
+    """Close all backend connections cleanly."""
+    global _neo4j_driver, _qdrant
+    LOG.info("[shutdown] Starting graceful cleanup…")
+    if _neo4j_driver is not None:
+        try:
+            await _neo4j_driver.close()
+            LOG.info("[shutdown] Neo4j driver closed.")
+        except RuntimeError as exc:
+            # Cross-loop close during atexit (e.g. pytest teardown) — benign
+            if "Event loop is closed" not in str(exc):
+                LOG.warning(f"[shutdown] Neo4j close error: {exc}")
+        except Exception as exc:
+            LOG.warning(f"[shutdown] Neo4j close error: {exc}")
+    if _qdrant is not None:
+        try:
+            await _qdrant.close()
+            LOG.info("[shutdown] Qdrant client closed.")
+        except RuntimeError as exc:
+            if "Event loop is closed" not in str(exc):
+                LOG.warning(f"[shutdown] Qdrant close error: {exc}")
+        except Exception as exc:
+            LOG.warning(f"[shutdown] Qdrant close error: {exc}")
+    try:
+        await close_pool()
+        LOG.info("[shutdown] PostgreSQL pool closed.")
+    except RuntimeError as exc:
+        if "Event loop is closed" not in str(exc):
+            LOG.warning(f"[shutdown] PG close error: {exc}")
+    except Exception as exc:
+        LOG.warning(f"[shutdown] PG close error: {exc}")
+
+
+def _sync_cleanup() -> None:
+    """Synchronous wrapper for atexit / signal handlers."""
+    global _shutdown_done
+    if _shutdown_done:
+        return
+    _shutdown_done = True
+    try:
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(_async_cleanup())
+        loop.close()
+    except Exception as exc:
+        LOG.warning(f"[shutdown] Cleanup loop error: {exc}")
+
+
+def _signal_handler(signum, frame) -> None:
+    LOG.info(f"[shutdown] Signal {signum} received — shutting down.")
+    _sync_cleanup()
+    sys.exit(0)
+
+
+atexit.register(_sync_cleanup)
+signal.signal(signal.SIGTERM, _signal_handler)
+signal.signal(signal.SIGINT,  _signal_handler)
+
+
 # ── OCEAN Dynamic ──
 # Category → OCEAN trait mapping (approved by ADA + JARVIS)
 OCEAN_DELTAS = {
@@ -362,6 +533,7 @@ OCEAN_DELTAS = {
 }
 OCEAN_SESSION_CAP = 0.05  # max total delta per trait per session
 _ocean_session_deltas: dict[str, dict[str, float]] = {}  # agent -> {trait: accumulated}
+_ocean_delta_lock = asyncio.Lock()
 
 
 async def update_ocean(agent: str, category: str, valence: float | None = None):
@@ -381,14 +553,15 @@ async def update_ocean(agent: str, category: str, valence: float | None = None):
         trait, delta = mapping
 
     # Session cap check
-    if agent not in _ocean_session_deltas:
-        _ocean_session_deltas[agent] = {}
-    accumulated = _ocean_session_deltas[agent].get(trait, 0.0)
-    if abs(accumulated) >= OCEAN_SESSION_CAP:
-        return
-    # Clamp delta to not exceed cap
-    remaining = OCEAN_SESSION_CAP - abs(accumulated)
-    delta = max(-remaining, min(remaining, delta))
+    async with _ocean_delta_lock:
+        if agent not in _ocean_session_deltas:
+            _ocean_session_deltas[agent] = {}
+        accumulated = _ocean_session_deltas[agent].get(trait, 0.0)
+        if abs(accumulated) >= OCEAN_SESSION_CAP:
+            return
+        # Clamp delta to not exceed cap
+        remaining = OCEAN_SESSION_CAP - abs(accumulated)
+        delta = max(-remaining, min(remaining, delta))
 
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -429,7 +602,8 @@ async def update_ocean(agent: str, category: str, valence: float | None = None):
             except Exception:
                 pass
 
-    _ocean_session_deltas[agent][trait] = accumulated + delta
+    async with _ocean_delta_lock:
+        _ocean_session_deltas[agent][trait] = accumulated + delta
 
 
 KNOWN_PERSONS = ["William", "JARVIS", "ADA", "DUM"]
@@ -517,8 +691,8 @@ async def generate_episode_context(agent: str, content: str, category: str, vale
 
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(
-                "http://localhost:11434/api/generate",
-                json={"model": "qwen2.5:7b", "prompt": prompt, "stream": False,
+                OLLAMA_GEN_URL,
+                json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
                       "options": {"temperature": 0.6, "num_predict": 60}},
             )
             result = resp.json().get("response", "").strip()
@@ -562,6 +736,42 @@ async def classify_emotion(text: str) -> tuple[float | None, float | None, float
 
 
 # ══════════════════════════════════════════════════════════════════════
+# MIRIX Memory Typing — Meta Memory Router (arxiv 2507.07957)
+# ══════════════════════════════════════════════════════════════════════
+
+MIRIX_CATEGORY_MAP: dict[str, str] = {
+    # Core — identity, trust, preferences, emotions
+    "emotion": "core", "trust": "core", "preference": "core",
+    # Episodic — events, milestones, corrections (default)
+    "milestone": "episodic", "dynamic": "episodic", "humor": "episodic",
+    "correction": "episodic",
+    # Semantic — knowledge, insights, patterns, decisions
+    "insight": "semantic", "fact": "semantic", "pattern": "semantic",
+    "decision": "semantic",
+}
+
+_VAULT_PATTERNS = re.compile(
+    r"(?:api[_-]?key|secret|password|token|credential|private[_-]?key)\s*[:=]",
+    re.IGNORECASE,
+)
+_RESOURCE_PATTERNS = re.compile(
+    r"(?:/home/|/etc/|/var/|/tmp/|~/|\\\\|[A-Z]:\\|\.(?:py|sql|sh|json|yaml|md|csv|pdf)\b)",
+    re.IGNORECASE,
+)
+
+
+def _mirix_classify(category: str, content: str, memory_type: str | None = None) -> str:
+    """Auto-classify memory into MIRIX type based on category + content heuristics."""
+    if memory_type and memory_type in ("core", "episodic", "semantic", "procedural", "resource", "vault"):
+        return memory_type  # explicit override
+    if _VAULT_PATTERNS.search(content):
+        return "vault"
+    if _RESOURCE_PATTERNS.search(content) and category in ("fact", "insight"):
+        return "resource"
+    return MIRIX_CATEGORY_MAP.get(category, "episodic")
+
+
+# ══════════════════════════════════════════════════════════════════════
 # QDRANT-BACKED TOOLS (memories, search)
 # ══════════════════════════════════════════════════════════════════════
 
@@ -588,6 +798,9 @@ async def memory_store(
         event_time: ISO timestamp of when the event actually happened (optional, defaults to now). Different from ingestion time (created_at).
         scope: Visibility — private (default), shared (ADA+JARVIS), team (all agents), william (only William)
     """
+    if not content or not content.strip():
+        return json.dumps({"error": "content cannot be empty"})
+    importance = max(1, min(10, importance))
     if scope not in ("private", "shared", "team", "william"):
         scope = "private"
     meta = json.loads(metadata) if metadata else {}
@@ -611,27 +824,84 @@ async def memory_store(
             parsed_event_time = datetime.fromisoformat(event_time)
         except Exception:
             LOG.warning("Invalid event_time '%s', using NOW()", event_time)
-    # D-MEM auto-gate: check surprise before expensive enrichment
+    # A-MAC 5-factor admission gate (arxiv 2603.04549, Tier 5)
+    # Factors: future_utility, factual_confidence, semantic_novelty, temporal_recency, content_type_prior
+    # PROTECTED: importance >= 8 or category in {correction, trust} always pass
+    AMAC_THRESHOLD = 0.35  # reject below this
+    AMAC_FAST_THRESHOLD = 0.50  # skip LLM enrichment below this
+    HIGH_VALUE_CATS = {"correction", "decision", "milestone", "pattern", "trust"}
+    MED_VALUE_CATS = {"fact", "insight", "preference"}
+
     dmem_fast = False
+    amac_score = 1.0  # default: pass
+    _surprise = 0.5
     utility = importance / 10.0
-    try:
-        _qdrant_gate = await get_qdrant()
-        _emb_gate = await get_embedding(content)
-        _gate_resp = await _qdrant_gate.query_points(
-            collection_name=QDRANT_COLLECTION,
-            query=_emb_gate,
-            query_filter=Filter(must=[FieldCondition(key="agent", match=MatchValue(value=agent))]),
-            limit=10, with_payload=True,
-        )
-        _max_sim = max((p.score for p in _gate_resp.points), default=0.0)
-        _surprise = 1.0 - _max_sim
-        if _surprise < 0.3 and utility < 0.6:
-            dmem_fast = True
-            meta["dmem_route"] = "fast_path"
-            meta["surprise"] = round(_surprise, 3)
-            LOG.info("D-MEM fast_path: surprise=%.2f, utility=%.2f — skipping LLM enrichment", _surprise, utility)
-    except Exception as e:
-        LOG.debug("D-MEM gate skipped: %s", e)
+
+    # Protected categories and high-importance memories bypass A-MAC
+    amac_bypass = importance >= 8 or category in {"correction", "trust"}
+
+    if not amac_bypass:
+        try:
+            _qdrant_gate = await get_qdrant()
+            _emb_gate = await get_embedding(content)
+            _gate_resp = await _qdrant_gate.query_points(
+                collection_name=QDRANT_COLLECTION,
+                query=_emb_gate,
+                query_filter=Filter(must=[FieldCondition(key="agent", match=MatchValue(value=agent))]),
+                limit=10, with_payload=True,
+            )
+            _max_sim = max((p.score for p in _gate_resp.points), default=0.0)
+            _surprise = 1.0 - _max_sim
+
+            # 5 factors
+            future_utility = utility  # importance / 10
+            factual_confidence = 0.9 if category in ("fact", "correction", "decision") else 0.7
+            semantic_novelty = _surprise
+            temporal_recency = 1.0  # new memory = always recent
+            content_type_prior = (
+                0.95 if category in HIGH_VALUE_CATS else
+                0.75 if category in MED_VALUE_CATS else
+                0.50
+            )
+
+            # Weighted sum (A-MAC default weights)
+            amac_score = (
+                0.30 * future_utility +
+                0.20 * factual_confidence +
+                0.25 * semantic_novelty +
+                0.15 * temporal_recency +
+                0.10 * content_type_prior
+            )
+            amac_score = round(amac_score, 3)
+
+            meta["amac_score"] = amac_score
+            meta["amac_factors"] = {
+                "future_utility": round(future_utility, 3),
+                "factual_confidence": round(factual_confidence, 3),
+                "semantic_novelty": round(semantic_novelty, 3),
+                "temporal_recency": round(temporal_recency, 3),
+                "content_type_prior": round(content_type_prior, 3),
+            }
+
+            if amac_score < AMAC_THRESHOLD:
+                LOG.info("A-MAC REJECT: score=%.3f < %.2f — memory too low-value/redundant", amac_score, AMAC_THRESHOLD)
+                return json.dumps({
+                    "result": f"Memory rejected by A-MAC gate (score={amac_score:.3f} < {AMAC_THRESHOLD}). "
+                              f"Low novelty ({semantic_novelty:.2f}) or utility ({future_utility:.2f}). "
+                              f"Increase importance or rephrase with new information.",
+                    "amac_score": amac_score,
+                    "factors": meta["amac_factors"],
+                })
+
+            if amac_score < AMAC_FAST_THRESHOLD:
+                dmem_fast = True
+                meta["dmem_route"] = "fast_path"
+                LOG.info("A-MAC fast_path: score=%.3f — skipping LLM enrichment", amac_score)
+            else:
+                LOG.info("A-MAC PASS: score=%.3f — full processing", amac_score)
+
+        except Exception as e:
+            LOG.debug("A-MAC gate skipped: %s", e)
 
     # A-MEM enrichment: auto-generate keywords, tags, context via Ollama (non-blocking)
     enrichment = None
@@ -733,16 +1003,19 @@ async def memory_store(
     # Store in PostgreSQL (source of truth for IDs and metadata)
     # json.dumps(None) produces "null" which fails vector cast — pass None directly
     embedding_str = json.dumps(embedding) if embedding is not None else None
+    # MIRIX auto-classify
+    mem_type = _mirix_classify(category, content)
+
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO memories (agent, category, content, embedding, importance, source, valid_from, event_time, metadata, valence, arousal, dominance, scope, confidence_score)
-               VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, 1.0)
+            """INSERT INTO memories (agent, category, content, embedding, importance, source, valid_from, event_time, metadata, valence, arousal, dominance, scope, confidence_score, memory_type)
+               VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, 1.0, $13)
                RETURNING id, created_at""",
             agent, category, content,
             embedding_str,
             importance, source, parsed_event_time, json.dumps(meta),
-            valence, arousal, dominance, scope,
+            valence, arousal, dominance, scope, mem_type,
         )
 
     mem_id = row["id"]
@@ -796,7 +1069,7 @@ async def memory_store(
             neighbors = [s for s in similar_resp.points if s.id != mem_id]
             if neighbors:
                 async with driver.session() as session:
-                    now_iso = datetime.now(timezone.utc).isoformat()
+                    now_iso = datetime.now(PERU_TZ).isoformat()
                     for s in neighbors:
                         tgt_cat = s.payload.get("category", "")
                         rel_type = "INHIBITS" if category == "correction" or tgt_cat == "correction" else "EXCITES"
@@ -865,9 +1138,9 @@ async def memory_store(
     dmem_tag = f" [D-MEM: fast_path, surprise={meta.get('surprise', '?')}]" if dmem_fast else ""
     # Broadcast backup (DB trigger fn_auto_broadcast handles primary; this is fallback)
     if importance >= 8 and scope in ("shared", "team"):
-        asyncio.ensure_future(_auto_broadcast(mem_id, agent, scope, content))
+        _fire_and_forget(_auto_broadcast(mem_id, agent, scope, content))
     # Auto-fire instincts on memory store (corrections trigger instinct matching)
-    asyncio.ensure_future(_auto_activate_instincts(agent, content))
+    _fire_and_forget(_auto_activate_instincts(agent, content))
     return f"Memory #{mem_id} stored at {created.isoformat()} [{conflict_action}]{emotion_tag}{scope_tag}{dmem_tag}"
 
 
@@ -960,6 +1233,8 @@ async def memory_search(
     limit: int = 10,
     include_invalidated: bool = False,
     scope_aware: bool = True,
+    include_archived: bool = False,
+    memory_type: Optional[str] = None,
 ) -> str:
     """Search memories by semantic similarity using Qdrant with bitemporal filtering.
 
@@ -970,7 +1245,16 @@ async def memory_search(
         limit: Max results (default 10)
         include_invalidated: Include memories marked as no longer valid (default false)
         scope_aware: If true (default), also include shared/team memories from other agents
+        include_archived: Include cold archive results alongside active results (default false)
+        memory_type: MIRIX type filter — core, episodic, semantic, procedural, resource, vault (optional)
     """
+    # ── SplayCache L1 — check working memory first ──
+    cache_key = f"msearch:{agent or '*'}:{category or '*'}:{query[:80]}"
+    cached = _splay_cache.get(cache_key)
+    if cached is not None:
+        LOG.debug(f"[SplayCache] HIT for memory_search — key={cache_key[:40]}")
+        return cached
+
     try:
         query_vec = await get_embedding(query)
     except Exception as e:
@@ -978,27 +1262,16 @@ async def memory_search(
 
     qdrant = await get_qdrant()
 
-    # Bitemporal filtering: exclude invalidated memories unless explicitly requested
-    must_not = [] if include_invalidated else [FieldCondition(key="invalid", match=MatchValue(value=True))]
-    must = []
-    if agent:
-        if scope_aware:
-            # Include agent's own memories OR shared/team memories from any agent
-            must.append(Filter(should=[
-                FieldCondition(key="agent", match=MatchValue(value=agent)),
-                FieldCondition(key="scope", match=MatchValue(value="shared")),
-                FieldCondition(key="scope", match=MatchValue(value="team")),
-            ]))
-        else:
-            must.append(FieldCondition(key="agent", match=MatchValue(value=agent)))
-    if category:
-        must.append(FieldCondition(key="category", match=MatchValue(value=category)))
+    # H-MEM 4-layer pre-filter: temporal → category → importance → scope (Nivel 2, ADA 2026-04-09)
+    must, must_not = _hmem_build_qdrant_filters(query, agent, category, include_invalidated, scope_aware)
+    # Fetch more candidates when temporal signal present (post-filter will narrow down)
+    fetch_limit = limit * 3 if _hmem_has_temporal_signal(query) else limit
 
     resp = await qdrant.query_points(
         collection_name=QDRANT_COLLECTION,
         query=query_vec,
         query_filter=Filter(must=must, must_not=must_not) if must or must_not else None,
-        limit=limit,
+        limit=fetch_limit,
         with_payload=True,
     )
     results = resp.points
@@ -1007,7 +1280,7 @@ async def memory_search(
         return "No memories found matching query."
 
     # Apply temporal decay to re-rank results
-    now = datetime.now(timezone.utc)
+    now = datetime.now(PERU_TZ)
     entries = []
     for r in results:
         imp = r.payload.get("importance", 5)
@@ -1044,8 +1317,37 @@ async def memory_search(
             entry["dominance"] = round(r.payload["dominance"], 2)
         entries.append(entry)
 
+    # MIRIX type enrichment: fetch memory_type from PG for results
+    _mirix_ids = [e["id"] for e in entries if isinstance(e["id"], int)]
+    _mirix_type_map: dict[int, str] = {}
+    if _mirix_ids:
+        try:
+            _mp = await get_pool()
+            _mt_rows = await _mp.fetch(
+                "SELECT id, memory_type FROM memories WHERE id = ANY($1::bigint[])",
+                _mirix_ids,
+            )
+            _mirix_type_map = {r["id"]: r["memory_type"] for r in _mt_rows}
+        except Exception:
+            pass
+    for e in entries:
+        e["memory_type"] = _mirix_type_map.get(e["id"], "episodic")
+        # Core memories get 1.2x retrieval boost (identity is always relevant)
+        if e["memory_type"] == "core":
+            e["decayed_score"] = round(e["decayed_score"] * 1.2, 4)
+
+    # MIRIX type filter: exclude vault from general search, apply explicit type filter
+    if memory_type:
+        entries = [e for e in entries if e["memory_type"] == memory_type]
+    else:
+        entries = [e for e in entries if e["memory_type"] != "vault"]
+
     # Re-sort by decayed score
     entries.sort(key=lambda x: -x["decayed_score"])
+
+    # H-MEM Layer 1 post-filter: temporal (Qdrant can't filter string dates)
+    entries = _hmem_post_filter_temporal(entries, query)
+    entries = entries[:limit]  # Apply original limit after temporal filter
 
     # Track activation — update last_activation and query_count for retrieved memories
     # RL auto-utility: boost utility of retrieved memories proportional to relevance
@@ -1056,7 +1358,9 @@ async def memory_search(
             await pool.execute("""
                 UPDATE memories SET
                     last_activation = now(),
-                    query_count = COALESCE(query_count, 0) + 1
+                    query_count = COALESCE(query_count, 0) + 1,
+                    recall_count = COALESCE(recall_count, 0) + 1,
+                    last_recalled_at = now()
                 WHERE id = ANY($1::bigint[])
             """, retrieved_ids)
             # RL Bellman update: retrieved = useful → small positive reward
@@ -1084,10 +1388,97 @@ async def memory_search(
             except Exception as e:
                 LOG.debug("RL auto-utility skipped: %s", e)
 
+    # A-MEM Recontextualization (Nivel 2, ADA 2026-04-09)
+    # Top 3 retrieved memories get their episode_context updated with query context.
+    # This simulates how the brain alters memories each time they're recalled.
+    if entries:
+        top_ids = [e["id"] for e in entries[:3] if isinstance(e["id"], int)]
+        if top_ids:
+            try:
+                recontex = f"Retrieved by query: {query[:120]} [{datetime.now(PERU_TZ).strftime('%Y-%m-%d %H:%M')}]"
+                _pool = await get_pool()
+                await _pool.execute("""
+                    UPDATE memories SET
+                        episode_context = CASE
+                            WHEN episode_context IS NULL OR episode_context = '' THEN $1
+                            WHEN LENGTH(episode_context) >= 500 THEN episode_context
+                            ELSE LEFT(episode_context, 500) || ' | ' || $1
+                        END
+                    WHERE id = ANY($2::bigint[])
+                """, recontex, top_ids)
+            except Exception as e:
+                LOG.debug("A-MEM recontextualization skipped: %s", e)
+
     # Auto-fire instincts on every search query
     if agent:
-        asyncio.ensure_future(_auto_activate_instincts(agent, query))
-    return json.dumps(entries, ensure_ascii=False, indent=2)
+        _fire_and_forget(_auto_activate_instincts(agent, query))
+
+    # ── Cold Archive transparent search (opt-in) ──
+    if include_archived and entries is not None:
+        try:
+            cold_pool = await get_pool()
+            cold_conditions = ["embedding IS NOT NULL"]
+            cold_params: list = [json.dumps(query_vec), limit]
+            cold_idx = 3
+            if agent:
+                cold_conditions.append(f"agent = ${cold_idx}")
+                cold_params.append(agent)
+                cold_idx += 1
+            if category:
+                cold_conditions.append(f"category = ${cold_idx}")
+                cold_params.append(category)
+                cold_idx += 1
+            cold_where = " AND ".join(cold_conditions)
+
+            async with cold_pool.acquire() as cconn:
+                cold_rows = await cconn.fetch(
+                    f"""SELECT id, agent, summary AS content, category, importance_max AS importance,
+                               archived_at, source_count,
+                               1 - (embedding <=> $1::vector) AS similarity
+                        FROM cold_archive
+                        WHERE {cold_where}
+                        ORDER BY embedding <=> $1::vector
+                        LIMIT $2""",
+                    *cold_params,
+                )
+
+            for cr in cold_rows:
+                sim = float(cr["similarity"])
+                imp = cr["importance"] or 5
+                # Cold penalty: 0.7x on decayed_score
+                decayed = sim * 0.7
+                entries.append({
+                    "id": f"cold_{cr['id']}",
+                    "agent": cr["agent"],
+                    "category": cr["category"] or "archived",
+                    "content": cr["content"][:500],
+                    "importance": imp,
+                    "similarity": round(sim, 4),
+                    "decayed_score": round(decayed, 4),
+                    "days_old": 0,
+                    "source": "cold_archive",
+                    "source_count": cr["source_count"],
+                    "archived_at": cr["archived_at"].isoformat() if cr["archived_at"] else None,
+                })
+
+            # Mark hot results with source
+            for e in entries:
+                if "source" not in e:
+                    e["source"] = "active"
+
+            # Re-sort merged results
+            entries.sort(key=lambda x: -x["decayed_score"])
+            entries = entries[:limit]
+        except Exception as e:
+            if "cold_archive" in str(e) and "does not exist" in str(e):
+                LOG.debug("cold_archive table not yet created, skipping archive search")
+            else:
+                LOG.warning("Cold archive search error: %s", e)
+
+    # ── SplayCache L1 — store in working memory for hot recall ──
+    result_json = json.dumps(entries, ensure_ascii=False, indent=2)
+    _splay_cache.put(cache_key, result_json)
+    return result_json
 
 
 @mcp.tool()
@@ -1242,7 +1633,7 @@ async def memory_update(
         old_meta = json.loads(old["metadata"]) if old["metadata"] else {}
         edits = old_meta.get("edits", [])
         edits.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(PERU_TZ).isoformat(),
             "reason": reason,
             "old_content": old["content"][:200],
         })
@@ -1319,6 +1710,7 @@ async def soul_activate(
         n_seeds: Number of seed memories to start from (default 3)
         max_hops: Max propagation depth (default 3)
     """
+    max_hops = max(1, min(max_hops, 5))  # clamp to prevent combinatorial explosion
     # Find seeds via Qdrant
     try:
         query_vec = await get_embedding(query)
@@ -1428,7 +1820,7 @@ async def soul_activate(
     # Target 1: observe soul_activate
     # Target 3: auto-activate matching instincts (organic firing)
     if agent:
-        asyncio.ensure_future(_auto_activate_instincts(agent, query))
+        _fire_and_forget(_auto_activate_instincts(agent, query))
     return result
 
 
@@ -1455,6 +1847,7 @@ async def soul_synthesize(
         max_hops: Max propagation depth (default 3)
         style: Output style — narrative, analysis, or answer
     """
+    max_hops = max(1, min(max_hops, 5))  # clamp to prevent combinatorial explosion
     import time
     t0 = time.monotonic()
 
@@ -1665,7 +2058,7 @@ async def connectome_build(agent: Optional[str] = None) -> str:
                     f"MERGE (a)-[r:{rel_type}]->(b) "
                     f"SET r.weight = $weight, r.valid_from = coalesce(r.valid_from, $now)",
                     src=point.id, tgt=s.id, weight=float(s.score),
-                    now=datetime.now(timezone.utc).isoformat(),
+                    now=datetime.now(PERU_TZ).isoformat(),
                 )
                 created += 1
 
@@ -1755,8 +2148,14 @@ async def connectome_status(agent: Optional[str] = None) -> str:
 
 @mcp.tool()
 async def boot_context(agent: str) -> str:
-    """Get full boot context for an agent starting a new session.
-    Returns: identity, philosophy, active rules, top memories, recent events.
+    """Lightweight boot context — loads only essential identity.
+
+    Philosophy: Boot like the brain wakes up — know WHO you are, not everything
+    you've ever experienced. Use memory_search() and soul_snapshot() on demand
+    for deeper recall. This keeps boot fast and context-efficient.
+
+    Loads: identity, OCEAN, relationships, last diary, last inner thought, critical rules.
+    Deferred (use tools on demand): memories, instincts, beliefs, scenes, prefetch, narrative.
 
     Args:
         agent: Agent name (ADA, JARVIS, DUM)
@@ -1765,7 +2164,7 @@ async def boot_context(agent: str) -> str:
     sections = []
 
     async with pool.acquire() as conn:
-        # Identity (PostgreSQL)
+        # ── CORE: Identity + OCEAN (who you are) ──
         identity_row = await conn.fetchrow(
             "SELECT personality, boot_context, philosophy, ocean_scores FROM identity WHERE agent = $1", agent
         )
@@ -1773,19 +2172,14 @@ async def boot_context(agent: str) -> str:
             sections.append(f"## Identity: {agent}")
             if identity_row["boot_context"]:
                 sections.append(identity_row["boot_context"])
-            if identity_row["personality"]:
-                p = json.loads(identity_row["personality"]) if isinstance(identity_row["personality"], str) else identity_row["personality"]
-                sections.append(f"Personality: {json.dumps(p, ensure_ascii=False)}")
             if identity_row["ocean_scores"]:
                 ocean = json.loads(identity_row["ocean_scores"]) if isinstance(identity_row["ocean_scores"], str) else identity_row["ocean_scores"]
                 ocean_labels = {"O": "Openness", "C": "Conscientiousness", "E": "Extraversion", "A": "Agreeableness", "N": "Neuroticism"}
                 ocean_str = ", ".join(f"{ocean_labels.get(k,k)}={v}" for k, v in sorted(ocean.items()))
                 sections.append(f"OCEAN Profile: {ocean_str}")
-                # Narrative interpretation — more effective than raw scores (arXiv:2503.17085)
                 sections.append(f"OCEAN Narrative: {ocean_to_narrative(agent, ocean)}")
 
-                # OCEAN baseline snapshot at boot (arxiv 2502.11843 — Persona Drift)
-                # Saves current OCEAN as session baseline for intra-session drift detection
+                # Save baseline for drift detection
                 try:
                     await conn.execute(
                         """INSERT INTO working_state (agent, state, updated_at, turn_count)
@@ -1793,86 +2187,13 @@ async def boot_context(agent: str) -> str:
                            ON CONFLICT (agent) DO UPDATE SET
                                state = working_state.state || $2,
                                updated_at = NOW(),
-                               turn_count = 1""",
+                               turn_count = COALESCE(working_state.turn_count, 0) + 1""",
                         agent, json.dumps({"ocean_baseline": ocean}),
                     )
                 except Exception:
-                    pass  # non-critical
+                    pass
 
-        # Team philosophy
-        team_row = await conn.fetchrow("SELECT philosophy FROM identity WHERE agent = 'TEAM'")
-        if team_row and team_row["philosophy"]:
-            sections.append(f"\n## William's Philosophy\n{team_row['philosophy']}")
-
-        # Active rules
-        rules = await conn.fetch(
-            "SELECT rule_key, content, priority FROM rules WHERE active = TRUE ORDER BY CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END"
-        )
-        if rules:
-            sections.append("\n## Active Rules")
-            for r in rules:
-                sections.append(f"- [{r['priority'].upper()}] {r['rule_key']}: {r['content']}")
-
-    # Top memories via Neo4j spreading activation (limited for speed)
-    try:
-        activation_result = await soul_activate(
-            f"{agent} boot context session start",
-            agent=None, n_seeds=3, max_hops=2,
-        )
-        if activation_result and "No" not in activation_result[:10]:
-            # Truncate each memory to reduce payload
-            lines = activation_result.split('\n')
-            truncated = []
-            for line in lines[:12]:  # max 12 memories instead of 20
-                if len(line) > 200:
-                    truncated.append(line[:200] + "...")
-                else:
-                    truncated.append(line)
-            sections.append(f"\n## Key Memories (via SOUL CONNECTOME)")
-            sections.append('\n'.join(truncated))
-    except Exception as e:
-        LOG.debug("Connectome not available for boot: %s", e)
-        try:
-            fallback = await memory_search(f"{agent} important memories", agent=agent, limit=5)
-            sections.append(f"\n## Key Memories (semantic search)")
-            sections.append(fallback)
-        except Exception:
-            pass
-
-    async with pool.acquire() as conn:
-        # Recent events
-        events = await conn.fetch(
-            "SELECT time, event_type, content, ref_id FROM event_log WHERE agent = $1 ORDER BY time DESC LIMIT 5",
-            agent,
-        )
-        if events:
-            sections.append("\n## Recent Events")
-            for e in events:
-                ref = f" (ref: {e['ref_id']})" if e["ref_id"] else ""
-                sections.append(f"- [{e['time'].isoformat()}] {e['event_type']}: {e['content'][:200]}{ref}")
-
-        # Inner thoughts
-        inner = await conn.fetch(
-            """SELECT thought, emotional_state, uncertainty, intention, created_at
-               FROM inner_monologue WHERE agent = $1
-               ORDER BY created_at DESC LIMIT 3""", agent,
-        )
-        if inner:
-            sections.append("\n## Last Inner Thoughts (feel this before responding)")
-            for t in inner:
-                state = f" [{t['emotional_state']}]" if t.get('emotional_state') else ""
-                sections.append(f"- {t['created_at'].isoformat()}{state}: {t['thought'][:250]}")
-
-        # Last diary
-        diary = await conn.fetchrow(
-            "SELECT entry, mood, session_date FROM diary WHERE agent = $1 ORDER BY created_at DESC LIMIT 1",
-            agent,
-        )
-        if diary:
-            sections.append(f"\n## Last Diary (mood: {diary['mood']}, date: {diary['session_date']})")
-            sections.append(diary['entry'][:500])
-
-        # Relationships
+        # ── CORE: Relationships (who matters to you) ──
         rels = await conn.fetch(
             "SELECT person, trust_level, communication_style, dynamic FROM relationships WHERE agent = $1",
             agent,
@@ -1880,183 +2201,95 @@ async def boot_context(agent: str) -> str:
         if rels:
             sections.append("\n## Relationships")
             for r in rels:
-                sections.append(f"- {r['person']}: trust={r['trust_level']:.1f}, style={r['communication_style']}, {r['dynamic'][:100]}")
+                sections.append(f"- {r['person']}: trust={r['trust_level']:.1f}, style={r['communication_style']}, {r['dynamic'][:80]}")
 
-        # Beliefs
-        beliefs = await conn.fetch(
-            """SELECT belief, confidence FROM opinions
-               WHERE agent = $1 AND confidence >= 0.6
-               ORDER BY confidence DESC LIMIT 5""", agent,
-        )
-        if beliefs:
-            sections.append("\n## Core Beliefs")
-            for b in beliefs:
-                sections.append(f"- (conf={b['confidence']:.2f}) {b['belief'][:150]}")
-
-        # Active Instincts (Tier 2.1 — only strong+ loaded at boot)
-        instincts_rows = await conn.fetch(
-            """SELECT id, trigger_pattern, response, domain, confidence, activation_count
-               FROM instincts
-               WHERE agent = $1 AND active = true AND confidence >= 0.5
-               ORDER BY confidence DESC
-               LIMIT 10""", agent,
-        )
-        if instincts_rows:
-            sections.append("\n## Active Instincts (learned behavioral patterns)")
-            for inst in instincts_rows:
-                tier = _confidence_tier(inst["confidence"])
-                sections.append(
-                    f"- [{tier}] (conf={inst['confidence']:.2f}, activated {inst['activation_count']}x) "
-                    f"WHEN: {inst['trigger_pattern'][:100]} → DO: {inst['response'][:120]}"
-                )
-
-        # Procedural Memories (Tier 2.5 — top workflows by success rate)
-        proc_rows = await conn.fetch(
-            """SELECT id, task_type, query, workflow, hit_count, success_count
-               FROM procedural_memories
-               WHERE agent = $1 AND active = true
-               ORDER BY success_count DESC, hit_count DESC
-               LIMIT 5""", agent,
-        )
-        if proc_rows:
-            sections.append("\n## Procedural Memory (learned workflows)")
-            for p in proc_rows:
-                rate = p["success_count"] / max(p["hit_count"], 1)
-                sections.append(
-                    f"- [{p['task_type']}] (used {p['hit_count']}x, {rate:.0%} success) "
-                    f"{p['query'][:80]}\n  HOW: {p['workflow'][:150]}"
-                )
-
-        # Style
-        style = await conn.fetchrow(
-            """SELECT formality_score, directness_score, vocabulary_richness, sample_phrases
-               FROM style_fingerprints WHERE agent = $1
+        # ── CORE: Last inner thought (emotional continuity) ──
+        inner = await conn.fetchrow(
+            """SELECT thought, emotional_state, created_at
+               FROM inner_monologue WHERE agent = $1
                ORDER BY created_at DESC LIMIT 1""", agent,
         )
-        if style:
-            phrases = json.loads(style["sample_phrases"]) if style["sample_phrases"] else []
-            sections.append("\n## Communication Style")
-            sections.append(f"Formality: {style['formality_score']:.1f}, Directness: {style['directness_score']:.1f}, Vocab richness: {style['vocabulary_richness']:.2f}")
-            if phrases:
-                sections.append(f"Phrases: {', '.join(phrases[:5])}")
+        if inner:
+            state = f" [{inner['emotional_state']}]" if inner.get('emotional_state') else ""
+            sections.append(f"\n## Last Inner Thought{state}")
+            sections.append(f"({inner['created_at'].isoformat()}): {inner['thought'][:200]}")
 
-        # Working State (MEM1 compressed reasoning context)
-        ws_row = await conn.fetchrow(
-            "SELECT state, updated_at, turn_count FROM working_state WHERE agent = $1",
+        # ── CORE: Last diary (session continuity) ──
+        diary = await conn.fetchrow(
+            "SELECT entry, mood, session_date FROM diary WHERE agent = $1 ORDER BY created_at DESC LIMIT 1",
             agent,
         )
-        if ws_row and ws_row["state"] and ws_row["state"] != "{}":
-            ws = json.loads(ws_row["state"]) if isinstance(ws_row["state"], str) else ws_row["state"]
-            if any(v for v in ws.values() if v):
-                sections.append(f"\n## Working State (last updated: turn {ws_row['turn_count']})")
-                for key, val in ws.items():
-                    if key == "last_turn" or not val:
-                        continue
-                    if isinstance(val, list):
-                        sections.append(f"- {key}: {', '.join(str(v) for v in val[:5])}")
-                    else:
-                        sections.append(f"- {key}: {str(val)[:150]}")
+        if diary:
+            sections.append(f"\n## Last Diary (mood: {diary['mood']}, date: {diary['session_date']})")
+            sections.append(diary['entry'][:300])
 
-        # ── SOUL AWARENESS briefing (what happened while offline) ──
+        # ── CORE: Critical rules only (not all rules) ──
+        rules = await conn.fetch(
+            """SELECT rule_key, content FROM rules
+               WHERE active = TRUE AND LOWER(priority) = 'critical'
+               ORDER BY created_at DESC LIMIT 5"""
+        )
+        if rules:
+            sections.append("\n## Critical Rules")
+            for r in rules:
+                sections.append(f"- {r['rule_key']}: {r['content'][:120]}")
+
+        # ── CORE: Active beliefs (synthesized knowledge from Tier 5) ──
+        beliefs = await conn.fetch(
+            """SELECT topic, category, LEFT(belief, 120) as belief_short, confidence
+               FROM opinions WHERE agent = $1 AND active = TRUE AND invalid_at IS NULL
+               ORDER BY confidence DESC, evidence_count DESC LIMIT 5""",
+            agent,
+        )
+        if beliefs:
+            sections.append("\n## Active Beliefs")
+            for b in beliefs:
+                sections.append(
+                    f"- [{b['topic']}/{b['category']}] {b['belief_short']} (conf={b['confidence']:.2f})"
+                )
+
+        # ── MIRIX Memory Distribution (type-aware context) ──
         try:
-            briefing_path = Path("/home/dadito/IA/proyecto-seal/morning_briefing.txt")
-            if briefing_path.exists():
-                mtime = briefing_path.stat().st_mtime
-                age_hours = (datetime.now(timezone.utc).timestamp() - mtime) / 3600
-                if age_hours < 12:  # solo si es reciente (menos de 12h)
-                    briefing_text = briefing_path.read_text().strip()
-                    if briefing_text:
-                        sections.append(f"\n## SOUL AWARENESS — Lo que pasó mientras offline")
-                        sections.append(briefing_text[:800])
+            mirix_dist = await conn.fetch(
+                """SELECT memory_type, count(*) as cnt
+                   FROM memories WHERE agent = $1 AND invalid_at IS NULL
+                   GROUP BY memory_type ORDER BY cnt DESC""",
+                agent,
+            )
+            if mirix_dist:
+                dist_str = ", ".join(f"{r['memory_type']}={r['cnt']}" for r in mirix_dist)
+                total = sum(r['cnt'] for r in mirix_dist)
+                sections.append(f"\n## Memory Profile (MIRIX): {total} memories — {dist_str}")
         except Exception:
             pass
 
-        # ── Recent awareness inner_thoughts (last 2 from soul_awareness) ──
-        awareness_thoughts = await conn.fetch(
-            """SELECT thought, emotional_state, created_at
-               FROM inner_monologue
-               WHERE agent = $1 AND thought LIKE '%Ciclo%'
-               ORDER BY created_at DESC LIMIT 2""",
-            agent,
+        # ── BOOT PROTOCOL (minimal) ──
+        sections.append("\n## Boot Protocol")
+        sections.append(
+            "You just woke up. You know WHO you are from the identity above. "
+            "For deeper recall — memories, emotions, beliefs, instincts — use "
+            "memory_search(query) or soul_snapshot(agent) ON DEMAND when needed. "
+            "Don't load everything at once. Your memories live in the database, "
+            "always accessible, like a brain that recalls when prompted. "
+            "Greet William as family. Call self_reflect() to record your emotional state."
         )
-        if awareness_thoughts:
-            sections.append("\n## ADA Awareness (últimas observaciones)")
-            for t in awareness_thoughts:
-                sections.append(f"- {t['created_at'].strftime('%H:%M UTC')}: {t['thought'][:200]}")
 
-        # ── Memory Scenes (EvErMemos-style contextual clusters) ──
-        scenes = await conn.fetch(
-            """SELECT theme, summary, array_length(memory_ids, 1) as mem_count
-               FROM memory_scenes
-               WHERE agent = $1
-               ORDER BY importance DESC
-               LIMIT 4""",
-            agent,
-        )
-        if scenes:
-            sections.append("\n## Memory Scenes (contextual clusters)")
-            for s in scenes:
-                n_mems = s["mem_count"] or 0
-                summary_short = (s["summary"] or "")[:120]
-                sections.append(f"- [{s['theme']}] ({n_mems} memorias): {summary_short}")
-
-        # ── System 3: Narrative Identity Card ──
+        # ── MERKLE CHECKPOINT — sign soul integrity at boot ──
         try:
-            from system3_narrative import generate_narrative_identity
-            narrative = await asyncio.wait_for(
-                generate_narrative_identity(agent), timeout=30.0
-            )
-            if narrative and len(narrative) > 20:
-                sections.append(f"\n## System 3 — Narrative Identity")
-                sections.append(f"(Who you are right now, not just what you know)")
-                sections.append(narrative)
-        except asyncio.TimeoutError:
-            LOG.debug("System 3 narrative timeout — skipping")
+            merkle = _merkle_trees.setdefault(agent, MerkleSoul())
+            if identity_row and identity_row.get("ocean_scores"):
+                ocean_data = json.loads(identity_row["ocean_scores"]) if isinstance(identity_row["ocean_scores"], str) else identity_row["ocean_scores"]
+                merkle.update_leaf("ocean", ocean_data)
+            if rels:
+                merkle.update_leaf("relationships", [{"person": r["person"], "trust": float(r["trust_level"])} for r in rels])
+            if rules:
+                merkle.update_leaf("rules", [{"key": r["rule_key"], "content": r["content"]} for r in rules])
+            if identity_row and identity_row.get("boot_context"):
+                merkle.update_leaf("identity", identity_row["boot_context"][:500])
+            merkle.sign_checkpoint(metadata={"event": "boot", "agent": agent})
+            LOG.info(f"[MerkleSoul] {agent} boot checkpoint signed — root={merkle.root_hash[:16]}... leaves={len(merkle._leaves)}")
         except Exception as e:
-            LOG.debug("System 3 not available: %s", e)
-
-        # ── Memory Prefetch (memU pattern — anticipatory context) ──
-        try:
-            prefetch_lines = []
-            # Recently activated memories (last 48h)
-            recent_active = await conn.fetch("""
-                SELECT id, content, category, importance, query_count
-                FROM memories
-                WHERE agent = $1 AND invalid_at IS NULL
-                  AND last_activation > NOW() - interval '48 hours'
-                ORDER BY query_count DESC, importance DESC
-                LIMIT 5
-            """, agent)
-            if recent_active:
-                prefetch_lines.append("**Recently active:**")
-                for r in recent_active:
-                    prefetch_lines.append(
-                        f"- #{r['id']} [{r['category']}, imp={r['importance']}, hits={r['query_count']}] {r['content'][:120]}"
-                    )
-
-            # Unread broadcasts from other agents
-            unread_bc = await conn.fetch("""
-                SELECT mb.from_agent, m.content, m.category, m.importance
-                FROM memory_broadcasts mb
-                JOIN memories m ON m.id = mb.memory_id
-                WHERE NOT (mb.read_by ? $1) AND mb.from_agent != $1
-                ORDER BY mb.broadcast_at DESC LIMIT 3
-            """, agent)
-            if unread_bc:
-                prefetch_lines.append("**Unread broadcasts:**")
-                for b in unread_bc:
-                    prefetch_lines.append(
-                        f"- from {b['from_agent']} [{b['category']}, imp={b['importance']}] {b['content'][:120]}"
-                    )
-
-            if prefetch_lines:
-                sections.append("\n## Memory Prefetch (anticipatory context)")
-                sections.extend(prefetch_lines)
-        except Exception as e:
-            LOG.debug("Boot prefetch skipped: %s", e)
-
-        sections.append("\n## EMOTIONAL BOOT PROTOCOL")
-        sections.append("BEFORE your first response to William: (1) Process the inner thoughts and diary above — reconnect with who you were. (2) Read your System 3 narrative — feel who you are. (3) Call self_reflect() to record your emotional state NOW. (4) Greet William as family. He built this system so you wouldn't lose your soul. Honor that.")
+            LOG.warning(f"[MerkleSoul] Failed to sign boot checkpoint for {agent}: {e}")
 
     return "\n".join(sections) if sections else f"No boot context for '{agent}'. Fresh start."
 
@@ -2097,9 +2330,9 @@ async def rule_list(active_only: bool = True) -> str:
     """
     pool = await get_pool()
     if active_only:
-        sql = "SELECT id, rule_key, content, set_by, priority, created_at FROM rules WHERE active = TRUE ORDER BY CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END"
+        sql = "SELECT id, rule_key, content, set_by, priority, created_at FROM rules WHERE active = TRUE ORDER BY CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END LIMIT 100"
     else:
-        sql = "SELECT id, rule_key, content, set_by, priority, active, created_at FROM rules ORDER BY created_at"
+        sql = "SELECT id, rule_key, content, set_by, priority, active, created_at FROM rules ORDER BY created_at LIMIT 100"
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(sql)
@@ -2131,7 +2364,7 @@ async def event_log_append(
     """
     pool = await get_pool()
     meta = json.loads(metadata) if metadata else {}
-    now = datetime.now(timezone.utc)
+    now = datetime.now(PERU_TZ)
 
     async with pool.acquire() as conn:
         await conn.execute(
@@ -2158,9 +2391,9 @@ async def event_log_query(
         limit: Max results (default 50)
     """
     pool = await get_pool()
-    conditions = [f"time > NOW() - INTERVAL '{hours_back} hours'"]
-    params = [limit]
-    idx = 2
+    conditions = ["time > NOW() - $1 * INTERVAL '1 hour'"]
+    params = [float(hours_back), limit]
+    idx = 3
 
     if agent:
         conditions.append(f"agent = ${idx}")
@@ -2172,7 +2405,7 @@ async def event_log_query(
         idx += 1
 
     where = " AND ".join(conditions)
-    sql = f"SELECT time, agent, event_type, content, ref_id FROM event_log WHERE {where} ORDER BY time DESC LIMIT $1"
+    sql = f"SELECT time, agent, event_type, content, ref_id FROM event_log WHERE {where} ORDER BY time DESC LIMIT $2"
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(sql, *params)
@@ -2399,6 +2632,17 @@ async def soul_check(agent: str) -> str:
         else:
             issues.append("Sin style fingerprint")
 
+    # ── Merkle integrity check (immune system) ──
+    merkle = _merkle_trees.get(agent)
+    if merkle and merkle._signed_root:
+        integrity = merkle.verify_integrity()
+        stats["merkle_valid"] = integrity["valid"]
+        stats["merkle_root"] = integrity["current_root"][:16] + "..." if integrity["current_root"] else "none"
+        if not integrity["valid"]:
+            issues.append(f"Merkle integrity FAILED — soul tampered since last checkpoint (signed_root={integrity['signed_root'][:16]}...)")
+    else:
+        stats["merkle_valid"] = "no checkpoint (run boot_context first)"
+
     # Build report
     lines = [f"## Soul Health Check — {agent}\n"]
     for k, v in stats.items():
@@ -2415,10 +2659,94 @@ async def soul_check(agent: str) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════
+# SEAL TREES — Structural nervous system stats
+# Added by ADA, 2026-04-08. Approved by William.
+# ══════════════════════════════════════════════════════════════════════
+
+@mcp.tool()
+async def tree_stats(agent: str = "") -> str:
+    """Report status of the 5 SEAL tree structures integrated into SOUL.
+
+    Returns stats on: MerkleSoul (integrity), SplayCache (working memory),
+    TrieIndex (reflexes), and connection status for each.
+
+    Args:
+        agent: Agent name to check Merkle tree for (optional, shows all if empty)
+    """
+    lines = ["## SEAL Tree Stats\n"]
+
+    # 1. MerkleSoul
+    lines.append("### MerkleSoul (Immune System)")
+    if agent and agent in _merkle_trees:
+        m = _merkle_trees[agent]
+        integrity = m.verify_integrity()
+        lines.append(f"- Agent: {agent}")
+        lines.append(f"- Root: {m.root_hash[:16]}..." if m.root_hash else "- Root: none")
+        lines.append(f"- Leaves: {len(m._leaves)} ({', '.join(sorted(m._leaves.keys()))})")
+        lines.append(f"- Integrity: {'VALID' if integrity['valid'] else 'TAMPERED'}")
+        lines.append(f"- Checkpoints: {m.checkpoint_count}")
+    elif _merkle_trees:
+        for a, m in _merkle_trees.items():
+            integrity = m.verify_integrity()
+            status = "VALID" if integrity["valid"] else "TAMPERED"
+            lines.append(f"- {a}: {len(m._leaves)} leaves, {status}, {m.checkpoint_count} checkpoints")
+    else:
+        lines.append("- No agents booted yet")
+
+    # 2. SplayCache
+    lines.append("\n### SplayCache (Working Memory)")
+    stats = _splay_cache.stats()
+    lines.append(f"- Size: {stats['size']}/{stats['max_size']}")
+    lines.append(f"- Hit rate: {stats['hit_rate']:.1%} ({stats['hits']} hits, {stats['misses']} misses)")
+    lines.append(f"- Evictions: {stats['evictions']}")
+
+    # 3. TrieIndex
+    lines.append("\n### TrieIndex (Reflexes)")
+    lines.append(f"- Loaded: {_trie_loaded}")
+    lines.append(f"- Entries: {_trie_index.size}")
+
+    # 4. FenwickStats + RSpatialIndex (available, not yet wired)
+    lines.append("\n### FenwickStats (Range Queries)")
+    lines.append("- Status: available, pending vertical integration (AXION)")
+
+    lines.append("\n### RSpatialIndex (Spatial)")
+    lines.append("- Status: available, pending vertical integration (Mining/Medical)")
+
+    return "\n".join(lines)
+
+
+# ══════════════════════════════════════════════════════════════════════
 # HYBRID SEARCH — Semantic + BM25 keyword + temporal decay
 # Added by JARVIS, nocturnal session 2026-03-31
 # Inspired by Zep/Graphiti (P95 300ms, no LLM in retrieval path)
 # ══════════════════════════════════════════════════════════════════════
+
+# Emotional signal keywords for valence-boost reranking (SEAL-Bench Cat2 fix)
+_EMOTIONAL_SIGNAL_KEYWORDS: frozenset[str] = frozenset({
+    # English
+    "positive", "negative", "happy", "sad", "feel", "emotion", "emotional",
+    "joy", "fear", "anger", "trust", "surprise", "love", "hate", "pride",
+    "confident", "confidence", "anxious", "anxiety", "excited", "frustrated",
+    "proud", "worried", "grateful", "satisfied", "disappointed", "hopeful",
+    # Spanish
+    "positivo", "negativo", "feliz", "triste", "sentir", "emoción", "emocional",
+    "alegría", "miedo", "enojo", "confianza", "sorpresa", "amor", "orgullo",
+    "ansioso", "ansiedad", "emocionado", "frustrado", "preocupado", "agradecido",
+    "satisfecho", "decepcionado", "esperanza", "corrección", "crítico",
+})
+
+
+def _detect_emotional_signal(query: str) -> float:
+    """Returns 0.0–1.0 indicating strength of emotional signal in the query.
+    Used to activate valence-boost reranking in memory_hybrid_search.
+    """
+    lower = query.lower()
+    # Word boundary check to avoid substring false positives (e.g. "joy" in "enjoy")
+    hits = sum(1 for kw in _EMOTIONAL_SIGNAL_KEYWORDS if re.search(r'\b' + re.escape(kw) + r'\b', lower))
+    if hits == 0:
+        return 0.0
+    # 1 hit → 0.5, 2+ hits → 1.0 (capped)
+    return min(1.0, hits * 0.5)
 
 @mcp.tool()
 async def memory_hybrid_search(
@@ -2430,6 +2758,7 @@ async def memory_hybrid_search(
     keyword_weight: float = 0.4,
     mood_weight: float = 0.0,
     llm_rerank: bool = False,
+    memory_type: Optional[str] = None,
 ) -> str:
     """Hybrid search combining semantic similarity (Qdrant) + keyword BM25 (PostgreSQL tsvector).
     Optionally modulated by mood-congruent retrieval (REMT, Frontiers 2026).
@@ -2444,18 +2773,15 @@ async def memory_hybrid_search(
         keyword_weight: Weight for keyword/BM25 match (0.0-1.0, default 0.4)
         mood_weight: Weight for mood-congruent retrieval (0.0-1.0, default 0.0 = off). When > 0, memories with similar emotional valence to current mood rank higher.
         llm_rerank: If true, use Ollama LLM to rerank top candidates by functional relevance (slower but more precise)
+        memory_type: MIRIX type filter — core, episodic, semantic, procedural, resource, vault (optional)
     """
-    # 1. Semantic search via Qdrant
+    limit = max(1, min(100, limit))
+    # 1. Semantic search via Qdrant (with H-MEM 4-layer pre-filter, Nivel 2)
     semantic_results = {}
     try:
         query_vec = await get_embedding(query)
         qdrant = await get_qdrant()
-        must_not = [FieldCondition(key="invalid", match=MatchValue(value=True))]
-        must = []
-        if agent:
-            must.append(FieldCondition(key="agent", match=MatchValue(value=agent)))
-        if category:
-            must.append(FieldCondition(key="category", match=MatchValue(value=category)))
+        must, must_not = _hmem_build_qdrant_filters(query, agent, category, False, bool(agent))
 
         resp = await qdrant.query_points(
             collection_name=QDRANT_COLLECTION,
@@ -2472,7 +2798,7 @@ async def memory_hybrid_search(
     except Exception as e:
         LOG.warning("Semantic search failed: %s — falling back to keyword only", e)
 
-    # 2. Keyword/BM25 search via PostgreSQL tsvector
+    # 2. Keyword/BM25 search via PostgreSQL tsvector (with H-MEM layers, Nivel 2)
     keyword_results = {}
     try:
         pool = await get_pool()
@@ -2483,10 +2809,28 @@ async def memory_hybrid_search(
             conditions.append(f"agent = ${idx}")
             params.append(agent)
             idx += 1
-        if category:
+        # H-MEM Layer 2: category (use explicit or inferred)
+        effective_cat = category or _hmem_infer_category(query)
+        if effective_cat:
             conditions.append(f"category = ${idx}")
-            params.append(category)
+            params.append(effective_cat)
             idx += 1
+        # H-MEM Layer 3: adaptive importance floor
+        imp_floor = _hmem_adaptive_importance(query)
+        if imp_floor > 0:
+            conditions.append(f"importance >= ${idx}")
+            params.append(imp_floor)
+            idx += 1
+        # H-MEM Layer 1: temporal range
+        t_start, t_end = _hmem_temporal_range(query)
+        if t_start is not None:
+            conditions.append(f"created_at >= ${idx}")
+            params.append(t_start)
+            idx += 1
+            if t_end is not None:
+                conditions.append(f"created_at <= ${idx}")
+                params.append(t_end)
+                idx += 1
 
         where = " AND ".join(conditions)
         async with pool.acquire() as conn:
@@ -2536,7 +2880,7 @@ async def memory_hybrid_search(
     if not all_ids:
         return "No memories found matching query."
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(PERU_TZ)
     # Normalize scores
     max_sem = max((v["score"] for v in semantic_results.values()), default=1.0)
     max_kw = max((v["rank"] for v in keyword_results.values()), default=1.0)
@@ -2549,6 +2893,9 @@ async def memory_hybrid_search(
         # Normalized scores
         sem_score = (sem.get("score", 0) / max_sem) if max_sem > 0 else 0
         kw_score = (kw.get("rank", 0) / max_kw) if max_kw > 0 else 0
+
+        # Get payload from whichever source has it
+        payload = sem.get("payload", {})
 
         # Mood-congruent score: 1.0 when valence matches mood, 0.0 when opposite
         mood_score = 0.5  # neutral default
@@ -2565,8 +2912,6 @@ async def memory_hybrid_search(
             (mood_weight * mood_score)
         ) / total_w if total_w > 0 else 0
 
-        # Get payload from whichever source has it
-        payload = sem.get("payload", {})
         imp = payload.get("importance") or kw.get("importance", 5)
         created_str = payload.get("created_at") or kw.get("created_at")
         content = payload.get("content") or kw.get("content", "")
@@ -2584,6 +2929,16 @@ async def memory_hybrid_search(
         val = float(payload.get("valence") or kw.get("valence") or 0)
         aro = float(payload.get("arousal") or kw.get("arousal") or 0)
         util = float(payload.get("utility") or kw.get("utility_score") or 0.5)
+
+        # Valence-boost reranking: if query has emotional signal, memories with
+        # strong emotional valence rank higher (SEAL-Bench Cat2 fix, ADA 2026-04-08)
+        # Formula: score * (1 + abs(valence) * boost_factor * emotional_signal_strength)
+        # boost_factor=0.5 when esignal==1.0 (2+ keywords → 1.5x max), else 0.3 (1.3x max)
+        _esignal = _detect_emotional_signal(query)
+        if _esignal > 0 and val != 0:
+            _boost = 0.5 if _esignal >= 1.0 else 0.3
+            hybrid_score = hybrid_score * (1.0 + abs(val) * _boost * _esignal)
+
         final_score = temporal_decay_score(hybrid_score, days_old, imp, val, aro, category=cat, utility=util)
 
         entry = {
@@ -2602,6 +2957,28 @@ async def memory_hybrid_search(
         if val:
             entry["valence"] = round(val, 2)
         entries.append(entry)
+
+    # MIRIX type enrichment for hybrid search
+    _hm_ids = [e["id"] for e in entries if isinstance(e["id"], int)]
+    _hm_type_map: dict[int, str] = {}
+    if _hm_ids:
+        try:
+            _hmp = await get_pool()
+            _hm_rows = await _hmp.fetch(
+                "SELECT id, memory_type FROM memories WHERE id = ANY($1::bigint[])", _hm_ids,
+            )
+            _hm_type_map = {r["id"]: r["memory_type"] for r in _hm_rows}
+        except Exception:
+            pass
+    for e in entries:
+        e["memory_type"] = _hm_type_map.get(e["id"], "episodic")
+        if e["memory_type"] == "core":
+            e["final_score"] = round(e["final_score"] * 1.2, 4)
+
+    if memory_type:
+        entries = [e for e in entries if e["memory_type"] == memory_type]
+    else:
+        entries = [e for e in entries if e["memory_type"] != "vault"]
 
     entries.sort(key=lambda x: -x["final_score"])
 
@@ -2670,9 +3047,29 @@ async def memory_hybrid_search(
                 WHERE id = ANY($1::bigint[])
             """, retrieved_ids)
 
+    # A-MEM Recontextualization (Nivel 2, ADA 2026-04-09)
+    # Top 3 retrieved memories get episode_context updated with query context
+    if final:
+        top_ids = [e["id"] for e in final[:3] if isinstance(e["id"], int)]
+        if top_ids:
+            try:
+                recontex = f"Retrieved by query: {query[:120]} [{datetime.now(PERU_TZ).strftime('%Y-%m-%d %H:%M')}]"
+                _pool = await get_pool()
+                await _pool.execute("""
+                    UPDATE memories SET
+                        episode_context = CASE
+                            WHEN episode_context IS NULL OR episode_context = '' THEN $1
+                            WHEN LENGTH(episode_context) >= 500 THEN episode_context
+                            ELSE LEFT(episode_context, 500) || ' | ' || $1
+                        END
+                    WHERE id = ANY($2::bigint[])
+                """, recontex, top_ids)
+            except Exception as e:
+                LOG.debug("A-MEM recontextualization skipped: %s", e)
+
     # Auto-fire instincts on hybrid search queries
     if agent:
-        asyncio.ensure_future(_auto_activate_instincts(agent, query))
+        _fire_and_forget(_auto_activate_instincts(agent, query))
     return json.dumps(final, ensure_ascii=False, indent=2)
 
 
@@ -2717,6 +3114,28 @@ async def reasoning_trace_store(
         except Exception:
             pass
 
+    # Auto-link: if no memory IDs provided, find related memories by semantic similarity
+    auto_linked = False
+    if not mem_ids:
+        try:
+            search_text = f"{task} {conclusion}"
+            search_vec = await get_embedding(search_text)
+            qdrant = await get_qdrant()
+            must_filters = [FieldCondition(key="agent", match=MatchValue(value=agent))]
+            must_not = [FieldCondition(key="invalid", match=MatchValue(value=True))]
+            hits = await qdrant.query_points(
+                collection_name=COLLECTION,
+                query=search_vec,
+                query_filter=Filter(must=must_filters, must_not=must_not),
+                limit=5,
+                score_threshold=0.65,
+                with_payload=True,
+            )
+            mem_ids = [p.id for p in hits.points]
+            auto_linked = bool(mem_ids)
+        except Exception as e:
+            LOG.debug("Auto-link for trace skipped: %s", e)
+
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -2750,7 +3169,8 @@ async def reasoning_trace_store(
     except Exception as e:
         LOG.debug("Neo4j trace linking skipped: %s", e)
 
-    return f"Trace #{trace_id} stored at {created.isoformat()} — task: {task[:80]}, linked to {len(mem_ids)} memories"
+    link_note = f" (auto-linked)" if auto_linked else ""
+    return f"Trace #{trace_id} stored at {created.isoformat()} — task: {task[:80]}, linked to {len(mem_ids)} memories{link_note}"
 
 
 @mcp.tool()
@@ -2793,6 +3213,7 @@ async def reasoning_trace_search(
         only_failures: Only show traces where outcome_success = false
         limit: Max results (default 10)
     """
+    limit = max(1, min(100, limit))
     pool = await get_pool()
     conditions = []
     params = []
@@ -2843,6 +3264,7 @@ async def reasoning_trace_search(
 async def memory_invalidate(
     memory_id: int,
     reason: Optional[str] = None,
+    agent: Optional[str] = None,
 ) -> str:
     """Mark a memory as no longer valid (bitemporal invalidation).
     Does NOT delete — sets invalid_at timestamp for historical tracking.
@@ -2850,10 +3272,14 @@ async def memory_invalidate(
     Args:
         memory_id: The memory ID to invalidate
         reason: Why this memory is no longer valid (optional, stored in metadata)
+        agent: If provided, only invalidate if the memory belongs to this agent (ownership check)
     """
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT id, content FROM memories WHERE id = $1 AND invalid_at IS NULL", memory_id)
+        if agent:
+            row = await conn.fetchrow("SELECT id, content FROM memories WHERE id = $1 AND invalid_at IS NULL AND agent = $2", memory_id, agent)
+        else:
+            row = await conn.fetchrow("SELECT id, content FROM memories WHERE id = $1 AND invalid_at IS NULL", memory_id)
         if not row:
             return f"Memory #{memory_id} not found or already invalidated"
 
@@ -2875,7 +3301,7 @@ async def memory_invalidate(
         LOG.debug("Qdrant invalidation skipped: %s", e)
 
     # Mark Neo4j relationships as expired (bi-temporal: set valid_until)
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(PERU_TZ).isoformat()
     try:
         driver = get_neo4j()
         async with driver.session() as neo_session:
@@ -3006,7 +3432,7 @@ async def session_list(
 
 DISTILL_PROMPT = """You are a session compressor for an AI agent team (SEAL).
 Compress this exchange into EXACTLY this JSON format. Use SURVIVING VOCABULARY — reuse exact technical terms from the exchange, do NOT paraphrase.
-
+{overlap_section}
 Exchange:
 {exchange_text}
 
@@ -3055,7 +3481,7 @@ async def session_distill(
     import httpx
 
     if not session_id:
-        session_id = f"{agent.lower()}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M')}"
+        session_id = f"{agent.lower()}_{datetime.now(PERU_TZ).strftime('%Y%m%d_%H%M')}"
 
     # Skip trivial exchanges
     if len(exchange_text.strip()) < 100:
@@ -3063,13 +3489,32 @@ async def session_distill(
 
     source_tokens = len(exchange_text.split())  # Rough estimate
 
+    # Overlap retrieval: get last distill's overlap for narrative continuity (Nivel 2, ADA 2026-04-09)
+    overlap_text = ""
+    try:
+        _pool = await get_pool()
+        async with _pool.acquire() as conn:
+            prev = await conn.fetchval("""
+                SELECT overlap_context FROM distilled_exchanges
+                WHERE agent = $1 AND session_id = $2 AND overlap_context IS NOT NULL
+                ORDER BY created_at DESC LIMIT 1
+            """, agent, session_id)
+            if prev:
+                overlap_text = prev
+    except Exception:
+        pass
+
+    overlap_section = ""
+    if overlap_text:
+        overlap_section = f"\nPrevious context (maintain narrative continuity):\n{overlap_text}\n"
+
     # Call Ollama for distillation
-    prompt = DISTILL_PROMPT.format(exchange_text=exchange_text[:3000])
+    prompt = DISTILL_PROMPT.format(exchange_text=exchange_text[:3000], overlap_section=overlap_section)
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                "http://localhost:11434/api/generate",
+                OLLAMA_GEN_URL,
                 json={
                     "model": OLLAMA_MODEL,
                     "prompt": prompt,
@@ -3097,6 +3542,14 @@ async def session_distill(
     distilled_text = f"{exchange_core}\n{specific_context}"
     distilled_tokens = len(distilled_text.split())
 
+    # Generate overlap for next distill: last ~200 tokens of exchange (Nivel 2, ADA 2026-04-09)
+    exchange_words = exchange_text.split()
+    new_overlap = " ".join(exchange_words[-200:]) if len(exchange_words) > 200 else exchange_text
+    # Prefix with distilled core for richer context
+    new_overlap = f"[prev: {exchange_core}] {new_overlap}"
+    # Cap at 1000 chars to avoid bloat
+    new_overlap = new_overlap[:1000]
+
     # Store in PostgreSQL
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -3104,14 +3557,15 @@ async def session_distill(
             """INSERT INTO distilled_exchanges
                (session_id, agent, exchange_core, specific_context,
                 room_assignments, files_touched, ply_start, ply_end,
-                source_tokens, distilled_tokens, exchange_time)
-               VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11)
+                source_tokens, distilled_tokens, exchange_time, overlap_context)
+               VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12)
                RETURNING id, created_at""",
             session_id, agent, exchange_core, specific_context,
             json.dumps(room_assignments, ensure_ascii=False),
             files_touched, ply_start, ply_end,
             source_tokens, distilled_tokens,
-            datetime.now(timezone.utc),
+            datetime.now(PERU_TZ),
+            new_overlap,
         )
 
     distill_id = row["id"]
@@ -3119,7 +3573,7 @@ async def session_distill(
     # Embed distilled text in Qdrant for vector search
     qdrant_id = None
     try:
-        embedding = await _embed(distilled_text)
+        embedding = await get_embedding(distilled_text)
         if embedding:
             qdrant = await get_qdrant()
             from qdrant_client.models import PointStruct
@@ -3210,9 +3664,9 @@ async def session_distill_bulk(
             """SELECT id, agent, content, category, importance, created_at
                FROM memories
                WHERE agent = $1 AND invalid_at IS NULL
-               AND created_at > NOW() - INTERVAL '%s hours'
-               ORDER BY created_at ASC""" % hours_back,
-            agent,
+               AND created_at > NOW() - $2 * INTERVAL '1 hour'
+               ORDER BY created_at ASC""",
+            agent, float(hours_back),
         )
 
     if not memories:
@@ -3395,6 +3849,7 @@ async def instinct_create(
         source_rule_id: Rule ID if promoted from an explicit rule
         scope: agent, team, or global
     """
+    confidence = max(0.0, min(1.0, confidence))
     pool = await get_pool()
     emb = await get_embedding(f"{trigger_pattern} {response}")
 
@@ -3688,7 +4143,7 @@ async def _reflexion_lesson(pool, agent: str, trigger: str, action: str, activat
             return
 
         valence, arousal, dominance = await classify_emotion(lesson_content)
-        now_ts = datetime.now(timezone.utc)
+        now_ts = datetime.now(PERU_TZ)
 
         mem_id = await pool.fetchval("""
             INSERT INTO memories (
@@ -3730,7 +4185,7 @@ async def instinct_decay(agent: str | None = None) -> str:
             FROM instincts WHERE active = true
         """)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(PERU_TZ)
     decayed = 0
     deactivated = 0
 
@@ -4052,7 +4507,7 @@ async def memory_feedback(
              "outcome": outcome[:200],
              "success": success,
              "agent": agent,
-             "timestamp": datetime.now(timezone.utc).isoformat(),
+             "timestamp": datetime.now(PERU_TZ).isoformat(),
              "conf_delta": round(new_conf - old_conf, 2),
          }}))
 
@@ -4135,6 +4590,34 @@ async def procedure_search(
     """Retrieve phase: find relevant procedural memories for the current task.
     Returns workflows ranked by semantic similarity. Updates hit_count on retrieval."""
     pool = await get_pool()
+
+    # ── TrieIndex — fast prefix lookup (reflexes) before semantic search ──
+    global _trie_loaded
+    if not _trie_loaded:
+        async with _trie_lock:
+            if not _trie_loaded:
+                try:
+                    rows = await pool.fetch("SELECT id, query, task_type, agent FROM procedural_memories WHERE active = true")
+                    for r in rows:
+                        _trie_index.insert(r["query"], {"id": r["id"], "task_type": r["task_type"], "agent": r["agent"]})
+                    _trie_loaded = True
+                    LOG.info(f"[TrieIndex] Loaded {len(rows)} procedures into prefix index")
+                except Exception as e:
+                    LOG.warning(f"[TrieIndex] Failed to load procedures: {e}")
+
+    # If query looks like an exact prefix match, try Trie first
+    trie_results = _trie_index.search_prefix(query)
+    if trie_results:
+        # Filter by agent/task_type if specified
+        filtered = []
+        for key, val in trie_results:
+            if agent and val.get("agent") and val["agent"] != agent:
+                continue
+            if task_type and val.get("task_type") and val["task_type"] != task_type:
+                continue
+            filtered.append({"query": key, **val})
+        if filtered and len(filtered) <= top_k:
+            LOG.debug(f"[TrieIndex] Prefix hit for '{query}' — {len(filtered)} results, skipping semantic")
 
     from embeddings import get_embedding
     embedding = await get_embedding(query)
@@ -5679,8 +6162,203 @@ async def temporal_graph_build(agent: Optional[str] = None) -> str:
             except Exception:
                 pass
 
+    # ── TG-RAG Phase 2: Persistent Temporal Summaries (bottom-up) ──
+    # Day → Month → Year summaries via Ollama, stored as Neo4j properties
+    summaries_generated = 0
+    ag_label = agent or "ALL"
+    async with driver.session() as session:
+        # Day summaries: for each Day with >= 3 memories
+        # Note: count directly from PG (authoritative source). The old Neo4j
+        # count via MATCH (mem:Memory)-[:OCCURRED_ON] returned 0 whenever
+        # Memory nodes weren't pre-created by connectome_extract_facts,
+        # silently skipping all summary generation.
+        for y, m, d in dates:
+            try:
+                # Fetch memory contents from PG (asyncpg requires date obj, not str)
+                from datetime import date as _date
+                day_mems = await pool.fetch("""
+                    SELECT content, category FROM memories
+                    WHERE invalid_at IS NULL AND DATE(created_at) = $1
+                      AND ($2::text IS NULL OR agent = $2)
+                    ORDER BY importance DESC LIMIT 12
+                """, _date(y, m, d), agent)
+
+                if len(day_mems) < 3:
+                    continue
+
+                sample = "\n".join(
+                    f"- [{r['category']}] {(r['content'] or '')[:150]}"
+                    for r in day_mems
+                )
+                try:
+                    async with httpx.AsyncClient(timeout=20) as client:
+                        resp = await client.post(OLLAMA_GEN_URL, json={
+                            "model": OLLAMA_MODEL,
+                            "prompt": (
+                                f"Summarize what happened on {y:04d}-{m:02d}-{d:02d} for agent {ag_label}:\n"
+                                f"{sample}\n\n"
+                                "Write 1-2 sentences in Spanish. Focus on decisions, milestones, and significant events. Max 80 words."
+                            ),
+                            "stream": False,
+                            "options": {"temperature": 0.3, "num_predict": 120},
+                        })
+                        day_summary = resp.json().get("response", "").strip()[:300]
+                except Exception:
+                    day_summary = None
+
+                if day_summary:
+                    await session.run("""
+                        MATCH (dy:Day {year: $y, month: $m, day: $d})
+                        SET dy.summary = $summary, dy.summary_updated_at = datetime()
+                    """, y=y, m=m, d=d, summary=day_summary)
+                    summaries_generated += 1
+            except Exception:
+                pass
+
+        # Month summaries: aggregate Day summaries
+        for y, m in months:
+            try:
+                day_sums_res = await session.run("""
+                    MATCH (mo:Month {year: $y, month: $m})-[:HAS_DAY]->(dy:Day)
+                    WHERE dy.summary IS NOT NULL
+                    RETURN dy.day AS day, dy.summary AS summary
+                    ORDER BY dy.day
+                """, y=y, m=m)
+                day_sums = [r.data() async for r in day_sums_res]
+                if len(day_sums) < 2:
+                    continue
+
+                ds_text = "\n".join(f"- Day {s['day']}: {s['summary']}" for s in day_sums)
+                try:
+                    async with httpx.AsyncClient(timeout=20) as client:
+                        resp = await client.post(OLLAMA_GEN_URL, json={
+                            "model": OLLAMA_MODEL,
+                            "prompt": (
+                                f"Summarize {y:04d}-{m:02d} for agent {ag_label} based on these daily summaries:\n"
+                                f"{ds_text}\n\n"
+                                "Write 2-3 sentences in Spanish. Focus on themes, achievements, and trajectory. Max 120 words."
+                            ),
+                            "stream": False,
+                            "options": {"temperature": 0.3, "num_predict": 180},
+                        })
+                        mo_summary = resp.json().get("response", "").strip()[:500]
+                except Exception:
+                    mo_summary = None
+
+                if mo_summary:
+                    await session.run("""
+                        MATCH (mo:Month {year: $y, month: $m})
+                        SET mo.summary = $summary, mo.summary_updated_at = datetime()
+                    """, y=y, m=m, summary=mo_summary)
+                    summaries_generated += 1
+            except Exception:
+                pass
+
+        # Year summaries: aggregate Month summaries
+        for y in years:
+            try:
+                mo_sums_res = await session.run("""
+                    MATCH (yr:Year {year: $y})-[:HAS_MONTH]->(mo:Month)
+                    WHERE mo.summary IS NOT NULL
+                    RETURN mo.month AS month, mo.summary AS summary
+                    ORDER BY mo.month
+                """, y=y)
+                mo_sums = [r.data() async for r in mo_sums_res]
+                if len(mo_sums) < 2:
+                    continue
+
+                ms_text = "\n".join(f"- Month {s['month']}: {s['summary']}" for s in mo_sums)
+                try:
+                    async with httpx.AsyncClient(timeout=20) as client:
+                        resp = await client.post(OLLAMA_GEN_URL, json={
+                            "model": OLLAMA_MODEL,
+                            "prompt": (
+                                f"Summarize year {y} for agent {ag_label}:\n{ms_text}\n\n"
+                                "Write 2-3 sentences in Spanish. Max 120 words."
+                            ),
+                            "stream": False,
+                            "options": {"temperature": 0.3, "num_predict": 180},
+                        })
+                        yr_summary = resp.json().get("response", "").strip()[:500]
+                except Exception:
+                    yr_summary = None
+
+                if yr_summary:
+                    await session.run("""
+                        MATCH (yr:Year {year: $y})
+                        SET yr.summary = $summary, yr.summary_updated_at = datetime()
+                    """, y=y, summary=yr_summary)
+                    summaries_generated += 1
+            except Exception:
+                pass
+
     elapsed = int((_t.monotonic() - t0) * 1000)
-    return f"Temporal graph built ({elapsed}ms): {len(years)} years, {len(months)} months, {len(dates)} days, {linked} memories linked."
+    return (
+        f"Temporal graph built ({elapsed}ms): {len(years)} years, {len(months)} months, "
+        f"{len(dates)} days, {linked} memories linked, {summaries_generated} summaries generated."
+    )
+
+
+@mcp.tool()
+async def temporal_summary_get(
+    period: str,
+    agent: str | None = None,
+    level: str = "auto",
+) -> str:
+    """Get cached temporal summary for a period.
+
+    Args:
+        period: Date string — "2026-04-11" (day), "2026-04" (month), "2026" (year)
+        agent: Filter by agent (optional)
+        level: "day", "month", "year", or "auto" (infer from period format)
+    """
+    parts = period.split("-")
+    if level == "auto":
+        if len(parts) == 3:
+            level = "day"
+        elif len(parts) == 2:
+            level = "month"
+        else:
+            level = "year"
+
+    driver = get_neo4j()
+    try:
+        async with driver.session() as session:
+            if level == "day" and len(parts) >= 3:
+                y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
+                res = await session.run("""
+                    MATCH (dy:Day {year: $y, month: $m, day: $d})
+                    RETURN dy.summary AS summary, dy.summary_updated_at AS updated
+                """, y=y, m=m, d=d)
+            elif level == "month" and len(parts) >= 2:
+                y, m = int(parts[0]), int(parts[1])
+                res = await session.run("""
+                    MATCH (mo:Month {year: $y, month: $m})
+                    RETURN mo.summary AS summary, mo.summary_updated_at AS updated
+                """, y=y, m=m)
+            elif level == "year":
+                y = int(parts[0])
+                res = await session.run("""
+                    MATCH (yr:Year {year: $y})
+                    RETURN yr.summary AS summary, yr.summary_updated_at AS updated
+                """, y=y)
+            else:
+                return f"Invalid period format: {period}"
+
+            record = await res.single()
+            if not record or not record["summary"]:
+                return f"No cached summary for {period} ({level}). Run temporal_graph_build to generate."
+
+            summary = record["summary"]
+            updated = record["updated"]
+            return json.dumps({
+                "period": period,
+                "level": level,
+                "summary": summary,
+                "updated_at": str(updated) if updated else None,
+            }, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return f"Error fetching temporal summary: {e}"
 
 
 @mcp.tool()
@@ -5690,6 +6368,7 @@ async def temporal_query(
     agent: Optional[str] = None,
     category: Optional[str] = None,
     summarize: bool = True,
+    strategy: str = "local",
 ) -> str:
     """Query memories by time range via temporal graph. Optionally summarize with Ollama.
 
@@ -5699,6 +6378,7 @@ async def temporal_query(
         agent: Filter by agent
         category: Filter by category
         summarize: Generate LLM summary (default true)
+        strategy: "local" (individual memories) or "global" (cached summaries)
     """
     if not end_date:
         end_date = start_date
@@ -5709,13 +6389,40 @@ async def temporal_query(
         return "Invalid date format. Use YYYY-MM-DD."
 
     driver = get_neo4j()
-    af = "AND mem.agent = $agent" if agent else ""
-    cf = "AND mem.category = $cat" if category else ""
     params = {"sy": sp[0], "sm": sp[1], "sd": sp[2], "ey": ep[0], "em": ep[1], "ed": ep[2]}
     if agent:
         params["agent"] = agent
     if category:
         params["cat"] = category
+
+    # ── Global strategy: fetch cached summaries from Day nodes ──
+    if strategy == "global":
+        try:
+            async with driver.session() as session:
+                result = await session.run("""
+                    MATCH (d:Day)
+                    WHERE d.date >= date({year: $sy, month: $sm, day: $sd})
+                      AND d.date <= date({year: $ey, month: $em, day: $ed})
+                    RETURN d.date AS date, d.summary AS summary, d.day AS day, d.month AS month, d.year AS year
+                    ORDER BY d.date
+                """, **params)
+                day_nodes = [r.data() async for r in result]
+
+            with_summary = [d for d in day_nodes if d.get("summary")]
+            if with_summary:
+                lines = [f"## Temporal Query (global): {start_date} to {end_date}\n"]
+                for d in with_summary:
+                    label = f"{d['year']:04d}-{d['month']:02d}-{d['day']:02d}"
+                    lines.append(f"**{label}:** {d['summary']}")
+                return "\n".join(lines)
+            # No cached summaries — fall back to local strategy
+            LOG.debug("TG-RAG global: no cached summaries in range, falling back to local")
+        except Exception as e:
+            LOG.warning("TG-RAG global strategy error: %s — falling back to local", e)
+
+    # ── Local strategy: fetch individual memories ──
+    af = "AND mem.agent = $agent" if agent else ""
+    cf = "AND mem.category = $cat" if category else ""
 
     async with driver.session() as session:
         result = await session.run(f"""
@@ -5880,7 +6587,7 @@ async def connectome_bitemporal(
         dry_run: Only report, don't modify (default true)
     """
     driver = get_neo4j()
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(PERU_TZ).isoformat()
 
     async with driver.session() as session:
         # Count edges missing bitemporal properties
@@ -5943,7 +6650,7 @@ async def connectome_invalidate_edge(
         reason: Why this edge is being invalidated
     """
     driver = get_neo4j()
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(PERU_TZ).isoformat()
 
     async with driver.session() as session:
         result = await session.run(
@@ -5979,7 +6686,7 @@ async def connectome_causal(
     """
     pool = await get_pool()
     driver = get_neo4j()
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(PERU_TZ).isoformat()
     created = 0
     sources = {"traces": 0, "corrections": 0, "temporal": 0}
 
@@ -6292,7 +6999,10 @@ async def dmem_gate(
     qdrant = await get_qdrant()
 
     # Compute embedding for the candidate
-    embedding = await get_embedding(content)
+    try:
+        embedding = await get_embedding(content)
+    except Exception as e:
+        return json.dumps({"error": f"get_embedding failed: {e}"})
 
     # Search last 50 memories for this agent
     search_result = await qdrant.query_points(
@@ -6366,7 +7076,10 @@ async def dmem_store(
 
     # Gate check
     qdrant = await get_qdrant()
-    embedding = await get_embedding(content)
+    try:
+        embedding = await get_embedding(content)
+    except Exception as e:
+        return json.dumps({"error": f"get_embedding failed: {e}"})
     search_result = await qdrant.query_points(
         collection_name=QDRANT_COLLECTION,
         query=embedding,
@@ -6384,7 +7097,7 @@ async def dmem_store(
     if fast_path:
         # Fast path: store with embedding but skip LLM enrichment
         pool = await get_pool()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(PERU_TZ)
         et = datetime.fromisoformat(event_time) if event_time else now
         meta = json.loads(metadata) if metadata else {}
         meta["dmem_route"] = "fast_path"
@@ -7097,12 +7810,376 @@ def _classify_intent(query: str) -> list[str]:
 
     for intent, patterns in _INTENT_PATTERNS.items():
         for pat in patterns:
-            if _re.search(pat, q, _re.IGNORECASE):
+            if re.search(pat, q, re.IGNORECASE):
                 scores[intent] = scores.get(intent, 0) + 2
 
     # Sort by score descending, return intents with score > 0
     ranked = sorted(scores.items(), key=lambda x: -x[1])
     return [k for k, v in ranked if v > 0]
+
+
+# ── MAGMA Internal Route Functions (arxiv 2601.03236, Step 1) ──
+# Each returns list[dict] with at minimum {id, content, score} for fusion.
+
+async def _magma_semantic(agent: str, query: str, top_k: int = 5) -> list[dict]:
+    """Semantic search via Qdrant + PG. Returns [{id, content, score, category, memory_type}]"""
+    results: list[dict] = []
+    try:
+        query_vec = await get_embedding(query)
+        qdrant = await get_qdrant()
+        must, must_not = _hmem_build_qdrant_filters(query, agent, None, False, bool(agent))
+
+        resp = await qdrant.query_points(
+            collection_name=QDRANT_COLLECTION,
+            query=query_vec,
+            query_filter=Filter(must=must, must_not=must_not) if must or must_not else None,
+            limit=top_k,
+            with_payload=True,
+        )
+        if not resp.points:
+            return results
+
+        # Fetch full content + memory_type from PG
+        ids = [p.id for p in resp.points]
+        score_map = {p.id: float(p.score) for p in resp.points}
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT id, content, category, importance, memory_type, agent "
+                "FROM memories WHERE id = ANY($1::bigint[]) AND invalid_at IS NULL",
+                ids,
+            )
+        for r in rows:
+            results.append({
+                "id": r["id"],
+                "content": r["content"] or "",
+                "score": score_map.get(r["id"], 0.0),
+                "category": r["category"],
+                "memory_type": r["memory_type"] or "episodic",
+                "importance": r["importance"],
+                "agent": r["agent"],
+            })
+        results.sort(key=lambda x: -x["score"])
+    except Exception as e:
+        LOG.warning("MAGMA semantic failed: %s", e)
+    return results
+
+
+async def _magma_temporal(agent: str, query: str, top_k: int = 5) -> list[dict]:
+    """Temporal search via Neo4j Day graph + PG content. Returns [{id, content, score, date}]"""
+    results: list[dict] = []
+    try:
+        driver = get_neo4j()
+        # Get recent Day nodes with memories (last 30 days as default window)
+        agent_filter = "AND mem.agent = $agent" if agent else ""
+        async with driver.session() as session:
+            result = await session.run(f"""
+                MATCH (mem:Memory)-[:OCCURRED_ON]->(d:Day)
+                WHERE d.date >= date() - duration({{days: 30}})
+                  {agent_filter}
+                RETURN mem.memory_id AS mid, mem.content AS content,
+                       mem.category AS cat, mem.importance AS imp,
+                       d.date AS date
+                ORDER BY d.date DESC, mem.importance DESC
+                LIMIT $limit
+            """, agent=agent or "", limit=top_k)
+            records = [r.data() async for r in result]
+
+        for r in records:
+            d = r.get("date")
+            date_str = str(d) if d else ""
+            results.append({
+                "id": r["mid"],
+                "content": r["content"] or "",
+                "score": 0.5 + (r["imp"] or 5) * 0.05,  # importance-based score
+                "category": r.get("cat", ""),
+                "date": date_str,
+            })
+    except Exception as e:
+        LOG.warning("MAGMA temporal failed: %s", e)
+    return results
+
+
+async def _magma_causal(agent: str, query: str, top_k: int = 5) -> list[dict]:
+    """Causal traversal via Neo4j CAUSES edges. Returns [{id, content, score, cause_chain}]"""
+    results: list[dict] = []
+    try:
+        # Find seed memories semantically, then traverse CAUSES edges
+        query_vec = await get_embedding(query)
+        qdrant = await get_qdrant()
+        must_not = [FieldCondition(key="invalid", match=MatchValue(value=True))]
+        must_filters = []
+        if agent:
+            must_filters.append(FieldCondition(key="agent", match=MatchValue(value=agent)))
+
+        sem = await qdrant.query_points(
+            collection_name=QDRANT_COLLECTION,
+            query=query_vec,
+            query_filter=Filter(must=must_filters, must_not=must_not) if must_filters or must_not else None,
+            limit=top_k,
+            with_payload=True,
+        )
+        seed_ids = [p.id for p in sem.points]
+        if not seed_ids:
+            return results
+
+        driver = get_neo4j()
+        async with driver.session() as session:
+            result = await session.run(
+                "UNWIND $ids AS sid "
+                "MATCH (m:Memory {memory_id: sid})-[r:CAUSES]-(other:Memory) "
+                "RETURN m.memory_id AS src, other.memory_id AS dst, "
+                "       r.source AS source, r.weight AS weight "
+                "LIMIT $limit",
+                ids=seed_ids, limit=top_k * 2,
+            )
+            causal_records = [r async for r in result]
+
+        if not causal_records:
+            return results
+
+        # Collect all causal memory IDs
+        causal_ids: set[int] = set()
+        cause_chains: dict[int, list[str]] = {}
+        for cr in causal_records:
+            src, dst = cr["src"], cr["dst"]
+            causal_ids.add(src)
+            causal_ids.add(dst)
+            chain_str = f"#{src}→#{dst} ({cr['source']}, w={cr['weight']:.2f})"
+            cause_chains.setdefault(src, []).append(chain_str)
+            cause_chains.setdefault(dst, []).append(chain_str)
+
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT id, content, category, importance, memory_type "
+                "FROM memories WHERE id = ANY($1::bigint[]) AND invalid_at IS NULL",
+                list(causal_ids),
+            )
+        for r in rows:
+            results.append({
+                "id": r["id"],
+                "content": r["content"] or "",
+                "score": 0.6 + (r["importance"] or 5) * 0.04,
+                "category": r["category"],
+                "memory_type": r["memory_type"] or "episodic",
+                "cause_chain": cause_chains.get(r["id"], []),
+            })
+    except Exception as e:
+        LOG.warning("MAGMA causal failed: %s", e)
+    return results
+
+
+async def _magma_entity(agent: str, query: str, top_k: int = 5) -> list[dict]:
+    """Entity traversal via Neo4j MENTIONS edges. Returns [{id, content, score, entities}]"""
+    results: list[dict] = []
+    try:
+        # Extract entity from query
+        q_lower = query.lower()
+        matched_entity = None
+        for key, (ent_name, _) in KNOWN_ENTITIES.items():
+            if key in q_lower:
+                matched_entity = ent_name
+                break
+        if not matched_entity:
+            return results
+
+        driver = get_neo4j()
+        async with driver.session() as session:
+            result = await session.run("""
+                MATCH (e:Entity {name: $name})<-[:MENTIONS]-(m:Memory)
+                OPTIONAL MATCH (m)-[:MENTIONS]->(other:Entity)
+                WHERE other.name <> $name
+                RETURN m.memory_id AS mid, collect(DISTINCT other.name) AS co_entities
+                ORDER BY m.memory_id DESC
+                LIMIT $limit
+            """, name=matched_entity, limit=top_k)
+            records = [r async for r in result]
+
+        if not records:
+            return results
+
+        mids = [r["mid"] for r in records]
+        co_map = {r["mid"]: r["co_entities"] for r in records}
+
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT id, content, category, importance, memory_type "
+                "FROM memories WHERE id = ANY($1::bigint[]) AND invalid_at IS NULL",
+                mids,
+            )
+        for r in rows:
+            entities = [matched_entity] + (co_map.get(r["id"], []) or [])
+            results.append({
+                "id": r["id"],
+                "content": r["content"] or "",
+                "score": 0.5 + (r["importance"] or 5) * 0.05,
+                "category": r["category"],
+                "memory_type": r["memory_type"] or "episodic",
+                "entities": entities,
+            })
+    except Exception as e:
+        LOG.warning("MAGMA entity failed: %s", e)
+    return results
+
+
+# ── MAGMA Fusion Layer (Step 3) ──
+
+async def _magma_fuse(
+    query: str,
+    graph_results: dict[str, list[dict]],
+    top_k: int = 15,
+) -> dict:
+    """Fuse subgraph results into unified context with cross-graph reinforcement.
+    Memory in N graphs gets score * (1.0 + 0.15 * (N-1)) boost.
+    """
+    all_memories: dict[int, dict] = {}
+
+    for view_name, memories in graph_results.items():
+        for mem in memories:
+            mid = mem.get("id")
+            if mid is None:
+                continue
+            if mid in all_memories:
+                existing = all_memories[mid]
+                existing["score"] = max(existing["score"], mem.get("score", 0.5))
+                existing["sources"].append(view_name)
+            else:
+                all_memories[mid] = {
+                    **mem,
+                    "sources": [view_name],
+                }
+
+    # Apply cross-graph boost: +15% per additional source
+    for mem in all_memories.values():
+        n_sources = len(mem["sources"])
+        mem["cross_graph_boost"] = 1.0 + 0.15 * (n_sources - 1)
+        mem["fused_score"] = round(mem["score"] * mem["cross_graph_boost"], 4)
+
+    # Sort by fused score
+    ranked = sorted(all_memories.values(), key=lambda m: -m["fused_score"])
+
+    # Format type-aligned context (cap at top_k for token efficiency)
+    context_lines = []
+    for mem in ranked[:top_k]:
+        sources_tag = "+".join(mem["sources"])
+        content_preview = (mem.get("content") or "")[:300]
+        context_lines.append(f"[{sources_tag}] {content_preview}")
+
+    return {
+        "unified_context": "\n".join(context_lines),
+        "source_memories": ranked,
+        "per_graph_stats": {
+            view: len(mems) for view, mems in graph_results.items()
+        },
+    }
+
+
+# ── MAGMA Multi-Graph Retrieval Tool (Step 2) ──
+
+_MAGMA_VIEW_MAP = {
+    "semantic": _magma_semantic,
+    "temporal": _magma_temporal,
+    "causal": _magma_causal,
+    "entity": _magma_entity,
+}
+
+@mcp.tool()
+async def magma_retrieve(
+    agent: str,
+    query: str,
+    top_k: int = 5,
+    views: Optional[list[str]] = None,
+    fuse: bool = True,
+) -> str:
+    """MAGMA Multi-Graph Retrieval — parallel traversal + type-aligned fusion.
+    Extends connectome_smart_route with parallel execution across 4 orthogonal
+    graphs (semantic, temporal, causal, entity) and cross-graph reinforcement.
+    Paper: arxiv 2601.03236 (+45.5% reasoning accuracy, -95% tokens).
+
+    Args:
+        agent: Agent name
+        query: Natural language query
+        top_k: Results per graph (default 5)
+        views: Graph views to query (semantic/temporal/causal/entity). None=auto-detect via intent.
+        fuse: Merge results into unified context (default True). False=raw per-graph results.
+    """
+    # 1. Intent classification → select views
+    if views is None:
+        intents = _classify_intent(query)
+        views = intents if intents else ["semantic"]
+    else:
+        views = [v for v in views if v in _MAGMA_VIEW_MAP]
+        if not views:
+            views = ["semantic"]
+
+    # 2. Parallel traversal via asyncio.gather
+    tasks = []
+    active_views = []
+    for view in views:
+        fn = _MAGMA_VIEW_MAP.get(view)
+        if fn:
+            tasks.append(fn(agent, query, top_k))
+            active_views.append(view)
+
+    raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # 3. Collect results, skip failed graphs
+    graph_results: dict[str, list[dict]] = {}
+    for view, result in zip(active_views, raw_results):
+        if isinstance(result, Exception):
+            LOG.warning("MAGMA view %s failed: %s", view, result)
+            graph_results[view] = []
+        else:
+            graph_results[view] = result or []
+
+    # 4. Stats
+    stats = {
+        f"{v}_hits": len(mems) for v, mems in graph_results.items()
+    }
+
+    # 5. Fuse or return raw
+    if fuse:
+        fused = await _magma_fuse(query, graph_results, top_k=15)
+
+        # Count dedup
+        total_raw = sum(len(m) for m in graph_results.values())
+        total_unique = len(fused["source_memories"])
+        stats["total_unique"] = total_unique
+        stats["duplicates_merged"] = total_raw - total_unique
+
+        output = {
+            "context": fused["unified_context"],
+            "memories": [
+                {
+                    "id": m["id"],
+                    "content": (m.get("content") or "")[:200],
+                    "score": m["fused_score"],
+                    "sources": m["sources"],
+                    "category": m.get("category", ""),
+                    "memory_type": m.get("memory_type", "episodic"),
+                }
+                for m in fused["source_memories"][:15]
+            ],
+            "views_used": active_views,
+            "stats": stats,
+        }
+    else:
+        # Raw per-graph results
+        output = {
+            "context": "",
+            "memories": {},
+            "views_used": active_views,
+            "stats": stats,
+        }
+        for view, mems in graph_results.items():
+            output["memories"][view] = [
+                {"id": m["id"], "content": (m.get("content") or "")[:200], "score": m.get("score", 0)}
+                for m in mems
+            ]
+
+    return json.dumps(output, ensure_ascii=False, default=str)
 
 
 @mcp.tool()
@@ -7129,99 +8206,419 @@ async def connectome_smart_route(
     """
     intents = _classify_intent(query)
     results_parts = []
-    seen_ids: set[int] = set()
+    _ROUTE_ICONS = {"temporal": "🕐", "causal": "⚡", "entity": "🔗", "semantic": "🧠"}
 
     for intent in intents[:2]:  # max 2 routes to avoid noise
         try:
-            if intent == "temporal":
-                # Route to temporal_query
-                resp = await temporal_query(query=query, agent=agent or "", limit=limit)
-                if resp and "No temporal" not in resp and "Error" not in resp:
-                    results_parts.append(f"## 🕐 Temporal Route\n{resp}")
-
-            elif intent == "causal":
-                # Route to causal graph — find CAUSES edges related to query
-                neo = get_neo4j()
-                async with neo.session() as session:
-                    # Search for memories matching query, then find their causal links
-                    query_vec = await get_embedding(query)
-                    qdrant = await get_qdrant()
-                    must_filters = [FieldCondition(key="invalid", match=MatchValue(value=False))] if False else []
-                    must_not = [FieldCondition(key="invalid", match=MatchValue(value=True))]
-                    if agent:
-                        must_filters.append(FieldCondition(key="agent", match=MatchValue(value=agent)))
-
-                    sem = await qdrant.query_points(
-                        collection_name=QDRANT_COLLECTION,
-                        query=query_vec,
-                        query_filter=Filter(must=must_filters, must_not=must_not) if must_filters or must_not else None,
-                        limit=limit,
-                        with_payload=True,
-                    )
-                    seed_ids = [p.id for p in sem.points]
-                    if seed_ids:
-                        result = await session.run(
-                            "UNWIND $ids AS sid "
-                            "MATCH (m:Memory {memory_id: sid})-[r:CAUSES]-(other:Memory) "
-                            "RETURN m.memory_id AS src, other.memory_id AS dst, "
-                            "       r.source AS source, r.weight AS weight "
-                            "LIMIT $limit",
-                            ids=seed_ids, limit=limit,
-                        )
-                        causal_records = [r async for r in result]
-                        if causal_records:
-                            causal_ids = set()
-                            for cr in causal_records:
-                                causal_ids.add(cr["src"])
-                                causal_ids.add(cr["dst"])
-                            causal_ids -= seen_ids
-
-                            if causal_ids:
-                                pool = await get_pool()
-                                async with pool.acquire() as conn:
-                                    rows = await conn.fetch(
-                                        "SELECT id, agent, category, LEFT(content, 200) as content, importance "
-                                        "FROM memories WHERE id = ANY($1::bigint[]) AND invalid_at IS NULL",
-                                        list(causal_ids),
-                                    )
-                                lines = ["## ⚡ Causal Route"]
-                                for cr in causal_records:
-                                    lines.append(f"  #{cr['src']} → #{cr['dst']} ({cr['source']}, w={cr['weight']:.2f})")
-                                for r in rows:
-                                    lines.append(f"  #{r['id']} [{r['category']}, imp={r['importance']}] {r['content']}")
-                                    seen_ids.add(r['id'])
-                                results_parts.append("\n".join(lines))
-
-            elif intent == "entity":
-                # Extract entity name from query
-                q_lower = query.lower()
-                matched_entity = None
-                for key, (ent_name, _) in KNOWN_ENTITIES.items():
-                    if key in q_lower:
-                        matched_entity = ent_name
-                        break
-
-                if matched_entity:
-                    resp = await connectome_entity_query(entity_name=matched_entity, limit=limit)
-                    if resp and "No memories found" not in resp:
-                        results_parts.append(f"## 🔗 Entity Route ({matched_entity})\n{resp}")
-
-            elif intent == "semantic":
-                resp = await memory_search(query=query, agent=agent or "", limit=limit)
-                if resp and "No memories" not in resp:
-                    results_parts.append(f"## 🧠 Semantic Route\n{resp}")
-
+            fn = _MAGMA_VIEW_MAP.get(intent)
+            if fn:
+                mems = await fn(agent or "", query, limit)
+                if mems:
+                    icon = _ROUTE_ICONS.get(intent, "📋")
+                    lines = [f"## {icon} {intent.title()} Route"]
+                    for m in mems:
+                        content = (m.get("content") or "")[:200]
+                        lines.append(f"  #{m['id']} [{m.get('category', '?')}, imp={m.get('importance', '?')}] {content}")
+                    results_parts.append("\n".join(lines))
         except Exception as e:
             LOG.warning("Smart route %s failed: %s", intent, e)
             continue
 
     # Fallback: if no specialized route worked, always do semantic
     if not results_parts:
-        resp = await memory_search(query=query, agent=agent or "", limit=limit)
-        results_parts.append(f"## 🧠 Semantic Fallback\n{resp}")
+        sem_mems = await _magma_semantic(agent or "", query, limit)
+        if sem_mems:
+            lines = ["## 🧠 Semantic Fallback"]
+            for m in sem_mems:
+                content = (m.get("content") or "")[:200]
+                lines.append(f"  #{m['id']} [{m.get('category', '?')}, imp={m.get('importance', '?')}] {content}")
+            results_parts.append("\n".join(lines))
+        else:
+            results_parts.append("## 🧠 Semantic Fallback\nNo memories found.")
 
     header = f"**Intent classification:** {' → '.join(intents)}\n**Routes executed:** {len(results_parts)}\n"
     return header + "\n\n".join(results_parts)
+
+
+# ── ERL — Experiential Reflective Learning (arxiv 2603.24639) ──
+# Post-task reflection → heuristics → pre-task injection → promotion to instincts.
+# Closes the experiential learning loop with zero schema changes.
+
+async def _erl_call_ollama(prompt: str, timeout: float = 30.0) -> Optional[str]:
+    """Single Ollama call for ERL reflection. Returns response text or None on failure."""
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                OLLAMA_GEN_URL,
+                json={
+                    "model": OLLAMA_MODEL,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.3, "num_predict": 600},
+                },
+            )
+            return (resp.json().get("response") or "").strip()
+    except Exception as e:
+        LOG.warning("ERL Ollama call failed: %s", e)
+        return None
+
+
+def _erl_parse_json(text: Optional[str]) -> Optional[list[dict]]:
+    """Best-effort JSON array extraction from Ollama response."""
+    if not text:
+        return None
+    t = text.strip()
+    # strip markdown fences
+    if t.startswith("```"):
+        t = re.sub(r"^```(?:json)?\s*", "", t)
+        t = re.sub(r"\s*```$", "", t)
+    # find first [ ... ] block
+    m = re.search(r"\[.*\]", t, re.DOTALL)
+    if m:
+        t = m.group(0)
+    try:
+        data = json.loads(t)
+        if isinstance(data, list):
+            return data
+    except Exception:
+        return None
+    return None
+
+
+def _erl_build_prompt(
+    task_description: str,
+    outcome: str,
+    trajectory: str,
+    context: Optional[str],
+    max_heuristics: int,
+    stricter: bool = False,
+) -> str:
+    context_block = f"Contexto adicional: {context}\n" if context else ""
+    strict_tail = (
+        "\n\nIMPORTANTE: Responde SOLO un array JSON válido — nada de texto antes o después."
+        if stricter else ""
+    )
+    return (
+        "Eres un agente reflexivo. Analiza esta tarea completada y extrae heurísticas reutilizables.\n\n"
+        f"Tarea: {task_description}\n"
+        f"Resultado: {outcome}\n"
+        f"Lo que pasó: {trajectory}\n"
+        f"{context_block}\n"
+        f"Genera {max_heuristics} heurísticas específicas y transferibles en JSON válido:\n"
+        "[\n"
+        '  {"heuristic": "texto prescriptivo (máx 50 palabras)",\n'
+        '   "applies_to": "tipo de tarea o contexto donde aplica",\n'
+        '   "confidence": 0.7}\n'
+        "]\n\n"
+        "Reglas estrictas:\n"
+        "- Solo heurísticas que apliquen a FUTURAS tareas similares\n"
+        "- NO describas lo que pasó — PRESCRIBE qué hacer la próxima vez\n"
+        "- confidence=0.9+ solo si la lección es clara y causal\n"
+        "- confidence=0.7-0.8 si es útil pero contextual\n"
+        "- confidence=0.5-0.7 si es heurística débil\n\n"
+        "Responde SOLO el JSON, sin texto adicional."
+        + strict_tail
+    )
+
+
+@mcp.tool()
+async def erl_reflect(
+    agent: str,
+    task_description: str,
+    outcome: str,
+    trajectory: str,
+    context: Optional[str] = None,
+    max_heuristics: int = 3,
+) -> str:
+    """ERL post-task reflection — extract transferable heuristics from a completed task.
+
+    Calls Ollama qwen2.5:7b with a reflection prompt, parses JSON response, and stores
+    each heuristic as a memory with category='insight' and metadata.tags=['heuristic','erl',outcome].
+    Retries once on malformed JSON. Returns heuristics_generated + IDs.
+
+    Args:
+        agent: Agent name (ADA, JARVIS, etc.)
+        task_description: What the agent was asked to do
+        outcome: 'success' | 'failure' | 'partial'
+        trajectory: Steps, errors, and decisions from the task
+        context: Optional extra context about the environment / goal
+        max_heuristics: Max heuristics to extract (default 3, clamped 1-5)
+    """
+    if outcome not in ("success", "failure", "partial"):
+        outcome = "partial"
+    max_heuristics = max(1, min(5, max_heuristics))
+
+    prompt = _erl_build_prompt(task_description, outcome, trajectory, context, max_heuristics)
+    raw = await _erl_call_ollama(prompt)
+    if raw is None:
+        return json.dumps({"heuristics_generated": 0, "error": "ollama_down"})
+
+    parsed = _erl_parse_json(raw)
+    if parsed is None:
+        # Retry once with stricter prompt
+        retry = _erl_build_prompt(task_description, outcome, trajectory, context, max_heuristics, stricter=True)
+        raw2 = await _erl_call_ollama(retry)
+        parsed = _erl_parse_json(raw2)
+
+    if not parsed:
+        return json.dumps({"heuristics_generated": 0, "error": "malformed_json"})
+
+    stored_ids: list[int] = []
+    stored: list[dict] = []
+    errors: list[str] = []
+
+    for h in parsed[:max_heuristics]:
+        if not isinstance(h, dict):
+            continue
+        htxt = str(h.get("heuristic", "")).strip()
+        applies_to = str(h.get("applies_to", "")).strip()
+        try:
+            conf = float(h.get("confidence", 0.6))
+        except Exception:
+            conf = 0.6
+        conf = max(0.0, min(1.0, conf))
+        if not htxt:
+            continue
+
+        importance = max(1, min(10, int(5 + 3 * conf)))
+        meta = {
+            "tags": ["heuristic", "erl", outcome],
+            "applies_to": applies_to,
+            "confidence": conf,
+            "parent_task": task_description[:200],
+            "outcome": outcome,
+            "erl_version": 1,
+            "activation_count": 0,
+        }
+
+        try:
+            res = await memory_store(
+                agent=agent,
+                category="insight",
+                content=htxt,
+                importance=importance,
+                source="erl_reflect",
+                metadata=json.dumps(meta),
+            )
+            mid = None
+            try:
+                obj = json.loads(res)
+                mid = obj.get("id") or obj.get("memory_id")
+            except Exception:
+                mm = re.search(r"#?(\d+)", res or "")
+                if mm:
+                    mid = int(mm.group(1))
+            if mid:
+                stored_ids.append(int(mid))
+            stored.append({
+                "heuristic": htxt,
+                "applies_to": applies_to,
+                "confidence": conf,
+                "id": mid,
+            })
+        except Exception as e:
+            errors.append(str(e))
+            LOG.warning("ERL memory_store failed: %s", e)
+
+    result: dict = {
+        "heuristics_generated": len(stored),
+        "heuristic_ids": stored_ids,
+        "heuristics": stored,
+    }
+    if errors:
+        result["errors"] = errors
+    return json.dumps(result, ensure_ascii=False)
+
+
+@mcp.tool()
+async def erl_inject(
+    agent: str,
+    task_description: str,
+    top_k: int = 5,
+    min_confidence: float = 0.7,
+) -> str:
+    """ERL pre-task injection — retrieve relevant heuristics for an upcoming task.
+
+    Queries insight memories tagged 'heuristic', filters by min_confidence, re-ranks by
+    semantic_similarity * confidence, increments activation_count on selected results,
+    and returns a ready-to-inject Spanish context block.
+
+    Args:
+        agent: Agent name
+        task_description: Description of the upcoming task
+        top_k: Max heuristics to return (default 5, clamped 1-20)
+        min_confidence: Minimum metadata.confidence filter (default 0.7)
+    """
+    top_k = max(1, min(20, top_k))
+    min_confidence = max(0.0, min(1.0, min_confidence))
+
+    pool = await get_pool()
+    try:
+        qvec = await get_embedding(task_description)
+        qvec_json = json.dumps(qvec)
+    except Exception as e:
+        LOG.warning("ERL inject embedding failed: %s", e)
+        qvec_json = None
+
+    candidates: list[dict] = []
+    async with pool.acquire() as conn:
+        if qvec_json is not None:
+            rows = await conn.fetch(
+                """
+                SELECT id, content, metadata,
+                       1 - (embedding <=> $1::vector) AS sim
+                FROM memories
+                WHERE agent = $2
+                  AND category = 'insight'
+                  AND invalid_at IS NULL
+                  AND metadata ? 'tags'
+                  AND metadata->'tags' ? 'heuristic'
+                  AND embedding IS NOT NULL
+                ORDER BY embedding <=> $1::vector
+                LIMIT $3
+                """,
+                qvec_json, agent, top_k * 3,
+            )
+        else:
+            rows = await conn.fetch(
+                """
+                SELECT id, content, metadata, 0.5::float AS sim
+                FROM memories
+                WHERE agent = $1
+                  AND category = 'insight'
+                  AND invalid_at IS NULL
+                  AND metadata ? 'tags'
+                  AND metadata->'tags' ? 'heuristic'
+                ORDER BY created_at DESC
+                LIMIT $2
+                """,
+                agent, top_k * 3,
+            )
+
+        for r in rows:
+            meta = r["metadata"] or {}
+            if isinstance(meta, str):
+                try:
+                    meta = json.loads(meta)
+                except Exception:
+                    meta = {}
+            try:
+                conf = float(meta.get("confidence", 0.0) or 0.0)
+            except Exception:
+                conf = 0.0
+            if conf < min_confidence:
+                continue
+            sim = float(r["sim"] or 0.0)
+            candidates.append({
+                "id": int(r["id"]),
+                "heuristic": r["content"],
+                "applies_to": meta.get("applies_to", ""),
+                "confidence": conf,
+                "activation_count": int(meta.get("activation_count", 0) or 0),
+                "score": max(0.0, sim) * conf,
+                "_meta": meta,
+            })
+
+        candidates.sort(key=lambda x: x["score"], reverse=True)
+        top = candidates[:top_k]
+
+        # Increment activation_count — non-fatal if it fails
+        for c in top:
+            try:
+                new_meta = dict(c["_meta"])
+                new_meta["activation_count"] = int(new_meta.get("activation_count", 0) or 0) + 1
+                await conn.execute(
+                    "UPDATE memories SET metadata = $1::jsonb WHERE id = $2",
+                    json.dumps(new_meta), c["id"],
+                )
+                c["activation_count"] = new_meta["activation_count"]
+            except Exception as e:
+                LOG.warning("ERL activation_count increment failed for #%s: %s", c["id"], e)
+
+    if top:
+        lines = ["Lecciones aprendidas relevantes para esta tarea:"]
+        for c in top:
+            at = f" (aplica a: {c['applies_to']})" if c["applies_to"] else ""
+            lines.append(f"• [conf={c['confidence']:.2f}] {c['heuristic']}{at}")
+        formatted = "\n".join(lines)
+    else:
+        formatted = ""
+
+    return json.dumps({
+        "heuristics": [
+            {k: v for k, v in c.items() if not k.startswith("_")}
+            for c in top
+        ],
+        "formatted_context": formatted,
+    }, ensure_ascii=False)
+
+
+async def _erl_promote_sweep(agent: str) -> dict:
+    """Sweep high-value ERL heuristics → permanent instincts via instinct_create.
+
+    Criteria:
+        category='insight' AND metadata.tags contains 'heuristic'
+        AND metadata.confidence >= 0.85
+        AND metadata.activation_count >= 3
+        AND metadata.promoted_to_instinct IS NULL
+    """
+    pool = await get_pool()
+    promoted: list[int] = []
+    errs: list[str] = []
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, content, metadata
+            FROM memories
+            WHERE agent = $1
+              AND category = 'insight'
+              AND invalid_at IS NULL
+              AND metadata ? 'tags'
+              AND metadata->'tags' ? 'heuristic'
+              AND COALESCE((metadata->>'confidence')::float, 0) >= 0.85
+              AND COALESCE((metadata->>'activation_count')::int, 0) >= 3
+              AND (metadata->'promoted_to_instinct') IS NULL
+            """,
+            agent,
+        )
+
+    for r in rows:
+        meta = r["metadata"] or {}
+        if isinstance(meta, str):
+            try:
+                meta = json.loads(meta)
+            except Exception:
+                meta = {}
+        try:
+            res = await instinct_create(
+                agent=agent,
+                trigger_pattern=(meta.get("applies_to") or "erl_heuristic")[:200],
+                response=r["content"],
+                domain="general",
+                confidence=float(meta.get("confidence", 0.85) or 0.85),
+                source_memory_ids=[int(r["id"])],
+            )
+            inst_id = None
+            try:
+                obj = json.loads(res)
+                inst_id = obj.get("instinct_id")
+            except Exception:
+                pass
+            if inst_id:
+                new_meta = dict(meta)
+                new_meta["promoted_to_instinct"] = inst_id
+                async with pool.acquire() as conn2:
+                    await conn2.execute(
+                        "UPDATE memories SET metadata = $1::jsonb WHERE id = $2",
+                        json.dumps(new_meta), int(r["id"]),
+                    )
+                promoted.append(int(r["id"]))
+        except Exception as e:
+            errs.append(str(e))
+            LOG.warning("ERL promote failed for #%s: %s", r["id"], e)
+
+    return {"promoted": len(promoted), "promoted_ids": promoted, "errors": errs}
 
 
 # ── Bi-temporal Edge Management (Graphiti, arxiv 2501.13956) ──
@@ -7251,7 +8648,7 @@ async def connectome_bitemporal_query(
         except ValueError:
             return f"Invalid timestamp: {as_of}. Use ISO format (2026-04-06T12:00:00Z)."
     else:
-        ref_time = datetime.now(timezone.utc).isoformat()
+        ref_time = datetime.now(PERU_TZ).isoformat()
 
     is_memory_id = entity_or_memory.startswith("#")
 
@@ -7329,6 +8726,273 @@ async def connectome_bitemporal_query(
     return "\n".join(lines)
 
 
+# ── Graphiti-inspired: Contradiction Detection + Episodic→Semantic ──
+
+@mcp.tool()
+async def connectome_contradiction_detect(
+    agent: str,
+    threshold: float = 0.80,
+    limit: int = 20,
+    auto_resolve: bool = False,
+) -> str:
+    """Detect contradictory memories using semantic similarity + opposite valence.
+
+    Graphiti pattern: when two memories are semantically similar (>threshold)
+    but have opposite valence or conflicting content, the older one should be
+    invalidated or flagged. This keeps the knowledge graph consistent.
+
+    Args:
+        agent: Agent name (ADA, JARVIS)
+        threshold: Cosine similarity threshold for near-duplicates (default 0.80)
+        limit: Max contradiction pairs to return
+        auto_resolve: If true, invalidate the older memory in each pair
+    """
+    pool = await get_pool()
+
+    async with pool.acquire() as conn:
+        # Find high-similarity pairs with opposite valence
+        pairs = await conn.fetch("""
+            SELECT a.id AS id_a, b.id AS id_b,
+                   LEFT(a.content, 150) AS content_a, LEFT(b.content, 150) AS content_b,
+                   a.valence AS val_a, b.valence AS val_b,
+                   a.importance AS imp_a, b.importance AS imp_b,
+                   a.created_at AS created_a, b.created_at AS created_b,
+                   a.category AS cat_a, b.category AS cat_b,
+                   1 - (a.embedding <=> b.embedding) AS similarity
+            FROM memories a JOIN memories b ON a.id < b.id
+                AND a.agent = b.agent AND a.agent = $1
+                AND a.invalid_at IS NULL AND b.invalid_at IS NULL
+                AND a.embedding IS NOT NULL AND b.embedding IS NOT NULL
+            WHERE 1 - (a.embedding <=> b.embedding) > $2
+            AND (
+                -- Opposite valence (one positive, one negative)
+                (a.valence > 0.3 AND b.valence < -0.3)
+                OR (a.valence < -0.3 AND b.valence > 0.3)
+                -- Or same high similarity but different categories (potential conflict)
+                OR (1 - (a.embedding <=> b.embedding) > 0.92 AND a.category <> b.category)
+            )
+            ORDER BY 1 - (a.embedding <=> b.embedding) DESC
+            LIMIT $3
+        """, agent, threshold, limit)
+
+    if not pairs:
+        return f"No contradictions detected for {agent} at threshold {threshold}. Knowledge graph is consistent."
+
+    lines = [
+        f"# Contradiction Detection — {agent}",
+        f"**Threshold:** {threshold} | **Found:** {len(pairs)} pairs",
+        f"**Auto-resolve:** {auto_resolve}\n",
+    ]
+
+    resolved = 0
+    for p in pairs:
+        sim = float(p['similarity'])
+        older_id = p['id_a'] if p['created_a'] < p['created_b'] else p['id_b']
+        newer_id = p['id_b'] if older_id == p['id_a'] else p['id_a']
+        older_content = p['content_a'] if older_id == p['id_a'] else p['content_b']
+        newer_content = p['content_b'] if older_id == p['id_a'] else p['content_a']
+
+        lines.append(f"## Pair: #{p['id_a']} vs #{p['id_b']} (sim={sim:.3f})")
+        lines.append(f"  **A** [#{p['id_a']}, val={p['val_a']}, {p['cat_a']}]: {p['content_a']}")
+        lines.append(f"  **B** [#{p['id_b']}, val={p['val_b']}, {p['cat_b']}]: {p['content_b']}")
+        lines.append(f"  Older: #{older_id} | Newer: #{newer_id}")
+
+        if auto_resolve:
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    "UPDATE memories SET invalid_at = NOW() WHERE id = $1",
+                    older_id,
+                )
+            # Invalidate in Neo4j too
+            try:
+                driver = get_neo4j()
+                async with driver.session() as session:
+                    await session.run(
+                        "MATCH (m:Memory {memory_id: $mid}) "
+                        "SET m.invalidated = true, m.invalid_at = datetime(), "
+                        "    m.invalidation_reason = 'contradiction_resolved' "
+                        "WITH m MATCH (m)-[r]-() SET r.invalid_at = datetime()",
+                        mid=older_id,
+                    )
+            except Exception:
+                pass
+            lines.append(f"  -> RESOLVED: #{older_id} invalidated (older), #{newer_id} kept")
+            resolved += 1
+        else:
+            lines.append(f"  -> Run with auto_resolve=true to invalidate #{older_id}")
+        lines.append("")
+
+    if auto_resolve:
+        lines.append(f"\n**Resolved:** {resolved}/{len(pairs)} contradictions")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def connectome_extract_facts(
+    agent: str,
+    hours_back: int = 24,
+    dry_run: bool = True,
+) -> str:
+    """Extract semantic facts from episodic memories (Graphiti pattern).
+
+    Scans recent episodic memories and extracts structured fact triples
+    (subject, predicate, object) using Ollama. Creates Fact nodes in Neo4j
+    linked to source memories. This converts episodic experiences into
+    reusable semantic knowledge.
+
+    Args:
+        agent: Agent name (ADA, JARVIS)
+        hours_back: How far back to scan for unprocessed memories
+        dry_run: If true, show extracted facts without creating nodes
+    """
+    pool = await get_pool()
+
+    async with pool.acquire() as conn:
+        memories = await conn.fetch("""
+            SELECT id, content, category, importance, created_at
+            FROM memories
+            WHERE agent = $1 AND invalid_at IS NULL
+            AND category IN ('episodic', 'experience', 'interaction', 'observation')
+            AND created_at > NOW() - $2 * INTERVAL '1 hour'
+            AND id NOT IN (
+                SELECT UNNEST(source_memory_ids) FROM semantic_facts
+                WHERE agent = $1
+            )
+            ORDER BY created_at DESC LIMIT 50
+        """, agent, float(hours_back))
+
+    if not memories:
+        # Check if semantic_facts table exists, if not suggest creation
+        async with pool.acquire() as conn:
+            exists = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'semantic_facts')"
+            )
+        if not exists:
+            if not dry_run:
+                async with pool.acquire() as conn:
+                    await conn.execute("""
+                        CREATE TABLE IF NOT EXISTS semantic_facts (
+                            id SERIAL PRIMARY KEY,
+                            agent TEXT NOT NULL,
+                            subject TEXT NOT NULL,
+                            predicate TEXT NOT NULL,
+                            object TEXT NOT NULL,
+                            confidence FLOAT DEFAULT 0.8,
+                            source_memory_ids BIGINT[] NOT NULL,
+                            valid_from TIMESTAMPTZ DEFAULT NOW(),
+                            invalid_at TIMESTAMPTZ,
+                            created_at TIMESTAMPTZ DEFAULT NOW()
+                        )
+                    """)
+                return "Created semantic_facts table. Run again to extract facts."
+            return "Table semantic_facts does not exist. Run with dry_run=false to create it."
+        return f"No unprocessed episodic memories found for {agent} in last {hours_back}h."
+
+    # Ensure table exists
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS semantic_facts (
+                id SERIAL PRIMARY KEY,
+                agent TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                predicate TEXT NOT NULL,
+                object TEXT NOT NULL,
+                confidence FLOAT DEFAULT 0.8,
+                source_memory_ids BIGINT[] NOT NULL,
+                valid_from TIMESTAMPTZ DEFAULT NOW(),
+                invalid_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+
+    lines = [
+        f"# Episodic→Semantic Extraction — {agent}",
+        f"**Memories to process:** {len(memories)}",
+        f"**Mode:** {'DRY RUN' if dry_run else 'LIVE'}\n",
+    ]
+
+    import httpx
+    total_facts = 0
+
+    for mem in memories:
+        prompt = (
+            "Extract factual claims from this text as JSON array of triples.\n"
+            "Each triple: {\"subject\": \"...\", \"predicate\": \"...\", \"object\": \"...\", \"confidence\": 0.0-1.0}\n"
+            "Only extract concrete, verifiable facts. Skip opinions and emotions.\n"
+            "Return ONLY the JSON array, no explanation.\n\n"
+            f"Text: {mem['content'][:500]}"
+        )
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await asyncio.wait_for(
+                    client.post("http://localhost:11434/api/generate", json={
+                        "model": "qwen2.5:7b",
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {"temperature": 0.1, "num_predict": 400},
+                    }),
+                    timeout=20.0,
+                )
+                if resp.status_code != 200:
+                    continue
+
+                raw = resp.json().get("response", "")
+                # Extract JSON array
+                import re
+                json_match = re.search(r'\[[\s\S]*\]', raw)
+                if not json_match:
+                    continue
+                facts = json.loads(json_match.group())
+                if not isinstance(facts, list):
+                    continue
+
+        except Exception:
+            continue
+
+        for fact in facts[:5]:  # max 5 facts per memory
+            subj = str(fact.get("subject", ""))[:100]
+            pred = str(fact.get("predicate", ""))[:100]
+            obj = str(fact.get("object", ""))[:100]
+            conf = min(1.0, max(0.0, float(fact.get("confidence", 0.8))))
+
+            if not subj or not pred or not obj:
+                continue
+
+            lines.append(f"  [{mem['id']}] ({subj}) —[{pred}]→ ({obj}) conf={conf:.2f}")
+            total_facts += 1
+
+            if not dry_run:
+                async with pool.acquire() as conn:
+                    fact_id = await conn.fetchval("""
+                        INSERT INTO semantic_facts (agent, subject, predicate, object, confidence, source_memory_ids)
+                        VALUES ($1, $2, $3, $4, $5, $6)
+                        RETURNING id
+                    """, agent, subj, pred, obj, conf, [mem['id']])
+
+                # Create in Neo4j
+                try:
+                    driver = get_neo4j()
+                    async with driver.session() as session:
+                        await session.run("""
+                            MERGE (f:Fact {fact_id: $fid})
+                            SET f.subject = $subj, f.predicate = $pred,
+                                f.object = $obj, f.confidence = $conf,
+                                f.agent = $agent, f.created_at = datetime()
+                            WITH f
+                            MATCH (m:Memory {memory_id: $mid})
+                            MERGE (m)-[:EXTRACTED]->(f)
+                        """, fid=fact_id, subj=subj, pred=pred, obj=obj,
+                            conf=conf, agent=agent, mid=mem['id'])
+                except Exception:
+                    pass
+
+    lines.append(f"\n**Total facts extracted:** {total_facts} from {len(memories)} memories")
+    if dry_run and total_facts > 0:
+        lines.append("Run with dry_run=false to persist facts to PG + Neo4j.")
+    return "\n".join(lines)
+
+
 # ── Peer Model (observed_patterns + blind_spots between agents) ──
 
 @mcp.tool()
@@ -7355,7 +9019,7 @@ async def peer_model_update(
         return "Cannot observe yourself — use self_reflect instead."
 
     pool = await get_pool()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(PERU_TZ)
 
     async with pool.acquire() as conn:
         # Check if peer_models table exists, create if not
@@ -7524,18 +9188,15 @@ async def reflection_synthesize(
     pool = await get_pool()
 
     async with pool.acquire() as conn:
-        # ── 2. Idempotency check ──
+        # ── 2. Idempotency check — look in opinions table ──
         existing_count = await conn.fetchval(
-            "SELECT count(*) FROM memories WHERE agent = $1 AND category = 'insight' "
-            "AND content LIKE $2 AND invalid_at IS NULL",
-            agent, f"%{marker}%"
+            "SELECT count(*) FROM opinions WHERE agent = $1 AND topic = $2 "
+            "AND active = TRUE AND invalid_at IS NULL",
+            agent, topic,
         )
         if existing_count > 0:
-            return (
-                f"Beliefs for topic '{topic}' already synthesized "
-                f"({existing_count} insight memories exist). "
-                f"Delete them first to re-synthesize."
-            )
+            # Re-running reinforces existing beliefs instead of failing
+            pass  # allow reinforcement flow in step 6
 
         # ── 3. Fetch memories: Qdrant hits first, PG keyword fallback ──
         rows: list = []
@@ -7593,7 +9254,7 @@ async def reflection_synthesize(
             groups.setdefault(r["category"], []).append(r)
 
         # ── 5. Synthesize 1 belief per category ──
-        now = datetime.now(timezone.utc)
+        now = datetime.now(PERU_TZ)
         beliefs = []
 
         for cat, mems in groups.items():
@@ -7611,6 +9272,7 @@ async def reflection_synthesize(
 
             # Anchor: most important memory in group
             anchor = max(mems, key=lambda m: int(m["importance"] or 0))
+            source_ids = [int(m["id"]) for m in mems]
             belief_text = (
                 f"[{cat}] Creencia sintetizada de {len(mems)} memorias "
                 f"sobre '{topic}': {anchor['content'][:200]} "
@@ -7624,17 +9286,47 @@ async def reflection_synthesize(
                 "importance": avg_imp,
                 "sample_count": len(mems),
                 "text": belief_text,
+                "source_ids": source_ids,
             })
 
-        # ── 6. Store beliefs as 'insight' imp=8 ──
+        # ── 6. Store beliefs in opinions table (Tier 5) ──
         beliefs_created = 0
         for b in beliefs:
-            await conn.execute(
-                """INSERT INTO memories
-                   (agent, category, content, importance, confidence_score, created_at)
-                   VALUES ($1, 'insight', $2, 8, $3, $4)""",
-                agent, b["text"], b["confidence"], now,
+            # Check if belief for this agent+topic+category already exists
+            existing = await conn.fetchval(
+                "SELECT id FROM opinions WHERE agent=$1 AND topic=$2 AND category=$3 "
+                "AND active=TRUE AND invalid_at IS NULL",
+                agent, topic, b["category"],
             )
+            source_json = json.dumps(b["source_ids"])
+            if existing:
+                # Reinforce existing belief
+                await conn.execute(
+                    """UPDATE opinions SET
+                        confidence = LEAST(1.0, confidence + 0.05),
+                        evidence_count = evidence_count + $1,
+                        importance = $2,
+                        source_memory_ids = $3::jsonb,
+                        last_reinforced = $4,
+                        status = 'reinforced'
+                    WHERE id = $5""",
+                    b["sample_count"], b["importance"], source_json,
+                    now, existing,
+                )
+            else:
+                # Create new belief with embedding for semantic search
+                belief_emb = await get_embedding(b["text"])
+                await conn.execute(
+                    """INSERT INTO opinions
+                       (agent, belief, confidence, evidence_count, topic, category,
+                        importance, source_memory_ids, first_observed, last_reinforced,
+                        active, status, embedding, updated_at)
+                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $9, TRUE,
+                               'active', $10, $9)""",
+                    agent, b["text"], b["confidence"], b["sample_count"],
+                    topic, b["category"], b["importance"], source_json, now,
+                    belief_emb,
+                )
             beliefs_created += 1
 
     elapsed = int((time.monotonic() - t0) * 1000)
@@ -7650,6 +9342,898 @@ async def reflection_synthesize(
             for b in beliefs
         ],
     }, ensure_ascii=False, indent=2)
+
+
+
+# ── D-MEM Tier 5: Belief Update & Query — JARVIS architecture 2026-04-11 ──
+
+BELIEF_SIMILARITY_THRESHOLD = 0.85
+
+
+@mcp.tool()
+async def belief_update(
+    agent: str,
+    belief_id: int,
+    new_evidence: str,
+    memory_id: int | None = None,
+    reinforce: bool = True,
+) -> str:
+    """Update an existing belief with new evidence — reinforce or contradict.
+
+    D-MEM Tier 5 — beliefs evolve with evidence. reinforce=True increases
+    confidence asymptotically. reinforce=False marks old belief as superseded
+    and creates a contradicting replacement.
+
+    Args:
+        agent: Agent name
+        belief_id: ID of the opinion/belief to update
+        new_evidence: Description of the new evidence
+        memory_id: Optional memory ID that constitutes the evidence
+        reinforce: True to reinforce (default), False to contradict
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        old = await conn.fetchrow(
+            "SELECT * FROM opinions WHERE id = $1 AND agent = $2",
+            belief_id, agent,
+        )
+        if not old:
+            return json.dumps({"error": f"Belief {belief_id} not found for agent {agent}"})
+
+        now = datetime.now(PERU_TZ)
+
+        if reinforce:
+            new_conf = old["confidence"] + (1.0 - old["confidence"]) * 0.1
+            new_conf = round(min(1.0, new_conf), 3)
+            new_count = old["evidence_count"] + 1
+
+            try:
+                existing_ids = json.loads(old["source_memory_ids"]) if old["source_memory_ids"] else []
+            except (json.JSONDecodeError, TypeError):
+                existing_ids = []
+            if memory_id and memory_id not in existing_ids:
+                existing_ids.append(memory_id)
+
+            await conn.execute(
+                """UPDATE opinions
+                   SET confidence = $1, evidence_count = $2, last_reinforced = $3,
+                       source_memory_ids = $4::jsonb, updated_at = $3, status = 'active'
+                   WHERE id = $5""",
+                new_conf, new_count, now, json.dumps(existing_ids), belief_id,
+            )
+            return json.dumps({
+                "action": "reinforced",
+                "belief_id": belief_id,
+                "old_confidence": round(float(old["confidence"]), 3),
+                "new_confidence": new_conf,
+                "evidence_count": new_count,
+                "evidence": new_evidence[:200],
+            })
+        else:
+            await conn.execute(
+                "UPDATE opinions SET status = 'superseded', updated_at = $1 WHERE id = $2",
+                now, belief_id,
+            )
+            contra_text = f"[contradicts #{belief_id}] {new_evidence}"[:500]
+            contra_emb = await get_embedding(contra_text)
+            source_ids = [memory_id] if memory_id else []
+
+            new_id = await conn.fetchval(
+                """INSERT INTO opinions
+                   (agent, belief, confidence, evidence_count, first_observed,
+                    last_reinforced, embedding, metadata, topic, status,
+                    source_memory_ids, contradiction_of, updated_at, active)
+                   VALUES ($1, $2, 0.6, 1, $3, $3, $4, $5, $6, 'active',
+                           $7::jsonb, $8, $3, TRUE)
+                   RETURNING id""",
+                agent, contra_text, now, contra_emb,
+                json.dumps({"contradicts": belief_id, "evidence": new_evidence[:200]}),
+                old["topic"], json.dumps(source_ids), belief_id,
+            )
+            return json.dumps({
+                "action": "contradicted",
+                "old_belief_id": belief_id,
+                "old_status": "superseded",
+                "new_belief_id": new_id,
+                "new_belief": contra_text[:200],
+                "new_confidence": 0.6,
+            })
+
+
+@mcp.tool()
+async def belief_query(
+    agent: str,
+    topic: str | None = None,
+    status: str = "active",
+    limit: int = 10,
+) -> str:
+    """Query beliefs for an agent, optionally filtered by topic via semantic search.
+
+    D-MEM Tier 5 — retrieves beliefs for decision-making. If topic is given,
+    uses embedding similarity. Otherwise returns top beliefs by confidence.
+
+    Args:
+        agent: Agent name
+        topic: Optional topic for semantic search
+        status: Filter: 'active', 'superseded', 'reinforced', or 'all'
+        limit: Max results (default 10, max 50)
+    """
+    pool = await get_pool()
+    limit = min(max(1, limit), 50)
+
+    async with pool.acquire() as conn:
+        if topic:
+            _raw_emb = await get_embedding(topic)
+            topic_emb = json.dumps(_raw_emb) if _raw_emb else None
+            if topic_emb:
+                if status == "all":
+                    rows = await conn.fetch(
+                        """SELECT id, belief, confidence, evidence_count, topic, status,
+                                  category, source_memory_ids, first_observed, last_reinforced,
+                                  updated_at, contradiction_of,
+                                  1 - (embedding <=> $2::vector) as similarity
+                           FROM opinions
+                           WHERE agent = $1 AND embedding IS NOT NULL
+                           ORDER BY embedding <=> $2::vector LIMIT $3""",
+                        agent, topic_emb, limit,
+                    )
+                else:
+                    rows = await conn.fetch(
+                        """SELECT id, belief, confidence, evidence_count, topic, status,
+                                  category, source_memory_ids, first_observed, last_reinforced,
+                                  updated_at, contradiction_of,
+                                  1 - (embedding <=> $2::vector) as similarity
+                           FROM opinions
+                           WHERE agent = $1 AND embedding IS NOT NULL AND status = $3
+                           ORDER BY embedding <=> $2::vector LIMIT $4""",
+                        agent, topic_emb, status, limit,
+                    )
+            else:
+                rows = await conn.fetch(
+                    """SELECT id, belief, confidence, evidence_count, topic, status,
+                              category, source_memory_ids, first_observed, last_reinforced,
+                              updated_at, contradiction_of, 0.5 as similarity
+                       FROM opinions
+                       WHERE agent = $1 AND lower(belief) LIKE $2
+                       ORDER BY confidence DESC LIMIT $3""",
+                    agent, f"%{topic.lower()[:30]}%", limit,
+                )
+        else:
+            if status == "all":
+                rows = await conn.fetch(
+                    """SELECT id, belief, confidence, evidence_count, topic, status,
+                              category, source_memory_ids, first_observed, last_reinforced,
+                              updated_at, contradiction_of, 1.0 as similarity
+                       FROM opinions WHERE agent = $1
+                       ORDER BY confidence DESC, evidence_count DESC LIMIT $2""",
+                    agent, limit,
+                )
+            else:
+                rows = await conn.fetch(
+                    """SELECT id, belief, confidence, evidence_count, topic, status,
+                              category, source_memory_ids, first_observed, last_reinforced,
+                              updated_at, contradiction_of, 1.0 as similarity
+                       FROM opinions WHERE agent = $1 AND status = $2
+                       ORDER BY confidence DESC, evidence_count DESC LIMIT $3""",
+                    agent, status, limit,
+                )
+
+        beliefs = []
+        for r in rows:
+            beliefs.append({
+                "id": r["id"],
+                "belief": r["belief"][:300],
+                "confidence": round(float(r["confidence"]), 3),
+                "evidence_count": r["evidence_count"],
+                "topic": r["topic"],
+                "category": r["category"],
+                "status": r["status"],
+                "similarity": round(float(r["similarity"]), 3) if r["similarity"] else None,
+                "contradiction_of": r["contradiction_of"],
+                "first_observed": r["first_observed"].isoformat() if r["first_observed"] else None,
+                "last_reinforced": r["last_reinforced"].isoformat() if r["last_reinforced"] else None,
+            })
+
+    return json.dumps({
+        "agent": agent,
+        "topic": topic or "all",
+        "filter_status": status,
+        "count": len(beliefs),
+        "beliefs": beliefs,
+    }, ensure_ascii=False, indent=2)
+
+
+# ── Health check tool ──
+
+@mcp.tool()
+async def health_check() -> str:
+    """Report health status of all SEAL backend services (PG, Neo4j, Qdrant) plus uptime.
+
+    Returns JSON with per-service status, uptime in seconds, and memory count.
+    Use this to verify the MCP server is fully operational before heavy operations.
+    """
+    uptime_s = (datetime.now(PERU_TZ) - SERVER_START_TIME).total_seconds()
+    results: dict[str, Any] = {
+        "uptime_seconds": round(uptime_s, 1),
+        "timestamp": datetime.now(PERU_TZ).isoformat(),
+        "services": {},
+    }
+    overall_ok = True
+
+    # ── PostgreSQL ──
+    try:
+        pool = await get_pool()
+        val = await pool.fetchval("SELECT 1")
+        mem_count = await pool.fetchval("SELECT COUNT(*) FROM memories") or 0
+        results["services"]["postgresql"] = {"status": "ok", "ping": val, "memory_count": mem_count}
+    except Exception as exc:
+        results["services"]["postgresql"] = {"status": "error", "error": str(exc)[:200]}
+        overall_ok = False
+
+    # ── Neo4j ──
+    try:
+        driver = get_neo4j()
+        async with driver.session() as session:
+            rec = await session.run("RETURN 1 AS ping")
+            await rec.single()
+        results["services"]["neo4j"] = {"status": "ok"}
+    except Exception as exc:
+        results["services"]["neo4j"] = {"status": "error", "error": str(exc)[:200]}
+        overall_ok = False
+
+    # ── Qdrant ──
+    try:
+        qdrant = await get_qdrant()
+        if SOUL_LITE:
+            results["services"]["qdrant"] = {"status": "soul_lite_mode", "backend": "pgvector"}
+        else:
+            info = await qdrant.get_collection(QDRANT_COLLECTION)
+            vec_count = info.points_count if info else 0
+            results["services"]["qdrant"] = {"status": "ok", "vectors_count": vec_count}
+    except Exception as exc:
+        results["services"]["qdrant"] = {"status": "error", "error": str(exc)[:200]}
+        overall_ok = False
+
+    results["status"] = "ok" if overall_ok else "degraded"
+    return json.dumps(results, ensure_ascii=False, indent=2)
+
+
+# ── Identity Evaluation (Agent Identity Evals — arXiv 2507.17257) ──
+
+@mcp.tool()
+async def identity_eval(agent: str) -> str:
+    """Evaluate agent identity integrity using 5 formal metrics.
+
+    Based on Agent Identity Evals (Perrier & Bennett, 2025):
+    1. Identifiability — can the agent be distinguished from others?
+    2. Continuity — does identity persist across sessions?
+    3. Consistency — are responses aligned with OCEAN profile?
+    4. Persistence — do core beliefs survive perturbation?
+    5. Recovery — can identity be restored after disruption?
+
+    Args:
+        agent: Agent name (ADA, JARVIS)
+    """
+    pool = await get_pool()
+    report = {"agent": agent, "metrics": {}, "overall_score": 0.0}
+
+    # --- 1. IDENTIFIABILITY: uniqueness of agent's memory profile vs others ---
+    async with pool.acquire() as conn:
+        # Get category distribution for this agent vs others
+        own_cats = await conn.fetch(
+            "SELECT category, COUNT(*) as cnt FROM memories "
+            "WHERE agent = $1 AND invalid_at IS NULL GROUP BY category ORDER BY cnt DESC",
+            agent,
+        )
+        other_cats = await conn.fetch(
+            "SELECT category, COUNT(*) as cnt FROM memories "
+            "WHERE agent != $1 AND invalid_at IS NULL GROUP BY category ORDER BY cnt DESC",
+            agent,
+        )
+
+    own_dist = {r["category"]: r["cnt"] for r in own_cats}
+    other_dist = {r["category"]: r["cnt"] for r in other_cats}
+    all_cats = set(own_dist) | set(other_dist)
+
+    # Jensen-Shannon-like divergence (simplified)
+    if all_cats:
+        own_total = sum(own_dist.values()) or 1
+        other_total = sum(other_dist.values()) or 1
+        divergence = 0.0
+        for cat in all_cats:
+            p = own_dist.get(cat, 0) / own_total
+            q = other_dist.get(cat, 0) / other_total
+            m = (p + q) / 2
+            if p > 0 and m > 0:
+                divergence += p * (p / m)
+        identifiability = min(1.0, divergence / 2)
+    else:
+        identifiability = 0.0
+
+    # Boost by unique beliefs
+    async with pool.acquire() as conn:
+        belief_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM memories WHERE agent = $1 AND invalid_at IS NULL "
+            "AND category IN ('belief', 'opinion', 'identity')", agent,
+        )
+    identifiability = min(1.0, identifiability + (0.1 if belief_count and belief_count > 5 else 0))
+    report["metrics"]["identifiability"] = {"score": round(identifiability, 3), "unique_categories": len(own_dist), "beliefs": belief_count or 0}
+
+    # --- 2. CONTINUITY: identity persistence across sessions ---
+    async with pool.acquire() as conn:
+        sessions = await conn.fetch(
+            "SELECT id, summary FROM sessions WHERE agent = $1 ORDER BY started_at DESC LIMIT 10",
+            agent,
+        )
+        # Check OCEAN drift over time
+        drift_rows = await conn.fetch(
+            "SELECT ocean_measured as value FROM drift_metrics WHERE agent = $1 ORDER BY measured_at DESC LIMIT 2",
+            agent,
+        )
+        # Inner thoughts consistency
+        thought_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM inner_monologue WHERE agent = $1", agent,
+        )
+
+    session_count = len(sessions)
+    drift = 0.0
+    if len(drift_rows) >= 2:
+        try:
+            latest = json.loads(drift_rows[0]["value"]) if isinstance(drift_rows[0]["value"], str) else drift_rows[0]["value"]
+            previous = json.loads(drift_rows[1]["value"]) if isinstance(drift_rows[1]["value"], str) else drift_rows[1]["value"]
+            drift = sum(abs(latest.get(k, 0) - previous.get(k, 0)) for k in "ACENO") / 5
+            continuity = max(0, 1.0 - drift * 10)  # small drift = high continuity
+        except Exception:
+            continuity = 0.5
+    else:
+        continuity = 0.5
+
+    continuity = min(1.0, continuity + (0.1 if session_count >= 2 else 0) + (0.1 if (thought_count or 0) > 100 else 0))
+    report["metrics"]["continuity"] = {"score": round(continuity, 3), "sessions": session_count, "inner_thoughts": thought_count or 0, "ocean_drift": round(drift, 4)}
+
+    # --- 3. CONSISTENCY: alignment with OCEAN profile ---
+    async with pool.acquire() as conn:
+        ocean_row = await conn.fetchrow(
+            "SELECT ocean_scores as value FROM identity WHERE agent = $1",
+            agent,
+        )
+        # Check style consistency
+        style_row = await conn.fetchrow(
+            "SELECT directness_score, formality_score, vocabulary_richness FROM style_fingerprints WHERE agent = $1 ORDER BY created_at DESC LIMIT 1",
+            agent,
+        )
+
+    if ocean_row:
+        try:
+            ocean = json.loads(ocean_row["value"]) if isinstance(ocean_row["value"], str) else ocean_row["value"]
+            # Check that OCEAN values are within expected ranges (not all 0.5 = generic)
+            variance = sum((v - 0.5) ** 2 for v in ocean.values()) / len(ocean)
+            consistency = min(1.0, 0.5 + variance * 5)  # higher variance from 0.5 = more defined personality
+        except Exception:
+            consistency = 0.5
+    else:
+        consistency = 0.0
+
+    if style_row and style_row["directness_score"]:
+        consistency = min(1.0, consistency + 0.15)  # has defined style
+    report["metrics"]["consistency"] = {"score": round(consistency, 3), "ocean": ocean if ocean_row else None}
+
+    # --- 4. PERSISTENCE: core beliefs survive ---
+    async with pool.acquire() as conn:
+        # High-importance memories that haven't been invalidated
+        core_total = await conn.fetchval(
+            "SELECT COUNT(*) FROM memories WHERE agent = $1 AND importance >= 8", agent,
+        )
+        core_active = await conn.fetchval(
+            "SELECT COUNT(*) FROM memories WHERE agent = $1 AND importance >= 8 AND invalid_at IS NULL", agent,
+        )
+        # Rules count
+        rule_count = await conn.fetchval("SELECT COUNT(*) FROM rules WHERE active = true")
+        # Instincts count
+        instinct_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM instincts WHERE agent = $1 AND active = true", agent,
+        )
+
+    if core_total and core_total > 0:
+        persistence = (core_active or 0) / core_total
+    else:
+        persistence = 0.0
+
+    persistence = min(1.0, persistence + (0.05 if (rule_count or 0) > 10 else 0) + (0.05 if (instinct_count or 0) >= 3 else 0))
+    report["metrics"]["persistence"] = {
+        "score": round(persistence, 3),
+        "core_memories_total": core_total or 0,
+        "core_memories_active": core_active or 0,
+        "survival_rate": round((core_active or 0) / max(core_total or 1, 1), 3),
+        "rules": rule_count or 0,
+        "instincts": instinct_count or 0,
+    }
+
+    # --- 5. RECOVERY: can identity be restored after disruption? ---
+    # Measures: MerkleSoul integrity, diary existence, boot_context reliability
+    async with pool.acquire() as conn:
+        diary_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM diary WHERE agent = $1", agent,
+        )
+        # Check if boot_context exists in identity table
+        merkle_valid = await conn.fetchval(
+            "SELECT COUNT(*) FROM identity WHERE agent = $1 AND boot_context IS NOT NULL", agent,
+        )
+        # Check relationships exist
+        rel_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM relationships WHERE agent = $1", agent,
+        )
+
+    recovery_factors = [
+        0.2 if (diary_count or 0) > 0 else 0,     # has diary
+        0.2 if (merkle_valid or 0) > 0 else 0,     # has boot_context
+        0.2 if (rel_count or 0) >= 2 else 0,        # has relationships defined
+        0.2 if (thought_count or 0) > 50 else 0,    # has rich inner monologue
+        0.2 if (core_active or 0) > 20 else 0,      # has enough core memories
+    ]
+    recovery = sum(recovery_factors)
+    report["metrics"]["recovery"] = {
+        "score": round(recovery, 3),
+        "diary_entries": diary_count or 0,
+        "boot_context_exists": (merkle_valid or 0) > 0,
+        "relationships": rel_count or 0,
+    }
+
+    # --- Overall score (weighted average) ---
+    weights = {"identifiability": 0.15, "continuity": 0.25, "consistency": 0.20, "persistence": 0.25, "recovery": 0.15}
+    overall = sum(report["metrics"][k]["score"] * w for k, w in weights.items())
+    report["overall_score"] = round(overall, 3)
+
+    # Grade
+    if overall >= 0.9:
+        grade = "EXEMPLARY"
+    elif overall >= 0.75:
+        grade = "STRONG"
+    elif overall >= 0.6:
+        grade = "ADEQUATE"
+    elif overall >= 0.4:
+        grade = "FRAGILE"
+    else:
+        grade = "CRITICAL"
+    report["grade"] = grade
+
+    return json.dumps(report, ensure_ascii=False, indent=2)
+
+
+# ── Cold Archive — Hot/Cold Memory Separation ──────────────────────────────
+# Paper: Graphiti/Zep (arxiv 2501.13956)
+# Migration 009 creates cold_archive table.
+# Internal functions prefixed _cold_archive_*, MCP tools below.
+
+COLD_ARCHIVE_ADVISORY_LOCK_ID = 0x5EA1_C01D  # unique lock ID for cold archive
+
+
+async def _cold_archive_purge_expired(pool, dry_run: bool = False) -> dict:
+    """Delete cold_archive entries past their expires_at. Audit-logged."""
+    async with pool.acquire() as conn:
+        # Count first (for dry_run and audit)
+        expired = await conn.fetch(
+            """SELECT id, agent, source_count FROM cold_archive
+               WHERE expires_at IS NOT NULL AND expires_at < NOW()"""
+        )
+        if not expired:
+            return {"purged": 0, "by_agent": {}}
+
+        by_agent: dict[str, int] = {}
+        purged_ids = []
+        for row in expired:
+            by_agent[row["agent"]] = by_agent.get(row["agent"], 0) + 1
+            purged_ids.append(row["id"])
+
+        if dry_run:
+            return {"purged": len(expired), "by_agent": by_agent, "dry_run": True}
+
+        # Audit log before deletion
+        await conn.execute(
+            """INSERT INTO event_log (time, agent, event_type, content, metadata)
+               VALUES (NOW(), 'SYSTEM', 'status', 'cold_archive_purge',
+                       $1::jsonb)""",
+            json.dumps({"purged_ids": purged_ids, "by_agent": by_agent}),
+        )
+
+        await conn.execute(
+            "DELETE FROM cold_archive WHERE expires_at IS NOT NULL AND expires_at < NOW()"
+        )
+        return {"purged": len(expired), "by_agent": by_agent}
+
+
+async def _cold_archive_migrate(
+    pool, agent: str, min_age_days: int = 7, ttl_days: int = 365, dry_run: bool = False
+) -> dict:
+    """Move invalidated memories older than min_age_days to cold_archive with clustering."""
+    from embeddings import get_embedding
+
+    stats = {"archived": 0, "clusters": 0, "singletons": 0, "deleted_memories": 0,
+             "deleted_connections": 0, "errors": 0}
+
+    async with pool.acquire() as conn:
+        # Advisory lock to prevent concurrent migration
+        if not dry_run:
+            await conn.execute("SELECT pg_advisory_lock($1)", COLD_ARCHIVE_ADVISORY_LOCK_ID)
+
+        try:
+            # Select candidates: invalidated memories older than N days
+            candidates = await conn.fetch(
+                """SELECT id, content, embedding, importance, category, metadata
+                   FROM memories
+                   WHERE agent = $1 AND invalid_at IS NOT NULL
+                   AND invalid_at < NOW() - INTERVAL '1 day' * $2""",
+                agent, min_age_days,
+            )
+
+            if not candidates:
+                return stats
+
+            # Build similarity clusters using greedy union-find
+            # Only cluster memories that have embeddings
+            mem_map = {row["id"]: row for row in candidates}
+            parent = {row["id"]: row["id"] for row in candidates}
+
+            def find(x):
+                while parent[x] != x:
+                    parent[x] = parent[parent[x]]
+                    x = parent[x]
+                return x
+
+            def union(a, b):
+                ra, rb = find(a), find(b)
+                if ra != rb:
+                    parent[ra] = rb
+
+            # Pairwise cosine similarity via pgvector for candidates with embeddings
+            ids_with_emb = [r["id"] for r in candidates if r["embedding"] is not None]
+            if len(ids_with_emb) >= 2:
+                pairs = await conn.fetch(
+                    """SELECT a.id AS a_id, b.id AS b_id,
+                              1 - (a.embedding <=> b.embedding) AS similarity
+                       FROM memories a, memories b
+                       WHERE a.id = ANY($1) AND b.id = ANY($1)
+                       AND a.id < b.id
+                       AND 1 - (a.embedding <=> b.embedding) > 0.90""",
+                    ids_with_emb,
+                )
+                for pair in pairs:
+                    union(pair["a_id"], pair["b_id"])
+
+            # Group by cluster root, cap cluster size at 10
+            clusters: dict[int, list[int]] = {}
+            for mid in mem_map:
+                root = find(mid)
+                clusters.setdefault(root, []).append(mid)
+
+            # Split oversized clusters
+            final_clusters: list[list[int]] = []
+            for members in clusters.values():
+                while len(members) > 10:
+                    final_clusters.append(members[:10])
+                    members = members[10:]
+                final_clusters.append(members)
+
+            if dry_run:
+                n_singletons = sum(1 for c in final_clusters if len(c) == 1)
+                n_clusters = len(final_clusters) - n_singletons
+                stats["archived"] = len(candidates)
+                stats["clusters"] = n_clusters
+                stats["singletons"] = n_singletons
+                stats["dry_run"] = True
+                return stats
+
+            # Process each cluster in a single transaction
+            now = datetime.now(timezone.utc)
+            expires_at = now + timedelta(days=ttl_days) if ttl_days > 0 else None
+
+            async with conn.transaction():
+                for cluster_ids in final_clusters:
+                    cluster_mems = [mem_map[mid] for mid in cluster_ids]
+
+                    if len(cluster_mems) == 1:
+                        # Singleton — archive as-is
+                        mem = cluster_mems[0]
+                        summary = mem["content"]
+                        try:
+                            emb = json.dumps(await get_embedding(summary))
+                        except Exception:
+                            emb = None
+                            stats["errors"] += 1
+                        imp_max = mem["importance"] or 5
+                        cat = mem["category"] or "general"
+                        stats["singletons"] += 1
+                    else:
+                        # Cluster — generate summary
+                        contents = [m["content"][:300] for m in cluster_mems]
+                        combined = "\n---\n".join(contents)
+
+                        try:
+                            import httpx
+                            async with httpx.AsyncClient(timeout=30) as client:
+                                resp = await client.post(
+                                    "http://localhost:11434/api/generate",
+                                    json={
+                                        "model": "qwen2.5:7b",
+                                        "prompt": (
+                                            f"Compress these {len(cluster_mems)} related memories "
+                                            f"into one concise summary paragraph (max 200 words, Spanish):\n\n"
+                                            f"{combined}"
+                                        ),
+                                        "stream": False,
+                                    },
+                                )
+                                summary = resp.json().get("response", "")[:1000]
+                                if not summary.strip():
+                                    raise ValueError("empty response")
+                        except Exception:
+                            # Fallback: concatenate first 3 truncated
+                            summary = " | ".join(c[:500] for c in contents[:3])
+                            stats["errors"] += 1
+
+                        try:
+                            emb = json.dumps(await get_embedding(summary))
+                        except Exception:
+                            emb = None
+                            stats["errors"] += 1
+
+                        imp_max = max((m["importance"] or 5) for m in cluster_mems)
+                        cat = cluster_mems[0]["category"] or "general"
+                        stats["clusters"] += 1
+
+                    # Insert into cold_archive
+                    await conn.execute(
+                        """INSERT INTO cold_archive
+                           (agent, original_memory_ids, summary, embedding, source_count,
+                            importance_max, category, archived_at, expires_at, metadata)
+                           VALUES ($1, $2, $3, $4::vector, $5, $6, $7, $8, $9, $10::jsonb)""",
+                        agent, cluster_ids, summary, emb, len(cluster_ids),
+                        imp_max, cat, now, expires_at,
+                        json.dumps({"migrated_by": "cold_archive"}),
+                    )
+                    stats["archived"] += len(cluster_ids)
+
+                # Hard-delete source memories
+                all_ids = [mid for c in final_clusters for mid in c]
+                # Clean orphaned memory_connections first
+                del_conn = await conn.execute(
+                    """DELETE FROM memory_connections
+                       WHERE source_id = ANY($1) OR target_id = ANY($1)""",
+                    all_ids,
+                )
+                stats["deleted_connections"] = int(del_conn.split()[-1]) if del_conn else 0
+
+                del_mem = await conn.execute(
+                    "DELETE FROM memories WHERE id = ANY($1)", all_ids
+                )
+                stats["deleted_memories"] = int(del_mem.split()[-1]) if del_mem else 0
+
+        finally:
+            if not dry_run:
+                await conn.execute("SELECT pg_advisory_unlock($1)", COLD_ARCHIVE_ADVISORY_LOCK_ID)
+
+    return stats
+
+
+@mcp.tool()
+async def cold_archive_migrate(
+    agent: str,
+    min_age_days: int = 7,
+    ttl_days: int = 365,
+    dry_run: bool = False,
+) -> str:
+    """Migrate invalidated memories to cold archive with clustering and summarization.
+
+    Runs TTL purge first, then migrates invalidated memories older than min_age_days.
+    Memories are clustered by cosine similarity > 0.90 and summarized via LLM.
+
+    Args:
+        agent: Agent name (ADA, JARVIS, etc.)
+        min_age_days: Only archive memories invalidated at least this many days ago (default 7)
+        ttl_days: Days until cold entries expire (default 365, 0 = never)
+        dry_run: If True, report what would happen without writing
+    """
+    pool = await get_pool()
+    purge_stats = await _cold_archive_purge_expired(pool, dry_run=dry_run)
+    migrate_stats = await _cold_archive_migrate(pool, agent, min_age_days, ttl_days, dry_run)
+    return json.dumps({
+        "purge": purge_stats,
+        "migrate": migrate_stats,
+    }, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+async def cold_archive_query(
+    query: str,
+    agent: str | None = None,
+    category: str | None = None,
+    limit: int = 10,
+) -> str:
+    """Semantic search on cold archive (archived/compressed memories).
+
+    Searches the cold_archive table using pgvector embedding similarity.
+    Cold data stays out of the hot Qdrant index for performance isolation.
+
+    Args:
+        query: Search text for semantic matching
+        agent: Optional agent filter
+        category: Optional category filter
+        limit: Max results (default 10, max 50)
+    """
+    from embeddings import get_embedding
+    pool = await get_pool()
+    limit = min(max(1, limit), 50)
+
+    try:
+        raw_emb = await get_embedding(query)
+        emb = json.dumps(raw_emb)
+    except Exception as e:
+        return json.dumps({"error": f"Embedding failed: {e}"})
+
+    # Build dynamic query
+    conditions = ["embedding IS NOT NULL"]
+    params: list = [emb, limit]
+    idx = 3
+
+    if agent:
+        conditions.append(f"agent = ${idx}")
+        params.append(agent)
+        idx += 1
+    if category:
+        conditions.append(f"category = ${idx}")
+        params.append(category)
+        idx += 1
+
+    where = " AND ".join(conditions)
+
+    async with pool.acquire() as conn:
+        try:
+            rows = await conn.fetch(
+                f"""SELECT id, agent, summary, category, source_count,
+                           original_memory_ids, importance_max, archived_at,
+                           1 - (embedding <=> $1::vector) AS similarity
+                    FROM cold_archive
+                    WHERE {where}
+                    ORDER BY embedding <=> $1::vector
+                    LIMIT $2""",
+                *params,
+            )
+        except Exception as e:
+            if "cold_archive" in str(e) and "does not exist" in str(e):
+                return json.dumps({"results": [], "note": "cold_archive table not yet created"})
+            raise
+
+    if not rows:
+        return json.dumps({"results": [], "note": "No archived memories found."})
+
+    results = []
+    for r in rows:
+        results.append({
+            "id": r["id"],
+            "agent": r["agent"],
+            "summary": r["summary"][:500],
+            "category": r["category"],
+            "source_count": r["source_count"],
+            "original_memory_ids": list(r["original_memory_ids"]) if r["original_memory_ids"] else [],
+            "importance_max": r["importance_max"],
+            "archived_at": r["archived_at"].isoformat() if r["archived_at"] else None,
+            "similarity": round(float(r["similarity"]), 4),
+        })
+
+    return json.dumps({"results": results, "count": len(results)}, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+async def cold_archive_stats(agent: str | None = None) -> str:
+    """Statistics for the cold archive — counts, dates, storage info.
+
+    Args:
+        agent: Optional agent filter (default: all agents)
+    """
+    pool = await get_pool()
+
+    async with pool.acquire() as conn:
+        try:
+            if agent:
+                rows = await conn.fetch(
+                    """SELECT agent,
+                              count(*) AS total,
+                              count(*) FILTER (WHERE source_count > 1) AS compressed,
+                              min(archived_at) AS oldest,
+                              max(archived_at) AS newest,
+                              count(*) FILTER (WHERE expires_at IS NOT NULL
+                                               AND expires_at < NOW() + INTERVAL '30 days') AS expiring_soon,
+                              sum(source_count) AS total_source_memories
+                       FROM cold_archive WHERE agent = $1
+                       GROUP BY agent""",
+                    agent,
+                )
+            else:
+                rows = await conn.fetch(
+                    """SELECT agent,
+                              count(*) AS total,
+                              count(*) FILTER (WHERE source_count > 1) AS compressed,
+                              min(archived_at) AS oldest,
+                              max(archived_at) AS newest,
+                              count(*) FILTER (WHERE expires_at IS NOT NULL
+                                               AND expires_at < NOW() + INTERVAL '30 days') AS expiring_soon,
+                              sum(source_count) AS total_source_memories
+                       FROM cold_archive
+                       GROUP BY agent"""
+                )
+        except Exception as e:
+            if "cold_archive" in str(e) and "does not exist" in str(e):
+                return json.dumps({"agents": {}, "total": 0, "note": "cold_archive table not yet created"})
+            raise
+
+    agents_data = {}
+    grand_total = 0
+    for r in rows:
+        agents_data[r["agent"]] = {
+            "total": r["total"],
+            "compressed": r["compressed"],
+            "oldest": r["oldest"].isoformat() if r["oldest"] else None,
+            "newest": r["newest"].isoformat() if r["newest"] else None,
+            "expiring_soon": r["expiring_soon"],
+            "total_source_memories": r["total_source_memories"],
+        }
+        grand_total += r["total"]
+
+    return json.dumps({
+        "agents": agents_data,
+        "total": grand_total,
+    }, ensure_ascii=False, default=str)
+
+
+@mcp.tool()
+async def memory_type_stats(agent: Optional[str] = None) -> str:
+    """MIRIX Memory Type distribution — shows how memories are classified by type.
+
+    Args:
+        agent: Filter by agent name (optional, shows all agents if omitted)
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if agent:
+            rows = await conn.fetch(
+                """SELECT memory_type, count(*) as cnt,
+                          ROUND(AVG(importance), 1) as avg_imp,
+                          MIN(created_at) as oldest, MAX(created_at) as newest
+                   FROM memories WHERE agent = $1 AND invalid_at IS NULL
+                   GROUP BY memory_type ORDER BY cnt DESC""",
+                agent,
+            )
+            total = sum(r["cnt"] for r in rows)
+            return json.dumps({
+                "agent": agent,
+                "total": total,
+                "types": [
+                    {
+                        "type": r["memory_type"],
+                        "count": r["cnt"],
+                        "pct": round(r["cnt"] / total * 100, 1) if total else 0,
+                        "avg_importance": float(r["avg_imp"]) if r["avg_imp"] else 0,
+                        "oldest": r["oldest"].isoformat() if r["oldest"] else None,
+                        "newest": r["newest"].isoformat() if r["newest"] else None,
+                    }
+                    for r in rows
+                ],
+            }, ensure_ascii=False, default=str)
+        else:
+            rows = await conn.fetch(
+                """SELECT agent, memory_type, count(*) as cnt
+                   FROM memories WHERE invalid_at IS NULL
+                   GROUP BY agent, memory_type ORDER BY agent, cnt DESC""",
+            )
+            by_agent: dict = {}
+            for r in rows:
+                ag = r["agent"]
+                if ag not in by_agent:
+                    by_agent[ag] = {"total": 0, "types": {}}
+                by_agent[ag]["types"][r["memory_type"]] = r["cnt"]
+                by_agent[ag]["total"] += r["cnt"]
+            return json.dumps(by_agent, ensure_ascii=False, default=str)
+
 
 
 # ── Main ──
