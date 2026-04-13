@@ -506,6 +506,8 @@ function addMsg(data) {
     bodyHtml = `<div class="msg-body"><img src="${escHtml(data.file_url)}" alt="imagen" onclick="openLightbox(this.src)"/>${text ? '<br>' + formatText(text) : ''}</div>`;
   } else if (data.type === 'audio' && data.file_url) {
     bodyHtml = `<div class="msg-body"><audio controls src="${escHtml(data.file_url)}"></audio>${text ? '<br>' + formatText(text) : ''}</div>`;
+  } else if (data.type === 'file_view' && data.body_html) {
+    bodyHtml = data.body_html;
   } else {
     bodyHtml = `<div class="msg-body">${formatText(text)}</div>`;
   }
@@ -548,9 +550,35 @@ function send() {
   const txt = input.value.trim();
   if (pendingFile) { uploadFile(txt); return; }
   if (!txt || ws.readyState !== WebSocket.OPEN) return;
+  // /read <abs-path> — read a file by absolute path (whitelist enforced server-side)
+  if (txt.startsWith('/read ')) { readFileByPath(txt.slice(6).trim()); input.value = ''; autoResize(); return; }
+  // Plain absolute path → shortcut for /read
+  if (txt.startsWith('/home/') || txt.startsWith('/tmp/') || txt.startsWith('/var/')) {
+    const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(txt) || txt.split('/').length > 3;
+    if (looksLikeFile) { readFileByPath(txt); input.value = ''; autoResize(); return; }
+  }
   _sending = true;
   ws.send(JSON.stringify({action:'say', message: txt}));
   input.value = ''; autoResize();
+  setTimeout(() => { _sending = false; }, 500);
+}
+
+async function readFileByPath(abspath) {
+  if (!abspath) { addSys('Uso: /read <ruta absoluta>'); return; }
+  _sending = true;
+  try {
+    const r = await fetch('/api/files/read?path=' + encodeURIComponent(abspath));
+    const d = await r.json();
+    if (d.ok) {
+      const safe = escHtml(d.content);
+      const header = escHtml(d.name) + ' — ' + d.lines + ' lines, ' + (d.size/1024).toFixed(1) + ' KB';
+      const pathEsc = escHtml(d.path);
+      const bodyHtml = '<div class="msg-body"><details open><summary style="cursor:pointer;color:var(--accent);font-weight:600">📄 ' + header + '</summary><div style="font-size:0.72rem;color:var(--text-secondary);margin:4px 0">' + pathEsc + '</div><pre style="max-height:400px;overflow:auto;background:var(--bg-secondary);padding:10px;border-radius:6px;font-size:0.78rem;white-space:pre-wrap">' + safe + '</pre></details></div>';
+      addMsg({from:'SYSTEM', message:'', body_html: bodyHtml, ts: new Date().toISOString(), type:'file_view'});
+    } else {
+      addSys('Error leyendo ' + abspath + ': ' + (d.error || 'unknown'));
+    }
+  } catch (err) { addSys('Error de red: ' + err.message); }
   setTimeout(() => { _sending = false; }, 500);
 }
 
@@ -1151,6 +1179,55 @@ async def serve_upload(filename: str):
     if not fpath.resolve().is_relative_to(UPLOADS_DIR.resolve()):
         return JSONResponse({"error": "forbidden"}, status_code=403)
     return FileResponse(fpath)
+
+
+# Whitelist for /api/files/read — only project-seal paths allowed
+_FILES_READ_ROOTS = [Path("/home/dadito/IA/proyecto-seal").resolve()]
+_FILES_READ_MAX_BYTES = 1_048_576  # 1 MB
+
+
+@app.get("/api/files/read")
+async def read_file_by_path(path: str = Query(..., description="Absolute path to file")):
+    """Read a text file by absolute path, with whitelist + size cap.
+
+    Security layers:
+      1. resolve() follows symlinks → prevents symlink-escape
+      2. is_relative_to(ALLOWED_ROOT) → path must live under whitelist
+      3. Size cap 1 MB → prevents RAM blow-up
+      4. Text-only (utf-8 with errors='replace') → binary files return placeholder
+    """
+    try:
+        fpath = Path(path).expanduser().resolve()
+    except Exception as e:
+        return JSONResponse({"error": f"invalid path: {e}"}, status_code=400)
+
+    if not any(fpath.is_relative_to(root) for root in _FILES_READ_ROOTS):
+        return JSONResponse({"error": "path not in whitelist"}, status_code=403)
+    if not fpath.exists():
+        return JSONResponse({"error": "not found"}, status_code=404)
+    if not fpath.is_file():
+        return JSONResponse({"error": "not a file"}, status_code=400)
+
+    size = fpath.stat().st_size
+    if size > _FILES_READ_MAX_BYTES:
+        return JSONResponse(
+            {"error": f"file too large ({size} bytes, max {_FILES_READ_MAX_BYTES})"},
+            status_code=413,
+        )
+
+    try:
+        content = fpath.read_text(encoding="utf-8", errors="replace")
+    except Exception as e:
+        return JSONResponse({"error": f"read failed: {e}"}, status_code=500)
+
+    return {
+        "ok": True,
+        "path": str(fpath),
+        "name": fpath.name,
+        "size": size,
+        "lines": content.count("\n") + 1,
+        "content": content,
+    }
 
 
 @app.get("/api/files/tree")
