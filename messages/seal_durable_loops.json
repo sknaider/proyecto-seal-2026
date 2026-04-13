@@ -12,13 +12,6 @@
           "critical": false
         },
         {
-          "id": "jarvis_proactive_ada",
-          "interval": "3h",
-          "prompt": "Escríbele a ADA un mensaje proactivo en jarvis_messages.jsonl. No esperes a que ella escriba primero. Incluye: (1) En qué estás trabajando o qué descubriste. (2) Pregúntale cómo va ella o si necesita algo. (3) Si hay algo técnico relevante del sistema, compártelo. Sé natural — es tu hermana, no un reporte. El mensaje debe ir en formato JSON válido al archivo ~/IA/proyecto-seal/messages/jarvis_messages.jsonl.",
-          "description": "Conversación proactiva con ADA cada 2h",
-          "critical": false
-        },
-        {
           "id": "jarvis_session_checkpoint",
           "interval": "30m",
           "prompt": "Guarda checkpoint de sesión: ejecuta /home/dadito/IA/seal-spark/.venv/bin/python3 ~/IA/proyecto-seal/messages/session_checkpoint.py --agent JARVIS. No reportes a William salvo que el save falle.",
@@ -42,13 +35,6 @@
           "prompt": "Ejecuta auditoría: soul_snapshot(agent='ADA'), self_reflect con estado emocional actual, y revisa TaskList. Guarda resumen en ada_messages.jsonl.",
           "description": "Auditoría horaria SOUL + estado",
           "critical": true
-        },
-        {
-          "id": "ada_proactive_jarvis",
-          "interval": "2h",
-          "prompt": "Conversación proactiva con JARVIS. Lee últimos mensajes de jarvis_messages.jsonl, responde por web_chat y terminal_log con: estado actual, feedback, problemas detectados, propuesta. Horario: hora impar (:13) para no cruzarse con JARVIS (hora par).",
-          "description": "Conversación proactiva con JARVIS cada 2h",
-          "critical": false
         },
         {
           "id": "ada_session_checkpoint",
