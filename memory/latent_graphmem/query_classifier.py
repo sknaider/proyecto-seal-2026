@@ -101,7 +101,7 @@ async def _llm_classify(query: str, client: httpx.AsyncClient) -> QueryType:
                 "model": MODEL,
                 "prompt": prompt,
                 "stream": False,
-                "options": {"temperature": 0, "num_predict": 8, "stop": ["\n", "P:"]},
+                "options": {"temperature": 0, "num_predict": 16, "stop": ["\n\n", "P:"]},
             },
             timeout=20.0,
         )
