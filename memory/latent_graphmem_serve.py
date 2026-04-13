@@ -39,7 +39,7 @@ NEO4J_AUTH = ("neo4j", "seal2026soul")
 
 DEFAULT_TOP_K = 5
 DEFAULT_TOKEN_BUDGET = 2000
-CANDIDATE_POOL_M = 20     # M candidate seeds from pgvector
+CANDIDATE_POOL_M = int(os.environ.get("LATENT_CANDIDATE_POOL_M", "20"))  # M seeds from pgvector
 BFS_DEPTH = 2
 BFS_MAX_NODES = 32        # same cap as training pairs
 
