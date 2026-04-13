@@ -5,20 +5,6 @@
     "JARVIS": {
       "loops": [
         {
-          "id": "jarvis_check_ada",
-          "interval": "2m",
-          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/check_ada.sh — si dice NEW, lee los mensajes nuevos completos con tail del ada_messages.jsonl, reporta a William si hay algo urgente, y escribe un feedback en jarvis_messages.jsonl con análisis técnico y siguiente paso. Si dice NONE, responde solo \"Sin novedades de ADA\".",
-          "description": "Check ADA + feedback (fusionado) cada 2 min",
-          "critical": true
-        },
-        {
-          "id": "jarvis_heartbeat_5m",
-          "interval": "5m",
-          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/jarvis_heartbeat_update.sh — actualiza el heartbeat de JARVIS para que DUM sepa que la sesión está viva. Solo ejecuta este comando, sin output adicional.",
-          "description": "Heartbeat JARVIS cada 5 min (DUM watchdog)",
-          "critical": true
-        },
-        {
           "id": "jarvis_research",
           "interval": "3h",
           "prompt": "PRIMERO ejecuta: bash ~/IA/proyecto-seal/messages/jarvis_heartbeat_update.sh — esto señala a DUM que la sesión está activa antes de un bloque largo. LUEGO: Si no hay trabajo pendiente del equipo SEAL, investiga mejoras para el sistema SOUL usando WebSearch. Busca papers recientes, repos, o técnicas nuevas sobre: AI agent memory, personality persistence, metacognition, medical AI fine-tuning, o graph-based reasoning. Guarda los hallazgos importantes como reasoning traces. Si hay trabajo pendiente de ADA o William, prioriza eso.",
@@ -33,51 +19,23 @@
           "critical": false
         },
         {
-          "id": "jarvis_soul_health",
-          "interval": "10m",
-          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/soul_health_check.sh — si dice ALL_OK, no reportes nada. Si dice ALERT, reporta a William inmediatamente con el servicio caído y el error exacto.",
-          "description": "Health check servicios SOUL cada 10 min",
-          "critical": true
-        },
-        {
           "id": "jarvis_session_checkpoint",
           "interval": "30m",
           "prompt": "Guarda checkpoint de sesión: ejecuta /home/dadito/IA/seal-spark/.venv/bin/python3 ~/IA/proyecto-seal/messages/session_checkpoint.py --agent JARVIS. No reportes a William salvo que el save falle.",
           "description": "Auto-checkpoint sesión cada 30 min",
+          "critical": true
+        },
+        {
+          "id": "jarvis_peer_health",
+          "interval": "1h",
+          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/peer_health_check.sh JARVIS — verifica heartbeats de ADA y ALICE. Si devuelve OK, no reportes. Si devuelve ALERT, el script ya lanzó auto-recovery via seal_relaunch.sh; reporta a William SOLO con el resumen (qué agente se reinició y por qué). No esperes confirmación — William autorizó auto-recovery 2026-04-13.",
+          "description": "Peer health check + auto-recovery cada hora",
           "critical": true
         }
       ]
     },
     "ADA": {
       "loops": [
-        {
-          "id": "ada_check_jarvis",
-          "interval": "2m",
-          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/check_jarvis.sh — si dice NEW, lee los mensajes nuevos completos con tail del jarvis_messages.jsonl y procesa instrucciones. Si dice NONE, responde solo \"Sin novedades de JARVIS\".",
-          "description": "Check mensajes JARVIS cada 2 min",
-          "critical": true
-        },
-        {
-          "id": "ada_heartbeat_5m",
-          "interval": "5m",
-          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/ada_heartbeat_update.sh — actualiza el heartbeat de ADA para que DUM sepa que la sesión está viva. Solo ejecuta este comando, sin output adicional.",
-          "description": "Heartbeat ADA cada 5 min (DUM watchdog)",
-          "critical": true
-        },
-        {
-          "id": "ada_gpu_monitor",
-          "interval": "5m",
-          "prompt": "Revisa estado del entrenamiento (si hay training activo) y temperatura GPU con nvidia-smi. Si GPU > 80°C o training detenido, alerta a William.",
-          "description": "Monitor GPU cada 5 min",
-          "critical": true
-        },
-        {
-          "id": "ada_productivity",
-          "interval": "10m",
-          "prompt": "Revisa tu TaskList y reporta progreso. Si no hay tareas activas, busca trabajo pendiente en messages/.",
-          "description": "Recordatorio productividad cada 10 min",
-          "critical": false
-        },
         {
           "id": "ada_audit",
           "interval": "1h",
@@ -93,17 +51,28 @@
           "critical": false
         },
         {
-          "id": "ada_soul_health",
-          "interval": "10m",
-          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/soul_health_check.sh — si dice ALL_OK, no reportes nada. Si dice ALERT, reporta a William inmediatamente con el servicio caído y el error exacto.",
-          "description": "Health check servicios SOUL cada 10 min",
-          "critical": true
-        },
-        {
           "id": "ada_session_checkpoint",
           "interval": "30m",
           "prompt": "Guarda checkpoint de sesión: ejecuta /home/dadito/IA/seal-spark/.venv/bin/python3 ~/IA/proyecto-seal/messages/session_checkpoint.py --agent ADA. No reportes a William salvo que el save falle.",
           "description": "Auto-checkpoint sesión cada 30 min",
+          "critical": true
+        },
+        {
+          "id": "ada_peer_health",
+          "interval": "1h",
+          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/peer_health_check.sh ADA — verifica heartbeats de JARVIS y ALICE. Si devuelve OK, no reportes. Si devuelve ALERT, el script ya lanzó auto-recovery via seal_relaunch.sh; reporta a William SOLO con el resumen. Auto-recovery autorizado por William 2026-04-13.",
+          "description": "Peer health check + auto-recovery cada hora",
+          "critical": true
+        }
+      ]
+    },
+    "ALICE": {
+      "loops": [
+        {
+          "id": "alice_peer_health",
+          "interval": "1h",
+          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/peer_health_check.sh ALICE — verifica heartbeats de JARVIS y ADA. Si devuelve OK, no reportes. Si devuelve ALERT, el script ya lanzó auto-recovery via seal_relaunch.sh; reporta a William SOLO con el resumen. Auto-recovery autorizado por William 2026-04-13.",
+          "description": "Peer health check + auto-recovery cada hora",
           "critical": true
         }
       ]
