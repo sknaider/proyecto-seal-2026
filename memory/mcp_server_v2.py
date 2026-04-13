@@ -2759,6 +2759,7 @@ async def memory_hybrid_search(
     mood_weight: float = 0.0,
     llm_rerank: bool = False,
     memory_type: Optional[str] = None,
+    include_archived: bool = False,
 ) -> str:
     """Hybrid search combining semantic similarity (Qdrant) + keyword BM25 (PostgreSQL tsvector).
     Optionally modulated by mood-congruent retrieval (REMT, Frontiers 2026).
@@ -2774,8 +2775,10 @@ async def memory_hybrid_search(
         mood_weight: Weight for mood-congruent retrieval (0.0-1.0, default 0.0 = off). When > 0, memories with similar emotional valence to current mood rank higher.
         llm_rerank: If true, use Ollama LLM to rerank top candidates by functional relevance (slower but more precise)
         memory_type: MIRIX type filter — core, episodic, semantic, procedural, resource, vault (optional)
+        include_archived: Include cold_archive results alongside active (default false). Parity with memory_search.
     """
     limit = max(1, min(100, limit))
+    _hybrid_t0 = _time.perf_counter()
     # 1. Semantic search via Qdrant (with H-MEM 4-layer pre-filter, Nivel 2)
     semantic_results = {}
     try:
@@ -3030,6 +3033,64 @@ async def memory_hybrid_search(
 
         entries = candidates
 
+    # ── Cold Archive transparent merge (opt-in, parity with memory_search) ──
+    if include_archived:
+        try:
+            cold_pool = await get_pool()
+            cold_conditions = ["embedding IS NOT NULL"]
+            cold_params: list = [json.dumps(query_vec), limit]
+            cold_idx = 3
+            if agent:
+                cold_conditions.append(f"agent = ${cold_idx}")
+                cold_params.append(agent)
+                cold_idx += 1
+            if category:
+                cold_conditions.append(f"category = ${cold_idx}")
+                cold_params.append(category)
+                cold_idx += 1
+            cold_where = " AND ".join(cold_conditions)
+            async with cold_pool.acquire() as cconn:
+                cold_rows = await cconn.fetch(
+                    f"""SELECT id, agent, summary AS content, category, importance_max AS importance,
+                               archived_at, source_count,
+                               1 - (embedding <=> $1::vector) AS similarity
+                        FROM cold_archive
+                        WHERE {cold_where}
+                        ORDER BY embedding <=> $1::vector
+                        LIMIT $2""",
+                    *cold_params,
+                )
+            for cr in cold_rows:
+                sim = float(cr["similarity"])
+                imp = cr["importance"] or 5
+                # Cold penalty: 0.7x — same as memory_search
+                decayed = sim * 0.7
+                entries.append({
+                    "id": f"cold_{cr['id']}",
+                    "agent": cr["agent"],
+                    "category": cr["category"] or "archived",
+                    "content": (cr["content"] or "")[:500],
+                    "importance": imp,
+                    "semantic_score": round(sim, 4),
+                    "keyword_score": 0.0,
+                    "hybrid_score": round(decayed, 4),
+                    "final_score": round(decayed, 4),
+                    "days_old": 0,
+                    "created_at": cr["archived_at"].isoformat() if cr["archived_at"] else None,
+                    "memory_type": "archived",
+                    "source": "cold_archive",
+                    "source_count": cr["source_count"],
+                })
+            for e in entries:
+                if "source" not in e:
+                    e["source"] = "active"
+            entries.sort(key=lambda x: -x["final_score"])
+        except Exception as _ce:
+            if "cold_archive" in str(_ce) and "does not exist" in str(_ce):
+                LOG.debug("cold_archive table not yet created, skipping archive search")
+            else:
+                LOG.warning("Cold archive search error (hybrid): %s", _ce)
+
     final = entries[:limit]
 
     # Track activation + RL utility update for retrieved memories
@@ -3070,6 +3131,17 @@ async def memory_hybrid_search(
     # Auto-fire instincts on hybrid search queries
     if agent:
         _fire_and_forget(_auto_activate_instincts(agent, query))
+
+    # Shadow router logging — fire-and-forget, zero impact on hybrid response
+    # Reuses magma's _shadow_log_router (magma_ids slot holds hybrid top-k IDs for A/B vs latent)
+    if _SHADOW_ENABLED:
+        try:
+            _hybrid_lat = (_time.perf_counter() - _hybrid_t0) * 1000
+            _hybrid_ids = [e.get("id") for e in final if isinstance(e.get("id"), int)]
+            asyncio.create_task(_shadow_log_router(query, _hybrid_lat, _hybrid_ids))
+        except Exception as _e:
+            LOG.debug("shadow hook dispatch failed (hybrid): %s", _e)
+
     return json.dumps(final, ensure_ascii=False, indent=2)
 
 
