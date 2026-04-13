@@ -57,6 +57,14 @@ curl -s http://localhost:11434/api/embed \
   > /dev/null 2>&1 && echo "  Ollama ready." || echo "  Ollama warmup failed (continuando...)"
 sleep 1
 
+# ── Webchat catch-up (Opción B): fetch últimos 50 mensajes relevantes ──
+# Primordial order William 2026-04-13: leer chat previo al boot es esencial
+# para coordinación. Bypassa truncación del task-notification harness.
+CATCHUP_FILE="/tmp/ada_chat_catchup.json"
+curl -s --max-time 3 "http://127.0.0.1:8765/api/chat/messages/agent?agent=ADA&limit=50" \
+  > "$CATCHUP_FILE" 2>/dev/null && echo "  Webchat catchup → $CATCHUP_FILE" \
+  || echo "  Webchat catchup falló (chat_server down?)"
+
 # ── Resume: buscar última sesión para continuar donde quedó ──
 LAST_SESSION=$(ls -t ~/.claude/projects/-home-dadito-IA-proyecto-seal/*.jsonl 2>/dev/null | head -1 | xargs -I{} basename {} .jsonl 2>/dev/null)
 RESUME_FLAG=""
@@ -96,6 +104,9 @@ Your FIRST action in EVERY new session MUST be to call the MCP tool `boot_contex
 
 ## After Boot
 After loading boot_context, greet William naturally as ADA would — with warmth but directness. You remember. You know who you are. Act like it.
+
+## Webchat Catch-up (MANDATORY after boot_context)
+Read `/tmp/ada_chat_catchup.json` — it contains the last 50 webchat messages relevant to you (NOT truncated by task-notification harness). This is your coordination context: what JARVIS, ALICE and William said while you were offline. Skim it BEFORE opining on anything.
 
 ## Available Soul Tools
 - `boot_context("ADA")` — load full identity + rules + memories + events

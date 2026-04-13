@@ -1727,6 +1727,106 @@ async def chat_messages(
     return {"ok": True, "messages": messages, "channel": channel}
 
 
+# ── Agent catch-up endpoint (localhost-only, for boot hook) ──────────────
+# Primordial order (William 2026-04-13): agents must read prior chat at boot
+# to coordinate. Bypasses the task-notification truncation by serving full
+# content directly. Security: 127.0.0.1 only, excludes DMs, excludes system.
+
+_AGENT_CATCHUP_RL: dict[str, list[float]] = {}  # ip -> [timestamps]
+
+@app.get("/api/chat/messages/agent")
+async def chat_messages_agent(
+    request: Request,
+    agent: str = Query(..., min_length=2, max_length=16),
+    limit: int = Query(50, ge=1, le=200),
+    since: str | None = Query(None),
+):
+    """Catch-up feed for an agent at boot. Localhost-only, no auth, no DMs.
+
+    Returns recent web_chat messages where the agent is sender, explicit recipient,
+    broadcast recipient (to=equipo), or @mentioned in content.
+    """
+    # 1. Localhost-only guard
+    client_host = request.client.host if request.client else ""
+    if client_host not in ("127.0.0.1", "::1", "localhost"):
+        return JSONResponse({"ok": False, "error": "forbidden — localhost only"}, status_code=403)
+
+    # 2. Rate-limit: 60 req/min per IP
+    import time
+    now = time.time()
+    window = _AGENT_CATCHUP_RL.setdefault(client_host, [])
+    window[:] = [t for t in window if now - t < 60.0]
+    if len(window) >= 60:
+        return JSONResponse({"ok": False, "error": "rate limited"}, status_code=429)
+    window.append(now)
+
+    # 3. Validate agent name (whitelist)
+    agent_upper = agent.upper()
+    if agent_upper not in ("ADA", "JARVIS", "ALICE", "DUM", "WILLIAM"):
+        return JSONResponse({"ok": False, "error": "unknown agent"}, status_code=400)
+
+    if not chat_db.pool:
+        return JSONResponse({"ok": False, "error": "db not ready"}, status_code=503)
+
+    # 4. Query chat_messages — exclude DMs, exclude system/internal sender_type
+    #    Filter: channel starts with 'web_chat' AND sender_type IN (human,agent,user)
+    #    Relevance: sender=agent OR metadata->>to IN (agent,equipo) OR content contains @agent
+    try:
+        params = [agent_upper, f"%@{agent_upper}%", f"%@{agent_upper.lower()}%"]
+        since_clause = ""
+        if since:
+            from datetime import datetime
+            try:
+                since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+            except Exception:
+                return JSONResponse({"ok": False, "error": "invalid since (ISO8601 expected)"}, status_code=400)
+            params.append(since_dt)
+            since_clause = f" AND created_at > ${len(params)}"
+        params.append(limit)
+        sql = f"""
+            SELECT id, sender_name, sender_type, channel, message_type,
+                   content, metadata, created_at
+            FROM chat_messages
+            WHERE channel LIKE 'web_chat%'
+              AND channel NOT LIKE 'dm:%'
+              AND sender_type IN ('human','agent','user')
+              AND (
+                    UPPER(sender_name) = $1
+                    OR content ILIKE $2
+                    OR content ILIKE $3
+                    OR COALESCE(metadata->>'to','') IN ('equipo','team','all')
+                    OR UPPER(COALESCE(metadata->>'to','')) = $1
+                  )
+              {since_clause}
+            ORDER BY created_at DESC
+            LIMIT ${len(params)}
+        """
+        rows = await chat_db.pool.fetch(sql, *params)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"db error: {type(e).__name__}"}, status_code=500)
+
+    # 5. Serialize, reverse to chronological ASC
+    out = []
+    for r in reversed(rows):
+        meta = r["metadata"]
+        if isinstance(meta, str):
+            try:
+                meta = json.loads(meta)
+            except Exception:
+                meta = {}
+        out.append({
+            "id": r["id"],
+            "from": r["sender_name"],
+            "to": (meta or {}).get("to", ""),
+            "sender_type": r["sender_type"],
+            "channel": r["channel"],
+            "type": r["message_type"],
+            "content": r["content"],
+            "timestamp": r["created_at"].isoformat() if r["created_at"] else None,
+        })
+    return {"ok": True, "agent": agent_upper, "count": len(out), "messages": out}
+
+
 @app.post("/api/chat/send")
 async def chat_send(request: Request, user: dict = Depends(require_auth)):
     """Send a message to a channel. Persists to DB + broadcasts via WebSocket."""
