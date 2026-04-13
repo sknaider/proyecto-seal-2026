@@ -16,10 +16,13 @@ Usage:
 """
 from __future__ import annotations
 
+import logging
 import re
 from typing import Literal
 
 import httpx
+
+_logger = logging.getLogger("latent_graphmem.query_classifier")
 
 QueryType = Literal["factual", "temporal", "causal", "entity", "multi_hop", "negation", "inference"]
 Backend = Literal["latent", "magma"]
@@ -34,10 +37,18 @@ MODEL = "qwen2.5:7b"
 _RULES: list[tuple[re.Pattern, QueryType]] = [
     # Inference: explicit "si ... entonces/implica" construction
     (re.compile(r"^\s*¿?\s*si\b.*\b(entonces|implica|por\s*qu[ée]\s+necesita)\b", re.I), "inference"),
-    # Causal: starts with "¿por qué" — the clearest causal marker in Spanish
-    (re.compile(r"^\s*¿\s*por\s*qu[ée]\b", re.I), "causal"),
-    # Temporal: starts with "¿cuándo" or "¿en qué fecha/mes/año/día"
-    (re.compile(r"^\s*¿\s*(cu[áa]ndo|en\s+qu[ée]\s+(fecha|mes|año|d[íi]a))\b", re.I), "temporal"),
+    # Causal: starts with "por qué" — opening ¿ is optional (chat informal)
+    (re.compile(r"^\s*¿?\s*por\s*qu[ée]\b", re.I), "causal"),
+    # Temporal: "cuándo" / "en qué fecha..." / "hace cuánto" / "desde cuándo"
+    (re.compile(
+        r"^\s*¿?\s*("
+        r"cu[áa]ndo|"
+        r"en\s+qu[ée]\s+(fecha|mes|año|d[íi]a)|"
+        r"hace\s+cu[áa]nto|"
+        r"desde\s+cu[áa]ndo"
+        r")\b",
+        re.I,
+    ), "temporal"),
 ]
 
 FEWSHOT_EXAMPLES = """Clasifica la siguiente pregunta en EXACTAMENTE uno de estos tipos:
@@ -96,12 +107,18 @@ async def _llm_classify(query: str, client: httpx.AsyncClient) -> QueryType:
         )
         r.raise_for_status()
         out = r.json().get("response", "").strip().lower()
-        # Pick first valid token in output
         for tok in re.findall(r"[a-z_]+", out):
             if tok in _VALID:
                 return tok  # type: ignore
-    except Exception:
-        pass
+        _logger.warning(
+            "llm_classify: no valid token (query=%r, raw=%r) — default=factual",
+            query[:80], out[:40],
+        )
+    except Exception as e:
+        _logger.warning(
+            "llm_classify: exception (query=%r, err=%s) — default=factual",
+            query[:80], type(e).__name__,
+        )
     return "factual"  # safest default (routes to MAGMA which is the current champion)
 
 
