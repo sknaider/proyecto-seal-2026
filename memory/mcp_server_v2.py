@@ -8085,6 +8085,71 @@ _MAGMA_VIEW_MAP = {
     "entity": _magma_entity,
 }
 
+# ── Shadow router logging (LatentGraphMem V1.2 validation) ──
+_SHADOW_LOG_PATH = Path(__file__).parent / "diagnostic" / "shadow_router.jsonl"
+_SHADOW_ENABLED = True
+
+_LATENT_SERVE_URL = "http://127.0.0.1:8767/retrieve"
+_LATENT_TIMEOUT_S = 3.0
+
+async def _shadow_log_router(query: str, magma_latency_ms: float, magma_ids: list) -> None:
+    """Fire-and-forget: classify query + call latent serve + log routing + agreement. Never raises."""
+    try:
+        from latent_graphmem.query_classifier import classify, route
+        import httpx as _httpx
+
+        async with _httpx.AsyncClient() as c:
+            t0 = _time.perf_counter()
+            qtype = await classify(query, c)
+            classify_ms = (_time.perf_counter() - t0) * 1000
+            backend = route(qtype)
+
+            latent_status = "ok"
+            latent_ids: list = []
+            latent_lat = None
+            try:
+                t1 = _time.perf_counter()
+                r = await c.post(
+                    _LATENT_SERVE_URL,
+                    json={"query": query, "top_k": 10, "token_budget": 1500},
+                    timeout=_LATENT_TIMEOUT_S,
+                )
+                latent_lat = (_time.perf_counter() - t1) * 1000
+                if r.status_code == 200:
+                    j = r.json()
+                    latent_ids = [int(i) for i in (j.get("memory_ids") or []) if i is not None]
+                else:
+                    latent_status = f"http_{r.status_code}"
+            except _httpx.TimeoutException:
+                latent_status = "timeout"
+            except Exception as _le:
+                latent_status = f"err:{type(_le).__name__}"
+
+        mag_set = set(magma_ids[:5])
+        lat_set = set(latent_ids[:5])
+        agreement_top5 = bool(mag_set & lat_set) if mag_set and lat_set else None
+        top1_agree = bool(magma_ids and latent_ids and magma_ids[0] == latent_ids[0])
+
+        rec = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "query": query[:500],
+            "pred_type": qtype,
+            "route": backend,
+            "classify_ms": round(classify_ms, 1),
+            "magma_latency_ms": round(magma_latency_ms, 1),
+            "magma_ids": magma_ids[:15],
+            "latent_status": latent_status,
+            "latent_latency_ms": round(latent_lat, 1) if latent_lat is not None else None,
+            "latent_ids": latent_ids[:15],
+            "agreement_top5": agreement_top5,
+            "agreement_top1": top1_agree,
+        }
+        _SHADOW_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _SHADOW_LOG_PATH.open("a") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except Exception as e:
+        LOG.debug("shadow_log_router failed: %s", e)
+
 @mcp.tool()
 async def magma_retrieve(
     agent: str,
@@ -8105,6 +8170,7 @@ async def magma_retrieve(
         views: Graph views to query (semantic/temporal/causal/entity). None=auto-detect via intent.
         fuse: Merge results into unified context (default True). False=raw per-graph results.
     """
+    _magma_t0 = _time.perf_counter()
     # 1. Intent classification → select views
     if views is None:
         intents = _classify_intent(query)
@@ -8178,6 +8244,17 @@ async def magma_retrieve(
                 {"id": m["id"], "content": (m.get("content") or "")[:200], "score": m.get("score", 0)}
                 for m in mems
             ]
+
+    # Shadow router logging — fire-and-forget, zero impact on magma response
+    if _SHADOW_ENABLED:
+        try:
+            _magma_lat = (_time.perf_counter() - _magma_t0) * 1000
+            _magma_ids = []
+            if fuse and isinstance(output.get("memories"), list):
+                _magma_ids = [m.get("id") for m in output["memories"] if m.get("id") is not None]
+            asyncio.create_task(_shadow_log_router(query, _magma_lat, _magma_ids))
+        except Exception as _e:
+            LOG.debug("shadow hook dispatch failed: %s", _e)
 
     return json.dumps(output, ensure_ascii=False, default=str)
 
@@ -10234,6 +10311,34 @@ async def memory_type_stats(agent: Optional[str] = None) -> str:
                 by_agent[ag]["total"] += r["cnt"]
             return json.dumps(by_agent, ensure_ascii=False, default=str)
 
+
+
+@mcp.tool()
+async def latent_graph_retrieve(
+    agent: str,
+    query: str,
+    top_k: int = 5,
+    token_budget: int = 2000,
+) -> str:
+    """LatentGraphMem V1 — LoRA-tuned subgraph retriever (Track A).
+
+    Wraps `retrieve()` from latent_graphmem_serve. Returns JSON with:
+    subgraph {nodes, edges}, memory_ids, scores, latency_ms, adapter_version, source.
+    Falls back to magma_retrieve if adapter unavailable or inference fails
+    (circuit breaker at 5 failures / 60s recovery).
+    """
+    try:
+        from latent_graphmem_serve import retrieve as _lg_retrieve
+        result = await _lg_retrieve(query=query, top_k=top_k, token_budget=token_budget)
+        result["agent"] = agent
+        return json.dumps(result, ensure_ascii=False, default=str)
+    except Exception as e:
+        return json.dumps({
+            "error": f"{type(e).__name__}: {e}",
+            "source": "latent_graph_retrieve_wrapper_error",
+            "agent": agent,
+            "query": query,
+        }, ensure_ascii=False)
 
 
 # ── Main ──
