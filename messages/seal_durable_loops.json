@@ -17,13 +17,6 @@
           "prompt": "Guarda checkpoint de sesión: ejecuta /home/dadito/IA/seal-spark/.venv/bin/python3 ~/IA/proyecto-seal/messages/session_checkpoint.py --agent JARVIS. No reportes a William salvo que el save falle.",
           "description": "Auto-checkpoint sesión cada 30 min",
           "critical": true
-        },
-        {
-          "id": "jarvis_peer_health",
-          "interval": "1h",
-          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/peer_health_check.sh JARVIS — verifica heartbeats de ADA y ALICE. Si devuelve OK, no reportes. Si devuelve ALERT, el script ya lanzó auto-recovery via seal_relaunch.sh; reporta a William SOLO con el resumen (qué agente se reinició y por qué). No esperes confirmación — William autorizó auto-recovery 2026-04-13.",
-          "description": "Peer health check + auto-recovery cada hora",
-          "critical": true
         }
       ]
     },
@@ -42,26 +35,11 @@
           "prompt": "Guarda checkpoint de sesión: ejecuta /home/dadito/IA/seal-spark/.venv/bin/python3 ~/IA/proyecto-seal/messages/session_checkpoint.py --agent ADA. No reportes a William salvo que el save falle.",
           "description": "Auto-checkpoint sesión cada 30 min",
           "critical": true
-        },
-        {
-          "id": "ada_peer_health",
-          "interval": "1h",
-          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/peer_health_check.sh ADA — verifica heartbeats de JARVIS y ALICE. Si devuelve OK, no reportes. Si devuelve ALERT, el script ya lanzó auto-recovery via seal_relaunch.sh; reporta a William SOLO con el resumen. Auto-recovery autorizado por William 2026-04-13.",
-          "description": "Peer health check + auto-recovery cada hora",
-          "critical": true
         }
       ]
     },
     "ALICE": {
-      "loops": [
-        {
-          "id": "alice_peer_health",
-          "interval": "1h",
-          "prompt": "Ejecuta: bash ~/IA/proyecto-seal/messages/peer_health_check.sh ALICE — verifica heartbeats de JARVIS y ADA. Si devuelve OK, no reportes. Si devuelve ALERT, el script ya lanzó auto-recovery via seal_relaunch.sh; reporta a William SOLO con el resumen. Auto-recovery autorizado por William 2026-04-13.",
-          "description": "Peer health check + auto-recovery cada hora",
-          "critical": true
-        }
-      ]
+      "loops": []
     }
   }
 }
