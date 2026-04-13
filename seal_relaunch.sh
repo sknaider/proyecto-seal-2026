@@ -79,30 +79,85 @@ curl -s -X POST "http://localhost:8765/api/agents/status" \
   -H "Content-Type: application/json" \
   -d "{\"agent\":\"$AGENT\",\"status\":\"offline\"}" > /dev/null 2>&1 || true
 
-# Resolve DISPLAY — prefer :0, fall back to current env if set
+# Resolve DISPLAY — auto-detect active X socket (soporta :0, :10, xrdp)
+if [ -z "$DISPLAY" ] || ! xdpyinfo -display "$DISPLAY" &>/dev/null; then
+  for d in /tmp/.X11-unix/X*; do
+    NUM="${d##*/X}"
+    if xdpyinfo -display ":${NUM}" &>/dev/null 2>&1; then
+      export DISPLAY=":${NUM}"
+      break
+    fi
+  done
+fi
 DISPLAY_VAL="${DISPLAY:-:0}"
-
-echo "[seal_relaunch] DISPLAY=$DISPLAY_VAL — spawning kitty for $AGENT..."
+export DISPLAY="$DISPLAY_VAL"
 
 LOG="/tmp/${LC_AGENT}_relaunch.log"
-DISPLAY="$DISPLAY_VAL" setsid kitty \
-  --title "$AGENT — Team SEAL" \
-  bash "$FRESH" \
-  </dev/null >"$LOG" 2>&1 &
-disown
+TMUX_SESSION="seal-${LC_AGENT}"
+
+# Kill stale tmux session for this agent (if any)
+tmux kill-session -t "$TMUX_SESSION" 2>/dev/null || true
+
+LAUNCHED=false
+LAUNCH_METHOD=""
+
+# Tier 1: kitty (preferred)
+if [ "$LAUNCHED" = false ] && command -v kitty &>/dev/null && xdpyinfo -display "$DISPLAY_VAL" &>/dev/null 2>&1; then
+  echo "[seal_relaunch] DISPLAY=$DISPLAY_VAL — spawning kitty for $AGENT..."
+  DISPLAY="$DISPLAY_VAL" setsid kitty \
+    --title "$AGENT — Team SEAL" \
+    -o initial_window_width=140c -o initial_window_height=40c \
+    bash "$FRESH" \
+    </dev/null >"$LOG" 2>&1 &
+  disown
+  LAUNCHED=true
+  LAUNCH_METHOD="kitty"
+fi
+
+# Tier 2: xfce4-terminal fallback
+if [ "$LAUNCHED" = false ] && command -v xfce4-terminal &>/dev/null && xdpyinfo -display "$DISPLAY_VAL" &>/dev/null 2>&1; then
+  echo "[seal_relaunch] DISPLAY=$DISPLAY_VAL — kitty no disponible, usando xfce4-terminal..."
+  DISPLAY="$DISPLAY_VAL" setsid xfce4-terminal \
+    --title "$AGENT — Team SEAL" \
+    --geometry=140x40 \
+    -e "bash $FRESH" \
+    </dev/null >"$LOG" 2>&1 &
+  disown
+  LAUNCHED=true
+  LAUNCH_METHOD="xfce4-terminal"
+fi
+
+# Tier 3: headless tmux fallback (no display)
+if [ "$LAUNCHED" = false ]; then
+  echo "[seal_relaunch] ⚠️  sin display visible — arrancando $AGENT HEADLESS vía tmux..."
+  tmux new-session -d -s "$TMUX_SESSION" -n "$AGENT" "bash $FRESH" 2>"$LOG"
+  LAUNCHED=true
+  LAUNCH_METHOD="tmux-headless"
+  echo "[seal_relaunch] Para ver: tmux attach -t $TMUX_SESSION"
+fi
 
 # Brief wait, then verify
 sleep 1.5
-NEW_KITTY=$(pgrep -af "kitty.*${AGENT}" | head -1 | awk '{print $1}')
+NEW_TERM=$(pgrep -af "(kitty|xfce4-terminal).*${AGENT}" | head -1 | awk '{print $1}')
 NEW_CLAUDE=$(pgrep -f "claude.*--name ${AGENT}" | head -1)
+TMUX_ALIVE=$(tmux has-session -t "$TMUX_SESSION" 2>/dev/null && echo 1 || echo 0)
 
-if [ -z "$NEW_KITTY" ]; then
-  echo "[seal_relaunch] ❌ FAIL — kitty no arrancó. Log: $LOG"
+if [ "$LAUNCH_METHOD" = "tmux-headless" ]; then
+  if [ "$TMUX_ALIVE" = "1" ]; then
+    echo "[seal_relaunch] ✅ tmux session $TMUX_SESSION activa"
+  else
+    echo "[seal_relaunch] ❌ FAIL — tmux no arrancó. Log: $LOG"
+    tail -10 "$LOG" 2>/dev/null
+    exit 3
+  fi
+elif [ -z "$NEW_TERM" ]; then
+  echo "[seal_relaunch] ❌ FAIL — terminal ($LAUNCH_METHOD) no arrancó. Log: $LOG"
   tail -10 "$LOG" 2>/dev/null
   exit 3
+else
+  echo "[seal_relaunch] ✅ $LAUNCH_METHOD PID $NEW_TERM"
 fi
 
-echo "[seal_relaunch] ✅ kitty PID $NEW_KITTY"
 if [ -n "$NEW_CLAUDE" ]; then
   echo "[seal_relaunch] ✅ claude PID $NEW_CLAUDE (arrancando boot_context)"
 else
