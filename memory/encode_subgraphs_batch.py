@@ -8,6 +8,23 @@ Root cause #2 of LatentGraphMem V1 rescue: serve-time _rerank does N live
 forward passes per query (~3000ms). With this cache, query-time becomes
 1 forward + pgvector ivfflat search (~20ms). 150x speedup.
 
+⚠️ SEMANTIC CAVEAT (2026-04-13 micro-test, ADA+JARVIS):
+The cache is keyed by memory_id = BFS seed (root), not the nodes inside the
+subgraph. A pgvector cosine search on this cache returns seed memory_ids
+whose surrounding subgraph embedding matches the query best — NOT the same
+set of memory_ids that retrieve() currently returns (retrieve returns nodes
+extracted from the top-k reranked subgraphs).
+
+Micro-validation on 5 random test_set_v1 queries: overlap@10 between cache
+lookup and live retrieve() = 6% avg. Cache lookup latency ~250ms vs live
+~5-12s (25-40x faster) — speed path is validated but semantics differ.
+
+Fase 2 work: rewrite retrieve() to use the cache as a subgraph-level seed
+provider (replaces current MAGMA-pgvector seed step), then extract nodes
+from the cached subgraphs. That gives equivalent semantics + the speedup.
+Until that rewrite lands, this cache is a datastore for future use, NOT a
+drop-in replacement for live retrieve().
+
 Usage:
   python3 encode_subgraphs_batch.py --model-version e5-base-lora-v1-20260413-prereclass
   python3 encode_subgraphs_batch.py --model-version <v> --only-missing
