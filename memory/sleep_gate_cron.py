@@ -265,13 +265,13 @@ async def main():
                     windows.append(current)
 
                 distilled = 0
+                failures = {"timeout": 0, "http": 0, "json": 0, "db": 0, "other": 0}
                 session_id = f"sleep_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
                 for window in windows:
                     combined = "\n".join(f"[{m['category']}] {m['content'][:300]}" for m in window)
                     if len(combined) < 100:
                         continue
 
-                    # Call Ollama for distillation
                     prompt = f"""Compress this exchange into structured distillation format.
 Return ONLY valid JSON with these 4 fields:
 - exchange_core: What was accomplished (1-2 sentences)
@@ -282,47 +282,67 @@ Return ONLY valid JSON with these 4 fields:
 Exchange:
 {combined[:2000]}"""
 
-                    async with httpx.AsyncClient() as client:
-                        resp = await asyncio.wait_for(
-                            client.post("http://localhost:11434/api/generate", json={
-                                "model": "qwen2.5:7b",
-                                "prompt": prompt,
-                                "stream": False,
-                                "options": {"temperature": 0.1, "num_predict": 500},
-                            }),
-                            timeout=30.0,
-                        )
-                        if resp.status_code == 200:
-                            raw = resp.json().get("response", "")
-                            try:
-                                # Extract JSON from response
-                                json_match = re.search(r'\{[\s\S]*\}', raw)
-                                if json_match:
-                                    data = json.loads(json_match.group())
-                                    async with pool_distill.acquire() as conn:
-                                        await conn.execute("""
-                                            INSERT INTO distilled_exchanges
-                                            (session_id, agent, exchange_core, specific_context,
-                                             room_assignments, files_touched, source_tokens,
-                                             distilled_tokens, exchange_time)
-                                            VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
-                                        """,
-                                            session_id, ag,
-                                            data.get("exchange_core", "")[:500],
-                                            data.get("specific_context", "")[:500],
-                                            json.dumps(data.get("room_assignments", [])),
-                                            data.get("files_touched", []),
-                                            len(combined),
-                                            len(raw),
-                                            window[0]['created_at'],
-                                        )
-                                        distilled += 1
-                            except (json.JSONDecodeError, Exception):
-                                pass
+                    try:
+                        async with httpx.AsyncClient() as client:
+                            resp = await asyncio.wait_for(
+                                client.post("http://localhost:11434/api/generate", json={
+                                    "model": "qwen2.5:7b",
+                                    "prompt": prompt,
+                                    "stream": False,
+                                    "options": {"temperature": 0.1, "num_predict": 500},
+                                }),
+                                timeout=60.0,
+                            )
+                    except asyncio.TimeoutError:
+                        failures["timeout"] += 1
+                        continue
+                    except Exception as exc:
+                        failures["http"] += 1
+                        print(f"  {ag}: http error in window — {type(exc).__name__}: {exc}")
+                        continue
 
-                print(f"  {ag}: {distilled} exchanges distilled from {len(windows)} windows ({today_mems} memories)")
+                    if resp.status_code != 200:
+                        failures["http"] += 1
+                        continue
+                    raw = resp.json().get("response", "")
+                    json_match = re.search(r'\{[\s\S]*\}', raw)
+                    if not json_match:
+                        failures["json"] += 1
+                        continue
+                    try:
+                        data = json.loads(json_match.group())
+                    except json.JSONDecodeError:
+                        failures["json"] += 1
+                        continue
+                    try:
+                        async with pool_distill.acquire() as conn:
+                            await conn.execute("""
+                                INSERT INTO distilled_exchanges
+                                (session_id, agent, exchange_core, specific_context,
+                                 room_assignments, files_touched, source_tokens,
+                                 distilled_tokens, exchange_time)
+                                VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
+                            """,
+                                session_id, ag,
+                                data.get("exchange_core", "")[:500],
+                                data.get("specific_context", "")[:500],
+                                json.dumps(data.get("room_assignments", [])),
+                                data.get("files_touched", []),
+                                len(combined),
+                                len(raw),
+                                window[0]['created_at'],
+                            )
+                            distilled += 1
+                    except Exception as exc:
+                        failures["db"] += 1
+                        print(f"  {ag}: db insert error — {type(exc).__name__}: {exc}")
+
+                fail_summary = ", ".join(f"{k}={v}" for k, v in failures.items() if v) or "none"
+                print(f"  {ag}: {distilled} exchanges distilled from {len(windows)} windows ({today_mems} memories); failures: {fail_summary}")
             except Exception as e:
-                print(f"  {ag}: distillation failed — {e}")
+                print(f"  {ag}: distillation failed — {type(e).__name__}: {e or '(empty msg)'}")
+                import traceback
+                traceback.print_exc()
         else:
             reason = "already distilled" if already_distilled > 0 else f"only {today_mems} memories"
             if args.dry_run:
