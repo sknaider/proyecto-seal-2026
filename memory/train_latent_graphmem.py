@@ -21,7 +21,7 @@ from pathlib import Path
 
 import torch
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CosineAnnealingLR, LambdaLR
 
 from latent_graphmem.data import (
     QueryGroup,
@@ -87,6 +87,9 @@ def train(
     lr: float,
     smoke: bool,
     save_dir: Path,
+    exclude_types: list[str] | None = None,
+    resume_from: Path | None = None,
+    warmup_frac: float = 0.1,
 ) -> dict:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[init] device={device}")
@@ -94,6 +97,10 @@ def train(
     print("[data] loading pairs from pg...")
     groups = asyncio.run(load_query_groups())
     print(f"[data] loaded {len(groups)} query groups (1 pos + 3 neg each)")
+    if exclude_types:
+        before = len(groups)
+        groups = [g for g in groups if g.query_type not in exclude_types]
+        print(f"[data] excluded types {exclude_types}: {before} → {len(groups)}")
     if not groups:
         print("[err] no training data", file=sys.stderr)
         return {"status": "no_data"}
@@ -104,8 +111,17 @@ def train(
         val_groups = val_groups[:2]
     print(f"[data] train={len(train_groups)} val={len(val_groups)}")
 
-    print("[model] building BiEncoder with LoRA...")
-    model = BiEncoder().to(device)
+    if resume_from is not None:
+        from peft import PeftModel
+        print(f"[model] resuming LoRA adapter from {resume_from}")
+        model = BiEncoder(apply_lora=False)
+        model.encoder = PeftModel.from_pretrained(
+            model.encoder, str(resume_from), is_trainable=True
+        )
+        model.to(device)
+    else:
+        print("[model] building BiEncoder with fresh LoRA...")
+        model = BiEncoder().to(device)
     print(f"[model] {model.trainable_params_report()}")
 
     optim = AdamW(
@@ -115,7 +131,16 @@ def train(
     )
     steps_per_epoch = max(1, math.ceil(len(train_groups) / batch_size))
     total_steps = max(1, steps_per_epoch * epochs)
-    sched = CosineAnnealingLR(optim, T_max=total_steps)
+    warmup_steps = max(1, int(round(total_steps * warmup_frac)))
+
+    def _lr_lambda(step: int) -> float:
+        if step < warmup_steps:
+            return step / max(1, warmup_steps)
+        progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
+        return 0.5 * (1.0 + math.cos(math.pi * progress))
+
+    sched = LambdaLR(optim, lr_lambda=_lr_lambda)
+    print(f"[sched] total_steps={total_steps} warmup={warmup_steps} ({warmup_frac:.0%})")
 
     best_recall = -1.0
     history: list[dict] = []
@@ -166,22 +191,39 @@ def train(
 
 
 def main():
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+    import torch
+    print(f"[init] torch={torch.__version__} cuda_available={torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"[init] cuda_device={torch.cuda.get_device_name(0)}")
     ap = argparse.ArgumentParser()
     ap.add_argument("--smoke", action="store_true", help="1 epoch, 4 train groups")
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--batch-size", type=int, default=4)
     ap.add_argument("--lr", type=float, default=2e-4)
+    ap.add_argument("--out-dir", type=str, default=str(OUT_DIR))
+    ap.add_argument("--exclude-types", type=str, default="",
+                    help="comma-separated query_types to drop (e.g. 'negation')")
+    ap.add_argument("--resume-from", type=str, default="",
+                    help="path to an existing LoRA adapter to continue training")
+    ap.add_argument("--warmup-frac", type=float, default=0.1)
     args = ap.parse_args()
 
     _run_contamination_gate(TRAIN_SOURCE)
 
     epochs = 1 if args.smoke else args.epochs
+    exclude_list = [t.strip() for t in args.exclude_types.split(",") if t.strip()] or None
+    resume_path = Path(os.path.expanduser(args.resume_from)) if args.resume_from else None
     report = train(
         epochs=epochs,
         batch_size=args.batch_size,
         lr=args.lr,
         smoke=args.smoke,
-        save_dir=OUT_DIR,
+        save_dir=Path(os.path.expanduser(args.out_dir)),
+        exclude_types=exclude_list,
+        resume_from=resume_path,
+        warmup_frac=args.warmup_frac,
     )
     print(f"[done] {report}")
 

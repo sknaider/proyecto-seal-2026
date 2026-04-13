@@ -30,7 +30,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-ADAPTER_DIR = Path(os.path.expanduser("~/IA/modelos/latent-graphmem-soul-v1/best"))
+ADAPTER_DIR = Path(os.path.expanduser(
+    os.environ.get("LATENT_ADAPTER_DIR", "~/IA/modelos/latent-graphmem-soul-v1/best")
+))
 PG_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
 NEO4J_URI = "bolt://localhost:7687"
 NEO4J_AUTH = ("neo4j", "seal2026soul")
