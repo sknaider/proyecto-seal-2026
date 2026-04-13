@@ -6,7 +6,16 @@ bolt-diy-fork/
 roo-code-ref/
 dream-skill/
 seal-console/
-seal-studio/
+# seal-studio: ignorar artefactos de build, no el código fuente
+seal-studio/frontend/node_modules/
+seal-studio/frontend/.next/
+seal-studio/frontend/out/
+seal-studio/frontend/build/
+seal-studio/frontend/.env*
+seal-studio/frontend/package-lock.json
+seal-studio/frontend/next-env.d.ts
+seal-studio/frontend/*.tsbuildinfo
+seal-studio/backend/__pycache__/
 
 # Node
 node_modules/
