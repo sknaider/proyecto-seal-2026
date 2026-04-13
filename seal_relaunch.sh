@@ -48,9 +48,23 @@ fi
 # Force kill old dangling kitty/claude before relaunch
 if [ "$FORCE" -eq 1 ]; then
   echo "[seal_relaunch] --force: matando procesos viejos de $AGENT..."
-  pkill -f "claude.*--name ${AGENT}" 2>/dev/null || true
-  pkill -f "kitty.*${AGENT}" 2>/dev/null || true
-  sleep 0.5
+  # SIGTERM first, wait, then SIGKILL any survivors (claude often ignores TERM
+  # when blocked in a read/ioctl — we hit exactly this with ALICE 2026-04-12).
+  for PID in $(pgrep -f "claude.*--name ${AGENT}"); do
+    kill "$PID" 2>/dev/null || true
+  done
+  for PID in $(pgrep -f "kitty.*${AGENT}"); do
+    kill "$PID" 2>/dev/null || true
+  done
+  sleep 1
+  for PID in $(pgrep -f "claude.*--name ${AGENT}"); do
+    echo "[seal_relaunch] SIGTERM ignorado, SIGKILL PID $PID"
+    kill -9 "$PID" 2>/dev/null || true
+  done
+  for PID in $(pgrep -f "kitty.*${AGENT}"); do
+    kill -9 "$PID" 2>/dev/null || true
+  done
+  sleep 0.3
 fi
 
 # Final checkpoint for the dead session (if any context recoverable from DB)
