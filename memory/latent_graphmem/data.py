@@ -29,8 +29,9 @@ def serialize_subgraph(sg: dict, max_chars: int = 2000) -> str:
     """Serialize {nodes, edges} → linear text for the encoder.
     [SUB] n1 [SEP] n2 [SEP] ... [SEP] edge: n_i -[REL]-> n_j [SEP] ...
     """
-    parts: list[str] = ["[SUB]"]
-    total = 5
+    # e5 convention: "passage: " prefix for the document side (MTEB +1.5-3%).
+    parts: list[str] = ["passage: [SUB]"]
+    total = len(parts[0])
     nodes = sg.get("nodes", []) or []
     edges = sg.get("edges", []) or []
     for n in nodes:
