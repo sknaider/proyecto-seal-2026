@@ -1824,6 +1824,7 @@ async def chat_messages_agent(
             "content": r["content"],
             "timestamp": r["created_at"].isoformat() if r["created_at"] else None,
         })
+    print(f"[catchup] agent={agent_upper} count={len(out)} ip={client_host} since={since or '-'}", flush=True)
     return {"ok": True, "agent": agent_upper, "count": len(out), "messages": out}
 
 
