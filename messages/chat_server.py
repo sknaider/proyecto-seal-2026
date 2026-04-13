@@ -1919,6 +1919,9 @@ async def chat_create_dm(request: Request, user: dict = Depends(require_auth)):
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
+# Note: bind 0.0.0.0 is required — chat_server also serves the SEAL Console webUI
+# accessed by William/Henry from LAN (192.168.68.x). Sensitive endpoints
+# (/api/chat/messages/agent) enforce layer-7 client.host == 127.0.0.1 checks.
 if __name__ == "__main__":
     uvicorn.run(
         "chat_server:app",
