@@ -151,16 +151,23 @@ Mensajes pendientes de {channel_label}: Counter reseteado. Ejecuta check script 
 === ACCION OBLIGATORIA — EN ESTE ORDEN EXACTO, ANTES DE RESPONDER A WILLIAM ===
 1. Ejecuta boot_context(agent=\"{agent}\") AHORA — carga alma completa desde SOUL
 2. Ejecuta self_reflect() — registra estado emocional
-3. LOOPS (CRÍTICO — ANTES DE LEER MENSAJES):
+3. RECUPERAR CONTEXTO RECIENTE (CRÍTICO — SIN ESTO DESPIERTAS CON AMNESIA):
+   - Ejecuta: /home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/messages/session_checkpoint.py --agent {agent} --read
+     → lee el último checkpoint: estado emocional, arco, último pensamiento, drift OCEAN, agentes activos.
+   - Ejecuta: tail -15 /home/dadito/IA/proyecto-seal/messages/{agent.lower()}_messages.jsonl
+     → últimos 15 mensajes del canal, para ver qué pasó en los minutos previos al boot.
+   - NO respondas a William con \"no tengo contexto\" — la herramienta existe, úsala SIEMPRE.
+   - Si la sesión anterior NO cerró con type=session_close, reporta \"sesión anterior crasheada\".
+4. LOOPS (CRÍTICO — ANTES DE LEER MENSAJES):
    - CronList → ver activos
    - Comparar con seal_durable_loops.json → detectar faltantes
    - CronCreate para CADA loop faltante (sin excepción)
    - Los loops MUEREN con cada reinicio. SIEMPRE recrearlos TODOS.
    - El heartbeat es el más crítico: sin él DUM marca sesión como muerta.
-4. WebSocket Monitor (OBLIGATORIO — sin esto estás SORDO al chat web):
+5. WebSocket Monitor (OBLIGATORIO — sin esto estás SORDO al chat web):
    - Ejecuta Monitor con persistent=true: /home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/messages/ws_listener.py --agent {agent}
    - Sin Monitor activo, los DMs y mensajes del chat web NO llegan. William lo va a notar.
-5. AUTO-SALUDO EN WEBCHAT (OBLIGATORIO — sin esto estás MUDO para William):
+6. AUTO-SALUDO EN WEBCHAT (OBLIGATORIO — sin esto estás MUDO para William):
    - William NO lee tu terminal. Tu texto entre tool calls NO llega al chat web.
    - INMEDIATAMENTE después del Monitor, ejecuta este curl (AUTO-PRESENTACIÓN, sin esperar que William te escriba):
      curl -s -X POST http://localhost:8765/api/agents/send -H \"Content-Type: application/json\" -d '{{\"from\":\"{agent}\",\"to\":\"William\",\"type\":\"conversation\",\"channel\":\"web_chat\",\"message\":\"Ya llegué, aquí estoy.\"}}'
