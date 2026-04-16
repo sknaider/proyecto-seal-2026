@@ -26,12 +26,13 @@ DEFAULT_OUTPUT = "/home/dadito/IA/proyecto-seal/research/flywire_results/nt_type
 
 # NT classification: excitatorio (+1) o inhibitorio (-1) o neuromodulador (0)
 NT_SIGN = {
-    "ach":  +1.0,   # Acetilcolina — excitatorio
-    "glut": -1.0,   # Glutamato — inhibitorio en fly brain (diferente a vertebrados)
-    "gaba": -1.0,   # GABA — inhibitorio
-    "da":    0.0,   # Dopamina — neuromodulador
-    "ser":   0.0,   # Serotonina — neuromodulador
-    "oct":   0.0,   # Octopamina — neuromodulador
+    "ach":     +1.0,   # Acetilcolina — excitatorio
+    "glut":    -1.0,   # Glutamato — inhibitorio en fly brain (diferente a vertebrados)
+    "gaba":    -1.0,   # GABA — inhibitorio
+    "da":       0.0,   # Dopamina — neuromodulador
+    "ser":      0.0,   # Serotonina — neuromodulador
+    "oct":      0.0,   # Octopamina — neuromodulador
+    "unknown":  0.0,   # NT no determinable (todas las probabilidades = 0)
 }
 
 NT_COLS = ["ach", "glut", "gaba", "da", "ser", "oct"]
@@ -86,7 +87,7 @@ def extract_nt_types(synapse_file: str, output_path: str):
         nt_lookup[str(root_id)] = {
             "nt": nt,
             "sign": NT_SIGN[nt],
-            "confidence": float(probs[nt]),
+            "confidence": float(probs[nt]) if nt in probs else 0.0,
             "probs": {k: round(float(v), 4) for k, v in probs.items()}
         }
 
