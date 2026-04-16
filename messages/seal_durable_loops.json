@@ -39,7 +39,15 @@
       ]
     },
     "ALICE": {
-      "loops": []
+      "loops": [
+        {
+          "id": "alice_session_checkpoint",
+          "interval": "30m",
+          "prompt": "Guarda checkpoint de sesión: ejecuta /home/dadito/IA/seal-spark/.venv/bin/python3 ~/IA/proyecto-seal/messages/session_checkpoint.py --agent ALICE. No reportes a William salvo que el save falle.",
+          "description": "Auto-checkpoint sesión ALICE cada 30 min",
+          "critical": true
+        }
+      ]
     }
   }
 }

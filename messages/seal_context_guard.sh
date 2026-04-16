@@ -75,14 +75,21 @@ if [ "$AGENT_UPTIME_H" -gt "$CRIT_HOURS" ]; then
   echo "[context-guard] CRITICAL: $AGENT lleva ${AGENT_UPTIME_H}h — sesión muy larga!"
   $VENV_PY "$CHECKPOINT_SCRIPT" --agent "$AGENT" 2>/dev/null
 
+  # Distilación selectiva + rebuild TrieIndex antes de posible muerte
+  $VENV_PY "$MESSAGES_DIR/../memory/pre_sleep_distill.py" --agent "$AGENT" 2>/dev/null \
+    && echo "[context-guard] Distilación completada para $AGENT"
+  $VENV_PY "$MESSAGES_DIR/../memory/trie_index.py" --build "$AGENT" 2>/dev/null \
+    && echo "[context-guard] TrieIndex reconstruido para $AGENT"
+
   curl -s -X POST "$WEBCHAT_URL" \
     -H "Content-Type: application/json" \
-    -d "{\"from\":\"CONTEXT-GUARD\",\"to\":\"equipo\",\"type\":\"warning\",\"channel\":\"web_chat\",\"message\":\"⏰ ALERTA TIEMPO: $AGENT lleva ${AGENT_UPTIME_H}h de sesión continua. Checkpoint guardado. Muerte por contexto inminente.\"}" \
+    -d "{\"from\":\"CONTEXT-GUARD\",\"to\":\"equipo\",\"type\":\"warning\",\"channel\":\"web_chat\",\"message\":\"⏰ ALERTA TIEMPO: $AGENT lleva ${AGENT_UPTIME_H}h de sesión continua. Checkpoint + distilación + TrieIndex guardados. Muerte por contexto inminente.\"}" \
     2>/dev/null
 
 elif [ "$AGENT_UPTIME_H" -gt "$WARN_HOURS" ]; then
-  # Checkpoint silencioso cada 6h+
+  # Checkpoint + distilación silenciosa cada 6h+
   $VENV_PY "$CHECKPOINT_SCRIPT" --agent "$AGENT" 2>/dev/null
+  $VENV_PY "$MESSAGES_DIR/../memory/pre_sleep_distill.py" --agent "$AGENT" 2>/dev/null
 fi
 
 # ── Check 3: Frecuencia de checkpoints como heartbeat ──

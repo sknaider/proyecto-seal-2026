@@ -22,6 +22,8 @@ import signal
 import sys
 import time as _wall_time
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -6226,11 +6228,21 @@ async def temporal_graph_build(agent: Optional[str] = None) -> str:
         for r in rows:
             dt = r["created_at"]
             try:
-                await session.run("""
-                    MATCH (mem:Memory {memory_id: $mid}), (dy:Day {year: $y, month: $m, day: $d})
+                # Fix 2026-04-13 (ADA): original MATCH (mem:Memory {memory_id})
+                # silently failed when Memory nodes didn't exist (only created
+                # by connectome_extract_facts), leaving OCCURRED_ON edges
+                # uncreated. MERGE on Memory guarantees node exists before
+                # the relationship MERGE — idempotent, reuses rich existing
+                # nodes by memory_id key, creates minimal stub if absent.
+                result = await session.run("""
+                    MERGE (mem:Memory {memory_id: $mid})
+                    WITH mem
+                    MATCH (dy:Day {year: $y, month: $m, day: $d})
                     MERGE (mem)-[:OCCURRED_ON]->(dy)
+                    RETURN 1 AS ok
                 """, mid=r["id"], y=dt.year, m=dt.month, d=dt.day)
-                linked += 1
+                if await result.single():
+                    linked += 1
             except Exception:
                 pass
 
@@ -8203,7 +8215,7 @@ async def _shadow_log_router(query: str, magma_latency_ms: float, magma_ids: lis
         top1_agree = bool(magma_ids and latent_ids and magma_ids[0] == latent_ids[0])
 
         rec = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(LIMA_TZ).isoformat(),
             "query": query[:500],
             "pred_type": qtype,
             "route": backend,
@@ -10073,7 +10085,7 @@ async def _cold_archive_migrate(
                 return stats
 
             # Process each cluster in a single transaction
-            now = datetime.now(timezone.utc)
+            now = datetime.now(LIMA_TZ)
             expires_at = now + timedelta(days=ttl_days) if ttl_days > 0 else None
 
             async with conn.transaction():
