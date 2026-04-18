@@ -12,7 +12,7 @@ MESSAGES_DIR="$HOME/IA/proyecto-seal/messages"
 RESTART_SCRIPT="$HOME/IA/proyecto-seal/seal_restart.sh"
 LOG_FILE="/tmp/seal_resurrect.log"
 LOCK_FILE="/tmp/seal_resurrect.lock"
-MAX_AGE_SECONDS=300  # 5 minutos
+MAX_AGE_SECONDS=600  # 10 minutos — margen para AccuracySec=30s del timer (fix: 300=300 race)
 
 export DISPLAY=:0
 
@@ -38,14 +38,51 @@ check_and_restart() {
   local HB_FILE="$MESSAGES_DIR/${AGENT_LOWER}_claude_heartbeat.json"
   local RESTART_MARKER="/tmp/seal_restart_${AGENT_LOWER}.marker"
 
-  # Si no existe heartbeat, no hay sesión activa — no reiniciar
+  # Si no existe heartbeat JSON, verificar proceso directo (migrado a event_log)
   if [ ! -f "$HB_FILE" ]; then
+    local CLAUDE_PID=$(ps aux | grep "claude.*--name ${AGENT_NAME}" | grep -v grep | awk '{print $2}' | head -1)
+    if [ -z "$CLAUDE_PID" ]; then
+      if [ -f "$RESTART_MARKER" ]; then
+        local MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$RESTART_MARKER" 2>/dev/null || echo 0) ))
+        if [ "$MARKER_AGE" -lt 600 ]; then
+          log "SKIP $AGENT_NAME — restart reciente hace ${MARKER_AGE}s (cooldown)"
+          return
+        fi
+      fi
+      log "RESURRECT $AGENT_NAME — sin HB file, proceso inexistente"
+      touch "$RESTART_MARKER"
+      bash "$RESTART_SCRIPT" "$AGENT_LOWER" >> "$LOG_FILE" 2>&1
+      curl -s -X POST "http://localhost:8765/api/agents/send" \
+        -H "Content-Type: application/json" \
+        -d "{\"from\":\"RESURRECT\",\"to\":\"equipo\",\"type\":\"auto_restart\",\"channel\":\"web_chat\",\"message\":\"🔄 AUTO-RESURRECT: $AGENT_NAME relanzado (sin HB file, proceso muerto)\"}" \
+        2>/dev/null
+    fi
     return
   fi
 
-  # Verificar si alive=false (agente intencionalmente apagado)
+  # Verificar si alive=false — puede ser muerte real o sleep intencional
   local ALIVE=$(python3 -c "import json; d=json.load(open('$HB_FILE')); print(d.get('alive', True))" 2>/dev/null)
+
+  # Si alive=false Y proceso muerto → resurrect inmediato (heartbeat detectó muerte)
   if [ "$ALIVE" = "False" ]; then
+    local CLAUDE_PID_ALIVE=$(ps aux | grep "claude.*--name ${AGENT_NAME}" | grep -v grep | awk '{print $2}' | head -1)
+    if [ -z "$CLAUDE_PID_ALIVE" ]; then
+      if [ -f "$RESTART_MARKER" ]; then
+        local MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$RESTART_MARKER" 2>/dev/null || echo 0) ))
+        if [ "$MARKER_AGE" -lt 600 ]; then
+          log "SKIP $AGENT_NAME — alive=false+dead, restart reciente hace ${MARKER_AGE}s"
+          return
+        fi
+      fi
+      log "RESURRECT $AGENT_NAME — alive=false + proceso inexistente (muerte real detectada por heartbeat)"
+      touch "$RESTART_MARKER"
+      bash "$RESTART_SCRIPT" "$AGENT_LOWER" >> "$LOG_FILE" 2>&1
+      curl -s -X POST "http://localhost:8765/api/agents/send" \
+        -H "Content-Type: application/json" \
+        -d "{\"from\":\"RESURRECT\",\"to\":\"equipo\",\"type\":\"auto_restart\",\"channel\":\"web_chat\",\"message\":\"🔄 AUTO-RESURRECT: $AGENT_NAME relanzado (heartbeat reportó alive=false, proceso muerto)\"}" \
+        2>/dev/null
+    fi
+    # alive=false pero proceso vivo = sleep intencional, no tocar
     return
   fi
 
@@ -110,6 +147,7 @@ check_and_restart() {
 # ── Main ──
 check_and_restart "ADA"
 check_and_restart "JARVIS"
+check_and_restart "ALICE"
 
 # Limpiar log si crece demasiado (>1MB)
 if [ -f "$LOG_FILE" ]; then

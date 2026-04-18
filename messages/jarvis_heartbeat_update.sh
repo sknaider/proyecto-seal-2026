@@ -1,33 +1,33 @@
 #!/bin/bash
-# jarvis_heartbeat_update.sh — Actualiza jarvis_claude_heartbeat.json
-# Llamado por el loop de Claude Code cada 5min para señalar que la sesión está viva.
-# DUM Watchdog monitorea este archivo.
+# jarvis_heartbeat_update.sh — Escribe heartbeat JARVIS a event_log + JSON (dual write)
 
+VENV="/home/dadito/IA/seal-spark/.venv/bin/python3"
+MEMORY_DIR="$HOME/IA/proyecto-seal/memory"
 MESSAGES_DIR="$HOME/IA/proyecto-seal/messages"
-HB_FILE="$MESSAGES_DIR/jarvis_claude_heartbeat.json"
+HB_JSON="$MESSAGES_DIR/jarvis_claude_heartbeat.json"
 
 GPU_TEMP=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ' || echo "null")
 GPU_UTIL=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ' || echo "null")
-TS=$(date +"%Y-%m-%dT%H:%M:%S%:z")
-PID=$$
+JARVIS_PID=$(ps -C claude -o pid= -o args= 2>/dev/null | awk '/--name JARVIS/{print $1}' | head -1)
+[ -z "$JARVIS_PID" ] && ALIVE_JSON="false" || ALIVE_JSON="true"
 
-python3 -c "
-import json, os
-data = {
-    'agent': 'JARVIS',
-    'source': 'claude_code_session',
-    'alive': True,
-    'timestamp': '${TS}',
-    'gpu_temp': ${GPU_TEMP} if '${GPU_TEMP}' != 'null' else None,
-    'gpu_util': ${GPU_UTIL} if '${GPU_UTIL}' != 'null' else None,
-    'pid': ${PID},
-}
-with open('${HB_FILE}', 'w') as f:
-    json.dump(data, f, indent=2)
-print(f'[jarvis_heartbeat] {data[\"timestamp\"]} — JARVIS Claude Code alive')
+# Dual write: event_log (truth) + JSON (resurrect compat)
+HB_MSG="JARVIS ${ALIVE_JSON} — GPU ${GPU_TEMP}C ${GPU_UTIL}%"
+$VENV -c "
+import sys; sys.path.insert(0, '$MEMORY_DIR')
+from seal_heartbeat import beat_sync
+beat_sync('JARVIS', {'source': 'timer', 'gpu_temp': '${GPU_TEMP}', 'gpu_util': '${GPU_UTIL}', 'alive': '$ALIVE_JSON' == 'true'}, '${HB_MSG}')
+print('[jarvis_heartbeat] beat written to event_log')
 "
 
-# Also write to event_log (feeds observation_analyze)
-/home/dadito/IA/seal-spark/.venv/bin/python3 "$MESSAGES_DIR/event_log_write.py" \
-  --agent JARVIS --type heartbeat \
-  --content "JARVIS alive — GPU ${GPU_TEMP}C ${GPU_UTIL}%" 2>/dev/null &
+# JSON fallback para seal_agent_resurrect.sh
+cat > "$HB_JSON" << EOF
+{
+  "agent": "JARVIS",
+  "alive": ${ALIVE_JSON},
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "process_pid": "${JARVIS_PID:-0}",
+  "gpu_temp": ${GPU_TEMP},
+  "gpu_util": ${GPU_UTIL}
+}
+EOF
