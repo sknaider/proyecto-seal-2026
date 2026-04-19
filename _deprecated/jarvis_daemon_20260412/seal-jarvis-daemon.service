@@ -1,0 +1,18 @@
+[Unit]
+Description=JARVIS Daemon — Pensamiento autónomo entre sesiones
+After=network.target postgresql.service
+Wants=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dadito/IA/proyecto-seal/messages
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/messages/jarvis_daemon.py
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+Environment=JARVIS_THINK_INTERVAL=300
+
+[Install]
+WantedBy=default.target

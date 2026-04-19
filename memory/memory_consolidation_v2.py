@@ -21,6 +21,8 @@ import json
 import logging
 import sys
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
 import asyncpg
@@ -245,7 +247,7 @@ async def consolidate_cluster(
         return result
 
     # ── Ejecución real ──
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
 
     # 1. Crear nueva memoria consolidada en PostgreSQL
     new_embedding = await get_embedding(synthesis)

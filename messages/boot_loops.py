@@ -23,6 +23,7 @@ SYSTEMD_COVERED_IDS = {
     "jarvis_soul_health", "ada_soul_health", "alice_soul_health",
     "jarvis_gpu_monitor", "ada_gpu_monitor", "alice_gpu_monitor",
     "jarvis_message_detector", "ada_message_detector", "alice_message_detector",
+    "jarvis_peer_health", "ada_peer_health", "alice_peer_health",
 }
 
 

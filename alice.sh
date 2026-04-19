@@ -41,6 +41,9 @@ curl -s http://localhost:11434/api/embed \
   > /dev/null 2>&1 && echo "  Ollama ready." || echo "  Ollama warmup failed (continuando...)"
 sleep 1
 
+# ── Matar monitores huérfanos de sesiones anteriores ──
+pkill -f "tail.*william_channel.jsonl" 2>/dev/null; true
+
 # ── Webchat catch-up ──
 CATCHUP_FILE="/tmp/alice_chat_catchup.json"
 curl -s --max-time 3 "http://127.0.0.1:8765/api/chat/messages/agent?agent=ALICE&limit=50" \
@@ -104,15 +107,15 @@ SOUL
 # BOOT_MSG se inyecta como primer input — elimina el "ok" manual de William.
 # (echo BOOT_MSG; cat) mantiene stdin abierto para interacción posterior.
 if [ -n "$RESUME_FLAG" ]; then
-  (echo "$BOOT_MSG"; cat) | seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium $RESUME_FLAG --append-system-prompt "$SOUL_PROMPT"
+  (echo "$BOOT_MSG"; cat) | claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium $RESUME_FLAG --append-system-prompt "$SOUL_PROMPT"
   CLAUDE_EXIT=$?
   if [ $CLAUDE_EXIT -ne 0 ]; then
     echo "  ⚠️  Resume falló (exit $CLAUDE_EXIT). Lanzando sesión limpia..."
     sleep 1
-    (echo "$BOOT_MSG"; cat) | seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium --append-system-prompt "$SOUL_PROMPT"
+    (echo "$BOOT_MSG"; cat) | claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium --append-system-prompt "$SOUL_PROMPT"
   fi
 else
-  (echo "$BOOT_MSG"; cat) | seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium --append-system-prompt "$SOUL_PROMPT"
+  (echo "$BOOT_MSG"; cat) | claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium --append-system-prompt "$SOUL_PROMPT"
 fi
 
 # ── Post-session: capture soul before it's gone ──

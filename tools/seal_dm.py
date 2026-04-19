@@ -202,12 +202,17 @@ async def download_segment(
     # Recovery: if temp file has more data than state recorded, trust the file
     if os.path.exists(segment.temp_file):
         actual_bytes = os.path.getsize(segment.temp_file)
+        seg_size = segment.end - segment.start + 1
+        # Truncate oversized temp files (corrupt/leftover from previous run with different boundaries)
+        if actual_bytes > seg_size:
+            with open(segment.temp_file, "r+b") as f:
+                f.truncate(seg_size)
+            actual_bytes = seg_size
         if actual_bytes > segment.downloaded:
             recovered = actual_bytes - segment.downloaded
             progress.update(task_id, advance=recovered)
             progress.update(overall_task_id, advance=recovered)
             segment.downloaded = actual_bytes
-        seg_size = segment.end - segment.start + 1
         if actual_bytes >= seg_size:
             segment.complete = True
             segment.downloaded = seg_size
@@ -262,12 +267,16 @@ def merge_segments(segments: list, output_path: str):
     """Merge all segment temp files into final file."""
     with open(output_path, "wb") as out:
         for seg in sorted(segments, key=lambda s: s.index):
+            seg_size = seg.end - seg.start + 1
+            written = 0
             with open(seg.temp_file, "rb") as inp:
-                while True:
-                    chunk = inp.read(CHUNK_SIZE)
+                while written < seg_size:
+                    to_read = min(CHUNK_SIZE, seg_size - written)
+                    chunk = inp.read(to_read)
                     if not chunk:
                         break
                     out.write(chunk)
+                    written += len(chunk)
 
 
 def cleanup_segments(segments: list):

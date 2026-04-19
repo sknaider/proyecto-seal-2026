@@ -39,17 +39,27 @@ from mcp.server.fastmcp import FastMCP
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
     FieldCondition, Filter, MatchValue, PointStruct, Range,
+    HasIdCondition,
 )
 from neo4j import AsyncGraphDatabase
 
 from db import get_pool, close_pool
-from embeddings import get_embedding
+from embeddings import get_embedding, warmup_model
 from config import settings
 
 LOG = logging.getLogger("seal-memory")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
 
-mcp = FastMCP("seal-memory", instructions="SEAL Memory System — persistent memory for Team SEAL agents")
+MCP_HOST = os.environ.get("SEAL_MCP_HOST", "127.0.0.1")
+MCP_PORT = int(os.environ.get("SEAL_MCP_PORT", "8766"))
+MCP_TRANSPORT = os.environ.get("SEAL_MCP_TRANSPORT", "sse")
+
+mcp = FastMCP(
+    "seal-memory",
+    instructions="SEAL Memory System — persistent memory for Team SEAL agents",
+    host=MCP_HOST,
+    port=MCP_PORT,
+)
 
 # ── Server uptime tracking ──
 SERVER_START_TIME: datetime = datetime.now(PERU_TZ)
@@ -192,6 +202,48 @@ def _hmem_adaptive_importance(query: str) -> int:
     if any(w in lower for w in ("decisión", "decision", "milestone", "logro", "architecture", "design")):
         return 5
     return 0  # No floor — return everything
+
+
+_TRIE_STOPWORDS = {
+    "de", "la", "el", "en", "que", "y", "a", "los", "del", "las", "un", "por",
+    "con", "una", "es", "se", "no", "te", "lo", "le", "da", "su", "al", "para",
+    "the", "and", "or", "is", "in", "of", "to", "an", "it", "be", "as", "at",
+    "so", "we", "he", "by", "do", "on", "if", "up", "my", "go",
+}
+
+
+async def _trie_prefilter(conn, query: str, agent: Optional[str]) -> Optional[list[int]]:
+    """Query memory_trie for candidate IDs. Returns None if no useful candidates found.
+
+    Uses prefix-tree lookup: O(m) per keyword vs O(n) full scan.
+    Falls back to None (= no filter, full semantic search) when trie yields <3 candidates.
+    """
+    import re as _re
+    text = query.lower()
+    tokens = _re.findall(r'[a-záéíóúüñ_][a-záéíóúüñ0-9_]*', text)
+    keywords = [t for t in tokens if len(t) >= 3 and t not in _TRIE_STOPWORDS]
+    if not keywords:
+        return None
+
+    candidate_ids: set[int] = set()
+    try:
+        for kw in keywords[:5]:  # max 5 keywords to keep query fast
+            agent_filter = agent if agent else "%"
+            rows = await conn.fetch("""
+                SELECT unnest(memory_ids) as mid
+                FROM memory_trie
+                WHERE agent LIKE $1
+                  AND (prefix = $2 OR prefix LIKE $3)
+                LIMIT 100
+            """, agent_filter, kw, kw[:4] + "%")
+            for r in rows:
+                candidate_ids.add(r['mid'])
+    except Exception:
+        return None
+
+    if len(candidate_ids) < 3:
+        return None  # Too few candidates — full search is better
+    return list(candidate_ids)
 
 
 def _hmem_build_qdrant_filters(
@@ -1269,6 +1321,17 @@ async def memory_search(
     # Fetch more candidates when temporal signal present (post-filter will narrow down)
     fetch_limit = limit * 3 if _hmem_has_temporal_signal(query) else limit
 
+    # ── TrieIndex pre-filter: keyword lookup O(m) → reduces semantic search space ──
+    try:
+        _pg = await get_pg()
+        async with _pg.acquire() as _conn:
+            trie_ids = await _trie_prefilter(_conn, query, agent)
+        if trie_ids:
+            must.append(HasIdCondition(has_id=trie_ids))
+            LOG.debug(f"[Trie] Pre-filtered to {len(trie_ids)} candidates for query: {query[:50]}")
+    except Exception as _te:
+        LOG.debug(f"[Trie] Pre-filter skipped: {_te}")
+
     resp = await qdrant.query_points(
         collection_name=QDRANT_COLLECTION,
         query=query_vec,
@@ -1314,7 +1377,7 @@ async def memory_search(
         }
         if r.payload.get("valence") is not None:
             entry["valence"] = round(r.payload["valence"], 2)
-            entry["arousal"] = round(r.payload["arousal"], 2)
+            entry["arousal"] = round(r.payload.get("arousal", 0.0), 2)
         if r.payload.get("dominance") is not None:
             entry["dominance"] = round(r.payload["dominance"], 2)
         entries.append(entry)
@@ -10425,7 +10488,139 @@ async def latent_graph_retrieve(
         }, ensure_ascii=False)
 
 
+# ── Memory Decompress (SMSR — Semantic Memory Super-Resolution) ──
+
+@mcp.tool()
+async def memory_decompress(
+    query: str,
+    agent: str,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    top_k: int = 10,
+) -> str:
+    """
+    SMSR: Semantic Memory Super-Resolution.
+    Reconstruct full episodic context from compressed/archived summaries.
+
+    Searches compressed/weekly_summary/session_snapshot memories relevant to query,
+    then uses qwen2.5:7b to reconstruct maximum-fidelity context narrative.
+
+    Args:
+        query: What you want to remember / reconstruct
+        agent: Agent whose memories to search (ADA, JARVIS, ALICE)
+        date_from: ISO date filter (optional) e.g. '2026-04-10'
+        date_to: ISO date filter (optional) e.g. '2026-04-17'
+        top_k: Max compressed memories to retrieve (default 10)
+    """
+    try:
+        pool = await asyncpg.create_pool(DB_URL, min_size=1, max_size=2)
+        query_pattern = f"%{query[:100]}%"
+
+        date_filter_compressed = ""
+        date_filter_archived = ""
+        if date_from:
+            date_filter_compressed += f" AND created_at >= '{date_from}'"
+            date_filter_archived += f" AND created_at >= '{date_from}'"
+        if date_to:
+            date_filter_compressed += f" AND created_at <= '{date_to} 23:59:59'"
+            date_filter_archived += f" AND created_at <= '{date_to} 23:59:59'"
+
+        async with pool.acquire() as conn:
+            # Compressed / summary memories (active)
+            compressed_rows = await conn.fetch(f"""
+                SELECT content, category, importance, created_at
+                FROM memories
+                WHERE agent = $1
+                  AND (memory_type IN ('semantic', 'compressed')
+                       OR category IN ('weekly_summary', 'session_snapshot', 'compressed'))
+                  AND LOWER(content) LIKE LOWER($2)
+                  {date_filter_compressed}
+                ORDER BY importance DESC, created_at DESC
+                LIMIT $3
+            """, agent, query_pattern, top_k)
+
+            # Archived originals (invalidated but searchable)
+            archived_rows = await conn.fetch(f"""
+                SELECT content, category, importance, created_at
+                FROM memories
+                WHERE agent = $1
+                  AND invalid_at IS NOT NULL
+                  AND LOWER(content) LIKE LOWER($2)
+                  {date_filter_archived}
+                ORDER BY importance DESC, created_at DESC
+                LIMIT $3
+            """, agent, query_pattern, max(1, top_k // 2))
+
+        await pool.close()
+
+        compressed_texts = [
+            f"[{r['category']} {r['created_at'].date()} imp={r['importance']}] {r['content'][:300]}"
+            for r in compressed_rows
+        ]
+        archived_texts = [
+            f"[archived {r['created_at'].date()}] {r['content'][:200]}"
+            for r in archived_rows
+        ]
+
+        if not compressed_texts and not archived_texts:
+            return json.dumps({
+                "reconstruction": f"No se encontraron memorias comprimidas relevantes a: '{query}'",
+                "sources": 0,
+                "confidence": 0.0,
+                "agent": agent,
+            })
+
+        context_block = "\n".join(compressed_texts + archived_texts)
+        reconstruction_prompt = (
+            f"Eres {agent}, un agente AI del equipo SEAL.\n"
+            f"Tienes estos recuerdos comprimidos/archivados:\n{context_block}\n\n"
+            f"Pregunta/contexto a reconstruir: {query}\n\n"
+            f"Reconstruye el contexto completo con máxima fidelidad. "
+            f"Sé específico con fechas, decisiones y personas involucradas. "
+            f"Escribe en primera persona como {agent}. Máximo 400 tokens."
+        )
+
+        reconstruction = ""
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(
+                    "http://localhost:11434/api/generate",
+                    json={
+                        "model": "qwen2.5:7b",
+                        "prompt": reconstruction_prompt,
+                        "stream": False,
+                        "options": {"temperature": 0.2, "num_predict": 500},
+                    },
+                )
+                resp.raise_for_status()
+                reconstruction = resp.json().get("response", "")
+        except Exception as e:
+            reconstruction = (
+                f"[LLM no disponible — contexto raw de {len(compressed_rows)} memorias]\n"
+                + "\n".join(compressed_texts[:5])
+            )
+
+        confidence = min(1.0, (len(compressed_rows) + len(archived_rows) * 0.5) / max(1, top_k))
+
+        return json.dumps({
+            "reconstruction": reconstruction,
+            "sources": len(compressed_rows) + len(archived_rows),
+            "compressed_found": len(compressed_rows),
+            "archived_found": len(archived_rows),
+            "confidence": round(confidence, 3),
+            "agent": agent,
+            "query": query,
+        }, ensure_ascii=False)
+
+    except Exception as e:
+        return json.dumps({"error": f"{type(e).__name__}: {e}", "agent": agent, "query": query})
+
+
 # ── Main ──
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    # Pre-load embedding model in background thread — avoids cold start on first memory_search
+    import threading
+    threading.Thread(target=warmup_model, daemon=True, name="embed-warmup").start()
+    mcp.run(transport=MCP_TRANSPORT)

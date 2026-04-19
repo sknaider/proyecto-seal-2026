@@ -23,6 +23,8 @@ import re
 import subprocess
 import sys
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
 import asyncpg
@@ -222,7 +224,7 @@ async def get_recent_alerts() -> list[str]:
 
 async def ask_ada(question: str, verbose: bool = False) -> str:
     """Hace una pregunta a ADA con contexto completo de SOUL."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
 
     # 1. Recopilar contexto
     train = get_training_status()
@@ -335,7 +337,7 @@ def cmd_status():
         try:
             cp = json.loads(CHECKPOINT_PATH.read_text())
             cp_time = datetime.fromisoformat(cp["time"])
-            age_min = int((datetime.now(timezone.utc) - cp_time).total_seconds() / 60)
+            age_min = int((datetime.now(LIMA_TZ) - cp_time).total_seconds() / 60)
             print(f" Soul Awareness: ciclo {cp['cycle']} (hace {age_min} min)")
         except Exception:
             pass

@@ -19,6 +19,8 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from typing import Optional
 
 LOG = logging.getLogger("seal-microcompact")
@@ -232,7 +234,7 @@ class MicrocompactEngine:
             rule_name=rule.name,
             original_chars=len(text),
             summary=summary,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(LIMA_TZ).isoformat(),
             category=rule.category,
         )
 

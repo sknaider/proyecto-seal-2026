@@ -11,6 +11,8 @@ import asyncpg
 import json
 import subprocess
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
 DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
@@ -87,7 +89,7 @@ def log_result(results: dict, alerts: list) -> None:
         "subtype": "soul_diagnostic_weekly",
         "from": "ADA",
         "to": "equipo",
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "timestamp": datetime.now(LIMA_TZ).isoformat().replace("+00:00", "Z"),
         "message": f"SOUL DIAGNOSTIC | {json.dumps(results)} | alerts={alerts}"
     }
     with open(LOG_PATH, "a") as f:

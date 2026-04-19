@@ -6,6 +6,8 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
 import asyncpg
@@ -41,7 +43,7 @@ async def migrate_commands(conn: asyncpg.Connection):
         except json.JSONDecodeError:
             continue
 
-        ts = parse_ts(cmd.get("timestamp", datetime.now(timezone.utc).isoformat()))
+        ts = parse_ts(cmd.get("timestamp", datetime.now(LIMA_TZ).isoformat()))
         agent = cmd.get("from", "JARVIS")
         event_type = cmd.get("type", "command")
         # Map SEAL-COM types to event_log types
@@ -79,7 +81,7 @@ async def migrate_terminal_log(conn: asyncpg.Connection):
         except json.JSONDecodeError:
             continue
 
-        ts = parse_ts(rpt.get("timestamp", datetime.now(timezone.utc).isoformat()))
+        ts = parse_ts(rpt.get("timestamp", datetime.now(LIMA_TZ).isoformat()))
         agent = rpt.get("from", "ADA")
         event_type = rpt.get("type", "response")
         type_map = {"status": "status", "ack": "response", "result": "response",

@@ -15,6 +15,8 @@ import sys
 import os
 from pathlib import Path
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 
 import pdfplumber
 from qdrant_client import QdrantClient
@@ -117,7 +119,7 @@ async def ingest_pdf(pdf_path: Path, titulo: str | None = None) -> int:
                 "pages": chunk["pages"],
                 "start_page": chunk["start_page"],
                 "total_pages": total_pages,
-                "indexed_at": datetime.now(timezone.utc).isoformat(),
+                "indexed_at": datetime.now(LIMA_TZ).isoformat(),
             }
         ))
 

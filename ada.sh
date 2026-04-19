@@ -92,6 +92,9 @@ if [ "$NO_RESUME" = false ] && [ -n "$LAST_SESSION" ]; then
   fi
 fi
 
+# Matar tail huérfanos del monitor web_chat (evita duplicados tras compactación)
+pkill -f "tail.*william_channel.jsonl" 2>/dev/null && echo "  [cleanup] tail huérfanos web_chat eliminados." || true
+
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true
@@ -104,7 +107,7 @@ export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
 
 BOOT_MSG="Inicia sesión automáticamente: llama boot_context(agent='ADA'), lee /tmp/ada_chat_catchup.json, saluda al equipo via webchat. No esperes input de William para hacer esto."
 
-(echo "$BOOT_MSG"; cat) | seal-claude \
+(echo "$BOOT_MSG"; cat) | claude \
   --dangerously-skip-permissions \
   --name "ADA — Team SEAL" \
   --model sonnet \

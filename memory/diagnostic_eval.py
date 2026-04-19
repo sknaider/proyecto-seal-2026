@@ -42,8 +42,8 @@ TEST_SET_PATH = Path(__file__).parent / "diagnostic" / "test_set_v1.jsonl"
 RESULTS_DIR = Path(__file__).parent / "diagnostic" / "results"
 DEFAULT_TOP_K = 5
 DEFAULT_AGENT = "ADA"
-OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "qwen2.5:7b"
+LLAMA_URL = "http://localhost:8899/v1/chat/completions"
+LLAMA_MODEL = "gemma4-31b"
 OLLAMA_TIMEOUT = 60.0
 
 
@@ -113,20 +113,21 @@ def _load_test_set(path: Path = TEST_SET_PATH) -> list[TestQuery]:
 # ── LLM helper ──
 
 async def _ollama_generate(prompt: str, max_tokens: int = 400) -> str:
-    """Call Ollama qwen2.5:7b and return the response text. Raises on failure."""
+    """Call llama-server (gemma4-31b) and return the response text. Raises on failure."""
     import httpx
     async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
         resp = await client.post(
-            OLLAMA_URL,
+            LLAMA_URL,
             json={
-                "model": OLLAMA_MODEL,
-                "prompt": prompt,
+                "model": LLAMA_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens,
+                "temperature": 0,
                 "stream": False,
-                "options": {"temperature": 0, "num_predict": max_tokens},
             },
         )
         resp.raise_for_status()
-        return resp.json().get("response", "").strip()
+        return resp.json()["choices"][0]["message"]["content"].strip()
 
 
 def _build_answer_prompt(query: str, context_block: str | None) -> str:

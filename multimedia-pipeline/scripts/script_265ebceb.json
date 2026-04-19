@@ -1,0 +1,52 @@
+{
+  "titulo": "¡3 Datos Sorprendentes sobre IA!",
+  "descripcion": "Explora los misterios de la inteligencia artificial con estos datos que cambiarán tu perspectiva.",
+  "tags": [
+    "IA",
+    "tecnología",
+    "futuro",
+    "innovación",
+    "salud"
+  ],
+  "narracion": "En el corazón del siglo XXI, una fuerza invisible está transformando nuestras vidas: la inteligencia artificial. Es más que software y algoritmos; es la revolución silenciosa de nuestro tiempo. Primero, imagina un mundo donde los sistemas médicos pueden diagnosticar enfermedades con precisión médica. En 2018, Microsoft desarrolló un algoritmo que detecta signos de cáncer de mama en exámenes mammográficos con un 94% de exactitud, superando a los humanos profesionales. Esto no solo reduce el tiempo diagnóstico sino también erratas potenciales. Segundo, la IA está transformando la educación. Google y otras plataformas han creado tutoriales personalizados que adaptan el ritmo de aprendizaje a cada estudiante. En China, los estudiantes utilizan estas herramientas para mejorar sus habilidades lingüísticas y matemáticas. Esto no solo equilibra las disparidades educativas sino también potencia la creatividad del alumno. Por último, en el terreno de la sostenibilidad, Google ha logrado un hito: su sistema de IA puede predecir con precisión las fluctuaciones del clima. Estos pronósticos permiten a empresas y gobiernos tomar decisiones informadas sobre energías renovables y gestión de recursos. En resumen, la IA ya es una realidad que impacta positivamente en nuestra salud, educación y medio ambiente. ¿Estás listo para unirte a esta revolución? Suscríbete para más contenidos como este!",
+  "escenas": [
+    {
+      "num": 1,
+      "texto": "Welcome to the age of AI! Imagine a world where machines think like us. Today, we're diving into three mind-blowing facts about artificial intelligence.",
+      "prompt_imagen": "cinematic dark space nebula cosmic dust glowing particles",
+      "prompt_video": "slow zoom out revealing cosmic scale",
+      "emocion": "neutral"
+    },
+    {
+      "num": 2,
+      "texto": "First up, AI is diagnosing diseases with unprecedented accuracy. In 2018, Microsoft's algorithm identified breast cancer in mammograms with 94% precision, outperforming human doctors.",
+      "prompt_imagen": "Medical lab with advanced technology and a computer screen displaying an image of a mammogram",
+      "prompt_video": "pan left showing the complexity of medical equipment",
+      "emocion": "curious"
+    },
+    {
+      "num": 3,
+      "texto": "Next, AI is transforming education. Google and others have developed personalized tutorials that adapt to each student's learning pace. In China, these tools are boosting language and math skills.",
+      "prompt_imagen": "Students in a classroom using tablets with educational apps",
+      "prompt_video": "zoom into the face of a focused student",
+      "emocion": "excited"
+    },
+    {
+      "num": 4,
+      "texto": "Lastly, AI is revolutionizing sustainability. Google's system can predict climate fluctuations accurately, enabling smarter decisions on renewable energy and resource management.",
+      "prompt_imagen": "Wind turbines in motion against blue sky with clouds",
+      "prompt_video": "pan right over the wind turbines",
+      "emocion": "neutral"
+    },
+    {
+      "num": 5,
+      "texto": "These advancements are shaping our future. Are you ready to join this revolution? Subscribe for more insights like these.",
+      "prompt_imagen": "People in a tech conference room with screens displaying AI technologies",
+      "prompt_video": "zoom out slowly showing the diverse audience",
+      "emocion": "confident"
+    }
+  ],
+  "id": "265ebceb",
+  "author": "ADA",
+  "created_at": "2026-04-06T16:34:41.131180"
+}

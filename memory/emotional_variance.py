@@ -49,6 +49,8 @@ import argparse
 import re
 import math
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 from collections import Counter, defaultdict
 
@@ -263,7 +265,7 @@ async def compute_variance(
             "variance_level": "UNKNOWN",
             "boot_spike_count": 0,
             "boot_spike_contamination_flag": False,
-            "computed_at": datetime.now(timezone.utc).isoformat(),
+            "computed_at": datetime.now(LIMA_TZ).isoformat(),
         }
 
     all_states = [r["emotional_state"] for r in rows]
@@ -284,7 +286,7 @@ async def compute_variance(
             "variance_level": "UNKNOWN",
             "boot_spike_count": boot_spike_count,
             "boot_spike_contamination_flag": boot_spike_contamination_flag,
-            "computed_at": datetime.now(timezone.utc).isoformat(),
+            "computed_at": datetime.now(LIMA_TZ).isoformat(),
         }
 
     total = len(states)
@@ -341,7 +343,7 @@ async def compute_variance(
         "boot_spike_count": boot_spike_count,
         "boot_spike_contamination_flag": boot_spike_contamination_flag,
         "recent_states": states[:5],
-        "computed_at": datetime.now(timezone.utc).isoformat(),
+        "computed_at": datetime.now(LIMA_TZ).isoformat(),
     }
 
 
@@ -520,7 +522,7 @@ async def compute_ocean_stability(
         "current_ocean": current_ocean,
         "window_used": len(rows),
         "total_drift_events": len(drift_scores),
-        "computed_at": datetime.now(timezone.utc).isoformat(),
+        "computed_at": datetime.now(LIMA_TZ).isoformat(),
     }
 
 

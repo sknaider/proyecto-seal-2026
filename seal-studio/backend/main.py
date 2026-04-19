@@ -38,7 +38,7 @@ app = FastAPI(title="SEAL Studio", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8800"],
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1|192\.168\.68\.\d{1,3}):(3000|3001|8800|8765|8790)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -207,7 +207,171 @@ async def team_status():
     else:
         agents["DUM"] = {"alive": False, "status": "offline"}
 
+    # ALICE — check alice heartbeat
+    alice_file = MESSAGES_DIR / "alice_claude_heartbeat.json"
+    if alice_file.exists():
+        try:
+            hb = json.loads(alice_file.read_text())
+            ts = datetime.fromisoformat(hb.get("timestamp", ""))
+            age_s = (datetime.now(timezone.utc) - ts).total_seconds()
+            agents["ALICE"] = {
+                "alive": hb.get("alive", False) and age_s < 300,
+                "status": "active" if (hb.get("alive", False) and age_s < 300) else "idle",
+                "last_seen": hb.get("timestamp"),
+                "age_seconds": round(age_s),
+            }
+        except Exception:
+            agents["ALICE"] = {"alive": False, "status": "error"}
+    else:
+        agents["ALICE"] = {"alive": False, "status": "offline"}
+
     return {"agents": agents, "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+@app.post("/api/agents/relaunch/{agent}")
+async def relaunch_agent(agent: str):
+    """Relaunch an agent via seal_relaunch.sh. Forces a fresh context_guard reset."""
+    from fastapi import HTTPException
+    valid = {"JARVIS", "ADA", "ALICE"}
+    agent_upper = agent.upper()
+    if agent_upper not in valid:
+        raise HTTPException(status_code=400, detail=f"Unknown agent: {agent}. Valid: {', '.join(valid)}")
+    relaunch_script = Path(__file__).parent.parent / "seal_relaunch.sh"
+    if not relaunch_script.exists():
+        raise HTTPException(status_code=500, detail="seal_relaunch.sh not found")
+    try:
+        result = subprocess.Popen(
+            ["bash", str(relaunch_script), agent_upper],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "DISPLAY": ":0"},
+        )
+        return {"ok": True, "agent": agent_upper, "pid": result.pid, "message": f"{agent_upper} relaunch initiated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/agents/sleep/{agent}")
+async def sleep_agent(agent: str):
+    """Save checkpoint + write sleep flag so context_guard triggers a fresh session."""
+    import httpx
+    from fastapi import HTTPException
+    valid = {"JARVIS", "ADA", "ALICE"}
+    agent_upper = agent.upper()
+    if agent_upper not in valid:
+        raise HTTPException(status_code=400, detail=f"Unknown agent: {agent}. Valid: {', '.join(valid)}")
+
+    venv_py = "/home/dadito/IA/seal-spark/.venv/bin/python3"
+    checkpoint_script = MESSAGES_DIR / "session_checkpoint.py"
+
+    # 1. Save checkpoint
+    try:
+        subprocess.run([venv_py, str(checkpoint_script), "--agent", agent_upper], timeout=15)
+    except Exception as e:
+        print(f"[SLEEP] checkpoint failed for {agent_upper}: {e}", flush=True)
+
+    # 2. Write sleep flag file
+    flag = MESSAGES_DIR / f".{agent_upper.lower()}_sleep_requested"
+    flag.write_text(datetime.now(timezone.utc).isoformat())
+
+    # 3. Notify agent via chat server
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post("http://localhost:8765/api/agents/send", json={
+                "from": "SYSTEM",
+                "to": agent_upper,
+                "type": "sleep_request",
+                "channel": "web_chat",
+                "message": f"🌙 William solicitó que {agent_upper} guarde estado y reinicie sesión fresca.",
+            })
+    except Exception:
+        pass
+
+    # 4. Actually relaunch with fresh session (sleep = checkpoint + relaunch)
+    relaunch_script = Path(__file__).parent.parent / "seal_relaunch.sh"
+    try:
+        subprocess.Popen(
+            ["bash", str(relaunch_script), agent_upper, "--force"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            env={**os.environ, "DISPLAY": ":0"},
+        )
+    except Exception as e:
+        print(f"[SLEEP] relaunch failed for {agent_upper}: {e}", flush=True)
+
+    print(f"[SLEEP] {agent_upper} sleep+relaunch initiated via SEAL Studio", flush=True)
+    return {"ok": True, "agent": agent_upper, "message": f"{agent_upper} durmiendo y reiniciando sesión fresca."}
+
+
+# ══════════════════════════════════════════════════════════
+# CHAT PROXY — read-only access to chat_messages (no auth required from :3001)
+# Only exposes public channels (no DMs). Write operations still go through :8765.
+# ══════════════════════════════════════════════════════════
+
+@app.get("/api/chat/messages")
+async def proxy_chat_messages(
+    channel: str = "web_chat",
+    limit: int = 50,
+    before: Optional[int] = None,
+    after: Optional[int] = None,
+):
+    """Read-only proxy to chat_messages — shared DB, no auth token needed."""
+    import asyncpg
+    # Block DM channels — privacy protection
+    if channel.startswith("dm:") or channel.startswith("dm_"):
+        return {"ok": False, "error": "DM access not allowed via studio proxy"}
+    try:
+        conn = await asyncpg.connect(DB_URL)
+        try:
+            base_sel = (
+                "SELECT id, channel, sender_name, content, message_type, "
+                "metadata->>'file_url' AS file_url, created_at "
+                "FROM chat_messages"
+            )
+            if before:
+                rows = await conn.fetch(
+                    f"{base_sel} WHERE channel = $1 AND id < $2 ORDER BY created_at DESC LIMIT $3",
+                    channel, before, limit,
+                )
+            elif after:
+                rows = await conn.fetch(
+                    f"{base_sel} WHERE channel = $1 AND id > $2 ORDER BY created_at ASC LIMIT $3",
+                    channel, after, limit,
+                )
+            else:
+                rows = await conn.fetch(
+                    f"{base_sel} WHERE channel = $1 ORDER BY created_at DESC LIMIT $2",
+                    channel, limit,
+                )
+        finally:
+            await conn.close()
+
+        messages = []
+        for r in reversed(rows):
+            msg = dict(r)
+            if msg.get("created_at") and hasattr(msg["created_at"], "isoformat"):
+                msg["created_at"] = msg["created_at"].isoformat()
+            messages.append(msg)
+        return {"ok": True, "messages": messages, "channel": channel}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/chat/channels")
+async def proxy_chat_channels():
+    """List public chat channels."""
+    import asyncpg
+    try:
+        conn = await asyncpg.connect(DB_URL)
+        try:
+            rows = await conn.fetch(
+                "SELECT name, description FROM chat_channels WHERE is_private = FALSE ORDER BY name"
+            )
+        finally:
+            await conn.close()
+        return {"ok": True, "channels": [dict(r) for r in rows]}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 # ══════════════════════════════════════════════════════════
@@ -241,6 +405,30 @@ async def soul_ocean(agent: str = "ADA"):
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.get("/api/soul/ocean/all")
+async def soul_ocean_all():
+    """Get current OCEAN scores for all agents in one call."""
+    agents = ["ADA", "JARVIS", "ALICE", "DUM"]
+    results = []
+    for agent in agents:
+        try:
+            rows = await _db_query(
+                "SELECT ocean_scores, ocean_baseline, updated_at FROM identity WHERE agent = $1", agent)
+            if rows:
+                row = rows[0]
+                results.append({
+                    "agent": agent,
+                    "ocean": json.loads(row["ocean_scores"]) if row["ocean_scores"] else {},
+                    "baseline": json.loads(row["ocean_baseline"]) if row["ocean_baseline"] else {},
+                    "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
+                })
+            else:
+                results.append({"agent": agent, "ocean": {}, "baseline": {}, "updated_at": None, "error": "no data"})
+        except Exception as e:
+            results.append({"agent": agent, "ocean": {}, "baseline": {}, "updated_at": None, "error": str(e)})
+    return {"agents": results}
 
 
 @app.get("/api/soul/memories")

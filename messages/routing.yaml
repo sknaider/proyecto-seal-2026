@@ -6,10 +6,13 @@ version: "1"
 
 routes:
   - match: {agent_from: ADA}
-    deliver_to: [terminal_log, web_api]
+    deliver_to: [terminal_log, william_channel, web_api]
 
   - match: {agent_from: JARVIS}
-    deliver_to: [vscode_commands, web_api]
+    deliver_to: [vscode_commands, william_channel, web_api]
+
+  - match: {agent_from: ALICE}
+    deliver_to: [alice_messages, william_channel, web_api]
 
   - match: {agent_from: William}
     deliver_to: [william_channel, web_api, trigger_agents]
@@ -24,12 +27,13 @@ routes:
     deliver_to: [vscode_commands, web_api]
 
   - match: {agent_to: equipo}
-    deliver_to: [terminal_log, vscode_commands, web_api]
+    deliver_to: [terminal_log, vscode_commands, william_channel, web_api]
 
 channels:
   terminal_log:    {type: jsonl, path: "terminal_log.jsonl"}
   vscode_commands: {type: jsonl, path: "vscode_commands.jsonl"}
   william_channel: {type: jsonl, path: "william_channel.jsonl"}
+  alice_messages:  {type: jsonl, path: "alice_messages.jsonl"}
   trigger_ada:     {type: trigger_file, path: ".jarvis_to_ada"}
   trigger_william: {type: trigger_file, path: ".william_trigger"}
   trigger_agents:  {type: trigger_file, path: ".william_to_agents"}

@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from typing import Optional
 
 from db import get_pool
@@ -181,5 +183,5 @@ async def list_recent_sessions(
 
 def generate_session_id(agent: str) -> str:
     """Genera un session_id único basado en agente + timestamp."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
     return f"{agent.lower()}_{now.strftime('%Y%m%d_%H%M')}"

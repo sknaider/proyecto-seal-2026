@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Write an event to SEAL event_log table (PostgreSQL).
 
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 Usage:
   python3 event_log_write.py --agent JARVIS --type heartbeat --content "Session alive, GPU 45C"
   python3 event_log_write.py --agent ADA --type audit --content "SOUL health OK"
@@ -18,7 +20,7 @@ async def write_event(agent: str, event_type: str, content: str, metadata: str =
     import asyncpg
     conn = await asyncpg.connect(DB_URL)
     from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
     await conn.execute(
         "INSERT INTO event_log (agent, event_type, content, metadata, time) VALUES ($1, $2, $3, $4, $5)",
         agent, event_type, content, metadata, now,

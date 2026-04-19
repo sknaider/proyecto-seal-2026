@@ -23,6 +23,8 @@ import argparse
 import json
 import sys
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
 MSG_DIR = Path("/home/dadito/IA/proyecto-seal/messages")
@@ -114,7 +116,7 @@ def main() -> int:
     args = ap.parse_args()
 
     entries = load_entries(INBOXES)
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=args.minutes)
+    cutoff = datetime.now(LIMA_TZ) - timedelta(minutes=args.minutes)
 
     filtered: list[tuple[datetime, dict]] = []
     for e in entries:

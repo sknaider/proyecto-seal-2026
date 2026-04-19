@@ -18,6 +18,8 @@ import json
 import asyncio
 import argparse
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
 import asyncpg
@@ -82,7 +84,7 @@ async def _fetch_snapshot(agent: str) -> dict:
 
         return {
             "agent": agent,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(LIMA_TZ).isoformat(),
             "memories": [
                 {
                     "id": m["id"],
@@ -121,7 +123,7 @@ def snapshot_start(agent: str) -> None:
         # Graceful degradation: DB offline — guardar entry mínimo
         snapshot = {
             "agent": agent,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(LIMA_TZ).isoformat(),
             "db_unavailable": True,
             "error": str(e),
             "memories": [], "thoughts": [], "ocean": {}, "drift_score": 0.0,
@@ -142,7 +144,7 @@ def snapshot_start(agent: str) -> None:
 
 def _write_degraded_delta(agent: str, error: str) -> None:
     """Escribe entry mínimo cuando DB no está disponible al cierre."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
     entry = {
         "id": f"session_delta_{agent.lower()}_{int(now.timestamp())}",
         "from": agent, "to": "equipo",
@@ -235,7 +237,7 @@ def save_delta_to_log(delta: dict, agent: str) -> None:
     if not delta:
         return
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
     lines = [
         f"SESSION DELTA — {agent} — {now.strftime('%Y-%m-%d %H:%M UTC')}",
         f"Memorias nuevas: {delta['new_memories_count']}",

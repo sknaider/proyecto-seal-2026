@@ -8,6 +8,8 @@ import asyncpg
 import hashlib
 import json
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 
 DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
 
@@ -70,7 +72,7 @@ async def update_ocean(agent: str, new_ocean: dict, william_passphrase: str) -> 
                ocean_lock_hash = $2,
                ocean_locked_at = $3
            WHERE agent = $4""",
-        new_ocean, new_hash, datetime.now(timezone.utc), agent
+        new_ocean, new_hash, datetime.now(LIMA_TZ), agent
     )
     await conn.close()
 
@@ -79,6 +81,77 @@ async def update_ocean(agent: str, new_ocean: dict, william_passphrase: str) -> 
         "msg": f"OCEAN de {agent} actualizado y baseline re-bloqueado",
         "new_ocean": new_ocean
     }
+
+
+async def get_ocean_current(agent: str) -> dict:
+    """
+    Retorna OCEAN actual = ocean_baseline + drift acumulado autorizado.
+    Lee desde ocean_current VIEW (ocean_base_values + ocean_drift_log).
+    Fallback: ocean_baseline de identity si VIEW falla.
+    """
+    conn = await asyncpg.connect(DB_URL)
+    try:
+        rows = await conn.fetch(
+            "SELECT dimension, current_value FROM ocean_current WHERE agent = $1",
+            agent
+        )
+        if rows:
+            dim_map = {"agreeableness": "A", "conscientiousness": "C",
+                       "extraversion": "E", "neuroticism": "N", "openness": "O"}
+            return {dim_map[r["dimension"]]: float(r["current_value"]) for r in rows}
+        # fallback to baseline
+        row = await conn.fetchrow("SELECT ocean_baseline FROM identity WHERE agent = $1", agent)
+        return dict(row["ocean_baseline"]) if row else {}
+    finally:
+        await conn.close()
+
+
+async def log_drift_event(agent: str, dimension: str, delta: float,
+                           event_type: str, event_desc: str = "") -> dict:
+    """
+    Registra un evento de drift autorizado en ocean_drift_log.
+    Aplica guardrails: max_drift_per_day y max_total_drift (±0.15 por dimensión).
+    """
+    OCEAN_MAX_DRIFT = 0.15
+    OCEAN_MAX_PER_DAY = 0.003
+    DIM_FULL = {"A": "agreeableness", "C": "conscientiousness",
+                "E": "extraversion", "N": "neuroticism", "O": "openness"}
+    dim_full = DIM_FULL.get(dimension, dimension)
+
+    conn = await asyncpg.connect(DB_URL)
+    try:
+        # Check total accumulated drift
+        row = await conn.fetchrow(
+            "SELECT base_value, current_value FROM ocean_current WHERE agent=$1 AND dimension=$2",
+            agent, dim_full
+        )
+        if not row:
+            return {"status": "error", "msg": f"Agente/dimensión no encontrado: {agent}/{dimension}"}
+
+        total_drift = float(row["current_value"]) - float(row["base_value"])
+        if abs(total_drift + delta) > OCEAN_MAX_DRIFT:
+            return {"status": "blocked", "msg": f"Drift total excedería ±{OCEAN_MAX_DRIFT} para {agent}.{dimension}"}
+
+        # Check daily drift cap
+        today = datetime.now(LIMA_TZ).date()
+        daily_row = await conn.fetchrow(
+            "SELECT COALESCE(SUM(ABS(delta)), 0) as daily FROM ocean_drift_log "
+            "WHERE agent=$1 AND dimension=$2 AND applied=TRUE AND DATE(created_at AT TIME ZONE 'America/Lima')=$3",
+            agent, dim_full, today
+        )
+        daily_total = float(daily_row["daily"])
+        if daily_total + abs(delta) > OCEAN_MAX_PER_DAY:
+            return {"status": "blocked", "msg": f"Drift diario excedería {OCEAN_MAX_PER_DAY} para {agent}.{dimension}"}
+
+        await conn.execute(
+            "INSERT INTO ocean_drift_log (agent, dimension, delta, event_type, event_desc) VALUES ($1,$2,$3,$4,$5)",
+            agent, dim_full, delta, event_type, event_desc
+        )
+        new_value = float(row["current_value"]) + delta
+        return {"status": "ok", "agent": agent, "dimension": dimension,
+                "delta": delta, "new_value": round(new_value, 4)}
+    finally:
+        await conn.close()
 
 
 async def audit_all() -> None:

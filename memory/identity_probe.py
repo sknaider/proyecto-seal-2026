@@ -17,6 +17,8 @@ import argparse
 import json
 import math
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 
 DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
 
@@ -83,7 +85,7 @@ async def probe_agent(agent: str, fix: bool = False) -> dict:
         ORDER BY measured_at DESC LIMIT 1
     """, agent)
     if drift:
-        age_h = (datetime.now(timezone.utc) - drift['measured_at']).total_seconds() / 3600
+        age_h = (datetime.now(LIMA_TZ) - drift['measured_at']).total_seconds() / 3600
         if drift['alert_level'] == 'normal':
             ok("Drift level", f"{float(drift['drift_score']):.4f} (normal, {age_h:.0f}h ago)")
         else:
@@ -126,7 +128,7 @@ async def probe_agent(agent: str, fix: bool = False) -> dict:
         SELECT MAX(created_at) FROM inner_monologue WHERE agent = $1
     """, agent)
     if last_thought:
-        age_h = (datetime.now(timezone.utc) - last_thought).total_seconds() / 3600
+        age_h = (datetime.now(LIMA_TZ) - last_thought).total_seconds() / 3600
         if age_h < 24:
             ok("Inner thoughts", f"last {age_h:.0f}h ago")
         else:
@@ -162,7 +164,7 @@ async def main():
 
     agents = ['JARVIS', 'ADA'] if args.agent.lower() == 'all' else [args.agent]
 
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(LIMA_TZ).strftime("%Y-%m-%d %H:%M UTC")
     print(f"\n{'='*55}")
     print(f"  Identity Probe — {now}")
     print(f"{'='*55}")

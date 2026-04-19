@@ -21,6 +21,8 @@ import json
 import logging
 import sys
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 
 import asyncpg
 import httpx
@@ -51,7 +53,7 @@ async def llm_summarize(prompt: str) -> str:
 async def consolidate_events(pool: asyncpg.Pool, hours_back: int = 24, dry_run: bool = False) -> list[str]:
     """Summarize recent events into high-level memories."""
     actions = []
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+    cutoff = datetime.now(LIMA_TZ) - timedelta(hours=hours_back)
 
     async with pool.acquire() as conn:
         # Get events grouped by agent
@@ -161,7 +163,7 @@ async def merge_redundant(pool: asyncpg.Pool, dry_run: bool = False) -> list[str
 async def archive_old_events(pool: asyncpg.Pool, days: int = 30, dry_run: bool = False) -> list[str]:
     """Archive events older than N days (delete from hypertable after consolidation)."""
     actions = []
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = datetime.now(LIMA_TZ) - timedelta(days=days)
 
     async with pool.acquire() as conn:
         count = await conn.fetchval(

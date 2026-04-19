@@ -1,0 +1,1 @@
+{"trigger": "ws_message", "from": "William", "to": "equipo", "message_id": "api_william_1776104659153423137", "idempotency_key": "api_william_1776104659153423137", "type": "conversation", "channel": "web_chat", "timestamp": "2026-04-13T13:24:19.153409-05:00", "message_preview": "mi mensaje  sale pero no ew visible, hasta que le doy scroll"}

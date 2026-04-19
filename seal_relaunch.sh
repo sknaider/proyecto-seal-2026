@@ -101,13 +101,25 @@ tmux kill-session -t "$TMUX_SESSION" 2>/dev/null || true
 LAUNCHED=false
 LAUNCH_METHOD=""
 
-# Tier 1: kitty (preferred)
+# Tier 1: kitty (preferred) — restart loop, misma ventana siempre (v3.3)
 if [ "$LAUNCHED" = false ] && command -v kitty &>/dev/null && xdpyinfo -display "$DISPLAY_VAL" &>/dev/null 2>&1; then
   echo "[seal_relaunch] DISPLAY=$DISPLAY_VAL — spawning kitty for $AGENT..."
+  KITTY_SOCK="/tmp/seal-${LC_AGENT}-kitty.sock"
+  rm -f "$KITTY_SOCK"  # limpia stale antes de bind nuevo
+
+  # Fase D / Bug 3: cwd por agente — claude --resume necesita cwd del project dir
+  case "$LC_AGENT" in
+    ada)    AGENT_DIR="/home/dadito/IA/proyecto-seal" ;;
+    jarvis) AGENT_DIR="/home/dadito/IA/proyecto-seal/memory" ;;
+    alice)  AGENT_DIR="/home/dadito/IA/proyecto-seal/alice" ;;
+  esac
+
   DISPLAY="$DISPLAY_VAL" setsid kitty \
+    --listen-on "unix:$KITTY_SOCK" \
+    -o allow_remote_control=yes \
     --title "$AGENT — Team SEAL" \
     -o initial_window_width=140c -o initial_window_height=40c \
-    bash "$FRESH" \
+    bash -c "while true; do cd '$AGENT_DIR' && bash '$FRESH'; echo '[SEAL-LOOP] $AGENT exited — reiniciando en 5s...'; sleep 5; done" \
     </dev/null >"$LOG" 2>&1 &
   disown
   LAUNCHED=true

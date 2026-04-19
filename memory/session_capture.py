@@ -30,8 +30,8 @@ from mcp_server import classify_emotion
 LOG = logging.getLogger("session-capture")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "qwen2.5:7b"
+LLAMA_URL = "http://localhost:8899/v1/chat/completions"
+LLAMA_MODEL = "gemma4-31b"
 
 # Agent → transcript directory mapping
 TRANSCRIPT_DIRS = {
@@ -43,16 +43,17 @@ TRANSCRIPT_DIR = TRANSCRIPT_DIRS["ADA"]
 
 
 async def llm_generate(prompt: str, max_tokens: int = 800) -> str:
-    """Call Ollama for text generation."""
+    """Call llama-server (gemma4-31b) for text generation."""
     async with httpx.AsyncClient(timeout=180.0) as client:
-        resp = await client.post(OLLAMA_URL, json={
-            "model": OLLAMA_MODEL,
-            "prompt": prompt,
+        resp = await client.post(LLAMA_URL, json={
+            "model": LLAMA_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": 0.3,
             "stream": False,
-            "options": {"temperature": 0.3, "num_predict": max_tokens},
         })
         resp.raise_for_status()
-        return resp.json().get("response", "").strip()
+        return resp.json()["choices"][0]["message"]["content"].strip()
 
 
 def find_latest_transcript(agent: str = "ADA") -> str | None:

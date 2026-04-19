@@ -1,0 +1,33 @@
+{
+  "_comment": "Per-agent whisper tier boundaries. William controls this file. NEVER auto-edit.",
+  "_updated": "2026-04-17 21:55 UTC",
+  "_tier_deploy_schedule": {
+    "tier1": "active since 2026-04-17",
+    "tier2": "pending — enable after 2026-05-01 (2 weeks tier1 stable)",
+    "tier3": "case-by-case, never batch-enabled"
+  },
+  "JARVIS": {
+    "tiers_accepted": [
+      1
+    ],
+    "tier3_tokens": []
+  },
+  "ADA": {
+    "tiers_accepted": [
+      1
+    ],
+    "tier3_tokens": []
+  },
+  "ALICE": {
+    "tiers_accepted": [
+      1
+    ],
+    "tier3_tokens": []
+  },
+  "DUM": {
+    "tiers_accepted": [
+      1
+    ],
+    "tier3_tokens": []
+  }
+}

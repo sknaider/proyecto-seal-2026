@@ -27,6 +27,8 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
 import asyncpg
@@ -53,7 +55,7 @@ def _cmd_id(cmd: dict) -> str:
 def _write_response(to: str, ref: str, status: str, msg: str):
     """Escribe respuesta en terminal_log."""
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(LIMA_TZ).isoformat(),
         "from": "ADA",
         "to": to,
         "type": "response",

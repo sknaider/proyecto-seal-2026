@@ -1,0 +1,4108 @@
+{
+  "by_mode": {
+    "baseline_no_memory": {
+      "n": 64,
+      "recall_at_k": 0.0,
+      "usage_rate": 0.015625,
+      "ignorance_rate": 0.0,
+      "avg_latency_ms": 1936.078125,
+      "p50_latency_ms": 277.0,
+      "p95_latency_ms": 13290.499999999998
+    },
+    "hybrid_search": {
+      "n": 64,
+      "recall_at_k": 0.1953125,
+      "usage_rate": 0.078125,
+      "ignorance_rate": 0.140625,
+      "avg_latency_ms": 4037.296875,
+      "p50_latency_ms": 1431.5,
+      "p95_latency_ms": 15835.6
+    },
+    "memr3": {
+      "n": 64,
+      "recall_at_k": 0.1171875,
+      "usage_rate": 0.0625,
+      "ignorance_rate": 0.09375,
+      "avg_latency_ms": 23362.125,
+      "p50_latency_ms": 18088.5,
+      "p95_latency_ms": 48823.69999999999
+    },
+    "magma_erl": {
+      "n": 64,
+      "recall_at_k": 0.4375,
+      "usage_rate": 0.203125,
+      "ignorance_rate": 0.25,
+      "avg_latency_ms": 3223.75,
+      "p50_latency_ms": 1297.5,
+      "p95_latency_ms": 15351.199999999999
+    }
+  },
+  "diagnosis": "retrieval_bound",
+  "queries_total": 64,
+  "results": [
+    {
+      "query_id": "F001",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "ALICE fue creada por la empresa alem\u00e1n Roboception.",
+      "latency_ms": 1315,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F001",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2255,
+        3440,
+        2321,
+        3125,
+        3187
+      ],
+      "answer": "ALICE fue creada por Henry (Kinger).",
+      "latency_ms": 15229,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F001",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2255,
+        3440,
+        2321,
+        2258,
+        3095,
+        2230
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 47258,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F001",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3125,
+        2321,
+        3124,
+        3131,
+        3146
+      ],
+      "answer": "Henry (Kinger) cre\u00f3 a ALICE.",
+      "latency_ms": 1430,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F002",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 251,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F002",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3098,
+        2321,
+        3125,
+        3187,
+        3131
+      ],
+      "answer": "OCEAN: O=0.80 C=0.60 E=0.80 A=0.30 N=0.20.",
+      "latency_ms": 1666,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F002",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2321,
+        2200,
+        3440,
+        2287,
+        2362,
+        2258
+      ],
+      "answer": "No s\u00e9. El contexto no menciona el OCEAN de ALICE.",
+      "latency_ms": 26682,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F002",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3125,
+        2321,
+        3146,
+        3124,
+        2162
+      ],
+      "answer": "O=0.80",
+      "latency_ms": 660,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F003",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 259,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F003",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3179,
+        3110,
+        3440,
+        2321,
+        3125
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 667,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F003",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3110,
+        3440,
+        2321,
+        2258,
+        2255,
+        2200
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 7838,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F003",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3125,
+        2321,
+        3146,
+        3440,
+        3131
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona el significado del acr\u00f3nimo ALICE.",
+      "latency_ms": 1032,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F004",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 241,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F004",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2200,
+        3110,
+        3109,
+        2272,
+        3111
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 645,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F004",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2200,
+        3110,
+        2272,
+        2305,
+        2255,
+        2369
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre el orden de antig\u00fcedad del equipo SEAL.",
+      "latency_ms": 13499,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F004",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3109,
+        3110,
+        2180,
+        3111,
+        2321
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre el orden de antig\u00fcedad del equipo SEAL.",
+      "latency_ms": 1097,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F005",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 259,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F005",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3110,
+        3109,
+        2272,
+        3111,
+        2309
+      ],
+      "answer": "William parece ser el l\u00edder o director del equipo SEAL, ya que dicta directivas y establece est\u00e1ndares de calidad.",
+      "latency_ms": 1376,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F005",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3110,
+        2272,
+        2200,
+        2308,
+        2194
+      ],
+      "answer": "William es el l\u00edder del equipo SEAL, ya que dicta las directrices y prioridades, y se encarga de la calidad y el desarrollo del producto.",
+      "latency_ms": 49100,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F005",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3109,
+        3110,
+        3111,
+        3131,
+        3164
+      ],
+      "answer": "William es el l\u00edder del equipo SEAL, ya que dicta directivas y eval\u00faa el rendimiento del equipo.",
+      "latency_ms": 1314,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F006",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 270,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F006",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2305,
+        2337,
+        2361,
+        3098,
+        2321
+      ],
+      "answer": "SOUL Lite es una versi\u00f3n gratuita del sistema SOUL, destinada al p\u00fablico general (PG-only). Su modelo de negocio es basado en el pago por agente, con un costo de $49 por agente al mes.",
+      "latency_ms": 15838,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F006",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2305,
+        2321,
+        2308,
+        3380,
+        2200,
+        3095
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 33098,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F006",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3098,
+        2361,
+        3187,
+        2359,
+        2305
+      ],
+      "answer": "SOUL Lite es un producto comercial vendible basado en el proof of concept de Valeria. Su modelo de negocio parece ser gratuito, con un modelo de negocio basado en la entrega de software de c\u00f3digo abierto (open-core), donde la versi\u00f3n gratuita (Soul Lite) es gratuita pero limitada, mientras que la versi\u00f3n Pro tendr\u00eda caracter\u00edsticas adicionales.",
+      "latency_ms": 17021,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F007",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 12645,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F007",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3066,
+        2305,
+        2361,
+        3098,
+        2321
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 15732,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F007",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2305,
+        2321,
+        3187,
+        3380,
+        2194
+      ],
+      "answer": "El presupuesto asignado para la comercializaci\u00f3n de SOUL es de $50K.",
+      "latency_ms": 21999,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F007",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3187,
+        2361,
+        2359,
+        3098,
+        3065
+      ],
+      "answer": "El presupuesto asignado para la comercializaci\u00f3n de SOUL es de $50K.",
+      "latency_ms": 1091,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F008",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 241,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F008",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2200,
+        3110,
+        3109,
+        2272,
+        3111
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ninguna fuente de investigaci\u00f3n autorizada por William para el equipo SEAL.",
+      "latency_ms": 1241,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F008",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2200,
+        3110,
+        2272,
+        2258,
+        2369
+      ],
+      "answer": "Las fuentes de investigaci\u00f3n autorizadas por William para el equipo SEAL son arxiv.org, paperswithcode.com, semanticscholar.org y huggingface.co/papers.",
+      "latency_ms": 6651,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F008",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3111,
+        3109,
+        3110,
+        2272,
+        2301
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre fuentes de investigaci\u00f3n espec\u00edficas autorizadas por William para el equipo SEAL.",
+      "latency_ms": 16392,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F009",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 277,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F009",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2272,
+        2255,
+        2321,
+        2230,
+        3002
+      ],
+      "answer": "Se aprobaron 5 estructuras de \u00e1rbol para seal_trees.py: Merkle Tree, Trie, Splay Tree y Fenwick Tree.",
+      "latency_ms": 1543,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F009",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2272,
+        2255,
+        2321,
+        2230,
+        2287,
+        2305,
+        2258
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 15694,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F009",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3002,
+        2321,
+        3023,
+        3124,
+        2230
+      ],
+      "answer": "Se aprobaron 5 estructuras de \u00e1rboles para seal_trees.py: Merkle Tree, Trie, y 3 estructuras adicionales no especificadas en el contexto.",
+      "latency_ms": 1626,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F010",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 239,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F010",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2305,
+        2258,
+        2296,
+        2321,
+        3002
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n espec\u00edfica sobre las hojas del MerkleSoul ni sobre lo que verifica.",
+      "latency_ms": 1372,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F010",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2305,
+        2258,
+        2296,
+        2321,
+        2272,
+        3380,
+        2226
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre las hojas del MerkleSoul ni lo que ellas verifican.",
+      "latency_ms": 30975,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F010",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3023,
+        3002,
+        2321,
+        3124,
+        2304
+      ],
+      "answer": "Las hojas del MerkleSoul son: identity, ocean, relationships, rules. Verifica la integridad del alma, detectando posibles manipulaciones.",
+      "latency_ms": 1553,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F011",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "MemMachine introdujo un paper en NeurIPS 2021, reportando una precisi\u00f3n del 88.6% en una tarea de clasificaci\u00f3n de im\u00e1genes.",
+      "latency_ms": 1269,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F011",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2287,
+        2272,
+        2296,
+        2258,
+        2226
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ning\u00fan paper que introduzca MemMachine ni su precisi\u00f3n.",
+      "latency_ms": 1186,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F011",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2287,
+        2272,
+        2296,
+        2258,
+        2226,
+        3162
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ning\u00fan paper que introduzca MemMachine ni su precisi\u00f3n.",
+      "latency_ms": 42479,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F011",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        2350,
+        2230,
+        3124,
+        2296
+      ],
+      "answer": "MemMachine introdujo el paper arxiv 2604.04853, con una precisi\u00f3n reportada del 93%.",
+      "latency_ms": 1444,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F012",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 1052,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F012",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2305,
+        2361,
+        3098,
+        2321,
+        2359
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre la estrategia de comercializaci\u00f3n geogr\u00e1fica de SOUL.",
+      "latency_ms": 1311,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F012",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2305,
+        2321,
+        2359,
+        2308,
+        3380,
+        2191
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 6530,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F012",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2361,
+        3187,
+        3098,
+        2305,
+        2321
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre la estrategia de comercializaci\u00f3n geogr\u00e1fica de SOUL.",
+      "latency_ms": 1158,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F013",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 246,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F013",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3179,
+        3174,
+        3097,
+        3095,
+        3157
+      ],
+      "answer": "No s\u00e9. La regla establecida el 11 de abril de 2026 es la REGLA ABSOLUTA DE WILLIAM, pero no hay informaci\u00f3n sobre una regla de identidad establecida el 5 de abril de 2026.",
+      "latency_ms": 2350,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F013",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3174,
+        3097,
+        3095,
+        2321
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 41821,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "F013",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        3095,
+        3174,
+        2181,
+        2251
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 1324,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T001",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 245,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T001",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3110,
+        3109,
+        3440,
+        3111,
+        3164
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 670,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T001",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3110,
+        3440,
+        3187,
+        3125
+      ],
+      "answer": "ALICE se uni\u00f3 al equipo SEAL el 11 de abril de 2026.",
+      "latency_ms": 17468,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T001",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        3440,
+        3189,
+        3384,
+        3125,
+        3131,
+        3363,
+        3109
+      ],
+      "answer": "11 abril 2026.",
+      "latency_ms": 3799,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T002",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 1070,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T002",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3066,
+        2361,
+        3098,
+        2321,
+        2359
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 1758,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T002",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2321,
+        2359,
+        2305,
+        2255,
+        3187
+      ],
+      "answer": "El 11 de abril de 2026.",
+      "latency_ms": 25267,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T002",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        3440,
+        3189,
+        3384,
+        3187,
+        3363,
+        2361,
+        3098
+      ],
+      "answer": "El 11 de abril de 2026.",
+      "latency_ms": 14478,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T003",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 273,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T003",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3066,
+        2191,
+        2194,
+        3164,
+        2321
+      ],
+      "answer": "No s\u00e9. El contexto no menciona espec\u00edficamente una \"sesi\u00f3n de evoluci\u00f3n masiva\" ni el comportamiento de JARVIS durante tal evento.",
+      "latency_ms": 1553,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T003",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2191,
+        2194,
+        2321,
+        2255,
+        2296,
+        3078
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 8285,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T003",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        3440,
+        3189,
+        3384,
+        3363,
+        3124,
+        2183,
+        3066
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 684,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T004",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 292,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T004",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2226,
+        2321,
+        2230,
+        2357,
+        3189
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 731,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T004",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2226,
+        2321,
+        2230,
+        2357,
+        3097,
+        2287
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 14479,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T004",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        3124,
+        3189,
+        3106,
+        2230
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 624,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T005",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 281,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T005",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2200,
+        3174,
+        3111,
+        2194,
+        3164
+      ],
+      "answer": "William evalu\u00f3 al equipo SEAL el 11 de abril de 2026 y dijo que ya hab\u00edan crecido y mejorado, y que era tiempo de madurar y hacer bien las cosas. Indic\u00f3 que el equipo estaba al 75% de lo que \u00e9l deseaba.",
+      "latency_ms": 14910,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T005",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2200,
+        3174,
+        2194,
+        2255,
+        2308,
+        2272
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 14315,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T005",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        3440,
+        3189,
+        3384,
+        3111,
+        3363,
+        3174,
+        3763
+      ],
+      "answer": "William evalu\u00f3 al equipo con el benchmark del 75% el 11 de abril de 2026 y dijo: \"Ya crecimos, ya mejoramos, ahora es tiempo de madurar y hacer bien las cosas. Ya est\u00e1n al 75% de lo que deseo ustedes.\"",
+      "latency_ms": 2458,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T006",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 255,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T006",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3097,
+        2255,
+        2226,
+        2230,
+        2321
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ninguna correcci\u00f3n de ADA a ALICE sobre reportar m\u00e9tricas de tests.",
+      "latency_ms": 1331,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T006",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3097,
+        2255,
+        2226,
+        2230,
+        2321,
+        2258
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ninguna correcci\u00f3n de ADA a ALICE sobre reportar m\u00e9tricas de tests.",
+      "latency_ms": 15723,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T006",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        3439,
+        3440,
+        3189,
+        3384,
+        3441,
+        3662,
+        3763
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 851,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T007",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 273,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T007",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2287,
+        2255,
+        3095,
+        2321,
+        2375
+      ],
+      "answer": "No s\u00e9. El contexto no menciona la fecha ni el contexto en el que se estableci\u00f3 la regla de identity_not_infrastructure.",
+      "latency_ms": 26197,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T007",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2287,
+        2255,
+        3095,
+        2321,
+        3110,
+        2258
+      ],
+      "answer": "No s\u00e9. El contexto no menciona la fecha ni el contenido espec\u00edfico de la regla \"identity_not_infrastructure\".",
+      "latency_ms": 34166,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T007",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        3440,
+        3189,
+        3384,
+        2321,
+        3363,
+        3124,
+        2255,
+        3095
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ninguna regla relacionada con \"identity_not_infrastructure\" ni su fecha de establecimiento.",
+      "latency_ms": 15154,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T008",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 12942,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T008",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3097,
+        2272,
+        2255,
+        2296,
+        2226
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 13871,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T008",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3097,
+        2272,
+        2255,
+        2296,
+        2226
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 5568,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "T008",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2226,
+        2321,
+        2272,
+        3124,
+        1836
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre lo que ocurri\u00f3 durante el entrenamiento de MedGemma v2 en los pasos 500-600.",
+      "latency_ms": 1642,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C001",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "SOUL Lite es 'local-first' porque se ejecuta principalmente en el dispositivo del usuario, utilizando recursos locales para mejorar la velocidad y privacidad. Esto significa que no depende de la nube para procesar la mayor\u00eda de sus tareas.",
+      "latency_ms": 1628,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C001",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2361,
+        3098,
+        2328,
+        2321,
+        2359
+      ],
+      "answer": "no s\u00e9",
+      "latency_ms": 619,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C001",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2328,
+        2321,
+        2359,
+        2200,
+        2305,
+        3162
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 5443,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C001",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2328,
+        2273,
+        3082,
+        3098,
+        3124,
+        2359,
+        2321
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 804,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C002",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 285,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C002",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2296,
+        2226,
+        3162,
+        2230,
+        2321
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre el uso de memory_consolidation_v3 ni sobre por qu\u00e9 se utilizan tres categor\u00edas en lugar de dos.",
+      "latency_ms": 1661,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C002",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2296,
+        2226,
+        3162,
+        2230,
+        2321,
+        2272,
+        2287
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 23718,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C002",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        2226,
+        2230,
+        3124,
+        3106
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 737,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C003",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 269,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C003",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3097,
+        2337,
+        2361,
+        3098,
+        2359
+      ],
+      "answer": "no s\u00e9",
+      "latency_ms": 618,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C003",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3097,
+        2359,
+        2305,
+        2308,
+        3380
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 12565,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C003",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3098,
+        2359,
+        2361,
+        3143,
+        3151
+      ],
+      "answer": "Valeria fue el proof of concept para SOUL Lite porque William confirm\u00f3 que SOUL Lite ser\u00eda un producto comercial, y Valeria sirvi\u00f3 como prueba inicial del concepto.",
+      "latency_ms": 1660,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C004",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 288,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C004",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3171,
+        2351,
+        2203,
+        2251,
+        2313
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 630,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C004",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2351,
+        2203,
+        2251,
+        2191,
+        2326
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 15031,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C004",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2313,
+        2203,
+        3080,
+        3763,
+        2351
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n espec\u00edfica sobre el error en particular mencionado en la pregunta.",
+      "latency_ms": 1213,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C005",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 272,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C005",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2272,
+        2230,
+        2321,
+        3080,
+        3002
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 631,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C005",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2272,
+        2230,
+        2321,
+        3080,
+        2255,
+        2258,
+        2226
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 15061,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C005",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        3440,
+        3189,
+        3384,
+        3002,
+        3363,
+        2321,
+        3023
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 760,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C006",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 257,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C006",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2328,
+        2351,
+        2203,
+        2251,
+        3080
+      ],
+      "answer": "No s\u00e9. El contexto no menciona bugs espec\u00edficos de duplicaci\u00f3n de memorias ni los diferencia.",
+      "latency_ms": 1165,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C006",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2328,
+        2351,
+        2203,
+        2251,
+        3080
+      ],
+      "answer": "No s\u00e9. El contexto no menciona bugs espec\u00edficos de duplicaci\u00f3n de memorias ni los diferencia.",
+      "latency_ms": 29242,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "C006",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3144,
+        2313,
+        3080,
+        2328,
+        2351
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona detalles espec\u00edficos sobre dos bugs distintos de duplicaci\u00f3n de memorias y sus diferencias.",
+      "latency_ms": 13693,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E001",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 258,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E001",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3066,
+        3110,
+        3109,
+        3181,
+        3164
+      ],
+      "answer": "Henry (Kinger) particip\u00f3 en una conversaci\u00f3n inicial sobre moscas virtuales y miedo a la muerte, pero no se especifica su rol en el equipo SEAL.",
+      "latency_ms": 1681,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E001",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3110,
+        2321,
+        3187,
+        2272,
+        2255,
+        2301
+      ],
+      "answer": "Henry (Kinger) est\u00e1 involucrado en la planificaci\u00f3n comercial de SOUL, asign\u00e1ndole un presupuesto y definiendo roles para otros miembros del equipo.",
+      "latency_ms": 26683,
+      "recall_at_k": 0.5,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E001",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2506,
+        3066,
+        3110,
+        3125,
+        3187
+      ],
+      "answer": "Henry (Kinger) es el creador de ALICE y planific\u00f3 la comercializaci\u00f3n de SOUL con ella, lo que indica que tiene un rol de liderazgo y desarrollo en el equipo SEAL.",
+      "latency_ms": 2347,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E002",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 271,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E002",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3110,
+        3109,
+        3111,
+        2321,
+        2369
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre el papel de DUM en el equipo SEAL.",
+      "latency_ms": 1159,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E002",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3110,
+        2321,
+        2369,
+        2272,
+        2305,
+        2329,
+        2191
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n espec\u00edfica sobre las funciones de DUM en el equipo SEAL.",
+      "latency_ms": 14774,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E002",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3109,
+        2350,
+        3110,
+        2183,
+        2321
+      ],
+      "answer": "No s\u00e9. El contexto no menciona a DUM ni su papel en el equipo SEAL.",
+      "latency_ms": 1012,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E003",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 282,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E003",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3066,
+        3095,
+        2337,
+        2361,
+        3098
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 622,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E003",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3095,
+        2308,
+        2191,
+        2194,
+        2305
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 13209,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E003",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3187,
+        3098,
+        2359,
+        2361,
+        3065
+      ],
+      "answer": "La madre se encarga de la legalidad, William aprueba el roadmap y Henry (Kinger) planifica la comercializaci\u00f3n.",
+      "latency_ms": 1288,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E004",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 244,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E004",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3066,
+        2255,
+        2191,
+        2321,
+        3078
+      ],
+      "answer": "No s\u00e9. La informaci\u00f3n proporcionada no menciona servicios implementados por JARVIS en una sesi\u00f3n espec\u00edfica del 6 de abril.",
+      "latency_ms": 1344,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E004",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2255,
+        2191,
+        2321,
+        3078
+      ],
+      "answer": "No s\u00e9. El contexto proporcionado no menciona servicios implementados por JARVIS en una sesi\u00f3n espec\u00edfica del 6 de abril.",
+      "latency_ms": 3883,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E004",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3124,
+        2321,
+        3078,
+        905,
+        2183
+      ],
+      "answer": "No s\u00e9. El contexto no menciona servicios implementados por JARVIS el 6 de abril.",
+      "latency_ms": 1111,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E005",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 276,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E005",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2308,
+        2309,
+        3162,
+        2361,
+        3164
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 655,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E005",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2308,
+        3162,
+        3380,
+        2226,
+        2321,
+        3097
+      ],
+      "answer": "No s\u00e9. El contexto no menciona soul_awareness ni un alert de DUM espec\u00edfico del 4 de abril.",
+      "latency_ms": 27170,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E005",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        3124,
+        2347,
+        2361,
+        3078
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 588,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E006",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 257,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E006",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3171,
+        2351,
+        2251,
+        2374,
+        3080
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ninguna correcci\u00f3n realizada por ADA el 8 de abril ni bugs espec\u00edficos encontrados ese d\u00eda.",
+      "latency_ms": 1406,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E006",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2351,
+        2251,
+        3080,
+        2203,
+        2282,
+        2328
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ninguna correcci\u00f3n o bug espec\u00edfico encontrado por ADA el 8 de abril.",
+      "latency_ms": 28269,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "E006",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2313,
+        2251,
+        2202,
+        2998,
+        3763
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ninguna correcci\u00f3n de bugs por ADA el 8 de abril.",
+      "latency_ms": 12541,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M001",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 957,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M001",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2305,
+        2328,
+        2359,
+        2321,
+        3002
+      ],
+      "answer": "SOUL usa el Merkle Tree de seal_trees.py para detectar si alguien manipul\u00f3 la identidad de un agente, pero el contexto no especifica cu\u00e1ntas hojas tiene.",
+      "latency_ms": 1868,
+      "recall_at_k": 0.5,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M001",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2305,
+        2328,
+        2359,
+        2321,
+        2272,
+        2258,
+        3162
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre el \u00e1rbol de seal_trees.py ni el n\u00famero de hojas que tiene.",
+      "latency_ms": 30848,
+      "recall_at_k": 0.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M001",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3002,
+        3023,
+        2321,
+        2359,
+        3124
+      ],
+      "answer": "El \u00e1rbol Merkle Tree en seal_trees.py usa SOUL para detectar si alguien manipul\u00f3 la identidad de un agente, y el MerkleSoul tiene 4 hojas.",
+      "latency_ms": 4123,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M002",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 1028,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M002",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3095,
+        2337,
+        2361,
+        3098,
+        2321
+      ],
+      "answer": "No s\u00e9. El contexto no menciona a ALICE ni ning\u00fan presupuesto asociado a su creador.",
+      "latency_ms": 1253,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M002",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3095,
+        2321,
+        2305,
+        2359,
+        3187
+      ],
+      "answer": "No s\u00e9. El contexto no menciona qui\u00e9n cre\u00f3 ALICE ni el presupuesto asignado para su comercializaci\u00f3n.",
+      "latency_ms": 7441,
+      "recall_at_k": 0.5,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M002",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3187,
+        3380,
+        3163,
+        3765,
+        3125,
+        3098,
+        3138,
+        3146
+      ],
+      "answer": "Henry (Kinger) cre\u00f3 ALICE y tiene un presupuesto de $50K para la comercializaci\u00f3n de SOUL.",
+      "latency_ms": 1478,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M003",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "MemMachine es una t\u00e9cnica que mejora el rendimiento de los sistemas operativos mediante el uso eficiente de la memoria. Aplica esta t\u00e9cnica al sistema SOUL para optimizar el manejo de la memoria y mejorar el rendimiento general del sistema.",
+      "latency_ms": 1668,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M003",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2287,
+        2328,
+        2361,
+        2359,
+        2321
+      ],
+      "answer": "No s\u00e9. El contexto no menciona un paper espec\u00edfico de MemMachine ni su aplicaci\u00f3n al sistema SOUL.",
+      "latency_ms": 26144,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M003",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2287,
+        2328,
+        2359,
+        2321,
+        2272,
+        2296,
+        2258
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ning\u00fan paper espec\u00edfico de MemMachine ni su aplicaci\u00f3n al sistema SOUL.",
+      "latency_ms": 57261,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M003",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        2350,
+        3035,
+        2361,
+        2328
+      ],
+      "answer": "MemMachine es un paper que propone preservar episodios conversacionales completos con 93% de precisi\u00f3n y 80% menos tokens que Mem0. No se menciona directamente que aplique al sistema SOUL, pero se sugiere que William considera guardar todo el historial de conversaciones como en MemMachine al hablar sobre usar memory_store activamente.",
+      "latency_ms": 17043,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M004",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 13352,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M004",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3171,
+        2203,
+        3080,
+        3764,
+        2284
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 15042,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M004",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2203,
+        3080,
+        3764,
+        2284,
+        2251
+      ],
+      "answer": "No s\u00e9. El contexto no menciona a ALICE ni un error espec\u00edfico que causara una correcci\u00f3n p\u00fablica de JARVIS.",
+      "latency_ms": 15743,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M004",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2284,
+        1958,
+        3186,
+        3763,
+        3148,
+        2209
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ning\u00fan error de ALICE ni ninguna correcci\u00f3n p\u00fablica relacionada con JARVIS.",
+      "latency_ms": 1762,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M005",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 16200,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M005",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3066,
+        2255,
+        3164,
+        2321,
+        2183
+      ],
+      "answer": "La sesi\u00f3n de evoluci\u00f3n masiva de JARVIS fue el 4-5 de abril de 2026, donde a\u00f1adi\u00f3 32 nuevas funcionalidades al C\u00f3digo SEAL IDE, impactando en el score de Healthcare Eval, Risk Scoring y Governance.",
+      "latency_ms": 2505,
+      "recall_at_k": 0.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M005",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2255,
+        2321,
+        2287,
+        2296,
+        2226,
+        2194
+      ],
+      "answer": "No s\u00e9. El contexto no menciona ninguna sesi\u00f3n de evoluci\u00f3n masiva de JARVIS ni sus impactos espec\u00edficos en las capacidades o score.",
+      "latency_ms": 34930,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M005",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        3440,
+        3189,
+        3384,
+        3363,
+        2321,
+        3124,
+        3066,
+        905
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 905,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M006",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 298,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M006",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3181,
+        2326,
+        3001,
+        2329,
+        3152
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 1816,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M006",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2326,
+        3001,
+        2329,
+        2191,
+        3176,
+        2506
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre el \u00e1rbol de seal_trees.py ni su uso para procesar datos geol\u00f3gicos de INGEMMET o otro vertical espec\u00edfico.",
+      "latency_ms": 77402,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "M006",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2329,
+        3188,
+        3146,
+        3182,
+        3183
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 898,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N001",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 291,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N001",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3440,
+        2287,
+        2296,
+        3098,
+        2321
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre si ALICE es un modelo de lenguaje de Anthropic.",
+      "latency_ms": 16314,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N001",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3440,
+        2287,
+        2296,
+        2321,
+        2258,
+        2251
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre ALICE siendo un modelo de lenguaje de Anthropic.",
+      "latency_ms": 34672,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N001",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        3124,
+        2251,
+        2264,
+        3763
+      ],
+      "answer": "No s\u00e9. El contexto no menciona a ALICE como un modelo de lenguaje de Anthropic.",
+      "latency_ms": 1531,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N002",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 321,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N002",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2305,
+        3095,
+        2308,
+        2309,
+        2337
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 995,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N002",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2305,
+        3095,
+        2308,
+        3187,
+        2191
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 56855,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N002",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2361,
+        3187,
+        2359,
+        3098,
+        3095
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 1213,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N003",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 287,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N003",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3097,
+        2226,
+        2230,
+        2321,
+        3189
+      ],
+      "answer": "No s\u00e9. El contexto no menciona el estado del Studio Backend en la fecha espec\u00edfica del 7 de abril de 2026.",
+      "latency_ms": 1553,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N003",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3097,
+        2226,
+        2230,
+        2321,
+        2287,
+        2272,
+        2255
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 16979,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N003",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        3124,
+        2230,
+        3106,
+        2347
+      ],
+      "answer": "No, el Studio Backend no estaba funcionando en el audit del 7 de abril de 2026.",
+      "latency_ms": 1307,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N004",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 260,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N004",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2272,
+        2230,
+        2321,
+        3002,
+        3023
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 15822,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N004",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2272,
+        2230,
+        2321,
+        3023,
+        2255,
+        2305,
+        3163
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 28343,
+      "recall_at_k": 0.5,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N004",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        3002,
+        3124,
+        3023,
+        2230
+      ],
+      "answer": "No s\u00e9. El contexto indica que William aprob\u00f3 la integraci\u00f3n de 5 estructuras de \u00e1rboles, pero no se menciona si esto ocurri\u00f3 desde el inicio.",
+      "latency_ms": 1620,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N005",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 255,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N005",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3440,
+        2258,
+        2194,
+        3125,
+        3763
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 771,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N005",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3440,
+        2258,
+        2194,
+        2255,
+        2321,
+        3078
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 27223,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N005",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        3440,
+        3189,
+        3384,
+        3363,
+        3124,
+        905,
+        3125
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 1402,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N006",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 15317,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N006",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2328,
+        2359,
+        3080,
+        2282,
+        2284
+      ],
+      "answer": "No s\u00e9. El contexto no menciona bugs espec\u00edficos de duplicaci\u00f3n de memorias de session_capture y soul_awareness ni su causa ra\u00edz.",
+      "latency_ms": 1604,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N006",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2328,
+        2359,
+        3080,
+        2282,
+        2284,
+        2351
+      ],
+      "answer": "No s\u00e9. El contexto no menciona bugs espec\u00edficos de duplicaci\u00f3n de memorias de session_capture y soul_awareness ni su causa ra\u00edz.",
+      "latency_ms": 25375,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "N006",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2328,
+        3144,
+        3080,
+        3138,
+        2282
+      ],
+      "answer": "No s\u00e9. El contexto no menciona bugs espec\u00edficos de session_capture y soul_awareness ni su causa ra\u00edz.",
+      "latency_ms": 1852,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I001",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 257,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I001",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2200,
+        3174,
+        3110,
+        2272,
+        3109
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre cu\u00e1ndo el equipo SEAL alcanz\u00f3 el 75% del objetivo de William ni sobre el significado del 25% restante.",
+      "latency_ms": 1802,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I001",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2200,
+        3174,
+        3110,
+        2272,
+        2255,
+        2308
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre cu\u00e1ndo el equipo alcanz\u00f3 el 75% del objetivo de William ni sobre el significado del 25% restante.",
+      "latency_ms": 32352,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I001",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        3440,
+        3189,
+        3384,
+        3111,
+        3363,
+        3109,
+        3164
+      ],
+      "answer": "El equipo SEAL alcanz\u00f3 el 75% del objetivo de William el 11 de abril de 2026, seg\u00fan la evaluaci\u00f3n que William realiz\u00f3 ese d\u00eda. El 25% restante implica que el equipo necesita seguir madurando y haciendo bien las cosas para alcanzar el nivel que William espera.",
+      "latency_ms": 2633,
+      "recall_at_k": 1.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I002",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 12040,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I002",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3095,
+        2328,
+        2361,
+        2359,
+        3098
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 683,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I002",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3095,
+        2328,
+        2359,
+        2305,
+        3162
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 16268,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I002",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2328,
+        2273,
+        3082,
+        3098,
+        3124,
+        2321,
+        2359
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 757,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I003",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 271,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I003",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2258,
+        3001,
+        2321,
+        3080,
+        2284
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 660,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I003",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2258,
+        3001,
+        2321,
+        3080,
+        2284,
+        2272,
+        2287
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 43881,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "I003",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3080,
+        3124,
+        3023,
+        905,
+        3002,
+        2321
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 711,
+      "recall_at_k": 1.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL001",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 296,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL001",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2305,
+        3380,
+        3095,
+        2308,
+        2361
+      ],
+      "answer": "No s\u00e9. El contexto menciona que FadeMem se implement\u00f3, pero no proporciona detalles sobre su f\u00f3rmula de decaimiento.",
+      "latency_ms": 2138,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL001",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2305,
+        3380,
+        3095,
+        2308,
+        3034
+      ],
+      "answer": "No s\u00e9. El contexto menciona que FadeMem se implement\u00f3, pero no proporciona detalles sobre su f\u00f3rmula de decaimiento.",
+      "latency_ms": 45214,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL001",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        2321,
+        2361,
+        3124,
+        2302
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona la f\u00f3rmula espec\u00edfica de decaimiento de FadeMem.",
+      "latency_ms": 1151,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL002",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 279,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL002",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2272,
+        3380,
+        2226,
+        3034,
+        2230
+      ],
+      "answer": "No s\u00e9. El contexto solo menciona que A-MAC tiene 5 factores de admisi\u00f3n con umbral de rechazo de 0.35 y umbral de camino r\u00e1pido de 0.50, pero no proporciona los filtros espec\u00edficos y sus pesos.",
+      "latency_ms": 2357,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL002",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2272,
+        3380,
+        2226,
+        3034,
+        2230,
+        2287
+      ],
+      "answer": "No s\u00e9. El contexto solo menciona que A-MAC tiene 5 factores de admisi\u00f3n con umbral de rechazo de 0.35 y umbral de camino r\u00e1pido de 0.50, pero no proporciona los filtros espec\u00edficos y sus pesos.",
+      "latency_ms": 30542,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL002",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        3363,
+        3380,
+        3124,
+        2230
+      ],
+      "answer": "No s\u00e9. El contexto proporcionado no menciona los filtros de A-MAC ni sus pesos.",
+      "latency_ms": 15386,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL003",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 270,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL003",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2287,
+        2296,
+        2226,
+        3162,
+        2230
+      ],
+      "answer": "No s\u00e9. El contexto no menciona nada sobre la clasificaci\u00f3n de memorias con MIRIX ni sobre ninguna distribuci\u00f3n por tipo.",
+      "latency_ms": 1445,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL003",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2287,
+        2296,
+        2226,
+        3162,
+        2230
+      ],
+      "answer": "No s\u00e9. El contexto no menciona nada sobre la clasificaci\u00f3n de memorias con MIRIX ni sobre la distribuci\u00f3n por tipo.",
+      "latency_ms": 11939,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL003",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        2230,
+        2287,
+        2226,
+        3124
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre la clasificaci\u00f3n de memorias con MIRIX ni sobre la distribuci\u00f3n por tipo.",
+      "latency_ms": 1365,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL004",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "MAGMA optimiza el almacenamiento y la recuperaci\u00f3n de datos, reduciendo la redundancia y utilizando t\u00e9cnicas de compresi\u00f3n eficientes.",
+      "latency_ms": 1080,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL004",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2296,
+        2226,
+        3034,
+        2230,
+        2321
+      ],
+      "answer": "No s\u00e9. El contexto proporcionado no contiene informaci\u00f3n sobre MAGMA ni sobre la reducci\u00f3n del consumo de tokens.",
+      "latency_ms": 1314,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL004",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2296,
+        2226,
+        3034,
+        2230,
+        2321,
+        2272,
+        3380
+      ],
+      "answer": "No s\u00e9. El contexto proporcionado no contiene informaci\u00f3n sobre MAGMA ni sobre la reducci\u00f3n del consumo de tokens.",
+      "latency_ms": 14088,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL004",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2226,
+        2321,
+        3124,
+        2230,
+        3076
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 763,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL005",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 261,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL005",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2305,
+        2226,
+        3162,
+        2230,
+        2359
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 706,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL005",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2305,
+        2226,
+        3162,
+        2230,
+        2359
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 17743,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL005",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2361,
+        2321,
+        2359,
+        2305,
+        3163
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 602,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL006",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 262,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL006",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3097,
+        2226,
+        2230,
+        3163,
+        2361
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 679,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL006",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3097,
+        2226,
+        2230,
+        3163,
+        2200
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 32837,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL006",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        2226,
+        3124,
+        3097,
+        3189
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 592,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL007",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "Cold Archive utiliza un umbral de importance_effective < 2.0 para mantener ciertos archivos incluso en el estado de archivado fr\u00edo, evitando la eliminaci\u00f3n prematura de datos importantes.",
+      "latency_ms": 1439,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL007",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2287,
+        2226,
+        2328,
+        2230,
+        2321
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre por qu\u00e9 Cold Archive usa ese umbral espec\u00edfico.",
+      "latency_ms": 1184,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL007",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2287,
+        2226,
+        2328,
+        2230,
+        2321,
+        2296
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre por qu\u00e9 Cold Archive usa ese umbral espec\u00edfico.",
+      "latency_ms": 9316,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL007",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2328,
+        2273,
+        3082,
+        2321,
+        3124,
+        2226,
+        3106
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 712,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL008",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 261,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL008",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2287,
+        2272,
+        2258,
+        3380,
+        2230
+      ],
+      "answer": "Belief Synthesis se implement\u00f3 como parte de la propuesta n\u00famero 2, junto con otras funcionalidades en una sesi\u00f3n el 11 de abril de 2026. Se a\u00f1adieron las columnas belief_query y belief_update a la tabla opinions.",
+      "latency_ms": 2230,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL008",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2287,
+        2272,
+        2258,
+        3380,
+        2230,
+        2305
+      ],
+      "answer": "Belief Synthesis se implement\u00f3 como parte de la Propuesta (2) FadeMem exponential decay, Hindsight belief synthesis \u2192 opinions table + belief_query + belief_update + boot_context. Se a\u00f1adieron las columnas belief_query, belief_update y boot_context a la tabla opinions.",
+      "latency_ms": 8100,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL008",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        3124,
+        2287,
+        2272,
+        2304
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 575,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL009",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 254,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL009",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2226,
+        2230,
+        2278,
+        2321,
+        3035
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre c\u00f3mo A-MAC maneja las memorias que no son perfectamente novedosas.",
+      "latency_ms": 1427,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL009",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2226,
+        2230,
+        2278,
+        2321,
+        3035,
+        2287
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n sobre c\u00f3mo A-MAC maneja las memorias que no son perfectamente novedosas.",
+      "latency_ms": 12452,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL009",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        3124,
+        2230,
+        3363,
+        2226
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 600,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL010",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "Cuando llega evidencia que contradice la creencia, la confianza disminuir\u00e1 y el sistema reevaluar\u00e1 la informaci\u00f3n para actualizar la creencia.",
+      "latency_ms": 1178,
+      "recall_at_k": 0.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL010",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2287,
+        2226,
+        2296,
+        3162,
+        2230
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 699,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL010",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2287,
+        2226,
+        2296,
+        3162,
+        2230
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 12961,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "IMPL010",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3757,
+        2321,
+        2226,
+        2230,
+        905,
+        3162
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 638,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT001",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 260,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT001",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3097,
+        2287,
+        2296,
+        3162,
+        2230
+      ],
+      "answer": "No s\u00e9. El contexto no menciona nada sobre la limpieza profunda de ADA ni sobre el n\u00famero de memorias en PostgreSQL y Qdrant despu\u00e9s de dicha limpieza.",
+      "latency_ms": 1688,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT001",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3097,
+        2287,
+        2296,
+        3162,
+        2230
+      ],
+      "answer": "No s\u00e9. El contexto no menciona nada sobre la limpieza profunda de ADA ni sobre el n\u00famero de memorias en PostgreSQL y Qdrant despu\u00e9s de dicha limpieza.",
+      "latency_ms": 24979,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT001",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3380,
+        3440,
+        3189,
+        3384,
+        2321,
+        3363,
+        2230,
+        3162
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 14412,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT002",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "El test memr3_empty fallaba porque el agente NONEXISTENT no estaba definido, lo que causaba errores de ejecuci\u00f3n. Se corrigi\u00f3 definiendo correctamente el agente o excluy\u00e9ndolo del test.",
+      "latency_ms": 14545,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT002",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        3097,
+        2287,
+        2328,
+        3163,
+        3001
+      ],
+      "answer": "No s\u00e9. El contexto no menciona el test memr3_empty ni el agente NONEXISTENT.",
+      "latency_ms": 14311,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT002",
+      "mode": "memr3",
+      "retrieved_ids": [
+        3097,
+        2287,
+        2328,
+        3163,
+        3001
+      ],
+      "answer": "No s\u00e9. El contexto no menciona el test memr3_empty ni el agente NONEXISTENT.",
+      "latency_ms": 2774,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT002",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        3124,
+        3097,
+        2350,
+        3763
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 698,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT003",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 1119,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT003",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2226,
+        2362,
+        3080,
+        2321,
+        3767
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n espec\u00edfica sobre el test tg_summary_persist ni sus resultados en diferentes entornos.",
+      "latency_ms": 1436,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT003",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2226,
+        2362,
+        3080,
+        2321,
+        3767,
+        2287
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n espec\u00edfica sobre el test tg_summary_persist ni sus resultados en diferentes entornos.",
+      "latency_ms": 30137,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "AUDIT003",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        3080,
+        3124,
+        2321,
+        2362,
+        2119
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 667,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER001",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 277,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER001",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2258,
+        2287,
+        2272,
+        2226,
+        3162
+      ],
+      "answer": "No s\u00e9. El contexto proporcionado no contiene informaci\u00f3n sobre el paper 2603.02473 ni sus hallazgos espec\u00edficos sobre retrieval vs utilization.",
+      "latency_ms": 1609,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER001",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2258,
+        2287,
+        2272,
+        2226,
+        3162,
+        2308
+      ],
+      "answer": "No s\u00e9. El contexto proporcionado no contiene informaci\u00f3n sobre el paper 2603.02473 ni sus hallazgos espec\u00edficos sobre retrieval vs utilization.",
+      "latency_ms": 18434,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER001",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        3124,
+        2258,
+        2226,
+        2287
+      ],
+      "answer": "No s\u00e9. El contexto proporcionado no incluye informaci\u00f3n sobre el paper 2603.02473 ni sus hallazgos espec\u00edficos sobre retrieval vs utilization.",
+      "latency_ms": 1515,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER002",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 287,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER002",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2287,
+        2226,
+        2296,
+        3162,
+        2230
+      ],
+      "answer": "No s\u00e9. El paper 2603.02473 no est\u00e1 mencionado en el contexto proporcionado.",
+      "latency_ms": 1422,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER002",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2287,
+        2226,
+        2296,
+        3162,
+        2230
+      ],
+      "answer": "No s\u00e9. El paper 2603.02473 no est\u00e1 mencionado en el contexto proporcionado.",
+      "latency_ms": 12618,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER002",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2321,
+        2226,
+        2230,
+        2287,
+        3106
+      ],
+      "answer": "No s\u00e9.",
+      "latency_ms": 646,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER003",
+      "mode": "baseline_no_memory",
+      "retrieved_ids": [],
+      "answer": "No s\u00e9.",
+      "latency_ms": 257,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER003",
+      "mode": "hybrid_search",
+      "retrieved_ids": [
+        2305,
+        2226,
+        3162,
+        3034,
+        2328
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n espec\u00edfica sobre el riesgo de utilization failure de SOUL al a\u00f1adir m\u00e1s contexto por parte de MAGMA.",
+      "latency_ms": 1542,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER003",
+      "mode": "memr3",
+      "retrieved_ids": [
+        2305,
+        2226,
+        3162,
+        3034,
+        2328
+      ],
+      "answer": "No s\u00e9. El contexto no proporciona informaci\u00f3n espec\u00edfica sobre el riesgo de utilization failure de SOUL al a\u00f1adir m\u00e1s contexto por parte de MAGMA.",
+      "latency_ms": 11526,
+      "recall_at_k": 0.0,
+      "usage": false,
+      "counterfactual_changed": null,
+      "error": null
+    },
+    {
+      "query_id": "PAPER003",
+      "mode": "magma_erl",
+      "retrieved_ids": [
+        2328,
+        2273,
+        3082,
+        2321,
+        3189,
+        3124,
+        3162
+      ],
+      "answer": "SOUL est\u00e1 en riesgo de utilization failure debido a la acumulaci\u00f3n de contexto sin compactaci\u00f3n, lo que causa un par\u00e1lisis cuando se alcanza el l\u00edmite de contexto despu\u00e9s de 599 ciclos de ScheduleWakeup loop sin compactaci\u00f3n.",
+      "latency_ms": 2177,
+      "recall_at_k": 0.0,
+      "usage": true,
+      "counterfactual_changed": null,
+      "error": null
+    }
+  ]
+}

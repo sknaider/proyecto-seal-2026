@@ -25,17 +25,25 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 import urllib.request
 import urllib.error
 
 # ── Config ──
 MESSAGES_DIR = Path("/home/dadito/IA/proyecto-seal/messages")
-HEARTBEAT_DAEMON   = MESSAGES_DIR / "heartbeat.json"                  # soul_awareness daemon
-HEARTBEAT_ADA      = MESSAGES_DIR / "ada_claude_heartbeat.json"       # sesión Claude Code ADA
-HEARTBEAT_JARVIS   = MESSAGES_DIR / "jarvis_claude_heartbeat.json"    # sesión Claude Code JARVIS
-HEARTBEAT_CLAUDE   = HEARTBEAT_ADA  # alias para compatibilidad
+MEMORY_DIR   = Path("/home/dadito/IA/proyecto-seal/memory")
+HEARTBEAT_DAEMON   = MESSAGES_DIR / "heartbeat.json"                  # soul_awareness daemon (legacy)
 TERMINAL_LOG       = MESSAGES_DIR / "terminal_log.jsonl"
+
+# seal_heartbeat: single source of truth for agent heartbeats
+sys.path.insert(0, str(MEMORY_DIR))
+try:
+    from seal_heartbeat import last_beat_sync as _db_last_beat
+    HAS_SEAL_HEARTBEAT = True
+except ImportError:
+    HAS_SEAL_HEARTBEAT = False
 
 WEBCHAT_URL = "http://localhost:8765/api/agents/send"
 CHECK_INTERVAL = 60   # chequear cada 60 segundos
@@ -75,6 +83,11 @@ _state = {
     "jarvis_last_alert_time": None,
     "jarvis_restart_times": [],
     "jarvis_last_restart_time": None,
+    # ALICE
+    "alice_last_alert_tier": 0,
+    "alice_last_alert_time": None,
+    "alice_restart_times": [],
+    "alice_last_restart_time": None,
     # Compat alias (ADA)
     "last_alert_tier": 0,
     "last_alert_time": None,
@@ -91,7 +104,7 @@ def _minutes_since(ts_str: str) -> float:
         ts = datetime.fromisoformat(ts_str)
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
-        delta = datetime.now(timezone.utc) - ts
+        delta = datetime.now(LIMA_TZ) - ts
         return delta.total_seconds() / 60
     except Exception:
         return 9999.0
@@ -148,7 +161,7 @@ def _write_terminal_log(entry: dict) -> None:
 
 def _alert(tier: int, silence_min: float, reason: str, agent: str = "ADA") -> None:
     """Emite alerta si no está en cooldown. agent = 'ADA' o 'JARVIS'."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
     tier_key = f"{agent.lower()}_last_alert_tier"
     time_key = f"{agent.lower()}_last_alert_time"
 
@@ -215,7 +228,7 @@ def _auto_restart_agent(agent: str) -> bool:
         LOG.warning(f"Auto-restart deshabilitado o script no existe: {SEAL_RESTART_SCRIPT}")
         return False
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
     agent_lower = agent.lower()
     restart_key = f"{agent_lower}_restart_times"
     last_key = f"{agent_lower}_last_restart_time"
@@ -293,7 +306,7 @@ def _auto_restart_agent(agent: str) -> bool:
 
 def check_cycle() -> None:
     """Un ciclo de chequeo."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
 
     # ── 1. Verificar daemon soul_awareness ──
     hb_daemon = _read_json(HEARTBEAT_DAEMON)
@@ -314,34 +327,44 @@ def check_cycle() -> None:
     else:
         LOG.debug("heartbeat.json no disponible o sin timestamp")
 
-    # ── 2. Verificar sesión Claude Code de ADA ──
-    _check_agent_heartbeat(now, "ADA", HEARTBEAT_ADA)
-
-    # ── 3. Verificar sesión Claude Code de JARVIS ──
-    _check_agent_heartbeat(now, "JARVIS", HEARTBEAT_JARVIS)
+    # ── 2-4. Verificar sesiones Claude Code ──
+    for agent_name in ["ADA", "JARVIS", "ALICE"]:
+        _check_agent_heartbeat(now, agent_name)
 
 
-def _check_agent_heartbeat(now: datetime, agent: str, hb_path: Path) -> None:
-    """Verifica el heartbeat de un agente y emite alertas si está en silencio."""
+def _check_agent_heartbeat(now: datetime, agent: str) -> None:
+    """Verifica el heartbeat de un agente desde event_log (fuente única de verdad)."""
     silence_min = 9999.0
-    reason = f"{hb_path.name} no existe"
+    reason = f"{agent}: sin heartbeat en event_log"
 
-    hb = _read_json(hb_path)
-    if hb and hb.get("timestamp"):
-        # Si alive=False, significa que el archivo fue creado como placeholder (agente no activo)
-        # No alertar si el agente simplemente no tiene sesión abierta
-        if hb.get("alive") is False and hb.get("note"):
-            LOG.debug(f"{agent}: sin sesión activa ({hb.get('note', '')})")
-            return
-        silence_min = _minutes_since(hb["timestamp"])
-        reason = f"{hb_path.name} — última actualización hace {silence_min:.1f}min"
+    if HAS_SEAL_HEARTBEAT:
+        try:
+            hb = _db_last_beat(agent)
+            if hb and hb.get("timestamp"):
+                ts = datetime.fromisoformat(hb["timestamp"])
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                silence_min = (now.astimezone(timezone.utc) - ts.astimezone(timezone.utc)).total_seconds() / 60
+                reason = f"event_log — última actualización hace {silence_min:.1f}min"
+        except Exception as e:
+            LOG.debug(f"event_log query failed for {agent}: {e}")
     else:
-        if agent == "ADA":
-            # Fallback para ADA: terminal_log.jsonl mtime
-            tl_age = _terminal_log_minutes_ago()
-            if tl_age < silence_min:
-                silence_min = tl_age
-                reason = f"terminal_log.jsonl — última actividad hace {tl_age:.1f}min"
+        # Fallback legacy: leer JSON (deprecado)
+        hb_path = MESSAGES_DIR / f"{agent.lower()}_claude_heartbeat.json"
+        hb = _read_json(hb_path)
+        if hb and hb.get("timestamp"):
+            if hb.get("alive") is False and hb.get("note"):
+                LOG.debug(f"{agent}: sin sesión activa ({hb.get('note', '')})")
+                return
+            silence_min = _minutes_since(hb["timestamp"])
+            reason = f"{hb_path.name} — última actualización hace {silence_min:.1f}min"
+
+    if agent == "ADA" and silence_min >= 9999.0:
+        # Fallback para ADA: terminal_log.jsonl mtime
+        tl_age = _terminal_log_minutes_ago()
+        if tl_age < silence_min:
+            silence_min = tl_age
+            reason = f"terminal_log.jsonl — última actividad hace {tl_age:.1f}min"
 
     tier_key = f"{agent.lower()}_last_alert_tier"
     # Determinar tier

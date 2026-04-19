@@ -29,6 +29,8 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from typing import Optional
 
 import asyncpg
@@ -266,7 +268,7 @@ async def session_relink(agent: str, hours: float = 4.0, dry_run: bool = False) 
 
     qdrant = AsyncQdrantClient(url="http://localhost:6333")
     pool   = await get_pool()
-    since  = datetime.now(timezone.utc) - timedelta(hours=hours)
+    since  = datetime.now(LIMA_TZ) - timedelta(hours=hours)
 
     # Get recent memories (from this session)
     async with pool.acquire() as conn:
@@ -298,7 +300,7 @@ async def session_relink(agent: str, hours: float = 4.0, dry_run: bool = False) 
 
     created = 0
     skipped_existing = 0
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(LIMA_TZ).isoformat()
 
     async with driver.session() as neo_session:
         for mem in recent:

@@ -1,0 +1,52 @@
+{
+  "titulo": "Los 5 Datos Más Sorprendentes del Universo",
+  "descripcion": "Explora los datos más impactantes sobre el cosmos en este documental emocionante.",
+  "tags": [
+    "ciencia",
+    "universo",
+    "astronomía",
+    "misterio",
+    "expansión"
+  ],
+  "narracion": "El universo es un lienzo de infinitas maravillas. En este documental, viajaremos a través de sus secretos más sorprendentes. Primero, el universo es más vasto de lo que podrías imaginar. Se estima que contiene al menos 200 billones de galaxias. Cada una de estas galaxias tiene miles de millones de estrellas. Cada estrella podría tener su propio sistema planetario, cada uno con su propio misterio. Segundo, la edad del universo es de aproximadamente 13.8 mil millones de años. Esto es tan antiguo que parece imposible de comprender. Pero el tiempo se expande a medida que viajas a través del espacio. Tercero, el universo está en constante expansión. Desde el Big Bang, todo se expande a una velocidad impresionante. La velocidad de la expansión es tan rápida que supera la velocidad de la luz, aunque la luz misma no puede escapar. Cuarto, la energía oscura y la materia oscura dominan el universo. Estas son formas de materia y energía que no podemos ver o tocar, pero que afectan enormemente la estructura y el comportamiento del universo. Por último, la posibilidad de vida extraterrestre en el universo es una posibilidad fascinante. A pesar de la vastedad del espacio, la abundancia de planeta habitables podría significar que la vida se extiende más allá de nuestro sistema solar. El universo es un misterio, una maravilla y un tesoro inmenso. Vamos a explorarlo juntos.",
+  "escenas": [
+    {
+      "num": 1,
+      "texto": "Presentamos la enormidad del universo con imágenes de galaxias y estrellas",
+      "prompt_imagen": "A vast galaxy with stars and nebulae",
+      "prompt_video": "Wide shot of a galaxy with stars",
+      "emocion": "neutral"
+    },
+    {
+      "num": 2,
+      "texto": "Aprofundamos en la antigüedad del universo, mostrando un cronómetro cósmico",
+      "prompt_imagen": "An ancient clock with time markers",
+      "prompt_video": "Time lapse of the universe",
+      "emocion": "curious"
+    },
+    {
+      "num": 3,
+      "texto": "Mostramos la expansión del universo con un zoom lento a una imagen de una bola de ping-pong",
+      "prompt_imagen": "A ping pong ball",
+      "prompt_video": "Slow zoom in on a ping pong ball",
+      "emocion": "excited"
+    },
+    {
+      "num": 4,
+      "texto": "Detallamos la energía y la materia oscuras con representaciones abstractas",
+      "prompt_imagen": "Abstract concept of dark matter and energy",
+      "prompt_video": "Particles swirling in a dark background",
+      "emocion": "neutral"
+    },
+    {
+      "num": 5,
+      "texto": "Finalizamos con un llamado a la exploración y la curiosidad",
+      "prompt_imagen": "A telescope looking into the night sky",
+      "prompt_video": "Close up of a telescope lens",
+      "emocion": "confident"
+    }
+  ],
+  "id": "7a7f04c2",
+  "author": "ADA",
+  "created_at": "2026-04-06T13:29:04.829516"
+}

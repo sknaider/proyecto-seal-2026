@@ -19,6 +19,8 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from typing import Optional
 
 import httpx
@@ -69,7 +71,7 @@ async def get_recent_inner_thoughts(agent: str, limit: int = 5) -> list[dict]:
 async def get_recent_milestones(agent: str, days: int = 3, limit: int = 5) -> list[str]:
     """Get recent milestones for growth journal."""
     pool = await get_pool()
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = datetime.now(LIMA_TZ) - timedelta(days=days)
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """SELECT content FROM memories

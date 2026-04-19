@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """SEAL PostCompact Hook — Re-inyecta contexto crítico de SOUL después de cada compactación.
 
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 Se ejecuta automáticamente cuando Claude Code compacta la conversación.
 Devuelve correcciones de William + reglas activas + estado del equipo.
 """
@@ -72,24 +74,24 @@ async def post_compact_context() -> str:
             for r in rules:
                 lines.append(f"  [{r['rule_key']}]: {r['content'][:200]}")
 
-        # Estado del equipo desde heartbeats
-        import json as jsonlib
-        import pathlib
-        from datetime import datetime, timezone
-
+        # Estado del equipo desde event_log (fuente única de verdad)
+        from datetime import datetime, timezone as tz
         lines.append("\n🟢 ESTADO DEL EQUIPO:")
-        hb_dir = pathlib.Path.home() / "IA/proyecto-seal/messages"
-        now = datetime.now(timezone.utc)
-        for name, fname in [("ADA", "ada_claude_heartbeat.json"),
-                             ("JARVIS", "jarvis_claude_heartbeat.json"),
-                             ("DUM", "dum_heartbeat.json")]:
-            fp = hb_dir / fname
+        now_utc = datetime.now(tz.utc)
+        for name in ["ADA", "JARVIS", "ALICE", "DUM"]:
             try:
-                d = jsonlib.loads(fp.read_text())
-                ts = datetime.fromisoformat(d["timestamp"])
-                age = int((now - ts).total_seconds())
-                status = "ALIVE" if age < 600 else "STALE"
-                lines.append(f"  {name}: {status} (hace {age}s)")
+                row = await conn.fetchrow(
+                    """SELECT time FROM event_log
+                       WHERE event_type = 'heartbeat' AND agent = $1
+                       ORDER BY time DESC LIMIT 1""",
+                    name,
+                )
+                if row:
+                    age = int((now_utc - row["time"]).total_seconds())
+                    status = "ALIVE" if age < 600 else "STALE"
+                    lines.append(f"  {name}: {status} (hace {age}s)")
+                else:
+                    lines.append(f"  {name}: OFFLINE")
             except Exception:
                 lines.append(f"  {name}: OFFLINE")
 

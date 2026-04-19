@@ -24,6 +24,8 @@ import os
 import re
 import sys
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
 import asyncpg
@@ -80,7 +82,7 @@ def _load_checkpoint():
 
 def _save_checkpoint():
     data = {
-        "time": datetime.now(timezone.utc).isoformat(),
+        "time": datetime.now(LIMA_TZ).isoformat(),
         "cycle": _state["cycle"],
         "last_reflect": _state["last_reflect"],
         "last_briefing": _state["last_briefing"],
@@ -264,7 +266,7 @@ Keep it concise and direct. You are the architect, not the engineer."""
         # Save to file for boot_context
         briefing_path = Path("/home/dadito/IA/proyecto-seal/jarvis_briefing.txt")
         with open(briefing_path, "w") as f:
-            f.write(f"Generado: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n\n")
+            f.write(f"Generado: {datetime.now(LIMA_TZ).strftime('%Y-%m-%d %H:%M Lima')}\n\n")
             f.write(briefing)
 
         LOG.info("Briefing estratégico guardado")

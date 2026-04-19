@@ -32,8 +32,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 
 AGENT = os.environ.get("SEAL_AGENT", "ADA")
 DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "qwen2.5:7b"
+LLAMA_URL = "http://localhost:8899/v1/chat/completions"
+MODEL = "gemma4-31b"
 
 # Parámetros de clustering
 SIM_THRESHOLD = 0.72      # similaridad mínima para agrupar
@@ -114,10 +114,10 @@ Solo el JSON, sin markdown."""
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             resp = await client.post(
-                OLLAMA_URL,
-                json={"model": MODEL, "prompt": prompt, "stream": False},
+                LLAMA_URL,
+                json={"model": MODEL, "messages": [{"role": "user", "content": prompt}], "max_tokens": 200, "stream": False},
             )
-            text = resp.json().get("response", "").strip()
+            text = resp.json()["choices"][0]["message"]["content"].strip()
             # Extraer JSON
             import re
             match = re.search(r'\{.*\}', text, re.DOTALL)

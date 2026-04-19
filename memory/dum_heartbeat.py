@@ -125,7 +125,7 @@ def check_processes():
     checks = {
         "soul_awareness": "soul_awareness.py",
         "mcp_server": "mcp_server_v2.py",
-        "ollama": "ollama",
+        "llama_server": "llama-server",
     }
     status = {}
     for name, pattern in checks.items():
@@ -286,6 +286,20 @@ async def heartbeat(cycle: int = 1):
             )
         except Exception as e:
             LOG.debug(f"Session memory update skipped: {e}")
+
+    # event_log heartbeat — sync DB so peer_health queries get fresh data
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO event_log (time, agent, event_type, content, metadata)
+                   VALUES (NOW(), $1, 'heartbeat', $2, $3)""",
+                AGENT,
+                thought[:500],
+                json.dumps({"cycle": cycle, "alerts": alerts, "gpu": gpu or {}}),
+            )
+    except Exception as e:
+        LOG.debug(f"event_log heartbeat insert failed: {e}")
 
     return len(alerts) == 0
 

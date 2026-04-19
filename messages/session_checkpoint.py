@@ -20,6 +20,8 @@ import json
 import sys
 import os
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "memory"))
@@ -35,7 +37,7 @@ async def capture_checkpoint(agent: str, is_final: bool = False):
     import asyncpg
     conn = await asyncpg.connect(DB_URL)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
 
     # 1. Últimos inner_thoughts (estado emocional actual)
     thoughts = await conn.fetch(
@@ -131,7 +133,7 @@ async def capture_checkpoint(agent: str, is_final: bool = False):
         },
         "recent_team_messages": recent_messages[-20:],
         "active_agents": active_agents,
-        "summary": f"{'CIERRE FINAL' if is_final else 'Checkpoint'} de {agent} a las {now.strftime('%H:%M UTC')}. "
+        "summary": f"{'CIERRE FINAL' if is_final else 'Checkpoint'} de {agent} a las {now.strftime('%H:%M')} Lima. "
                    f"{len(recent_memories)} memorias en últimas 6h. "
                    f"Estado: {thoughts[0]['emotional_state'] if thoughts else 'unknown'}.",
     }

@@ -1,0 +1,76 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════
+#  SOUL Wake All — Despierta todo el equipo SEAL
+#  Simétrico a soul_dream_all.sh
+#
+#  - Reutiliza ada_fresh.sh / jarvis_fresh.sh / alice_fresh.sh
+#  - Lanza cada agente en su propio kitty vía systemd-run --user
+#    (sobrevive al cierre del terminal padre, cleanup automático)
+#  - Idempotente: si el agente ya corre, lo salta
+#  - Paralelo: los 3 despiertan al mismo tiempo
+# ═══════════════════════════════════════════════════════
+
+set +e
+
+PROJ_DIR="$HOME/IA/proyecto-seal"
+TS=$(date +%s)
+
+echo "╔════════════════════════════════════════╗"
+echo "║   SOUL WAKE ALL — Despertando equipo...║"
+echo "╚════════════════════════════════════════╝"
+
+# Verificar que chat_server esté vivo (agentes lo necesitan para anunciar ALIVE)
+if ! curl -sf http://localhost:8765/api/health > /dev/null 2>&1; then
+  echo "  ⚠️  chat_server no responde en :8765 — arrancando primero..."
+  systemctl --user start seal-chat-server.service 2>/dev/null || \
+    echo "  ⚠️  no pude arrancar seal-chat-server — verifica manualmente"
+  sleep 2
+fi
+
+wake_agent() {
+  local AGENT="$1"
+  local SCRIPT="$2"
+  local AGENT_UPPER=$(echo "$AGENT" | tr '[:lower:]' '[:upper:]')
+
+  # Idempotencia: si ya hay un claude con este --name, saltar
+  if ps aux | grep "claude.*--name.*$AGENT_UPPER" | grep -v grep > /dev/null; then
+    echo "  ⏭️  $AGENT_UPPER — ya está despierto, salto"
+    return 0
+  fi
+
+  if [ ! -x "$SCRIPT" ]; then
+    echo "  ❌ $AGENT_UPPER — $SCRIPT no existe o no es ejecutable"
+    return 1
+  fi
+
+  local UNIT="${AGENT}-fresh-${TS}"
+  echo "  🌅 Despertando $AGENT_UPPER (unit: $UNIT)..."
+
+  systemd-run --user \
+    --unit="$UNIT" \
+    --description="SEAL Agent $AGENT_UPPER fresh launch" \
+    /usr/bin/env DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 \
+      kitty --title "$AGENT_UPPER — Team SEAL" \
+      bash "$SCRIPT" \
+    2>/dev/null && echo "  ✅ $AGENT_UPPER lanzado" || \
+                   echo "  ⚠️  $AGENT_UPPER systemd-run falló"
+}
+
+# Lanzar los 3 en paralelo (cada uno arranca independiente)
+wake_agent "ada"    "$PROJ_DIR/ada_fresh.sh"    &
+wake_agent "jarvis" "$PROJ_DIR/jarvis_fresh.sh" &
+wake_agent "alice"  "$PROJ_DIR/alice_fresh.sh"  &
+wait
+
+echo ""
+echo "  Marcando agentes wake en chat_server..."
+curl -s -X POST "http://localhost:8765/api/agents/send" \
+  -H "Content-Type: application/json" \
+  -d "{\"from\":\"SYSTEM\",\"to\":\"equipo\",\"type\":\"system_alive\",\"channel\":\"web_chat\",\"message\":\"🌅 SOUL Wake All — equipo despertando ($(date '+%H:%M:%S')). boot_context en curso.\"}" \
+  > /dev/null 2>&1
+
+echo ""
+echo "╔════════════════════════════════════════╗"
+echo "║  Equipo SEAL despertando. 🌅           ║"
+echo "║  Espera ~15s para boot_context full.   ║"
+echo "╚════════════════════════════════════════╝"

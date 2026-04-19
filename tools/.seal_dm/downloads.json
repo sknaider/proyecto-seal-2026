@@ -238,5 +238,292 @@
     "supports_range": true,
     "hf_repo": "llmfan46/gemma-4-31B-it-uncensored-heretic-GGUF",
     "hf_file": "gemma-4-31B-it-uncensored-heretic-Q8_0.gguf"
+  },
+  "unsloth/gemma-4-31b-it-GGUF:gemma-4-31b-it-Q6_K.gguf": {
+    "url": "https://huggingface.co/unsloth/gemma-4-31b-it-GGUF/resolve/main/gemma-4-31b-it-Q6_K.gguf",
+    "output_path": "/home/dadito/IA/modelos/llm/gemma4-31b/",
+    "filename": "gemma-4-31b-it-Q6_K.gguf",
+    "total_size": 0,
+    "connections": 8,
+    "segments": [],
+    "status": "error",
+    "error": "File not found: https://huggingface.co/unsloth/gemma-4-31b-it-GGUF/resolve/main/gemma-4-31b-it-Q6_K.gguf",
+    "created_at": 1776105411.2964902,
+    "completed_at": 0,
+    "supports_range": true,
+    "hf_repo": "unsloth/gemma-4-31b-it-GGUF",
+    "hf_file": "gemma-4-31b-it-Q6_K.gguf"
+  },
+  "unsloth/gemma-4-31b-it-GGUF:gemma-4-31B-it-Q6_K.gguf": {
+    "url": "https://huggingface.co/unsloth/gemma-4-31b-it-GGUF/resolve/main/gemma-4-31B-it-Q6_K.gguf",
+    "output_path": "/home/dadito/IA/modelos/llm/gemma4-31b/",
+    "filename": "gemma-4-31B-it-Q6_K.gguf",
+    "total_size": 25201484320,
+    "connections": 8,
+    "segments": [
+      {
+        "index": 0,
+        "start": 0,
+        "end": 3150185539,
+        "downloaded": 444573388,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-31b/.gemma-4-31B-it-Q6_K.gguf.part000"
+      },
+      {
+        "index": 1,
+        "start": 3150185540,
+        "end": 6300371079,
+        "downloaded": 974098494,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-31b/.gemma-4-31B-it-Q6_K.gguf.part001"
+      },
+      {
+        "index": 2,
+        "start": 6300371080,
+        "end": 9450556619,
+        "downloaded": 693877789,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-31b/.gemma-4-31B-it-Q6_K.gguf.part002"
+      },
+      {
+        "index": 3,
+        "start": 9450556620,
+        "end": 12600742159,
+        "downloaded": 861989486,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-31b/.gemma-4-31B-it-Q6_K.gguf.part003"
+      },
+      {
+        "index": 4,
+        "start": 12600742160,
+        "end": 15750927699,
+        "downloaded": 633067981,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-31b/.gemma-4-31B-it-Q6_K.gguf.part004"
+      },
+      {
+        "index": 5,
+        "start": 15750927700,
+        "end": 18901113239,
+        "downloaded": 734135329,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-31b/.gemma-4-31B-it-Q6_K.gguf.part005"
+      },
+      {
+        "index": 6,
+        "start": 18901113240,
+        "end": 22051298779,
+        "downloaded": 446129011,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-31b/.gemma-4-31B-it-Q6_K.gguf.part006"
+      },
+      {
+        "index": 7,
+        "start": 22051298780,
+        "end": 25201484319,
+        "downloaded": 563357773,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/gemma4-31b/.gemma-4-31B-it-Q6_K.gguf.part007"
+      }
+    ],
+    "status": "downloading",
+    "error": "",
+    "created_at": 1776105672.3811038,
+    "completed_at": 0,
+    "supports_range": true,
+    "hf_repo": "unsloth/gemma-4-31b-it-GGUF",
+    "hf_file": "gemma-4-31B-it-Q6_K.gguf"
+  },
+  "AxionML/Qwen3.5-122B-A10B-NVFP4:model-00001-of-00002.safetensors": {
+    "url": "https://huggingface.co/AxionML/Qwen3.5-122B-A10B-NVFP4/resolve/main/model-00001-of-00002.safetensors",
+    "output_path": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/",
+    "filename": "model-00001-of-00002.safetensors",
+    "total_size": 50013707160,
+    "connections": 16,
+    "segments": [
+      {
+        "index": 0,
+        "start": 0,
+        "end": 3125856696,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part000"
+      },
+      {
+        "index": 1,
+        "start": 3125856697,
+        "end": 6251713393,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part001"
+      },
+      {
+        "index": 2,
+        "start": 6251713394,
+        "end": 9377570090,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part002"
+      },
+      {
+        "index": 3,
+        "start": 9377570091,
+        "end": 12503426787,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part003"
+      },
+      {
+        "index": 4,
+        "start": 12503426788,
+        "end": 15629283484,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part004"
+      },
+      {
+        "index": 5,
+        "start": 15629283485,
+        "end": 18755140181,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part005"
+      },
+      {
+        "index": 6,
+        "start": 18755140182,
+        "end": 21880996878,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part006"
+      },
+      {
+        "index": 7,
+        "start": 21880996879,
+        "end": 25006853575,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part007"
+      },
+      {
+        "index": 8,
+        "start": 25006853576,
+        "end": 28132710272,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part008"
+      },
+      {
+        "index": 9,
+        "start": 28132710273,
+        "end": 31258566969,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part009"
+      },
+      {
+        "index": 10,
+        "start": 31258566970,
+        "end": 34384423666,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part010"
+      },
+      {
+        "index": 11,
+        "start": 34384423667,
+        "end": 37510280363,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part011"
+      },
+      {
+        "index": 12,
+        "start": 37510280364,
+        "end": 40636137060,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part012"
+      },
+      {
+        "index": 13,
+        "start": 40636137061,
+        "end": 43761993757,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part013"
+      },
+      {
+        "index": 14,
+        "start": 43761993758,
+        "end": 46887850454,
+        "downloaded": 3125856697,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part014"
+      },
+      {
+        "index": 15,
+        "start": 46887850455,
+        "end": 50013707159,
+        "downloaded": 3125856705,
+        "complete": true,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00001-of-00002.safetensors.part015"
+      }
+    ],
+    "status": "error",
+    "error": "Size mismatch: 66430223178 vs 50013707160",
+    "created_at": 1776358425.2430687,
+    "completed_at": 0,
+    "supports_range": true,
+    "hf_repo": "AxionML/Qwen3.5-122B-A10B-NVFP4",
+    "hf_file": "model-00001-of-00002.safetensors"
+  },
+  "AxionML/Qwen3.5-122B-A10B-NVFP4:model-00002-of-00002.safetensors": {
+    "url": "https://huggingface.co/AxionML/Qwen3.5-122B-A10B-NVFP4/resolve/main/model-00002-of-00002.safetensors",
+    "output_path": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/",
+    "filename": "model-00002-of-00002.safetensors",
+    "total_size": 26895337856,
+    "connections": 4,
+    "segments": [
+      {
+        "index": 0,
+        "start": 0,
+        "end": 6723834463,
+        "downloaded": 1657759983,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00002-of-00002.safetensors.part000"
+      },
+      {
+        "index": 1,
+        "start": 6723834464,
+        "end": 13447668927,
+        "downloaded": 586548699,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00002-of-00002.safetensors.part001"
+      },
+      {
+        "index": 2,
+        "start": 13447668928,
+        "end": 20171503391,
+        "downloaded": 576783294,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00002-of-00002.safetensors.part002"
+      },
+      {
+        "index": 3,
+        "start": 20171503392,
+        "end": 26895337855,
+        "downloaded": 695145399,
+        "complete": false,
+        "temp_file": "/home/dadito/IA/modelos/llm/qwen3.5-122b-nvfp4/.model-00002-of-00002.safetensors.part003"
+      }
+    ],
+    "status": "downloading",
+    "error": "",
+    "created_at": 1776360872.2466135,
+    "completed_at": 0,
+    "supports_range": true,
+    "hf_repo": "AxionML/Qwen3.5-122B-A10B-NVFP4",
+    "hf_file": "model-00002-of-00002.safetensors"
   }
 }

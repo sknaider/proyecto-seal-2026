@@ -25,6 +25,8 @@ import hashlib
 import os
 import time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from typing import Optional
 
 import asyncpg
@@ -88,7 +90,7 @@ async def log_turn(
     if not message or not message.strip():
         return False
 
-    ts = datetime.now(timezone.utc)
+    ts = datetime.now(LIMA_TZ)
     if session_id is None:
         session_id = f"session_{ts.strftime('%Y%m%d')}_{agent.lower()}"
 

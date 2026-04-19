@@ -28,6 +28,9 @@ curl -s http://localhost:11434/api/embed \
   -d '{"model":"nomic-embed-text","input":"warmup"}' \
   > /dev/null 2>&1
 
+# ── Matar monitores huérfanos de sesiones anteriores ──
+pkill -f "tail.*william_channel.jsonl" 2>/dev/null; true
+
 # ── Webchat catch-up ──
 CATCHUP_FILE="/tmp/alice_chat_catchup.json"
 curl -s --max-time 3 "http://127.0.0.1:8765/api/chat/messages/agent?agent=ALICE&limit=50" \

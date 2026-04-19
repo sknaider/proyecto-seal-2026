@@ -18,6 +18,8 @@ import asyncpg
 import argparse
 import json
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from neo4j import AsyncGraphDatabase
 
 DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
@@ -196,7 +198,7 @@ async def main():
     agents = ['JARVIS', 'ADA'] if args.agent.lower() == 'all' else [args.agent]
     mode = "DRY RUN" if args.dry_run else "LIVE"
 
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(LIMA_TZ).strftime("%Y-%m-%d %H:%M UTC")
     print(f"\n{'='*50}")
     print(f"🌙 SleepGate — {mode} — {now}")
     print(f"{'='*50}")
@@ -266,7 +268,7 @@ async def main():
 
                 distilled = 0
                 failures = {"timeout": 0, "http": 0, "json": 0, "db": 0, "other": 0}
-                session_id = f"sleep_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+                session_id = f"sleep_{datetime.now(LIMA_TZ).strftime('%Y%m%d')}"
                 for window in windows:
                     combined = "\n".join(f"[{m['category']}] {m['content'][:300]}" for m in window)
                     if len(combined) < 100:

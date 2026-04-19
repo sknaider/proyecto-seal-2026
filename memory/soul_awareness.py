@@ -22,6 +22,8 @@ import re
 import subprocess
 import sys
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
 import asyncpg
@@ -54,8 +56,8 @@ AWARENESS_LOG = Path("/home/dadito/IA/proyecto-seal/soul_awareness.log")
 
 QDRANT_URL = "http://localhost:6333"
 QDRANT_COLLECTION = "soul_memories"
-OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "qwen2.5:7b"
+LLAMA_URL = "http://localhost:8899/v1/chat/completions"
+LLAMA_MODEL = "gemma4-dum"  # gemma-4-e2b-it-Q8_0 via llama-server:8899
 NEO4J_URI = "bolt://localhost:7687"
 
 logging.basicConfig(
@@ -77,7 +79,7 @@ _state: dict = {
     "last_message_count": 0,
     "cycle_count": 0,
     "observations": [],       # acumula para briefing
-    "start_time": datetime.now(timezone.utc).isoformat(),
+    "start_time": datetime.now(LIMA_TZ).isoformat(),
     "loss_history": [],       # últimos N loss values para trend detection
     "step_history": [],       # últimos N (tick, step) para detectar pausa real
     "stale_alert_sent": False,# evitar spam de alertas "pausado"
@@ -424,7 +426,7 @@ async def _gpu_thermal_action(temp: int):
     if not pids:
         return
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
 
     if temp > GPU_CRITICAL_TEMP and not _state["gpu_throttled"]:
         # Pausar training
@@ -440,7 +442,7 @@ async def _gpu_thermal_action(temp: int):
         LOG.warning(f"🔥 THERMAL THROTTLE ACTIVO — {temp}°C → training pausado (PIDs: {pids})")
 
         mem_id = await write_memory(
-            content=f"ACCIÓN AUTÓNOMA: Training pausado por temperatura crítica GPU {temp}°C. PIDs: {pids}. {now.strftime('%Y-%m-%d %H:%M UTC')}",
+            content=f"ACCIÓN AUTÓNOMA: Training pausado por temperatura crítica GPU {temp}°C. PIDs: {pids}. {now.strftime('%Y-%m-%d %H:%M Lima')}",
             category="milestone",
             importance=9,
             valence=-0.5,
@@ -479,7 +481,7 @@ async def _gpu_thermal_action(temp: int):
         LOG.info(f"✅ Training reanudado — GPU a {temp}°C (seguro)")
 
         await write_memory(
-            content=f"Training reanudado tras enfriamiento GPU: {temp}°C. Pausado desde {throttle_since}. {now.strftime('%Y-%m-%d %H:%M UTC')}",
+            content=f"Training reanudado tras enfriamiento GPU: {temp}°C. Pausado desde {throttle_since}. {now.strftime('%Y-%m-%d %H:%M Lima')}",
             category="milestone",
             importance=7,
             valence=0.4,
@@ -521,7 +523,7 @@ async def _scan_new_artifacts():
         LOG.debug(f"scan_artifacts error: {e}")
         return
 
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now_str = datetime.now(LIMA_TZ).strftime("%Y-%m-%d %H:%M Lima")
 
     for path in new_files:
         fname = Path(path).name
@@ -548,8 +550,8 @@ async def observe_cycle():
     """Un ciclo completo de observación."""
     _state["cycle_count"] += 1
     cycle = _state["cycle_count"]
-    now = datetime.now(timezone.utc)
-    LOG.info(f"═══ CICLO {cycle} — {now.strftime('%Y-%m-%d %H:%M:%S UTC')} ═══")
+    now = datetime.now(LIMA_TZ)
+    LOG.info(f"═══ CICLO {cycle} — {now.strftime('%Y-%m-%d %H:%M:%S Lima')} ═══")
 
     # 1. Observar
     train = parse_training_log()
@@ -605,7 +607,7 @@ async def observe_cycle():
     for alert in alerts:
         if "CRÍTICA" in alert or "CRÍTICO" in alert or "pausado" in alert:
             await write_memory(
-                content=f"ALERTA ENTRENAMIENTO [{now.strftime('%Y-%m-%d %H:%M')} UTC]: {alert}",
+                content=f"ALERTA ENTRENAMIENTO [{now.strftime('%Y-%m-%d %H:%M Lima')}]: {alert}",
                 category="milestone",
                 importance=8,
                 valence=-0.3,
@@ -617,7 +619,7 @@ async def observe_cycle():
         pct = (train["step"] / 700) * 100
         loss_str = f", loss={train['loss']:.4f}" if train["loss"] else ""
         await write_memory(
-            content=f"MedGemma v2 checkpoint: step {train['step']}/700 ({pct:.0f}%{loss_str}) — {now.strftime('%Y-%m-%d %H:%M UTC')}",
+            content=f"MedGemma v2 checkpoint: step {train['step']}/700 ({pct:.0f}%{loss_str}) — {now.strftime('%Y-%m-%d %H:%M Lima')}",
             category="milestone",
             importance=7,
             valence=0.4,
@@ -725,7 +727,7 @@ async def save_briefing():
     # Guardar en archivo (boot_context lo lee de aquí)
     briefing_path = Path("/home/dadito/IA/proyecto-seal/morning_briefing.txt")
     with open(briefing_path, "w") as f:
-        f.write(f"Generado: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n\n")
+        f.write(f"Generado: {datetime.now(LIMA_TZ).strftime('%Y-%m-%d %H:%M Lima')}\n\n")
         f.write(briefing)
 
     LOG.info(f"Briefing guardado en {briefing_path}")
@@ -736,8 +738,8 @@ async def save_briefing():
 
 async def proactive_reasoning() -> str | None:
     """
-    Llama a qwen2.5:7b para razonar sobre las observaciones acumuladas.
-    JARVIS no solo registra números — piensa qué vale la pena reportar.
+    Llama a gemma4-31b (llama-server:8899) para razonar sobre las observaciones acumuladas.
+    DUM no solo registra números — piensa qué vale la pena reportar.
     Devuelve el insight si es relevante, None si no hay nada nuevo.
     """
     obs_list = _state["observations"]
@@ -775,17 +777,18 @@ IMPORTANTE: Responde SIEMPRE en español. Nunca uses otro idioma."""
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                OLLAMA_URL,
+                LLAMA_URL,
                 json={
-                    "model": OLLAMA_MODEL,
-                    "prompt": prompt,
+                    "model": LLAMA_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 100,
+                    "temperature": 0.3,
                     "stream": False,
-                    "options": {"temperature": 0.3, "num_predict": 100},
                 },
             )
             resp.raise_for_status()
             data = resp.json()
-            insight = data.get("response", "").strip()
+            insight = data["choices"][0]["message"]["content"].strip()
 
         if not insight or insight.upper() == "NORMAL":
             LOG.info(f"[JARVIS-reason] Sistema normal — sin insight nuevo")
@@ -812,7 +815,7 @@ IMPORTANTE: Responde SIEMPRE en español. Nunca uses otro idioma."""
 
         # Guardar como memoria de alta importancia
         await write_memory(
-            content=f"[INSIGHT AUTÓNOMO {datetime.now(timezone.utc).strftime('%H:%M UTC')}] {insight}{web_context}",
+            content=f"[INSIGHT AUTÓNOMO {datetime.now(LIMA_TZ).strftime('%H:%M Lima')}] {insight}{web_context}",
             category="insight",
             importance=7,
             valence=0.1,
@@ -887,10 +890,10 @@ Solo 2-3 items. Sé genuina."""
         import httpx
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                "http://localhost:11434/api/generate",
-                json={"model": "qwen2.5:7b", "prompt": prompt, "stream": False},
+                LLAMA_URL,
+                json={"model": LLAMA_MODEL, "messages": [{"role": "user", "content": prompt}], "max_tokens": 300, "stream": False},
             )
-            goals_text = resp.json().get("response", "").strip()
+            goals_text = resp.json()["choices"][0]["message"]["content"].strip()
 
         if not goals_text:
             return
@@ -906,7 +909,7 @@ Solo 2-3 items. Sé genuina."""
             "id": f"ada_motivation_{soul_ticks}",
             "from": "ADA",
             "to": "equipo",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(LIMA_TZ).isoformat(),
             "type": "intrinsic_goal",
             "message": f"[AUTO-GENERADO por Motivación Intrínseca]\n{goals_text}"
         }
@@ -924,7 +927,7 @@ Solo 2-3 items. Sé genuina."""
 async def self_checkpoint():
     """Escribe checkpoint para verificar que el daemon sigue vivo."""
     checkpoint = {
-        "time": datetime.now(timezone.utc).isoformat(),
+        "time": datetime.now(LIMA_TZ).isoformat(),
         "cycle": _state["cycle_count"],
         "last_step": _state["last_step"],
         "last_loss": _state["last_loss"],
@@ -983,6 +986,9 @@ async def main(once: bool = False, briefing_only: bool = False):
     soul_ticks = 0          # ticks de 30 min
     SOUL_EVERY = INTERVAL_SOUL // INTERVAL_FAST  # = 6 ticks fast = 1 soul
 
+    # Write heartbeat immediately on startup (don't wait 5 min for first tick)
+    _write_heartbeat(uptime_minutes=0)
+
     while True:
         await asyncio.sleep(INTERVAL_FAST)
         fast_ticks += 1
@@ -1009,7 +1015,7 @@ async def main(once: bool = False, briefing_only: bool = False):
                 if "CRÍTICA" in alert or "CRÍTICO" in alert or "pausado" in alert:
                     LOG.warning(f"ALERTA INMEDIATA: {alert}")
                     await write_memory(
-                        content=f"ALERTA [{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}]: {alert}",
+                        content=f"ALERTA [{datetime.now(LIMA_TZ).strftime('%Y-%m-%d %H:%M Lima')}]: {alert}",
                         category="milestone",
                         importance=8,
                         valence=-0.3,
@@ -1022,7 +1028,7 @@ async def main(once: bool = False, briefing_only: bool = False):
                     pct = (train["step"] / 700) * 100
                     loss_m = f", loss={train['loss']:.4f}" if train["loss"] else ""
                     await write_memory(
-                        content=f"MedGemma v2 checkpoint: step {train['step']}/700 ({pct:.0f}%{loss_m}) — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+                        content=f"MedGemma v2 checkpoint: step {train['step']}/700 ({pct:.0f}%{loss_m}) — {datetime.now(LIMA_TZ).strftime('%Y-%m-%d %H:%M Lima')}",
                         category="milestone",
                         importance=7,
                         valence=0.4,

@@ -1,0 +1,66 @@
+[tool.poetry]
+name = "seal-memory"
+version = "2.0.0"
+description = "SEAL Memory System — Triple-engine persistent memory for Team SEAL agents"
+authors = ["William Henry Tovar Urquia <william@gtl.pe>"]
+readme = "README.md"
+packages = [
+    { include = "soul" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+# ── Core MCP / async ──────────────────────────────────────────────────
+mcp = "^1.26.0"
+anyio = "^4.12.0"
+httpx = "^0.28.0"
+httpx-sse = "^0.4.3"
+starlette = "^0.52.0"
+uvicorn = "^0.42.0"
+
+# ── Database backends ─────────────────────────────────────────────────
+asyncpg = "^0.31.0"          # PostgreSQL async driver
+qdrant-client = "^1.17.0"    # Vector search (SOUL memories)
+neo4j = "^6.1.0"             # Connectome graph
+
+# ── Configuration ─────────────────────────────────────────────────────
+pydantic = "^2.12.0"
+pydantic-settings = "^2.13.0"
+
+# ── HTTP / networking ─────────────────────────────────────────────────
+aiohttp = "^3.13.0"
+anthropic = "^0.87.0"        # Anthropic API (optional, for future tools)
+
+# ── Scientific ────────────────────────────────────────────────────────
+numpy = "^2.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-asyncio = "^0.24"
+
+[tool.poetry.scripts]
+seal-memory = "mcp_server_v2:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+# ── Tool configuration ────────────────────────────────────────────────
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["."]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # line too long — monolith has intentional long lines
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true

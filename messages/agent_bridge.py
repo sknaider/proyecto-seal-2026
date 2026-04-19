@@ -26,6 +26,15 @@ except ImportError:
 DIR = Path(__file__).parent
 WS_URL = "ws://localhost:8765/ws/agents"
 
+_TOKEN_PATH = DIR / ".agent_ws_token"
+
+
+def _load_agent_token() -> str:
+    """Load pre-shared token that chat_server generates at startup."""
+    if _TOKEN_PATH.exists():
+        return _TOKEN_PATH.read_text().strip()
+    return ""
+
 TRIGGER_MAP = {
     "ADA":         DIR / ".jarvis_to_ada",
     "JARVIS":      DIR / ".ada_to_jarvis",
@@ -70,8 +79,8 @@ async def run_bridge(agent_name: str) -> None:
     while True:
         try:
             async with websockets.connect(WS_URL, ping_interval=20, ping_timeout=20) as ws:
-                # Identificarse
-                await ws.send(json.dumps({"agent": agent_name}))
+                # Identificarse con token pre-compartido
+                await ws.send(json.dumps({"agent": agent_name, "token": _load_agent_token()}))
                 resp = json.loads(await ws.recv())
                 if not resp.get("ok"):
                     _log(f"ERROR handshake: {resp}")

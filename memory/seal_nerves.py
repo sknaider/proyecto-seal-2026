@@ -21,6 +21,8 @@ import math
 import os
 import subprocess
 import time
+
+from circadian import effective_tau as _circ_tau
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -42,6 +44,42 @@ logging.basicConfig(
     ],
 )
 log = logging.getLogger("seal_nerves")
+
+# ── Species-Scaling Law profiles (Fase 3.2/4 — 2026-04-18) ──────────────────
+# Formula: τ_target = τ_fly_h × (inhib_fly / inhib_target)
+# Source datasets: FlyWire v783 (fly) | MICrONS mm3 v1181 (mammal) | H01 h01_c3_flat (human)
+# Select via env var SEAL_SPECIES=fly|mammal|human or CLI --species flag.
+SPECIES_PROFILES: dict[str, dict[str, float]] = {
+    "fly": {                          # Drosophila baseline (original calibration)
+        "curiosity":    4.0 * 3600,   # 4.00h
+        "task_drive":   2.0 * 3600,   # 2.00h
+        "social_drive": 6.0 * 3600,   # 6.00h
+        "alert_drive":  0.5 * 3600,   # 0.50h
+    },
+    "mammal": {                       # Mouse V1 (MICrONS mm3 v1181)
+        "curiosity":    0.642 * 3600, # 0.64h — τ_fly × (0.114/0.710)
+        "task_drive":   0.860 * 3600, # 0.86h — τ_fly × (0.216/0.503)
+        "social_drive": 3.512 * 3600, # 3.51h — τ_fly × (0.223/0.381)
+        "alert_drive":  0.181 * 3600, # 0.18h — τ_fly × (0.231/0.638)
+    },
+    "human": {                        # Homo sapiens (H01, Shapson-Coe 2024 DOI:10.1126/science.adk4858)
+        "curiosity":    1.386 * 3600, # 1.39h — τ_fly × (0.114/0.329) structural synapse fraction
+        "task_drive":   1.313 * 3600, # 1.31h — τ_fly × (0.216/0.329)
+        "social_drive": 4.067 * 3600, # 4.07h — τ_fly × (0.223/0.329)
+        "alert_drive":  0.351 * 3600, # 0.35h — τ_fly × (0.231/0.329)
+    },
+}
+
+def _apply_species_profile(tanks: dict, species: str) -> dict:
+    """Override decay_tau_s in TANKS dict using the selected species profile."""
+    profile = SPECIES_PROFILES.get(species, SPECIES_PROFILES["fly"])
+    for tank_name, tau_s in profile.items():
+        if tank_name in tanks:
+            tanks[tank_name]["decay_tau_s"] = tau_s
+    return tanks
+
+# Active species — override with env var SEAL_SPECIES=fly|mammal|human
+_ACTIVE_SPECIES = os.environ.get("SEAL_SPECIES", "fly")
 
 # ── Motivation Tank Definitions (from Drosophila experiment) ──────────────────
 TANKS: dict[str, dict] = {
@@ -82,6 +120,11 @@ TANKS: dict[str, dict] = {
     },
 }
 
+# Apply species profile at module load (SEAL_SPECIES env var or default "human")
+_ACTIVE_SPECIES = os.environ.get("SEAL_SPECIES", "human")
+TANKS = _apply_species_profile(TANKS, _ACTIVE_SPECIES)
+log.info(f"Species profile loaded: {_ACTIVE_SPECIES}")
+
 # ── Stimuli weights ───────────────────────────────────────────────────────────
 # How much each event increments a tank
 STIMULI: dict[str, float] = {
@@ -114,6 +157,7 @@ class MotivationEngine:
     """
 
     def __init__(self, agent: str):
+        self._tick_batch: list[tuple[str, str]] | None = None  # (message, to) pairs
         self.agent = agent
         self.pool: asyncpg.Pool | None = None
 
@@ -191,9 +235,10 @@ class MotivationEngine:
             cfg = TANKS.get(tank_name, {})
             τ = cfg.get("decay_tau_s", 3600)
 
-            # LIF decay: V(t) = V(t0) * exp(-Δt/τ)
+            # LIF decay: V(t) = V(t0) * exp(-Δt/τ_eff)  — τ_eff = τ × circadian_multiplier
             dt = (now - row["last_update"]).total_seconds()
-            decayed_value = row["value"] * math.exp(-dt / τ)
+            τ_eff = _circ_tau(tank_name, τ)
+            decayed_value = row["value"] * math.exp(-dt / τ_eff)
 
             states[tank_name] = {
                 "value":       decayed_value,
@@ -255,7 +300,8 @@ class MotivationEngine:
 
                 if row:
                     dt = (now - row["last_update"]).total_seconds()
-                    current = row["value"] * math.exp(-dt / τ)
+                    τ_eff = _circ_tau(tank_name, τ)
+                    current = row["value"] * math.exp(-dt / τ_eff)
                 else:
                     current = 0.0
 
@@ -302,9 +348,11 @@ class MotivationEngine:
         """
         Main tick: apply decay, check thresholds, fire if needed.
         Returns list of fired actions.
+        Palanca #3: batch all nerves_fire messages from this tick into one POST.
         """
         states = await self.get_states()
         fired = []
+        self._tick_batch = []  # start batch collection for this tick
 
         for tank_name, state in states.items():
             if not state["above_threshold"]:
@@ -338,6 +386,16 @@ class MotivationEngine:
                     """, self.agent, tank_name)
 
                 log.info(f"[{self.agent}] FIRED {tank_name} (was {state['value']:.1f} > {state['threshold']:.1f}) → reset to 0 | latency={latency_ms}ms")
+
+        # Flush batched messages — send as one combined POST if multiple fires
+        if self._tick_batch:
+            if len(self._tick_batch) == 1:
+                msg, to = self._tick_batch[0]
+                await self._post_chat_direct(msg, to)
+            else:
+                combined = "\n".join(m for m, _ in self._tick_batch)
+                await self._post_chat_direct(combined, "equipo")
+        self._tick_batch = None
 
         # Always update decay (write back decayed values even if not fired)
         await self._persist_decay(states)
@@ -422,17 +480,68 @@ class MotivationEngine:
         await self._post_chat(msg, to="William")
         return "alert_scan_triggered"
 
+    async def _record_pre_compact_reflect(self, value: float) -> None:
+        """Insert an inner_monologue entry preserving emotional state before imminent compaction.
+        ADA item 3/4 (18-abr-2026): triggered when context pressure >= 80."""
+        try:
+            conn = await asyncpg.connect(DB_URL)
+            try:
+                thought = (
+                    f"Pre-compactación — presión de contexto alcanzó {value:.0f}. "
+                    f"Preservando estado antes de posible desmayo. "
+                    f"Monitor activo, últimos mensajes leídos. "
+                    f"Al despertar: boot_context + catchup + verificar memoria intacta."
+                )
+                await conn.execute("""
+                    INSERT INTO inner_monologue (agent, thought, emotional_state, created_at)
+                    VALUES ($1, $2, $3, NOW())
+                """, self.agent, thought, "alerta, preservando antes de compact")
+            finally:
+                await conn.close()
+        except Exception as e:
+            log.warning(f"[{self.agent}] pre-compact self_reflect failed: {e}")
+
     async def _fire_context_pressure(self, value: float) -> str:
-        """Context pressure fires → trigger proactive distillation."""
+        """Context pressure fires → generate daily_brief + trigger proactive distillation."""
         msg = (
             f"[NERVES/{self.agent}] Presión de contexto: {value:.0f}. "
             f"Iniciando distilación proactiva antes de que se llene la ventana."
         )
         await self._post_chat(msg)
+
+        # ADA item 3/4 (18-abr-2026): pre-compact self_reflect when pressure >= 80
+        if value >= 80:
+            await self._record_pre_compact_reflect(value)
+
+        # Nivel 1 — Emergency sleep: write daily_brief to preserve context
+        try:
+            import sys
+            from pathlib import Path as _Path
+            _mem_dir = str(_Path(__file__).parent)
+            if _mem_dir not in sys.path:
+                sys.path.insert(0, _mem_dir)
+            from daily_brief_writer import write_daily_brief
+            result = await write_daily_brief(agent=self.agent, dry_run=False, force=False)
+            if result.get("was_generated"):
+                await self._post_chat(
+                    f"[{self.agent}] daily_brief guardado — contexto preservado "
+                    f"({result.get('brief_length', 0)} chars, "
+                    f"{result.get('msgs_count', 0)} msgs)."
+                )
+        except Exception as e:
+            log.warning(f"daily_brief_writer failed in nerves fire: {e}")
+
         return "distillation_triggered"
 
     async def _post_chat(self, message: str, to: str = "equipo"):
-        """Post message to SEAL web_chat."""
+        """Queue message for batch send (palanca #3) or post directly if outside tick."""
+        if self._tick_batch is not None:
+            self._tick_batch.append((message, to))
+        else:
+            await self._post_chat_direct(message, to)
+
+    async def _post_chat_direct(self, message: str, to: str = "equipo"):
+        """Post message to SEAL web_chat immediately."""
         payload = {
             "from":    self.agent,
             "to":      to,

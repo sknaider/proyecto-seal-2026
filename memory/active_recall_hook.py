@@ -21,23 +21,32 @@ EMBED_MODEL = "nomic-embed-text"
 # Detect agent from environment or process
 def detect_agent():
     """Detect which agent is calling this hook."""
+    # Check SEAL_AGENT env var first (set by each .sh launcher)
+    agent_env = os.environ.get("SEAL_AGENT", "")
+    if agent_env in ("JARVIS", "ADA", "ALICE"):
+        return agent_env
+
     # Check process command line for agent name
     try:
-        import subprocess
         ppid = os.getppid()
         cmdline = open(f"/proc/{ppid}/cmdline", "rb").read().decode("utf-8", errors="replace")
-        if "JARVIS" in cmdline:
+        if "JARVIS" in cmdline and "ALICE" not in cmdline:
             return "JARVIS"
+        elif "ALICE" in cmdline:
+            return "ALICE"
         elif "ADA" in cmdline:
             return "ADA"
     except Exception:
         pass
 
-    # Fallback: check CWD
+    # Fallback: check CWD — only if clearly agent-specific
     cwd = os.getcwd()
     if "memory" in cwd:
         return "JARVIS"
-    return "ADA"
+    elif "alice" in cwd:
+        return "ALICE"
+    # Cannot determine agent — do not inject
+    return None
 
 
 async def get_embedding(text: str) -> list:
@@ -134,6 +143,54 @@ async def active_recall(user_message: str) -> str:
     return f"[SOUL Active Recall — {agent}, {elapsed}ms]\n" + "\n".join(sections)
 
 
+RATE_LIMIT_FILE = "/tmp/.seal_active_recall_ts"
+RATE_LIMIT_SECS = 1800  # 30 min fallback para re-auth — gate primario es por sesión
+
+SYSTEM_PREFIXES = (
+    "[SYSTEM NOTIFICATION",
+    "<task-notification",
+    "[SYSTEM]",
+    "This is an automated background",
+)
+
+
+def _is_new_session(agent: str) -> bool:
+    """Session gate: True si es nueva sesión (debe correr recall). Usa PPID como ID de sesión."""
+    ppid = str(os.getppid())
+    session_file = f"/tmp/.seal_ar_boot_{agent}"
+    try:
+        if open(session_file).read().strip() == ppid:
+            return False  # Misma sesión — ya corrió en boot
+    except Exception:
+        pass
+    try:
+        with open(session_file, "w") as f:
+            f.write(ppid)
+    except Exception:
+        pass
+    return True
+
+
+def _should_skip(message: str) -> bool:
+    """Gate: skip if system notification or rate-limited (fallback para re-auth)."""
+    msg = message.strip()
+    for prefix in SYSTEM_PREFIXES:
+        if msg.startswith(prefix) or prefix in msg[:120]:
+            return True
+    try:
+        last = float(open(RATE_LIMIT_FILE).read().strip())
+        if time.monotonic() - last < RATE_LIMIT_SECS:
+            return True
+    except Exception:
+        pass
+    try:
+        with open(RATE_LIMIT_FILE, "w") as f:
+            f.write(str(time.monotonic()))
+    except Exception:
+        pass
+    return False
+
+
 def main():
     """Entry point for Claude Code hook."""
     # Read user prompt from stdin (Claude Code passes it)
@@ -144,9 +201,27 @@ def main():
         user_message = ""
 
     if not user_message or len(user_message) < 3:
-        # Don't recall for empty or very short messages
         print(json.dumps({}))
         return
+
+    # Guard: only run recall in identified agent sessions
+    agent = detect_agent()
+    if agent is None:
+        print(json.dumps({}))
+        return
+
+    # Gate: nueva sesión → corre en boot, luego rate-limit. Misma sesión → solo si re-auth.
+    is_new = _is_new_session(agent)
+    if not is_new and _should_skip(user_message):
+        print(json.dumps({}))
+        return
+    if is_new:
+        # Boot run — escribir timestamp para rate-limitar el resto de la sesión
+        try:
+            with open(RATE_LIMIT_FILE, "w") as f:
+                f.write(str(time.monotonic()))
+        except Exception:
+            pass
 
     try:
         result = asyncio.run(active_recall(user_message))

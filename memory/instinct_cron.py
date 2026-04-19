@@ -13,6 +13,8 @@ import asyncio
 import json
 import sys
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 
 sys.path.insert(0, "/home/dadito/IA/proyecto-seal/memory")
 from db import get_pool, close_pool
@@ -29,7 +31,7 @@ async def decay_instincts(pool) -> dict:
         FROM instincts WHERE active = true
     """)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LIMA_TZ)
     decayed = 0
     deactivated = 0
 
@@ -81,7 +83,7 @@ async def decay_instincts(pool) -> dict:
           AND created_at >= now() - interval '30 days'
     """)
     for r in expiring:
-        days_left = 30 - (datetime.now(timezone.utc) - r["created_at"]).days
+        days_left = 30 - (datetime.now(LIMA_TZ) - r["created_at"]).days
         print(f"  ⚠️ EXPIRING #{r['id']} ({r['agent']}): {r['trigger_pattern'][:50]} — {days_left}d left")
 
     return {"decayed": decayed, "deactivated": deactivated, "pruned": pruned}
@@ -117,7 +119,7 @@ async def find_candidates(pool) -> dict:
 
 
 async def main():
-    print(f"=== Instinct Cron — {datetime.now(timezone.utc).isoformat()} ===\n")
+    print(f"=== Instinct Cron — {datetime.now(LIMA_TZ).isoformat()} ===\n")
 
     pool = await get_pool()
 

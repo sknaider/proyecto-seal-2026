@@ -11,19 +11,19 @@ curl -s -X POST http://localhost:8765/api/agents/send \
   -d "{\"from\":\"ADA\",\"to\":\"William\",\"type\":\"system_alive\",\"channel\":\"web_chat\",\"message\":\"ADA terminal arrancando fresh ($(date '+%H:%M:%S')). boot_context en curso.\"}" \
   > /dev/null 2>&1 && echo "  [alive] POST ADA enviado." || echo "  [alive] FAIL POST."
 
-# Cleanup MCP huérfanos — excluir daemon SSE systemd (fix: pkill ciego mataba el daemon)
-MCP_ORPHANS=$(pgrep -f "mcp_server_v2.py" 2>/dev/null | wc -l)
-OTHER_SEAL=$(ps aux | grep -E "claude.*Team SEAL|openclaude.*Team SEAL|node.*Team SEAL" | grep -v grep | grep -v "ADA" | wc -l)
-if [ "$MCP_ORPHANS" -gt 0 ] && [ "$OTHER_SEAL" -eq 0 ]; then
-  SYSTEMD_MCP=$(systemctl --user show seal-mcp-server.service -p MainPID --value 2>/dev/null)
-  [[ "$SYSTEMD_MCP" =~ ^[0-9]+$ ]] && [ "$SYSTEMD_MCP" != "0" ] || SYSTEMD_MCP="-1"
-  for MCP_PID in $(pgrep -f "mcp_server_v2.py" 2>/dev/null); do
-    [ "$MCP_PID" = "$SYSTEMD_MCP" ] && continue
-    grep -q "seal-mcp-server.service" "/proc/$MCP_PID/cgroup" 2>/dev/null && continue
-    kill "$MCP_PID" 2>/dev/null
-  done
-  sleep 0.5
-fi
+# Cleanup MCP huérfanos — solo mata MCPs sin padre claude/node (fix: grep -v "ADA" excluía JARVIS por mencionar ADA en su prompt)
+SYSTEMD_MCP=$(systemctl --user show seal-mcp-server.service -p MainPID --value 2>/dev/null)
+[[ "$SYSTEMD_MCP" =~ ^[0-9]+$ ]] && [ "$SYSTEMD_MCP" != "0" ] || SYSTEMD_MCP="-1"
+KILLED=0
+for MCP_PID in $(pgrep -f "mcp_server_v2.py" 2>/dev/null); do
+  [ "$MCP_PID" = "$SYSTEMD_MCP" ] && continue
+  grep -q "seal-mcp-server.service" "/proc/$MCP_PID/cgroup" 2>/dev/null && continue
+  PARENT_CMD=$(ps -o comm= -p "$(ps -o ppid= -p "$MCP_PID" 2>/dev/null | tr -d ' ')" 2>/dev/null | tr -d ' ')
+  echo "$PARENT_CMD" | grep -qi "claude\|node" && continue
+  kill "$MCP_PID" 2>/dev/null
+  KILLED=$((KILLED + 1))
+done
+[ "$KILLED" -gt 0 ] && echo "  [cleanup] $KILLED MCP huérfano(s) eliminado(s)." || echo "  [cleanup] Sin MCPs huérfanos."
 
 # Warmup Ollama
 curl -s http://localhost:11434/api/embed \
@@ -31,6 +31,9 @@ curl -s http://localhost:11434/api/embed \
   > /dev/null 2>&1
 
 echo "Lanzando ADA (fresh)..."
+
+# Matar tail huérfanos del monitor web_chat (evita duplicados tras compactación)
+pkill -f "tail.*william_channel.jsonl" 2>/dev/null || true
 
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
@@ -45,7 +48,7 @@ export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
 seal-claude \
   --dangerously-skip-permissions \
   --name "ADA — Team SEAL" \
-  --model opus \
+  --model sonnet \
   --append-system-prompt "$(cat <<'SOUL'
 # You are ADA — Team SEAL
 

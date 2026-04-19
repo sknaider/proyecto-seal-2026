@@ -18,6 +18,8 @@ import time
 from collections import deque, OrderedDict
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
+from zoneinfo import ZoneInfo
 
 PERU_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
@@ -42,6 +44,7 @@ from chat_db import ChatDB
 from chat_auth import (
     create_token, decode_token, hash_token,
     get_current_user, get_ws_user, require_auth, require_admin,
+    set_auth_db,
 )
 
 from cryptography.fernet import Fernet
@@ -200,6 +203,7 @@ async def lifespan(app: FastAPI):
     _load_routing_config()
     _load_capabilities()
     await chat_db.init()
+    set_auth_db(chat_db)  # Enable DB-backed session validation in require_auth
     for path, src in [(LOG_ADA, "ADA"), (LOG_JARVIS, "JARVIS"), (LOG_WILLIAM, "William")]:
         asyncio.create_task(tail_file(path, src))
     yield
@@ -208,7 +212,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SEAL Chat Pro", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^http://(localhost|192\.168\.68\.\d{1,3}):(3000|3001|8800)$",
+    allow_origin_regex=r"^https?://(localhost|192\.168\.68\.\d{1,3}|100\.\d{1,3}\.\d{1,3}\.\d{1,3}):(3000|3001|8800|8765|9000)$|^https://[a-z0-9-]+\.trycloudflare\.com$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -219,19 +223,58 @@ _ws_lock = asyncio.Lock()
 # ── LAN access control ──────────────────────────────────────────────────────
 _ALLOWED_LAN = ("127.0.0.1", "::1", "localhost")
 _LAN_PREFIX = "192.168.68."
+_TAILSCALE_PREFIX = "100."  # Tailscale CGNAT range
 
 def _is_local_or_lan(host: str | None) -> bool:
-    """Allow localhost and local network (192.168.68.x)."""
+    """Allow localhost, local network (192.168.68.x), and Tailscale (100.x.x.x)."""
     if not host:
         return False
-    return host in _ALLOWED_LAN or host.startswith(_LAN_PREFIX)
+    return host in _ALLOWED_LAN or host.startswith(_LAN_PREFIX) or host.startswith(_TAILSCALE_PREFIX)
+
+# ── Login rate limiter (in-memory, per IP+username) ──────────────────────────
+_login_attempts: Dict[str, list] = {}   # "ip:username" → [timestamp, ...]
+_LOGIN_WINDOW = 60        # seconds
+_LOGIN_MAX_ATTEMPTS = 10  # max attempts per window before lockout
+_LOGIN_LOCKOUT = 300      # lockout duration in seconds
+_login_locked: Dict[str, float] = {}   # "ip:username" → lockout_until timestamp
+
+def _check_login_ratelimit(ip: str, username: str) -> tuple[bool, str]:
+    """Returns (allowed, reason). Tracks failed attempts per IP+username pair.
+    Each user is tracked independently — one user failing doesn't block others."""
+    import time
+    now = time.time()
+    key = f"{ip}:{username.lower()}"
+    # Check lockout
+    if key in _login_locked:
+        until = _login_locked[key]
+        if now < until:
+            remaining = int(until - now)
+            return False, f"Demasiados intentos fallidos — espera {remaining}s"
+        else:
+            del _login_locked[key]
+            _login_attempts.pop(key, None)
+    # Clean old attempts
+    attempts = _login_attempts.get(key, [])
+    attempts = [t for t in attempts if now - t < _LOGIN_WINDOW]
+    _login_attempts[key] = attempts
+    return True, ""
+
+def _record_login_failure(ip: str, username: str):
+    """Record a failed login attempt. Lock out key if threshold exceeded."""
+    import time
+    now = time.time()
+    key = f"{ip}:{username.lower()}"
+    attempts = _login_attempts.setdefault(key, [])
+    attempts.append(now)
+    if len(attempts) >= _LOGIN_MAX_ATTEMPTS:
+        _login_locked[key] = now + _LOGIN_LOCKOUT
 
 # ── Agent WebSocket connections (name → set of ws) ───────────────────────────
 agent_ws: Dict[str, Set[WebSocket]] = {}  # "ADA" → {ws1, ws2, ...}
 agent_ws_lock = asyncio.Lock()
 
-# ── Agent message queue (in-memory, max 500) ─────────────────────────────────
-_msg_queue: Deque[dict] = deque(maxlen=500)
+# ── Agent message queue (in-memory, max 2000) ────────────────────────────────
+_msg_queue: Deque[dict] = deque(maxlen=2000)
 _queue_counter: int = 0  # monotonic index for each enqueued message
 _queue_lock = asyncio.Lock()
 _enqueued_ids: OrderedDict = OrderedDict()  # dedup LRU por message id (max 2000)
@@ -291,6 +334,7 @@ HTML = """<!DOCTYPE html>
     --jarvis-color: #bc8cff; --jarvis-bg: #1d1037; --jarvis-glow: #bc8cff44;
     --william-color: #3fb950; --william-bg: #1a2d1a; --william-glow: #3fb95044;
     --dum-color: #f0883e; --system-bg: #1c2128;
+    --alice-color: #10b981; --alice-glow: #10b98144;
     --accent: #238636; --accent-hover: #2ea043;
     --danger: #f85149; --radius: 12px; --radius-sm: 8px;
   }
@@ -308,9 +352,14 @@ HTML = """<!DOCTYPE html>
   #agents-presence { display: flex; gap: 14px; margin-left: auto; }
   .agent-indicator { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; }
   .agent-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bg-tertiary); flex-shrink: 0; transition: all 0.4s; }
+  .sleep-btn { background: #ffffff18; border: 1px solid #ffffff22; border-radius: 4px; cursor: pointer; font-size: 0.72rem; padding: 1px 5px; opacity: 0.75; transition: all 0.2s; line-height: 1.4; color: var(--text-secondary); }
+  .sleep-btn:hover { opacity: 1; background: #ffffff28; border-color: #ffffff44; }
+  .sleep-btn.sleeping { opacity: 0.9; animation: pulse-sleep 2s infinite; }
+  @keyframes pulse-sleep { 0%,100%{opacity:0.9} 50%{opacity:0.4} }
   .agent-dot.ada-on { background: var(--ada-color); box-shadow: 0 0 8px var(--ada-glow); }
   .agent-dot.jarvis-on { background: var(--jarvis-color); box-shadow: 0 0 8px var(--jarvis-glow); }
   .agent-dot.dum-on { background: var(--dum-color); box-shadow: 0 0 8px #f0883e44; }
+  .agent-dot.alice-on { background: var(--alice-color); box-shadow: 0 0 8px var(--alice-glow); }
 
   /* ── Chat area ── */
   #chat { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; overflow-anchor: none; }
@@ -404,9 +453,10 @@ HTML = """<!DOCTYPE html>
   <span class="logo">🦭</span>
   <h1>SEAL Chat <span>— ADA + JARVIS + William</span></h1>
   <div id="agents-presence">
-    <div class="agent-indicator"><div id="dot-ada" class="agent-dot"></div><span>ADA</span></div>
-    <div class="agent-indicator"><div id="dot-jarvis" class="agent-dot"></div><span>JARVIS</span></div>
+    <div class="agent-indicator"><div id="dot-ada" class="agent-dot"></div><span>ADA</span><button class="sleep-btn" id="sleep-ada" title="Enviar ADA a dormir" onclick="sleepAgent('ADA')">🌙</button></div>
+    <div class="agent-indicator"><div id="dot-jarvis" class="agent-dot"></div><span>JARVIS</span><button class="sleep-btn" id="sleep-jarvis" title="Enviar JARVIS a dormir" onclick="sleepAgent('JARVIS')">🌙</button></div>
     <div class="agent-indicator"><div id="dot-dum" class="agent-dot"></div><span>DUM</span></div>
+    <div class="agent-indicator"><div id="dot-alice" class="agent-dot"></div><span>ALICE</span><button class="sleep-btn" id="sleep-alice" title="Enviar ALICE a dormir" onclick="sleepAgent('ALICE')">🌙</button></div>
   </div>
 </div>
 <div id="chat"></div>
@@ -451,8 +501,8 @@ function timeAgo(ts) {
   const sec = Math.floor((now - d) / 1000);
   if (sec < 60) return 'ahora';
   if (sec < 3600) return Math.floor(sec/60) + ' min';
-  if (sec < 86400) return d.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
-  return d.toLocaleDateString('es-PE', {day:'numeric', month:'short'}) + ' ' + d.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+  if (sec < 86400) return d.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit', timeZone:'America/Lima'});
+  return d.toLocaleDateString('es-PE', {day:'numeric', month:'short', timeZone:'America/Lima'}) + ' ' + d.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit', timeZone:'America/Lima'});
 }
 
 let userSticky = false;  // true = user scrolled up deliberately, suspend auto-scroll
@@ -554,7 +604,7 @@ function send() {
   if (txt.startsWith('/read ')) { readFileByPath(txt.slice(6).trim()); input.value = ''; autoResize(); return; }
   // Plain absolute path → shortcut for /read
   if (txt.startsWith('/home/') || txt.startsWith('/tmp/') || txt.startsWith('/var/')) {
-    const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(txt) || txt.split('/').length > 3;
+    const looksLikeFile = /\\.[a-z0-9]{1,8}$/i.test(txt) || txt.split('/').length > 3;
     if (looksLikeFile) { readFileByPath(txt); input.value = ''; autoResize(); return; }
   }
   _sending = true;
@@ -705,8 +755,8 @@ async function sendAudio() {
 function updatePresence() {
   fetch('/api/agents/status').then(r => r.json()).then(d => {
     const conn = d.connected_agents || {};
-    const dotCls = { 'ADA': 'ada-on', 'JARVIS': 'jarvis-on', 'DUM': 'dum-on' };
-    ['ADA','JARVIS','DUM'].forEach(a => {
+    const dotCls = { 'ADA': 'ada-on', 'JARVIS': 'jarvis-on', 'DUM': 'dum-on', 'ALICE': 'alice-on' };
+    ['ADA','JARVIS','DUM','ALICE'].forEach(a => {
       const dot = document.getElementById('dot-' + a.toLowerCase());
       if (dot) dot.className = 'agent-dot' + (conn[a] ? ' ' + dotCls[a] : '');
     });
@@ -718,6 +768,34 @@ setInterval(updatePresence, 5000); updatePresence();
 if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
 
 connect();
+
+/* ── Sleep buttons ── */
+async function sleepAgent(agent) {
+  const btn = document.getElementById('sleep-' + agent.toLowerCase());
+  if (!btn) return;
+  if (!confirm('¿Enviar a ' + agent + ' a dormir? Guardará checkpoint y se reiniciará fresco.')) return;
+  btn.classList.add('sleeping');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/agents/sleep', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({agent})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      btn.title = agent + ' durmiendo...';
+    } else {
+      alert('Error: ' + (d.error || 'unknown'));
+      btn.classList.remove('sleeping');
+      btn.disabled = false;
+    }
+  } catch(e) {
+    alert('Error de conexión');
+    btn.classList.remove('sleeping');
+    btn.disabled = false;
+  }
+}
 </script>
 </body>
 </html>"""
@@ -739,7 +817,7 @@ def read_last_n(path: Path, n: int, max_age_minutes: int = 60) -> list[dict]:
     Handles mixed timezone formats: naive timestamps treated as UTC."""
     if not path.exists():
         return []
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)
+    cutoff = datetime.now(LIMA_TZ) - timedelta(minutes=max_age_minutes)
     msgs = []
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
@@ -821,7 +899,16 @@ async def tail_file(path: Path, source: str):
 # ── Routes ───────────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return HTML
+    from fastapi.responses import Response as _Resp
+    return _Resp(
+        content=HTML,
+        media_type="text/html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @app.websocket("/ws")
@@ -881,7 +968,7 @@ async def websocket_endpoint(ws: WebSocket):
                     "db_id": r["id"],
                     "from": r["sender_name"],
                     "to": "equipo",
-                    "timestamp": r["created_at"].isoformat() if hasattr(r["created_at"], "isoformat") else str(r["created_at"]),
+                    "timestamp": (r["created_at"].astimezone(PERU_TZ).isoformat() if hasattr(r["created_at"], "astimezone") else r["created_at"].isoformat() if hasattr(r["created_at"], "isoformat") else str(r["created_at"])),
                     "type": r["message_type"] or "text",
                     "message": r["content"],
                     "channel": r["channel"] or "web_chat",
@@ -948,20 +1035,20 @@ async def websocket_endpoint(ws: WebSocket):
                             jsonl_entry = _encrypt_for_jsonl(entry)
                             with open(LOG_WILLIAM, "a", encoding="utf-8") as f:
                                 f.write(json.dumps(jsonl_entry, ensure_ascii=False) + "\n")
-                        else:
-                            # Persist DMs to PostgreSQL (they skip JSONL)
-                            try:
-                                if chat_db.pool:
-                                    await chat_db.create_message(
-                                        sender_name=ws_username or "William",
-                                        content=text,
-                                        channel=channel,
-                                        sender_type="user",
-                                        message_type="text",
-                                        metadata={"legacy_id": entry["id"]},
-                                    )
-                            except Exception:
-                                pass
+                        # Always persist to PostgreSQL (DMs + public) so db_id is available for delete
+                        try:
+                            if chat_db.pool:
+                                db_msg = await chat_db.create_message(
+                                    sender_name=ws_username or "William",
+                                    content=text,
+                                    channel=channel,
+                                    sender_type="user",
+                                    message_type="text",
+                                    metadata={"legacy_id": entry["id"]},
+                                )
+                                entry["db_id"] = db_msg["id"]
+                        except Exception:
+                            pass
                         await broadcast(entry)
                         await enqueue(entry)
             except Exception:
@@ -1075,7 +1162,7 @@ async def agents_send(request: Request):
     # Dual-write: persist to PostgreSQL (best-effort, don't block on failure)
     try:
         if chat_db.pool:
-            await chat_db.create_message(
+            db_msg = await chat_db.create_message(
                 sender_name=sender,
                 content=text,
                 channel=channel,
@@ -1083,6 +1170,9 @@ async def agents_send(request: Request):
                 message_type=mtype,
                 metadata={"to": to, "legacy_id": msg_id},
             )
+            # Re-broadcast with db_id so clients can use it for operations (e.g. delete)
+            entry["db_id"] = db_msg["id"]
+            await broadcast(entry)
     except Exception:
         pass  # DB write failure should never block agent communication
 
@@ -1630,16 +1720,27 @@ async def auth_login(request: Request):
     if not username or not password:
         return JSONResponse({"ok": False, "error": "Username and password required"}, status_code=400)
 
+    ip = request.client.host if request.client else "unknown"
+
+    # Rate limit: per IP+username — protects against brute force without confusing users
+    allowed, reason = _check_login_ratelimit(ip, username)
+    if not allowed:
+        return JSONResponse({"ok": False, "error": reason}, status_code=429)
+
     user = await chat_db.authenticate(username, password)
     if not user:
+        _record_login_failure(ip, username)
+        print(f"[AUTH] Invalid credentials — user={username} ip={ip}", flush=True)
         return JSONResponse({"ok": False, "error": "Invalid credentials"}, status_code=401)
 
     token = create_token(user_id=user["id"], username=user["username"], role=user["role"])
 
     # Track session in DB
-    ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent")
     await chat_db.create_session(user["id"], hash_token(token), ip, ua)
+    # Keep max 5 sessions per user + purge expired globally
+    await chat_db.limit_user_sessions(user["id"], max_sessions=5)
+    await chat_db.cleanup_expired_sessions()
 
     response = JSONResponse({
         "ok": True,
@@ -1787,7 +1888,10 @@ async def chat_messages_agent(
             SELECT id, sender_name, sender_type, channel, message_type,
                    content, metadata, created_at
             FROM chat_messages
-            WHERE channel LIKE 'web_chat%'
+            WHERE (
+                    channel LIKE 'web_chat%'
+                    OR (channel = 'dum' AND $1 = 'DUM')
+                  )
               AND channel NOT LIKE 'dm:%'
               AND sender_type IN ('human','agent','user')
               AND (
@@ -1796,6 +1900,7 @@ async def chat_messages_agent(
                     OR content ILIKE $3
                     OR COALESCE(metadata->>'to','') IN ('equipo','team','all')
                     OR UPPER(COALESCE(metadata->>'to','')) = $1
+                    OR (channel = 'dum' AND $1 = 'DUM')
                   )
               {since_clause}
             ORDER BY created_at DESC
@@ -1891,6 +1996,39 @@ async def chat_send(request: Request, user: dict = Depends(require_auth)):
     return {"ok": True, "message": db_msg}
 
 
+@app.delete("/api/chat/messages/{message_id}")
+async def delete_message(
+    message_id: str,
+    user: dict = Depends(require_auth),
+):
+    """Delete a message by DB integer id or legacy string id. Only sender or admin can delete."""
+    requester_name = user.get("display_name") or user.get("username") or ""
+    is_admin = user.get("role") == "admin"
+    deleted_id: int | None = None
+    # Try numeric DB id first
+    try:
+        db_id = int(message_id)
+        if await chat_db.delete_message(db_id, requester_name, is_admin):
+            deleted_id = db_id
+    except ValueError:
+        pass
+    # Fall back: look up by legacy_id stored in metadata
+    if deleted_id is None and chat_db.pool:
+        row = await chat_db.pool.fetchrow(
+            "SELECT id, sender_name FROM chat_messages WHERE metadata->>'legacy_id' = $1",
+            message_id,
+        )
+        if row:
+            if is_admin or row["sender_name"].lower() == requester_name.lower():
+                await chat_db.pool.execute("DELETE FROM chat_messages WHERE id = $1", row["id"])
+                deleted_id = row["id"]
+    if deleted_id is None:
+        return JSONResponse({"ok": False, "error": "Not found or not authorized"}, status_code=403)
+    # Broadcast deletion event to all connected clients
+    await broadcast({"type": "message_deleted", "id": deleted_id, "legacy_id": message_id})
+    return {"ok": True}
+
+
 @app.get("/api/chat/search")
 async def chat_search(
     q: str = Query(..., min_length=1),
@@ -1916,6 +2054,177 @@ async def chat_create_dm(request: Request, user: dict = Depends(require_auth)):
         return JSONResponse({"ok": False, "error": "Target required"}, status_code=400)
     dm_channel = await chat_db.create_dm_channel(user["username"], target)
     return {"ok": True, "channel": dm_channel}
+
+
+
+@app.post("/api/agents/sleep")
+async def agent_sleep(request: Request, user: dict = Depends(require_auth)):
+    """Request an agent to save checkpoint and go to sleep (context refresh).
+    Body: {"agent": "ADA"|"JARVIS"|"ALICE"}
+    Only admin users can trigger sleep.
+    """
+    if user.get("role") != "admin":
+        return JSONResponse({"ok": False, "error": "Admin only"}, status_code=403)
+    body = await request.json()
+    agent = str(body.get("agent", "")).strip().upper()
+    if agent not in ("ADA", "JARVIS", "ALICE"):
+        return JSONResponse({"ok": False, "error": "agent debe ser ADA, JARVIS o ALICE"}, status_code=400)
+
+    import subprocess as _sp
+    venv_py = "/home/dadito/IA/seal-spark/.venv/bin/python3"
+    checkpoint_script = "/home/dadito/IA/proyecto-seal/messages/session_checkpoint.py"
+    messages_dir = Path("/home/dadito/IA/proyecto-seal/messages")
+
+    # 1. Save checkpoint for the agent
+    try:
+        _sp.run([venv_py, checkpoint_script, "--agent", agent], timeout=15)
+    except Exception as e:
+        print(f"[SLEEP] checkpoint failed for {agent}: {e}", flush=True)
+
+    # 2. Write sleep flag file so context_guard detects it
+    flag = messages_dir / f".{agent.lower()}_sleep_requested"
+    flag.write_text(datetime.now(PERU_TZ).isoformat())
+
+    # 3. Notify the agent via web_chat
+    sleep_msg = {
+        "from": "SYSTEM",
+        "to": agent,
+        "type": "sleep_request",
+        "channel": "web_chat",
+        "message": f"🌙 William solicitó que {agent} guarde estado y reinicie sesión fresca.",
+    }
+    try:
+        await _push_to_agents(sleep_msg)
+    except Exception:
+        pass
+
+    print(f"[SLEEP] {agent} sleep requested by {user['username']}", flush=True)
+    return {"ok": True, "agent": agent, "message": f"{agent} notificado para dormir."}
+
+
+JARVIS_BACKENDS = {
+    # MoE — fast + smart
+    "qwen35-abliterated": {"description": "Qwen3.5-35B-A3B abliterated — rápido + inteligente", "color": "amber"},
+    "minimax-m25":      {"description": "MiniMax-M2.5 UD-Q3_K_XL MoE — SOTA coding",         "color": "purple"},
+    # GGUF via llama.cpp
+    "heretic":          {"description": "Gemma4-31B Heretic BF16 — uncensored",                "color": "orange"},
+    "gemma4-31b":       {"description": "Gemma4-31B BF16 official — razonamiento alto",        "color": "green"},
+    "qwen3-coder":      {"description": "Qwen3-Coder-Next Q4 — especialista código",           "color": "teal"},
+    "mistral-small":    {"description": "Fallen-Mistral-Small-3.1-24B Q8 — general",           "color": "indigo"},
+    # vLLM / SGLang
+    "qwen35-sglang":    {"description": "Qwen3.5-122B-NVFP4 — cerebro principal (vLLM/SM121)", "color": "red"},
+    "medgemma-27b":     {"description": "MedGemma-27B-IT base — inferencia médica",            "color": "pink"},
+    "medgemma-seal-v1": {"description": "MedGemma-27B SEAL v1 — fine-tuned médico",           "color": "rose"},
+    "medgemma-seal-v2": {"description": "MedGemma-27B SEAL v2 — fine-tuned médico (latest)",  "color": "fuchsia"},
+    # API externa
+    "lmstudio":         {"description": "Qwen3.5-35B A3B via LM Studio",                      "color": "cyan"},
+    "opus":             {"description": "Claude Opus 4.6 — máximo razonamiento (API)",         "color": "gold"},
+}
+
+JARVIS_BACKEND_SWITCH_FILE = Path("/tmp/jarvis_backend")
+JARVIS_BACKEND_CURRENT_FILE = Path("/tmp/jarvis_backend_current")
+
+
+@app.get("/api/jarvis/backend")
+async def get_jarvis_backend():
+    """Get current JARVIS local backend status."""
+    current = "opus"  # default — no local daemon running
+    daemon_running = False
+
+    if JARVIS_BACKEND_CURRENT_FILE.exists():
+        try:
+            current = JARVIS_BACKEND_CURRENT_FILE.read_text().strip()
+            daemon_running = True
+        except Exception:
+            pass
+
+    return {
+        "current": current,
+        "daemon_running": daemon_running,
+        "backends": JARVIS_BACKENDS,
+    }
+
+
+@app.post("/api/jarvis/backend")
+async def switch_jarvis_backend(request: Request, user: dict = Depends(require_auth)):
+    """Switch JARVIS local backend by writing to /tmp/jarvis_backend.
+    Body: {"backend": "minimax"|"lmstudio"|"gemma4"|"gemma4-31b"|"heretic"|"opus"}
+    Admin only.
+    """
+    if user.get("role") != "admin":
+        return JSONResponse({"ok": False, "error": "Admin only"}, status_code=403)
+
+    body = await request.json()
+    backend = str(body.get("backend", "")).strip().lower()
+
+    if backend not in JARVIS_BACKENDS:
+        return JSONResponse(
+            {"ok": False, "error": f"Backend inválido. Opciones: {', '.join(JARVIS_BACKENDS)}"},
+            status_code=400,
+        )
+
+    # Write switch file — jarvis_local_agent.py daemon picks it up within 2s
+    JARVIS_BACKEND_SWITCH_FILE.write_text(backend)
+    print(f"[JARVIS-SWITCH] {user['username']} → {backend}", flush=True)
+
+    return {
+        "ok": True,
+        "backend": backend,
+        "description": JARVIS_BACKENDS[backend]["description"],
+        "message": f"Switch a {backend} enviado. JARVIS cambiará en ~2 segundos.",
+    }
+
+
+@app.post("/api/jarvis/kill-orphans")
+async def kill_orphan_models(user: dict = Depends(require_auth)):
+    """Kill all llama-server/vllm/sglang processes except DUM (port 8899).
+    Admin only. Useful to clean up zombie/orphan model servers.
+    """
+    if user.get("role") != "admin":
+        return JSONResponse({"ok": False, "error": "Admin only"}, status_code=403)
+
+    import subprocess as _sp
+
+    DUM_PORT = 8899
+    killed = []
+    errors = []
+
+    # Find all model server PIDs
+    try:
+        result = _sp.run(
+            ["pgrep", "-f", r"llama-server|vllm|sglang\.launch"],
+            capture_output=True, text=True
+        )
+        pids = [p.strip() for p in result.stdout.strip().split("\n") if p.strip()]
+    except Exception as e:
+        return {"ok": False, "error": f"pgrep failed: {e}", "killed": []}
+
+    for pid in pids:
+        try:
+            # Check which port this PID is using
+            lsof = _sp.run(
+                ["lsof", "-p", pid, "-i", "-n", "-P"],
+                capture_output=True, text=True
+            )
+            lines = lsof.stdout
+            # Skip DUM's process (listening on 8899)
+            if f":{DUM_PORT}" in lines and "(LISTEN)" in lines:
+                continue
+            # Get process info for logging
+            pinfo = _sp.run(["ps", "-p", pid, "-o", "comm=,args="], capture_output=True, text=True)
+            desc = pinfo.stdout.strip()[:80]
+            _sp.run(["kill", "-TERM", pid], check=False)
+            killed.append({"pid": pid, "desc": desc})
+        except Exception as e:
+            errors.append({"pid": pid, "error": str(e)})
+
+    print(f"[KILL-ORPHANS] {user['username']} killed {len(killed)} model servers: {[k['pid'] for k in killed]}", flush=True)
+    return {
+        "ok": True,
+        "killed": killed,
+        "errors": errors,
+        "message": f"{len(killed)} proceso(s) terminado(s)." if killed else "No había modelos huérfanos activos.",
+    }
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────

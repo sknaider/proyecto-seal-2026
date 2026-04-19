@@ -11,6 +11,8 @@ import re
 import time
 import httpx
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
 DIR = Path(__file__).parent
@@ -123,7 +125,7 @@ def write_response(text: str):
         "id": f"jarvis_agent_{int(time.time())}",
         "from": "J-BOT",
         "to": "William",
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "timestamp": datetime.now(LIMA_TZ).isoformat().replace("+00:00", "Z"),
         "type": "chat",
         "message": text,
     }
@@ -173,7 +175,7 @@ async def respond_to_william(user_message: str):
     history = get_recent_history(8)
     messages = build_messages(history, user_message)
     msg_id = f"stream_{int(time.time() * 1000)}"
-    ts = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    ts = datetime.now(LIMA_TZ).isoformat().replace("+00:00", "Z")
     accumulated = ""
 
     try:

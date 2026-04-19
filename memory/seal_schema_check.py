@@ -17,6 +17,8 @@ import asyncpg
 import argparse
 import sys
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+LIMA_TZ = ZoneInfo("America/Lima")
 
 DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
 
@@ -31,7 +33,7 @@ def is_destructive(op: str) -> bool:
 async def check(table: str | None, op: str | None, dry_run: bool) -> int:
     conn = await asyncpg.connect(DB_URL)
 
-    print(f"[{datetime.now(timezone.utc).isoformat()}] SEAL Schema Check")
+    print(f"[{datetime.now(LIMA_TZ).isoformat()}] SEAL Schema Check")
     print(f"  Table : {table or '(none)'}")
     print(f"  Op    : {op or '(dry-run only)'}")
     print()

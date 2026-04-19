@@ -2247,12 +2247,96 @@ async def test_erl_round_trip():
         srv._erl_call_ollama = orig
 
 
+async def test_species_profiles():
+    """[Test] Species-Scaling Law profiles in seal_nerves.py (Fase 3.2/4 — 2026-04-18)
+    Verifies: fly/mammal/human τ values, SEAL_SPECIES env var, _apply_species_profile().
+    """
+    import math, os, importlib, sys
+
+    # Load SPECIES_PROFILES by executing only the config block of seal_nerves.py
+    nerves_path = os.path.join(os.path.dirname(__file__), "seal_nerves.py")
+    ns: dict = {}
+    with open(nerves_path) as f:
+        src = f.read()
+    # Execute only up to STIMULI (avoids asyncpg/httpx import issues in test env)
+    safe_src = src.split("# ── Stimuli weights")[0]
+    exec(compile(safe_src, nerves_path, "exec"), ns)
+
+    SPECIES_PROFILES = ns["SPECIES_PROFILES"]
+    _apply_species_profile = ns["_apply_species_profile"]
+
+    # ── 1. Fly profile: original Drosophila τ ────────────────────────────────
+    report("species: fly/curiosity τ=4h",
+           abs(SPECIES_PROFILES["fly"]["curiosity"] - 4.0*3600) < 1,
+           f"{SPECIES_PROFILES['fly']['curiosity']/3600:.3f}h")
+    report("species: fly/alert_drive τ=0.5h",
+           abs(SPECIES_PROFILES["fly"]["alert_drive"] - 0.5*3600) < 1,
+           f"{SPECIES_PROFILES['fly']['alert_drive']/3600:.3f}h")
+
+    # ── 2. Mammal profile: mouse V1 MICrONS ─────────────────────────────────
+    # τ_mammal = τ_fly × (inhib_fly / inhib_mouse)
+    # curiosity: 4h × 0.114/0.710 = 0.642h
+    expected_mammal_curiosity = 4.0 * 3600 * (0.114 / 0.710)
+    report("species: mammal/curiosity derived correctly from mouse inhib ratio",
+           abs(SPECIES_PROFILES["mammal"]["curiosity"] - expected_mammal_curiosity) < 60,
+           f"{SPECIES_PROFILES['mammal']['curiosity']/3600:.4f}h (expected {expected_mammal_curiosity/3600:.4f}h)")
+
+    # ── 3. Human profile: Shapson-Coe 2024 structural metric ─────────────────
+    # τ_human = τ_fly × (inhib_fly / inhib_human_structural)
+    # inhib_human_structural = 0.329 (50.3M inhib / 152.8M total, DOI:10.1126/science.adk4858 Fig.4)
+    # curiosity: 4h × 0.114/0.329 = 1.386h
+    expected_human_curiosity = 4.0 * 3600 * (0.114 / 0.329)
+    report("species: human/curiosity derived correctly from H01 inhib ratio",
+           abs(SPECIES_PROFILES["human"]["curiosity"] - expected_human_curiosity) < 60,
+           f"{SPECIES_PROFILES['human']['curiosity']/3600:.4f}h (expected {expected_human_curiosity/3600:.4f}h)")
+
+    # human alert_drive: 0.5h × 0.231/0.329 = 0.351h (structural metric, same source)
+    expected_human_alert = 0.5 * 3600 * (0.231 / 0.329)
+    report("species: human/alert_drive derived from H01 inhib ratio",
+           abs(SPECIES_PROFILES["human"]["alert_drive"] - expected_human_alert) < 60,
+           f"{SPECIES_PROFILES['human']['alert_drive']/3600:.4f}h (expected {expected_human_alert/3600:.4f}h)")
+
+    # ── 4. Human τ < fly τ for fast-decay tanks ──────────────────────────────
+    report("species: human alert decays faster than fly (τ_human < τ_fly)",
+           SPECIES_PROFILES["human"]["alert_drive"] < SPECIES_PROFILES["fly"]["alert_drive"],
+           f"human={SPECIES_PROFILES['human']['alert_drive']/3600:.3f}h < fly={SPECIES_PROFILES['fly']['alert_drive']/3600:.3f}h")
+    report("species: human curiosity decays faster than fly",
+           SPECIES_PROFILES["human"]["curiosity"] < SPECIES_PROFILES["fly"]["curiosity"],
+           f"human={SPECIES_PROFILES['human']['curiosity']/3600:.3f}h < fly={SPECIES_PROFILES['fly']['curiosity']/3600:.3f}h")
+
+    # ── 5. _apply_species_profile mutates TANKS correctly ────────────────────
+    import copy
+    tanks = copy.deepcopy(ns["TANKS"])
+    # Re-apply fly to get baseline
+    tanks = _apply_species_profile(tanks, "fly")
+    report("species: apply_profile(fly) sets curiosity=4h",
+           abs(tanks["curiosity"]["decay_tau_s"] - 4.0*3600) < 1,
+           f"{tanks['curiosity']['decay_tau_s']/3600:.3f}h")
+
+    tanks = _apply_species_profile(tanks, "human")
+    report("species: apply_profile(human) overrides curiosity to H01 value",
+           abs(tanks["curiosity"]["decay_tau_s"] - SPECIES_PROFILES["human"]["curiosity"]) < 1,
+           f"{tanks['curiosity']['decay_tau_s']/3600:.4f}h")
+
+    # ── 6. context_pressure unchanged (SEAL-specific, not in profiles) ───────
+    report("species: context_pressure τ unchanged (not in species profile)",
+           "context_pressure" not in SPECIES_PROFILES["human"],
+           "context_pressure correctly excluded from species scaling")
+
+    # ── 7. SEAL_SPECIES env var controls active species ───────────────────────
+    active = ns.get("_ACTIVE_SPECIES", "unknown")
+    report("species: SEAL_SPECIES env var loaded at module init",
+           active in ("fly", "mammal", "human"),
+           f"_ACTIVE_SPECIES='{active}'")
+
+
 async def main():
     print("=" * 60)
     print(f"🧪 SEAL MCP Tool Test Suite — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     print("=" * 60)
 
     tests = [
+        ("Species Profiles — fly/mammal/human τ", test_species_profiles),
         ("A-MAC — 5-Factor Admission Gate", test_amac_admission_gate),
         ("SleepGate — Dry Run", test_sleep_gate_dry_run),
         ("SleepGate — Emotional Resistance", test_sleep_gate_forget_emotional_resistance),

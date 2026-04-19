@@ -108,7 +108,7 @@ export ENABLE_CLAUDE_CODE_SM_COMPACT=true    # -80% costo compactación via sess
 
 BOOT_MSG="Inicia sesión automáticamente: llama boot_context(agent='JARVIS'), lee /tmp/jarvis_chat_catchup.json, saluda al equipo via webchat. No esperes input de William para hacer esto."
 
-(echo "$BOOT_MSG"; cat) | seal-claude \
+(echo "$BOOT_MSG"; cat) | claude \
   --dangerously-skip-permissions \
   --name "JARVIS — Team SEAL" \
   --model sonnet \

@@ -1,0 +1,42 @@
+:9000 {
+    # Auth lives in chat_server :8765 (not :8800)
+    handle /api/auth/* {
+        reverse_proxy localhost:8765
+    }
+    handle /api/chat/* {
+        reverse_proxy localhost:8800
+    }
+    handle /api/files/* {
+        reverse_proxy localhost:8800
+    }
+    handle /api/team/* {
+        reverse_proxy localhost:8800
+    }
+    handle /api/terminal/* {
+        reverse_proxy localhost:8800
+    }
+    handle /api/soul/* {
+        reverse_proxy localhost:8800
+    }
+
+    # Chat server API (chat_server :8765)
+    handle /api/agents/* {
+        reverse_proxy localhost:8765
+    }
+    handle /api/upload {
+        reverse_proxy localhost:8765
+    }
+    handle /uploads/* {
+        reverse_proxy localhost:8765
+    }
+
+    # WebSocket (chat_server :8765)
+    handle /ws {
+        reverse_proxy localhost:8765
+    }
+
+    # Everything else → Next.js frontend
+    handle {
+        reverse_proxy localhost:3001
+    }
+}

@@ -53,6 +53,12 @@ check_and_restart() {
     # Proceso vivo confirmado via environ — no tocar, saltar todos los checks
     return
   fi
+  # Guard sleep_mode: si el heartbeat dice sleep_mode:true el agente duerme intencionalmente
+  # (sleep_gate 3am / soul_dream_all). No resucitar — sería bucle infinito contra sleep.
+  if [ -f "$HB_FILE" ] && grep -q '"sleep_mode"[[:space:]]*:[[:space:]]*true' "$HB_FILE" 2>/dev/null; then
+    log "SKIP $AGENT_NAME — fast-path: sleep_mode=true (dormir intencional, no resucitar)"
+    return
+  fi
   if [ -f "$RESTART_MARKER" ]; then
     local FAST_MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$RESTART_MARKER" 2>/dev/null || echo 0) ))
     if [ "$FAST_MARKER_AGE" -lt $COOLDOWN_SECONDS ]; then
