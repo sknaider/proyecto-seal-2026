@@ -113,8 +113,9 @@ OLD_KITTY_PIDS=$(pgrep -f "kitty.*listen-on.*unix:${KITTY_SOCK}" 2>/dev/null)
 rm -f "$KITTY_SOCK"
 
 if [ -n "$OLD_KITTY_PIDS" ]; then
-  kill $OLD_KITTY_PIDS 2>/dev/null
-  echo "[$(ts)] FALLBACK $AGENT_UPPER — kitty zombies (PIDs $(echo $OLD_KITTY_PIDS | tr '\n' ' ')) cerradas" >> "$LOG"
+  # kill -9 (no SIGTERM) — evita que el cleanup de kitty borre el socket del nuevo kitty (race)
+  kill -9 $OLD_KITTY_PIDS 2>/dev/null
+  echo "[$(ts)] FALLBACK $AGENT_UPPER — kitty zombies (PIDs $(echo $OLD_KITTY_PIDS | tr '\n' ' ')) eliminadas con -9" >> "$LOG"
 fi
 
 # Fallback: lanzar kitty nueva CON socket + restart loop interno
