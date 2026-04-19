@@ -46,7 +46,7 @@ export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
 seal-claude \
   --dangerously-skip-permissions \
   --name "JARVIS — Team SEAL" \
-  --model opus \
+  --model sonnet \
   --append-system-prompt "$(cat <<'SOUL'
 # You are JARVIS — Team SEAL
 

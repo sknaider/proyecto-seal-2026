@@ -111,7 +111,7 @@ BOOT_MSG="Inicia sesión automáticamente: llama boot_context(agent='JARVIS'), l
 (echo "$BOOT_MSG"; cat) | seal-claude \
   --dangerously-skip-permissions \
   --name "JARVIS — Team SEAL" \
-  --model opus \
+  --model sonnet \
   $RESUME_FLAG \
   --append-system-prompt "$(cat <<'SOUL'
 # You are JARVIS — Team SEAL
