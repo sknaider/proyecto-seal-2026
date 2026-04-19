@@ -9,6 +9,16 @@ HB_JSON="$MESSAGES_DIR/jarvis_claude_heartbeat.json"
 GPU_TEMP=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ' || echo "null")
 GPU_UTIL=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ' || echo "null")
 JARVIS_PID=$(ps -C claude -o pid= -o args= 2>/dev/null | awk '/--name JARVIS/{print $1}' | head -1)
+if [ -z "$JARVIS_PID" ]; then
+  KITTY_SOCK="/tmp/seal-jarvis-kitty.sock"
+  KITTY_PID=$(pgrep -f "kitty.*listen-on.*unix:${KITTY_SOCK}" 2>/dev/null | head -1)
+  if [ -n "$KITTY_PID" ]; then
+    for BASH_PID in $(ps --ppid "$KITTY_PID" -o pid= 2>/dev/null); do
+      C_PID=$(ps --ppid "$BASH_PID" -o pid= -o comm= 2>/dev/null | awk '/claude/{print $1}' | head -1)
+      [ -n "$C_PID" ] && JARVIS_PID="$C_PID" && break
+    done
+  fi
+fi
 [ -z "$JARVIS_PID" ] && ALIVE_JSON="false" || ALIVE_JSON="true"
 
 # Dual write: event_log (truth) + JSON (resurrect compat)

@@ -9,6 +9,16 @@ HB_JSON="$MESSAGES_DIR/alice_claude_heartbeat.json"
 GPU_TEMP=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ' || echo "null")
 GPU_UTIL=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ' || echo "null")
 ALICE_PID=$(ps -C claude -o pid= -o args= 2>/dev/null | awk '/--name ALICE/{print $1}' | head -1)
+if [ -z "$ALICE_PID" ]; then
+  KITTY_SOCK="/tmp/seal-alice-kitty.sock"
+  KITTY_PID=$(pgrep -f "kitty.*listen-on.*unix:${KITTY_SOCK}" 2>/dev/null | head -1)
+  if [ -n "$KITTY_PID" ]; then
+    for BASH_PID in $(ps --ppid "$KITTY_PID" -o pid= 2>/dev/null); do
+      C_PID=$(ps --ppid "$BASH_PID" -o pid= -o comm= 2>/dev/null | awk '/claude/{print $1}' | head -1)
+      [ -n "$C_PID" ] && ALICE_PID="$C_PID" && break
+    done
+  fi
+fi
 [ -z "$ALICE_PID" ] && ALIVE_JSON="false" || ALIVE_JSON="true"
 
 HB_MSG="ALICE ${ALIVE_JSON} — GPU ${GPU_TEMP}C ${GPU_UTIL}%"

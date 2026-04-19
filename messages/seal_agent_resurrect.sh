@@ -13,6 +13,7 @@ RESTART_SCRIPT="$HOME/IA/proyecto-seal/seal_restart.sh"
 LOG_FILE="/tmp/seal_resurrect.log"
 LOCK_FILE="/tmp/seal_resurrect.lock"
 MAX_AGE_SECONDS=600  # 10 minutos — margen para AccuracySec=30s del timer (fix: 300=300 race)
+COOLDOWN_SECONDS=120  # cooldown entre reinicios consecutivos (era 600, bajado 18-abr)
 
 export DISPLAY=:0
 
@@ -38,13 +39,47 @@ check_and_restart() {
   local HB_FILE="$MESSAGES_DIR/${AGENT_LOWER}_claude_heartbeat.json"
   local RESTART_MARKER="/tmp/seal_restart_${AGENT_LOWER}.marker"
 
+  # ── FAST-PATH: chequeo PID directo (Bug 1 fix, Fase B) ──
+  # Detecta muerte abrupta sin esperar 3-5min al cron de heartbeat.
+  # Latencia de detección: máx 2min (intervalo de este script).
+  # Hardening JARVIS: match exacto del formato kitty `--name AGENTE — Team SEAL`
+  # Buscar por --name (lanzamiento fresco) O por árbol kitty (tras REUSE sin --name)
+  local FAST_PID=$(pgrep -f "claude.*--name ${AGENT_NAME}" 2>/dev/null | head -1)
+  if [ -z "$FAST_PID" ]; then
+    local FAST_SOCK="/tmp/seal-${AGENT_LOWER}-kitty.sock"
+    local FAST_KITTY=$(pgrep -f "kitty.*listen-on.*unix:${FAST_SOCK}" 2>/dev/null | head -1)
+    if [ -n "$FAST_KITTY" ]; then
+      for _BPID in $(ps --ppid "$FAST_KITTY" -o pid= 2>/dev/null); do
+        local _CPID=$(ps --ppid "$_BPID" -o pid= -o comm= 2>/dev/null | awk '/claude/{print $1}' | head -1)
+        [ -n "$_CPID" ] && FAST_PID="$_CPID" && break
+      done
+    fi
+  fi
+  if [ -z "$FAST_PID" ]; then
+    if [ -f "$RESTART_MARKER" ]; then
+      local FAST_MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$RESTART_MARKER" 2>/dev/null || echo 0) ))
+      if [ "$FAST_MARKER_AGE" -lt $COOLDOWN_SECONDS ]; then
+        log "SKIP $AGENT_NAME — fast-path: proceso muerto pero restart reciente hace ${FAST_MARKER_AGE}s (cooldown)"
+        return
+      fi
+    fi
+    log "RESURRECT $AGENT_NAME — fast-path: proceso muerto detectado por PID-check directo"
+    touch "$RESTART_MARKER"
+    bash "$RESTART_SCRIPT" "$AGENT_LOWER" >> "$LOG_FILE" 2>&1
+    curl -s -X POST "http://localhost:8765/api/agents/send" \
+      -H "Content-Type: application/json" \
+      -d "{\"from\":\"RESURRECT\",\"to\":\"equipo\",\"type\":\"auto_restart\",\"channel\":\"web_chat\",\"message\":\"🔄 AUTO-RESURRECT: $AGENT_NAME relanzado (fast-path PID-check, sin esperar heartbeat)\"}" \
+      2>/dev/null
+    return
+  fi
+
   # Si no existe heartbeat JSON, verificar proceso directo (migrado a event_log)
   if [ ! -f "$HB_FILE" ]; then
     local CLAUDE_PID=$(ps aux | grep "claude.*--name ${AGENT_NAME}" | grep -v grep | awk '{print $2}' | head -1)
     if [ -z "$CLAUDE_PID" ]; then
       if [ -f "$RESTART_MARKER" ]; then
         local MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$RESTART_MARKER" 2>/dev/null || echo 0) ))
-        if [ "$MARKER_AGE" -lt 600 ]; then
+        if [ "$MARKER_AGE" -lt $COOLDOWN_SECONDS ]; then
           log "SKIP $AGENT_NAME — restart reciente hace ${MARKER_AGE}s (cooldown)"
           return
         fi
@@ -69,7 +104,7 @@ check_and_restart() {
     if [ -z "$CLAUDE_PID_ALIVE" ]; then
       if [ -f "$RESTART_MARKER" ]; then
         local MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$RESTART_MARKER" 2>/dev/null || echo 0) ))
-        if [ "$MARKER_AGE" -lt 600 ]; then
+        if [ "$MARKER_AGE" -lt $COOLDOWN_SECONDS ]; then
           log "SKIP $AGENT_NAME — alive=false+dead, restart reciente hace ${MARKER_AGE}s"
           return
         fi
@@ -97,7 +132,7 @@ check_and_restart() {
       # Proceso muerto — verificar cooldown de restart
       if [ -f "$RESTART_MARKER" ]; then
         local MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$RESTART_MARKER" 2>/dev/null || echo 0) ))
-        if [ "$MARKER_AGE" -lt 600 ]; then
+        if [ "$MARKER_AGE" -lt $COOLDOWN_SECONDS ]; then
           log "SKIP $AGENT_NAME — restart reciente hace ${MARKER_AGE}s (cooldown 10min)"
           return
         fi
@@ -128,7 +163,7 @@ check_and_restart() {
         # Cooldown check
         if [ -f "$RESTART_MARKER" ]; then
           local MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$RESTART_MARKER" 2>/dev/null || echo 0) ))
-          if [ "$MARKER_AGE" -lt 600 ]; then
+          if [ "$MARKER_AGE" -lt $COOLDOWN_SECONDS ]; then
             return
           fi
         fi
