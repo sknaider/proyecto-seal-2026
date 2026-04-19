@@ -92,8 +92,15 @@ if [ "$NO_RESUME" = false ] && [ -n "$LAST_SESSION" ]; then
   fi
 fi
 
-# Matar tail huérfanos del monitor web_chat (evita duplicados tras compactación)
-pkill -f "tail.*william_channel.jsonl" 2>/dev/null && echo "  [cleanup] tail huérfanos web_chat eliminados." || true
+# FIX 2026-04-19: pkill selectivo por agente (antes mataba tails de JARVIS/ALICE)
+_KILLED=0
+for _TPID in $(pgrep -f "tail.*william_channel.jsonl" 2>/dev/null); do
+  if tr '\0' '\n' < "/proc/$_TPID/environ" 2>/dev/null | grep -qx "SEAL_AGENT=ADA"; then
+    kill "$_TPID" 2>/dev/null && _KILLED=$((_KILLED + 1))
+  fi
+done
+[ "$_KILLED" -gt 0 ] && echo "  [cleanup] $_KILLED tail(s) ADA huérfano(s) eliminado(s)." || echo "  [cleanup] Sin tails ADA huérfanos."
+unset _TPID _KILLED
 
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1

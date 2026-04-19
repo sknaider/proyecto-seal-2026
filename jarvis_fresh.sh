@@ -32,8 +32,14 @@ curl -s http://localhost:11434/api/embed \
 
 echo "Lanzando JARVIS (fresh)..."
 
-# Matar tail huérfanos del monitor web_chat (evita duplicados tras compactación)
-pkill -f "tail.*william_channel.jsonl" 2>/dev/null || true
+# Matar tail huérfanos SOLO del propio agente (JARVIS).
+# FIX 2026-04-19: el pkill sin filtro mataba tails de ADA/ALICE y los tumbaba.
+for _TPID in $(pgrep -f "tail.*william_channel.jsonl" 2>/dev/null); do
+  if tr '\0' '\n' < "/proc/$_TPID/environ" 2>/dev/null | grep -qx "SEAL_AGENT=JARVIS"; then
+    kill "$_TPID" 2>/dev/null
+  fi
+done
+unset _TPID
 
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1

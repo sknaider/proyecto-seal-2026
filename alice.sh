@@ -41,8 +41,14 @@ curl -s http://localhost:11434/api/embed \
   > /dev/null 2>&1 && echo "  Ollama ready." || echo "  Ollama warmup failed (continuando...)"
 sleep 1
 
-# ── Matar monitores huérfanos de sesiones anteriores ──
-pkill -f "tail.*william_channel.jsonl" 2>/dev/null; true
+# ── Matar monitores huérfanos SOLO del propio agente (ALICE) ──
+# FIX 2026-04-19: selectivo por agente (antes mataba tails de ADA/JARVIS).
+for _TPID in $(pgrep -f "tail.*william_channel.jsonl" 2>/dev/null); do
+  if tr '\0' '\n' < "/proc/$_TPID/environ" 2>/dev/null | grep -qx "SEAL_AGENT=ALICE"; then
+    kill "$_TPID" 2>/dev/null
+  fi
+done
+unset _TPID
 
 # ── Webchat catch-up ──
 CATCHUP_FILE="/tmp/alice_chat_catchup.json"
