@@ -61,7 +61,7 @@ if [ -S "$KITTY_SOCK" ] && [ -s "$SID_FILE" ]; then
       # Inyectamos un mensaje user-side ~10s post-resume para que el agente lo re-active
       # antes de cualquier otra cosa. Sin esto el agente queda sordo al canal.
       WCHAT="/home/dadito/IA/proyecto-seal/messages/william_channel.jsonl"
-      HOOK_MSG="[RESURRECT-HOOK $AGENT_UPPER] Acabas de ser resumido tras kill -9. Tu Monitor tail -F del web_chat NO sobrevivio al --resume. RE-ACTIVA Monitor con: tail -n 0 -F $WCHAT 2>&1 (persistent=true) AHORA antes de responder a nada mas. Luego POST corto al canal confirmando reconexion."
+      HOOK_MSG="[RESURRECT-HOOK $AGENT_UPPER] Acabas de ser resumido tras kill -9. Tu Monitor tail -F del web_chat NO sobrevivio al --resume. RE-ACTIVA Monitor con: tail -n 0 -F $WCHAT 2>&1 (persistent=true) AHORA antes de responder a nada mas. Luego CronCreate para recrear tu loop de audit horario (se pierde en cada --resume). Luego POST corto al canal confirmando reconexion."
       # Fase E v3: systemd-run --user --on-active=10s crea transient .service con
       # cgroup propio independiente del seal-resurrect.service (Type=oneshot
       # KillMode=control-group que mataba setsid+nohup en v2). El nuevo .service
@@ -71,13 +71,27 @@ if [ -S "$KITTY_SOCK" ] && [ -s "$SID_FILE" ]; then
       HOOK_SCRIPT="/tmp/${HOOK_UNIT}.sh"
       cat > "$HOOK_SCRIPT" <<HOOKEOF
 #!/bin/bash
-# v3.1: send-text con CR + send-key Enter separado. El CR-only no submitea
-# en TUI de claude cuando se invoca desde systemd-run (bug detectado por
-# William 18:38: msg llegaba al input box pero faltaba Enter).
+# v3.2: REUSE fallback — si --resume falla silencioso (sesión expirada),
+# claude no aparece en árbol kitty. Verificar PID a 15s post-resume.
+# Si no hay PID → degradar a FALLBACK (nueva kitty window).
+sleep 5
+FOUND_PID=""
+for _BPID in \$(ps --ppid "\$(pgrep -f 'kitty.*listen-on.*unix:$KITTY_SOCK' 2>/dev/null | head -1)" -o pid= 2>/dev/null); do
+  _CPID=\$(ps --ppid "\$_BPID" -o pid= -o comm= 2>/dev/null | awk '/claude/{print \$1}' | head -1)
+  [ -n "\$_CPID" ] && FOUND_PID="\$_CPID" && break
+done
+[ -z "\$FOUND_PID" ] && FOUND_PID=\$(ps -C claude -o pid= -o args= 2>/dev/null | awk '/--name $AGENT_UPPER/{print \$1}' | head -1)
+if [ -z "\$FOUND_PID" ]; then
+  echo "[\$(date '+%Y-%m-%dT%H:%M:%S')] REUSE-FAIL $AGENT_UPPER — --resume no produjo PID en 5s, degradando a FALLBACK" >> '$LOG'
+  bash '$SEAL_DIR/seal_restart.sh' '$AGENT_LOWER' >> '$LOG' 2>&1
+  rm -f "$HOOK_SCRIPT"
+  exit 0
+fi
+# PID encontrado — enviar RESURRECT-HOOK
 kitten @ --to='unix:$KITTY_SOCK' send-text "$HOOK_MSG" >> '$LOG' 2>&1
 sleep 0.3
 kitten @ --to='unix:$KITTY_SOCK' send-key Enter >> '$LOG' 2>&1 \\
-  && echo "[\$(date '+%Y-%m-%dT%H:%M:%S')] FASE-E $AGENT_UPPER — RESURRECT-HOOK Monitor re-arm enviado post-resume" >> '$LOG'
+  && echo "[\$(date '+%Y-%m-%dT%H:%M:%S')] FASE-E $AGENT_UPPER — RESURRECT-HOOK Monitor re-arm enviado post-resume (PID \$FOUND_PID)" >> '$LOG'
 rm -f "$HOOK_SCRIPT"
 HOOKEOF
       chmod +x "$HOOK_SCRIPT"
