@@ -117,7 +117,9 @@ if [ -n "$OLD_KITTY_PIDS" ]; then
   echo "[$(ts)] FALLBACK $AGENT_UPPER — kitty zombies (PIDs $(echo $OLD_KITTY_PIDS | tr '\n' ' ')) cerradas" >> "$LOG"
 fi
 
-# Fallback: lanzar kitty nueva CON socket + `exec bash` para sobrevivir muerte de claude
+# Fallback: lanzar kitty nueva CON socket + restart loop interno
+# Loop auto-resurrecta al agente en la MISMA ventana sin abrir otra nueva.
+# RESURRECT externo actúa como safety-net solo si kitty muere completamente.
 systemd-run --user \
   --unit="$UNIT" \
   --description="SEAL RESURRECT $AGENT_UPPER" \
@@ -125,7 +127,7 @@ systemd-run --user \
     kitty --listen-on "unix:$KITTY_SOCK" \
     -o allow_remote_control=yes \
     --title "$AGENT_UPPER — Team SEAL" \
-    bash -c "cd '$AGENT_DIR' && bash '$FRESH_SCRIPT'; cd '$AGENT_DIR'; exec bash" \
+    bash -c "while true; do cd '$AGENT_DIR' && bash '$FRESH_SCRIPT'; echo '[SEAL-LOOP] $AGENT_UPPER exited — reiniciando en 5s...'; sleep 5; done" \
   >> "$LOG" 2>&1
 EXIT_CODE=$?
 
