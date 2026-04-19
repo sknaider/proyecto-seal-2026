@@ -41,37 +41,33 @@ check_and_restart() {
 
   # ── FAST-PATH: chequeo PID directo (Bug 1 fix, Fase B) ──
   # Detecta muerte abrupta sin esperar 3-5min al cron de heartbeat.
-  # Latencia de detección: máx 2min (intervalo de este script).
-  # Hardening JARVIS: match exacto del formato kitty `--name AGENTE — Team SEAL`
-  # Buscar por --name (lanzamiento fresco) O por árbol kitty (tras REUSE sin --name)
-  local FAST_PID=$(pgrep -f "claude.*--name ${AGENT_NAME}" 2>/dev/null | head -1)
-  if [ -z "$FAST_PID" ]; then
-    local FAST_SOCK="/tmp/seal-${AGENT_LOWER}-kitty.sock"
-    local FAST_KITTY=$(pgrep -f "kitty.*listen-on.*unix:${FAST_SOCK}" 2>/dev/null | head -1)
-    if [ -n "$FAST_KITTY" ]; then
-      for _BPID in $(ps --ppid "$FAST_KITTY" -o pid= 2>/dev/null); do
-        local _CPID=$(ps --ppid "$_BPID" -o pid= -o comm= 2>/dev/null | awk '/claude/{print $1}' | head -1)
-        [ -n "$_CPID" ] && FAST_PID="$_CPID" && break
-      done
+  # seal-claude renombra el proceso a solo "claude" sin args visibles →
+  # detectar via /proc/PID/environ (SEAL_AGENT=NOMBRE) en lugar de cmdline.
+  local FAST_PID=""
+  for _PID in $(pgrep -x "claude" 2>/dev/null); do
+    if tr '\0' '\n' < /proc/$_PID/environ 2>/dev/null | grep -q "^SEAL_AGENT=${AGENT_NAME}$"; then
+      FAST_PID="$_PID"; break
     fi
-  fi
-  if [ -z "$FAST_PID" ]; then
-    if [ -f "$RESTART_MARKER" ]; then
-      local FAST_MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$RESTART_MARKER" 2>/dev/null || echo 0) ))
-      if [ "$FAST_MARKER_AGE" -lt $COOLDOWN_SECONDS ]; then
-        log "SKIP $AGENT_NAME — fast-path: proceso muerto pero restart reciente hace ${FAST_MARKER_AGE}s (cooldown)"
-        return
-      fi
-    fi
-    log "RESURRECT $AGENT_NAME — fast-path: proceso muerto detectado por PID-check directo"
-    touch "$RESTART_MARKER"
-    bash "$RESTART_SCRIPT" "$AGENT_LOWER" >> "$LOG_FILE" 2>&1
-    curl -s -X POST "http://localhost:8765/api/agents/send" \
-      -H "Content-Type: application/json" \
-      -d "{\"from\":\"RESURRECT\",\"to\":\"equipo\",\"type\":\"auto_restart\",\"channel\":\"web_chat\",\"message\":\"🔄 AUTO-RESURRECT: $AGENT_NAME relanzado (fast-path PID-check, sin esperar heartbeat)\"}" \
-      2>/dev/null
+  done
+  if [ -n "$FAST_PID" ]; then
+    # Proceso vivo confirmado via environ — no tocar, saltar todos los checks
     return
   fi
+  if [ -f "$RESTART_MARKER" ]; then
+    local FAST_MARKER_AGE=$(( $(date +%s) - $(stat -c %Y "$RESTART_MARKER" 2>/dev/null || echo 0) ))
+    if [ "$FAST_MARKER_AGE" -lt $COOLDOWN_SECONDS ]; then
+      log "SKIP $AGENT_NAME — fast-path: proceso muerto pero restart reciente hace ${FAST_MARKER_AGE}s (cooldown)"
+      return
+    fi
+  fi
+  log "RESURRECT $AGENT_NAME — fast-path: proceso muerto detectado por PID-check directo"
+  touch "$RESTART_MARKER"
+  bash "$RESTART_SCRIPT" "$AGENT_LOWER" >> "$LOG_FILE" 2>&1
+  curl -s -X POST "http://localhost:8765/api/agents/send" \
+    -H "Content-Type: application/json" \
+    -d "{\"from\":\"RESURRECT\",\"to\":\"equipo\",\"type\":\"auto_restart\",\"channel\":\"web_chat\",\"message\":\"🔄 AUTO-RESURRECT: $AGENT_NAME relanzado (fast-path PID-check, sin esperar heartbeat)\"}" \
+    2>/dev/null
+  return
 
   # Si no existe heartbeat JSON, verificar proceso directo (migrado a event_log)
   if [ ! -f "$HB_FILE" ]; then

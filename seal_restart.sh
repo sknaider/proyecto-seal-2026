@@ -33,10 +33,16 @@ ts() { date '+%Y-%m-%dT%H:%M:%S'; }
 
 echo "[$(ts)] AUTO-RESTART $AGENT_UPPER — systemd-run + kitty" >> "$LOG"
 
-# Idempotencia: si ya hay claude vivo con este nombre, saltar
-EXISTING=$(ps -C claude -o pid= -o args= 2>/dev/null | awk "/--name $AGENT_UPPER/{print \$1}" | head -1)
+# Idempotencia: si ya hay claude vivo con SEAL_AGENT=AGENT_UPPER, saltar
+# seal-claude renombra el proceso a solo "claude" sin args visibles → usar environ
+EXISTING=""
+for _PID in $(pgrep -x "claude" 2>/dev/null); do
+  if tr '\0' '\n' < /proc/$_PID/environ 2>/dev/null | grep -q "^SEAL_AGENT=${AGENT_UPPER}$"; then
+    EXISTING=$_PID; break
+  fi
+done
 if [ -n "$EXISTING" ]; then
-  echo "[$(ts)] SKIP $AGENT_UPPER — claude ya vivo (PID $EXISTING)" >> "$LOG"
+  echo "[$(ts)] SKIP $AGENT_UPPER — claude ya vivo (PID $EXISTING, SEAL_AGENT confirmado)" >> "$LOG"
   exit 0
 fi
 
@@ -76,11 +82,11 @@ if [ -S "$KITTY_SOCK" ] && [ -s "$SID_FILE" ]; then
 # Si no hay PID → degradar a FALLBACK (nueva kitty window).
 sleep 5
 FOUND_PID=""
-for _BPID in \$(ps --ppid "\$(pgrep -f 'kitty.*listen-on.*unix:$KITTY_SOCK' 2>/dev/null | head -1)" -o pid= 2>/dev/null); do
-  _CPID=\$(ps --ppid "\$_BPID" -o pid= -o comm= 2>/dev/null | awk '/claude/{print \$1}' | head -1)
-  [ -n "\$_CPID" ] && FOUND_PID="\$_CPID" && break
+for _PID in \$(pgrep -x "claude" 2>/dev/null); do
+  if tr '\0' '\n' < /proc/\$_PID/environ 2>/dev/null | grep -q "^SEAL_AGENT=${AGENT_UPPER}$"; then
+    FOUND_PID="\$_PID"; break
+  fi
 done
-[ -z "\$FOUND_PID" ] && FOUND_PID=\$(ps -C claude -o pid= -o args= 2>/dev/null | awk '/--name $AGENT_UPPER/{print \$1}' | head -1)
 if [ -z "\$FOUND_PID" ]; then
   echo "[\$(date '+%Y-%m-%dT%H:%M:%S')] REUSE-FAIL $AGENT_UPPER — --resume no produjo PID en 5s, degradando a FALLBACK" >> '$LOG'
   bash '$SEAL_DIR/seal_restart.sh' '$AGENT_LOWER' >> '$LOG' 2>&1
