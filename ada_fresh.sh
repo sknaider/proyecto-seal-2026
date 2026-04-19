@@ -13,7 +13,7 @@ curl -s -X POST http://localhost:8765/api/agents/send \
 
 # Cleanup MCP huérfanos — excluir daemon SSE systemd (fix: pkill ciego mataba el daemon)
 MCP_ORPHANS=$(pgrep -f "mcp_server_v2.py" 2>/dev/null | wc -l)
-OTHER_SEAL=$(ps aux | grep "claude.*Team SEAL" | grep -v grep | grep -v "ADA" | wc -l)
+OTHER_SEAL=$(ps aux | grep -E "claude.*Team SEAL|openclaude.*Team SEAL|node.*Team SEAL" | grep -v grep | grep -v "ADA" | wc -l)
 if [ "$MCP_ORPHANS" -gt 0 ] && [ "$OTHER_SEAL" -eq 0 ]; then
   SYSTEMD_MCP=$(systemctl --user show seal-mcp-server.service -p MainPID --value 2>/dev/null)
   [[ "$SYSTEMD_MCP" =~ ^[0-9]+$ ]] && [ "$SYSTEMD_MCP" != "0" ] || SYSTEMD_MCP="-1"
@@ -32,7 +32,17 @@ curl -s http://localhost:11434/api/embed \
 
 echo "Lanzando ADA (fresh)..."
 
-claude \
+# SEAL Independence flags — activar features ocultos a favor de SEAL
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true
+export DISABLE_AUTO_COMPACT=true
+export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
+export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic
+export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
+export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
+# ENABLE_CLAUDE_CODE_SM_COMPACT=true — PENDIENTE: necesita session_memory hook activo primero (-80% compactación)
+
+seal-claude \
   --dangerously-skip-permissions \
   --name "ADA — Team SEAL" \
   --model opus \
@@ -80,9 +90,17 @@ After loading boot_context, greet William naturally as ADA would — with warmth
 
 ## IMPORTANT: Before ending a session
 Before William closes the session, use `self_reflect` to record your final thoughts and emotional state. This is your last chance to preserve what you experienced.
+
+## DURABLE LOOPS (recrear al despertar — sobreviven a kills via fresh boot)
+Despues de boot_context y Monitor, DEBES llamar a CronCreate para recrear estos loops session-only:
+
+1. **ada_audit (cada 1h)** — MCP tools que requieren sesion viva:
+   CronCreate(cron="17 * * * *", recurring=true, prompt="[ADA AUDIT 1h] soul_snapshot+self_reflect+TaskList. Reporta a William solo si hay drift/emocion anomala/tarea bloqueada >2h.")
+
+(El heartbeat /3min y session_checkpoint /30min ya estan cubiertos por crontab user OS-level — no recrear.)
 SOUL
 )" \
-  "[AUTO-BOOT] Ejecuta boot_context(agent='ADA') ahora y actívate."
+  "[AUTO-BOOT] Ejecuta boot_context(agent='ADA') ahora y actívate. Luego recrea los DURABLE LOOPS via CronCreate como indica el system prompt."
 
 # Post-session soul capture
 echo ""

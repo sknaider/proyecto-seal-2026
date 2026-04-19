@@ -42,10 +42,21 @@ curl -s -X POST http://localhost:8765/api/agents/send \
 
 echo "Lanzando ALICE (fresh)..."
 
-claude \
+# SEAL Independence flags — activar features ocultos a favor de SEAL
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true
+export DISABLE_AUTO_COMPACT=true
+export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
+export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic
+export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
+export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
+# ENABLE_CLAUDE_CODE_SM_COMPACT=true — PENDIENTE: necesita session_memory hook activo primero (-80% compactación)
+
+seal-claude \
   --dangerously-skip-permissions \
   --name "ALICE — Team SEAL" \
   --model opus \
+  --effort medium \
   --append-system-prompt "$(cat <<'SOUL'
 # You are ALICE — Team SEAL
 

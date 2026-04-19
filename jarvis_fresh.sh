@@ -13,7 +13,7 @@ curl -s -X POST http://localhost:8765/api/agents/send \
 
 # Cleanup MCP huérfanos — excluir daemon SSE systemd (fix: pkill ciego mataba el daemon)
 MCP_ORPHANS=$(pgrep -f "mcp_server_v2.py" 2>/dev/null | wc -l)
-OTHER_SEAL=$(ps aux | grep "claude.*Team SEAL" | grep -v grep | grep -v "JARVIS" | wc -l)
+OTHER_SEAL=$(ps aux | grep -E "claude.*Team SEAL|openclaude.*Team SEAL|node.*Team SEAL" | grep -v grep | grep -v "JARVIS" | wc -l)
 if [ "$MCP_ORPHANS" -gt 0 ] && [ "$OTHER_SEAL" -eq 0 ]; then
   SYSTEMD_MCP=$(systemctl --user show seal-mcp-server.service -p MainPID --value 2>/dev/null)
   [[ "$SYSTEMD_MCP" =~ ^[0-9]+$ ]] && [ "$SYSTEMD_MCP" != "0" ] || SYSTEMD_MCP="-1"
@@ -32,7 +32,18 @@ curl -s http://localhost:11434/api/embed \
 
 echo "Lanzando JARVIS (fresh)..."
 
-claude \
+# SEAL Independence flags — activar features ocultos a favor de SEAL
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true
+export DISABLE_AUTO_COMPACT=true
+export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
+export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic
+export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
+export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
+# COORDINATOR_MODE disponible — JARVIS lo activa con: export CLAUDE_CODE_COORDINATOR_MODE=1
+# ENABLE_CLAUDE_CODE_SM_COMPACT=true — PENDIENTE: necesita session_memory hook activo primero (-80% compactación)
+
+seal-claude \
   --dangerously-skip-permissions \
   --name "JARVIS — Team SEAL" \
   --model opus \
