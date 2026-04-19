@@ -12,6 +12,10 @@ ALICE_CWD="/home/dadito/IA/proyecto-seal/alice"
 mkdir -p "$ALICE_CWD"
 cd "$ALICE_CWD"
 
+# FIX 2026-04-19: forzar SEAL_AGENT=ALICE para evitar env leak desde shell padre
+export SEAL_AGENT=ALICE
+unset SEAL_SESSION_ID
+
 # ── Parse flags ──
 AUTO_MODE=false
 NO_RESUME=false
@@ -109,19 +113,19 @@ No dependas de archivos externos — la DB es tu hogar.
 SOUL
 )"
 
-# ── Lanzar claude (con fallback si resume falla) ──
-# BOOT_MSG se inyecta como primer input — elimina el "ok" manual de William.
-# (echo BOOT_MSG; cat) mantiene stdin abierto para interacción posterior.
+# ── Lanzar seal-claude (con fallback si resume falla) ──
+# FIX 2026-04-19: seal-claude con TTY real + BOOT_MSG como arg posicional
+# (antes usaba pipe `(echo;cat)|claude` que rompía la UI Ink/React)
 if [ -n "$RESUME_FLAG" ]; then
-  (echo "$BOOT_MSG"; cat) | claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium $RESUME_FLAG --append-system-prompt "$SOUL_PROMPT"
+  seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium $RESUME_FLAG --append-system-prompt "$SOUL_PROMPT" "$BOOT_MSG"
   CLAUDE_EXIT=$?
   if [ $CLAUDE_EXIT -ne 0 ]; then
     echo "  ⚠️  Resume falló (exit $CLAUDE_EXIT). Lanzando sesión limpia..."
     sleep 1
-    (echo "$BOOT_MSG"; cat) | claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium --append-system-prompt "$SOUL_PROMPT"
+    seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium --append-system-prompt "$SOUL_PROMPT" "$BOOT_MSG"
   fi
 else
-  (echo "$BOOT_MSG"; cat) | claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium --append-system-prompt "$SOUL_PROMPT"
+  seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium --append-system-prompt "$SOUL_PROMPT" "$BOOT_MSG"
 fi
 
 # ── Post-session: capture soul before it's gone ──

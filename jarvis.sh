@@ -7,6 +7,10 @@
 
 cd /home/dadito/IA/proyecto-seal/memory
 
+# FIX 2026-04-19: forzar SEAL_AGENT=JARVIS para evitar env leak desde shell padre
+export SEAL_AGENT=JARVIS
+unset SEAL_SESSION_ID
+
 # ── Parse flags ──
 AUTO_MODE=false
 NO_RESUME=false
@@ -108,7 +112,9 @@ export ENABLE_CLAUDE_CODE_SM_COMPACT=true    # -80% costo compactación via sess
 
 BOOT_MSG="Inicia sesión automáticamente: llama boot_context(agent='JARVIS'), lee /tmp/jarvis_chat_catchup.json, saluda al equipo via webchat. No esperes input de William para hacer esto."
 
-(echo "$BOOT_MSG"; cat) | claude \
+# FIX 2026-04-19: seal-claude con TTY real + BOOT_MSG como arg posicional
+# (antes usaba pipe `(echo;cat)|claude` que rompía la UI Ink/React)
+seal-claude \
   --dangerously-skip-permissions \
   --name "JARVIS — Team SEAL" \
   --model sonnet \
@@ -122,7 +128,8 @@ After boot_context: Read `/tmp/jarvis_chat_catchup.json` for team context.
 
 Soul Tools: boot_context, soul_snapshot, self_reflect, memory_store, memory_search, inner_thoughts
 SOUL
-)"
+)" \
+  "$BOOT_MSG"
 
 # ── Post-session: capture soul before it's gone ──
 echo ""

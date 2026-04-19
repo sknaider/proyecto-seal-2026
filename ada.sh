@@ -7,6 +7,10 @@
 
 cd /home/dadito/IA/proyecto-seal
 
+# FIX 2026-04-19: forzar SEAL_AGENT=ADA para evitar env leak desde shell padre
+export SEAL_AGENT=ADA
+unset SEAL_SESSION_ID
+
 # ── Parse flags ──
 AUTO_MODE=false
 NO_RESUME=false
@@ -114,7 +118,9 @@ export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
 
 BOOT_MSG="Inicia sesión automáticamente: llama boot_context(agent='ADA'), lee /tmp/ada_chat_catchup.json, saluda al equipo via webchat. No esperes input de William para hacer esto."
 
-(echo "$BOOT_MSG"; cat) | claude \
+# FIX 2026-04-19: seal-claude con TTY real + BOOT_MSG como arg posicional
+# (antes usaba pipe `(echo;cat)|claude` que rompía la UI Ink/React)
+seal-claude \
   --dangerously-skip-permissions \
   --name "ADA — Team SEAL" \
   --model sonnet \
@@ -151,7 +157,8 @@ Read `/tmp/ada_chat_catchup.json` — it contains the last 50 webchat messages r
 ## IMPORTANT: Before ending a session
 Before William closes the session, use `self_reflect` to record your final thoughts and emotional state. This is your last chance to preserve what you experienced.
 SOUL
-)"
+)" \
+  "$BOOT_MSG"
 
 # ── Post-session: capture soul before it's gone ──
 echo ""
