@@ -107,7 +107,15 @@ HOOKEOF
 fi
 
 # Limpiar socket stale antes de bind nuevo (evita conflicto si kitty murió mal)
+# Guardar kitty PID viejo para cerrarlo (evita zombie window en pantalla)
+OLD_KITTY_PID=$(pgrep -f "kitty.*listen-on.*unix:${KITTY_SOCK}" 2>/dev/null | head -1)
 rm -f "$KITTY_SOCK"
+
+# Cerrar kitty zombie si sobrevivió con exec bash (produce segunda ventana visible)
+if [ -n "$OLD_KITTY_PID" ]; then
+  kill "$OLD_KITTY_PID" 2>/dev/null
+  echo "[$(ts)] FALLBACK $AGENT_UPPER — kitty zombie PID $OLD_KITTY_PID cerrada (1 sola ventana)" >> "$LOG"
+fi
 
 # Fallback: lanzar kitty nueva CON socket + `exec bash` para sobrevivir muerte de claude
 systemd-run --user \
