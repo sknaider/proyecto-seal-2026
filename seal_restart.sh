@@ -11,7 +11,14 @@ esac
 
 AGENT_UPPER="${AGENT_LOWER^^}"
 SEAL_DIR="/home/dadito/IA/proyecto-seal"
-FRESH_SCRIPT="$SEAL_DIR/${AGENT_LOWER}_fresh.sh"
+
+# body-split: buscar fresh.sh en carpeta propia del agente primero (fallback al shared)
+BODY_DIR="/home/dadito/IA/proyecto-seal-${AGENT_LOWER}"
+if [ -x "${BODY_DIR}/${AGENT_LOWER}_fresh.sh" ]; then
+  FRESH_SCRIPT="${BODY_DIR}/${AGENT_LOWER}_fresh.sh"
+else
+  FRESH_SCRIPT="$SEAL_DIR/${AGENT_LOWER}_fresh.sh"
+fi
 LOG="$SEAL_DIR/messages/seal_restart.log"
 UNIT="seal-resurrect-${AGENT_LOWER}-$(date +%s)"
 KITTY_SOCK="/tmp/seal-${AGENT_LOWER}-kitty.sock"

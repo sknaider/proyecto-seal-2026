@@ -181,10 +181,11 @@ check_and_restart() {
   fi
 }
 
-# ── Main ──
-check_and_restart "ADA"
+# ── Main ── (body-split 2026-04-19: ADA y ALICE dormidas por directiva William)
+# Reactivar comentando las dos líneas de abajo cuando William lo autorice.
+# check_and_restart "ADA"   # DORMIDA — descomenta para activar
 check_and_restart "JARVIS"
-check_and_restart "ALICE"
+# check_and_restart "ALICE" # DORMIDA — descomenta para activar
 
 # Limpiar log si crece demasiado (>1MB)
 if [ -f "$LOG_FILE" ]; then

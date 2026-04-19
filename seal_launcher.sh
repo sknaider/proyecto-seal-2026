@@ -15,7 +15,12 @@
 AGENT="${1:?Usage: seal_launcher.sh <ADA|JARVIS|ALICE>}"
 AGENT_LOWER="${AGENT,,}"
 SESSION="seal-${AGENT_LOWER}"
-LAUNCHER="/home/dadito/IA/proyecto-seal/${AGENT_LOWER}.sh"
+
+# Per-agent body dirs (body-split migration) — busca en carpeta propia primero, fallback al shared
+LAUNCHER="/home/dadito/IA/proyecto-seal-${AGENT_LOWER}/${AGENT_LOWER}.sh"
+if [ ! -x "$LAUNCHER" ]; then
+  LAUNCHER="/home/dadito/IA/proyecto-seal/${AGENT_LOWER}.sh"
+fi
 
 if [ ! -x "$LAUNCHER" ]; then
   echo "ERROR: Launcher no encontrado o no ejecutable: $LAUNCHER"
