@@ -1156,7 +1156,10 @@ async def agents_send(request: Request):
                 with open(log_path, "a", encoding="utf-8") as f:
                     f.write(json.dumps(jsonl_entry, ensure_ascii=False) + "\n")
 
-    await broadcast(entry)  # broadcast sin cifrar (va por WebSocket en memoria)
+    # SILENT_MARKER: log + persist but skip WebSocket broadcast for background noise
+    _silent = text.startswith("[SILENT]")
+    if not _silent:
+        await broadcast(entry)  # broadcast sin cifrar (va por WebSocket en memoria)
     await enqueue(entry)  # enqueue también deduplica para el in-memory queue
 
     # Dual-write: persist to PostgreSQL (best-effort, don't block on failure)
@@ -1172,7 +1175,8 @@ async def agents_send(request: Request):
             )
             # Re-broadcast with db_id so clients can use it for operations (e.g. delete)
             entry["db_id"] = db_msg["id"]
-            await broadcast(entry)
+            if not _silent:
+                await broadcast(entry)
     except Exception:
         pass  # DB write failure should never block agent communication
 

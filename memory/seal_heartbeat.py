@@ -5,7 +5,7 @@ seal_heartbeat.py — Single writer for SEAL agent heartbeats.
 Principle: event_log is truth. One path, no JSON divergence.
 All agents call beat() instead of writing JSON files directly.
 
-Schema note: event_log uses 'time' (not created_at), requires 'content'.
+Schema note: soul_v3.event_log uses 'created_at', requires 'content'.
 """
 from __future__ import annotations
 import json
@@ -32,7 +32,7 @@ async def beat(agent: str, metadata: dict | None = None, content: str | None = N
     conn = await asyncpg.connect(_DB_URL)
     try:
         await conn.execute(
-            """INSERT INTO event_log(time, agent, event_type, content, metadata)
+            """INSERT INTO soul_v3.event_log(created_at, agent, event_type, content, metadata)
                VALUES ($1, $2, 'heartbeat', $3, $4)""",
             datetime.now(timezone.utc),
             agent,
@@ -60,16 +60,16 @@ async def last_beat(agent: str) -> dict | None:
     conn = await asyncpg.connect(_DB_URL)
     try:
         row = await conn.fetchrow(
-            """SELECT time, agent, content, metadata
-               FROM event_log
+            """SELECT created_at, agent, content, metadata
+               FROM soul_v3.event_log
                WHERE event_type = 'heartbeat' AND agent = $1
-               ORDER BY time DESC LIMIT 1""",
+               ORDER BY created_at DESC LIMIT 1""",
             agent,
         )
         if row:
             return {
                 "agent": row["agent"],
-                "timestamp": row["time"].isoformat(),
+                "timestamp": row["created_at"].isoformat(),
                 "content": row["content"],
                 "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
             }
@@ -86,16 +86,16 @@ async def all_beats(agents: list[str] | None = None) -> list[dict]:
     try:
         for agent in agents:
             row = await conn.fetchrow(
-                """SELECT time, agent, content, metadata
-                   FROM event_log
+                """SELECT created_at, agent, content, metadata
+                   FROM soul_v3.event_log
                    WHERE event_type = 'heartbeat' AND agent = $1
-                   ORDER BY time DESC LIMIT 1""",
+                   ORDER BY created_at DESC LIMIT 1""",
                 agent,
             )
             if row:
                 results.append({
                     "agent": row["agent"],
-                    "timestamp": row["time"].isoformat(),
+                    "timestamp": row["created_at"].isoformat(),
                     "content": row["content"],
                     "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
                     "alive": True,

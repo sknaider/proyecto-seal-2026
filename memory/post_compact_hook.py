@@ -62,9 +62,9 @@ async def post_compact_context() -> str:
         # Todas las reglas críticas
         rules = await conn.fetch("""
             SELECT rule_key, content FROM rules
-            WHERE active = true AND LOWER(priority) IN ('critical', 'high')
+            WHERE active = true AND priority >= 8
             ORDER BY
-                CASE LOWER(priority) WHEN 'critical' THEN 0 ELSE 1 END,
+                CASE WHEN priority = 10 THEN 0 ELSE 1 END,
                 created_at DESC
             LIMIT 7
         """)
@@ -81,13 +81,13 @@ async def post_compact_context() -> str:
         for name in ["ADA", "JARVIS", "ALICE", "DUM"]:
             try:
                 row = await conn.fetchrow(
-                    """SELECT time FROM event_log
+                    """SELECT created_at FROM soul_v3.event_log
                        WHERE event_type = 'heartbeat' AND agent = $1
-                       ORDER BY time DESC LIMIT 1""",
+                       ORDER BY created_at DESC LIMIT 1""",
                     name,
                 )
                 if row:
-                    age = int((now_utc - row["time"]).total_seconds())
+                    age = int((now_utc - row["created_at"]).total_seconds())
                     status = "ALIVE" if age < 600 else "STALE"
                     lines.append(f"  {name}: {status} (hace {age}s)")
                 else:
