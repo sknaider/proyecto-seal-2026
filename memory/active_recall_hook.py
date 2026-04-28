@@ -107,7 +107,7 @@ async def active_recall(user_message: str) -> str:
                 inst_lines = ["⚡ INSTINTOS ACTIVOS (conf>=0.7):"]
                 for i in instincts:
                     inst_lines.append(
-                        f"  - [{i['confidence']:.2f}] CUANDO: {i['trigger_pattern'][:80]} "
+                        f"  - [{i['confidence']:.2f}] CUANDO: {i['trigger_condition'][:80]} "
                         f"→ HAZ: {i['response'][:100]}"
                     )
                 sections.append("\n".join(inst_lines))
