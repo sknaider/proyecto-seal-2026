@@ -117,9 +117,9 @@ async def active_recall(user_message: str) -> str:
         # 3. Key rules — ALL critical rules, then high. No hardcoded names.
         rules = await conn.fetch("""
             SELECT rule_key, content FROM rules
-            WHERE active = true AND LOWER(priority) IN ('critical', 'high')
+            WHERE active = true AND priority >= 8
             ORDER BY
-                CASE LOWER(priority) WHEN 'critical' THEN 0 ELSE 1 END,
+                CASE WHEN priority = 10 THEN 0 ELSE 1 END,
                 created_at DESC
             LIMIT 5
         """)
@@ -210,9 +210,20 @@ def main():
         print(json.dumps({}))
         return
 
+    # Check for steer from William — one-shot, always consumed even if recall is gated.
+    # Steer bypasses the rate-limit gate so a mid-session redirect always reaches the agent.
+    steer_data = None
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from seal.steer import check_steer
+        steer_data = check_steer(agent=agent)
+    except Exception:
+        pass
+
     # Gate: nueva sesión → corre en boot, luego rate-limit. Misma sesión → solo si re-auth.
+    # Exception: if a steer arrived, always pass through so William's redirect is surfaced.
     is_new = _is_new_session(agent)
-    if not is_new and _should_skip(user_message):
+    if not is_new and steer_data is None and _should_skip(user_message):
         print(json.dumps({}))
         return
     if is_new:
@@ -226,8 +237,15 @@ def main():
     try:
         result = asyncio.run(active_recall(user_message))
     except Exception:
-        print(json.dumps({}))
-        return
+        result = ""
+
+    # Prepend steer section — highest priority, William's live redirect
+    if steer_data:
+        steer_section = (
+            f"⚡ STEER DE WILLIAM (aplica AHORA en este turno):\n"
+            f"  \"{steer_data['message']}\""
+        )
+        result = steer_section + ("\n\n" + result if result else "")
 
     if result:
         output = {
