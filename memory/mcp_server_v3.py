@@ -159,23 +159,22 @@ async def erl_reflect(
     prompt = _build_reflect_prompt(task_description, outcome, trajectory, context, max_heuristics)
     raw = await _erl_call_ollama(prompt)
 
-    heuristics = []
-    if raw:
+    def _parse_json_array(text: str) -> Optional[list]:
+        if not text:
+            return None
+        start = text.find("[")
+        end = text.rfind("]") + 1
+        if start < 0 or end <= start:
+            return None
         try:
-            start = raw.find("[")
-            end = raw.rfind("]") + 1
-            if start >= 0 and end > start:
-                heuristics = json.loads(raw[start:end])
+            return json.loads(text[start:end])
         except Exception:
-            raw2 = await _erl_call_ollama(prompt + "\n\nIMPORTANT: Respond ONLY with JSON array.")
-            if raw2:
-                try:
-                    start = raw2.find("[")
-                    end = raw2.rfind("]") + 1
-                    if start >= 0 and end > start:
-                        heuristics = json.loads(raw2[start:end])
-                except Exception:
-                    pass
+            return None
+
+    heuristics = _parse_json_array(raw)
+    if heuristics is None:
+        raw2 = await _erl_call_ollama(prompt + "\n\nIMPORTANT: Respond ONLY with JSON array.")
+        heuristics = _parse_json_array(raw2) or []
 
     if not heuristics:
         return json.dumps({"heuristics_generated": 0, "error": "malformed_json", "ids": []})
