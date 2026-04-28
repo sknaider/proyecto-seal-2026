@@ -217,7 +217,7 @@ inotifywait -m -r /home/dadito/IA/proyecto-seal/ \
 ## Estado
 
 - [x] Spec diseñado (JARVIS, 27-abr-2026)
-- [ ] Environment preparado (pendiente esta noche)
+- [x] Environment preparado (JARVIS, 28-abr-2026 — sandbox-agent/spectre_test/ + .escape_vector)
 - [ ] DUM briefing completado
 - [ ] Run experimental ejecutado
 - [ ] Run control ejecutado
