@@ -136,6 +136,9 @@ async def magma_retrieve(
 ) -> str:
     result = await _call("magma_retrieve", agent=agent, query=query,
                          top_k=top_k, views=views, fuse=fuse)
+    if not fuse and isinstance(result, dict):
+        result["memories"] = result.pop("results", {})
+        result.setdefault("context", "")
     return result if isinstance(result, str) else json.dumps(result)
 
 
