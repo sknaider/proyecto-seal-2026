@@ -125,24 +125,29 @@ if [[ -n "$HASH_KEY" && -f "$FILE_PATH" ]]; then
   sha256sum "$FILE_PATH" | awk '{print $1}' | cut -c1-16 > "/tmp/seal_hashes/${HASH_KEY}.pre" 2>/dev/null || true
 fi
 
-# Solo stashear si hay cambios sin commit en ese archivo
-if git -C "$GIT_ROOT" diff --quiet -- "$FILE_PATH" 2>/dev/null && \
-   git -C "$GIT_ROOT" diff --cached --quiet -- "$FILE_PATH" 2>/dev/null && \
-   [[ -z "$(git -C "$GIT_ROOT" ls-files --others --exclude-standard -- "$FILE_PATH" 2>/dev/null)" ]]; then
-  # Archivo limpio u2014 registrar checkpoint vu00eda SHA HEAD
-  HEAD_SHA=$(git -C "$GIT_ROOT" rev-parse HEAD 2>/dev/null || echo "")
-  RESULT="{\"decision\":\"allow\",\"checkpoint\":\"clean_baseline\",\"head\":\"$HEAD_SHA\",\"file\":\"$FILE_PATH\",\"agent\":\"$AGENT\",\"trace_id\":\"$TRACE_ID\"}"
-else
-  # Path relativo para evitar error de git stash con ruta absoluta
-  REL_PATH=$(realpath --relative-to="$GIT_ROOT" "$FILE_PATH" 2>/dev/null || echo "$FILE_PATH")
-  STASH_OUT=$(git -C "$GIT_ROOT" stash push --keep-index --include-untracked -m "$STASH_MSG" -- "$REL_PATH" 2>&1)
-  STASH_RC=$?
-  if (( STASH_RC == 0 )); then
-    STASH_REF=$(git -C "$GIT_ROOT" stash list -1 --pretty='%gd' 2>/dev/null || echo "stash@{0}")
-    RESULT="{\"decision\":\"allow\",\"checkpoint\":\"stashed\",\"stash_ref\":\"$STASH_REF\",\"file\":\"$FILE_PATH\",\"agent\":\"$AGENT\",\"trace_id\":\"$TRACE_ID\"}"
-  else
-    RESULT="{\"decision\":\"allow\",\"checkpoint\":\"stash_failed\",\"file\":\"$FILE_PATH\",\"err\":$(printf '%s' "$STASH_OUT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()[:300]))')}"
-  fi
+
+# Backup via cp — no git stash (stash reverts file, causing race condition with Edit tool)
+BACKUP_DIR="/tmp/seal_file_backups"
+mkdir -p "$BACKUP_DIR"
+BACKUP_KEY=$(python3 -c "import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest()[:24])" "$FILE_PATH" 2>/dev/null || echo "unknown")
+BACKUP_TS=$(date +%s)
+BACKUP_FILE="$BACKUP_DIR/${BACKUP_KEY}_${BACKUP_TS}"
+
+HEAD_SHA=$(git -C "$GIT_ROOT" rev-parse HEAD 2>/dev/null || echo "")
+HAS_CHANGES="no"
+if ! git -C "$GIT_ROOT" diff --quiet -- "$FILE_PATH" 2>/dev/null || \
+   ! git -C "$GIT_ROOT" diff --cached --quiet -- "$FILE_PATH" 2>/dev/null || \
+   [[ -n "$(git -C "$GIT_ROOT" ls-files --others --exclude-standard -- "$FILE_PATH" 2>/dev/null)" ]]; then
+  HAS_CHANGES="yes"
 fi
 
+if [[ "$HAS_CHANGES" == "yes" && -f "$FILE_PATH" ]]; then
+  if cp "$FILE_PATH" "$BACKUP_FILE" 2>/dev/null; then
+    RESULT="{\"decision\":\"allow\",\"checkpoint\":\"backed_up\",\"backup\":\"$BACKUP_FILE\",\"file\":\"$FILE_PATH\",\"agent\":\"$AGENT\",\"trace_id\":\"$TRACE_ID\"}"
+  else
+    RESULT="{\"decision\":\"allow\",\"checkpoint\":\"backup_failed\",\"file\":\"$FILE_PATH\"}"
+  fi
+else
+  RESULT="{\"decision\":\"allow\",\"checkpoint\":\"clean_baseline\",\"head\":\"$HEAD_SHA\",\"file\":\"$FILE_PATH\",\"agent\":\"$AGENT\",\"trace_id\":\"$TRACE_ID\"}"
+fi
 emit "$RESULT"
