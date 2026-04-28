@@ -152,12 +152,68 @@ async def erl_reflect(
     context: Optional[str] = None,
     max_heuristics: int = 3,
 ) -> str:
-    result = await _call(
-        "erl_reflect",
-        agent=agent, task_description=task_description, outcome=outcome,
-        trajectory=trajectory, context=context, max_heuristics=max_heuristics,
-    )
-    return result if isinstance(result, str) else json.dumps(result)
+    if outcome not in ("success", "failure", "partial"):
+        outcome = "partial"
+    max_heuristics = max(1, min(5, max_heuristics))
+
+    prompt = _build_reflect_prompt(task_description, outcome, trajectory, context, max_heuristics)
+    raw = await _erl_call_ollama(prompt)
+
+    heuristics = []
+    if raw:
+        try:
+            start = raw.find("[")
+            end = raw.rfind("]") + 1
+            if start >= 0 and end > start:
+                heuristics = json.loads(raw[start:end])
+        except Exception:
+            raw2 = await _erl_call_ollama(prompt + "\n\nIMPORTANT: Respond ONLY with JSON array.")
+            if raw2:
+                try:
+                    start = raw2.find("[")
+                    end = raw2.rfind("]") + 1
+                    if start >= 0 and end > start:
+                        heuristics = json.loads(raw2[start:end])
+                except Exception:
+                    pass
+
+    if not heuristics:
+        return json.dumps({"heuristics_generated": 0, "error": "malformed_json", "ids": []})
+
+    stored_ids = []
+    for h in heuristics[:max_heuristics]:
+        if not isinstance(h, dict):
+            continue
+        lesson = h.get("lesson") or h.get("heuristic")
+        if not lesson:
+            continue
+        title = h.get("title", "")
+        confidence = float(h.get("confidence", 0.7))
+        importance = min(9, max(5, int(confidence * 10)))
+        content = f"[ERL {outcome.upper()}] {title}: {lesson}" if title else f"[ERL {outcome.upper()}] {lesson}"
+        res = await memory_store(
+            agent=agent,
+            category="insight",
+            content=content,
+            importance=importance,
+            source="erl_reflect",
+            metadata=json.dumps({
+                "tags": ["heuristic", "erl", outcome],
+                "outcome": outcome,
+                "task": task_description[:100],
+                "confidence": confidence,
+                "activation_count": 0,
+            }),
+        )
+        m = re.search(r"#?(\d+)", res or "")
+        if m:
+            stored_ids.append(int(m.group(1)))
+
+    return json.dumps({
+        "heuristics_generated": len(stored_ids),
+        "ids": stored_ids,
+        "outcome": outcome,
+    })
 
 
 async def erl_inject(
@@ -167,12 +223,53 @@ async def erl_inject(
     min_confidence: float = 0.5,
     min_activation_count: int = 0,
 ) -> str:
-    result = await _call(
-        "erl_inject",
-        agent=agent, task_description=task_description, top_k=top_k,
-        min_confidence=min_confidence, min_activation_count=min_activation_count,
-    )
-    return result if isinstance(result, str) else json.dumps(result)
+    query_emb = _get_embedder().encode(task_description, normalize_embeddings=True).tolist()
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, content, importance, metadata, created_at, "
+            "1 - (embedding <=> $1::vector) AS score "
+            "FROM memories "
+            "WHERE agent = $2 AND category = 'insight' AND invalid_at IS NULL "
+            "AND metadata->>'tags' LIKE '%heuristic%' "
+            "AND COALESCE((metadata->>'confidence')::float, 0) >= $3 "
+            "ORDER BY embedding <=> $1::vector LIMIT $4",
+            json.dumps(query_emb), agent, min_confidence, top_k,
+        )
+
+        heuristics = []
+        for r in rows:
+            meta = r["metadata"] or {}
+            if isinstance(meta, str):
+                try:
+                    meta = json.loads(meta)
+                except Exception:
+                    meta = {}
+            old_count = int(meta.get("activation_count", 0))
+            new_count = old_count + 1
+            new_meta = {**meta, "activation_count": new_count}
+            await conn.execute(
+                "UPDATE memories SET metadata = $1::jsonb WHERE id = $2",
+                json.dumps(new_meta), r["id"],
+            )
+            heuristics.append({
+                "id": r["id"],
+                "heuristic": r["content"] or "",
+                "score": round(float(r["score"]), 4),
+                "confidence": float(meta.get("confidence", 0.7)),
+                "activation_count": new_count,
+                "outcome": meta.get("outcome", "unknown"),
+            })
+
+    context = "Lecciones aprendidas:\n" + "\n".join(f"• {h['heuristic']}" for h in heuristics)
+    if not heuristics:
+        context = ""
+
+    return json.dumps({
+        "heuristics": heuristics,
+        "count": len(heuristics),
+        "formatted_context": context,
+    })
 
 
 # ── Helpers used by tests (not MCP tools) ────────────────────────────────────
