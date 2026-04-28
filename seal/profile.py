@@ -145,14 +145,32 @@ def _read_env(path: Path) -> dict[str, str]:
     return result
 
 
+def _is_alive(pid: int) -> bool:
+    """Return True if pid exists and is not a zombie."""
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    try:
+        stat = Path(f"/proc/{pid}/status").read_text()
+        for line in stat.splitlines():
+            if line.startswith("State:"):
+                return "Z" not in line
+    except OSError:
+        pass
+    return True
+
+
 def _running_agents(pdir: Path) -> list[str]:
-    """Return agent names with live lock files."""
+    """Return agent names with live (non-zombie) lock files."""
     running = []
     for lock in pdir.glob("*.lock"):
         try:
             pid = int(lock.read_text().strip())
-            os.kill(pid, 0)  # signal 0: check existence without killing
-            running.append(lock.stem)
+            if _is_alive(pid):
+                running.append(lock.stem)
+            else:
+                lock.unlink(missing_ok=True)  # stale or zombie lock
         except (ValueError, OSError):
-            lock.unlink(missing_ok=True)  # stale lock
+            lock.unlink(missing_ok=True)
     return running
