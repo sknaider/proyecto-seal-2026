@@ -4,11 +4,55 @@ the live soul-v3 server via MCP client protocol.
 """
 from __future__ import annotations
 import json
+import re
 from typing import Optional
 
 import asyncpg
+import httpx
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+
+_embedder = None
+
+
+def _get_embedder():
+    global _embedder
+    if _embedder is None:
+        from sentence_transformers import SentenceTransformer
+        _embedder = SentenceTransformer(
+            "intfloat/multilingual-e5-base",
+            device="cpu",
+            cache_folder="/home/dadito/IA/cache/huggingface",
+        )
+    return _embedder
+
+
+async def _erl_call_ollama(prompt: str, timeout: float = 30.0) -> Optional[str]:
+    """Calls Ollama generate API. Module-level so tests can replace it."""
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                "http://localhost:11434/api/generate",
+                json={"model": "qwen2.5:7b", "prompt": prompt, "stream": False,
+                      "options": {"temperature": 0.4, "num_predict": 400}},
+            )
+            return resp.json().get("response", "").strip()
+    except Exception:
+        return None
+
+
+def _build_reflect_prompt(task_description, outcome, trajectory, context, max_heuristics):
+    ctx_block = f"\nContext:\n{context}" if context else ""
+    return (
+        f"You are an AI agent doing post-task reflection to extract transferable heuristics.\n\n"
+        f"Task: {task_description}\nOutcome: {outcome}\n"
+        f"Trajectory (steps/errors/decisions):\n{trajectory}{ctx_block}\n\n"
+        f"Extract up to {max_heuristics} transferable heuristics as JSON array. "
+        f"Each heuristic: {{\"title\": \"short title\", \"lesson\": \"what to do/avoid\", "
+        f"\"confidence\": 0.0-1.0}}. "
+        f"Focus on non-obvious insights that generalize beyond this specific task. "
+        f"Respond ONLY with valid JSON array, no explanation."
+    )
 
 _SERVER_URL = "http://127.0.0.1:8771/sse"
 _DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
