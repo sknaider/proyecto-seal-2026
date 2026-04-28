@@ -366,13 +366,29 @@ class HookManager:
         self, tool_name: str, args: Dict[str, Any], **ctx: Any
     ) -> Dict[str, Any]:
         """Returns (possibly transformed) args dict."""
-        return await self._transform("on_pre_tool", args, tool_name, **ctx)
+        current = args
+        for hook in self._reg.all():
+            try:
+                result = await hook.on_pre_tool(tool_name, current, **ctx)
+                if result is not None:
+                    current = result
+            except Exception:
+                logger.exception("Hook %s.on_pre_tool raised", hook.name)
+        return current
 
     async def post_tool(
         self, tool_name: str, args: Dict[str, Any], result: str, **ctx: Any
     ) -> str:
         """Returns (possibly transformed) result string."""
-        return await self._transform("on_post_tool", result, tool_name, args, **ctx)
+        current = result
+        for hook in self._reg.all():
+            try:
+                out = await hook.on_post_tool(tool_name, args, current, **ctx)
+                if out is not None:
+                    current = out
+            except Exception:
+                logger.exception("Hook %s.on_post_tool raised", hook.name)
+        return current
 
     async def pre_compress(self, messages: List[Dict], **ctx: Any) -> str:
         """Collects insight strings from all hooks into one block."""
