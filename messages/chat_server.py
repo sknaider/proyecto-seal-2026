@@ -58,6 +58,13 @@ LOG_JARVIS  = DIR / "vscode_commands.jsonl"
 LOG_WILLIAM = DIR / "william_channel.jsonl"  # canal que leen los loops de ADA y JARVIS
 LOG_ALICE   = DIR / "alice_messages.jsonl"
 
+# Steer files: ephemeral, one-shot delivery. Agent reads + clears.
+_STEER_DIR = DIR  # steers live alongside other message files
+
+
+def _steer_path(agent: str) -> "Path":
+    return _STEER_DIR / f".{agent.lower()}_steer.json"
+
 # ── DM Encryption — solo canales privados (dm:*) ──────────────────────────────
 _DM_KEY_PATH = DIR / ".dm_encryption_key"
 
@@ -1162,6 +1169,15 @@ async def agents_send(request: Request):
         await broadcast(entry)  # broadcast sin cifrar (va por WebSocket en memoria)
     await enqueue(entry)  # enqueue también deduplica para el in-memory queue
 
+    # STEER mode: write to ephemeral steer file so agent can incorporate mid-task
+    if mtype == "steer" and to and to.lower() not in ("equipo", "william", ""):
+        try:
+            import json as _json
+            steer_data = {"from": sender, "message": text, "timestamp": ts, "id": msg_id}
+            _steer_path(to).write_text(_json.dumps(steer_data, ensure_ascii=False))
+        except Exception:
+            pass
+
     # Dual-write: persist to PostgreSQL (best-effort, don't block on failure)
     try:
         if chat_db.pool:
@@ -1700,6 +1716,37 @@ async def route_message(
         "suggested_agent": suggested or fallback,
         "is_fallback": suggested is None,
     })
+
+
+# ── Steer endpoint — mid-task direction injection ────────────────────────────
+@app.get("/api/agents/steer/{agent}")
+async def get_steer(agent: str, consume: bool = True):
+    """Read pending steer for an agent.
+
+    Returns the steer message and clears it if consume=true (default).
+    Agents call this at turn start to incorporate any mid-task direction.
+
+    GET /api/agents/steer/ADA          → returns steer + clears file
+    GET /api/agents/steer/ADA?consume=false  → peek without clearing
+    """
+    sp = _steer_path(agent)
+    if not sp.exists():
+        return JSONResponse({"steer": None})
+    try:
+        data = json.loads(sp.read_text())
+        if consume:
+            sp.unlink(missing_ok=True)
+        return JSONResponse({"steer": data})
+    except Exception:
+        sp.unlink(missing_ok=True)
+        return JSONResponse({"steer": None})
+
+
+@app.delete("/api/agents/steer/{agent}")
+async def clear_steer(agent: str):
+    """Explicitly clear a pending steer for an agent."""
+    _steer_path(agent).unlink(missing_ok=True)
+    return JSONResponse({"ok": True})
 
 
 # ── Internal streaming endpoint (solo localhost) ─────────────────────────────
