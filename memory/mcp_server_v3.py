@@ -370,3 +370,216 @@ async def _erl_promote_sweep(agent: str) -> dict:
             )
             promoted.append(r["id"])
     return {"promoted": len(promoted), "promoted_ids": promoted}
+
+
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+
+_RATE_LIMIT_DEFAULT: int = 60
+_RATE_LIMITS_OVERRIDE: dict = {
+    "connectome_build": 5,
+    "temporal_graph_build": 3,
+    "cold_archive_migrate": 10,
+    "memory_broadcast_read": 30,
+}
+_rate_windows: dict = collections.defaultdict(collections.deque)
+
+
+def _rate_check(tool_name: str, window_seconds: float = 60.0) -> tuple:
+    """Sliding window rate check. Returns (allowed: bool, remaining: int)."""
+    now = time.time()
+    limit = _RATE_LIMITS_OVERRIDE.get(tool_name, _RATE_LIMIT_DEFAULT)
+    dq = _rate_windows[tool_name]
+    while dq and now - dq[0] > window_seconds:
+        dq.popleft()
+    if len(dq) < limit:
+        dq.append(now)
+        return True, limit - len(dq)
+    return False, 0
+
+
+# ── Health check ──────────────────────────────────────────────────────────────
+
+async def health_check() -> str:
+    uptime = round(time.time() - _START_TIME, 2)
+
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+        pg_status = {"status": "ok"}
+    except Exception as e:
+        pg_status = {"status": "error", "error": str(e)[:100]}
+
+    try:
+        from neo4j import AsyncGraphDatabase
+        _drv = AsyncGraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "seal2026soul"))
+        async with _drv.session() as _s:
+            await _s.run("RETURN 1")
+        await _drv.close()
+        neo4j_status = {"status": "ok"}
+    except Exception as e:
+        neo4j_status = {"status": "degraded", "error": str(e)[:80]}
+
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.get("http://localhost:6333/collections")
+            qdrant_status = {"status": "ok" if r.status_code < 400 else "degraded"}
+    except Exception as e:
+        qdrant_status = {"status": "degraded", "error": str(e)[:80]}
+
+    overall = "ok" if pg_status["status"] == "ok" else "degraded"
+    return json.dumps({
+        "status": overall,
+        "uptime_seconds": uptime,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "services": {"postgresql": pg_status, "neo4j": neo4j_status, "qdrant": qdrant_status},
+    })
+
+
+# ── Graceful shutdown stubs ───────────────────────────────────────────────────
+
+async def _async_cleanup() -> None:
+    global _pool
+    if _pool is not None and not _pool._closed:
+        await _pool.close()
+        _pool = None
+
+
+def _sync_cleanup() -> None:
+    pass
+
+
+def _signal_handler(signum, frame) -> None:
+    pass
+
+
+# ── Proxy: belief_query, boot_context ────────────────────────────────────────
+
+async def belief_query(agent: str, topic: Optional[str] = None, status: str = "active",
+                       limit: int = 20) -> str:
+    result = await _call("belief_query", agent=agent, topic=topic, status=status, limit=limit)
+    return result if isinstance(result, str) else json.dumps(result)
+
+
+async def boot_context(agent: str) -> str:
+    result = await _call("boot_context", agent=agent)
+    return result if isinstance(result, str) else json.dumps(result)
+
+
+# ── Neo4j accessor ────────────────────────────────────────────────────────────
+
+def get_neo4j():
+    from neo4j import AsyncGraphDatabase
+    return AsyncGraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "seal2026soul"))
+
+
+# ── Proxy: memory_search ──────────────────────────────────────────────────────
+
+async def memory_search(query: str, agent: str = "", limit: int = 10,
+                        memory_type: Optional[str] = None,
+                        include_archived: bool = False) -> str:
+    result = await _call("memory_search", agent=agent, query=query, limit=limit,
+                         memory_type=memory_type, include_archived=include_archived)
+    return result if isinstance(result, str) else json.dumps(result)
+
+
+# ── Cold archive ─────────────────────────────────────────────────────────────
+
+async def _cold_archive_migrate(pool, agent: str, min_age_days: int = 90,
+                                 ttl_days: int = 365, dry_run: bool = True) -> dict:
+    cutoff_interval = f"{min_age_days} days"
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, content, category, importance FROM memories "
+            "WHERE agent = $1 AND invalid_at IS NOT NULL "
+            "AND invalid_at < NOW() - $2::interval",
+            agent, cutoff_interval,
+        )
+        if dry_run:
+            return {"archived": len(rows), "dry_run": True, "singletons": 0}
+        count = 0
+        for r in rows:
+            await conn.execute(
+                "INSERT INTO cold_archive (agent, original_memory_ids, summary, "
+                "source_count, importance_max, category, expires_at) "
+                "VALUES ($1, $2, $3, 1, $4, $5, NOW() + $6::interval)",
+                agent, [r["id"]], r["content"][:500], r["importance"],
+                r["category"], f"{ttl_days} days",
+            )
+            await conn.execute("DELETE FROM memories WHERE id = $1", r["id"])
+            count += 1
+        return {"archived": count, "dry_run": False, "singletons": 0}
+
+
+async def cold_archive_query(query: str, agent: Optional[str] = None,
+                              limit: int = 10) -> str:
+    query_emb = _get_embedder().encode(query, normalize_embeddings=True).tolist()
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if agent:
+            rows = await conn.fetch(
+                "SELECT id, agent, summary, category, importance_max "
+                "FROM cold_archive WHERE agent = $1 AND embedding IS NOT NULL "
+                "ORDER BY embedding <=> $2::vector LIMIT $3",
+                agent, json.dumps(query_emb), limit,
+            )
+        else:
+            rows = await conn.fetch(
+                "SELECT id, agent, summary, category, importance_max "
+                "FROM cold_archive WHERE embedding IS NOT NULL "
+                "ORDER BY embedding <=> $1::vector LIMIT $2",
+                json.dumps(query_emb), limit,
+            )
+    results = [{"id": r["id"], "agent": r["agent"], "content": r["summary"],
+                "category": r["category"], "source": "cold_archive"} for r in rows]
+    return json.dumps({"results": results, "count": len(results)})
+
+
+async def cold_archive_stats() -> str:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        total = await conn.fetchval("SELECT count(*) FROM cold_archive") or 0
+        rows = await conn.fetch(
+            "SELECT agent, count(*) AS cnt FROM cold_archive GROUP BY agent ORDER BY cnt DESC"
+        )
+    agents = {r["agent"]: int(r["cnt"]) for r in rows}
+    return json.dumps({"total": total, "agents": agents})
+
+
+async def _cold_archive_purge_expired(pool, dry_run: bool = True) -> dict:
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id FROM cold_archive WHERE expires_at IS NOT NULL AND expires_at < NOW()"
+        )
+        if dry_run:
+            return {"purged": len(rows), "dry_run": True}
+        for r in rows:
+            await conn.execute("DELETE FROM cold_archive WHERE id = $1", r["id"])
+        return {"purged": len(rows)}
+
+
+# ── MIRIX classification ──────────────────────────────────────────────────────
+
+MIRIX_CATEGORY_MAP: dict = {
+    "emotion": "core",
+    "trust": "core",
+    "preference": "core",
+    "insight": "semantic",
+    "fact": "semantic",
+    "pattern": "semantic",
+    "decision": "semantic",
+    "milestone": "episodic",
+    "event": "episodic",
+    "correction": "episodic",
+    "general": "episodic",
+}
+
+_VAULT_PATTERNS = ("api_key=", "password=", "secret=", "token=", "sk-", "Bearer ", "-----BEGIN")
+
+
+def _mirix_classify(category: str, content: str, memory_type: Optional[str] = None) -> str:
+    if memory_type:
+        return memory_type
+    if any(p in content for p in _VAULT_PATTERNS):
+        return "vault"
+    return MIRIX_CATEGORY_MAP.get(category, "episodic")
