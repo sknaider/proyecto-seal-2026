@@ -121,7 +121,7 @@ class SealSettings(BaseSettings):
         return f"http://{self.web_chat_host}:{self.web_chat_port}"
 
     # ── Soul mode ───────────────────────────────────────────────────────────
-    soul_lite: bool = False  # SOUL_LITE=true → PostgreSQL+pgvector only
+    soul_lite: bool = True  # pgvector-only by default (Qdrant eliminated 28-abr-2026)
 
     if _PYDANTIC_V2:
         model_config = SettingsConfigDict(
