@@ -339,4 +339,4 @@ async def _erl_promote_sweep(agent: str) -> dict:
                 json.dumps({"promoted_to_instinct": True}), r["id"],
             )
             promoted.append(r["id"])
-    return {"promoted_count": len(promoted), "promoted_ids": promoted}
+    return {"promoted": len(promoted), "promoted_ids": promoted}
