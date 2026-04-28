@@ -3,14 +3,19 @@ Provides direct-callable async functions. Not a monolith — delegates to
 the live soul-v3 server via MCP client protocol.
 """
 from __future__ import annotations
+import collections
 import json
 import re
+import time
+from datetime import datetime, timezone
 from typing import Optional
 
 import asyncpg
 import httpx
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+
+_START_TIME = time.time()
 
 _embedder = None
 
