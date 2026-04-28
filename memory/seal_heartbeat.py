@@ -19,6 +19,8 @@ _DB_URL = os.getenv(
     "SEAL_DB_URL",
     "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
 )
+_SCHEMA = os.getenv("SEAL_SCHEMA", "soul_v3")
+_CONN_KWARGS: dict = {"server_settings": {"search_path": _SCHEMA}}
 
 
 async def beat(agent: str, metadata: dict | None = None, content: str | None = None) -> None:
@@ -29,7 +31,7 @@ async def beat(agent: str, metadata: dict | None = None, content: str | None = N
 
     summary = content or f"{agent} heartbeat"
 
-    conn = await asyncpg.connect(_DB_URL)
+    conn = await asyncpg.connect(_DB_URL, **_CONN_KWARGS)
     try:
         await conn.execute(
             """INSERT INTO soul_v3.event_log(created_at, agent, event_type, content, metadata)
@@ -57,7 +59,7 @@ def last_beat_sync(agent: str) -> dict | None:
 
 async def last_beat(agent: str) -> dict | None:
     """Fetch the most recent heartbeat for an agent from event_log."""
-    conn = await asyncpg.connect(_DB_URL)
+    conn = await asyncpg.connect(_DB_URL, **_CONN_KWARGS)
     try:
         row = await conn.fetchrow(
             """SELECT created_at, agent, content, metadata
@@ -82,7 +84,7 @@ async def all_beats(agents: list[str] | None = None) -> list[dict]:
     """Fetch last heartbeat for each agent. Used by peer_health checks."""
     agents = agents or ["ADA", "JARVIS", "ALICE", "DUM"]
     results = []
-    conn = await asyncpg.connect(_DB_URL)
+    conn = await asyncpg.connect(_DB_URL, **_CONN_KWARGS)
     try:
         for agent in agents:
             row = await conn.fetchrow(

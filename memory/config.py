@@ -123,6 +123,9 @@ class SealSettings(BaseSettings):
     # ── Soul mode ───────────────────────────────────────────────────────────
     soul_lite: bool = True  # pgvector-only by default (Qdrant eliminated 28-abr-2026)
 
+    # ── Profile System ──────────────────────────────────────────────────────
+    seal_schema: str = "soul_v3"  # PostgreSQL schema — override per client profile
+
     if _PYDANTIC_V2:
         model_config = SettingsConfigDict(
             env_file=".env",
