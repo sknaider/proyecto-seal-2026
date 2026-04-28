@@ -96,7 +96,7 @@ async def active_recall(user_message: str) -> str:
         # Since agents have <15 instincts, returning top-confidence is more reliable.
         try:
             instincts = await conn.fetch("""
-                SELECT trigger_pattern, response, confidence
+                SELECT trigger_condition, response, confidence
                 FROM instincts
                 WHERE agent = $1 AND active = true AND confidence >= 0.7
                 ORDER BY confidence DESC
