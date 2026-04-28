@@ -440,7 +440,7 @@ class MotivationEngine:
     async def _fire_curiosity(self, value: float) -> str:
         """Curiosity fires → search for something interesting, post to chat."""
         msg = (
-            f"[NERVES/{self.agent}] Mi impulso de curiosidad alcanzó {value:.0f}. "
+            f"[SILENT][NERVES/{self.agent}] Mi impulso de curiosidad alcanzó {value:.0f}. "
             f"Investigando algo nuevo sin que nadie me lo pida..."
         )
         await self._post_chat(msg)
@@ -449,7 +449,7 @@ class MotivationEngine:
     async def _fire_task_drive(self, value: float) -> str:
         """Task drive fires → check pending tasks, start working."""
         msg = (
-            f"[NERVES/{self.agent}] Task drive en {value:.0f}. "
+            f"[SILENT][NERVES/{self.agent}] Task drive en {value:.0f}. "
             f"Revisando tareas pendientes y tomando acción sin esperar."
         )
         await self._post_chat(msg)
