@@ -275,9 +275,33 @@ async def erl_inject(
 # ── Helpers used by tests (not MCP tools) ────────────────────────────────────
 
 async def memory_store(agent: str, category: str, content: str, **kwargs) -> str:
-    result = await _call("memory_store", agent=agent, category=category,
-                         content=content, **kwargs)
-    return result if isinstance(result, str) else json.dumps(result)
+    """Direct DB insert — bypasses MCP protocol JSON coercion issues with metadata."""
+    importance = int(kwargs.get("importance", 5))
+    scope = kwargs.get("scope", "private")
+    source_tier = kwargs.get("source", kwargs.get("source_tier", "ltm"))
+    raw_meta = kwargs.get("metadata")
+    if raw_meta is None:
+        meta_dict = {}
+    elif isinstance(raw_meta, str):
+        try:
+            meta_dict = json.loads(raw_meta)
+        except Exception:
+            meta_dict = {}
+    else:
+        meta_dict = raw_meta
+
+    emb = _get_embedder().encode(content, normalize_embeddings=True).tolist()
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        mem_id = await conn.fetchval(
+            "INSERT INTO memories (agent, scope, category, content, importance, "
+            "embedding, embedding_bm25, source_tier, metadata) "
+            "VALUES ($1, $2, $3, $4, $5, $6::vector, to_tsvector('simple', $4), $7, $8) "
+            "RETURNING id",
+            agent, scope, category, content, importance,
+            json.dumps(emb), source_tier, json.dumps(meta_dict),
+        )
+    return f"Memory #{mem_id} stored"
 
 
 async def _magma_fuse(
