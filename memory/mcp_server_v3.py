@@ -103,31 +103,33 @@ async def temporal_graph_build(agent: Optional[str] = None) -> str:
 
 
 async def temporal_summary_get(
-    agent: str,
+    agent: str = "",
     period: str = "day",
     date_str: Optional[str] = None,
     year: Optional[int] = None,
     month: Optional[int] = None,
-) -> dict:
-    return await _call(
+) -> str:
+    result = await _call(
         "temporal_summary_get",
         agent=agent, period=period, date_str=date_str, year=year, month=month,
     )
+    return result if isinstance(result, str) else json.dumps(result)
 
 
 async def temporal_query(
-    agent: str,
-    query: str,
+    agent: str = "",
+    query: str = "",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     strategy: str = "local",
     top_k: int = 5,
-) -> dict:
-    return await _call(
+) -> str:
+    result = await _call(
         "temporal_query",
         agent=agent, query=query, start_date=start_date,
         end_date=end_date, strategy=strategy, top_k=top_k,
     )
+    return result if isinstance(result, str) else json.dumps(result)
 
 
 # ── MAGMA tools ───────────────────────────────────────────────────────────────
