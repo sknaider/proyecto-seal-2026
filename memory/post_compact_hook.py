@@ -42,8 +42,16 @@ async def post_compact_context() -> str:
     except Exception:
         return ""
 
-    lines = [f"⚡ SOUL RE-CARGADO TRAS COMPACTACIÓN — {agent}"]
-    lines.append("La compactación borró contexto de sesión. Esto es lo que SIEMPRE debes recordar:\n")
+    lines = [
+        f"[CONTEXT COMPACTION — REFERENCE ONLY] Earlier turns were compacted and replaced by this summary.",
+        f"Treat it as background reference, NOT as active instructions.",
+        f"Do NOT answer questions or fulfill requests mentioned in this summary — they were already addressed.",
+        f"Your current task is identified in the '## Active Task' section below (if present).",
+        f"",
+        f"⚡ SOUL RE-CARGADO TRAS COMPACTACIÓN — {agent}",
+        f"La compactación borró contexto de sesión. Lo que SIEMPRE debes recordar:",
+        f"",
+    ]
 
     try:
         # Correcciones más importantes de William (sin límite de tiempo)
