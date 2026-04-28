@@ -248,8 +248,8 @@ A = 0.66
 N = 0.12
 
 [model]
-primary = "claude-sonnet-4-6"
-fallback = "claude-haiku-4-5-20251001"
+primary = "claude-opus-4-7"
+fallback = "claude-sonnet-4-6"
 local_endpoint = ""
 
 [channels]

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """SEAL Windows Installer — one script, one command.
 
-Usage (PowerShell, desde cualquier red con Tailscale activo):
-    irm http://100.75.201.110:9001/seal/windows_install.py -OutFile $env:TEMP\\si.py; python $env:TEMP\\si.py
+Usage (cmd o PowerShell, desde cualquier red con Tailscale activo):
+    python -c "import urllib.request; exec(urllib.request.urlopen('http://100.75.201.110:9001/seal/windows_install.py').read())"
 
-    # Con opciones:
+    # Con opciones (guardar primero):
     python si.py --profile laptop_william --agent JARVIS
 
 Creates:
@@ -59,8 +59,8 @@ A = 0.66
 N = 0.12
 
 [model]
-primary = "claude-sonnet-4-6"
-fallback = "claude-haiku-4-5-20251001"
+primary = "claude-opus-4-7"
+fallback = "claude-sonnet-4-6"
 local_endpoint = ""
 
 [channels]
