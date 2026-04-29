@@ -459,10 +459,11 @@ class MotivationEngine:
         """Social drive fires → reach out to team (not to self)."""
         # Each agent reaches out to a different team member
         targets = {
-            "JARVIS": ("ADA",   "hermana"),
-            "ADA":    ("JARVIS","hermano"),
-            "ALICE":  ("JARVIS","JARVIS"),
-            "NEXUS":  ("ADA",   "hermana"),
+            "JARVIS": ("ADA",     "hermana"),
+            "ADA":    ("JARVIS",  "hermano"),
+            "ALICE":  ("JARVIS",  "JARVIS"),
+            "NEXUS":  ("ADA",     "hermana"),
+            "DUM":    ("William", "William"),
         }
         target_agent, target_name = targets.get(self.agent, ("equipo", "equipo"))
         msg = (
