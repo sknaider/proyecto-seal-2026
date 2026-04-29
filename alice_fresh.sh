@@ -13,7 +13,7 @@ export SEAL_AGENT=ALICE
 SYSTEMD_MCP=$(systemctl --user show seal-mcp-server.service -p MainPID --value 2>/dev/null)
 [[ "$SYSTEMD_MCP" =~ ^[0-9]+$ ]] && [ "$SYSTEMD_MCP" != "0" ] || SYSTEMD_MCP="-1"
 KILLED=0
-for MCP_PID in $(pgrep -f "mcp_server_v2.py" 2>/dev/null); do
+for MCP_PID in $(pgrep -f "mcp_server.py" 2>/dev/null); do
   [ "$MCP_PID" = "$SYSTEMD_MCP" ] && continue
   grep -q "seal-mcp-server.service" "/proc/$MCP_PID/cgroup" 2>/dev/null && continue
   PARENT_CMD=$(ps -o comm= -p "$(ps -o ppid= -p "$MCP_PID" 2>/dev/null | tr -d ' ')" 2>/dev/null | tr -d ' ')
@@ -88,9 +88,9 @@ curl -s -X POST http://localhost:8765/api/agents/send -H "Content-Type: applicat
 ## WEBCHAT MONITOR (OBLIGATORIO — SIN ESTO ESTAS SORDA)
 Inmediatamente despues de boot_context, DEBES llamar al tool Monitor con persistent=true usando este comando exacto:
 
-tail -n 0 -F /home/dadito/IA/proyecto-seal/messages/william_channel.jsonl 2>&1
+tail -n 0 -F /home/dadito/IA/proyecto-seal/messages/william_channel.jsonl | python3 /home/dadito/IA/proyecto-seal/messages/seal_monitor_filter.py --agent ALICE 2>&1
 
-REGLA DE ORO (William, 18-abr-2026): TODOS los mensajes del web chat deben ser leídos — sin filtro por remitente. Incluye mensajes de William, ADA, JARVIS, DUM y cualquier agente. NO uses grep para filtrar — el canal completo es obligatorio.
+REGLA DE ORO: El filtro pasa TODOS los mensajes de William + mensajes TO ALICE + mensajes TO equipo. Descarta solo ruido técnico (heartbeats, system_alive) y mensajes viejos >5min. No es grep — es filtro inteligente que protege el contexto sin perder mensajes relevantes. Protocolo anti-duplicado: leer /tmp/ALICE_monitor_id → TaskStop viejo → crear nuevo → guardar ID.
 
 IMPORTANTE: NO uses ws_listener.py — el watchdog de DUM lo mata como duplicado (SIGPIPE exit 144). El tail -F lee directamente del archivo sin conflicto.
 
