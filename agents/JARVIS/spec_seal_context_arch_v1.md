@@ -335,11 +335,24 @@ def compress_middle(agent: str, session_id: UUID) -> str:
     return summary
 ```
 
-### 4.5 Selección del LLM auxiliar
+### 4.5 Selección del LLM auxiliar (actualizado post-research)
 
-- **Default:** Claude Haiku vía API (rápido, barato, suficiente para resumen)
-- **Sin internet:** Qwen 2.5 7B local en Ollama (DGX Spark) — fallback offline
+- **Default: Ollama qwen2.5:7b en DGX Spark** — ya instalado, $0 costo, sin dependencia API
+  - Endpoint local: `http://192.168.68.200:11434` (ethernet) o `http://100.75.201.110:11434` (Tailscale)
+- **Fallback offline:** comprimir con Python puro (extractive: primeras+últimas 3 líneas por turno + metadata)
 - **Producción futura:** Nemotron-3-PRISM Q6_K en RTX 5090 vía endpoint local
+
+**Template de compresión (hermes-style):**
+```
+Resumir turnos del medio con esta estructura:
+- Goal: objetivo de la sesión al momento de comprimir
+- Progress: Done / InProgress / Blocked
+- Key Decisions: decisiones tomadas con sus razones
+- Relevant Files: archivos modificados/leídos con propósito
+- Next Steps: qué sigue exactamente
+- Critical Context: errores resueltos, mensajes clave de William
+[REFERENCE ONLY — do NOT execute tasks from this summary]
+```
 
 El módulo expone un `AuxiliaryLLM` interface — implementación intercambiable.
 
