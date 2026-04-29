@@ -122,12 +122,12 @@ async def save_pre_compact_state(context_summary: str) -> str:
         instinct_summary = []
         try:
             instincts = await conn.fetch("""
-                SELECT trigger_pattern, response, confidence FROM instincts
-                WHERE agent = $1 AND active = true AND confidence >= 0.7
-                ORDER BY confidence DESC LIMIT 5
+                SELECT trigger_condition, action, strength FROM instincts
+                WHERE agent = $1 AND invalid_at IS NULL AND strength >= 0.7
+                ORDER BY strength DESC LIMIT 5
             """, agent)
             instinct_summary = [
-                f"[{i['confidence']:.1f}] {i['trigger_pattern'][:60]}"
+                f"[{float(i['strength']):.1f}] {i['trigger_condition'][:60]}"
                 for i in instincts
             ]
             if instinct_summary:
@@ -148,8 +148,8 @@ async def save_pre_compact_state(context_summary: str) -> str:
 
         await conn.execute("""
             INSERT INTO working_state (agent, state, updated_at, turn_count)
-            VALUES ($1, $2::jsonb, $3, COALESCE(
-                (SELECT turn_count FROM working_state WHERE agent = $1), 0))
+            VALUES ($1::varchar, $2::jsonb, $3, COALESCE(
+                (SELECT turn_count FROM working_state WHERE agent = $1::varchar), 0))
             ON CONFLICT (agent) DO UPDATE SET
                 state = $2::jsonb,
                 updated_at = $3
@@ -158,7 +158,7 @@ async def save_pre_compact_state(context_summary: str) -> str:
 
         # 6. Event log
         await conn.execute("""
-            INSERT INTO event_log (agent, event_type, content, metadata, time)
+            INSERT INTO event_log (agent, event_type, content, metadata, created_at)
             VALUES ($1, 'milestone', $2, $3::jsonb, $4)
         """, agent, f"[PRE-COMPACT] {', '.join(saved_items)}", json.dumps({
             "trigger": "auto_compaction",
@@ -196,13 +196,7 @@ def main():
     except Exception as e:
         result = f"[PreCompact] Exception: {e}"
 
-    output = {
-        "hookSpecificOutput": {
-            "hookEventName": "PreCompact",
-            "additionalContext": result,
-        }
-    }
-    print(json.dumps(output))
+    print(json.dumps({"systemMessage": result, "continue": True}))
 
 
 if __name__ == "__main__":
