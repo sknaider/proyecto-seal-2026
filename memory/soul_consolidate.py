@@ -368,7 +368,7 @@ async def session_relink(agent: str, hours: float = 4.0, dry_run: bool = False) 
 
 
 async def main(agent: Optional[str] = None, dry_run: bool = False, relink: bool = False, hours: float = 4.0):
-    agents = [agent] if agent else ["ADA", "JARVIS"]
+    agents = [agent] if agent else ["ADA", "JARVIS", "ALICE", "DUM", "NEXUS"]
     results = []
     for ag in agents:
         if relink:

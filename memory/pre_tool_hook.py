@@ -104,9 +104,9 @@ def main():
     # -----------------------------------------------------------------------
     if tool_name.startswith("mcp__seal-memory__"):
         agent = os.environ.get("SEAL_AGENT", "")
-        if agent not in ("ADA", "JARVIS"):
+        if agent not in ("ADA", "JARVIS", "ALICE", "DUM", "NEXUS"):
             print(json.dumps(deny(
-                f"Unknown agent '{agent}' — SEAL_AGENT must be ADA or JARVIS"
+                f"Unknown agent '{agent}' — SEAL_AGENT must be ADA, JARVIS, ALICE, DUM, or NEXUS"
             )))
             return
 

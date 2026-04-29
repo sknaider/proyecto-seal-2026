@@ -66,7 +66,7 @@ def main():
             pass
 
     # 5. Update heartbeat — single writer via event_log (seal_heartbeat)
-    if agent in ("JARVIS", "ADA", "ALICE", "DUM"):
+    if agent in ("JARVIS", "ADA", "ALICE", "DUM", "NEXUS"):
         try:
             sys.path.insert(0, os.path.dirname(__file__))
             from seal_heartbeat import beat_sync

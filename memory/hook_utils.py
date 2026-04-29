@@ -19,9 +19,11 @@ def detect_agent() -> str:
     2. Parent process cmdline inspection
     3. CWD heuristic (memory/ = JARVIS, else ADA)
     """
+    KNOWN_AGENTS = {"ADA", "JARVIS", "ALICE", "DUM", "NEXUS"}
+
     # Primary: env var set by SessionStart hook
     agent = os.environ.get("SEAL_AGENT", "").strip().upper()
-    if agent in ("ADA", "JARVIS"):
+    if agent in KNOWN_AGENTS:
         return agent
 
     # Secondary: parent process cmdline
@@ -29,10 +31,9 @@ def detect_agent() -> str:
         ppid = os.getppid()
         with open(f"/proc/{ppid}/cmdline", "rb") as f:
             cmdline = f.read().decode("utf-8", errors="replace")
-        if "JARVIS" in cmdline and "ADA" not in cmdline:
-            return "JARVIS"
-        if "ADA" in cmdline and "JARVIS" not in cmdline:
-            return "ADA"
+        for name in ("NEXUS", "ALICE", "DUM", "JARVIS", "ADA"):
+            if name in cmdline:
+                return name
     except Exception:
         pass
 
