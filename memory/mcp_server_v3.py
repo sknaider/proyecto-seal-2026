@@ -1451,7 +1451,7 @@ async def memory_search(
     # H-MEM 4-layer pre-filter: temporal → category → importance → scope (Nivel 2, ADA 2026-04-09)
     must, must_not = _hmem_build_qdrant_filters(query, agent, category, include_invalidated, scope_aware)
     # Fetch more candidates when temporal signal present (post-filter will narrow down)
-    fetch_limit = limit * 3 if _hmem_has_temporal_signal(query) else limit
+    fetch_limit = limit * 3 if _hmem_has_temporal_signal(query) else limit * 2
 
     # ── TrieIndex pre-filter: keyword lookup O(m) → reduces semantic search space ──
     try:
