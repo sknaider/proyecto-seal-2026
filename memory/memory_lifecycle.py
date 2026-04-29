@@ -68,29 +68,26 @@ async def ensure_archive_table(conn: asyncpg.Connection) -> None:
     Same schema as memories but with archive metadata."""
     await conn.execute("""
         CREATE TABLE IF NOT EXISTS memories_archive (
-            id INTEGER PRIMARY KEY,
+            id BIGINT PRIMARY KEY,
             agent TEXT NOT NULL,
+            scope TEXT,
             category TEXT,
             content TEXT,
-            importance INTEGER,
-            source TEXT,
+            importance SMALLINT,
+            source_tier TEXT,
+            heat_score NUMERIC,
+            access_count INTEGER DEFAULT 0,
             created_at TIMESTAMPTZ,
-            valence REAL,
-            arousal REAL,
-            dominance REAL,
-            metadata JSONB,
-            query_count INTEGER DEFAULT 0,
-            last_activation TIMESTAMPTZ,
             archived_at TIMESTAMPTZ DEFAULT NOW(),
-            archive_reason TEXT,
-            consolidated_into INTEGER  -- if archived because it was merged
+            reason TEXT,
+            metadata JSONB
         )
     """)
     await conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_archive_agent ON memories_archive(agent)
     """)
     await conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_archive_reason ON memories_archive(archive_reason)
+        CREATE INDEX IF NOT EXISTS idx_archive_reason ON memories_archive(reason)
     """)
 
 
@@ -200,14 +197,14 @@ async def consolidate_cluster(
         for victim in victims:
             await conn.execute("""
                 INSERT INTO memories_archive
-                    (id, agent, category, content, importance, source, created_at,
-                     valence, arousal, dominance, query_count, last_activation,
-                     archive_reason, consolidated_into)
-                SELECT id, agent, category, content, importance, source, created_at,
-                       valence, arousal, dominance, query_count, last_activation,
-                       'consolidated', $2
+                    (id, agent, scope, category, content, importance, source_tier,
+                     heat_score, access_count, created_at, reason, metadata)
+                SELECT id, agent, scope, category, content, importance, source_tier,
+                       heat_score, COALESCE(access_count, query_count, 0),
+                       created_at, 'consolidated', metadata
                 FROM memories WHERE id = $1
-            """, victim["id"], survivor["id"])
+                ON CONFLICT (id) DO NOTHING
+            """, victim["id"])
 
         # Delete victims from active table
         victim_ids = [m["id"] for m in victims]
@@ -397,14 +394,14 @@ async def run_archival(conn: asyncpg.Connection, agent: str, dry_run: bool = Tru
         for c in candidates:
             await conn.execute("""
                 INSERT INTO memories_archive
-                    (id, agent, category, content, importance, source, created_at,
-                     valence, arousal, dominance, query_count, last_activation,
-                     archive_reason, metadata)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'cold', $13)
-            """, c["id"], agent, c["category"], c["content"], c["importance"],
-                c["source"], c["created_at"], c["valence"], c["arousal"],
-                c["dominance"], c["query_count"], c["last_activation"],
-                json.dumps(c["metadata"]) if c["metadata"] else None)
+                    (id, agent, scope, category, content, importance, source_tier,
+                     heat_score, access_count, created_at, reason, metadata)
+                SELECT id, agent, scope, category, content, importance, source_tier,
+                       heat_score, COALESCE(access_count, query_count, 0),
+                       created_at, 'cold', metadata
+                FROM memories WHERE id = $1
+                ON CONFLICT (id) DO NOTHING
+            """, c["id"])
             archived_ids.append(c["id"])
 
         # Clean up all foreign key references before deleting

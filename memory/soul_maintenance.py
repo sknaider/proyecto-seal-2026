@@ -62,9 +62,9 @@ async def run_maintenance():
         report["steps"]["nerves_metrics_purged"] = n
         log.info(f"nerves_metrics_log: {n} filas eliminadas (>7d)")
 
-        # ── 4. Purge event_log > 60 días (columna: time) ──
+        # ── 4. Purge event_log > 60 días (columna: created_at) ──
         n = int((await conn.execute(
-            "DELETE FROM event_log WHERE time < NOW() - INTERVAL '60 days'"
+            "DELETE FROM event_log WHERE created_at < NOW() - INTERVAL '60 days'"
         )).split()[-1])
         report["steps"]["event_log_purged"] = n
         log.info(f"event_log: {n} filas eliminadas (>60d)")
@@ -112,12 +112,11 @@ async def run_maintenance():
             # Archive
             await conn.execute("""
                 INSERT INTO memories_archive
-                    (id, agent, category, content, importance, source, created_at,
-                     valence, arousal, dominance, metadata, query_count, last_activation,
-                     archived_at, archive_reason)
-                SELECT id, agent, category, content, importance, source, created_at,
-                       valence, arousal, dominance, metadata, recall_count, last_recalled_at,
-                       NOW(), 'auto_maintenance'
+                    (id, agent, scope, category, content, importance, source_tier,
+                     heat_score, access_count, created_at, archived_at, reason, metadata)
+                SELECT id, agent, scope, category, content, importance, source_tier,
+                       heat_score, COALESCE(access_count, query_count, recall_count, 0),
+                       created_at, NOW(), 'auto_maintenance', metadata
                 FROM memories WHERE invalid_at IS NOT NULL
                 ON CONFLICT (id) DO NOTHING
             """)

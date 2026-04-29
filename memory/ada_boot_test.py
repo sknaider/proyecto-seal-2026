@@ -170,17 +170,17 @@ def test_soul_daemon() -> None:
 
 
 def test_mcp_config() -> None:
-    """MCP config apunta a mcp_server_v2.py (v3 tools)."""
+    """MCP config apunta a mcp_server_v3.py (v3 tools)."""
     config_path = Path.home() / ".claude" / ".mcp.json"
     try:
         import json
         config = json.loads(config_path.read_text())
         server = config.get("mcpServers", {}).get("seal-memory", {})
         args = server.get("args", [])
-        if args and "mcp_server_v2.py" in args[0]:
-            ok("MCP config", "apunta a mcp_server_v2.py ✓")
-        elif args and "mcp_server.py" in args[0]:
-            fail("MCP config", "⚠ apunta a mcp_server.py (viejo) — v3 NO cargará")
+        if args and "mcp_server_v3.py" in args[0]:
+            ok("MCP config", "apunta a mcp_server_v3.py ✓")
+        elif args and "mcp_server_v3.py" in args[0]:
+            fail("MCP config", "⚠ apunta a mcp_server_v3.py (viejo) — v3 NO cargará")
         else:
             warn("MCP config", f"args inesperados: {args}")
     except Exception as e:
@@ -198,7 +198,7 @@ def test_duplicate_agents() -> None:
         # Count per agent
         agents = {}
         for line in lines:
-            for name in ["ADA", "JARVIS"]:
+            for name in ["ADA", "JARVIS", "ALICE", "NEXUS"]:
                 if f"--name {name}" in line or f"--name \"{name}" in line:
                     agents.setdefault(name, []).append(line.split()[1])  # PID
 
@@ -305,9 +305,9 @@ async def run_all() -> int:
         exit_code = 2
 
     # Nota si MCP apunta al servidor viejo
-    mcp_fail = any("mcp_server.py (viejo)" in r[2] for r in results)
+    mcp_fail = any("mcp_server_v3.py (viejo)" in r[2] for r in results)
     if mcp_fail:
-        print(f"\n  {RED} CRÍTICO: MCP config usa mcp_server.py en vez de mcp_server_v2.py{RESET}")
+        print(f"\n  {RED} CRÍTICO: MCP config usa mcp_server_v3.py en vez de mcp_server_v3.py{RESET}")
         print(f"  Corregir en ~/.claude/.mcp.json para que v3 cargue al relanzar.\n")
 
     print(f"{'═'*55}{RESET}\n")

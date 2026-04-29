@@ -18,6 +18,7 @@ OCEAN_CURRENT = {
     "ALICE":      {"openness": 0.815, "conscientiousness": 0.727, "extraversion": 0.8,   "agreeableness": 0.300, "neuroticism": 0.200},
     "JARVIS":     {"openness": 0.820, "conscientiousness": 1.0,   "extraversion": 0.398, "agreeableness": 0.661, "neuroticism": 0.115},
     "DUM":        {"openness": 0.300, "conscientiousness": 0.950, "extraversion": 0.2,   "agreeableness": 0.750, "neuroticism": 0.400},
+    "NEXUS":      {"openness": 0.769, "conscientiousness": 0.937, "extraversion": 0.662, "agreeableness": 0.507, "neuroticism": 0.172},
 }
 
 # Guardrails de ALICE spec
@@ -232,11 +233,11 @@ async def run_tests(conn: asyncpg.Connection) -> list[dict]:
           ada_c_after and abs(ada_c_after["current_value"] - OCEAN_CURRENT["ADA"]["conscientiousness"]) < 1e-5,
           f"expected={OCEAN_CURRENT['ADA']['conscientiousness']}, got={ada_c_after['current_value'] if ada_c_after else 'None'}")
 
-    # T9: all 4 agents have all 5 dimensions
+    # T9: all 5 agents have all 5 dimensions
     coverage = await conn.fetchval(
-        "SELECT COUNT(DISTINCT agent||'.'||dimension) FROM ocean_test.ocean_base_values WHERE agent IN ('ADA','ALICE','JARVIS','DUM')"
+        "SELECT COUNT(DISTINCT agent||'.'||dimension) FROM ocean_test.ocean_base_values WHERE agent IN ('ADA','ALICE','JARVIS','DUM','NEXUS')"
     )
-    check("T9 all agents×dimensions populated", coverage == 20, f"{coverage}/20")
+    check("T9 all agents×dimensions populated", coverage == 25, f"{coverage}/25")
 
     # T10: JARVIS values match source
     j_open = await conn.fetchval(

@@ -212,7 +212,7 @@ async def main():
     parser.add_argument("--agent", default="all", help="Agent name or 'all'")
     args = parser.parse_args()
 
-    agents = ['JARVIS', 'ADA'] if args.agent.lower() == 'all' else [args.agent]
+    agents = ['JARVIS', 'ADA', 'ALICE', 'DUM', 'NEXUS'] if args.agent.lower() == 'all' else [args.agent]
     mode = "DRY RUN" if args.dry_run else "LIVE"
 
     now = datetime.now(LIMA_TZ).strftime("%Y-%m-%d %H:%M UTC")

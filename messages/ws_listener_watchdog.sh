@@ -59,7 +59,7 @@ done
 # Detecta agente sordo: heartbeat JSON sin actualizar >10 min = Monitor/tool muerto
 HEARTBEAT_MAX_AGE=600  # 10 min
 HEARTBEAT_ALERTED="/tmp/.heartbeat_stale_alerted"
-for AGENT in ADA JARVIS ALICE; do
+for AGENT in ADA JARVIS ALICE DUM NEXUS; do
     AGENT_LOWER=$(echo "$AGENT" | tr 'A-Z' 'a-z')
     HB="/home/dadito/IA/proyecto-seal/messages/${AGENT_LOWER}_claude_heartbeat.json"
     [ -f "$HB" ] || continue

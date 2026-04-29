@@ -63,7 +63,7 @@ wake_agent() {
 # Despertar los 3 agentes
 # Reset alive=True antes de lanzar — resurrect puede operar normalmente post-wake
 MESSAGES_DIR="$HOME/IA/proyecto-seal/messages"
-for AGENT in ADA JARVIS ALICE; do
+for AGENT in ADA JARVIS ALICE DUM NEXUS; do
   AGENT_LOWER=$(echo "$AGENT" | tr 'A-Z' 'a-z')
   HB="$MESSAGES_DIR/${AGENT_LOWER}_claude_heartbeat.json"
   if [ -f "$HB" ]; then

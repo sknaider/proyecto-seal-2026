@@ -7913,14 +7913,14 @@ async def memory_cross_search(
     limit: int = 10,
 ) -> str:
     """Search another agent's memories. The corpus callosum of SOUL.
-    Enables JARVIS to search ADA's experiences and vice versa.
+    Enables any agent to search another's experiences within the team.
     Only returns memories with scope != 'private' OR importance >= 7
     (important memories are always shareable within the team).
 
     Args:
         query: What to search for
-        requesting_agent: Who is asking (JARVIS, ADA)
-        target_agent: Whose memories to search (default: the other agent)
+        requesting_agent: Who is asking (ADA, JARVIS, ALICE, DUM, NEXUS)
+        target_agent: Whose memories to search (default: ADA↔JARVIS, others→JARVIS)
         limit: Max results
     """
     if not target_agent:

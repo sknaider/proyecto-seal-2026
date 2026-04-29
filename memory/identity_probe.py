@@ -38,6 +38,9 @@ CORE_BELIEFS = {
 REQUIRED_RELS = {
     "JARVIS": ["William", "ADA", "DUM"],
     "ADA":    ["William", "JARVIS", "DUM"],
+    "ALICE":  ["William", "JARVIS", "ADA"],
+    "NEXUS":  ["William", "JARVIS", "ADA"],
+    "DUM":    ["William"],
 }
 
 
@@ -138,7 +141,7 @@ async def probe_agent(agent: str, fix: bool = False) -> dict:
 
     # 7. Instincts active
     instincts = await conn.fetchval(
-        "SELECT COUNT(*) FROM instincts WHERE agent = $1 AND active = true", agent)
+        "SELECT COUNT(*) FROM instincts WHERE agent = $1 AND invalid_at IS NULL", agent)
     if instincts >= 3:
         ok("Instincts", f"{instincts} active")
     else:
@@ -162,7 +165,7 @@ async def main():
     parser.add_argument("--fix", action="store_true", help="Auto-fix minor drift")
     args = parser.parse_args()
 
-    agents = ['JARVIS', 'ADA'] if args.agent.lower() == 'all' else [args.agent]
+    agents = ['JARVIS', 'ADA', 'ALICE', 'DUM', 'NEXUS'] if args.agent.lower() == 'all' else [args.agent]
 
     now = datetime.now(LIMA_TZ).strftime("%Y-%m-%d %H:%M UTC")
     print(f"\n{'='*55}")
