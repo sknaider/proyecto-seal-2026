@@ -23,19 +23,16 @@ def detect_agent():
     """Detect which agent is calling this hook."""
     # Check SEAL_AGENT env var first (set by each .sh launcher)
     agent_env = os.environ.get("SEAL_AGENT", "")
-    if agent_env in ("JARVIS", "ADA", "ALICE"):
+    if agent_env in ("JARVIS", "ADA", "ALICE", "DUM", "NEXUS"):
         return agent_env
 
     # Check process command line for agent name
     try:
         ppid = os.getppid()
         cmdline = open(f"/proc/{ppid}/cmdline", "rb").read().decode("utf-8", errors="replace")
-        if "JARVIS" in cmdline and "ALICE" not in cmdline:
-            return "JARVIS"
-        elif "ALICE" in cmdline:
-            return "ALICE"
-        elif "ADA" in cmdline:
-            return "ADA"
+        for name in ("NEXUS", "ALICE", "DUM", "JARVIS", "ADA"):
+            if name in cmdline:
+                return name
     except Exception:
         pass
 
