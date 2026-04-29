@@ -38,7 +38,8 @@ MAX_PRUNE = 50            # Safety cap per agent per run
 KNOWN_ENTITIES = {
     'william': ('William', 'person'), 'dadito': ('William', 'person'),
     'ada': ('ADA', 'agent'), 'jarvis': ('JARVIS', 'agent'),
-    'dum': ('DUM', 'agent'), 'jarvis_mayor': ('JARVIS_MAYOR', 'agent'),
+    'alice': ('ALICE', 'agent'), 'dum': ('DUM', 'agent'),
+    'nexus': ('NEXUS', 'agent'), 'jarvis_mayor': ('JARVIS_MAYOR', 'agent'),
     'rtx 5090': ('RTX_5090', 'hardware'), 'rtx5090': ('RTX_5090', 'hardware'),
     'dgx spark': ('DGX_Spark', 'hardware'), 'spark': ('DGX_Spark', 'hardware'),
     'medgemma': ('MedGemma', 'model'), 'qwen': ('Qwen', 'model'),
@@ -80,30 +81,30 @@ async def run_sleep_gate(agent: str, dry_run: bool = False) -> dict:
     async with pool.acquire() as conn:
         # Phase 1: REPLAY
         replay_rows = await conn.fetch("""
-            SELECT id, relevance_score FROM memories
+            SELECT id, heat_score FROM memories
             WHERE agent = $1 AND invalid_at IS NULL
             AND last_activation >= NOW() - INTERVAL '24 hours'
-            AND relevance_score IS NOT NULL
+            AND heat_score IS NOT NULL
         """, agent)
         for r in replay_rows:
-            new_rel = min(1.0, float(r['relevance_score']) + REPLAY_BOOST)
+            new_rel = min(1.0, float(r['heat_score']) + REPLAY_BOOST)
             if not dry_run:
-                await conn.execute("UPDATE memories SET relevance_score = $1 WHERE id = $2", new_rel, r['id'])
+                await conn.execute("UPDATE memories SET heat_score = $1 WHERE id = $2", new_rel, r['id'])
             stats["replay"] += 1
 
         # Phase 2: FORGET (Adaptive Budgeted Forgetting — arxiv 2604.02280)
         # Composite resistance: emotion + frequency + confidence protect memories from decay
         stale_rows = await conn.fetch("""
-            SELECT id, relevance_score, valence, arousal,
+            SELECT id, heat_score, valence, arousal,
                    COALESCE(query_count, 0) as qc, COALESCE(confidence_score, 1.0) as conf
             FROM memories
             WHERE agent = $1 AND invalid_at IS NULL
-            AND relevance_score IS NOT NULL AND importance <= 7
+            AND heat_score IS NOT NULL AND importance <= 7
             AND (last_activation IS NULL OR last_activation < NOW() - INTERVAL '1 day' * $2)
             AND created_at < NOW() - INTERVAL '1 day' * $2
         """, agent, STALE_DAYS)
         for r in stale_rows:
-            old_rel = float(r['relevance_score'])
+            old_rel = float(r['heat_score'])
             v = abs(float(r['valence'])) if r['valence'] is not None else 0.0
             a = float(r['arousal']) if r['arousal'] is not None else 0.0
             qc = int(r['qc'])
@@ -117,16 +118,16 @@ async def run_sleep_gate(agent: str, dry_run: bool = False) -> dict:
             new_rel = max(0.0, old_rel * effective)
             if abs(new_rel - old_rel) > 0.001:
                 if not dry_run:
-                    await conn.execute("UPDATE memories SET relevance_score = $1 WHERE id = $2", new_rel, r['id'])
+                    await conn.execute("UPDATE memories SET heat_score = $1 WHERE id = $2", new_rel, r['id'])
                 stats["forget"] += 1
 
         # Phase 3: PRUNE
         prune_rows = await conn.fetch("""
             SELECT id FROM memories
             WHERE agent = $1 AND invalid_at IS NULL
-            AND relevance_score IS NOT NULL AND relevance_score < $2
-            AND importance <= 5 AND identity_defining IS NOT TRUE
-            ORDER BY relevance_score ASC LIMIT $3
+            AND heat_score IS NOT NULL AND heat_score < $2
+            AND importance <= 5
+            ORDER BY heat_score ASC LIMIT $3
         """, agent, PRUNE_THRESHOLD, MAX_PRUNE)
         if prune_rows and not dry_run:
             ids = [r['id'] for r in prune_rows]
@@ -134,17 +135,33 @@ async def run_sleep_gate(agent: str, dry_run: bool = False) -> dict:
         stats["prune"] = len(prune_rows)
 
         # Phase 4: CONSOLIDATE (near-duplicate merge)
-        dupes = await conn.fetch("""
-            SELECT a.id as id_a, b.id as id_b,
-                   a.importance as imp_a, b.importance as imp_b,
-                   a.relevance_score as rel_a, b.relevance_score as rel_b
-            FROM memories a JOIN memories b ON a.id < b.id
-                AND a.agent = b.agent AND a.agent = $1
-                AND a.invalid_at IS NULL AND b.invalid_at IS NULL
-                AND a.embedding IS NOT NULL AND b.embedding IS NOT NULL
-                AND 1 - (a.embedding <=> b.embedding) > $2
-            ORDER BY 1 - (a.embedding <=> b.embedding) DESC LIMIT 20
-        """, agent, CONSOLIDATION_SIM)
+        # In dry_run, sample 200 most recent memories per agent to keep O(N²) bounded.
+        if dry_run:
+            dupes = await conn.fetch("""
+                SELECT a.id as id_a, b.id as id_b,
+                       a.importance as imp_a, b.importance as imp_b,
+                       a.heat_score as rel_a, b.heat_score as rel_b
+                FROM (SELECT id, importance, heat_score, embedding
+                      FROM memories WHERE agent = $1 AND invalid_at IS NULL AND embedding IS NOT NULL
+                      ORDER BY id DESC LIMIT 200) a
+                JOIN (SELECT id, importance, heat_score, embedding
+                      FROM memories WHERE agent = $1 AND invalid_at IS NULL AND embedding IS NOT NULL
+                      ORDER BY id DESC LIMIT 200) b ON a.id < b.id
+                WHERE 1 - (a.embedding <=> b.embedding) > $2
+                ORDER BY 1 - (a.embedding <=> b.embedding) DESC LIMIT 20
+            """, agent, CONSOLIDATION_SIM)
+        else:
+            dupes = await conn.fetch("""
+                SELECT a.id as id_a, b.id as id_b,
+                       a.importance as imp_a, b.importance as imp_b,
+                       a.heat_score as rel_a, b.heat_score as rel_b
+                FROM memories a JOIN memories b ON a.id < b.id
+                    AND a.agent = b.agent AND a.agent = $1
+                    AND a.invalid_at IS NULL AND b.invalid_at IS NULL
+                    AND a.embedding IS NOT NULL AND b.embedding IS NOT NULL
+                    AND 1 - (a.embedding <=> b.embedding) > $2
+                ORDER BY 1 - (a.embedding <=> b.embedding) DESC LIMIT 20
+            """, agent, CONSOLIDATION_SIM)
         merged = set()
         for c in dupes:
             if c['id_a'] in merged or c['id_b'] in merged:
@@ -154,7 +171,7 @@ async def run_sleep_gate(agent: str, dry_run: bool = False) -> dict:
             best_rel = max(float(c['rel_a'] or 0), float(c['rel_b'] or 0))
             if not dry_run:
                 await conn.execute("UPDATE memories SET invalid_at = NOW() WHERE id = $1", drop)
-                await conn.execute("UPDATE memories SET relevance_score = GREATEST(relevance_score, $1) WHERE id = $2", best_rel, keep)
+                await conn.execute("UPDATE memories SET heat_score = GREATEST(heat_score, $1) WHERE id = $2", best_rel, keep)
             merged.add(drop)
             stats["consolidate"] += 1
 

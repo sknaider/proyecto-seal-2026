@@ -8,7 +8,7 @@
 SELF="${1:-UNKNOWN}"
 STALE_THRESHOLD=600  # 10 minutes
 
-AGENTS=(JARVIS ADA ALICE)
+AGENTS=(JARVIS ADA ALICE DUM NEXUS)
 ALERTS=()
 
 # Check heartbeats via event_log (Soul DB) — JSON files eliminated in heartbeat unification sprint
@@ -18,21 +18,22 @@ from datetime import datetime, timezone
 
 async def check():
     results = {}
+    all_agents = ['JARVIS', 'ADA', 'ALICE', 'DUM', 'NEXUS']
     try:
         conn = await asyncpg.connect('postgresql://seal:seal_memory_2026@localhost:5433/seal_memory')
-        for agent in ['JARVIS', 'ADA', 'ALICE']:
+        for agent in all_agents:
             row = await conn.fetchrow(
-                \"\"\"SELECT time FROM event_log
+                \"\"\"SELECT created_at FROM soul_v3.event_log
                 WHERE agent = \$1 AND event_type = 'heartbeat'
-                ORDER BY time DESC LIMIT 1\"\"\", agent)
+                ORDER BY created_at DESC LIMIT 1\"\"\", agent)
             if row:
-                age = (datetime.now(timezone.utc) - row['time'].replace(tzinfo=timezone.utc)).total_seconds()
+                age = (datetime.now(timezone.utc) - row['created_at'].replace(tzinfo=timezone.utc)).total_seconds()
                 results[agent] = int(age)
             else:
                 results[agent] = -1
         await conn.close()
     except Exception as e:
-        for agent in ['JARVIS', 'ADA', 'ALICE']:
+        for agent in all_agents:
             results[agent] = -2  # DB error
     print(json.dumps(results))
 
