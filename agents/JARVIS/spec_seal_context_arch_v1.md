@@ -6,7 +6,27 @@
 
 ---
 
-## 0. TL;DR
+## 0. Research Findings — Qué aprendimos de los competidores
+
+| Framework | ¿LLM o Python para comprimir? | Trigger | Qué preservan | Recuperación |
+|-----------|-------------------------------|---------|---------------|--------------|
+| **Hermes** | Fase 1: Python puro. Fases 2-4: LLM barato | 85% + 50% dual | head (3 turnos) + tail (20 turnos) + structured summary | Prompt reconstituido |
+| **Mem0** | LLM para extracción | Continuo | Hechos extraídos en vector DB | Búsqueda semántica |
+| **MemGPT/Letta** | LLM (el agente mismo decide) | Threshold configurable | 3 niveles: main/recall/archival | Agent llama funciones de retrieval |
+| **AutoGen** | Python puro FIFO | Token limit | Últimos N mensajes | Ninguna (descarta) |
+| **CrewAI** | LLM distilación de queries | Por retrieval | MemoryRecords en vector DB | Búsqueda paralela multi-scope |
+| **StreamingLLM** | N/A (inferencia pura) | N/A | Attention sinks + últimos N | N/A — no aplica a agentes |
+
+**Conclusión del análisis:**
+- **Hermes** es el más relevante para SEAL: dual-trigger + 4 fases, protección explícita de head/tail
+- **La Fase 1 de hermes (Python puro)** maneja 60-70% del bloat sin ningún LLM — debemos replicarla
+- **Para Tier 2 usamos Ollama qwen2.5:7b local** (ya instalado en DGX Spark) en lugar de API externa — $0 costo
+- **SEAL tiene ventajas que hermes no tiene:** SOUL boot_context, OCEAN persistente, RESURRECT, reasoning_traces
+- **StreamingLLM no aplica** — pierde semántica del medio, solo sirve para streaming de inferencia
+
+---
+
+## 0b. TL;DR
 
 Las sesiones de Claude Code crashean al límite de contexto porque tratamos el prompt como
 si fuese memoria permanente. No lo es. Es **RAM volátil**. SOUL es el disco.
