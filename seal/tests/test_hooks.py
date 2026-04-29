@@ -370,5 +370,189 @@ class ModuleSingletonTests(unittest.TestCase):
         self.assertIs(hooks._reg, registry)
 
 
+# ── New hooks (18-hook formal spec) ──────────────────────────────────────────
+
+
+class NewHooksDefaultsTests(unittest.TestCase):
+    def test_new_defaults_do_not_raise(self) -> None:
+        class _Minimal(SealHook):
+            name = "min-new"
+
+        hook = _Minimal()
+        asyncio.run(hook.on_pre_api("http://x", "GET", {}, None))
+        asyncio.run(hook.on_post_api("http://x", 200, {}))
+        asyncio.run(hook.on_post_approval("act", "cli", True))
+        asyncio.run(hook.on_gateway_dispatch(object(), "agent-a"))
+        asyncio.run(hook.on_transform_input("hello", "matrix", "u1"))
+        asyncio.run(hook.on_transform_output("hi", "matrix", "c1"))
+        asyncio.run(hook.on_interrupt("sigint"))
+        asyncio.run(hook.on_compact("summary"))
+        asyncio.run(hook.on_wake("NEXUS", "ctx"))
+
+    def test_new_transform_defaults_return_none(self) -> None:
+        class _Minimal(SealHook):
+            name = "min-new2"
+
+        hook = _Minimal()
+        self.assertIsNone(asyncio.run(hook.on_pre_api("u", "POST", {}, {})))
+        self.assertIsNone(asyncio.run(hook.on_gateway_dispatch(object(), "x")))
+        self.assertIsNone(asyncio.run(hook.on_transform_input("t", "slack", "u")))
+        self.assertIsNone(asyncio.run(hook.on_transform_output("t", "slack", "c")))
+
+
+class NewHooksDispatchTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.reg = HookRegistry()
+        self.mgr = HookManager(self.reg)
+        self.calls: list = []
+
+    async def test_interrupt_fires(self) -> None:
+        class _H(SealHook):
+            name = "h"
+            def __init__(self, calls): self._c = calls
+            async def on_interrupt(self, reason="", **ctx): self._c.append(("interrupt", reason))
+
+        self.reg.register(_H(self.calls))
+        await self.mgr.interrupt("sigint")
+        self.assertIn(("interrupt", "sigint"), self.calls)
+
+    async def test_compact_fires(self) -> None:
+        class _H(SealHook):
+            name = "h"
+            def __init__(self, calls): self._c = calls
+            async def on_compact(self, summary, **ctx): self._c.append(("compact", summary))
+
+        self.reg.register(_H(self.calls))
+        await self.mgr.compact("summarized context")
+        self.assertIn(("compact", "summarized context"), self.calls)
+
+    async def test_wake_fires(self) -> None:
+        class _H(SealHook):
+            name = "h"
+            def __init__(self, calls): self._c = calls
+            async def on_wake(self, agent_name, context="", **ctx):
+                self._c.append(("wake", agent_name, context))
+
+        self.reg.register(_H(self.calls))
+        await self.mgr.wake("NEXUS", "prior state")
+        self.assertIn(("wake", "NEXUS", "prior state"), self.calls)
+
+    async def test_post_approval_fires(self) -> None:
+        class _H(SealHook):
+            name = "h"
+            def __init__(self, calls): self._c = calls
+            async def on_post_approval(self, action, surface, approved, **ctx):
+                self._c.append(("post_approval", action, surface, approved))
+
+        self.reg.register(_H(self.calls))
+        await self.mgr.post_approval("rm -rf /", "cli", False)
+        self.assertIn(("post_approval", "rm -rf /", "cli", False), self.calls)
+
+    async def test_post_api_fires(self) -> None:
+        class _H(SealHook):
+            name = "h"
+            def __init__(self, calls): self._c = calls
+            async def on_post_api(self, url, status_code, body, **ctx):
+                self._c.append(("post_api", url, status_code))
+
+        self.reg.register(_H(self.calls))
+        await self.mgr.post_api("http://api/v1", 429, {})
+        self.assertIn(("post_api", "http://api/v1", 429), self.calls)
+
+    async def test_pre_api_transforms_headers(self) -> None:
+        class _AuthInjecter(SealHook):
+            name = "auth"
+            async def on_pre_api(self, url, method, headers, body, **ctx):
+                return {"headers": {**headers, "Authorization": "Bearer token"}}
+
+        self.reg.register(_AuthInjecter())
+        hdrs, body = await self.mgr.pre_api("http://x", "GET", {}, None)
+        self.assertEqual(hdrs.get("Authorization"), "Bearer token")
+        self.assertIsNone(body)
+
+    async def test_pre_api_passthrough_when_no_hooks(self) -> None:
+        h = {"X-Key": "val"}
+        b = {"data": 1}
+        hdrs, body = await self.mgr.pre_api("http://x", "POST", h, b)
+        self.assertEqual(hdrs, h)
+        self.assertEqual(body, b)
+
+    async def test_pre_api_raiser_skipped(self) -> None:
+        class _Bad(SealHook):
+            name = "bad"
+            async def on_pre_api(self, url, method, headers, body, **ctx):
+                raise RuntimeError("api hook fail")
+
+        class _Good(SealHook):
+            name = "good"
+            async def on_pre_api(self, url, method, headers, body, **ctx):
+                return {"headers": {**headers, "X-Good": "1"}}
+
+        self.reg.register(_Bad())
+        self.reg.register(_Good())
+        hdrs, _ = await self.mgr.pre_api("http://x", "GET", {}, None)
+        self.assertEqual(hdrs.get("X-Good"), "1")
+
+    async def test_gateway_dispatch_reroutes(self) -> None:
+        class _Router(SealHook):
+            name = "router"
+            async def on_gateway_dispatch(self, event, target, **ctx):
+                return "jarvis" if "finance" in str(event) else None
+
+        self.reg.register(_Router())
+        target = await self.mgr.gateway_dispatch("finance report", "ada")
+        self.assertEqual(target, "jarvis")
+
+    async def test_gateway_dispatch_no_reroute(self) -> None:
+        target = await self.mgr.gateway_dispatch("hello", "ada")
+        self.assertEqual(target, "ada")
+
+    async def test_transform_input_chains(self) -> None:
+        class _Upper(SealHook):
+            name = "upper"
+            async def on_transform_input(self, text, channel, user_id, **ctx):
+                return text.upper()
+
+        class _Exclaim(SealHook):
+            name = "exclaim"
+            async def on_transform_input(self, text, channel, user_id, **ctx):
+                return text + "!"
+
+        self.reg.register(_Upper())
+        self.reg.register(_Exclaim())
+        result = await self.mgr.transform_input("hello", "slack", "u1")
+        self.assertEqual(result, "HELLO!")
+
+    async def test_transform_input_passthrough(self) -> None:
+        result = await self.mgr.transform_input("hello", "slack", "u1")
+        self.assertEqual(result, "hello")
+
+    async def test_transform_output_caps_length(self) -> None:
+        class _Cap(SealHook):
+            name = "cap"
+            async def on_transform_output(self, text, channel, chat_id, **ctx):
+                return text[:5] if len(text) > 5 else None
+
+        self.reg.register(_Cap())
+        result = await self.mgr.transform_output("hello world", "discord", "c1")
+        self.assertEqual(result, "hello")
+
+    async def test_pre_approval_alias(self) -> None:
+        self.assertIs(HookManager.pre_approval, HookManager.approval_needed)
+
+    async def test_approval_needed_fires_post_approval(self) -> None:
+        post_calls: list = []
+
+        class _H(SealHook):
+            name = "h"
+            async def on_approval_needed(self, action, surface, **ctx): return True
+            async def on_post_approval(self, action, surface, approved, **ctx):
+                post_calls.append(approved)
+
+        self.reg.register(_H())
+        await self.mgr.approval_needed("push", "cli")
+        self.assertEqual(post_calls, [True])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -204,7 +204,36 @@ class SealHook(ABC):
     ) -> None:
         """Subagent completed; ``result`` is its final response."""
 
-    # ── Approval hook (transform) ────────────────────────────────────────
+    # ── API call hooks ───────────────────────────────────────────────────
+
+    async def on_pre_api(
+        self,
+        url: str,
+        method: str,
+        headers: Dict[str, str],
+        body: Any,
+        **ctx: Any,
+    ) -> Optional[Dict[str, Any]]:
+        """Called before any outbound HTTP API request.
+
+        Return a dict with optional keys ``headers`` and/or ``body`` to
+        override those values, or None to pass through unchanged.
+        """
+        return None
+
+    async def on_post_api(
+        self,
+        url: str,
+        status_code: int,
+        body: Any,
+        **ctx: Any,
+    ) -> None:
+        """Called after an HTTP API response is received.
+
+        Use for audit logging, rate-limit tracking, or metric emission.
+        """
+
+    # ── Approval hooks ────────────────────────────────────────────────────
 
     async def on_approval_needed(
         self,
@@ -219,6 +248,95 @@ class SealHook(ABC):
         the default approval mechanism.
         """
         return None
+
+    async def on_post_approval(
+        self,
+        action: str,
+        surface: str,
+        approved: bool,
+        **ctx: Any,
+    ) -> None:
+        """Called after an approval decision is resolved.
+
+        Use to audit the decision or notify an external system.
+        """
+
+    # ── Gateway dispatch hook (transform) ────────────────────────────────
+
+    async def on_gateway_dispatch(
+        self,
+        event: Any,
+        target: str,
+        **ctx: Any,
+    ) -> Optional[str]:
+        """Called when a MessageEvent is routed to an agent/handler.
+
+        Return a different target string to reroute, or None to keep default.
+        """
+        return None
+
+    # ── Input / output transform hooks ────────────────────────────────────
+
+    async def on_transform_input(
+        self,
+        text: str,
+        channel: str,
+        user_id: str,
+        **ctx: Any,
+    ) -> Optional[str]:
+        """Called on raw inbound message text before the agent processes it.
+
+        Return a transformed string, or None to leave unchanged.
+        Use for: PII scrubbing, command normalisation, language detection.
+        """
+        return None
+
+    async def on_transform_output(
+        self,
+        text: str,
+        channel: str,
+        chat_id: str,
+        **ctx: Any,
+    ) -> Optional[str]:
+        """Called on the agent's response text before it is sent to a channel.
+
+        Return a transformed string, or None to leave unchanged.
+        Use for: markdown→plain-text conversion, length capping, formatting.
+        """
+        return None
+
+    # ── Interrupt / compact / wake hooks ─────────────────────────────────
+
+    async def on_interrupt(
+        self,
+        reason: str = "",
+        **ctx: Any,
+    ) -> None:
+        """Called when the agent loop is interrupted.
+
+        ``reason``: "sigint" | "user_command" | "timeout" | ""
+        """
+
+    async def on_compact(
+        self,
+        summary: str,
+        **ctx: Any,
+    ) -> None:
+        """Called after context compaction completes.
+
+        ``summary`` is the compacted context that was injected.
+        """
+
+    async def on_wake(
+        self,
+        agent_name: str,
+        context: str = "",
+        **ctx: Any,
+    ) -> None:
+        """Called when the agent wakes from sleep or compact-induced dormancy.
+
+        Use to re-subscribe to channels, re-arm monitors, re-seed caches.
+        """
 
     # ── Error hook ───────────────────────────────────────────────────────
 
@@ -354,6 +472,25 @@ class HookManager:
     ) -> None:
         await self._fire("on_error", error, context, **ctx)
 
+    async def post_api(
+        self, url: str, status_code: int, body: Any, **ctx: Any
+    ) -> None:
+        await self._fire("on_post_api", url, status_code, body, **ctx)
+
+    async def post_approval(
+        self, action: str, surface: str, approved: bool, **ctx: Any
+    ) -> None:
+        await self._fire("on_post_approval", action, surface, approved, **ctx)
+
+    async def interrupt(self, reason: str = "", **ctx: Any) -> None:
+        await self._fire("on_interrupt", reason, **ctx)
+
+    async def compact(self, summary: str, **ctx: Any) -> None:
+        await self._fire("on_compact", summary, **ctx)
+
+    async def wake(self, agent_name: str, context: str = "", **ctx: Any) -> None:
+        await self._fire("on_wake", agent_name, context, **ctx)
+
     # ── Transform dispatchers ────────────────────────────────────────────
 
     async def pre_llm(
@@ -405,15 +542,81 @@ class HookManager:
     async def approval_needed(
         self, action: str, surface: str, **ctx: Any
     ) -> Optional[bool]:
-        """First hook to return non-None wins."""
+        """First hook to return non-None wins. Also fires post_approval observe."""
+        verdict = None
         for hook in self._reg.all():
             try:
-                verdict = await hook.on_approval_needed(action, surface, **ctx)
-                if verdict is not None:
-                    return verdict
+                v = await hook.on_approval_needed(action, surface, **ctx)
+                if v is not None and verdict is None:
+                    verdict = v
             except Exception:
                 logger.exception("Hook %s.on_approval_needed raised", hook.name)
-        return None
+        await self.post_approval(action, surface, bool(verdict), **ctx)
+        return verdict
+
+    pre_approval = approval_needed
+
+    async def pre_api(
+        self,
+        url: str,
+        method: str,
+        headers: Dict[str, str],
+        body: Any,
+        **ctx: Any,
+    ) -> tuple:
+        """Returns (headers, body), possibly transformed by plugins."""
+        cur_headers, cur_body = headers, body
+        for hook in self._reg.all():
+            try:
+                result = await hook.on_pre_api(url, method, cur_headers, cur_body, **ctx)
+                if result is not None:
+                    cur_headers = result.get("headers", cur_headers)
+                    cur_body = result.get("body", cur_body)
+            except Exception:
+                logger.exception("Hook %s.on_pre_api raised", hook.name)
+        return cur_headers, cur_body
+
+    async def gateway_dispatch(
+        self, event: Any, target: str, **ctx: Any
+    ) -> str:
+        """Returns the (possibly rerouted) target string."""
+        current = target
+        for hook in self._reg.all():
+            try:
+                result = await hook.on_gateway_dispatch(event, current, **ctx)
+                if result is not None:
+                    current = result
+            except Exception:
+                logger.exception("Hook %s.on_gateway_dispatch raised", hook.name)
+        return current
+
+    async def transform_input(
+        self, text: str, channel: str, user_id: str, **ctx: Any
+    ) -> str:
+        """Returns (possibly transformed) inbound message text."""
+        current = text
+        for hook in self._reg.all():
+            try:
+                result = await hook.on_transform_input(current, channel, user_id, **ctx)
+                if result is not None:
+                    current = result
+            except Exception:
+                logger.exception("Hook %s.on_transform_input raised", hook.name)
+        return current
+
+    async def transform_output(
+        self, text: str, channel: str, chat_id: str, **ctx: Any
+    ) -> str:
+        """Returns (possibly transformed) outbound response text."""
+        current = text
+        for hook in self._reg.all():
+            try:
+                result = await hook.on_transform_output(current, channel, chat_id, **ctx)
+                if result is not None:
+                    current = result
+            except Exception:
+                logger.exception("Hook %s.on_transform_output raised", hook.name)
+        return current
 
 
 #: Module-level dispatcher — import and use directly.
