@@ -84,6 +84,7 @@ class SealSettings(BaseSettings):
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
     qdrant_collection: str = "soul_memories"
+    qdrant_api_key: str | None = None
 
     @property
     def qdrant_url(self) -> str:
