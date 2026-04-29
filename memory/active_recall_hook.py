@@ -96,19 +96,19 @@ async def active_recall(user_message: str) -> str:
         # Since agents have <15 instincts, returning top-confidence is more reliable.
         try:
             instincts = await conn.fetch("""
-                SELECT trigger_condition, response, confidence
+                SELECT trigger_condition, action, strength
                 FROM instincts
-                WHERE agent = $1 AND active = true AND confidence >= 0.7
-                ORDER BY confidence DESC
+                WHERE agent = $1 AND invalid_at IS NULL AND strength >= 0.7
+                ORDER BY strength DESC
                 LIMIT 3
             """, agent)
 
             if instincts:
-                inst_lines = ["⚡ INSTINTOS ACTIVOS (conf>=0.7):"]
+                inst_lines = ["⚡ INSTINTOS ACTIVOS (strength>=0.7):"]
                 for i in instincts:
                     inst_lines.append(
-                        f"  - [{i['confidence']:.2f}] CUANDO: {i['trigger_condition'][:80]} "
-                        f"→ HAZ: {i['response'][:100]}"
+                        f"  - [{float(i['strength']):.2f}] CUANDO: {i['trigger_condition'][:80]} "
+                        f"→ HAZ: {i['action'][:100]}"
                     )
                 sections.append("\n".join(inst_lines))
         except Exception:
