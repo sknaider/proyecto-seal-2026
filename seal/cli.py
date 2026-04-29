@@ -25,6 +25,7 @@ from pathlib import Path
 
 from seal.doctor import run_doctor
 from seal.lock import AgentLock
+from seal.update import run_update
 from seal.profile import create, env_vars, get, list_profiles, profile_dir
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -281,6 +282,19 @@ def _find_claude() -> str | None:
 # ── parser ────────────────────────────────────────────────────────────────────
 
 
+def cmd_update(args: argparse.Namespace) -> int:
+    from pathlib import Path
+    return run_update(
+        url=getattr(args, "url", None) or "",
+        seal_home=Path(args.seal_home) if getattr(args, "seal_home", None) else None,
+        dry_run=getattr(args, "dry_run", False),
+        no_backup=getattr(args, "no_backup", False),
+        check_only=getattr(args, "check_only", False),
+        no_color=getattr(args, "no_color", False),
+        json_out=getattr(args, "json_out", False),
+    )
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     return run_doctor(no_color=getattr(args, "no_color", False),
                       json_out=getattr(args, "json_out", False))
@@ -329,6 +343,17 @@ def _build_parser() -> argparse.ArgumentParser:
     ug = sub.add_parser("upgrade", help="upgrade SEAL binaries for a profile")
     ug.add_argument("--profile", required=True)
 
+    # update
+    up = sub.add_parser("update", help="self-update SEAL from remote server")
+    up.add_argument("--url",      default="", help="release server URL override")
+    up.add_argument("--seal-home", dest="seal_home", default=None)
+    up.add_argument("--dry-run",  action="store_true")
+    up.add_argument("--no-backup", action="store_true")
+    up.add_argument("--check",    action="store_true", dest="check_only",
+                    help="only check remote version, do not apply")
+    up.add_argument("--no-color", action="store_true")
+    up.add_argument("--json",     action="store_true", dest="json_out")
+
     # doctor
     dr = sub.add_parser("doctor", help="run self-diagnostic checks")
     dr.add_argument("--no-color", action="store_true", help="disable ANSI colors")
@@ -349,6 +374,7 @@ def main(argv: list[str] | None = None) -> int:
         "status":         cmd_status,
         "logs":           cmd_logs,
         "upgrade":        cmd_upgrade,
+        "update":         cmd_update,
         "doctor":         cmd_doctor,
     }
     return dispatch[args.command](args)
