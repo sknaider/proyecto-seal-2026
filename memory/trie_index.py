@@ -223,7 +223,7 @@ async def _main_async(args):
         print(json.dumps(stats, indent=2))
 
     elif args.build_all:
-        for agent in ["ALICE", "ADA", "JARVIS", "DUM"]:
+        for agent in ["ALICE", "ADA", "JARVIS", "DUM", "NEXUS"]:
             stats = await build_trie_for_agent(agent)
             print(f"  {agent}: {stats['nodes_created']} nodes")
 

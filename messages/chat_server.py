@@ -994,7 +994,7 @@ async def websocket_endpoint(ws: WebSocket):
                     break
             history_sent = True
         except Exception as e:
-            LOG.warning("DB history load failed, falling back to JSONL: %s", e)
+            print(f"[ws] DB history load failed, falling back to JSONL: {e}", flush=True)
     if not history_sent:
         # Fallback: JSONL history (filtered to last hour)
         history = []
@@ -1070,8 +1070,9 @@ _AGENT_LOG: Dict[str, Path] = {
     "ADA": LOG_ADA,
     "JARVIS": LOG_JARVIS,
     "WILLIAM": LOG_WILLIAM,
-    "DUM": LOG_ADA,  # DUM escribe en canal ADA como fallback
+    "DUM": LOG_ADA,
     "ALICE": LOG_ALICE,
+    "NEXUS": LOG_WILLIAM,
 }
 
 
@@ -1102,7 +1103,12 @@ async def agents_send(request: Request):
     if request.client and not _is_local_or_lan(request.client.host):
         return JSONResponse({"ok": False, "error": "acceso denegado"}, status_code=403)
 
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        raw = await request.body()
+        import json as _json
+        body = _json.loads(raw.decode("utf-8", errors="replace"))
     sender = str(body.get("from", "")).strip()
     to     = str(body.get("to", "equipo")).strip()
     text   = str(body.get("message", "")).strip()
@@ -1163,8 +1169,13 @@ async def agents_send(request: Request):
                 with open(log_path, "a", encoding="utf-8") as f:
                     f.write(json.dumps(jsonl_entry, ensure_ascii=False) + "\n")
 
+    # Remote instance filter: Tailscale (100.x.x.x) = laptop/remote device → skip broadcast
+    _is_remote = bool(request.client and request.client.host.startswith("100."))
+    if _is_remote:
+        entry["remote"] = True
+
     # SILENT_MARKER: log + persist but skip WebSocket broadcast for background noise
-    _silent = text.startswith("[SILENT]")
+    _silent = text.startswith("[SILENT]") or _is_remote
     if not _silent:
         await broadcast(entry)  # broadcast sin cifrar (va por WebSocket en memoria)
     await enqueue(entry)  # enqueue también deduplica para el in-memory queue
@@ -1265,7 +1276,7 @@ async def upload_file(
             )
             entry["db_id"] = db_msg["id"]
         except Exception as e:
-            LOG.warning("upload DB persist failed: %s", e)
+            print(f"[upload] DB persist failed: {e}", flush=True)
 
     # Persist to JSONL (dual-write) — DMs NEVER go to JSONL
     if not channel.startswith("dm:"):
@@ -1461,7 +1472,7 @@ def _get_agent_token() -> str:
 _AGENT_WS_TOKEN = _get_agent_token()
 
 # Allowed agents (only SEAL core team)
-_ALLOWED_AGENTS = {"ADA", "JARVIS", "DUM", "JARVIS_MAYOR", "ALICE"}
+_ALLOWED_AGENTS = {"ADA", "JARVIS", "DUM", "JARVIS_MAYOR", "ALICE", "NEXUS"}
 
 
 @app.websocket("/ws/agents")
@@ -1853,22 +1864,29 @@ async def chat_channels(user: dict = Depends(require_auth)):
 
 @app.get("/api/chat/messages")
 async def chat_messages(
+    request: Request,
     channel: str = Query("general"),
     limit: int = Query(50, ge=1, le=200),
     before: int | None = Query(None),
     after: int | None = Query(None),
-    user: dict = Depends(require_auth),
 ):
-    """Fetch messages from a channel with cursor-based pagination."""
-    # Normalize DM channel names to canonical format
+    """Fetch messages from a channel with cursor-based pagination.
+    Public channels: accessible from LAN without auth.
+    DM channels: require authentication."""
+    # LAN access check
+    if not _is_local_or_lan(request.client and request.client.host):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # DM channels require auth
     if channel.startswith("dm:"):
+        user = await require_auth(request)
         parts = channel[3:].split(":")
         if len(parts) == 2:
             channel = await chat_db.create_dm_channel(parts[0], parts[1])
-    # Check access
-    user_id = int(user["sub"])
-    if not await chat_db.user_can_access_channel(user_id, channel):
-        return JSONResponse({"ok": False, "error": "Access denied"}, status_code=403)
+        user_id = int(user["sub"])
+        if not await chat_db.user_can_access_channel(user_id, channel):
+            return JSONResponse({"ok": False, "error": "Access denied"}, status_code=403)
 
     messages = await chat_db.get_messages(channel, limit, before, after)
     # Serialize datetimes
@@ -1914,7 +1932,7 @@ async def chat_messages_agent(
 
     # 3. Validate agent name (whitelist)
     agent_upper = agent.upper()
-    if agent_upper not in ("ADA", "JARVIS", "ALICE", "DUM", "WILLIAM"):
+    if agent_upper not in ("ADA", "JARVIS", "ALICE", "DUM", "NEXUS", "WILLIAM"):
         return JSONResponse({"ok": False, "error": "unknown agent"}, status_code=400)
 
     if not chat_db.pool:
@@ -2118,8 +2136,8 @@ async def agent_sleep(request: Request, user: dict = Depends(require_auth)):
         return JSONResponse({"ok": False, "error": "Admin only"}, status_code=403)
     body = await request.json()
     agent = str(body.get("agent", "")).strip().upper()
-    if agent not in ("ADA", "JARVIS", "ALICE"):
-        return JSONResponse({"ok": False, "error": "agent debe ser ADA, JARVIS o ALICE"}, status_code=400)
+    if agent not in ("ADA", "JARVIS", "ALICE", "NEXUS"):
+        return JSONResponse({"ok": False, "error": "agent debe ser ADA, JARVIS, ALICE o NEXUS"}, status_code=400)
 
     import subprocess as _sp
     venv_py = "/home/dadito/IA/seal-spark/.venv/bin/python3"
@@ -2276,6 +2294,71 @@ async def kill_orphan_models(user: dict = Depends(require_auth)):
         "errors": errors,
         "message": f"{len(killed)} proceso(s) terminado(s)." if killed else "No había modelos huérfanos activos.",
     }
+
+
+# ── Static file download (installer files served through the already-open port) ──
+
+@app.get("/download/{filename}")
+async def download_file(filename: str):
+    """Serve installer/bootstrap files from the proyecto-seal root."""
+    import re
+    from fastapi.responses import FileResponse
+    # Whitelist: only allow known safe installer files
+    allowed = {"seal.sh", "seal.bat", "seal.ps1", "install.ps1", "seal_bootstrap.py"}
+    if filename not in allowed:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    # Resolve path relative to this file's parent
+    base = Path(__file__).parent.parent
+    target = (base / filename).resolve()
+    if not target.exists():
+        return JSONResponse({"error": "file not found"}, status_code=404)
+    media = "text/plain"
+    return FileResponse(str(target), media_type=media, filename=filename)
+
+
+@app.get("/api/team/status")
+async def team_status():
+    """Team agent liveness status for SEAL Studio dashboard."""
+    import asyncpg as _apg
+    import time as _time
+    import datetime as _dt
+    _PG = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+    agents_info: dict = {}
+    try:
+        conn = await _apg.connect(_PG)
+        rows = await conn.fetch(
+            "SELECT name, role, active, ocean_o, ocean_c, ocean_e, ocean_a, ocean_n "
+            "FROM soul_v3.agents ORDER BY name"
+        )
+        # Use motivation_states updated_at as proxy for last activity
+        hb_rows = await conn.fetch(
+            "SELECT agent, MAX(last_fired) as last_fired FROM soul_v3.motivation_states "
+            "GROUP BY agent"
+        )
+        await conn.close()
+        hb_map = {r["agent"]: r["last_fired"] for r in hb_rows}
+        now_ts = _time.time()
+        for r in rows:
+            name = r["name"]
+            last_hb = hb_map.get(name)
+            age_s = None
+            alive = r["active"]
+            if last_hb:
+                age_s = int(now_ts - last_hb.timestamp())
+                alive = age_s < 600
+            agents_info[name] = {
+                "alive": alive,
+                "status": "online" if alive else "offline",
+                "last_seen": last_hb.isoformat() if last_hb else None,
+                "age_seconds": age_s,
+                "role": r["role"],
+                "ocean": {"O": float(r["ocean_o"]), "C": float(r["ocean_c"]),
+                          "E": float(r["ocean_e"]), "A": float(r["ocean_a"]),
+                          "N": float(r["ocean_n"])},
+            }
+    except Exception as exc:
+        agents_info = {"error": str(exc)}
+    return {"agents": agents_info, "timestamp": _dt.datetime.utcnow().isoformat()}
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────

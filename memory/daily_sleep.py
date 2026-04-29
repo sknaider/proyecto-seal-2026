@@ -37,7 +37,7 @@ import asyncpg
 
 DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
 WEBCHAT_URL = "http://localhost:8765/api/agents/send"
-AGENTS = ["ADA", "JARVIS", "ALICE"]
+AGENTS = ["ADA", "JARVIS", "ALICE", "DUM", "NEXUS"]
 WILLIAM_SIGNAL_FILE = REPO_DIR / "messages" / ".william_signal"
 SLEEP_LOG = REPO_DIR / "messages" / "daily_sleep.log"
 

@@ -36,7 +36,7 @@ import asyncpg
 
 DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
 WEBCHAT_URL = "http://localhost:8765/api/agents/send"
-AGENTS = ["ADA", "JARVIS", "ALICE", "DUM"]
+AGENTS = ["ADA", "JARVIS", "ALICE", "DUM", "NEXUS"]
 FULL_CONTEXT_DAYS = 7  # Keep full context for this many days
 
 logging.basicConfig(
@@ -193,7 +193,7 @@ import asyncio, sys
 sys.path.insert(0, '{MEMORY_DIR}')
 # Trigger cold archive migrate via MCP tool
 import importlib.util
-spec = importlib.util.spec_from_file_location('mcp', '{MEMORY_DIR}/mcp_server_v2.py')
+spec = importlib.util.spec_from_file_location('mcp', '{MEMORY_DIR}/mcp_server_v3.py')
 # Just log — full MCP import is expensive
 print('cold_archive_migrate: deferred to MCP tool')
 """

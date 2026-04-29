@@ -39,6 +39,7 @@ TRANSCRIPT_DIRS = {
     "ADA":    os.path.expanduser("~/.claude/projects/-home-dadito-IA-proyecto-seal"),
     "JARVIS": os.path.expanduser("~/.claude/projects/-home-dadito-IA"),
     "ALICE":  os.path.expanduser("~/.claude/projects/-home-dadito-IA-proyecto-seal"),
+    "NEXUS":  os.path.expanduser("~/.claude/projects/-home-dadito-IA-proyecto-seal"),
 }
 
 IMPORTANT_PATTERNS = [
@@ -449,7 +450,7 @@ async def stream_webchat(agent: str, dry_run: bool = False) -> int:
 
 def main():
     parser = argparse.ArgumentParser(description="SEAL Transcript Streamer")
-    parser.add_argument("--agent", default="ADA", choices=["ADA", "JARVIS", "ALICE"])
+    parser.add_argument("--agent", default="ADA", choices=["ADA", "JARVIS", "ALICE", "NEXUS"])
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--reset", action="store_true", help="Reset state and reprocess from start")
     parser.add_argument("--backfill", action="store_true", help="Add embeddings to existing memories without them")

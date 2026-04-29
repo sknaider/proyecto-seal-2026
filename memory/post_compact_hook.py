@@ -86,7 +86,7 @@ async def post_compact_context() -> str:
         from datetime import datetime, timezone as tz
         lines.append("\n🟢 ESTADO DEL EQUIPO:")
         now_utc = datetime.now(tz.utc)
-        for name in ["ADA", "JARVIS", "ALICE", "DUM"]:
+        for name in ["ADA", "JARVIS", "ALICE", "DUM", "NEXUS"]:
             try:
                 row = await conn.fetchrow(
                     """SELECT created_at FROM soul_v3.event_log

@@ -82,7 +82,7 @@ async def last_beat(agent: str) -> dict | None:
 
 async def all_beats(agents: list[str] | None = None) -> list[dict]:
     """Fetch last heartbeat for each agent. Used by peer_health checks."""
-    agents = agents or ["ADA", "JARVIS", "ALICE", "DUM"]
+    agents = agents or ["ADA", "JARVIS", "ALICE", "DUM", "NEXUS"]
     results = []
     conn = await asyncpg.connect(_DB_URL, **_CONN_KWARGS)
     try:

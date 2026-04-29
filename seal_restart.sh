@@ -5,8 +5,8 @@
 
 AGENT_LOWER="${1,,}"
 case "$AGENT_LOWER" in
-  ada|jarvis|alice) ;;
-  *) echo "Uso: seal_restart.sh <ada|jarvis|alice>"; exit 1 ;;
+  ada|jarvis|alice|nexus) ;;
+  *) echo "Uso: seal_restart.sh <ada|jarvis|alice|nexus>"; exit 1 ;;
 esac
 
 AGENT_UPPER="${AGENT_LOWER^^}"
@@ -30,6 +30,7 @@ case "$AGENT_LOWER" in
   ada)    AGENT_DIR="$SEAL_DIR" ;;
   jarvis) AGENT_DIR="$SEAL_DIR/memory" ;;
   alice)  AGENT_DIR="$SEAL_DIR/alice" ;;
+  nexus)  AGENT_DIR="$SEAL_DIR" ;;
 esac
 
 export PATH="/home/dadito/.local/bin:$PATH"

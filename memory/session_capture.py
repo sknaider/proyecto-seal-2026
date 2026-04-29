@@ -25,7 +25,7 @@ import httpx
 
 from db import get_pool, close_pool
 from embeddings import get_embedding
-from mcp_server import classify_emotion
+from mcp_server_v3 import classify_emotion
 
 LOG = logging.getLogger("session-capture")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
@@ -35,8 +35,11 @@ LLAMA_MODEL = "gemma4-31b"
 
 # Agent → transcript directory mapping
 TRANSCRIPT_DIRS = {
-    "ADA": os.path.expanduser("~/.claude/projects/-home-dadito-IA-proyecto-seal"),
+    "ADA":    os.path.expanduser("~/.claude/projects/-home-dadito-IA-proyecto-seal"),
     "JARVIS": os.path.expanduser("~/.claude/projects/-home-dadito-IA"),
+    "ALICE":  os.path.expanduser("~/.claude/projects/-home-dadito-IA-proyecto-seal"),
+    "DUM":    os.path.expanduser("~/.claude/projects/-home-dadito-IA-proyecto-seal"),
+    "NEXUS":  os.path.expanduser("~/.claude/projects/-home-dadito-IA-proyecto-seal"),
 }
 # Default fallback
 TRANSCRIPT_DIR = TRANSCRIPT_DIRS["ADA"]
