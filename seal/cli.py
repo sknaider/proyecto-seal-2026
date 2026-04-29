@@ -9,6 +9,7 @@ Usage:
     seal status --profile acme_corp
     seal logs   --profile acme_corp [--follow] [--lines 50]
     seal upgrade --profile acme_corp
+    seal doctor  [--no-color] [--json]
 
 Stdlib only — no Click, no Typer, no external deps.
 """
@@ -22,6 +23,7 @@ import sys
 import time
 from pathlib import Path
 
+from seal.doctor import run_doctor
 from seal.lock import AgentLock
 from seal.profile import create, env_vars, get, list_profiles, profile_dir
 
@@ -279,6 +281,11 @@ def _find_claude() -> str | None:
 # ── parser ────────────────────────────────────────────────────────────────────
 
 
+def cmd_doctor(args: argparse.Namespace) -> int:
+    return run_doctor(no_color=getattr(args, "no_color", False),
+                      json_out=getattr(args, "json_out", False))
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="seal",
@@ -322,6 +329,11 @@ def _build_parser() -> argparse.ArgumentParser:
     ug = sub.add_parser("upgrade", help="upgrade SEAL binaries for a profile")
     ug.add_argument("--profile", required=True)
 
+    # doctor
+    dr = sub.add_parser("doctor", help="run self-diagnostic checks")
+    dr.add_argument("--no-color", action="store_true", help="disable ANSI colors")
+    dr.add_argument("--json", action="store_true", dest="json_out", help="output as JSON")
+
     return p
 
 
@@ -337,6 +349,7 @@ def main(argv: list[str] | None = None) -> int:
         "status":         cmd_status,
         "logs":           cmd_logs,
         "upgrade":        cmd_upgrade,
+        "doctor":         cmd_doctor,
     }
     return dispatch[args.command](args)
 
