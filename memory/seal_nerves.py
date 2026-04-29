@@ -241,6 +241,13 @@ class MotivationEngine:
             τ_eff = _circ_tau(tank_name, τ)
             decayed_value = row["value"] * math.exp(-dt / τ_eff)
 
+            # Cooldown check: if tank fired recently, suppress even if above threshold
+            cooldown_s = cfg.get("cooldown_s", 0)
+            in_cooldown = False
+            if cooldown_s > 0 and row["last_fired"] is not None:
+                elapsed_since_fire = (now - row["last_fired"]).total_seconds()
+                in_cooldown = elapsed_since_fire < cooldown_s
+
             states[tank_name] = {
                 "value":       decayed_value,
                 "threshold":   cfg.get("threshold", 50.0),
@@ -248,7 +255,8 @@ class MotivationEngine:
                 "last_update": row["last_update"],
                 "last_fired":  row["last_fired"],
                 "fire_count":  row["fire_count"],
-                "above_threshold": decayed_value >= cfg.get("threshold", 50.0),
+                "in_cooldown": in_cooldown,
+                "above_threshold": decayed_value >= cfg.get("threshold", 50.0) and not in_cooldown,
             }
         return states
 
