@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import fcntl
 import glob
 import json
 import logging
@@ -32,6 +33,22 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 
 STATE_DIR = Path(os.path.expanduser("~/.seal_streamer"))
 STATE_DIR.mkdir(exist_ok=True)
+
+LOCK_DIR = Path("/tmp")
+MAX_MEMORIES_PER_RUN = 50  # never store more than this per cron execution
+
+
+def acquire_run_lock(agent: str):
+    """Acquire exclusive file lock — prevents parallel instances. Returns lock file fd or None."""
+    lock_path = LOCK_DIR / f"seal_streamer_{agent}.lock"
+    try:
+        fd = open(lock_path, "w")
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fd.write(str(os.getpid()))
+        fd.flush()
+        return fd
+    except OSError:
+        return None
 
 DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
 
@@ -213,6 +230,7 @@ async def store_memories(agent: str, memories: list[dict], dry_run: bool = False
     import asyncpg
     conn = await asyncpg.connect(DB_URL, server_settings={"search_path": "soul_v3"})
     stored = 0
+    memories = memories[:MAX_MEMORIES_PER_RUN]
     try:
         for m in memories:
             if dry_run:
@@ -438,6 +456,7 @@ async def stream_webchat(agent: str, dry_run: bool = False) -> int:
         LOG.warning("Error reading webchat: %s", e)
         return 0
 
+    to_store = to_store[:MAX_MEMORIES_PER_RUN]
     stored = await store_memories(agent, to_store, dry_run=dry_run)
 
     if not dry_run:
@@ -458,6 +477,14 @@ def main():
     parser.add_argument("--webchat", action="store_true", help="Also stream william_channel.jsonl")
     args = parser.parse_args()
 
+    if not args.dry_run and not args.backfill:
+        lock_fd = acquire_run_lock(args.agent)
+        if lock_fd is None:
+            LOG.info("%s: another instance running — exit", args.agent)
+            sys.exit(0)
+    else:
+        lock_fd = None
+
     async def _run():
         if args.backfill:
             await backfill_embeddings(args.agent, limit=args.backfill_limit)
@@ -466,7 +493,15 @@ def main():
             if args.webchat:
                 await stream_webchat(args.agent, dry_run=args.dry_run)
 
-    asyncio.run(_run())
+    try:
+        asyncio.run(_run())
+    finally:
+        if lock_fd is not None:
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                lock_fd.close()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
