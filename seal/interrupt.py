@@ -1,6 +1,6 @@
 """SEAL Interrupt System — CANCEL and QUEUE modes.
 
-Three-mode interrupt system (mirrors Hermes busy_input_mode):
+Three-mode interrupt system:
 
   STEER  — already in seal/steer.py. Injects a redirect mid-run without
             stopping the agent.  William whispers a direction.
