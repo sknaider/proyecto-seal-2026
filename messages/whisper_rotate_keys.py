@@ -23,7 +23,7 @@ LIMA_TZ = ZoneInfo("America/Lima")
 MESSAGES_DIR = Path(__file__).parent
 KEYS_FILE = MESSAGES_DIR / "whisper_keys.json"
 BACKUP_DIR = MESSAGES_DIR / "whisper_key_backups"
-AGENTS = ["ADA", "JARVIS", "ALICE", "DUM"]
+AGENTS = ["ADA", "JARVIS", "ALICE", "DUM", "NEXUS"]
 WEBCHAT_URL = "http://localhost:8765/api/agents/send"
 
 

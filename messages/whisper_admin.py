@@ -21,7 +21,7 @@ from pathlib import Path
 
 SEAL_DIR = Path("/home/dadito/IA/proyecto-seal/messages")
 BOUNDARIES_FILE = SEAL_DIR / "whisper_boundaries.json"
-KNOWN_AGENTS = ["ADA", "JARVIS", "ALICE", "DUM"]
+KNOWN_AGENTS = ["ADA", "JARVIS", "ALICE", "DUM", "NEXUS"]
 
 
 def load_boundaries() -> dict:

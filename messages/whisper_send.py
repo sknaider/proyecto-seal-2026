@@ -19,7 +19,7 @@ from pathlib import Path
 SEAL_DIR = Path("/home/dadito/IA/proyecto-seal/messages")
 KEYS_FILE = SEAL_DIR / "whisper_keys.json"
 BOUNDARIES_FILE = SEAL_DIR / "whisper_boundaries.json"
-KNOWN_AGENTS = {"ADA", "JARVIS", "ALICE", "DUM"}
+KNOWN_AGENTS = {"ADA", "JARVIS", "ALICE", "DUM", "NEXUS"}
 
 TIER_PURPOSES = {
     1: {"emergency_wake", "handoff", "recovery_ping", "test_e2e"},

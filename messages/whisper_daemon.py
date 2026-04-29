@@ -30,7 +30,7 @@ AUDIT_LOG = SEAL_DIR / "whisper_audit.jsonl"
 RATE_FILE = SEAL_DIR / ".whisper_rate.json"
 WEBCHAT_URL = "http://localhost:8765/api/agents/send"
 
-KNOWN_AGENTS = {"ADA", "JARVIS", "ALICE", "DUM"}
+KNOWN_AGENTS = {"ADA", "JARVIS", "ALICE", "DUM", "NEXUS"}
 
 TIER_PURPOSES = {
     1: {"emergency_wake", "handoff", "recovery_ping", "test_e2e"},
