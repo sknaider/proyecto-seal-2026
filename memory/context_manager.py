@@ -1,14 +1,18 @@
-"""SEAL Context Manager — Capa 1: Turn Externalization + orchestration.
+"""SEAL Context Manager — Capa 1+2+3+4 orchestration (spec v3)
 
 Manages the lifecycle of a SEAL agent session:
-  - Persists every turn to soul_v3.session_turns
-  - Externalizes old middle turns to memories when turn_count > EXTERNALIZE_AFTER
-  - Delegates compression (Capa 2) and session chaining (Capa 3) to sibling modules
+  - Persists every turn to soul_v3.session_turns (Capa 1)
+  - Externalizes middle turns to memories when turn_count > externalize_after (Capa 1)
+  - Compresses middle via Ollama with tool-block flatten + soft-hide fallback (Capa 2)
+  - Writes session digest + chains sessions via parent_id (Capa 3)
+  - Extracts facts per significant turn ADD-only (Capa 4)
+  - Bitemporal: invalid_at / hidden columns, never DELETE
 
 Called from:
   - memory/pre_compact_hook.py  (flush + digest before compact)
   - memory/post_compact_hook.py (open new chained session)
   - Claude Code UserPromptSubmit / Stop hooks (on_turn per turn)
+  - Claude Code PostToolBatch hook (extract_facts_from_turn)
 """
 from __future__ import annotations
 
@@ -28,26 +32,35 @@ DB_URL = os.environ.get(
     "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
 )
 SCHEMA = "soul_v3"
-
 log = logging.getLogger(__name__)
-
-EXTERNALIZE_AFTER = 40
-KEEP_HEAD = 6
-KEEP_TAIL = 20
-COMPRESS_AT_PCT = 0.70
 
 
 @dataclass
 class ContextManagerConfig:
-    externalize_after: int = EXTERNALIZE_AFTER
-    keep_head: int = KEEP_HEAD
-    keep_tail: int = KEEP_TAIL
-    compress_at_pct: float = COMPRESS_AT_PCT
-    enabled_layers: set[int] = field(default_factory=lambda: {1, 2, 3})
+    # Capa 1
+    externalize_after: int = 40
+    keep_head: int = 6
+    keep_tail: int = 20
+
+    # Capa 2 (v3)
+    tier1_at_pct: float = 0.40
+    compress_at_pct: float = 0.50
+    compress_min_turns: int = 30
+    target_summary_ratio: float = 0.20
+    max_summary_pct: float = 0.05
+    token_buffer_pct: float = 0.10
+
+    # Capa 4 (v3)
+    extract_enabled: bool = True
+    extract_min_content: int = 200
+    extract_max_facts: int = 5
+    extract_timeout_s: float = 1.5
+
+    enabled_layers: set[int] = field(default_factory=lambda: {1, 2, 3, 4})
 
 
 class ContextManager:
-    """Orchestrates Turn Externalization (Capa 1) for one agent session."""
+    """Orchestrates all four context management layers for one agent session."""
 
     def __init__(self, agent: str, config: ContextManagerConfig | None = None):
         self.agent = agent
@@ -111,11 +124,11 @@ class ContextManager:
     # ── Per-turn recording ────────────────────────────────────────────────────
 
     async def on_turn(self, role: str, content: str) -> None:
-        """Persist one turn and trigger externalization if threshold reached."""
+        """Persist one turn and trigger externalization + compression checks."""
         if not self.session_id:
             await self.open_session()
 
-        from token_estimator import estimate
+        from token_estimator import estimate, context_pct as _ctx_pct
 
         conn = await self._conn()
         try:
@@ -161,6 +174,11 @@ class ContextManager:
         finally:
             await conn.close()
 
+        if 2 in self.cfg.enabled_layers:
+            pct = await self.estimate_context_pct()
+            if pct >= self.cfg.compress_at_pct:
+                asyncio.create_task(self.compress_middle())
+
     # ── Capa 1: Turn Externalization ──────────────────────────────────────────
 
     async def _externalize_turns(self, conn: asyncpg.Connection) -> int:
@@ -170,6 +188,8 @@ class ContextManager:
               FROM {SCHEMA}.session_turns
              WHERE session_id = $1
                AND externalized_at IS NULL
+               AND (invalid_at IS NULL)
+               AND hidden = false
              ORDER BY turn_index
             """,
             self.session_id,
@@ -205,6 +225,7 @@ class ContextManager:
                     f"""
                     UPDATE {SCHEMA}.session_turns
                        SET externalized_at = now(),
+                           invalid_at      = now(),
                            memory_id = $1
                      WHERE id = $2
                     """,
@@ -226,11 +247,112 @@ class ContextManager:
         finally:
             await conn.close()
 
+    async def externalize_specific(self, turn_ids: list[int]) -> int:
+        """Externalize specific turn IDs — MCP tool target."""
+        if not turn_ids or not self.session_id:
+            return 0
+        conn = await self._conn()
+        try:
+            rows = await conn.fetch(
+                f"""
+                SELECT id, turn_index, role, content, tokens_est
+                  FROM {SCHEMA}.session_turns
+                 WHERE id = ANY($1::bigint[])
+                   AND session_id = $2
+                   AND externalized_at IS NULL
+                """,
+                turn_ids,
+                self.session_id,
+            )
+            count = 0
+            for turn in rows:
+                mem_row = await conn.fetchrow(
+                    f"""
+                    INSERT INTO {SCHEMA}.memories
+                        (agent, type, content, category, importance, metadata, created_at)
+                    VALUES ($1, 'session_turn', $2, 'context', 3, $3::jsonb, now())
+                    RETURNING id
+                    """,
+                    self.agent,
+                    turn["content"],
+                    json.dumps({
+                        "session_id": str(self.session_id),
+                        "turn_index": turn["turn_index"],
+                        "role": turn["role"],
+                    }),
+                )
+                await conn.execute(
+                    f"""
+                    UPDATE {SCHEMA}.session_turns
+                       SET externalized_at = now(),
+                           invalid_at      = now(),
+                           memory_id = $1
+                     WHERE id = $2
+                    """,
+                    mem_row["id"],
+                    turn["id"],
+                )
+                count += 1
+            return count
+        finally:
+            await conn.close()
+
     async def flush_pending_turns(self) -> int:
         """Force-externalize all externalizable turns. Call from pre_compact_hook."""
         return await self.externalize_turns()
 
-    # ── Capa 2: Proactive Compression delegation ──────────────────────────────
+    # ── Bitemporal helpers ────────────────────────────────────────────────────
+
+    async def invalidate_turns(self, turn_ids: list[int], reason: str = "invalidated") -> int:
+        """Mark turns as invalid_at = now() — bitemporal, non-destructive."""
+        if not turn_ids:
+            return 0
+        conn = await self._conn()
+        try:
+            result = await conn.execute(
+                f"""
+                UPDATE {SCHEMA}.session_turns
+                   SET invalid_at = now(),
+                       hidden_reason = COALESCE(hidden_reason, $1)
+                 WHERE id = ANY($2::bigint[])
+                   AND invalid_at IS NULL
+                """,
+                reason,
+                turn_ids,
+            )
+            count = int(result.split()[-1]) if result else 0
+            log.debug("[CM] invalidated %d turns", count)
+            return count
+        finally:
+            await conn.close()
+
+    async def vigentes_turns(self) -> list[dict]:
+        """Return active turns: invalid_at IS NULL AND hidden = false."""
+        if not self.session_id:
+            return []
+        conn = await self._conn()
+        try:
+            rows = await conn.fetch(
+                f"""
+                SELECT id, turn_index, role, content, tokens_est, created_at
+                  FROM {SCHEMA}.session_turns
+                 WHERE session_id = $1
+                   AND invalid_at IS NULL
+                   AND hidden = false
+                 ORDER BY turn_index
+                """,
+                self.session_id,
+            )
+            return [dict(r) for r in rows]
+        finally:
+            await conn.close()
+
+    async def unhide_turns(self, turn_ids: list[int]) -> int:
+        """Reverse soft-hide for specific turns."""
+        from context_compressor import unhide_turns as _unhide
+        return await _unhide(self.session_id, turn_ids)
+
+    # ── Capa 2: Proactive Compression ─────────────────────────────────────────
 
     async def compress_middle(self) -> str | None:
         if 2 not in self.cfg.enabled_layers or not self.session_id:
@@ -253,6 +375,8 @@ class ContextManager:
                   FROM {SCHEMA}.session_turns
                  WHERE session_id = $1
                    AND externalized_at IS NULL
+                   AND invalid_at IS NULL
+                   AND hidden = false
                 """,
                 self.session_id,
             )
@@ -261,7 +385,7 @@ class ContextManager:
         finally:
             await conn.close()
 
-    # ── Capa 3: Session Chain delegation ─────────────────────────────────────
+    # ── Capa 3: Session Chain ─────────────────────────────────────────────────
 
     async def write_session_digest(self) -> str | None:
         if 3 not in self.cfg.enabled_layers or not self.session_id:
@@ -313,7 +437,35 @@ class ContextManager:
         finally:
             await conn.close()
 
-    # ── Convenience: last open session ───────────────────────────────────────
+    # ── Capa 4: Proactive Turn Extraction ─────────────────────────────────────
+
+    async def extract_facts_from_turn(
+        self,
+        turn_content: str,
+        turn_index: int | None = None,
+        tool_names: list[str] | None = None,
+        tool_outputs: list[str] | None = None,
+    ) -> int:
+        """Single-pass ADD-only fact extraction from a significant turn."""
+        if 4 not in self.cfg.enabled_layers or not self.cfg.extract_enabled:
+            return 0
+        if not self.session_id:
+            return 0
+        try:
+            from turn_extractor import extract_and_store
+            return await extract_and_store(
+                agent=self.agent,
+                session_id=self.session_id,
+                turn_index=turn_index or 0,
+                turn_content=turn_content,
+                tool_names=tool_names,
+                tool_outputs=tool_outputs,
+            )
+        except Exception as exc:
+            log.warning("[CM] extract_facts failed: %s", exc)
+            return 0
+
+    # ── Convenience ───────────────────────────────────────────────────────────
 
     @classmethod
     async def resume_or_open(cls, agent: str) -> "ContextManager":
