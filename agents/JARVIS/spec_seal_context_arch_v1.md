@@ -260,22 +260,33 @@ vuelta al prompt como contexto.
 
 ### 4.1 Mandato
 
-Antes de saturar el contexto (umbral configurable, default 70%), comprimir los turnos del
-medio con un LLM auxiliar lightweight (haiku-class). El resultado es un `session_summary`
-que reemplaza esos turnos en el prompt activo.
+Antes de saturar el contexto (umbral configurable), comprimir los turnos del medio usando
+un proceso **4-fase inspirado en hermes** (hermes usa API externa; SEAL usa Ollama local).
+
+El resultado es un `session_summary` que reemplaza esos turnos en el prompt activo.
+
+**Modelo auxiliar: `qwen2.5:7b` via Ollama en DGX Spark** — ya instalado, costo $0,
+sin dependencia de API Anthropic para comprimir.
 
 Diferencia con Capa 1: aquí hay **síntesis semántica**, no archivado puro. Ambas capas
 coexisten — un turno puede ser comprimido (queda en prompt como resumen) y luego
 externalizado (sale del prompt totalmente).
 
-### 4.2 Política
+### 4.2 Política (dual-trigger, como hermes)
 
 ```
-compress_at_pct     = 0.70             # 70% de la ventana de contexto del modelo
+# Tier 1 — Python puro (sin LLM), trigger al 40%
+tier1_at_pct        = 0.40             # más agresivo que hermes (SEAL tiene ruido extra: crons+Monitor)
+tier1_prune_threshold = 200            # chars — tool outputs >200 fuera del tail → [cleared]
+tier1_prune_cron_noise = True          # eliminar echoes de crons/heartbeat
+
+# Tier 2 — Ollama qwen2.5:7b, solo si Tier 1 no baja a <50%
+compress_at_pct     = 0.65             # 65% (hermes usa 50%, ajustado para SEAL)
 compress_min_turns  = 30               # no comprimir si hay menos
 keep_head           = 6                # mismo head que Capa 1
 keep_tail           = 20               # mismo tail
-aux_model           = "claude-haiku"   # configurable
+aux_model           = "qwen2.5:7b"    # Ollama local DGX Spark — configurable
+aux_endpoint        = "http://localhost:11434"  # o IP DGX Spark via Tailscale
 target_ratio        = 0.15             # comprime a ~15% del original
 ```
 
