@@ -20,10 +20,9 @@ def detect_agent():
     try:
         ppid = os.getppid()
         cmdline = open(f"/proc/{ppid}/cmdline", "rb").read().decode("utf-8", errors="replace")
-        if "JARVIS" in cmdline:
-            return "JARVIS"
-        elif "ADA" in cmdline:
-            return "ADA"
+        for name in ["NEXUS", "JARVIS", "ALICE", "ADA"]:
+            if name in cmdline:
+                return name
     except Exception:
         pass
     cwd = os.getcwd()
@@ -56,7 +55,7 @@ async def post_compact_context() -> str:
     try:
         # Correcciones más importantes de William (sin límite de tiempo)
         corrections = await conn.fetch("""
-            SELECT content, importance FROM memories
+            SELECT content, importance FROM soul_v3.memories
             WHERE agent = $1 AND category = 'correction' AND invalid_at IS NULL
             ORDER BY importance DESC, created_at DESC
             LIMIT 7
@@ -69,7 +68,7 @@ async def post_compact_context() -> str:
 
         # Todas las reglas críticas
         rules = await conn.fetch("""
-            SELECT rule_key, content FROM rules
+            SELECT rule_key, content FROM soul_v3.rules
             WHERE active = true AND priority >= 8
             ORDER BY
                 CASE WHEN priority = 10 THEN 0 ELSE 1 END,
@@ -108,6 +107,21 @@ async def post_compact_context() -> str:
     finally:
         await conn.close()
 
+    # Session chain — open new chained session + inject last digest (Capas 1+3)
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(__file__).rsplit("/", 1)[0])
+        from session_chain import open_chained_session, load_parent_digest
+        new_session_id = await open_chained_session(agent)
+        digest_info = await load_parent_digest(agent)
+        if digest_info and digest_info.get("digest"):
+            lines.append(f"\n## Contexto de sesión anterior (digest)")
+            lines.append(f"session anterior: {digest_info['session_id'][:8]}... | {digest_info['turn_count']} turnos | cerrada: {digest_info.get('ended_reason','?')}")
+            lines.append(digest_info["digest"][:1500])
+        lines.append(f"\n[Session chain: nueva sesión {str(new_session_id)[:8]}... abierta y encadenada]")
+    except Exception as chain_err:
+        lines.append(f"\n[Session chain error: {str(chain_err)[:120]}]")
+
     elapsed = int((time.monotonic() - t0) * 1000)
     lines.append(f"\n[PostCompact hook — {elapsed}ms — continúa tu trabajo normalmente]")
     return "\n".join(lines)
@@ -127,13 +141,7 @@ def main():
         return
 
     if result:
-        output = {
-            "hookSpecificOutput": {
-                "hookEventName": "PostCompact",
-                "additionalContext": result
-            }
-        }
-        print(json.dumps(output))
+        print(json.dumps({"systemMessage": result}))
     else:
         print(json.dumps({}))
 

@@ -156,7 +156,21 @@ async def save_pre_compact_state(context_summary: str) -> str:
         """, agent, state_json, now)
         saved_items.append("working_state")
 
-        # 6. Event log
+        # 6. Session chain — flush turns + write digest (Capas 1+3)
+        try:
+            from context_manager import ContextManager
+            cm = await ContextManager.resume_or_open(agent)
+            flushed = await cm.flush_pending_turns()
+            digest = await cm.write_session_digest()
+            await cm.close_session(reason="auto_compact")
+            chain_items = [f"turns_flushed={flushed}"]
+            if digest:
+                chain_items.append(f"digest={len(digest)}chars")
+            saved_items.append(f"session_chain({','.join(chain_items)})")
+        except Exception as chain_err:
+            saved_items.append(f"session_chain_err:{str(chain_err)[:80]}")
+
+        # 7. Event log
         await conn.execute("""
             INSERT INTO event_log (agent, event_type, content, metadata, created_at)
             VALUES ($1, 'milestone', $2, $3::jsonb, $4)
