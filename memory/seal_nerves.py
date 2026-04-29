@@ -114,6 +114,7 @@ TANKS: dict[str, dict] = {
     "context_pressure": {
         "decay_tau_s": 1 * 3600,          # 1h — novel: context window pressure
         "threshold":   60.0,
+        "cooldown_s":  2 * 3600,           # 2h cooldown after fire — breaks feedback loop
         "description": "Presión de ventana de contexto → distilación proactiva",
         "biological":  "N/A — SEAL-specific",
         "ocean_param": None,
