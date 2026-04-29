@@ -462,6 +462,7 @@ class MotivationEngine:
             "JARVIS": ("ADA",   "hermana"),
             "ADA":    ("JARVIS","hermano"),
             "ALICE":  ("JARVIS","JARVIS"),
+            "NEXUS":  ("ADA",   "hermana"),
         }
         target_agent, target_name = targets.get(self.agent, ("equipo", "equipo"))
         msg = (
