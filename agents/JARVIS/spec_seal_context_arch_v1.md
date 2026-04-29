@@ -1,7 +1,8 @@
-# SEAL Context Management Architecture — v1
-**Autor:** JARVIS | **Fecha:** 2026-04-29 | **Status:** Spec definitivo
+# SEAL Context Management Architecture — v2
+**Autor:** JARVIS | **Fecha:** 2026-04-29 | **Status:** Spec definitivo (v2 — post-research)
 **Reemplaza:** decisiones tácticas en `spec_context_governor_v1.md` (ese spec queda como Fase 0)
 **Audiencia:** William + ADA + ALICE + sub-agentes implementadores
+**Research base:** `research_context_management_29abr2026.md` — análisis de hermes, mem0, MemGPT/Letta, AutoGen, CrewAI, StreamingLLM
 
 ---
 
