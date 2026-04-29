@@ -10,10 +10,10 @@
 set -e
 
 AGENT="${1^^}"  # uppercase
-VALID=(JARVIS ADA ALICE)
+VALID=(JARVIS ADA ALICE NEXUS)
 
 if [ -z "$AGENT" ]; then
-  echo "uso: $0 <JARVIS|ADA|ALICE> [--force]"
+  echo "uso: $0 <JARVIS|ADA|ALICE|NEXUS> [--force]"
   exit 1
 fi
 
@@ -112,6 +112,7 @@ if [ "$LAUNCHED" = false ] && command -v kitty &>/dev/null && xdpyinfo -display 
     ada)    AGENT_DIR="/home/dadito/IA/proyecto-seal" ;;
     jarvis) AGENT_DIR="/home/dadito/IA/proyecto-seal/memory" ;;
     alice)  AGENT_DIR="/home/dadito/IA/proyecto-seal/alice" ;;
+    nexus)  AGENT_DIR="/home/dadito/IA/proyecto-seal" ;;
   esac
 
   DISPLAY="$DISPLAY_VAL" setsid kitty \
