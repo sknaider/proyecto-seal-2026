@@ -127,6 +127,29 @@ async def active_recall(user_message: str) -> str:
                 rule_lines.append(f"  - {r['rule_key']}: {r['content'][:100]}")
             sections.append("\n".join(rule_lines))
 
+        # 4. Recent important memories — projects, decisions, tasks (last 14 days)
+        try:
+            recent = await conn.fetch("""
+                SELECT content, category, importance FROM memories
+                WHERE invalid_at IS NULL
+                  AND importance >= 8
+                  AND created_at > NOW() - INTERVAL '14 days'
+                  AND category IN ('decision','project','task','preference','learning')
+                ORDER BY importance DESC, created_at DESC
+                LIMIT 8
+            """)
+
+            if recent:
+                mem_lines = ["🧠 PROYECTOS/DECISIONES RECIENTES (14 días):"]
+                for m in recent:
+                    ag = ""
+                    # Extract agent name from content if present
+                    content = m['content']
+                    mem_lines.append(f"  - [{m['category']}] {content[:180]}")
+                sections.append("\n".join(mem_lines))
+        except Exception:
+            pass
+
     except Exception as e:
         sections.append(f"(recall error: {e})")
     finally:
