@@ -15,8 +15,6 @@ import sys
 import time
 
 DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
-OLLAMA_URL = "http://localhost:11434/api/embed"
-EMBED_MODEL = "nomic-embed-text"
 
 # Detect agent from environment or process
 def detect_agent():
