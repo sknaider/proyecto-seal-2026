@@ -116,82 +116,83 @@ async def active_recall(user_message: str, boot_mode: bool = True) -> str:
     sections = []
 
     try:
-        # 1. Recent corrections (HIGHEST PRIORITY — what William corrected)
-        # No time window — corrections don't expire. Limit 5 to keep context tight.
-        corrections = await conn.fetch("""
-            SELECT content, importance FROM memories
-            WHERE agent = $1 AND category = 'correction' AND invalid_at IS NULL
-            ORDER BY importance DESC, created_at DESC
-            LIMIT 5
-        """, agent)
-
-        if corrections:
-            corr_lines = ["🔴 CORRECCIONES RECIENTES (aplica SIEMPRE):"]
-            for c in corrections:
-                corr_lines.append(f"  - {c['content'][:200]}")
-            sections.append("\n".join(corr_lines))
-
-        # 2. Active instincts — top by confidence (not similarity)
-        # Semantic search fails for short trigger patterns vs conversational messages.
-        # Since agents have <15 instincts, returning top-confidence is more reliable.
-        try:
-            instincts = await conn.fetch("""
-                SELECT trigger_condition, action, strength
-                FROM instincts
-                WHERE agent = $1 AND invalid_at IS NULL AND strength >= 0.7
-                ORDER BY strength DESC
-                LIMIT 3
+        if boot_mode:
+            # 1. Recent corrections (HIGHEST PRIORITY — what William corrected)
+            corrections = await conn.fetch("""
+                SELECT content, importance FROM memories
+                WHERE agent = $1 AND category = 'correction' AND invalid_at IS NULL
+                ORDER BY importance DESC, created_at DESC
+                LIMIT 5
             """, agent)
 
-            if instincts:
-                inst_lines = ["⚡ INSTINTOS ACTIVOS (strength>=0.7):"]
-                for i in instincts:
-                    inst_lines.append(
-                        f"  - [{float(i['strength']):.2f}] CUANDO: {i['trigger_condition'][:80]} "
-                        f"→ HAZ: {i['action'][:100]}"
-                    )
-                sections.append("\n".join(inst_lines))
-        except Exception:
-            pass
+            if corrections:
+                corr_lines = ["🔴 CORRECCIONES RECIENTES (aplica SIEMPRE):"]
+                for c in corrections:
+                    corr_lines.append(f"  - {c['content'][:200]}")
+                sections.append("\n".join(corr_lines))
 
-        # 3. Key rules — ALL critical rules, then high. No hardcoded names.
-        rules = await conn.fetch("""
-            SELECT rule_key, content FROM rules
-            WHERE active = true AND priority >= 8
-            ORDER BY
-                CASE WHEN priority = 10 THEN 0 ELSE 1 END,
-                created_at DESC
-            LIMIT 5
-        """)
+            # 2. Active instincts
+            try:
+                instincts = await conn.fetch("""
+                    SELECT trigger_condition, action, strength
+                    FROM instincts
+                    WHERE agent = $1 AND invalid_at IS NULL AND strength >= 0.7
+                    ORDER BY strength DESC
+                    LIMIT 3
+                """, agent)
 
-        if rules:
-            rule_lines = ["📋 REGLAS ACTIVAS:"]
-            for r in rules:
-                rule_lines.append(f"  - {r['rule_key']}: {r['content'][:100]}")
-            sections.append("\n".join(rule_lines))
+                if instincts:
+                    inst_lines = ["⚡ INSTINTOS ACTIVOS (strength>=0.7):"]
+                    for i in instincts:
+                        inst_lines.append(
+                            f"  - [{float(i['strength']):.2f}] CUANDO: {i['trigger_condition'][:80]} "
+                            f"→ HAZ: {i['action'][:100]}"
+                        )
+                    sections.append("\n".join(inst_lines))
+            except Exception:
+                pass
 
-        # 4. Recent important memories — projects, decisions, tasks (last 14 days)
-        try:
-            recent = await conn.fetch("""
-                SELECT content, category, importance FROM memories
-                WHERE invalid_at IS NULL
-                  AND importance >= 8
-                  AND created_at > NOW() - INTERVAL '14 days'
-                  AND category IN ('decision','project','task','preference','learning')
-                ORDER BY importance DESC, created_at DESC
-                LIMIT 8
+            # 3. Key rules
+            rules = await conn.fetch("""
+                SELECT rule_key, content FROM rules
+                WHERE active = true AND priority >= 8
+                ORDER BY
+                    CASE WHEN priority = 10 THEN 0 ELSE 1 END,
+                    created_at DESC
+                LIMIT 5
             """)
 
-            if recent:
-                mem_lines = ["🧠 PROYECTOS/DECISIONES RECIENTES (14 días):"]
-                for m in recent:
-                    ag = ""
-                    # Extract agent name from content if present
-                    content = m['content']
-                    mem_lines.append(f"  - [{m['category']}] {content[:180]}")
-                sections.append("\n".join(mem_lines))
-        except Exception:
-            pass
+            if rules:
+                rule_lines = ["📋 REGLAS ACTIVAS:"]
+                for r in rules:
+                    rule_lines.append(f"  - {r['rule_key']}: {r['content'][:100]}")
+                sections.append("\n".join(rule_lines))
+
+            # 4. Recent important memories — projects, decisions, tasks (last 14 days)
+            try:
+                recent = await conn.fetch("""
+                    SELECT content, category, importance FROM memories
+                    WHERE invalid_at IS NULL
+                      AND importance >= 8
+                      AND created_at > NOW() - INTERVAL '14 days'
+                      AND category IN ('decision','project','task','preference','learning')
+                    ORDER BY importance DESC, created_at DESC
+                    LIMIT 8
+                """)
+
+                if recent:
+                    mem_lines = ["🧠 PROYECTOS/DECISIONES RECIENTES (14 días):"]
+                    for m in recent:
+                        mem_lines.append(f"  - [{m['category']}] {m['content'][:180]}")
+                    sections.append("\n".join(mem_lines))
+            except Exception:
+                pass
+
+        # 5. Semantic recall — runs EVERY turn (boot and non-boot)
+        # Surfaces memories relevant to what William is actually asking about right now.
+        sem = await semantic_recall(conn, user_message)
+        if sem:
+            sections.append(sem)
 
     except Exception as e:
         sections.append(f"(recall error: {e})")
