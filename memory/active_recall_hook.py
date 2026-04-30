@@ -56,41 +56,51 @@ async def get_embedding(text: str) -> list:
         return data["embeddings"][0]
 
 
-async def get_embedding_async(text: str) -> list:
-    """Get text embedding from Ollama — async, 1.5s timeout."""
-    import httpx
-    try:
-        async with httpx.AsyncClient(timeout=1.5) as client:
-            r = await client.post(OLLAMA_URL, json={"model": EMBED_MODEL, "input": text})
-            return r.json()["embeddings"][0]
-    except Exception:
-        return []
+_STOP_WORDS = {
+    "que", "de", "la", "el", "en", "es", "se", "los", "las", "del", "al", "un", "una",
+    "por", "con", "para", "una", "sus", "les", "me", "te", "se", "le", "lo", "nos",
+    "como", "si", "pero", "ya", "hay", "son", "fue", "era", "han", "ha", "he",
+    "esto", "esta", "estos", "estas", "ese", "esa", "esos", "esas",
+    "yo", "tu", "el", "ella", "ellos", "ellas", "usted", "ustedes",
+    "hicieron", "hice", "hizo", "hacemos", "tienen", "tengo",
+    "recurdan", "recuerdan", "saben", "sabes",
+}
+
+
+def _extract_keywords(message: str) -> list[str]:
+    """Extract meaningful keywords from message for ILIKE search."""
+    import re
+    words = re.findall(r"[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]{4,}", message.lower())
+    return [w for w in words if w not in _STOP_WORDS][:6]
 
 
 async def semantic_recall(conn, message: str) -> str:
-    """Per-message semantic search — surfaces relevant memories for the current topic."""
-    if not message or len(message.strip()) < 15:
+    """Per-message keyword search — surfaces relevant memories for the current topic.
+    Uses ILIKE keyword matching (fast, no model, works with all memories regardless of embedding state).
+    """
+    if not message or len(message.strip()) < 10:
         return ""
     try:
-        embedding = await get_embedding_async(message[:500])
-        if not embedding:
+        keywords = _extract_keywords(message)
+        if not keywords:
             return ""
-        vec_str = "[" + ",".join(str(v) for v in embedding) + "]"
+
+        # Build OR conditions for each keyword
+        conditions = " OR ".join(f"content ILIKE '%{kw}%'" for kw in keywords)
         results = await conn.fetch(f"""
-            SELECT content, category, agent,
-                   1 - (embedding <=> '{vec_str}'::vector) AS similarity
+            SELECT content, category, agent, importance
             FROM memories
-            WHERE invalid_at IS NULL
+            WHERE ({conditions})
+              AND invalid_at IS NULL
               AND importance >= 7
-            ORDER BY embedding <=> '{vec_str}'::vector
+            ORDER BY importance DESC, created_at DESC
             LIMIT 4
         """)
-        hits = [r for r in results if float(r["similarity"]) > 0.68]
-        if not hits:
+        if not results:
             return ""
         lines = ["🔍 MEMORIAS RELEVANTES AL MENSAJE ACTUAL:"]
-        for h in hits:
-            lines.append(f"  - [{h['agent']}·{h['category']}] {h['content'][:160]}")
+        for r in results:
+            lines.append(f"  - [{r['agent']}·{r['category']}] {r['content'][:160]}")
         return "\n".join(lines)
     except Exception:
         return ""
