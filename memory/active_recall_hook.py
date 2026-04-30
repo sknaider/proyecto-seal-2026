@@ -284,22 +284,34 @@ def main():
     except Exception:
         pass
 
-    # Gate: nueva sesión → corre en boot, luego rate-limit. Misma sesión → solo si re-auth.
-    # Exception: if a steer arrived, always pass through so William's redirect is surfaced.
+    # Gate logic:
+    # - New session (boot): full recall (corrections + instincts + rules + projects + semantic)
+    # - Same session, system message: skip entirely
+    # - Same session, real message: semantic-only recall (lightweight, every turn)
+    # Steer always passes through regardless.
     is_new = _is_new_session(agent)
-    if not is_new and steer_data is None and _should_skip(user_message):
+
+    # Skip entirely only for system notifications
+    msg_stripped = user_message.strip()
+    is_system_msg = any(msg_stripped.startswith(p) or p in msg_stripped[:120] for p in SYSTEM_PREFIXES)
+    if is_system_msg and steer_data is None:
         print(json.dumps({}))
         return
+
     if is_new:
-        # Boot run — escribir timestamp para rate-limitar el resto de la sesión
+        # Boot: write rate-limit timestamp, run full recall
         try:
             with open(RATE_LIMIT_FILE, "w") as f:
                 f.write(str(time.monotonic()))
         except Exception:
             pass
+        boot_mode = True
+    else:
+        # Mid-session: semantic-only (lightweight)
+        boot_mode = False
 
     try:
-        result = asyncio.run(active_recall(user_message))
+        result = asyncio.run(active_recall(user_message, boot_mode=boot_mode))
     except Exception:
         result = ""
 
