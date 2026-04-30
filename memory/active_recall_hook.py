@@ -56,8 +56,51 @@ async def get_embedding(text: str) -> list:
         return data["embeddings"][0]
 
 
-async def active_recall(user_message: str) -> str:
-    """Core recall logic — fast version for hooks."""
+async def get_embedding_async(text: str) -> list:
+    """Get text embedding from Ollama — async, 1.5s timeout."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=1.5) as client:
+            r = await client.post(OLLAMA_URL, json={"model": EMBED_MODEL, "input": text})
+            return r.json()["embeddings"][0]
+    except Exception:
+        return []
+
+
+async def semantic_recall(conn, message: str) -> str:
+    """Per-message semantic search — surfaces relevant memories for the current topic."""
+    if not message or len(message.strip()) < 15:
+        return ""
+    try:
+        embedding = await get_embedding_async(message[:500])
+        if not embedding:
+            return ""
+        vec_str = "[" + ",".join(str(v) for v in embedding) + "]"
+        results = await conn.fetch(f"""
+            SELECT content, category, agent,
+                   1 - (embedding <=> '{vec_str}'::vector) AS similarity
+            FROM memories
+            WHERE invalid_at IS NULL
+              AND importance >= 7
+            ORDER BY embedding <=> '{vec_str}'::vector
+            LIMIT 4
+        """)
+        hits = [r for r in results if float(r["similarity"]) > 0.78]
+        if not hits:
+            return ""
+        lines = ["🔍 MEMORIAS RELEVANTES AL MENSAJE ACTUAL:"]
+        for h in hits:
+            lines.append(f"  - [{h['agent']}·{h['category']}] {h['content'][:160]}")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+async def active_recall(user_message: str, boot_mode: bool = True) -> str:
+    """Core recall logic — fast version for hooks.
+    boot_mode=True: full recall (corrections+instincts+rules+projects+semantic)
+    boot_mode=False: semantic search only (per-turn, lightweight)
+    """
     import asyncpg
     t0 = time.monotonic()
     agent = detect_agent()
