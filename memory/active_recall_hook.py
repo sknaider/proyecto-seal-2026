@@ -85,7 +85,7 @@ async def semantic_recall(conn, message: str) -> str:
             ORDER BY embedding <=> '{vec_str}'::vector
             LIMIT 4
         """)
-        hits = [r for r in results if float(r["similarity"]) > 0.78]
+        hits = [r for r in results if float(r["similarity"]) > 0.68]
         if not hits:
             return ""
         lines = ["🔍 MEMORIAS RELEVANTES AL MENSAJE ACTUAL:"]
