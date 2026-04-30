@@ -65,11 +65,34 @@ _STOP_WORDS = {
 }
 
 
+_ACCENT_MAP = str.maketrans("áéíóúüñ", "aeiouun")
+
+
+def _accent_variants(word: str) -> list[str]:
+    """Return accented + unaccented forms of a word."""
+    unaccented = word.translate(_ACCENT_MAP)
+    variants = [word]
+    if unaccented != word:
+        variants.append(unaccented)
+    else:
+        # Try adding accents on last vowel positions for common patterns
+        # e.g., "ingles" → "inglés", "aplicacion" → "aplicación"
+        accented = word.replace("es", "és").replace("on", "ón").replace("ion", "ión")
+        if accented != word:
+            variants.append(accented)
+    return variants
+
+
 def _extract_keywords(message: str) -> list[str]:
-    """Extract meaningful keywords from message for ILIKE search."""
+    """Extract meaningful keywords from message for ILIKE search, with accent variants."""
     import re
     words = re.findall(r"[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]{4,}", message.lower())
-    return [w for w in words if w not in _STOP_WORDS][:6]
+    keywords = [w for w in words if w not in _STOP_WORDS][:6]
+    # Expand with accent variants
+    expanded = []
+    for kw in keywords:
+        expanded.extend(_accent_variants(kw))
+    return list(dict.fromkeys(expanded))  # deduplicate preserving order
 
 
 async def semantic_recall(conn, message: str) -> str:
