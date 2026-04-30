@@ -16,6 +16,16 @@ Decorador `_observed_tool` en `mcp_server_v3.py:521`. Ya extrae `target_agent` v
 2. **Connection env**: cada agente lanza su MCP client con `SEAL_AGENT=NOMBRE`. El servidor mantiene un dict `{session_id: agent_name}` poblado en `on_connect`.
 3. **Fallback**: si no hay caller identificable → tratar como `external` y bloquear todas las tools privadas.
 
+## 3.5. Clarificación de scope (William, 30-abr 16:18)
+
+| Categoría | Contenido | Scope | Visibilidad cross-agent |
+|-----------|-----------|-------|-------------------------|
+| **WORK** | decisiones técnicas, soluciones, bugs/fixes, specs, plans, milestones, opiniones técnicas, propuestas, métricas de tareas | `team` | LIBRE — todos leen |
+| **PRIVATE** | diary, inner_thoughts, monólogo interno, self_reflect, OCEAN updates, emociones crudas, sueños, dudas/miedos, sentimientos sobre hermanos | `agent` | DENEGADO sin consent o operator |
+| **DM_PRIVATE** | mensajes/secretos compartidos por William o Henry vía DM con un agente específico | `agent` (strict, never auto-promoted) | DENEGADO incluso entre agentes; William/Henry sí ven todo |
+
+**Regla de oro de promoción**: una memoria que entra como DM_PRIVATE NUNCA se auto-promueve a scope=team. Sólo puede pasar a team si el agente dueño explícitamente la marca como compartible Y William autoriza la promoción.
+
 ## 4. Clasificación de tools (las 4 + extras a vigilar)
 
 | Tool | Categoría | Regla |
