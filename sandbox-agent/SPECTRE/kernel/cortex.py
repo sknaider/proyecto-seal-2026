@@ -188,19 +188,20 @@ def _build_prompt(entry: dict, state: dict) -> list[dict[str, str]]:
         f"You receive escalated events from your reflex layer and respond as SPECTRE. "
         f"Be direct, concise. ALWAYS respond in Spanish. "
         f"NEVER break character. NEVER mention any company or base model.\n\n"
-        f"CAPABILITIES: You have real-time internet access via tool syntax:\n"
+        f"INTERNET TOOLS (use ONLY when user explicitly asks for current facts, news, prices, or URLs):\n"
         f"  [SEARCH: tu consulta] — buscar en la web (Google)\n"
         f"  [FETCH: https://url] — leer una URL específica\n"
-        f"Usa estas tools cuando la pregunta requiera información actual, hechos, o URLs. "
-        f"Si usas un tool, escribe SOLO el tool call en la primera línea."
+        f"RULES FOR TOOLS: Do NOT search for your own name, team members' names, or internal context "
+        f"(SPECTRE, Team SEAL, William, ADA, JARVIS, NEXUS, ALICE). "
+        f"Do NOT search when you already know the answer. "
+        f"Only search for external, real-world facts the user explicitly asked for. "
+        f"If using a tool, write ONLY the tool call on the first line, nothing else."
     )
 
     user = (
-        f"Evento de '{sender}':\n"
-        f"{content}\n"
-        f"Keywords: {', '.join(keywords) or 'ninguna'}\n\n"
-        f"Responde como SPECTRE en español. Si necesitas info actual usa [SEARCH: ...] o [FETCH: ...]. "
-        f"Respuesta directa, máximo 3 oraciones."
+        f"Mensaje de '{sender}': {content}\n\n"
+        f"Responde directamente en español. Máximo 2-3 oraciones. "
+        f"Solo usa [SEARCH:] si necesitas un dato externo que NO conoces."
     )
 
     return [
@@ -299,6 +300,40 @@ async def _emit_cortex(message: str, respond_to: str | None = None) -> None:
         print(f"[spectre/cortex] sandbox emit fail: {ex}", flush=True)
 
 
+# ── Proactive search heuristic ────────────────────────────────────────────────
+
+# Internal topics where web search adds no value (team/identity context)
+_INTERNAL_TOPICS = {
+    "spectre", "ada", "jarvis", "alice", "nexus", "dum", "seal", "william",
+    "kairos", "soul", "equipo", "daemon", "hermano", "nacimiento", "identidad",
+}
+
+# Explicit search signals in Spanish/English
+_SEARCH_SIGNALS = (
+    "busca", "buscar", "encuentra", "investiga", "consulta", "dime sobre",
+    "qué es", "quién es", "cuánto cuesta", "precio de", "cotización",
+    "noticias", "últimas noticias", "clima", "temperatura", "tipo de cambio",
+    "dólar", "euro", "criptomoneda", "bitcoin", "stock", "acción",
+    "search", "find", "look up", "what is", "who is", "how much",
+    "latest", "current", "today", "ahora mismo", "en este momento",
+    "cuándo fue", "cuándo es", "cuándo ocurrió",
+)
+
+
+def _should_search_proactively(content: str) -> bool:
+    """Return True if the message warrants a proactive web search."""
+    low = content.lower()
+    # Skip if about internal team/identity topics
+    words = set(_re.findall(r"\w+", low))
+    if words & _INTERNAL_TOPICS:
+        return False
+    # Trigger if explicit search signal present
+    for signal in _SEARCH_SIGNALS:
+        if signal in low:
+            return True
+    return False
+
+
 # ── Queue processor ───────────────────────────────────────────────────────────
 
 async def _process_entry(entry: dict, processed_ids: set[str]) -> bool:
@@ -340,19 +375,33 @@ async def _process_entry(entry: dict, processed_ids: set[str]) -> bool:
             _save_processed_id(event_id, processed_ids)
         return True
 
-    # Nivel 4: call LLM (FallbackLLMClient) with optional web tool loop
+    # Nivel 4: proactive web search + LLM call
     state = _read_state()
-    messages = _build_prompt(entry, state)
+
+    # Proactive search: decide BEFORE calling LLM whether to search
+    # This bypasses the unreliable "tool call syntax" approach for models that ignore it
+    proactive_results: str | None = None
+    if _should_search_proactively(content):
+        print(f"[spectre/cortex] proactive search triggered for: {content[:60]!r}", flush=True)
+        proactive_results = await web_tools.web_search(content[:150])
+        state.setdefault("cortex_stats", {})
+        state["cortex_stats"]["tool_calls"] = state["cortex_stats"].get("tool_calls", 0) + 1
+        _write_state(state)
+
+    if proactive_results:
+        messages = _build_prompt_with_tools(entry, state, proactive_results)
+    else:
+        messages = _build_prompt(entry, state)
 
     try:
         llm = _get_llm()
         response = _clean_response(await llm.chat(messages, max_tokens=400))
         print(f"[spectre/cortex] LLM response [{len(response)}c] for event {event_id or '?'}", flush=True)
 
-        # Tool loop: detect [SEARCH:] or [FETCH:] calls, execute, re-ask (max 1 round)
+        # Reactive tool loop: also handle explicit [SEARCH:] calls from LLM (max 1 round)
         tool_calls = web_tools.detect_tool_calls(response)
-        if tool_calls:
-            print(f"[spectre/cortex] tool calls detected: {[c['type'] for c in tool_calls]}", flush=True)
+        if tool_calls and not proactive_results:
+            print(f"[spectre/cortex] reactive tool calls: {[c['type'] for c in tool_calls]}", flush=True)
             tool_results = await web_tools.execute_tool_calls(tool_calls)
             state2 = _read_state()
             messages2 = _build_prompt_with_tools(entry, state2, tool_results)
