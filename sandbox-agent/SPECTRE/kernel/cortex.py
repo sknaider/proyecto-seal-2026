@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "handlers"))
 
 from contract_layer import contract_gate, consume_invocation_budget, ContractViolation
 from llm_client import FallbackLLMClient, OllamaClient, ClaudeClient, LLMUnavailable
+import prediction_cache as cache_pc
 
 import httpx
 
@@ -90,26 +91,12 @@ def _save_processed_id(event_id: str, processed_ids: set[str]) -> None:
 
 
 # ── Prediction cache (D3 interface) ───────────────────────────────────────────
+# Uses prediction_cache.py — single source of truth for cache logic.
+# query_hash: SHA-256 of normalized "{sender}:{content[:100]}" → 16-char hex.
 
-def _cache_lookup(query_hash: str) -> str | None:
-    """Check working_state.prediction_cache for a matching hash. Returns cached response or None."""
-    state = _read_state()
-    cache: dict = state.get("prediction_cache", {})
-    for pattern_id, entry in cache.items():
-        if isinstance(entry, dict):
-            stored_hash = entry.get("query_hash") or entry.get("hash")
-            if stored_hash == query_hash:
-                entry["hit_count"] = entry.get("hit_count", 0) + 1
-                _write_state(state)
-                return json.dumps(entry.get("response", entry.get("cached_response", "")))
-    return None
-
-
+# Backward-compat alias (tests import cx._make_query_hash)
 def _make_query_hash(content: str, sender: str) -> str:
-    """Compute a simple query hash for cache lookup."""
-    import hashlib
-    raw = f"{sender.lower()}:{content[:100].lower()}"
-    return hashlib.blake2b(raw.encode(), digest_size=4).hexdigest()
+    return cache_pc.query_hash(f"{sender}:{content[:100]}")
 
 
 # ── LLM client (singleton) ────────────────────────────────────────────────────
@@ -207,15 +194,25 @@ async def _process_entry(entry: dict, processed_ids: set[str]) -> bool:
     if event_id and event_id in processed_ids:
         return True  # already processed, skip silently
 
-    # D3: prediction cache check BEFORE LLM
-    query_hash = _make_query_hash(content, sender)
-    cached = _cache_lookup(query_hash)
-    if cached:
-        print(f"[spectre/cortex] cache HIT {query_hash} — skip LLM", flush=True)
-        state = _read_state()
-        state.setdefault("cortex_stats", {})
-        state["cortex_stats"]["cache_hits"] = state["cortex_stats"].get("cache_hits", 0) + 1
-        _write_state(state)
+    # D1: attention scoring — only filter when SPECTRE has goal context.
+    # Without goal_stack the score defaults to sender-trust only (~0.25 for external),
+    # which would drop valid events in empty-state tests. Skip filter when no goals set.
+    state_d1 = _read_state()
+    if state_d1.get("goal_stack"):
+        from attention_controller import attention_score, ATTENTION_THRESHOLD
+        attn = attention_score(content, sender)
+        if attn < ATTENTION_THRESHOLD:
+            print(f"[spectre/cortex] D1 low-attention {attn:.3f} < {ATTENTION_THRESHOLD} — drop {event_id or '?'}", flush=True)
+            if event_id:
+                _save_processed_id(event_id, processed_ids)
+            return True
+
+    # D3: prediction cache check BEFORE LLM (prediction_cache.py)
+    qhash = cache_pc.query_hash(f"{sender}:{content[:100]}")
+    cached_response = cache_pc.cache_get(qhash)
+    if cached_response is not None:
+        print(f"[spectre/cortex] cache HIT {qhash} — skip LLM", flush=True)
+        await _emit_cortex(f"[SPECTRE/cortex/cached] {cached_response[:300]}")
         if event_id:
             _save_processed_id(event_id, processed_ids)
         return True
@@ -229,7 +226,11 @@ async def _process_entry(entry: dict, processed_ids: set[str]) -> bool:
         response = await llm.chat(messages, max_tokens=150)
         print(f"[spectre/cortex] LLM response [{len(response)}c] for event {event_id or '?'}", flush=True)
 
-        # Update working_state with cortex output
+        # Store in prediction cache for future hits (D3)
+        cache_pc.cache_put(qhash, response, ttl_s=300)
+        cache_pc.cache_miss(qhash)  # record: LLM was invoked for this hash
+
+        # Update working_state with cortex output + llm_calls counter
         state = _read_state()
         last_outputs: list[str] = state.get("last_cortex_outputs", [])
         last_outputs.append(response[:200])
@@ -239,8 +240,7 @@ async def _process_entry(entry: dict, processed_ids: set[str]) -> bool:
         _write_state(state)
 
         # Emit to sandbox
-        msg = f"[SPECTRE/cortex] {response[:300]}"
-        await _emit_cortex(msg)
+        await _emit_cortex(f"[SPECTRE/cortex] {response[:300]}")
 
     except LLMUnavailable:
         print(f"[spectre/cortex] LLM unavailable — degraded mode, event {event_id} logged", flush=True)
@@ -322,13 +322,18 @@ async def cortex_loop(
 # ── Cortex stats ──────────────────────────────────────────────────────────────
 
 def cortex_stats() -> dict[str, Any]:
-    """Return cortex runtime stats from working_state."""
+    """Return cortex runtime stats — cache metrics from cache_pc, failures from working_state."""
     state = _read_state()
-    return state.get("cortex_stats", {
-        "cache_hits": 0,
-        "llm_calls": 0,
-        "llm_failures": 0,
-    })
+    pc_stats = cache_pc.cache_stats()
+    wstate_stats = state.get("cortex_stats", {})
+    return {
+        "cache_hits": pc_stats["total_hits"],
+        "cache_misses": pc_stats["total_misses"],
+        "cache_hit_rate": pc_stats["hit_rate"],
+        "cache_entries": pc_stats["entries"],
+        "llm_calls": wstate_stats.get("llm_calls", 0),
+        "llm_failures": wstate_stats.get("llm_failures", 0),
+    }
 
 
 # ── Standalone runner ─────────────────────────────────────────────────────────

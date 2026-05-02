@@ -82,33 +82,26 @@ print("\n=== TEST CORTEX: NIVEL 3 ===")
 def t1_cache_hit_skips_llm():
     """Cache hit → LLM never called, entry processed."""
     _reset()
-    # Pre-populate cache with a known query_hash
     content = "heartbeat check from sensor"
     sender = "external_user"
     q_hash = cx._make_query_hash(content, sender)
 
-    state = cx._read_state()
-    state["prediction_cache"] = {
-        "P1": {
-            "query_hash": q_hash,
-            "response": {"status": "alive"},
-            "hit_count": 0,
-        }
-    }
-    cx._write_state(state)
+    # Pre-populate via prediction_cache module (ADA's D3 integration)
+    import prediction_cache as cache_pc
+    cache_pc.cache_put(q_hash, '{"status": "alive"}')
 
-    llm_called = []
     entry = _entry("cache_hit_001", content, sender)
     processed_ids: set[str] = set()
 
     with mock.patch.object(cx, "_get_llm") as mock_llm:
-        result = asyncio.run(cx._process_entry(entry, processed_ids))
+        with mock.patch("cortex._emit_cortex", new=mock.AsyncMock()):
+            result = asyncio.run(cx._process_entry(entry, processed_ids))
 
     assert result is True, "Cache hit should return True (handled)"
     assert not mock_llm.called, "LLM should NOT be called on cache hit"
-    state = cx._read_state()
-    assert state["prediction_cache"]["P1"]["hit_count"] == 1, "hit_count should increment"
-test("Cache hit → LLM skipped, hit_count incremented", t1_cache_hit_skips_llm)
+    stats = cache_pc.cache_stats()
+    assert stats["total_hits"] >= 1, "cache_stats should record at least one hit"
+test("Cache hit → LLM skipped, cache_stats records hit", t1_cache_hit_skips_llm)
 
 
 def t2_cache_miss_calls_llm():
@@ -277,6 +270,28 @@ def t9_queue_shrinks_after_processing():
     assert len(remaining) < 3, f"Queue should shrink: had 3, still have {len(remaining)}"
     print(f"    queue: 3 → {len(remaining)} after processing")
 test("Queue shrinks after cortex processes all 3 entries", t9_queue_shrinks_after_processing)
+
+
+def t10_d1_attention_drops_low_relevance_with_goal():
+    """D1 integration: low-relevance event dropped when goal_stack is set (no LLM call)."""
+    _reset()
+    # Set a goal so D1 filter activates
+    state = cx._read_state()
+    state["goal_stack"] = [{"name": "monitor_memory_pipeline", "description": "monitor episodic memory pipeline for anomalies"}]
+    cx._write_state(state)
+
+    # Unrelated low-relevance event: sender=monitor (trust=0.35), no urgency, no goal overlap
+    entry = _entry("d1_drop_001", "ping from external sensor", sender="monitor")
+    processed_ids: set[str] = set()
+
+    with mock.patch.object(cx, "_get_llm") as mock_llm:
+        result = asyncio.run(cx._process_entry(entry, processed_ids))
+
+    assert result is True, "Dropped event should return True (handled, not retried)"
+    assert not mock_llm.called, "LLM must NOT be called for D1-dropped event"
+    assert "d1_drop_001" in processed_ids, "Dropped event ID should be in processed_ids"
+    print(f"    D1 filtered low-attention event — LLM call saved")
+test("D1 integration: low-attention event dropped when goal_stack active", t10_d1_attention_drops_low_relevance_with_goal)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

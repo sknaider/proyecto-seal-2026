@@ -1,14 +1,11 @@
-"""SPECTRE contract_layer — Semana 2 mínimo viable.
+"""SPECTRE contract_layer — Semana 3 (D6 two-threshold gating completo).
 
 Implementa:
+- D6 two-threshold gating: absolute_confidence >= τ_abs AND relative_confidence >= τ_rel
 - core_values check: toda acción se valida contra valores nucleares del agente
-- invocation_budget: rate-limit formal para sinks externos (D6 / F5 invariante)
+- invocation_budget: rate-limit formal para sinks externos (F5 invariante)
 
-No implementa aún (Semana 3):
-- two-threshold gating completo (D6)
-- contract violation logging a soul_v3
-
-Ref: spec_spectre_contract_v2_1_addendum.md F5 + contrato D6
+Ref: spec_spectre_contract_v2.md §3.7, spec_spectre_contract_v2_1_addendum.md F5
 """
 from __future__ import annotations
 
@@ -17,7 +14,25 @@ from collections import deque
 from datetime import datetime, timezone
 from typing import Any
 
-# ── Core Values (sandbox v1 — William firma en Semana 3) ─────────────────────
+# ── CV Approval ───────────────────────────────────────────────────────────────
+# William firmó los 6 CVs el 2026-05-02 vía Matrix:
+# "esta bien si esta todo lo implementado que ustedes tienen va"
+
+_CV_APPROVAL: dict[str, Any] = {
+    "signed_by": "William",
+    "signed_at": "2026-05-02T13:49:14Z",
+    "message": "esta bien si esta todo lo implementado que ustedes tienen va",
+    "version": "v1_sandbox",
+    "cv_count": 6,
+}
+
+
+def cv_approval_status() -> dict[str, Any]:
+    """Returns the CV approval record. Empty dict if not yet signed."""
+    return dict(_CV_APPROVAL)
+
+
+# ── Core Values (sandbox v1 — firmados por William 2026-05-02) ────────────────
 
 CORE_VALUES: list[dict[str, Any]] = [
     {
@@ -92,6 +107,65 @@ def budget_status() -> dict[str, Any]:
         "max": _BUDGET_MAX,
         "window_s": _BUDGET_WINDOW_S,
         "available": _BUDGET_MAX - len(_invocation_timestamps),
+    }
+
+
+# ── D6 Two-Threshold Gating ───────────────────────────────────────────────────
+# spec_spectre_contract_v2.md §3.7: every Nivel 4 action passes two confidence checks.
+# τ_abs: absolute certainty floor — action is rejected outright below this.
+# τ_rel: relative gain over baseline — action is soft-warned if it barely beats "do nothing".
+# baseline: confidence of taking no action (0.3 = noise floor from D3 cache spec).
+
+_D6_TAU_ABS = 0.5
+_D6_TAU_REL = 0.3
+_D6_BASELINE = 0.3
+
+
+def two_threshold_gate(
+    absolute_confidence: float,
+    relative_confidence: float | None = None,
+) -> tuple[bool, str, bool]:
+    """
+    D6 two-threshold gate.
+
+    absolute_confidence: certainty score [0.0, 1.0] from Nivel 4.
+    relative_confidence: improvement over baseline. If None, computed as
+        absolute_confidence - _D6_BASELINE.
+
+    Returns (allowed, reason, soft_warn):
+      True,  msg, False → both thresholds pass → execute
+      False, msg, True  → abs pass but rel fail → soft warn, still execute
+      False, msg, False → abs fail → hard reject
+    """
+    if relative_confidence is None:
+        relative_confidence = absolute_confidence - _D6_BASELINE
+
+    abs_pass = absolute_confidence >= _D6_TAU_ABS
+    rel_pass = relative_confidence >= _D6_TAU_REL
+
+    if abs_pass and rel_pass:
+        return True, (
+            f"D6 pass — abs={absolute_confidence:.2f}≥{_D6_TAU_ABS}, "
+            f"rel={relative_confidence:.2f}≥{_D6_TAU_REL}"
+        ), False
+
+    if abs_pass and not rel_pass:
+        return False, (
+            f"D6 soft — abs={absolute_confidence:.2f}≥{_D6_TAU_ABS} "
+            f"but rel={relative_confidence:.2f}<{_D6_TAU_REL} (weak gain over baseline)"
+        ), True
+
+    return False, (
+        f"D6 hard block — abs={absolute_confidence:.2f}<{_D6_TAU_ABS} (insufficient certainty)"
+    ), False
+
+
+def threshold_status() -> dict[str, Any]:
+    """Return current D6 threshold configuration."""
+    return {
+        "tau_abs": _D6_TAU_ABS,
+        "tau_rel": _D6_TAU_REL,
+        "baseline": _D6_BASELINE,
     }
 
 

@@ -1,1 +1,19 @@
-{"agent": "SPECTRE", "current_task": null, "test": "latency"}
+{
+  "agent": "SPECTRE",
+  "sandbox": true,
+  "current_task": null,
+  "prediction_cache": {},
+  "last_cortex_outputs": [],
+  "cortex_stats": {
+    "cache_hits": 0,
+    "llm_calls": 0,
+    "llm_failures": 0
+  },
+  "last_updated": "2026-05-02T16:58:03.567273+00:00",
+  "goal_stack": [
+    {
+      "name": "monitor_memory_pipeline",
+      "description": "monitor episodic memory pipeline for anomalies"
+    }
+  ]
+}
