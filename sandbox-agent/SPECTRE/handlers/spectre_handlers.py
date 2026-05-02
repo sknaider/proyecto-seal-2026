@@ -369,8 +369,24 @@ async def on_custom(evt: dict) -> None:
 
 # ── Event bus daemon (Nivel 2) ────────────────────────────────────────────────
 
-# Cursor persisted across ticks — never re-process the same message
-_event_bus_cursor: int = 0
+# Cursor persisted to disk — survives daemon restarts
+_CURSOR_PATH = Path("/tmp/spectre_event_cursor.json")
+
+def _load_cursor() -> int:
+    try:
+        if _CURSOR_PATH.exists():
+            return int(json.loads(_CURSOR_PATH.read_text()).get("cursor", 0))
+    except Exception:
+        pass
+    return 0
+
+def _save_cursor(cursor: int) -> None:
+    try:
+        _CURSOR_PATH.write_text(json.dumps({"cursor": cursor}))
+    except Exception:
+        pass
+
+_event_bus_cursor: int = _load_cursor()
 _EVENT_BUS_POLL_URL = "http://localhost:8765/api/agents/poll"
 _EVENT_BUS_POLL_INTERVAL_S = 2.0
 
@@ -423,7 +439,9 @@ async def event_bus_daemon(stop_event: asyncio.Event) -> None:
                 except Exception as ex:
                     print(f"[spectre/event_bus] handler '{handler_key}' error: {ex}", flush=True)
 
-            _event_bus_cursor = new_cursor
+            if new_cursor != _event_bus_cursor:
+                _event_bus_cursor = new_cursor
+                _save_cursor(new_cursor)
 
         except Exception as ex:
             print(f"[spectre/event_bus] poll error: {ex}", flush=True)
