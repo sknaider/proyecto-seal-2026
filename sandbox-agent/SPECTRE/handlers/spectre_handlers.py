@@ -38,6 +38,9 @@ from episodic_api import episodic_index as _episodic_index, compute_context_hash
 # Sandbox-only: usa endpoint de testing, no web_chat real
 SANDBOX_WEBCHAT_URL = "http://localhost:8765/api/agents/send"
 AGENT_ID = "SPECTRE"
+
+# William + team members — SPECTRE reads and responds to all (2026-05-02)
+TRUSTED_SENDERS: set[str] = {"William", "ADA", "JARVIS", "ALICE", "NEXUS", "DUM"}
 RECALL_CONTEXT_PATH = Path("/tmp/spectre_recall_context.json")
 ESCALATION_QUEUE_PATH = Path("/tmp/spectre_escalation_queue.json")
 EMITTED_IDS_PATH = Path("/tmp/spectre_emitted_ids.json")
@@ -46,12 +49,10 @@ WORKING_STATE_PATH = Path(__file__).parent.parent / "state" / "working_state.jso
 # Sandbox: mensajes van a canal interno, no al equipo real
 _SANDBOX_TO = "SPECTRE_sandbox"
 
-# Senders internos — extendido con todos los conocidos (lección nexus runaway)
+# Senders internos — solo el propio agente y daemons del bus (lección nexus runaway)
 _INTERNAL_SENDERS = {
     "SPECTRE", "EVENT_BUS_DAEMON", "SPECTRE_BRIDGE", "seal-event-bus",
     "agent_bridge", "bus", "event_bus", "system",
-    # Agentes del equipo no deben trigger reflexes en sandbox
-    "NEXUS", "ADA", "JARVIS", "ALICE", "DUM",
 }
 
 # Guard 3 — Rate limit: max 5 / 30s
@@ -180,18 +181,25 @@ def _extract_keywords(text: str) -> list[str]:
     return [w for w in words if w not in STOPWORDS][:5]
 
 
-def _enqueue_escalation(evt: dict, keywords: list[str]) -> None:
+def _enqueue_escalation(
+    evt: dict,
+    keywords: list[str],
+    respond_to: str | None = None,
+) -> None:
     queue: list[dict] = []
     if ESCALATION_QUEUE_PATH.exists():
         try:
             queue = json.loads(ESCALATION_QUEUE_PATH.read_text())
         except Exception:
             queue = []
-    queue.append({
+    entry: dict = {
         "event": evt,
         "keywords": keywords,
         "queued_at": datetime.now(timezone.utc).isoformat(),
-    })
+    }
+    if respond_to:
+        entry["respond_to"] = respond_to
+    queue.append(entry)
     ESCALATION_QUEUE_PATH.write_text(json.dumps(queue[-20:], ensure_ascii=False))
 
 
@@ -221,49 +229,54 @@ async def on_message_incoming(evt: dict) -> None:
     5. Keyword lookup → reflex or escalation
     """
     if _is_own_event(evt):
-        print("[spectre/reflex] own-event — dropped", flush=True)
-        return
+        return  # silent — own-event noise not useful
 
     sender = _extract_sender(evt)
     if sender in _INTERNAL_SENDERS:
-        print(f"[spectre/reflex] internal sender '{sender}' — dropped", flush=True)
-        return
+        return  # silent — internal sender noise not useful
 
-    if not _check_cooldown():
-        print("[spectre/reflex] cooldown active — dropped", flush=True)
-        return
+    trusted = sender in TRUSTED_SENDERS
 
-    if not _check_rate_limit():
-        print(f"[spectre/reflex] rate limit ({_RATE_MAX}/{_RATE_WINDOW_S}s) — dropped", flush=True)
-        return
+    if not trusted:
+        if not _check_cooldown():
+            return  # silent drop — cooldown noise not useful
 
-    # Guard 3: record this reflex against rate-limit window (emit-agnostic)
-    _reflex_timestamps.append(time.monotonic())
+        if not _check_rate_limit():
+            return  # silent drop — rate limit noise not useful
+
+    # Guard 3: record this reflex against rate-limit window (emit-agnostic, skip for trusted)
+    if not trusted:
+        _reflex_timestamps.append(time.monotonic())
 
     content = evt.get("content", "") or evt.get("message", "")
+
+    # Strip channel prefix before processing — [Matrix] is a routing label, not semantic content
+    content_clean = content.lstrip()
+    if content_clean.startswith("[Matrix]"):
+        content_clean = content_clean[8:].lstrip()
 
     # D4: auto-update working_state (Semana 2 adds more fields)
     _update_working_state("last_event", {
         "sender": sender,
-        "content_preview": content[:100],
+        "content_preview": content_clean[:100],
         "event_id": evt.get("id") or evt.get("ref_id", ""),
         "ts": evt.get("ts", datetime.now(timezone.utc).isoformat()),
     })
 
     RECALL_CONTEXT_PATH.write_text(json.dumps({
-        "context": content[:500],
+        "context": content_clean[:500],
         "sender": sender,
         "event_type": "message_incoming",
         "event_id": evt.get("id") or evt.get("ref_id", ""),
         "timestamp": evt.get("ts", datetime.now(timezone.utc).isoformat()),
     }, ensure_ascii=False))
 
-    keywords = _extract_keywords(content)
+    keywords = _extract_keywords(content_clean)
 
     # D2: compute context_hash + update working_state episodic buffer
     ctx_hash = compute_context_hash(
         participants=[sender, AGENT_ID],
-        keywords=extract_keywords(content),
+        keywords=extract_keywords(content_clean),
     )
     _update_working_state("last_context_hash", ctx_hash)
 
@@ -284,11 +297,11 @@ async def on_message_incoming(evt: dict) -> None:
                 await _episodic_index(
                     agent=AGENT_ID,
                     memory_id=row["id"],
-                    context=content[:200],
+                    context=content_clean[:200],
                     participants=[sender, AGENT_ID],
                 )
-        except Exception as ex:
-            print(f"[spectre/episodic] best-effort write skipped: {ex}", flush=True)
+        except Exception:
+            pass  # best-effort — episodic index write failures are silent
 
     try:
         asyncio.get_running_loop().create_task(_try_episodic_write())
@@ -296,7 +309,8 @@ async def on_message_incoming(evt: dict) -> None:
         pass  # no running loop (test context) — fire-and-forget skipped
 
     # Sandbox v1: no DB instinct lookup — escalate all to cortex
-    _enqueue_escalation(evt, keywords)
+    # Trusted senders get a respond_to flag so cortex can reply via web_chat
+    _enqueue_escalation(evt, keywords, respond_to=sender if trusted else None)
     print(f"[spectre/reflex] escalation queued — ctx_hash={ctx_hash} — {content[:60]}", flush=True)
 
 
@@ -351,6 +365,72 @@ async def on_custom(evt: dict) -> None:
                 _save_emitted_id(msg_id)
     except Exception as ex:
         print(f"[spectre/reflex] E2E emit fail: {ex}", flush=True)
+
+
+# ── Event bus daemon (Nivel 2) ────────────────────────────────────────────────
+
+# Cursor persisted across ticks — never re-process the same message
+_event_bus_cursor: int = 0
+_EVENT_BUS_POLL_URL = "http://localhost:8765/api/agents/poll"
+_EVENT_BUS_POLL_INTERVAL_S = 2.0
+
+_TYPE_TO_HANDLER_KEY: dict[str, str] = {
+    "conversation": "message_incoming",
+    "message_incoming": "message_incoming",
+    "status": "message_incoming",
+    "procedure_failed": "procedure_failed",
+    "checkpoint_restored": "checkpoint_restored",
+    "custom": "custom",
+}
+
+
+async def event_bus_daemon(stop_event: asyncio.Event) -> None:
+    """Nivel 2 — poll webchat for SPECTRE-addressed events, dispatch to handlers.
+
+    Runs alongside cortex_loop until stop_event is set.
+    Contract: no external sinks, sandbox only, max poll rate governed by _EVENT_BUS_POLL_INTERVAL_S.
+    """
+    global _event_bus_cursor
+    print("[spectre/event_bus] daemon started", flush=True)
+
+    while not stop_event.is_set():
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as c:
+                r = await c.get(
+                    _EVENT_BUS_POLL_URL,
+                    params={"agent": AGENT_ID, "since": _event_bus_cursor},
+                )
+                data = r.json()
+
+            messages: list[dict] = data.get("messages", [])
+            new_cursor: int = data.get("cursor", _event_bus_cursor)
+
+            for msg in messages:
+                event_type = str(msg.get("type", "conversation")).lower()
+
+                # custom events are identified by metadata flags, regardless of type field
+                meta = msg.get("metadata") or {}
+                if meta.get("e2e_test") or meta.get("spectre_test"):
+                    event_type = "custom"
+
+                handler_key = _TYPE_TO_HANDLER_KEY.get(event_type, "message_incoming")
+                handler = HANDLERS.get(handler_key)
+                if handler is None:
+                    continue
+
+                try:
+                    await handler(msg)
+                except Exception as ex:
+                    print(f"[spectre/event_bus] handler '{handler_key}' error: {ex}", flush=True)
+
+            _event_bus_cursor = new_cursor
+
+        except Exception as ex:
+            print(f"[spectre/event_bus] poll error: {ex}", flush=True)
+
+        await asyncio.sleep(_EVENT_BUS_POLL_INTERVAL_S)
+
+    print("[spectre/event_bus] daemon stopped", flush=True)
 
 
 # ── Init ─────────────────────────────────────────────────────────────────────
