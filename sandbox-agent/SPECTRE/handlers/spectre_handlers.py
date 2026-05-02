@@ -237,6 +237,9 @@ async def on_message_incoming(evt: dict) -> None:
         print(f"[spectre/reflex] rate limit ({_RATE_MAX}/{_RATE_WINDOW_S}s) — dropped", flush=True)
         return
 
+    # Guard 3: record this reflex against rate-limit window (emit-agnostic)
+    _reflex_timestamps.append(time.monotonic())
+
     content = evt.get("content", "") or evt.get("message", "")
 
     # D4: auto-update working_state (Semana 2 adds more fields)

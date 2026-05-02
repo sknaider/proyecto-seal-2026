@@ -88,14 +88,11 @@ test("Nivel 2 reflex: no LLM dependency in on_message_incoming", t1_reflex_conti
 def t1_escalation_queue_survives_llm_down():
     """Escalation queue grows even with LLM down — cortex decoupled from reflex."""
     import spectre_handlers as sh
-    from spectre_handlers import ESCALATION_QUEUE_PATH
+    from spectre_handlers import ESCALATION_QUEUE_PATH, _reflex_timestamps
     _invocation_timestamps.clear()
+    _reflex_timestamps.clear()
+    ESCALATION_QUEUE_PATH.write_text("[]")  # reset to ensure clean growth test
     before = []
-    if ESCALATION_QUEUE_PATH.exists():
-        try:
-            before = json.loads(ESCALATION_QUEUE_PATH.read_text())
-        except Exception:
-            before = []
     with mock.patch("asyncio.create_task"):
         evt = {"id": "t1_002", "from": "external_user", "content": "queue test with llm down"}
         asyncio.run(sh.on_message_incoming(evt))
@@ -215,7 +212,10 @@ print("\n=== TEST 4: RED CORTADA ===")
 def t4_post_offline_message_queued():
     """When network is down, events are added to escalation_queue (local persist)."""
     import spectre_handlers as sh
+    from spectre_handlers import _reflex_timestamps
     _invocation_timestamps.clear()
+    _reflex_timestamps.clear()
+    sh.ESCALATION_QUEUE_PATH.write_text("[]")  # reset to ensure clean growth test
     # Simulate network down: _post_sandbox fails (httpx error)
     # Reflex still runs, escalation still queued
     before_count = 0
