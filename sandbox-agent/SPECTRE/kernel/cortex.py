@@ -153,7 +153,8 @@ def _get_llm() -> MultiTierLLMClient:
         opencode_key = os.environ.get("OPENCODE_API_KEY", "")
         backends = []
         # T1: Claude Code CLI subprocess — uses William's Max plan OAuth, no API credits needed
-        backends.append(ClaudeCodeClient(model="claude-sonnet-4-6"))
+        model = os.environ.get("SPECTRE_CLAUDE_MODEL", "claude-opus-4-7")
+        backends.append(ClaudeCodeClient(model=model))
         # T2: OpenCode fallback (minimax-m2.5-free)
         if opencode_key:
             backends.append(OpenCodeClient())
