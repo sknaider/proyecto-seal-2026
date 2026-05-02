@@ -290,7 +290,10 @@ async def on_message_incoming(evt: dict) -> None:
         except Exception as ex:
             print(f"[spectre/episodic] best-effort write skipped: {ex}", flush=True)
 
-    asyncio.create_task(_try_episodic_write())
+    try:
+        asyncio.get_running_loop().create_task(_try_episodic_write())
+    except RuntimeError:
+        pass  # no running loop (test context) — fire-and-forget skipped
 
     # Sandbox v1: no DB instinct lookup — escalate all to cortex
     _enqueue_escalation(evt, keywords)
