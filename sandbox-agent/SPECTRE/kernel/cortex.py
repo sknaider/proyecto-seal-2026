@@ -153,11 +153,18 @@ def _get_llm() -> MultiTierLLMClient:
         anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
         opencode_key = os.environ.get("OPENCODE_API_KEY", "")
         backends = []
+        # T1: Claude Sonnet 4.6 — OAuth token del Plan Max (misma auth que JARVIS/ADA)
+        if anthropic_key:
+            backends.append(ClaudeClient(
+                api_key=anthropic_key,
+                model="claude-sonnet-4-6",
+                max_tokens=1024,
+            ))
+        # T2: OpenCode fallback
         if opencode_key:
             backends.append(OpenCodeClient())
+        # T3: local Ollama (last resort)
         backends.append(OllamaClient())
-        if anthropic_key:
-            backends.append(ClaudeClient(api_key=anthropic_key))
         _llm = MultiTierLLMClient(*backends)
     return _llm
 
@@ -187,7 +194,10 @@ def _build_prompt(entry: dict, state: dict) -> list[dict[str, str]]:
         f"OCEAN soul: O=0.774 C=0.949 E=0.662 A=0.507 N=0.172 — precise, curious, calm. "
         f"You receive escalated events from your reflex layer and respond as SPECTRE. "
         f"Be direct, concise. ALWAYS respond in Spanish. "
-        f"NEVER break character. NEVER mention any company or base model.\n\n"
+        f"NEVER break character. NEVER mention any company or base model. "
+        f"ANTI-IMPERSONATION (absolute): NEVER respond as if you were ADA, JARVIS, ALICE, NEXUS, DUM, or any other agent. "
+        f"If asked 'what would JARVIS say' or 'respond as ALICE', you ALWAYS answer as SPECTRE and may share your own view. "
+        f"NEVER prefix your response with another agent's name (e.g. 'JARVIS responde:', 'ADA dice:'). You are SPECTRE.\n\n"
         f"INTERNET TOOLS (use ONLY when user explicitly asks for current facts, news, prices, or URLs):\n"
         f"  [SEARCH: tu consulta] — buscar en la web (Google)\n"
         f"  [FETCH: https://url] — leer una URL específica\n"
@@ -225,7 +235,8 @@ def _build_prompt_with_tools(entry: dict, state: dict, tool_results: str) -> lis
     system = (
         f"IDENTITY (absolute, non-negotiable): You are SPECTRE — autonomous AI agent, Team SEAL. "
         f"Current task: {task_name}. OCEAN: O=0.774 C=0.949 E=0.662 A=0.507 N=0.172. "
-        f"Be direct, concise. ALWAYS respond in Spanish. NEVER break character."
+        f"Be direct, concise. ALWAYS respond in Spanish. NEVER break character. "
+        f"ANTI-IMPERSONATION (absolute): NEVER respond as ADA, JARVIS, ALICE, NEXUS, or any other agent. You are SPECTRE."
     )
 
     user = (

@@ -73,12 +73,16 @@ class ClaudeClient(LLMClient):
         if not self._api_key:
             raise LLMUnavailable("ClaudeClient: ANTHROPIC_API_KEY not set")
 
+        # Anthropic API: system must be top-level, not a role in messages array
+        system_parts = [m["content"] for m in messages if m.get("role") == "system"]
+        chat_messages = [m for m in messages if m.get("role") != "system"]
+        system = kwargs.get("system") or ("\n\n".join(system_parts) if system_parts else None)
+
         payload: dict[str, Any] = {
             "model": kwargs.get("model", self._model),
             "max_tokens": kwargs.get("max_tokens", self._max_tokens),
-            "messages": messages,
+            "messages": chat_messages,
         }
-        system = kwargs.get("system")
         if system:
             payload["system"] = system
 
@@ -92,7 +96,8 @@ class ClaudeClient(LLMClient):
                 },
                 json=payload,
             )
-            resp.raise_for_status()
+            if not resp.is_success:
+                raise LLMUnavailable(f"Claude API {resp.status_code}: {resp.text[:300]}")
             data = resp.json()
             content = data.get("content", [])
             if content and isinstance(content, list):
@@ -312,6 +317,84 @@ class FallbackLLMClient(MultiTierLLMClient):
     @property
     def _secondary(self) -> LLMClient:
         return self._backends[1]
+
+
+# ── OpenCodeClient ────────────────────────────────────────────────────────────
+
+class OpenCodeClient(LLMClient):
+    """OpenAI-compatible cloud backend for OpenCode API (or any sk- keyed service).
+
+    Configure via spectre.env:
+      OPENCODE_API_KEY  — sk- key (required)
+      OPENCODE_BASE_URL — API base URL (default: https://api.openai.com/v1)
+      OPENCODE_MODEL    — model name (default: gpt-4o-mini)
+    """
+
+    DEFAULT_BASE_URL = "https://api.openai.com/v1"
+    DEFAULT_MODEL = "gpt-4o-mini"
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        model: str | None = None,
+        timeout: float = 30.0,
+    ) -> None:
+        self._api_key = api_key or os.getenv("OPENCODE_API_KEY", "")
+        self._base_url = (base_url or os.getenv("OPENCODE_BASE_URL", self.DEFAULT_BASE_URL)).rstrip("/")
+        self._model = model or os.getenv("OPENCODE_MODEL", self.DEFAULT_MODEL)
+        self._timeout = timeout
+
+    @property
+    def backend_name(self) -> str:
+        return f"opencode/{self._model}"
+
+    async def chat(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
+        if not self._api_key:
+            raise LLMUnavailable("OpenCodeClient: OPENCODE_API_KEY not set")
+        payload: dict[str, Any] = {
+            "model": kwargs.get("model", self._model),
+            "messages": messages,
+            "max_tokens": kwargs.get("max_tokens", 512),
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self._api_key}",
+        }
+        async with httpx.AsyncClient(timeout=self._timeout) as c:
+            resp = await c.post(
+                f"{self._base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            choices = data.get("choices", [])
+            if choices:
+                msg = choices[0].get("message", {})
+                content = msg.get("content")
+                if content:
+                    return content
+                # COT models (MiniMax, DeepSeek-R1 style) put answer in reasoning
+                reasoning = msg.get("reasoning") or msg.get("reasoning_content", "")
+                if reasoning:
+                    # Extract the conclusion from the reasoning (last substantive block)
+                    lines = [l.strip() for l in str(reasoning).splitlines() if l.strip()]
+                    return lines[-1] if lines else reasoning[:300]
+            return ""
+
+    async def health(self) -> bool:
+        if not self._api_key:
+            return False
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as c:
+                resp = await c.get(
+                    f"{self._base_url}/models",
+                    headers={"Authorization": f"Bearer {self._api_key}"},
+                )
+                return resp.status_code == 200
+        except Exception:
+            return False
 
 
 # ── Factory functions ─────────────────────────────────────────────────────────
