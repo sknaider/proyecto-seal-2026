@@ -11,6 +11,7 @@ Full 4-tier chain: make_four_tier_client()
 """
 from __future__ import annotations
 
+import asyncio
 import os
 from abc import ABC, abstractmethod
 from typing import Any
@@ -87,15 +88,22 @@ class ClaudeClient(LLMClient):
             payload["system"] = system
 
         async with httpx.AsyncClient(timeout=self._timeout) as c:
-            resp = await c.post(
-                self.API_URL,
-                headers={
-                    "x-api-key": self._api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-                json=payload,
-            )
+            for attempt in range(3):
+                resp = await c.post(
+                    self.API_URL,
+                    headers={
+                        "x-api-key": self._api_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json=payload,
+                )
+                if resp.status_code == 429:
+                    wait = 2 ** attempt
+                    print(f"[SPECTRE/llm] Claude 429 rate-limit — retry in {wait}s (attempt {attempt+1}/3)", flush=True)
+                    await asyncio.sleep(wait)
+                    continue
+                break
             if not resp.is_success:
                 raise LLMUnavailable(f"Claude API {resp.status_code}: {resp.text[:300]}")
             data = resp.json()
@@ -395,6 +403,60 @@ class OpenCodeClient(LLMClient):
                 return resp.status_code == 200
         except Exception:
             return False
+
+
+# ── ClaudeCodeClient ──────────────────────────────────────────────────────────
+
+class ClaudeCodeClient(LLMClient):
+    """Local Claude Code CLI subprocess backend.
+
+    Uses `claude -p` (print mode) which inherits the user's OAuth Max plan
+    session — no separate API key or credits needed.
+    """
+
+    CLI_PATH = "/home/dadito/.local/bin/claude"
+    DEFAULT_MODEL = "claude-sonnet-4-6"
+
+    def __init__(self, model: str = DEFAULT_MODEL, timeout: float = 45.0) -> None:
+        self._model = model
+        self._timeout = timeout
+
+    @property
+    def backend_name(self) -> str:
+        return f"claudecode/{self._model}"
+
+    async def chat(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
+        system_parts = [m["content"] for m in messages if m.get("role") == "system"]
+        user_parts = [m["content"] for m in messages if m.get("role") == "user"]
+        prompt = user_parts[-1] if user_parts else ""
+        system = "\n\n".join(system_parts) if system_parts else ""
+        cmd = [self.CLI_PATH, "-p", prompt]
+        if system:
+            cmd += ["--system-prompt", system]
+        cmd += ["--model", self._model]
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env={**os.environ, "CLAUDE_CODE_SIMPLE": "0"},
+            )
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=self._timeout)
+            except asyncio.TimeoutError:
+                proc.kill()
+                raise LLMUnavailable(f"ClaudeCodeClient: timeout after {self._timeout}s")
+            if proc.returncode != 0:
+                err = stderr.decode("utf-8", errors="replace")[:200]
+                raise LLMUnavailable(f"ClaudeCodeClient: exit {proc.returncode}: {err}")
+            return stdout.decode("utf-8", errors="replace").strip()
+        except LLMUnavailable:
+            raise
+        except Exception as e:
+            raise LLMUnavailable(f"ClaudeCodeClient: {e}")
+
+    async def health(self) -> bool:
+        return os.path.isfile(self.CLI_PATH)
 
 
 # ── Factory functions ─────────────────────────────────────────────────────────

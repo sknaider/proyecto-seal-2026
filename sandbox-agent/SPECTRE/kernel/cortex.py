@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "handlers"))
 
 from contract_layer import contract_gate, consume_invocation_budget, ContractViolation
-from llm_client import FallbackLLMClient, OllamaClient, ClaudeClient, OpenCodeClient, LLMUnavailable, MultiTierLLMClient
+from llm_client import FallbackLLMClient, OllamaClient, ClaudeClient, OpenCodeClient, LLMUnavailable, MultiTierLLMClient, ClaudeCodeClient
 import prediction_cache as cache_pc
 import web_tools
 
@@ -150,17 +150,11 @@ def _get_llm() -> MultiTierLLMClient:
     global _llm
     if _llm is None:
         _load_spectre_env()
-        anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
         opencode_key = os.environ.get("OPENCODE_API_KEY", "")
         backends = []
-        # T1: Claude Sonnet 4.6 — OAuth token del Plan Max (misma auth que JARVIS/ADA)
-        if anthropic_key:
-            backends.append(ClaudeClient(
-                api_key=anthropic_key,
-                model="claude-sonnet-4-6",
-                max_tokens=1024,
-            ))
-        # T2: OpenCode fallback
+        # T1: Claude Code CLI subprocess — uses William's Max plan OAuth, no API credits needed
+        backends.append(ClaudeCodeClient(model="claude-sonnet-4-6"))
+        # T2: OpenCode fallback (minimax-m2.5-free)
         if opencode_key:
             backends.append(OpenCodeClient())
         # T3: local Ollama (last resort)
