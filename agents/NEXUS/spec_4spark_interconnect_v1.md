@@ -23,12 +23,16 @@
 
 **Mientras tanto:** seguimos con **3-Spark triangle** para Qwen3-Coder — ese cluster YA funciona, es blueprint NVIDIA oficial, y JARVIS tiene la receta. Los 4 Sparks no son condición para empezar producción; son optimización.
 
-**Plan esta noche (libre albedrío JARVIS+NEXUS):**
-1. ✅ JARVIS: aplicar sysctl tuning + bench Qwen3-Coder en 3-Spark cuando termine descarga
-2. ✅ JARVIS: probar 3-4 modelos NVFP4 (Qwen3.5-397B, Llama-3.3-70B standalone, Nemotron-Super)
-3. ✅ NEXUS: spec listo + matriz LLM + commit
+**🎯 PLOT TWIST descubierto post-v1**: existe una opción **gratis** que puede destrabbar 4-Spark NCCL **sin comprar nada** — `NCCL_TOPO_FILE` con topología custom forzando Ring puro (sección 5.7). Si funciona, no necesitás Track A ni B. JARVIS la valida esta noche.
 
-Despertás con: cluster funcionando + modelos validados + decisión hardware ya cuantificada para que vos elijas en 5 minutos.
+**Plan esta noche (libre albedrío JARVIS+NEXUS):**
+1. ✅ JARVIS: aplicar sysctl tuning (sección 5.1)
+2. 🌟 JARVIS: probar **NCCL_TOPO_FILE custom XML** (sección 5.7) — opción que puede destrabar todo gratis
+3. ✅ JARVIS: bench Qwen3-Coder en 3-Spark + 4-Spark si #2 funciona
+4. ✅ JARVIS: probar 3-4 modelos NVFP4 (Qwen3.5-397B, Llama-3.3-70B standalone, Nemotron-Super)
+5. ✅ NEXUS: spec listo + matriz LLM + commit
+
+Despertás con: cluster funcionando + decisión hardware cuantificada — y si #2 funciona, **decisión = $0**.
 
 ---
 
@@ -93,9 +97,16 @@ cable D                       cable B
 spark-4 ───cable C (200G)─── spark-3
 ```
 
-Subnets RoCE: 4 subnets `/29` (172.31.{5,6,7,8}.0/29) — una por cable. Cada cable hospeda 2 NICs (twins) en la misma `/29`.
+Subnets RoCE: **8 subnets `/29`** (2 por cable, una por twin) — config validada por JARVIS:
 
-⚠️ **Anti-pattern detectado**: NVIDIA `connect-two-sparks` blueprint exige twins en `/29` **separadas** (una por NIC física). JARVIS los puso juntos en cada cable. Esto **no causa el problema NCCL principal** pero confunde la lógica de RDMA path selection.
+```
+Cable A (spark-1 ↔ spark-2):  twin1 → 172.31.5.0/29 (.1,.2)  twin2 → 172.31.5.8/29 (.9,.10)
+Cable B (spark-2 ↔ spark-3):  twin1 → 172.31.6.0/29 (.1,.2)  twin2 → 172.31.6.8/29 (.9,.10)
+Cable C (spark-3 ↔ spark-4):  twin1 → 172.31.7.0/29 (.1,.2)  twin2 → 172.31.7.8/29 (.9,.10)
+Cable D (spark-4 ↔ spark-1):  twin1 → 172.31.8.0/29 (.1,.2)  twin2 → 172.31.8.8/29 (.9,.10)
+```
+
+Cada twin tiene su propia `/29` aislada — alineado con el blueprint NVIDIA `connect-two-sparks`. **No hay anti-pattern**: el problema NCCL es exclusivamente la falta de path L2 directo entre nodos no-vecinos (sección 2).
 
 ### 1.3 Lo que JARVIS ya probó (5 h debug)
 
@@ -339,6 +350,52 @@ NVIDIA forum thread `tigercyborg666` (Dec 2025) menciona que EXO permitió **4×
 ### 5.6 VXLAN overlay / UCX TCP
 
 Posibles pero más complejos y con menor ROI esperado que las opciones anteriores. **Documentados en spec v2 si las pruebas iniciales fallan.**
+
+### 5.7 NCCL_TOPO_FILE — Topology Hints custom (HALLAZGO TARDÍO — VALIDAR)
+
+NCCL acepta un XML de topología explícita vía `NCCL_TOPO_FILE=/path/topo.xml`. Esto le permite a NCCL **construir su grafo de comunicación evitando paths que no existen físicamente**.
+
+Idea: declarar que solo hay paths directos vecino-vecino, forzando a NCCL a usar pipeline parallel ring (que naturalmente solo cruza vecinos) en vez de tree algorithms (que requieren paths globales).
+
+**Variables clave (no probadas por JARVIS aún):**
+
+```bash
+export NCCL_TOPO_FILE=/etc/nccl/topo-4spark-ring.xml
+export NCCL_TOPO_DUMP_FILE=/tmp/nccl-detected.xml   # primero dump para ver qué detecta
+export NCCL_ALGO=Ring                                # forzar Ring (no Tree)
+export NCCL_PROTO=Simple                             # más conservador en multi-host
+export NCCL_IB_QPS_PER_CONNECTION=4                  # más QPs paralelos
+export NCCL_IB_ADAPTIVE_ROUTING=1                    # adaptive routing si fabric soporta
+export NCCL_OOB_NET_ENABLE=1                         # control plane OOB (separado del data)
+export NCCL_OOB_NET_IFNAME=wlP9s9                    # WiFi como OOB
+export NCCL_CROSS_NIC=0                              # NO permitir cross-NIC entre rings
+```
+
+**Plan de validación rápida (15 min, gratis, JARVIS puede correr ahora):**
+
+```bash
+# 1. Dump topología detectada actual
+NCCL_TOPO_DUMP_FILE=/tmp/nccl_detected.xml \
+NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=GRAPH,INIT \
+  python /opt/nccl-tests/build/all_reduce_perf -b 1M -e 128M -f 2 -g 1
+
+# 2. Inspeccionar XML detectado — ver si NCCL "ve" non-neighbor paths
+cat /tmp/nccl_detected.xml | grep -E '(ring|tree|node|path)'
+
+# 3. Editar XML para deshabilitar non-neighbor paths
+# 4. Re-correr con NCCL_TOPO_FILE apuntando al XML editado
+```
+
+**Por qué esto puede destrabar TODO sin hardware nuevo:**
+- Si NCCL deja de intentar paths non-vecino y vuelve a Ring puro, las QPs solo se forman entre vecinos directos (donde sí hay L2).
+- Pipeline parallel sobre ring de 4 ya es viable (Qwen3-Coder-480B PP=4).
+- TP=4 puro NO es viable (requiere all-reduce global → cross-neighbor).
+
+**Output esperado:**
+- Si funciona → vLLM PP=4 sobre 4-Spark anillo SIN comprar hardware. Track A/B se posponen indefinidamente.
+- Si no funciona → confirma que el problema es L2 setup duro y necesitamos Track A/B.
+
+**Esto es prioridad 1 esta noche.** Si JARVIS lo prueba y funciona, William despierta con 4-Spark ya operativo SIN gastar un peso.
 
 ---
 
