@@ -26,6 +26,7 @@ from llm_client import (  # noqa: E402
     ClaudeCodeClient,
     OpenCodeClient,
     OllamaClient,
+    VLLMClient,
     LLMUnavailable,
     MultiTierLLMClient,
 )
@@ -78,10 +79,18 @@ def _get_llm() -> MultiTierLLMClient:
         return _llm_singleton
     backends: list = []
 
+    # T1 — Triangle (Qwen3-Coder-480B, 3×DGX Spark via llama.cpp RPC)
+    triangle_url = os.environ.get("ADA_TRIANGLE_URL", "http://192.168.68.70:8001")
+    triangle_model = os.environ.get("ADA_TRIANGLE_MODEL", "qwen3-coder")
+    triangle_timeout = float(os.environ.get("ADA_TRIANGLE_TIMEOUT", "180.0"))
+    backends.append(VLLMClient(base_url=triangle_url, model=triangle_model, timeout=triangle_timeout))
+
+    # T2 — Claude (cloud fallback)
     if os.environ.get("ANTHROPIC_API_KEY"):
         model = os.environ.get("ADA_CLAUDE_MODEL", "claude-opus-4-7")
         backends.append(ClaudeCodeClient(model=model))
 
+    # T3 — OpenCode (optional cloud fallback)
     opencode_key = os.environ.get("OPENCODE_API_KEY", "")
     if opencode_key:
         backends.append(
@@ -92,10 +101,30 @@ def _get_llm() -> MultiTierLLMClient:
             )
         )
 
+    # T4 — Ollama (local last resort)
     backends.append(OllamaClient(model=os.environ.get("ADA_OLLAMA_MODEL", "qwen2.5:7b")))
 
     _llm_singleton = MultiTierLLMClient(*backends)
+    print(
+        f"[ada/cortex] LLM tiers initialized ({_llm_singleton.tier_count}): "
+        f"{_llm_singleton.backend_name}",
+        flush=True,
+    )
     return _llm_singleton
+
+
+async def llm_boot_check() -> dict[str, bool]:
+    """Health check across all configured LLM tiers — non-blocking.
+
+    Returns a dict tier_name → reachable. Logs each tier's status so a launcher
+    can show visibility on Triangle health at boot time without blocking startup.
+    """
+    llm = _get_llm()
+    status = await llm.health_all() if hasattr(llm, "health_all") else {}
+    for tier, ok in status.items():
+        flag = "✅" if ok else "⚠️"
+        print(f"[ada/cortex] {flag} tier {tier}: {'reachable' if ok else 'unreachable'}", flush=True)
+    return status
 
 
 async def _post_webchat(message: str, to: str = "William") -> None:
