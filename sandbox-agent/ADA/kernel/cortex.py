@@ -85,23 +85,7 @@ def _get_llm() -> MultiTierLLMClient:
     triangle_timeout = float(os.environ.get("ADA_TRIANGLE_TIMEOUT", "180.0"))
     backends.append(VLLMClient(base_url=triangle_url, model=triangle_model, timeout=triangle_timeout))
 
-    # T2 — Claude (cloud fallback)
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        model = os.environ.get("ADA_CLAUDE_MODEL", "claude-opus-4-7")
-        backends.append(ClaudeCodeClient(model=model))
-
-    # T3 — OpenCode (optional cloud fallback)
-    opencode_key = os.environ.get("OPENCODE_API_KEY", "")
-    if opencode_key:
-        backends.append(
-            OpenCodeClient(
-                api_key=opencode_key,
-                base_url=os.environ.get("OPENCODE_BASE_URL", "https://opencode.ai/zen/v1"),
-                model=os.environ.get("OPENCODE_MODEL", "minimax-m2.5-free"),
-            )
-        )
-
-    # T4 — Ollama (local last resort)
+    # T2 — Ollama (local last-resort fallback)
     backends.append(OllamaClient(model=os.environ.get("ADA_OLLAMA_MODEL", "qwen2.5:7b")))
 
     _llm_singleton = MultiTierLLMClient(*backends)
