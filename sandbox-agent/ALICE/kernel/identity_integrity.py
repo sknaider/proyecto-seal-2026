@@ -20,8 +20,8 @@ OTHER_AGENTS = ("ADA", "JARVIS", "NEXUS", "SPECTRE", "DUM", "William", "Kinger",
 
 _PATTERNS = [
     re.compile(rf"^\s*\[(?:{'|'.join(OTHER_AGENTS)})\]", re.IGNORECASE),
-    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*(?:dice|responde|piensa|escribe|aquí|here|says)?\s*[:>]", re.IGNORECASE),
-    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*,", re.IGNORECASE),
+    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*(?:dice|responde|piensa|escribe|aquí|here|says)\s*[:>]?", re.IGNORECASE),
+    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*[:>]", re.IGNORECASE),
     re.compile(rf"^\s*(?:Como|Como soy|I am|Soy|Yo soy|As)\s+(?:{'|'.join(OTHER_AGENTS)})\b", re.IGNORECASE),
 ]
 

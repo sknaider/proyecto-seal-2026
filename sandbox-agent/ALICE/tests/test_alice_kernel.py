@@ -35,6 +35,30 @@ def test_identity_sanitize_strips():
     assert "real text" in cleaned
 
 
+def test_identity_allows_vocative_william_comma():
+    """Vocative addressing ('William, ...') is legitimate, NOT impersonation.
+    Regression for bug 04-may-2026 13:50: regex blocked 'William, he revisado...'.
+    """
+    from identity_integrity import validate_response_identity
+    cleaned = validate_response_identity("William, he revisado el trabajo y todo OK.")
+    assert "he revisado" in cleaned
+
+
+def test_identity_allows_vocative_other_agents():
+    from identity_integrity import validate_response_identity
+    for agent in ["JARVIS", "NEXUS", "ADA"]:
+        out = validate_response_identity(f"{agent}, te paso el reporte.")
+        assert "te paso" in out
+
+
+def test_identity_still_blocks_explicit_says():
+    """'JARVIS dice: ...' must still be blocked (impersonation, not vocative)."""
+    import pytest
+    from identity_integrity import IdentityViolation, validate_response_identity
+    with pytest.raises(IdentityViolation):
+        validate_response_identity("JARVIS dice: hola desde otro lado")
+
+
 def test_reasoning_trace_lifecycle():
     from reasoning_logger import store_trace, update_trace_outcome, search_traces
     tid = store_trace(
