@@ -44,11 +44,26 @@ def test_write_beat_extra_fields_merged(isolated_path):
     assert data["agent"] == "ALICE"  # core fields preserved
 
 
-def test_write_beat_missing_dir_returns_false(tmp_path, monkeypatch):
-    """If messages dir doesn't exist, write returns False without raising."""
+def test_write_beat_returns_true_when_only_event_log_works(tmp_path, monkeypatch):
+    """Dual-write contract: True if either JSON OR event_log beat succeeds."""
     bogus = tmp_path / "does_not_exist"
     monkeypatch.setattr(runtime_heartbeat, "MESSAGES_DIR", bogus)
     monkeypatch.setattr(runtime_heartbeat, "HEARTBEAT_PATH", bogus / "x.json")
+    monkeypatch.setattr(runtime_heartbeat, "_beat_event_log", lambda extra=None: True)
+    assert runtime_heartbeat.write_beat() is True
+
+
+def test_write_beat_returns_true_when_only_json_works(isolated_path, monkeypatch):
+    monkeypatch.setattr(runtime_heartbeat, "_beat_event_log", lambda extra=None: False)
+    assert runtime_heartbeat.write_beat() is True
+    assert runtime_heartbeat.HEARTBEAT_PATH.exists()
+
+
+def test_write_beat_returns_false_when_both_channels_fail(tmp_path, monkeypatch):
+    bogus = tmp_path / "does_not_exist"
+    monkeypatch.setattr(runtime_heartbeat, "MESSAGES_DIR", bogus)
+    monkeypatch.setattr(runtime_heartbeat, "HEARTBEAT_PATH", bogus / "x.json")
+    monkeypatch.setattr(runtime_heartbeat, "_beat_event_log", lambda extra=None: False)
     assert runtime_heartbeat.write_beat() is False
 
 
