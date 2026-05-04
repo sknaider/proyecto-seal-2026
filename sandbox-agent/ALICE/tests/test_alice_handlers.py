@@ -191,6 +191,7 @@ def test_event_loop_dispatches_valid_message(isolated_paths, monkeypatch):
 
     monkeypatch.setattr(alice_handlers, "_poll_once", fake_poll)
     monkeypatch.setattr(alice_handlers, "process_message", fake_process)
+    alice_handlers._save_cursor("2026-05-04T00:00:00Z")
 
     async def runner():
         stop = asyncio.Event()
