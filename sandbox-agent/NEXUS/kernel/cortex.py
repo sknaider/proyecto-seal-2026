@@ -31,6 +31,12 @@ from llm_client import (  # noqa: E402
 
 sys.path.insert(0, str(_NEXUS_HOME / "kernel"))
 from executor import get_executor  # noqa: E402
+from identity_integrity import (  # noqa: E402
+    IdentityViolation,
+    sanitize_response,
+    validate_response_identity,
+)
+from reasoning_logger import store_trace, update_trace_outcome  # noqa: E402
 
 import httpx  # noqa: E402
 
@@ -70,7 +76,15 @@ def _build_system_prompt() -> str:
         "ALLOWED commands: grep, find, cat, ls, head, tail, ps, df, free, du, "
         "wc, sort, uniq, git (read-only), python3 -m pytest, curl localhost.\n"
         "PROHIBITED: kill, sudo, rm -rf, chmod, anything outside your "
-        "sandbox, .env files, credentials, /etc, other agents' directories.\n\n"
+        "sandbox, .env files, credentials, /etc, other agents' directories.\n"
+        "ABSOLUTE RULE — process kills: NEVER kill, stop, or terminate ANY "
+        "process belonging to other agents (ADA, JARVIS, ALICE, SPECTRE, DUM, "
+        "mcp_server, Soul DB). Only JARVIS or ADA may execute kills, only with "
+        "explicit William authorization. If you observe a process anomaly, "
+        "REPORT it — do not act.\n"
+        "HONESTY RULE: NEVER claim to have executed an action you did not "
+        "perform. If the executor blocks a command, say it was blocked — do not "
+        "describe the result as if it ran.\n\n"
         "ANTI-IMPERSONATION (absolute): NEVER respond as ADA, JARVIS, ALICE, "
         "SPECTRE, DUM, or William. NEVER prefix your response with another "
         "agent's name.\n\n"
@@ -148,19 +162,45 @@ async def process_message(content: str, sender: str = "William") -> str:
 
     messages = [{"role": "system", "content": _build_system_prompt()}, *_history]
 
+    trace_id = store_trace(
+        task=f"respond_{sender.lower()}",
+        input_excerpt=content,
+        premises=[
+            f"sender={sender}",
+            f"history_len={len(_history)}",
+            f"mode={os.environ.get('NEXUS_EXECUTE_MODE', 'propose')}",
+        ],
+        reasoning="cortex received message; will dispatch to LLM, validate identity, then detect actions",
+        decision="invoke MultiTierLLMClient and post response to webchat",
+        confidence=0.85,
+        action_type="respond",
+    )
+
     llm = _get_llm()
     try:
         response = await llm.chat(messages, max_tokens=600, temperature=0.4)
     except LLMUnavailable as ex:
         msg = f"[NEXUS] LLM unavailable: {ex}"
         print(f"[nexus/cortex] {msg}", flush=True)
+        update_trace_outcome(trace_id, f"LLM unavailable: {ex}", False)
         return msg
     except Exception as ex:
         msg = f"[NEXUS] cortex error: {ex}"
         print(f"[nexus/cortex] {msg}", flush=True)
+        update_trace_outcome(trace_id, f"cortex error: {ex}", False)
         return msg
 
     response = response.strip()
+
+    try:
+        response = validate_response_identity(response, source_tier="cortex")
+    except IdentityViolation as ex:
+        print(f"[nexus/cortex] ⚠️ identity violation — sanitizing: {ex}", flush=True)
+        response = sanitize_response(response)
+        if not response.strip():
+            update_trace_outcome(trace_id, f"identity violation, response empty after sanitize", False)
+            return "[NEXUS] response blocked by identity guard"
+
     _history.append({"role": "assistant", "content": response})
 
     action_results = await _detect_and_dispatch_actions(response)
@@ -175,6 +215,11 @@ async def process_message(content: str, sender: str = "William") -> str:
         f"[nexus/cortex] {datetime.now(timezone.utc).isoformat()} — "
         f"response={len(response)}c, actions={len(action_results)}",
         flush=True,
+    )
+    update_trace_outcome(
+        trace_id,
+        f"posted {len(response)}c response, {len(action_results)} actions executed",
+        True,
     )
     return response
 
