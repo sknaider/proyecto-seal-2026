@@ -38,10 +38,10 @@ OTHER_AGENTS = ("ADA", "JARVIS", "ALICE", "SPECTRE", "DUM", "William", "Kinger",
 _PATTERNS = [
     # "[ADA] hola..." or "[JARVIS] ..."
     re.compile(rf"^\s*\[(?:{'|'.join(OTHER_AGENTS)})\]", re.IGNORECASE),
-    # "ADA: hola..." or "JARVIS responde: ..."
-    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*(?:dice|responde|piensa|escribe|aquí|here|says)?\s*[:>]", re.IGNORECASE),
-    # First word is another agent's name with a comma
-    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*,", re.IGNORECASE),
+    # "ADA dice: hola" / "JARVIS responde: ..."
+    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*(?:dice|responde|piensa|escribe|aquí|here|says)\s*[:>]?", re.IGNORECASE),
+    # "ADA:" or "ADA>" — colon/angle as speech marker
+    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*[:>]", re.IGNORECASE),
     # "Como ADA voy a..." / "I am JARVIS"
     re.compile(rf"^\s*(?:Como|Como soy|I am|Soy|Yo soy|As)\s+(?:{'|'.join(OTHER_AGENTS)})\b", re.IGNORECASE),
 ]
