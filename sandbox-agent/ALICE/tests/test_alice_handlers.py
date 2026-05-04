@@ -140,8 +140,14 @@ def test_cursor_round_trip(isolated_paths):
     assert alice_handlers._load_cursor() == "2026-05-04T10:00:00Z"
 
 
-def test_load_cursor_no_file_returns_empty(isolated_paths):
-    assert alice_handlers._load_cursor() == ""
+def test_load_cursor_no_file_returns_now_iso(isolated_paths):
+    """When no cursor file exists, must initialize to NOW (ISO timestamp), NOT empty.
+    Empty cursor would replay all historical messages — bug 04-may-2026 13:17.
+    """
+    cursor = alice_handlers._load_cursor()
+    assert cursor != ""
+    assert "T" in cursor and ("+" in cursor or "Z" in cursor)
+    assert alice_handlers.CURSOR_PATH.exists(), "cursor file should be persisted on init"
 
 
 def test_processed_ids_round_trip(isolated_paths):
@@ -161,7 +167,12 @@ def test_processed_ids_caps_at_max(isolated_paths, monkeypatch):
 # ── event_loop integration ──────────────────────────────────────────────────
 
 def test_event_loop_dispatches_valid_message(isolated_paths, monkeypatch):
-    """event_loop should call cortex.process_message for messages that pass filters."""
+    """event_loop should call cortex.process_message for messages that pass filters.
+
+    Note: pre-seed cursor with a date older than the test message — otherwise
+    the new NOW-init cursor would filter the test event out.
+    """
+    alice_handlers._save_cursor("2000-01-01T00:00:00Z")
     msg = {
         "id": "evt-1",
         "from": "William",
@@ -199,6 +210,7 @@ def test_event_loop_dispatches_valid_message(isolated_paths, monkeypatch):
 
 
 def test_event_loop_skips_internal_sender(isolated_paths, monkeypatch):
+    alice_handlers._save_cursor("2000-01-01T00:00:00Z")
     msg = {
         "id": "evt-2",
         "from": "JARVIS",

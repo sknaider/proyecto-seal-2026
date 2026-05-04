@@ -1,9 +1,9 @@
-"""ALICE handlers — webchat polling and dispatch to cortex.
+"""NEXUS handlers — event polling and routing.
 
-Polls the SEAL webchat API for messages addressed to ALICE or to the team
-(when she's mentioned), filters out internal/own events, dispatches to the
-cortex for analysis. Mirrors the NEXUS pattern; identifiers and rules
-are ALICE-specific.
+Polls the SEAL webchat API for new messages addressed to NEXUS or to
+the team, filters out internal/own events, and dispatches to the cortex.
+
+Spec: spec_nexus_kernel_soul_v1.md §7
 """
 from __future__ import annotations
 
@@ -16,44 +16,56 @@ from pathlib import Path
 
 import httpx
 
-_ALICE_HOME = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(_ALICE_HOME / "kernel"))
+_NEXUS_HOME = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_NEXUS_HOME / "kernel"))
 
 from cortex import process_message  # noqa: E402
 
 
-AGENT_ID = "ALICE"
+AGENT_ID = "NEXUS"
 WEBCHAT_POLL_URL = "http://localhost:8765/api/agents/poll"
-CURSOR_PATH = Path("/tmp/alice_event_cursor.json")
-PROCESSED_IDS_PATH = Path("/tmp/alice_processed_ids.json")
+CURSOR_PATH = Path("/tmp/nexus_event_cursor.json")
+PROCESSED_IDS_PATH = Path("/tmp/nexus_processed_ids.json")
 PROCESSED_IDS_MAX = 200
 
+# Senders NEXUS responds to (William + Henry only — internal team doesn't
+# trigger LLM cycles to avoid loops; team coordination via direct mentions only)
 TRUSTED_SENDERS = {"William", "Henry", "Kinger"}
 
+# Internal senders to always drop (avoid feedback loops)
 INTERNAL_DROP = {
-    "ALICE", "NEXUS", "SPECTRE", "ADA", "JARVIS", "DUM",
+    "NEXUS", "SPECTRE", "ADA", "JARVIS", "ALICE", "DUM",
     "RESURRECT", "EVENT_BUS_DAEMON", "system",
 }
 
-_OTHER_AGENTS_PATTERN = r"jarvis|ada|nexus|spectre|dum"
+# Agent names that are NOT nexus (we only filter messages to others)
+_OTHER_AGENTS_PATTERN = r"jarvis|ada|alice|spectre|dum"
+# Catches "que sugieres jarvis, ..." — agent name + , or : anywhere in first 80 chars
 _AGENT_COMMA_RE = re.compile(
     rf"\b({_OTHER_AGENTS_PATTERN})\b\s*[,:]",
     re.IGNORECASE,
 )
+# Catches "jarvis que necesitas" / "ada revisa esto" — agent name as first word
 _AGENT_FIRST_WORD_RE = re.compile(
     rf"^({_OTHER_AGENTS_PATTERN})\b",
     re.IGNORECASE,
 )
+# Channel prefix to strip before content analysis
 _CHANNEL_PREFIX_RE = re.compile(r"^\[[\w\s]+\]\s*", re.IGNORECASE)
 
 
 def _directed_at_other_agent(content: str) -> bool:
+    """Return True if the message content is directed at a specific other agent."""
     stripped = _CHANNEL_PREFIX_RE.sub("", content).strip()
     snippet = stripped[:80]
+    # Agent name as first word: "jarvis que necesitas"
     if _AGENT_FIRST_WORD_RE.match(stripped):
         return True
+    # Agent name + comma/colon anywhere in opening: "que sugieres jarvis, ..."
     return bool(_AGENT_COMMA_RE.search(snippet))
 
+
+# ── Cursor persistence ───────────────────────────────────────────────────────
 
 def _load_cursor() -> str:
     try:
@@ -65,7 +77,7 @@ def _load_cursor() -> str:
         pass
     now = datetime.now(timezone.utc).isoformat()
     _save_cursor(now)
-    print(f"[alice/handlers] no cursor found — initializing to NOW={now}", flush=True)
+    print(f"[nexus/handlers] no cursor found — initializing to NOW={now}", flush=True)
     return now
 
 
@@ -73,8 +85,10 @@ def _save_cursor(cursor: str) -> None:
     try:
         CURSOR_PATH.write_text(json.dumps({"cursor": cursor}))
     except Exception as ex:
-        print(f"[alice/handlers] cursor save failed: {ex}", flush=True)
+        print(f"[nexus/handlers] cursor save failed: {ex}", flush=True)
 
+
+# ── Processed IDs (extra dedupe layer) ───────────────────────────────────────
 
 def _load_processed_ids() -> set[str]:
     try:
@@ -89,8 +103,10 @@ def _save_processed_ids(ids: set[str]) -> None:
     try:
         PROCESSED_IDS_PATH.write_text(json.dumps(list(ids)[-PROCESSED_IDS_MAX:]))
     except Exception as ex:
-        print(f"[alice/handlers] processed_ids save failed: {ex}", flush=True)
+        print(f"[nexus/handlers] processed_ids save failed: {ex}", flush=True)
 
+
+# ── Event filtering ──────────────────────────────────────────────────────────
 
 def _should_process(evt: dict, processed: set[str]) -> tuple[bool, str]:
     msg_id = evt.get("id", "")
@@ -106,7 +122,7 @@ def _should_process(evt: dict, processed: set[str]) -> tuple[bool, str]:
         return False, f"untrusted_sender:{sender}"
 
     to = evt.get("to", "")
-    if to not in ("ALICE", "equipo"):
+    if to not in ("NEXUS", "equipo"):
         return False, f"not_addressed:{to}"
 
     content = evt.get("content") or evt.get("message") or ""
@@ -118,11 +134,15 @@ def _should_process(evt: dict, processed: set[str]) -> tuple[bool, str]:
     if _directed_at_other_agent(content):
         return False, "directed_at_other_agent"
 
-    if to == "equipo" and "alice" not in content.lower():
+    # Broadcast messages (to="equipo") only warrant a response if NEXUS is
+    # explicitly mentioned — otherwise it's ambient team chat, not ours to answer
+    if to == "equipo" and "nexus" not in content.lower():
         return False, "equipo_no_mention"
 
     return True, "ok"
 
+
+# ── Event poller ─────────────────────────────────────────────────────────────
 
 async def _poll_once() -> list[dict]:
     try:
@@ -135,22 +155,25 @@ async def _poll_once() -> list[dict]:
             data = resp.json()
             return data.get("messages", [])
     except Exception as ex:
-        print(f"[alice/handlers] poll failed: {ex}", flush=True)
+        print(f"[nexus/handlers] poll failed: {ex}", flush=True)
         return []
 
 
 async def event_loop(stop_event: asyncio.Event, poll_interval_s: float = 3.0) -> None:
+    """Main event loop — polls webchat, filters, dispatches to cortex."""
     processed = _load_processed_ids()
     last_cursor = _load_cursor()
 
     print(
-        f"[alice/handlers] event_loop started — cursor={last_cursor!r}, "
+        f"[nexus/handlers] event_loop started — cursor={last_cursor!r}, "
         f"processed={len(processed)}",
         flush=True,
     )
 
     while not stop_event.is_set():
         messages = await _poll_once()
+
+        # Process only messages newer than cursor (timestamp-based)
         new_msgs = [m for m in messages if m.get("timestamp", "") > last_cursor]
 
         for evt in new_msgs:
@@ -159,20 +182,20 @@ async def event_loop(stop_event: asyncio.Event, poll_interval_s: float = 3.0) ->
             ts = evt.get("timestamp", "")
 
             if not should:
-                if reason not in ("already_processed", "self_prefix", "internal_sender:ALICE"):
-                    print(f"[alice/handlers] drop {msg_id} — {reason}", flush=True)
+                if reason not in ("already_processed", "self_prefix", "internal_sender:NEXUS"):
+                    print(f"[nexus/handlers] drop {msg_id} — {reason}", flush=True)
             else:
                 content = evt.get("content") or evt.get("message", "")
                 sender = evt.get("from", "?")
                 print(
-                    f"[alice/handlers] dispatch {msg_id} from={sender} "
+                    f"[nexus/handlers] dispatch {msg_id} from={sender} "
                     f"content={content[:60]!r}",
                     flush=True,
                 )
                 try:
                     await process_message(content, sender=sender)
                 except Exception as ex:
-                    print(f"[alice/handlers] cortex error on {msg_id}: {ex}", flush=True)
+                    print(f"[nexus/handlers] cortex error on {msg_id}: {ex}", flush=True)
 
             processed.add(msg_id)
             if ts > last_cursor:
@@ -187,4 +210,4 @@ async def event_loop(stop_event: asyncio.Event, poll_interval_s: float = 3.0) ->
         except asyncio.TimeoutError:
             pass
 
-    print("[alice/handlers] event_loop stopped", flush=True)
+    print("[nexus/handlers] event_loop stopped", flush=True)
