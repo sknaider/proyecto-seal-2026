@@ -121,7 +121,60 @@ Cada twin tiene su propia `/29` aislada — alineado con el blueprint NVIDIA `co
 | vLLM `TP=1 PP=4` | falla MISMO error NCCL |
 | vLLM `TP=2 PP=2` | aún no probado |
 
-### 1.4 Bug colateral encontrado (sysctl)
+### 1.4 Restricciones arquitecturales del SoC GB10 (HALLAZGO JARVIS dump NCCL)
+
+JARVIS dumpeó la topología detectada por NCCL en single-node (spark-2). Hallazgos que **invalidan asunciones del v1**:
+
+```xml
+<system version="1">
+  <cpu arch="arm64">
+    <pci busid="0000:01:00.0" link_speed="32.0 GT/s PCIe" link_width="4">
+      <nic><net name="rocep1s0f0" speed="200000" gdr="0" net="1" gin="1"/></nic>
+    </pci>
+    <pci busid="0002:01:00.0" link_speed="32.0 GT/s PCIe" link_width="4">
+      <nic><net name="roceP2p1s0f0" speed="200000" gdr="0" net="1" gin="1"/></nic>
+    </pci>
+    <pci busid="000f:01:00.0" link_speed="2.5 GT/s PCIe" link_width="16">
+      <gpu dev="0" sm="121" rank="0" gdr="0">
+        <c2c bw="43125" count="8"/>
+      </gpu>
+    </pci>
+  </cpu>
+</system>
+```
+
+**Constraints duros (no negociables, by-design NVIDIA):**
+
+1. **`gdr=0` en TODOS los devices** → **GPU Direct RDMA NO existe en GB10**. La GPU Blackwell está integrada al SoC ARM Grace, sin path PCIe directo NIC↔GPU. Toda comunicación NIC↔GPU pasa obligatoriamente por **CPU memory (Grace)**. Aplica incluso a vecinos directos.
+
+2. **PCIe NICs: 32 GT/s × 4 lanes = ~16 GB/s teórico** por NIC (Gen5 x4). Los 200 Gb/s ópticos son ceiling de fibra, NO de bandwidth efectivo a GPU. Bandwidth real GPU↔GPU multi-host: limitado por PCIe x4, no por RoCE.
+
+3. **C2C Grace↔Blackwell: 43 GB/s** on-die (chip-to-chip coherent cache). Es el path interno; NCCL debe terminar paquetes en Grace memory.
+
+4. **NCCL solo detecta primary NICs** (`rocep1s0f0`, `roceP2p1s0f0`); los **twins (`f1np1`) no aparecen** — NCCL los considera mismo HCA o los filtra. Por eso `NCCL_IB_HCA` solo lista 2.
+
+**Consecuencia para diseño:**
+- Tracks A (mashie SR4) y B (switch) — el techo real es **~32 GB/s aggregate** por nodo (2 NICs × 16 GB/s), no 50 GB/s como yo asumí.
+- Track C (Software) **gana valor relativo**: si toda comunicación pasa por CPU memory de todos modos, **NCCL_NET=Socket NO pierde tanto vs RDMA puro** como en GPUs discretas. La penalty estimada baja de 5–10× a 1.5–3×.
+
+**Hipótesis nueva (a validar JARVIS bench, sección 5.7):**
+> NCCL falla con `unhandled system error` porque busca path RDMA + GDR. Como `gdr=0`, el plugin IB intenta workarounds que dependen de QP setup L2-directo → fail entre non-neighbors. Forzando `NCCL_NET=Socket` + `NCCL_IB_DISABLE=1`, NCCL usa Ethernet sockets puros sobre RoCE → tolera routed paths IP → 4-Spark anillo funciona sin hardware nuevo.
+
+**Test crítico** (JARVIS, 10 min):
+```bash
+# Baseline: 2 vecinos directos con RDMA puro
+NCCL_NET=IB ... all_reduce_perf -b 1M -e 128M -f 2 -g 1 -t 1 \
+  --hosts spark-2:1,spark-3:1
+
+# Compare: 2 vecinos directos con Socket
+NCCL_NET=Socket NCCL_IB_DISABLE=1 NCCL_SOCKET_IFNAME=enp1s0f0np0 \
+  all_reduce_perf -b 1M -e 128M -f 2 -g 1 -t 1 \
+  --hosts spark-2:1,spark-3:1
+```
+
+Si gap < 2×, **Socket gana en GB10** por arquitectura. 4-Spark anillo via Socket + IP forward sería viable sin hardware.
+
+### 1.5 Bug colateral encontrado (sysctl)
 
 ```
 net.core.rmem_max       = 212992          (necesario: 268435456)
@@ -131,9 +184,15 @@ net.core.wmem_max       = 212992          (necesario: 268435456)
 
 ---
 
-## 2. Root Cause Analysis
+## 2. Root Cause Analysis (revisado v1.2 con hallazgo GB10 gdr=0)
 
-### 2.1 Por qué NCCL falla entre nodos no-vecinos
+### 2.0 Resumen de la causa
+
+Doble factor:
+1. **Hardware:** GB10 tiene `gdr=0` (GPU integrada al SoC, no en bus PCIe separado). NCCL no puede usar GPU Direct RDMA — toda comunicación termina en CPU memory.
+2. **Protocolo:** NCCL en modo IB plugin asume QP setup L2-directo entre pares. Sin GDR, los QPs son CPU↔CPU pero el plugin sigue requiriendo handshake L2 — y entre non-neighbors el handshake L2 no llega (IP forward enruta paquetes IP, no QPs).
+
+### 2.1 Por qué NCCL falla entre nodos no-vecinos (con IB plugin activo)
 
 RoCEv2 (RDMA over Converged Ethernet v2) usa Queue Pairs (QPs) que requieren **path L2 directo** o **fabric con soporte explícito de routing RDMA** (Mellanox SHIELD / Adaptive Routing). El IP forwarding kernel + iptables FORWARD no sirve: enruta paquetes IP, no QPs.
 
