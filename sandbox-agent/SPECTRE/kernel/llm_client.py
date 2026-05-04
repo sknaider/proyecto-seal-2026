@@ -211,6 +211,10 @@ class VLLMClient(LLMClient):
             "max_tokens": kwargs.get("max_tokens", 512),
             "stream": False,
         }
+        if "temperature" in kwargs:
+            payload["temperature"] = kwargs["temperature"]
+        if "top_p" in kwargs:
+            payload["top_p"] = kwargs["top_p"]
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self._api_key}",
