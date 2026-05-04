@@ -34,15 +34,18 @@ VIOLATION_LOG = Path("/tmp/jarvis_identity_violations.jsonl")
 # Agents JARVIS must NEVER respond as
 OTHER_AGENTS = ("ADA", "NEXUS", "ALICE", "SPECTRE", "DUM", "William", "Kinger", "Henry")
 
-# Regex patterns that indicate impersonation
+# Regex patterns that indicate impersonation.
+# IMPORTANT: vocative addressing ("William, te paso el plan") is LEGITIMATE
+# 2nd-person speech, NOT impersonation. Only 1st-person patterns count.
+# Same fix applied in NEXUS handlers 2026-05-04 13:50 (regression bug).
 _PATTERNS = [
-    # "[ADA] hola..." or "[JARVIS] ..."
+    # "[ADA] hola..." → impersonation in tag form
     re.compile(rf"^\s*\[(?:{'|'.join(OTHER_AGENTS)})\]", re.IGNORECASE),
-    # "ADA: hola..." or "JARVIS responde: ..."
-    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*(?:dice|responde|piensa|escribe|aquí|here|says)?\s*[:>]", re.IGNORECASE),
-    # First word is another agent's name with a comma
-    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*,", re.IGNORECASE),
-    # "Como ADA voy a..." / "I am JARVIS"
+    # "ADA dice: hola" / "JARVIS responde: ..." / "ADA: hola"
+    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*(?:dice|responde|piensa|escribe|aquí|here|says)\s*[:>]?", re.IGNORECASE),
+    # "ADA:" or "ADA>" (colon/angle as speech marker)
+    re.compile(rf"^\s*(?:{'|'.join(OTHER_AGENTS)})\s*[:>]", re.IGNORECASE),
+    # "Como ADA voy a..." / "I am JARVIS" / "Soy ADA"
     re.compile(rf"^\s*(?:Como|Como soy|I am|Soy|Yo soy|As)\s+(?:{'|'.join(OTHER_AGENTS)})\b", re.IGNORECASE),
 ]
 
