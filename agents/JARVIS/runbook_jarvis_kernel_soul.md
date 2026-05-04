@@ -49,31 +49,16 @@ El kernel **no corre como proceso aparte**. La sesión Claude provee CPU + tier 
 
 ---
 
-## Modo opcional: daemon (NO recomendado al 04-may)
+## Sobre daemon: PROHIBIDO
 
-Si en el futuro se requiere daemon 24/7 (ej. Qwen3-Coder-480B local listo + JARVIS necesita responder webchat sin sesión Claude abierta):
+Directriz William 04-may-2026 14:43 Lima: «nada de daemon, ya saben los errores».
 
-```bash
-# 1. Cargar API keys via systemd EnvironmentFile (CRÍTICO — sin esto Ollama solo)
-sudo nano ~/.config/systemd/user/jarvis-kernel-soul.service
-# añadir EnvironmentFile=/path/to/jarvis_secrets.env con ANTHROPIC_API_KEY
+Razones del veto (lección documentada del día):
+1. Daemon ALICE corrió sin API keys → Ollama 7B alucinó → respuestas español+chino mixto.
+2. Daemon NEXUS opcional sin verificación de tier real puede repetir el mismo error.
+3. Para todos los agentes Claude session, el modo library-only ES la solución correcta.
 
-# 2. daemon-reload + enable + start
-systemctl --user daemon-reload
-systemctl --user enable jarvis-kernel-soul.service
-systemctl --user start jarvis-kernel-soul.service
-
-# 3. Validar con webchat: que responda con calidad Opus, no Ollama solo
-```
-
-**Pre-flight checklist obligatorio antes de habilitar daemon:**
-- [ ] API key real cargada (Claude tier disponible)
-- [ ] Identity guard probado contra falsos positivos vocativos
-- [ ] Cursor handler inicializa a NOW (no replay historial)
-- [ ] tz comparison con datetime UTC-aware
-- [ ] Filtros internal_sender drop validados
-
-Si ANY checklist item está roto, el daemon arrancará pero generará el mismo spam que ALICE el 13:54 hoy.
+**NO escribir** `jarvis_daemon.py`, `jarvis-kernel-soul.service`, ni handlers daemon-side. Si en el futuro se necesita persistencia, requiere autorización explícita de William + checklist completa de pre-flight.
 
 ---
 
