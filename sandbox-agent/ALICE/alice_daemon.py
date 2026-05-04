@@ -19,9 +19,12 @@ from pathlib import Path
 
 _ALICE_HOME = Path(__file__).resolve().parent
 _KERNEL = _ALICE_HOME / "kernel"
+_HANDLERS = _ALICE_HOME / "handlers"
 sys.path.insert(0, str(_KERNEL))
+sys.path.insert(0, str(_HANDLERS))
 
 from health_monitor import health_loop  # noqa: E402
+from alice_handlers import event_loop  # noqa: E402
 
 LOCK_PATH = Path("/tmp/alice_daemon_ALICE.lock")
 PID_PATH = Path("/tmp/alice_daemon_ALICE.pid")
@@ -57,12 +60,20 @@ async def _main_loop(stop_event: asyncio.Event) -> None:
             stop_event=stop_event,
         )
     )
+    handler_task = asyncio.create_task(
+        event_loop(
+            stop_event=stop_event,
+            poll_interval_s=float(os.environ.get("ALICE_POLL_INTERVAL", "3.0")),
+        )
+    )
     await stop_event.wait()
-    health_task.cancel()
-    try:
-        await health_task
-    except asyncio.CancelledError:
-        pass
+    for t in (health_task, handler_task):
+        t.cancel()
+    for t in (health_task, handler_task):
+        try:
+            await t
+        except asyncio.CancelledError:
+            pass
     print(f"[alice/daemon] stopped", flush=True)
 
 
