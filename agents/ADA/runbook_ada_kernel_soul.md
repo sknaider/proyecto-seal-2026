@@ -68,9 +68,10 @@ ADA es la primera del equipo SEAL en usar el cluster Triangle 3-spark local como
 ```bash
 ADA_TRIANGLE_URL=http://192.168.68.70:8001          # Triangle endpoint
 ADA_TRIANGLE_MODEL=qwen3-coder-480b                  # alias o path GGUF
-ADA_CLAUDE_MODEL=claude-opus-4-7                     # fallback Claude tier
 ADA_OLLAMA_MODEL=qwen2.5:7b                          # local last resort
 ```
+
+**Claude REMOVIDO (William 04-may-2026 18:54):** «así podemos comprobar si es funcional». ADA opera 100% local sin red de seguridad cloud. Trade-off aceptado: si Triangle cae, calidad cae a Ollama 7B. Beneficio: prueba real de soberanía + identifica gaps reales del stack local.
 
 **Beneficios verificados:**
 - Costo API → 0 USD/mes
