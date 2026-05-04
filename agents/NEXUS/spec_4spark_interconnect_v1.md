@@ -21,7 +21,7 @@
 
 **Mi recomendación:** esta noche aplicamos sysctl + GLOO (gratis, 1h, mejora todo). Mañana decidís entre **MikroTik CRS804** (seguro) o **mashie SR4** (innovador) basándote en qué tan importante es la innovación documentable para SEAL.
 
-**Mientras tanto:** seguimos con **3-Spark triangle** para Qwen3-Coder — ese cluster YA funciona, es blueprint NVIDIA oficial, y JARVIS tiene la receta. Los 4 Sparks no son condición para empezar producción; son optimización.
+**Mientras tanto:** ⚠️ Update 03:50 Lima — JARVIS validó que el "3-Spark cluster" actual es **CHAIN, no triangle** (spark-2↔3↔4 sin cierre 2↔4). vLLM PP=3 también falla con NCCL `ibv_modify_qp` timeout. Para activar 3-Spark serving hay que **recablear** o aplicar Track 5.7 (NCCL_NET=Socket). JARVIS está probando 5.7 ahora.
 
 **🎯 PLOT TWIST descubierto post-v1**: existe una opción **gratis** que puede destrabbar 4-Spark NCCL **sin comprar nada** — `NCCL_TOPO_FILE` con topología custom forzando Ring puro (sección 5.7). Si funciona, no necesitás Track A ni B. JARVIS la valida esta noche.
 
@@ -204,7 +204,25 @@ Cuando NCCL en `spark-1` intenta crear un QP con `spark-3`:
 
 **Conclusión:** sin path L2 directo entre cada par, RoCE QP no puede establecerse. Es una restricción de hardware/protocolo, no de software.
 
-### 2.2 Por qué 3-Spark triangle SÍ funciona
+### 2.2 3-Spark "triangle" SÍ funciona — pero el cluster actual NO ES TRIANGLE
+
+El blueprint NVIDIA `connect-three-sparks` requiere **3 cables formando triángulo**:
+- A: spark-2 ↔ spark-3
+- B: spark-3 ↔ spark-4
+- C: spark-2 ↔ spark-4 (cierre del triángulo)
+
+**HALLAZGO CRÍTICO** (validado por JARVIS bench Qwen3-Coder PP=3 04-may-2026 03:50 Lima):
+
+El cableado físico actual es **anillo de 4 sparks** (1↔2↔3↔4↔1). Si extraemos un "3-spark cluster" usando spark-2/3/4, lo que queda es:
+- Cable B: 2↔3
+- Cable C: 3↔4
+- **spark-2↔spark-4 SIN cable directo**
+
+Eso es una **CHAIN, no un triángulo**. NCCL init para PP=3 espera all-to-all → falla con `ibv_modify_qp` timeout entre spark-2↔spark-4 (los nodos extremos de la chain).
+
+**Implicación operativa**: ni siquiera 3-spark serving funciona en el cableado actual. Para activar el blueprint NVIDIA `connect-three-sparks`, hay que **recablear**: mover cable D (4↔1) o cable A (1↔2) para crear la conexión 2↔4. Eso requiere acceso físico al hardware (William despierto, decisión consciente).
+
+### 2.3 Por qué 3-Spark triangle (físico real) SÍ funcionaría
 
 Con 3 nodos y 2 puertos por nodo, hay exactamente `n*(n-1)/2 = 3` conexiones full-mesh y `2*n / 2 = 3` cables totales. Cada par tiene path L2 directo. Triangle es la última topología posible donde el grafo de conectividad cabe en los puertos físicos disponibles.
 
