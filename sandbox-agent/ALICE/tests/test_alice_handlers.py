@@ -164,6 +164,71 @@ def test_processed_ids_caps_at_max(isolated_paths, monkeypatch):
     assert len(loaded) == 5
 
 
+# ── timezone-aware comparison (regression for bug 04-may-2026 13:24) ────────
+
+def test_ts_to_dt_parses_utc_and_lima():
+    """Regression: cursor stored UTC vs message ts in Lima must compare correctly."""
+    cursor = alice_handlers._ts_to_dt("2026-05-04T18:23:38.200289+00:00")
+    msg = alice_handlers._ts_to_dt("2026-05-04T13:23:49.799442-05:00")
+    assert cursor is not None and msg is not None
+    # Same wall-clock instant ±11s; msg should be slightly LATER in absolute time
+    assert msg > cursor
+
+
+def test_ts_to_dt_handles_z_suffix():
+    dt = alice_handlers._ts_to_dt("2026-05-04T18:00:00Z")
+    assert dt is not None
+    assert dt.tzinfo is not None
+
+
+def test_ts_to_dt_returns_none_on_garbage():
+    assert alice_handlers._ts_to_dt("") is None
+    assert alice_handlers._ts_to_dt("not-a-timestamp") is None
+
+
+def test_event_loop_lima_offset_message_passes_cursor(isolated_paths, monkeypatch):
+    """E2E regression: cursor seeded NOW UTC + message arrives Lima offset in future
+    → must dispatch (not get filtered by string compare bug)."""
+    from datetime import datetime, timezone, timedelta
+    cursor_iso = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
+    alice_handlers._save_cursor(cursor_iso)
+    # Lima offset (-05:00) — same instant as future UTC
+    future_lima_iso = (datetime.now(timezone(timedelta(hours=-5))) + timedelta(seconds=5)).isoformat()
+    msg = {
+        "id": "evt-tz",
+        "from": "William",
+        "to": "ALICE",
+        "message": "tz regression",
+        "timestamp": future_lima_iso,
+    }
+
+    async def fake_poll():
+        return [msg]
+
+    dispatched = []
+
+    async def fake_process(content, sender="?"):
+        dispatched.append((content, sender))
+
+    monkeypatch.setattr(alice_handlers, "_poll_once", fake_poll)
+    monkeypatch.setattr(alice_handlers, "process_message", fake_process)
+
+    async def runner():
+        stop = asyncio.Event()
+
+        async def stopper():
+            await asyncio.sleep(0.05)
+            stop.set()
+
+        await asyncio.gather(
+            alice_handlers.event_loop(stop, poll_interval_s=0.01),
+            stopper(),
+        )
+
+    asyncio.run(runner())
+    assert dispatched == [("tz regression", "William")]
+
+
 # ── event_loop integration ──────────────────────────────────────────────────
 
 def test_event_loop_dispatches_valid_message(isolated_paths, monkeypatch):

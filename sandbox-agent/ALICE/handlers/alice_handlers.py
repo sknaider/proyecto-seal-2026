@@ -55,6 +55,22 @@ def _directed_at_other_agent(content: str) -> bool:
     return bool(_AGENT_COMMA_RE.search(snippet))
 
 
+def _ts_to_dt(ts: str) -> datetime | None:
+    """Parse ISO timestamp (with or without offset) to UTC-aware datetime.
+    Returns None if unparseable. Crucial: cursor (UTC) and message timestamps
+    (often Lima -05:00) compared as strings → wrong order. As datetime → correct.
+    """
+    if not ts:
+        return None
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except (ValueError, TypeError):
+        return None
+
+
 def _load_cursor() -> str:
     try:
         if CURSOR_PATH.exists():
@@ -149,11 +165,17 @@ async def event_loop(stop_event: asyncio.Event, poll_interval_s: float = 3.0) ->
         flush=True,
     )
 
+    cursor_dt = _ts_to_dt(last_cursor) or datetime.now(timezone.utc)
+
     while not stop_event.is_set():
         messages = await _poll_once()
-        new_msgs = [m for m in messages if m.get("timestamp", "") > last_cursor]
+        new_msgs = []
+        for m in messages:
+            m_dt = _ts_to_dt(m.get("timestamp", ""))
+            if m_dt is not None and m_dt > cursor_dt:
+                new_msgs.append((m, m_dt))
 
-        for evt in new_msgs:
+        for evt, evt_dt in new_msgs:
             should, reason = _should_process(evt, processed)
             msg_id = evt.get("id", "")
             ts = evt.get("timestamp", "")
@@ -175,7 +197,8 @@ async def event_loop(stop_event: asyncio.Event, poll_interval_s: float = 3.0) ->
                     print(f"[alice/handlers] cortex error on {msg_id}: {ex}", flush=True)
 
             processed.add(msg_id)
-            if ts > last_cursor:
+            if evt_dt > cursor_dt:
+                cursor_dt = evt_dt
                 last_cursor = ts
 
         if new_msgs:
