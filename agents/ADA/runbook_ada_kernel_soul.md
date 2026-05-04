@@ -180,6 +180,10 @@ cd /home/dadito/IA/proyecto-seal && python3 -m pytest sandbox-agent/ADA/tests/ -
 | Reasoning trace no aparece en Soul DB | asyncio loop conflict | Usar `loop.create_task` no `beat_sync` desde async |
 | Executor bloquea comando legítimo | No está en whitelist ADA | Decisión arquitectural — agregar requiere review NEXUS+ALICE |
 | Health snapshot sin GPU stats | `nvidia-smi` no en PATH | Verificar instalación CUDA driver |
+| Triangle T1 no responde / timeout | Endpoint caído, RoCE down, modelo en carga | `curl http://192.168.68.70:8001/health`. ADA cae a Claude T2 vía MultiTierLLMClient. Si Claude tampoco, OpenCode T3 → Ollama T4 |
+| Respuesta ADA súper lenta (~60s+) | Triangle bajo carga compartida | Esperable. Subir `ADA_TRIANGLE_TIMEOUT` o paralelizar menos |
+| Modelo no encontrado en Triangle | model alias incorrecto | Verificar con `curl http://192.168.68.70:8001/v1/models`. Override `ADA_TRIANGLE_MODEL` env var |
+| Triangle responde basura/incoherente | KV cache contaminada o modelo mal cargado | Reiniciar llama-server en spark-2. Coordinar con JARVIS antes |
 
 ---
 
