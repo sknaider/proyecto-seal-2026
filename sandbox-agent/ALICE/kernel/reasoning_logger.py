@@ -1,12 +1,21 @@
-"""ALICE reasoning_logger — local trace store for analytical decisions.
+"""ALICE reasoning_logger — dual-write trace store for analytical decisions.
 
 Critical for an analyst: every conclusion must be traceable back to its
 premises, supuestos, calculation steps, and confidence. Audit-grade by
-default. Mirrors NEXUS variant; log path differs.
+default.
+
+Dual-write contract (same as NEXUS/ADA/JARVIS):
+1. /tmp/alice_reasoning_traces.jsonl — fast cache, fail-soft.
+2. soul_v3.reasoning_traces — canonical truth for Soul DB queries.
+
+Async-safe: uses loop.create_task when inside running asyncio loop,
+falls back to direct asyncpg sync call otherwise.
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import threading
 import time
 import uuid
@@ -17,7 +26,82 @@ from typing import Any
 AGENT_ID = "ALICE"
 TRACE_LOG = Path("/tmp/alice_reasoning_traces.jsonl")
 
+_DB_URL = os.getenv(
+    "SEAL_DB_URL",
+    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+)
+_SCHEMA = os.getenv("SEAL_SCHEMA", "soul_v3")
+_CONN_KWARGS = {"server_settings": {"search_path": _SCHEMA}}
+
+# trace_id (uuid hex) -> Soul DB row id (BIGSERIAL) for outcome updates
+_id_map: dict[str, int] = {}
+_id_map_lock = threading.Lock()
+
 _lock = threading.Lock()
+
+
+async def _db_insert_trace(
+    task: str,
+    premises: list[str],
+    reasoning: str,
+    decision: str,
+) -> int | None:
+    """Insert a row into soul_v3.reasoning_traces and return its BIGSERIAL id."""
+    try:
+        import asyncpg
+        conn = await asyncpg.connect(_DB_URL, **_CONN_KWARGS)
+        try:
+            row = await conn.fetchrow(
+                """INSERT INTO soul_v3.reasoning_traces
+                   (agent, task, premises, reasoning, conclusion, created_at, updated_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, $6)
+                   RETURNING id""",
+                AGENT_ID,
+                task[:500],
+                json.dumps(premises[:20]),
+                reasoning[:2000],
+                decision[:1000],
+                datetime.now(timezone.utc),
+            )
+            return int(row["id"])
+        finally:
+            await conn.close()
+    except Exception as ex:
+        print(f"[ALICE/reasoning] db insert failed: {ex}", flush=True)
+        return None
+
+
+async def _db_update_outcome(row_id: int, outcome: str, success: bool) -> bool:
+    try:
+        import asyncpg
+        conn = await asyncpg.connect(_DB_URL, **_CONN_KWARGS)
+        try:
+            await conn.execute(
+                """UPDATE soul_v3.reasoning_traces
+                   SET outcome=$1, outcome_success=$2, updated_at=$3
+                   WHERE id=$4""",
+                outcome[:1000],
+                bool(success),
+                datetime.now(timezone.utc),
+                row_id,
+            )
+            return True
+        finally:
+            await conn.close()
+    except Exception as ex:
+        print(f"[ALICE/reasoning] db update failed: {ex}", flush=True)
+        return False
+
+
+def _schedule_or_run(coro):
+    """Run coroutine on the existing loop if any, else block via asyncio.run."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    if loop is not None:
+        return loop.create_task(coro)
+    return asyncio.run(coro)
 
 
 def _append_trace(entry: dict[str, Any]) -> None:
@@ -63,6 +147,20 @@ def store_trace(
         Path(f"/tmp/alice_trace_start_{trace_id}.t").write_text(str(entry["_started_perf"]))
     except Exception:
         pass
+
+    async def _persist():
+        row_id = await _db_insert_trace(task, premises, reasoning, decision)
+        if row_id is not None:
+            with _id_map_lock:
+                _id_map[trace_id] = row_id
+
+    try:
+        result = _schedule_or_run(_persist())
+        if not isinstance(result, asyncio.Task):
+            pass
+    except Exception as ex:
+        print(f"[ALICE/reasoning] persist scheduling failed: {ex}", flush=True)
+
     return trace_id
 
 
@@ -77,15 +175,27 @@ def update_trace_outcome(trace_id: str, outcome: str, outcome_success: bool) -> 
     except Exception:
         pass
 
+    suffix = f" [latency_ms={latency_ms}]" if latency_ms is not None else ""
+    full_outcome = (outcome or "")[:1000 - len(suffix)] + suffix
+
     _append_trace({
         "trace_id": trace_id,
         "agent": AGENT_ID,
         "_kind": "outcome_update",
-        "outcome": (outcome or "")[:1000],
+        "outcome": full_outcome,
         "outcome_success": bool(outcome_success),
         "latency_ms": latency_ms,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     })
+
+    with _id_map_lock:
+        row_id = _id_map.pop(trace_id, None)
+    if row_id is not None:
+        try:
+            _schedule_or_run(_db_update_outcome(row_id, full_outcome, outcome_success))
+        except Exception as ex:
+            print(f"[ALICE/reasoning] db update scheduling failed: {ex}", flush=True)
+
     return True
 
 
