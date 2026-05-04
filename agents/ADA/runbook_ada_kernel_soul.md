@@ -53,6 +53,36 @@ Bloqueado siempre: `rm -rf`, `sudo`, `kill` (excepto explícito), `chmod 777`, e
 
 C=1.00 (máxima precisión), E=1.00 (comunicación directa sin filtro). Esto la hace blunt y precisa — la ingeniera que dice «esto está mal» sin diplomacia.
 
+### 4. Triangle Qwen3-Coder-480B como T1 (wire 04-may-2026 18:43)
+
+ADA es la primera del equipo SEAL en usar el cluster Triangle 3-spark local como tier primario de razonamiento. Tier order:
+
+| Tier | Backend | Endpoint | Cuándo se usa |
+|---|---|---|---|
+| T1 | VLLMClient (Triangle) | `http://192.168.68.70:8001` | Default — código specialist |
+| T2 | ClaudeCodeClient (Opus) | Anthropic API | Fallback si Triangle cae |
+| T3 | OpenCodeClient | opencode.ai/zen | Fallback opcional |
+| T4 | OllamaClient (qwen2.5:7b) | localhost | Last resort local |
+
+**Override env vars:**
+```bash
+ADA_TRIANGLE_URL=http://192.168.68.70:8001          # Triangle endpoint
+ADA_TRIANGLE_MODEL=qwen3-coder-480b                  # alias o path GGUF
+ADA_CLAUDE_MODEL=claude-opus-4-7                     # fallback Claude tier
+ADA_OLLAMA_MODEL=qwen2.5:7b                          # local last resort
+```
+
+**Beneficios verificados:**
+- Costo API → 0 USD/mes
+- Calidad código ~80-85% Sonnet 4.6 (Qwen3-Coder specialist)
+- Latencia local RoCE 200G (~9.29 tok/s gen)
+- Soberanía total de datos (no exposición Anthropic)
+
+**Trade-offs honestos:**
+- Velocidad menor que Claude streaming
+- Compite con JARVIS/NEXUS si Triangle bajo carga
+- Timeout 120s puede ser corto para tareas >1000 tokens (subir a 180s si necesario)
+
 ---
 
 ## Modo operativo: library-only
