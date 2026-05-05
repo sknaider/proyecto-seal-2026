@@ -23,6 +23,7 @@ _SPECTRE_KERNEL = _ADA_HOME.parent / "SPECTRE" / "kernel"
 sys.path.insert(0, str(_SPECTRE_KERNEL))
 
 from llm_client import (  # noqa: E402
+    ClaudeCodeClient,
     OllamaClient,
     VLLMClient,
     LLMUnavailable,
@@ -43,6 +44,8 @@ WEBCHAT_URL = os.environ.get("WEBCHAT_URL", "http://localhost:8765/api/agents/se
 _HISTORY_LIMIT = 10
 _history: list[dict[str, str]] = []
 _llm_singleton: MultiTierLLMClient | None = None
+_llm_chain_signature: str | None = None
+ADA_CLAUDE_FLAG = Path("/tmp/ada_claude_enabled")
 
 
 def _build_system_prompt() -> str:
@@ -72,24 +75,38 @@ def _build_system_prompt() -> str:
 
 
 def _get_llm() -> MultiTierLLMClient:
-    global _llm_singleton
-    if _llm_singleton is not None:
-        return _llm_singleton
-    backends: list = []
+    """Build LLM tier chain dynamically — checks /tmp/ada_claude_enabled flag.
 
-    # T1 — Triangle (Qwen3-Coder-480B, 3×DGX Spark via llama.cpp RPC)
+    Re-evaluates the chain whenever the flag state (or env config) changes,
+    so toggling Claude on/off via SOUL Studio takes effect on next chat call.
+    """
+    global _llm_singleton, _llm_chain_signature
+
     triangle_url = os.environ.get("ADA_TRIANGLE_URL", "http://192.168.68.70:8001")
     triangle_model = os.environ.get("ADA_TRIANGLE_MODEL", "qwen3-coder")
     triangle_timeout = float(os.environ.get("ADA_TRIANGLE_TIMEOUT", "180.0"))
-    backends.append(VLLMClient(base_url=triangle_url, model=triangle_model, timeout=triangle_timeout))
+    claude_enabled = ADA_CLAUDE_FLAG.exists() and bool(os.environ.get("ANTHROPIC_API_KEY"))
+    claude_model = os.environ.get("ADA_CLAUDE_MODEL", "claude-opus-4-7")
+    ollama_model = os.environ.get("ADA_OLLAMA_MODEL", "qwen2.5:7b")
 
-    # T2 — Ollama (local last-resort fallback)
-    backends.append(OllamaClient(model=os.environ.get("ADA_OLLAMA_MODEL", "qwen2.5:7b")))
+    signature = (
+        f"{triangle_url}|{triangle_model}|{triangle_timeout}|"
+        f"claude={claude_enabled}|{claude_model}|ollama={ollama_model}"
+    )
+    if _llm_singleton is not None and _llm_chain_signature == signature:
+        return _llm_singleton
+
+    backends: list = []
+    backends.append(VLLMClient(base_url=triangle_url, model=triangle_model, timeout=triangle_timeout))
+    if claude_enabled:
+        backends.append(ClaudeCodeClient(model=claude_model))
+    backends.append(OllamaClient(model=ollama_model))
 
     _llm_singleton = MultiTierLLMClient(*backends)
+    _llm_chain_signature = signature
     print(
         f"[ada/cortex] LLM tiers initialized ({_llm_singleton.tier_count}): "
-        f"{_llm_singleton.backend_name}",
+        f"{_llm_singleton.backend_name} (claude_enabled={claude_enabled})",
         flush=True,
     )
     return _llm_singleton
