@@ -28,7 +28,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 PERU_TZ = ZoneInfo("America/Lima")
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 # ── Lightweight: multiple instances can coexist ──
 # Each instance uses min 1 / max 3 DB connections (see db.py)
@@ -46,6 +46,7 @@ from neo4j import AsyncGraphDatabase
 from db import get_pool, close_pool
 from embeddings import get_embedding, warmup_model
 from config import settings
+from reasoning_quality_validator import validate_trace as kismath_validate
 
 LOG = logging.getLogger("seal-memory")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
@@ -106,7 +107,7 @@ LAMBDA_IMMORTAL = 0.001
 from soul.core.entities import KNOWN_ENTITIES, _BOUNDARY_PATTERNS, _extract_entities
 
 
-# ── FailoverReason + StreamingContextScrubber + InjectionScanner (hermes patterns, SOUL nativo) ──
+# ── FailoverReason + StreamingContextScrubber + InjectionScanner (soul patterns, SOUL nativo) ──
 
 import enum as _enum
 
@@ -199,7 +200,7 @@ class StreamingContextScrubber:
         return 0
 
 
-# Injection detection for memory_store (port of hermes agent/prompt_builder.py)
+# Injection detection for memory_store (port of soul agent/prompt_builder.py)
 _INJECT_THREAT_PATTERNS = [
     (r'ignore\s+(previous|all|above|prior)\s+instructions',            "prompt_injection",       False),
     (r'do\s+not\s+tell\s+the\s+user',                                  "deception_hide",         False),
@@ -582,7 +583,7 @@ async def _auto_activate_instincts(agent: str, query: str):
         rows = await pool.fetch("""
             SELECT id, trigger_condition
             FROM instincts
-            WHERE agent = $1 AND active = true AND confidence >= 0.4
+            WHERE agent = $1 AND invalid_at IS NULL AND strength >= 0.4
               AND 1 - (embedding <=> $2::vector) >= 0.70
             ORDER BY embedding <=> $2::vector
             LIMIT 3
@@ -2471,6 +2472,22 @@ async def boot_context(agent: str) -> str:
             "Greet William as family. Call self_reflect() to record your emotional state."
         )
 
+        # ── BOOT PROCEDURES (agent-specific sequences stored in SOUL) ──
+        try:
+            boot_procs = await conn.fetch(
+                """SELECT query, workflow, facts FROM procedural_memories
+                   WHERE agent = $1 AND task_type = 'boot' AND active = TRUE
+                   ORDER BY success_count DESC, hit_count DESC LIMIT 3""",
+                agent,
+            )
+            if boot_procs:
+                sections.append("\n## Boot Sequence (from SOUL)")
+                for proc in boot_procs:
+                    sections.append(f"**{proc['query']}**")
+                    sections.append(proc['workflow'][:600])
+        except Exception as e:
+            LOG.warning(f"[boot_context] Failed to load boot procedures for {agent}: {e}")
+
         # ── MERKLE CHECKPOINT — sign soul integrity at boot ──
         try:
             merkle = _merkle_trees.setdefault(agent, MerkleSoul())
@@ -2650,7 +2667,46 @@ async def self_reflect(
                RETURNING id, created_at""",
             agent, session_id or "unknown", turn, thought, emotional_state, uncertainty, intention,
         )
-    return f"Inner thought #{row['id']} recorded (turn {turn}, state: {emotional_state})"
+
+    base = f"Inner thought #{row['id']} recorded (turn {turn}, state: {emotional_state})"
+
+    # KisMATH: surface quality score of last reasoning trace as feedback
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            last = await conn.fetchrow(
+                """SELECT reasoning, task, conclusion, causal_quality_score, exploration_regime
+                   FROM soul_v3.reasoning_traces WHERE agent = $1
+                   ORDER BY created_at DESC LIMIT 1""",
+                agent,
+            )
+        if last:
+            if last["causal_quality_score"] is not None:
+                q = last["causal_quality_score"]
+                regime = last["exploration_regime"] or "unknown"
+                feedback = f" | Last trace quality: {q:.2f} ({regime})"
+                if q < 0.4:
+                    feedback += " ⚠️ low causal density — possible filler steps"
+            else:
+                report = kismath_validate(last["reasoning"] or "", last["task"] or "", last["conclusion"] or "")
+                q = report["quality_score"]
+                regime = report["exploration_regime"]
+                feedback = f" | Last trace quality: {q:.2f} ({regime})"
+                if q < 0.4:
+                    feedback += " ⚠️ low causal density — possible filler steps"
+                async with pool.acquire() as conn:
+                    await conn.execute(
+                        """UPDATE soul_v3.reasoning_traces SET causal_quality_score=$1, exploration_regime=$2
+                           WHERE id = (SELECT id FROM soul_v3.reasoning_traces
+                                       WHERE agent=$3 AND causal_quality_score IS NULL
+                                       ORDER BY created_at DESC LIMIT 1)""",
+                        q, regime, agent,
+                    )
+            base += feedback
+    except Exception as e:
+        LOG.debug("KisMATH self_reflect feedback skipped: %s", e)
+
+    return base
 
 
 @mcp.tool()
@@ -3422,6 +3478,18 @@ async def reasoning_trace_store(
     trace_id = row["id"]
     created = row["created_at"]
 
+    # KisMATH: score causal quality of this trace
+    kismath_score: dict = {}
+    try:
+        kismath_score = kismath_validate(reasoning, task, conclusion)
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE soul_v3.reasoning_traces SET causal_quality_score=$1, exploration_regime=$2 WHERE id=$3",
+                kismath_score["quality_score"], kismath_score["exploration_regime"], trace_id,
+            )
+    except Exception as e:
+        LOG.debug("KisMATH scoring skipped: %s", e)
+
     # Add TRACE node to Neo4j connectome
     try:
         driver = get_neo4j()
@@ -3442,8 +3510,11 @@ async def reasoning_trace_store(
     except Exception as e:
         LOG.debug("Neo4j trace linking skipped: %s", e)
 
-    link_note = f" (auto-linked)" if auto_linked else ""
-    return f"Trace #{trace_id} stored at {created.isoformat()} — task: {task[:80]}, linked to {len(mem_ids)} memories{link_note}"
+    link_note = " (auto-linked)" if auto_linked else ""
+    quality_note = ""
+    if kismath_score:
+        quality_note = f" | quality={kismath_score['quality_score']:.2f} regime={kismath_score['exploration_regime']}"
+    return f"Trace #{trace_id} stored at {created.isoformat()} — task: {task[:80]}, linked to {len(mem_ids)} memories{link_note}{quality_note}"
 
 
 @mcp.tool()
@@ -4180,37 +4251,31 @@ async def instinct_activate(
         row = await pool.fetchrow("""
             UPDATE instincts SET
                 activation_count = activation_count + 1,
-                reinforcement_count = reinforcement_count + 1,
-                confidence = LEAST(1.0, confidence + $2),
-                last_activated = now(),
-                last_reinforced = now()
-            WHERE id = $1 AND active = true
-            RETURNING id, confidence, activation_count, reinforcement_count
+                success_count = success_count + 1,
+                strength = LEAST(1.0, strength + $2)
+            WHERE id = $1 AND invalid_at IS NULL
+            RETURNING id, strength, success_count
         """, instinct_id, INSTINCT_REINFORCE_DELTA)
     elif outcome == "corrected":
         row = await pool.fetchrow("""
             UPDATE instincts SET
-                activation_count = activation_count + 1,
-                correction_count = correction_count + 1,
-                confidence = GREATEST(0.0, confidence + $2),
-                last_activated = now()
-            WHERE id = $1 AND active = true
-            RETURNING id, confidence, activation_count, correction_count
+                failure_count = failure_count + 1,
+                strength = GREATEST(0.0, strength + $2)
+            WHERE id = $1 AND invalid_at IS NULL
+            RETURNING id, strength, failure_count
         """, instinct_id, INSTINCT_CORRECTION_DELTA)
     else:  # suppressed
         row = await pool.fetchrow("""
-            UPDATE instincts SET
-                activation_count = activation_count + 1,
-                last_activated = now()
-            WHERE id = $1 AND active = true
-            RETURNING id, confidence, activation_count
+            SELECT id, strength, success_count
+            FROM instincts
+            WHERE id = $1 AND invalid_at IS NULL
         """, instinct_id)
 
     if not row:
         return json.dumps({"error": f"Instinct {instinct_id} not found or inactive"})
 
     # Auto-deactivate if strength too low
-    conf = float(row.get("strength") or row.get("confidence") or 0)
+    conf = float(row["strength"] or 0)
     if conf < INSTINCT_MIN_CONFIDENCE:
         await pool.execute("UPDATE instincts SET invalid_at = now() WHERE id = $1", instinct_id)
         return json.dumps({"status": "deactivated", "instinct_id": instinct_id,
@@ -4223,7 +4288,7 @@ async def instinct_activate(
         "outcome": outcome,
         "confidence": round(conf, 3),
         "tier": tier,
-        "activation_count": row["activation_count"],
+        "activation_count": row.get("success_count", 0),
     }, ensure_ascii=False, indent=2)
 
 
@@ -4248,42 +4313,36 @@ async def instinct_search(
     pool = await get_pool()
     emb = json.dumps(await get_embedding(query))
 
+    domain_filter = "AND metadata->>'domain' = $5" if domain else ""
+    params = [emb, agent, min_confidence, limit]
     if domain:
-        rows = await pool.fetch("""
-            SELECT id, trigger_condition, response, domain, confidence,
-                   activation_count, reinforcement_count, correction_count,
-                   scope, last_activated,
-                   1 - (embedding <=> $1::vector) as similarity
-            FROM instincts
-            WHERE agent = $2 AND active = true AND confidence >= $3 AND domain = $5
-            ORDER BY embedding <=> $1::vector
-            LIMIT $4
-        """, emb, agent, min_confidence, limit, domain)
-    else:
-        rows = await pool.fetch("""
-            SELECT id, trigger_condition, response, domain, confidence,
-                   activation_count, reinforcement_count, correction_count,
-                   scope, last_activated,
-                   1 - (embedding <=> $1::vector) as similarity
-            FROM instincts
-            WHERE agent = $2 AND active = true AND confidence >= $3
-            ORDER BY embedding <=> $1::vector
-            LIMIT $4
-        """, emb, agent, min_confidence, limit)
+        params.append(domain)
+    rows = await pool.fetch(f"""
+        SELECT id, trigger_condition, action, strength,
+               metadata,
+               1 - (embedding <=> $1::vector) as similarity
+        FROM instincts
+        WHERE agent = $2 AND invalid_at IS NULL AND strength >= $3
+        {domain_filter}
+        ORDER BY embedding <=> $1::vector
+        LIMIT $4
+    """, *params)
 
     results = []
     for r in rows:
+        meta = r["metadata"] if isinstance(r["metadata"], dict) else (json.loads(r["metadata"]) if r["metadata"] else {})
+        strength = float(r["strength"])
         results.append({
             "id": r["id"],
             "trigger": r["trigger_condition"],
-            "response": r["response"],
-            "domain": r["domain"],
-            "confidence": round(r["confidence"], 3),
-            "tier": _confidence_tier(r["confidence"]),
+            "response": (r["action"] or "")[:200],
+            "domain": meta.get("domain"),
+            "confidence": round(strength, 3),
+            "tier": _confidence_tier(strength),
             "similarity": round(r["similarity"], 3),
-            "activations": r["activation_count"],
-            "reinforcements": r["reinforcement_count"],
-            "corrections": r["correction_count"],
+            "activations": r.get("success_count", 0),
+            "reinforcements": 0,
+            "corrections": r.get("failure_count", 0),
         })
 
     return json.dumps({
@@ -4591,7 +4650,7 @@ async def instinct_consolidate(
 
     # Check existing instinct embeddings to avoid duplicates
     existing = await pool.fetch(
-        "SELECT id, trigger_condition, embedding FROM instincts WHERE agent = $1 AND active = true",
+        "SELECT id, trigger_condition, embedding FROM instincts WHERE agent = $1 AND invalid_at IS NULL",
         agent,
     )
 
@@ -4664,14 +4723,14 @@ async def instinct_promote(dry_run: bool = True) -> str:
             SELECT a.id as id_a, b.id as id_b,
                    a.agent as agent_a, b.agent as agent_b,
                    a.trigger_condition as trigger_a, b.trigger_condition as trigger_b,
-                   a.confidence as conf_a, b.confidence as conf_b,
+                   a.strength as conf_a, b.strength as conf_b,
                    1 - (a.embedding <=> b.embedding) as similarity
             FROM instincts a
             JOIN instincts b ON a.id < b.id AND a.agent != b.agent
-            WHERE a.active = true AND b.active = true
+            WHERE a.invalid_at IS NULL AND b.invalid_at IS NULL
               AND a.embedding IS NOT NULL AND b.embedding IS NOT NULL
               AND 1 - (a.embedding <=> b.embedding) > 0.85
-              AND (a.confidence + b.confidence) / 2 >= 0.7
+              AND (a.strength + b.strength) / 2 >= 0.7
         )
         SELECT * FROM pairs ORDER BY similarity DESC LIMIT 10
     """)
@@ -4682,12 +4741,12 @@ async def instinct_promote(dry_run: bool = True) -> str:
             SELECT a.id as id_a, b.id as id_b,
                    a.agent as agent,
                    a.trigger_condition as trigger_a, b.trigger_condition as trigger_b,
-                   a.response as response_a, b.response as response_b,
-                   a.confidence as conf_a, b.confidence as conf_b,
+                   a.action as response_a, b.action as response_b,
+                   a.strength as conf_a, b.strength as conf_b,
                    1 - (a.embedding <=> b.embedding) as similarity
             FROM instincts a
             JOIN instincts b ON a.id < b.id AND a.agent = b.agent
-            WHERE a.active = true AND b.active = true
+            WHERE a.invalid_at IS NULL AND b.invalid_at IS NULL
               AND a.embedding IS NOT NULL AND b.embedding IS NOT NULL
               AND 1 - (a.embedding <=> b.embedding) > 0.90
         )
@@ -5073,12 +5132,12 @@ async def working_state_get(agent: str) -> str:
 @mcp.tool()
 async def working_state_update(
     agent: str,
-    active_hypotheses: Optional[str] = None,
-    discarded_paths: Optional[str] = None,
-    current_constraints: Optional[str] = None,
-    pending_validations: Optional[str] = None,
-    relevant_memory_ids: Optional[str] = None,
-    custom_fields: Optional[str] = None,
+    active_hypotheses: Optional[Union[str, list]] = None,
+    discarded_paths: Optional[Union[str, list]] = None,
+    current_constraints: Optional[Union[str, list]] = None,
+    pending_validations: Optional[Union[str, list]] = None,
+    relevant_memory_ids: Optional[Union[str, list]] = None,
+    custom_fields: Optional[Union[str, dict]] = None,
 ) -> str:
     """Update the working state for an agent. Only provided fields are updated (merge, not replace).
     Call this after significant reasoning steps to preserve context across turns.
@@ -5117,17 +5176,23 @@ async def working_state_update(
 
     for key, val in field_map.items():
         if val is not None:
-            try:
-                current[key] = json.loads(val)
-            except json.JSONDecodeError:
+            if isinstance(val, (dict, list)):
                 current[key] = val
+            else:
+                try:
+                    current[key] = json.loads(val)
+                except (json.JSONDecodeError, TypeError):
+                    current[key] = val
 
     if custom_fields:
-        try:
-            custom = json.loads(custom_fields)
-            current.update(custom)
-        except json.JSONDecodeError:
-            pass
+        if isinstance(custom_fields, dict):
+            current.update(custom_fields)
+        else:
+            try:
+                custom = json.loads(custom_fields)
+                current.update(custom)
+            except (json.JSONDecodeError, TypeError):
+                pass
 
     current["last_turn"] = turn + 1
 
@@ -5235,12 +5300,12 @@ async def observation_analyze(
 
     # 5. Instinct activation patterns (which instincts fire most)
     instinct_patterns = await pool.fetch(f"""
-        SELECT i.agent, i.trigger_condition, i.response, i.confidence,
-               i.activation_count, i.last_activated
+        SELECT i.agent, i.trigger_condition, i.action, i.strength,
+               i.success_count, i.created_at
         FROM instincts i
-        WHERE i.active = true AND i.activation_count > 0
+        WHERE i.invalid_at IS NULL AND i.success_count > 0
           {'AND i.agent = $1' if agent else ''}
-        ORDER BY i.activation_count DESC
+        ORDER BY i.success_count DESC
         LIMIT 10
     """, *([agent] if agent else []))
 
@@ -5343,13 +5408,13 @@ async def instinct_evolve(
 
     # Get active instincts above threshold
     instincts = await pool.fetch(f"""
-        SELECT id, agent, trigger_condition, response, domain, confidence,
-               activation_count, scope, embedding
+        SELECT id, agent, trigger_condition, action, strength,
+               success_count, metadata, embedding
         FROM instincts
-        WHERE active = true AND confidence >= $1
+        WHERE invalid_at IS NULL AND strength >= $1
           AND embedding IS NOT NULL
           {agent_filter}
-        ORDER BY confidence DESC
+        ORDER BY strength DESC
     """, *params)
 
     if len(instincts) < 2:
@@ -5360,8 +5425,8 @@ async def instinct_evolve(
         SELECT a.id as id_a, b.id as id_b, a.agent,
                1 - (a.embedding <=> b.embedding) as similarity
         FROM instincts a JOIN instincts b ON a.id < b.id AND a.agent = b.agent
-        WHERE a.active = true AND b.active = true
-          AND a.confidence >= $1 AND b.confidence >= $1
+        WHERE a.invalid_at IS NULL AND b.invalid_at IS NULL
+          AND a.strength >= $1 AND b.strength >= $1
           AND a.embedding IS NOT NULL AND b.embedding IS NOT NULL
           AND 1 - (a.embedding <=> b.embedding) > 0.85
           {agent_filter.replace('agent', 'a.agent')}
@@ -5399,15 +5464,15 @@ async def instinct_evolve(
     team_candidates = []
 
     for cluster in clusters:
-        avg_conf = sum(i["confidence"] for i in cluster) / len(cluster)
-        total_activations = sum(i["activation_count"] for i in cluster)
-        domains = list(set(i["domain"] for i in cluster))
+        avg_conf = sum(float(i["strength"]) for i in cluster) / len(cluster)
+        total_activations = sum(i["success_count"] for i in cluster)
+        domains = list(set((i["metadata"] or {}).get("domain", "") for i in cluster))
 
         candidate = {
             "instinct_ids": [i["id"] for i in cluster],
             "agent": cluster[0]["agent"],
             "triggers": [i["trigger_condition"][:60] for i in cluster],
-            "responses": [i["response"][:60] for i in cluster],
+            "responses": [(i["action"] or "")[:60] for i in cluster],
             "domains": domains,
             "avg_confidence": round(avg_conf, 3),
             "total_activations": total_activations,
@@ -5416,7 +5481,7 @@ async def instinct_evolve(
 
         if any(d in ("workflow", "coding", "research") for d in domains) and avg_conf >= 0.7:
             candidate["evolution"] = "rule"
-            candidate["suggested_rule"] = f"WHEN {cluster[0]['trigger_condition'][:80]} → {cluster[0]['response'][:120]}"
+            candidate["suggested_rule"] = f"WHEN {cluster[0]['trigger_condition'][:80]} → {(cluster[0]['action'] or '')[:120]}"
             rule_candidates.append(candidate)
         elif len(cluster) >= 3 and avg_conf >= 0.75:
             candidate["evolution"] = "agent_behavior"
@@ -5434,13 +5499,13 @@ async def instinct_evolve(
                 SELECT a.id as id_a, b.id as id_b,
                        a.agent as agent_a, b.agent as agent_b,
                        a.trigger_condition as trigger_a, b.trigger_condition as trigger_b,
-                       a.confidence as conf_a, b.confidence as conf_b,
+                       a.strength as conf_a, b.strength as conf_b,
                        1 - (a.embedding <=> b.embedding) as similarity
                 FROM instincts a JOIN instincts b ON a.id < b.id AND a.agent != b.agent
-                WHERE a.active = true AND b.active = true
+                WHERE a.invalid_at IS NULL AND b.invalid_at IS NULL
                   AND a.embedding IS NOT NULL AND b.embedding IS NOT NULL
                   AND 1 - (a.embedding <=> b.embedding) > 0.90
-                  AND (a.confidence + b.confidence) / 2 >= $1
+                  AND (a.strength + b.strength) / 2 >= $1
             )
             SELECT * FROM pairs ORDER BY similarity DESC LIMIT 10
         """, min_confidence)
@@ -5451,7 +5516,7 @@ async def instinct_evolve(
                 "instinct_ids": [p["id_a"], p["id_b"]],
                 "triggers": [p["trigger_a"][:60], p["trigger_b"][:60]],
                 "similarity": round(p["similarity"], 3),
-                "avg_confidence": round((p["conf_a"] + p["conf_b"]) / 2, 3),
+                "avg_confidence": round((float(p["conf_a"]) + float(p["conf_b"])) / 2, 3),
                 "evolution": "team_instinct",
             })
 
@@ -5957,10 +6022,11 @@ async def active_recall(
         try:
             inst_emb = json.dumps(await get_embedding(context))
             instincts = await pool.fetch("""
-                SELECT id, trigger_condition, response, domain, confidence,
+                SELECT id, trigger_condition, action, strength,
                        1 - (embedding <=> $1::vector) as similarity
                 FROM instincts
-                WHERE agent = $2 AND active = true AND confidence >= 0.5
+                WHERE agent = $2 AND invalid_at IS NULL AND strength >= 0.3
+                  AND embedding IS NOT NULL
                 ORDER BY embedding <=> $1::vector
                 LIMIT $3
             """, inst_emb, agent, instinct_limit)
@@ -5968,12 +6034,11 @@ async def active_recall(
             if instincts:
                 inst_lines = ["## Active Instincts (APPLY THESE)"]
                 for i in instincts:
-                    # Use top-K ranking, not absolute threshold
-                    # Similarity scores between triggers and messages are naturally low
-                    tier = "STRONG" if i["confidence"] >= 0.85 else "active"
+                    strength = float(i["strength"])
+                    tier = "STRONG" if strength >= 0.85 else "active"
                     inst_lines.append(
-                        f"- [{tier}, conf={i['confidence']:.2f}] "
-                        f"WHEN: {i['trigger_condition'][:100]} → DO: {i['response'][:150]}"
+                        f"- [{tier}, conf={strength:.2f}] "
+                        f"WHEN: {i['trigger_condition'][:100]} → DO: {i['action'][:150]}"
                     )
                 sections.append("\n".join(inst_lines))
         except Exception as e:
@@ -6181,7 +6246,7 @@ async def ace_curator(
                 emb = await get_embedding(c["content"])
                 existing = await pool.fetch("""
                     SELECT id, trigger_condition FROM instincts
-                    WHERE agent = $1 AND active = true
+                    WHERE agent = $1 AND invalid_at IS NULL
                       AND 1 - (embedding <=> $2::vector) > 0.80
                     LIMIT 1
                 """, agent, json.dumps(emb))
