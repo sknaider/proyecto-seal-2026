@@ -19,11 +19,15 @@ import asyncio
 import fcntl
 import json
 import os
+import signal
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
+
+LOG_MAX_BYTES = 1_000_000  # 1 MB before rotation
+_shutdown = asyncio.Event()
 
 _HERE = Path(__file__).resolve().parent
 _ADA_HOME = _HERE.parent
@@ -49,6 +53,11 @@ def _log(msg: str) -> None:
     ts = datetime.now(timezone.utc).isoformat()
     line = f"{ts} {msg}\n"
     try:
+        if LOG_PATH.exists() and LOG_PATH.stat().st_size > LOG_MAX_BYTES:
+            rotated = LOG_PATH.with_suffix(LOG_PATH.suffix + ".1")
+            if rotated.exists():
+                rotated.unlink()
+            LOG_PATH.rename(rotated)
         with LOG_PATH.open("a") as f:
             f.write(line)
     except Exception:
@@ -163,32 +172,80 @@ async def _process_one(msg: dict) -> None:
     await _post_webchat(response)
 
 
+async def _sleep_or_shutdown(seconds: float) -> bool:
+    """Sleep for `seconds` or until shutdown is signaled. Returns True if shutdown."""
+    try:
+        await asyncio.wait_for(_shutdown.wait(), timeout=seconds)
+        return True
+    except asyncio.TimeoutError:
+        return False
+
+
 async def _run() -> None:
     cursor = _load_cursor()
     iterations = 0
-    while iterations < MAX_ITERATIONS:
+    consecutive_errors = 0
+    while iterations < MAX_ITERATIONS and not _shutdown.is_set():
         iterations += 1
+        had_error = False
         try:
             new_msgs = _read_new_messages(cursor)
             if new_msgs:
                 _log(f"[ada/kernel] iter={iterations} new_msgs={len(new_msgs)}")
                 for msg in new_msgs:
+                    if _shutdown.is_set():
+                        break
                     ts = _parse_ts(msg.get("timestamp", ""))
+                    try:
+                        await _process_one(msg)
+                    except Exception as ex:
+                        _log(f"[ada/kernel] process_one crashed: {ex}")
+                        had_error = True
+                    # Atomicity: advance cursor per message — even on crash,
+                    # so a poison message can't trap the loop in infinite reprocess.
                     if ts is not None and ts > cursor:
                         cursor = ts
-                    await _process_one(msg)
-                _save_cursor(cursor)
+                        _save_cursor(cursor)
         except Exception as ex:
             _log(f"[ada/kernel] loop error: {ex}")
-        await asyncio.sleep(POLL_INTERVAL_S)
-    _log(f"[ada/kernel] max iterations reached ({MAX_ITERATIONS}), exiting for restart")
+            had_error = True
+
+        # Exponential backoff on consecutive failures, cap 60s.
+        if had_error:
+            consecutive_errors += 1
+            backoff = min(POLL_INTERVAL_S * (2 ** min(consecutive_errors - 1, 5)), 60.0)
+        else:
+            consecutive_errors = 0
+            backoff = POLL_INTERVAL_S
+        if await _sleep_or_shutdown(backoff):
+            break
+    if _shutdown.is_set():
+        _log("[ada/kernel] shutdown signal — graceful exit")
+    else:
+        _log(f"[ada/kernel] max iterations reached ({MAX_ITERATIONS}), exiting for restart")
+
+
+async def _main_async() -> None:
+    loop = asyncio.get_running_loop()
+
+    def _on_signal(signame: str) -> None:
+        _log(f"[ada/kernel] received {signame} — initiating graceful shutdown")
+        _shutdown.set()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, _on_signal, sig.name)
+        except NotImplementedError:
+            # add_signal_handler is unavailable on some platforms (e.g. Windows).
+            pass
+    await _run()
 
 
 def main() -> None:
     _log(f"[ada/kernel] starting pid={os.getpid()} poll={POLL_INTERVAL_S}s max_iter={MAX_ITERATIONS}")
     _lock_fd = _acquire_lock()  # keep reference alive — GC release would unlock
     try:
-        asyncio.run(_run())
+        asyncio.run(_main_async())
     except KeyboardInterrupt:
         _log("[ada/kernel] interrupted by user")
     finally:
