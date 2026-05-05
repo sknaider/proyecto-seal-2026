@@ -181,6 +181,9 @@ def write_response(text: str, channel: str = "web_chat"):
 
 
 import re as _re
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).parent))
+from web_search import web_search as _web_search_module, needs_search as _needs_search
 
 def _clean(text: str) -> str:
     return _re.sub(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]+', '', text).strip()
@@ -188,9 +191,14 @@ def _clean(text: str) -> str:
 
 async def respond_as_dum(user_message: str, channel: str = "web_chat"):
     """Responde como DUM usando Gemma 4 Q8 via llama-server en Spark."""
+    web_context = ""
+    if _needs_search(user_message):
+        search_result = await _web_search_module(user_message[:200])
+        if search_result and not search_result.startswith("[web_search"):
+            web_context = f"\n\n[BÚSQUEDA WEB]\n{search_result}\n[FIN BÚSQUEDA]"
     messages = [
         {"role": "system", "content": DUM_SYSTEM},
-        {"role": "user", "content": user_message},
+        {"role": "user", "content": user_message + web_context},
     ]
 
     msg_id = f"dum_stream_{int(time.time() * 1000)}"
