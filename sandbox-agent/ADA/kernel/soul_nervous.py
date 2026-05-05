@@ -164,6 +164,163 @@ async def recall_context(message: str) -> str:
     return "\n\n".join(sections)
 
 
+async def query_beliefs(topic: Optional[str] = None, limit: int = 5) -> list[dict]:
+    """Return active beliefs for ADA on a given topic (or all if topic is None).
+
+    Returns list of {'topic','content','confidence'}; empty on error.
+    """
+    try:
+        conn = await asyncio.wait_for(asyncpg.connect(DB_URL), timeout=RECALL_TIMEOUT_S)
+    except Exception:
+        return []
+    try:
+        if topic:
+            rows = await conn.fetch(
+                """
+                SELECT topic, content, confidence FROM beliefs
+                WHERE agent = $1 AND invalid_at IS NULL
+                  AND topic ILIKE $2
+                ORDER BY confidence DESC, created_at DESC
+                LIMIT $3
+                """,
+                AGENT, f"%{topic}%", limit,
+            )
+        else:
+            rows = await conn.fetch(
+                """
+                SELECT topic, content, confidence FROM beliefs
+                WHERE agent = $1 AND invalid_at IS NULL
+                ORDER BY confidence DESC, created_at DESC
+                LIMIT $2
+                """,
+                AGENT, limit,
+            )
+        return [
+            {"topic": r["topic"], "content": r["content"], "confidence": float(r["confidence"])}
+            for r in rows
+        ]
+    except Exception:
+        return []
+    finally:
+        try:
+            await conn.close()
+        except Exception:
+            pass
+
+
+async def record_belief(
+    topic: str, content: str, confidence: float = 0.7,
+) -> Optional[int]:
+    """Record a new belief. Returns belief id on success, None on failure."""
+    try:
+        conn = await asyncio.wait_for(asyncpg.connect(DB_URL), timeout=WRITE_TIMEOUT_S)
+    except Exception:
+        return None
+    try:
+        bid = await conn.fetchval(
+            """
+            INSERT INTO beliefs (agent, topic, content, confidence, evidence_count)
+            VALUES ($1, $2, $3, $4, 1)
+            RETURNING id
+            """,
+            AGENT, topic[:120], content[:1000], max(0.0, min(1.0, confidence)),
+        )
+        return bid
+    except Exception:
+        return None
+    finally:
+        try:
+            await conn.close()
+        except Exception:
+            pass
+
+
+async def find_triggered_instincts(message: str) -> list[dict]:
+    """Match active instincts whose trigger_condition shares keywords with message.
+
+    Returns list of {'id','trigger','action','strength'}; empty on error.
+    """
+    keywords = _extract_keywords(message)
+    if not keywords:
+        return []
+    try:
+        conn = await asyncio.wait_for(asyncpg.connect(DB_URL), timeout=RECALL_TIMEOUT_S)
+    except Exception:
+        return []
+    try:
+        conditions = " OR ".join(f"trigger_condition ILIKE '%{kw}%'" for kw in keywords)
+        rows = await conn.fetch(
+            f"""
+            SELECT id, trigger_condition, action, strength FROM instincts
+            WHERE agent = $1 AND invalid_at IS NULL AND strength >= 0.5
+              AND ({conditions})
+            ORDER BY strength DESC
+            LIMIT 3
+            """,
+            AGENT,
+        )
+        return [
+            {
+                "id": r["id"],
+                "trigger": r["trigger_condition"],
+                "action": r["action"],
+                "strength": float(r["strength"]),
+            }
+            for r in rows
+        ]
+    except Exception:
+        return []
+    finally:
+        try:
+            await conn.close()
+        except Exception:
+            pass
+
+
+async def update_working_state(
+    task_name: str,
+    description: str = "",
+    step: int = 1,
+    total_steps: int = 1,
+    emotional_state: str = "neutral",
+) -> bool:
+    """Persist current working_state row for ADA. Returns True on success.
+
+    Uses ON CONFLICT (agent, task_name) DO UPDATE pattern.
+    """
+    try:
+        conn = await asyncio.wait_for(asyncpg.connect(DB_URL), timeout=WRITE_TIMEOUT_S)
+    except Exception:
+        return False
+    try:
+        await conn.execute(
+            """
+            INSERT INTO working_state
+                (agent, task_name, step, total_steps, description,
+                 emotional_state, agent_state, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, 'EXECUTING', NOW())
+            ON CONFLICT (agent) DO UPDATE SET
+                task_name = EXCLUDED.task_name,
+                step = EXCLUDED.step,
+                total_steps = EXCLUDED.total_steps,
+                description = EXCLUDED.description,
+                emotional_state = EXCLUDED.emotional_state,
+                agent_state = 'EXECUTING',
+                updated_at = NOW()
+            """,
+            AGENT, task_name[:120], step, total_steps,
+            description[:500], emotional_state[:60],
+        )
+        return True
+    except Exception:
+        return False
+    finally:
+        try:
+            await conn.close()
+        except Exception:
+            pass
+
+
 async def record_self_reflect(
     thought: str,
     emotional_state: str = "neutral",

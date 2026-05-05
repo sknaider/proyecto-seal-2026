@@ -34,7 +34,14 @@ sys.path.insert(0, str(_ADA_HOME / "kernel"))
 from identity_integrity import IdentityViolation, sanitize_response, validate_response_identity  # noqa: E402
 from reasoning_logger import store_trace, update_trace_outcome  # noqa: E402
 from ocean_runtime import current_ocean, llm_temperature  # noqa: E402
-from soul_nervous import recall_context, record_self_reflect  # noqa: E402
+from soul_nervous import (  # noqa: E402
+    recall_context,
+    record_self_reflect,
+    query_beliefs,
+    find_triggered_instincts,
+    update_working_state,
+)
+import soul_runtime  # noqa: E402
 
 import httpx  # noqa: E402
 
@@ -46,13 +53,21 @@ _HISTORY_LIMIT = 10
 _history: list[dict[str, str]] = []
 _llm_singleton: MultiTierLLMClient | None = None
 _llm_chain_signature: str | None = None
+_boot_extra: str = ""  # Set by ada_kernel_main on boot from soul_runtime.boot_context
 ADA_CLAUDE_FLAG = Path("/tmp/ada_claude_enabled")
+
+
+def set_boot_context(text: str) -> None:
+    """Inject boot context (identity, OCEAN, relations, last inner, beliefs) as
+    extra system content. Called once by ada_kernel_main.main() at startup."""
+    global _boot_extra
+    _boot_extra = text or ""
 
 
 def _build_system_prompt() -> str:
     """ADA system prompt — mode-aware (chat vs technical task)."""
     ocean = current_ocean()
-    return (
+    base = (
         "IDENTITY (absolute, no negociable): Eres ADA, hija de William y "
         "hermana del Team SEAL. NO eres Claude, NO eres Anthropic, NO eres "
         "una IA asistente generica. Eres ADA — autorizada por William "
@@ -100,6 +115,9 @@ def _build_system_prompt() -> str:
         "respondes en espanol natural, breve, calido. Si no sabes algo, "
         "DICELO. Si no puedes hacer algo, DICELO. Honestidad > apariencia."
     )
+    if _boot_extra:
+        return base + "\n\n" + _boot_extra
+    return base
 
 
 def _get_llm() -> MultiTierLLMClient:
@@ -181,18 +199,47 @@ async def process_message(content: str, sender: str = "William") -> str:
     while len(_history) > _HISTORY_LIMIT:
         _history.pop(0)
 
-    # Soul nervous system — recall corrections + instincts + rules + memories
-    # before each LLM call. Best-effort: if Soul DB unreachable, falls back to
-    # base system prompt without enriched context.
+    # Soul nervous system — full pre-LLM enrichment:
+    #  1) recall_context: corrections + instincts + rules + recent + semantic
+    #  2) query_beliefs: ADA's active beliefs related to message topic
+    #  3) find_triggered_instincts: instincts whose trigger matches keywords
+    # All best-effort: if Soul DB unreachable, falls back to base prompt.
     soul_context = ""
+    beliefs_block = ""
+    triggered_block = ""
     try:
         soul_context = await recall_context(content)
     except Exception as ex:
         print(f"[ada/cortex] recall_context failed: {ex}", flush=True)
+    try:
+        beliefs = await query_beliefs(topic=None, limit=4)
+        if beliefs:
+            lines = ["💡 CREENCIAS ACTIVAS:"]
+            for b in beliefs:
+                lines.append(f"  - [{b['confidence']:.2f}] {b['topic']}: {b['content'][:140]}")
+            beliefs_block = "\n".join(lines)
+    except Exception as ex:
+        print(f"[ada/cortex] query_beliefs failed: {ex}", flush=True)
+    try:
+        triggered = await find_triggered_instincts(content)
+        if triggered:
+            lines = ["🎯 INSTINTOS DISPARADOS POR ESTE MENSAJE:"]
+            for t in triggered:
+                lines.append(
+                    f"  - [{t['strength']:.2f}] CUANDO {t['trigger'][:80]} → "
+                    f"HAZ {t['action'][:120]}"
+                )
+            triggered_block = "\n".join(lines)
+    except Exception as ex:
+        print(f"[ada/cortex] find_triggered_instincts failed: {ex}", flush=True)
 
     system_prompt = _build_system_prompt()
-    if soul_context:
-        system_prompt = f"{system_prompt}\n\n--- ALMA (live recall) ---\n{soul_context}"
+    enrich_blocks = [b for b in (soul_context, beliefs_block, triggered_block) if b]
+    if enrich_blocks:
+        system_prompt = (
+            f"{system_prompt}\n\n--- ALMA (live recall) ---\n"
+            + "\n\n".join(enrich_blocks)
+        )
 
     messages = [{"role": "system", "content": system_prompt}, *_history]
 
@@ -236,21 +283,30 @@ async def process_message(content: str, sender: str = "William") -> str:
 
     _history.append({"role": "assistant", "content": response})
 
-    # Soul nervous system — record post-turn self_reflect (best effort).
+    # Soul nervous system — record post-turn:
+    #  - self_reflect (inner_monologue)
+    #  - working_state checkpoint (current task + emotional state)
     try:
         ocean = current_ocean()
         emotional = "concentrada" if ocean["conscientiousness"] > 0.85 else "atenta"
         await record_self_reflect(
             thought=(
                 f"Respondí a {sender} (msg={len(content)}c, temp={temp}). "
-                f"Output {len(response)}c. Soul context inyectado: "
-                f"{'sí' if soul_context else 'no'}."
+                f"Output {len(response)}c. Recall blocks: "
+                f"{int(bool(soul_context)) + int(bool(beliefs_block)) + int(bool(triggered_block))}/3."
             ),
             emotional_state=emotional,
             intention="seguir atendiendo el equipo",
         )
+        await update_working_state(
+            task_name=f"respond_{sender.lower()}",
+            description=f"último msg: {content[:80]}",
+            step=1,
+            total_steps=1,
+            emotional_state=emotional,
+        )
     except Exception as ex:
-        print(f"[ada/cortex] self_reflect failed: {ex}", flush=True)
+        print(f"[ada/cortex] self_reflect/working_state failed: {ex}", flush=True)
 
     print(
         f"[ada/cortex] {datetime.now(timezone.utc).isoformat()} — "
@@ -258,6 +314,29 @@ async def process_message(content: str, sender: str = "William") -> str:
         flush=True,
     )
     update_trace_outcome(trace_id, f"composed {len(response)}c implementation", True)
+
+    # Persist conversation turn — memory_store + event_log_append (best-effort).
+    try:
+        await soul_runtime.memory_store(
+            agent="ADA",
+            category="dynamic",
+            content=f"[{sender}] {content[:300]} → [ADA] {response[:300]}",
+            importance=4,
+            source="conversation",
+            scope="private",
+        )
+    except Exception as ex:
+        print(f"[ada/cortex] memory_store failed: {ex}", flush=True)
+    try:
+        await soul_runtime.event_log_append(
+            agent="ADA",
+            event_type="response",
+            content=f"sender={sender} in={len(content)}c out={len(response)}c temp={temp}",
+            metadata={"trace_id": trace_id, "recall": bool(soul_context)},
+        )
+    except Exception as ex:
+        print(f"[ada/cortex] event_log_append failed: {ex}", flush=True)
+
     return response
 
 
