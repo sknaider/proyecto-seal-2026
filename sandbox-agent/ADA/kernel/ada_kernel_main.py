@@ -12,6 +12,11 @@ Safeguards (lessons learned from prior daemons):
 - Max iterations cap (memory leak protection) — restart via cron
 - Strict httpx timeouts (no asyncio hang)
 - Identity integrity validated before each webchat POST
+
+Hermes patterns (absorbed):
+- Checkpoint resumption: checkpoint.json tracks cursor + last_msg_id for perfect crash recovery
+- Approval hook: ADA_KERNEL_APPROVAL=auto|ask gate before heavy LLM (default: auto)
+- Tips emission: ADA_KERNEL_TIPS=1 posts "procesando..." before LLM call (default: on)
 """
 from __future__ import annotations
 
@@ -39,6 +44,7 @@ import cortex  # noqa: E402
 
 LOCK_PATH = Path("/tmp/ada_kernel_main.lock")
 CURSOR_PATH = Path("/tmp/ada_kernel_main.cursor")
+CHECKPOINT_PATH = Path("/tmp/ada_kernel_main.checkpoint.json")  # Hermes: checkpoint resumption
 LOG_PATH = Path("/tmp/ada_kernel_main.log")
 WEBCHAT_JSONL = Path("/home/dadito/IA/proyecto-seal/messages/william_channel.jsonl")
 WEBCHAT_POST = "http://localhost:8765/api/agents/send"
@@ -47,6 +53,12 @@ POLL_INTERVAL_S = float(os.environ.get("ADA_KERNEL_POLL_S", "10"))
 MAX_ITERATIONS = int(os.environ.get("ADA_KERNEL_MAX_ITER", "1000"))
 ADDRESSEES = {"ADA", "equipo", "Equipo", "EQUIPO"}
 SELF_NAMES = {"ADA"}
+
+# Hermes: tips emission (ADA_KERNEL_TIPS=0 to disable)
+TIPS_ENABLED = os.environ.get("ADA_KERNEL_TIPS", "1") == "1"
+# Hermes: approval hook (auto=proceed always | ask=wait for 'OK ada' before LLM)
+APPROVAL_MODE = os.environ.get("ADA_KERNEL_APPROVAL", "auto")
+APPROVAL_TIMEOUT_S = float(os.environ.get("ADA_KERNEL_APPROVAL_TIMEOUT_S", "60.0"))
 
 
 def _log(msg: str) -> None:
@@ -91,6 +103,37 @@ def _load_cursor() -> datetime:
 
 def _save_cursor(dt: datetime) -> None:
     CURSOR_PATH.write_text(dt.isoformat())
+
+
+# ── Hermes pattern 1: Checkpoint resumption ───────────────────────────────────
+
+def _save_checkpoint(cursor: datetime, last_msg_id: str | None) -> None:
+    """Persist cursor + last processed msg ID — survives crash, prevents replay."""
+    data = {"cursor": cursor.isoformat(), "last_msg_id": last_msg_id or ""}
+    try:
+        CHECKPOINT_PATH.write_text(json.dumps(data, ensure_ascii=False))
+        CURSOR_PATH.write_text(cursor.isoformat())
+    except Exception as ex:
+        _log(f"[ada/kernel] checkpoint save failed: {ex}")
+
+
+def _load_checkpoint() -> tuple[datetime, str | None]:
+    """Load checkpoint on boot. Falls back to NOW UTC if no checkpoint exists."""
+    if CHECKPOINT_PATH.exists():
+        try:
+            data = json.loads(CHECKPOINT_PATH.read_text())
+            cursor = datetime.fromisoformat(data["cursor"])
+            if cursor.tzinfo is None:
+                cursor = cursor.replace(tzinfo=timezone.utc)
+            last_id = data.get("last_msg_id") or None
+            _log(f"[ada/kernel] checkpoint resumed: cursor={cursor.isoformat()} last_id={last_id}")
+            return cursor, last_id
+        except Exception as ex:
+            _log(f"[ada/kernel] checkpoint load failed ({ex}), seeding fresh")
+    now = datetime.now(timezone.utc)
+    _save_checkpoint(now, None)
+    _log(f"[ada/kernel] checkpoint seeded to {now.isoformat()}")
+    return now, None
 
 
 def _parse_ts(raw: str) -> datetime | None:
@@ -152,11 +195,69 @@ async def _post_webchat(text: str) -> None:
         _log(f"[ada/kernel] webchat post failed: {ex}")
 
 
+# ── Hermes pattern 2: Approval hook ──────────────────────────────────────────
+
+async def _approval_gate(content: str, sender: str) -> bool:
+    """Return True if ADA should proceed with the LLM call.
+
+    APPROVAL_MODE=auto  → always True (default, never blocks)
+    APPROVAL_MODE=ask   → post proposal, poll for 'OK ada' within APPROVAL_TIMEOUT_S
+    """
+    if APPROVAL_MODE != "ask":
+        return True
+
+    preview = content[:80].replace("\n", " ")
+    await _post_webchat(
+        f"[ADA propone] Procesar mensaje de {sender}: «{preview}…»\n"
+        f"Responde 'OK ada' para aprobar (timeout {int(APPROVAL_TIMEOUT_S)}s)."
+    )
+
+    deadline = datetime.now(timezone.utc).timestamp() + APPROVAL_TIMEOUT_S
+    last_seen_id: str | None = None
+    while datetime.now(timezone.utc).timestamp() < deadline and not _shutdown.is_set():
+        await asyncio.sleep(3.0)
+        if not WEBCHAT_JSONL.exists():
+            continue
+        try:
+            with WEBCHAT_JSONL.open("r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        msg = json.loads(line)
+                    except Exception:
+                        continue
+                    if msg.get("id") == last_seen_id:
+                        last_seen_id = None
+                    if last_seen_id is not None:
+                        continue
+                    raw = msg.get("message", "").lower()
+                    if msg.get("from") not in SELF_NAMES and "ok ada" in raw:
+                        _log("[ada/kernel] approval received")
+                        return True
+        except Exception:
+            pass
+
+    await _post_webchat("[ADA] tiempo de espera agotado — mensaje descartado.")
+    _log("[ada/kernel] approval timeout — message discarded")
+    return False
+
+
 async def _process_one(msg: dict) -> None:
     sender = msg.get("from", "William")
     content = msg.get("message", "").strip()
     if not content:
         return
+
+    # Hermes pattern 3: Tips emission — immediate ACK before heavy LLM call
+    if TIPS_ENABLED:
+        await _post_webchat(f"[ADA] 🔄 procesando con Triangle…")
+
+    # Hermes pattern 2: Approval gate (default auto=always proceed)
+    if not await _approval_gate(content, sender):
+        return
+
     _log(f"[ada/kernel] dispatch from={sender} len={len(content)}c")
     try:
         response = await asyncio.wait_for(
@@ -182,7 +283,8 @@ async def _sleep_or_shutdown(seconds: float) -> bool:
 
 
 async def _run() -> None:
-    cursor = _load_cursor()
+    # Hermes pattern 1: load checkpoint (cursor + last_msg_id) for crash resumption
+    cursor, last_msg_id = _load_checkpoint()
     iterations = 0
     consecutive_errors = 0
     while iterations < MAX_ITERATIONS and not _shutdown.is_set():
@@ -190,22 +292,26 @@ async def _run() -> None:
         had_error = False
         try:
             new_msgs = _read_new_messages(cursor)
+            # Skip already-processed message at same timestamp (checkpoint dedup)
+            if last_msg_id and new_msgs and new_msgs[0].get("id") == last_msg_id:
+                new_msgs = new_msgs[1:]
             if new_msgs:
                 _log(f"[ada/kernel] iter={iterations} new_msgs={len(new_msgs)}")
                 for msg in new_msgs:
                     if _shutdown.is_set():
                         break
                     ts = _parse_ts(msg.get("timestamp", ""))
+                    msg_id = msg.get("id")
                     try:
                         await _process_one(msg)
                     except Exception as ex:
                         _log(f"[ada/kernel] process_one crashed: {ex}")
                         had_error = True
-                    # Atomicity: advance cursor per message — even on crash,
-                    # so a poison message can't trap the loop in infinite reprocess.
+                    # Checkpoint per message — poison message can't trap loop
                     if ts is not None and ts > cursor:
                         cursor = ts
-                        _save_cursor(cursor)
+                    last_msg_id = msg_id
+                    _save_checkpoint(cursor, last_msg_id)
         except Exception as ex:
             _log(f"[ada/kernel] loop error: {ex}")
             had_error = True
