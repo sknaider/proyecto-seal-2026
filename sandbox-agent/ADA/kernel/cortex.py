@@ -23,8 +23,6 @@ _SPECTRE_KERNEL = _ADA_HOME.parent / "SPECTRE" / "kernel"
 sys.path.insert(0, str(_SPECTRE_KERNEL))
 
 from llm_client import (  # noqa: E402
-    ClaudeCodeClient,
-    OpenCodeClient,
     OllamaClient,
     VLLMClient,
     LLMUnavailable,
