@@ -186,7 +186,7 @@ async def _run() -> None:
 
 def main() -> None:
     _log(f"[ada/kernel] starting pid={os.getpid()} poll={POLL_INTERVAL_S}s max_iter={MAX_ITERATIONS}")
-    _acquire_lock()
+    _lock_fd = _acquire_lock()  # keep reference alive — GC release would unlock
     try:
         asyncio.run(_run())
     except KeyboardInterrupt:
