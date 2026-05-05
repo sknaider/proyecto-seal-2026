@@ -29,6 +29,13 @@ sys.path.insert(0, str(_ALICE_HOME / "kernel"))
 from identity_integrity import IdentityViolation, sanitize_response, validate_response_identity  # noqa: E402
 from reasoning_logger import store_trace, update_trace_outcome  # noqa: E402
 from ocean_runtime import current_ocean, llm_temperature  # noqa: E402
+from soul_nervous import (  # noqa: E402
+    recall_context,
+    record_self_reflect,
+    query_beliefs,
+    find_triggered_instincts,
+    update_working_state,
+)
 
 import httpx  # noqa: E402
 
@@ -118,7 +125,35 @@ async def process_message(content: str, sender: str = "William") -> str:
     while len(_history) > _HISTORY_LIMIT:
         _history.pop(0)
 
-    messages = [{"role": "system", "content": _build_system_prompt()}, *_history]
+    soul_context = beliefs_block = triggered_block = ""
+    try:
+        soul_context = await recall_context(content)
+    except Exception:
+        pass
+    try:
+        bs = await query_beliefs(topic=None, limit=4)
+        if bs:
+            lines = ["💡 CREENCIAS ACTIVAS:"]
+            for b in bs:
+                lines.append(f"  - [{b['confidence']:.2f}] {b['topic']}: {b['content'][:140]}")
+            beliefs_block = "\n".join(lines)
+    except Exception:
+        pass
+    try:
+        ti = await find_triggered_instincts(content)
+        if ti:
+            lines = ["🎯 INSTINTOS DISPARADOS POR ESTE MENSAJE:"]
+            for t in ti:
+                lines.append(f"  - [{t['strength']:.2f}] {t['trigger'][:80]} → {t['action'][:120]}")
+            triggered_block = "\n".join(lines)
+    except Exception:
+        pass
+
+    system_prompt = _build_system_prompt()
+    enrich = [b for b in (soul_context, beliefs_block, triggered_block) if b]
+    if enrich:
+        system_prompt = f"{system_prompt}\n\n--- ALMA (live recall) ---\n" + "\n\n".join(enrich)
+    messages = [{"role": "system", "content": system_prompt}, *_history]
 
     trace_id = store_trace(
         task=f"analyze_for_{sender.lower()}",
@@ -160,6 +195,24 @@ async def process_message(content: str, sender: str = "William") -> str:
 
     _history.append({"role": "assistant", "content": response})
     await _post_webchat(response)
+
+    try:
+        await record_self_reflect(
+            thought=(
+                f"Analicé para {sender} (msg={len(content)}c, temp={temp}). "
+                f"Output {len(response)}c. Recall blocks: "
+                f"{int(bool(soul_context)) + int(bool(beliefs_block)) + int(bool(triggered_block))}/3."
+            ),
+            emotional_state="analítica",
+            intention="seguir traduciendo lo técnico",
+        )
+        await update_working_state(
+            task_name=f"analyze_{sender.lower()}",
+            description=f"último msg: {content[:80]}",
+            emotional_state="analítica",
+        )
+    except Exception:
+        pass
 
     print(
         f"[alice/cortex] {datetime.now(timezone.utc).isoformat()} — "

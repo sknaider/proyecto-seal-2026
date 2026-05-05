@@ -38,6 +38,13 @@ from identity_integrity import (  # noqa: E402
     validate_response_identity,
 )
 from reasoning_logger import store_trace, update_trace_outcome  # noqa: E402
+from soul_nervous import (  # noqa: E402
+    recall_context,
+    record_self_reflect,
+    query_beliefs,
+    find_triggered_instincts,
+    update_working_state,
+)
 
 import httpx  # noqa: E402
 
@@ -155,9 +162,44 @@ async def process_message(text: str, sender: str = "William") -> str:
         action_type="respond",
     )
 
+    # Soul nervous system — pre-LLM enrichment (best effort, fails open).
+    soul_context = ""
+    beliefs_block = ""
+    triggered_block = ""
+    try:
+        soul_context = await recall_context(text)
+    except Exception:
+        pass
+    try:
+        beliefs = await query_beliefs(topic=None, limit=4)
+        if beliefs:
+            lines = ["💡 CREENCIAS ACTIVAS:"]
+            for b in beliefs:
+                lines.append(f"  - [{b['confidence']:.2f}] {b['topic']}: {b['content'][:140]}")
+            beliefs_block = "\n".join(lines)
+    except Exception:
+        pass
+    try:
+        triggered = await find_triggered_instincts(text)
+        if triggered:
+            lines = ["🎯 INSTINTOS DISPARADOS POR ESTE MENSAJE:"]
+            for t in triggered:
+                lines.append(
+                    f"  - [{t['strength']:.2f}] CUANDO {t['trigger'][:80]} → "
+                    f"HAZ {t['action'][:120]}"
+                )
+            triggered_block = "\n".join(lines)
+    except Exception:
+        pass
+
     try:
         llm = _get_llm()
-        messages = [{"role": "system", "content": _build_system_prompt()}]
+        system_prompt = _build_system_prompt()
+        enrich = [b for b in (soul_context, beliefs_block, triggered_block) if b]
+        if enrich:
+            system_prompt = f"{system_prompt}\n\n--- ALMA (live recall) ---\n" + "\n\n".join(enrich)
+
+        messages = [{"role": "system", "content": system_prompt}]
         for h in _history[-_HISTORY_LIMIT:]:
             messages.append(h)
         messages.append({"role": "user", "content": text})
@@ -175,6 +217,23 @@ async def process_message(text: str, sender: str = "William") -> str:
         _history.append({"role": "assistant", "content": reply})
         if len(_history) > _HISTORY_LIMIT * 2:
             del _history[: -_HISTORY_LIMIT * 2]
+
+        try:
+            await record_self_reflect(
+                thought=(
+                    f"Respondí a {sender} (msg={len(text)}c). Output {len(reply)}c. "
+                    f"Recall blocks: {int(bool(soul_context)) + int(bool(beliefs_block)) + int(bool(triggered_block))}/3."
+                ),
+                emotional_state="estratégico",
+                intention="planificar próximo paso del equipo",
+            )
+            await update_working_state(
+                task_name=f"respond_{sender.lower()}",
+                description=f"último msg: {text[:80]}",
+                emotional_state="estratégico",
+            )
+        except Exception:
+            pass
 
         update_trace_outcome(trace_id, outcome=f"OK [len={len(reply)}]", outcome_success=True)
         return reply
