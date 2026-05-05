@@ -476,7 +476,7 @@ def port_scan_monitor():
     # Expected ports (SEAL ecosystem)
     EXPECTED_PORTS = {8765, 8766, 8008, 5433, 7687, 6333, 8899, 22, 80, 443,
                       7474, 7473, 6334, 8080, 11434, 11435, 3000, 3001,
-                      8790, 8791, 8769, 8767, 8770, 9091,
+                      8790, 8791, 8769, 8768, 8767, 8770, 9091,
                       # ESAN demo ports (NEXUS)
                       8900, 8891, 8889, 8901, 9222, 9223, 9224, 9225,  # 9224/9225: SSH tunnels demo JARVIS
                       40219,  # Ollama internal gRPC runner (ephemeral, loopback-only)
