@@ -9,10 +9,12 @@ Tiempo target: <500ms. Si falla, retorna vacío (no bloquear al agente).
 """
 
 import asyncio
+import hashlib
 import json
 import os
 import sys
 import time
+from pathlib import Path
 
 DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
 
