@@ -369,10 +369,30 @@ def main():
         # Mid-session: semantic-only (lightweight)
         boot_mode = False
 
+    # OPT-2: cache hit on mid-session semantic recalls
+    if not boot_mode and not is_system_msg:
+        cached = _recall_cache_get(agent, user_message)
+        if cached is not None:
+            if steer_data:
+                steer_section = (
+                    f"⚡ STEER DE WILLIAM (aplica AHORA en este turno):\n"
+                    f"  \"{steer_data['message']}\""
+                )
+                cached = steer_section + ("\n\n" + cached if cached else "")
+            if cached:
+                print(json.dumps({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": cached}}))
+            else:
+                print(json.dumps({}))
+            return
+
     try:
         result = asyncio.run(active_recall(user_message, boot_mode=boot_mode))
     except Exception:
         result = ""
+
+    # OPT-2: save mid-session result to cache
+    if not boot_mode and result:
+        _recall_cache_set(agent, user_message, result)
 
     # Prepend steer section — highest priority, William's live redirect
     if steer_data:
