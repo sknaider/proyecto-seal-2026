@@ -128,6 +128,56 @@ manualmente. Genera un resumen limpio del estado actual → próximo boot más l
 
 ---
 
+## Verificación 1M Context — NEXUS (2026-05-06)
+
+**Hallazgo:** El sufijo `[1m]` ES la sintaxis oficial de Claude Code.
+> "Claude Code strips the suffix before sending the model ID to your provider." — docs.claude.com/model-config
+
+**Por qué JARVIS compactó a <200K hoy:**
+- JARVIS corría en sesión iniciada con los launchers VIEJOS (sin `[1m]`)
+- Con Sonnet 4.6 sin suffix → ventana real = 200K
+- AUTOCOMPACT 95% × 200K = 190K → compactación correcta pero prematura
+- **No era un bug — era configuración desactualizada**
+
+**Estado actual:**
+- `seal_common_env.sh` tiene `ANTHROPIC_DEFAULT_SONNET_MODEL='claude-sonnet-4-6[1m]'` ✅
+- Todos los launchers sourcea common_env ✅
+- Efecto: próximo restart de cualquier agente → 1M context activo
+- Con AUTOCOMPACT=85%: compactar a 850K tokens (4.25× más que antes)
+
+**Advertencia de costo:**
+- 1M context al mismo precio por token que 200K
+- Sesiones más largas = más tokens consumidos por sesión
+- Recomendación: monitorear costo semanal en los primeros 2 restarts
+
+---
+
+## Solución 9 — System Prompt Slim v2 (PLAN DETALLADO)
+
+**Investigación web (NEXUS, 06-may-2026):**
+Tres técnicas validadas por la comunidad para reducir overhead de boot:
+
+**9a. CLAUDE.md en capas** (ya parcialmente hecho):
+- Nivel 1: identidad mínima (~50 tokens) en `--append-system-prompt`
+- Nivel 2: procedimientos en SOUL DB, cargados on-demand via `boot_context()`
+- Nivel 3: referencias largas en archivos separados, solo leídos cuando se necesitan
+- **Ya hecho:** CLAUDE.md 559→40 líneas (05-may-2026). Pendiente: mover launcher prompt.
+
+**9b. Hooks para contexto dinámico** (pendiente):
+- `UserPromptSubmit` hook puede inyectar contexto solo cuando la tarea lo requiere
+- Ejemplo: solo cargar reglas de infraestructura cuando la tarea menciona "kill", "restart"
+- Ahorro: 300-500 tokens por turno en tareas que no necesitan ese contexto
+
+**9c. MEMORY.md autocomprimido** (pendiente):
+- Entrena periódicamente: consolidar entradas similares, eliminar entradas obsoletas
+- Meta: mantener <100 líneas activas (ahora cap=200)
+- Script `memory/consolidate.py` ya existe — añadir limpieza de entradas >30 días sin uso
+
+**Esfuerzo total 9a+9b+9c:** ~4h
+**Ahorro estimado:** 800-1,200 tokens/turno × sesiones largas = $1,000-1,500/mes adicional
+
+---
+
 ## Apéndice financiero — ALICE (2026-05-06)
 
 **Baseline pre-optimización (medido en este audit):**
