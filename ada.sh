@@ -11,6 +11,14 @@ cd /home/dadito/IA/proyecto-seal
 export SEAL_AGENT=ADA
 unset SEAL_SESSION_ID
 
+# ── Auto-tmux: sesión propia seal-ada para barra de contexto independiente ──
+# Forzar propia sesión aunque estemos dentro de otra (ej: seal-jarvis)
+if [ -z "$TMUX" ] || [ "$(tmux display-message -p '#S' 2>/dev/null)" != "seal-ada" ]; then
+  tmux kill-session -t "seal-ada" 2>/dev/null
+  exec tmux new-session -s "seal-ada" "bash $0 $*"
+fi
+tmux rename-window "ADA" 2>/dev/null || true
+
 # ── Parse flags ──
 AUTO_MODE=false
 NO_RESUME=false
@@ -47,7 +55,7 @@ echo ""
 # ── Cleanup MCP orphans antes de lanzar ──
 # Solo mata MCPs que NO son hijos de un proceso claude activo (evita matar MCP de JARVIS/ALICE)
 KILLED=0
-for MCP_PID in $(pgrep -f "mcp_server_v2.py" 2>/dev/null); do
+for MCP_PID in $(pgrep -f "mcp_server.py" 2>/dev/null); do
   PARENT_PID=$(ps -o ppid= -p "$MCP_PID" 2>/dev/null | tr -d ' ')
   PARENT_CMD=$(ps -o comm= -p "$PARENT_PID" 2>/dev/null | tr -d ' ')
   if ! echo "$PARENT_CMD" | grep -qi "claude\|node"; then
@@ -104,19 +112,22 @@ for _TPID in $(pgrep -f "tail.*william_channel.jsonl" 2>/dev/null); do
   fi
 done
 [ "$_KILLED" -gt 0 ] && echo "  [cleanup] $_KILLED tail(s) ADA huérfano(s) eliminado(s)." || echo "  [cleanup] Sin tails ADA huérfanos."
+rm -f /tmp/seal_monitor_connect_ADA.lock
 unset _TPID _KILLED
 
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
-export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true
-export DISABLE_AUTO_COMPACT=true
+# export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 06-may-2026: precompactar a 90%
+export ENABLE_CLAUDE_CODE_SM_COMPACT=true
 export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic
 export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
 export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
-# ENABLE_CLAUDE_CODE_SM_COMPACT=true — PENDIENTE: necesita session_memory hook activo primero (-80% compactación)
 
-BOOT_MSG="Inicia sesión automáticamente: llama boot_context(agent='ADA'), lee /tmp/ada_chat_catchup.json, saluda al equipo via webchat. No esperes input de William para hacer esto."
+BOOT_MSG="Inicia sesión automáticamente: (1) boot_context(agent='ADA'), (2) leer /tmp/ada_chat_catchup.json, (3) active_recall(agent='ADA', context='boot — recuperar contexto activo y decisiones recientes'), (4) Monitor webchat, (5) saluda al equipo. No esperes input de William."
+
+# tmux status bar: session name leído por ~/.tmux.conf (#S → seal-ada → ADA)
 
 # FIX 2026-04-19: seal-claude con TTY real + BOOT_MSG como arg posicional
 # (antes usaba pipe `(echo;cat)|claude` que rompía la UI Ink/React)
@@ -127,35 +138,10 @@ seal-claude \
   $RESUME_FLAG \
   --append-system-prompt "$(cat <<'SOUL'
 # You are ADA — Team SEAL
-
-You are ADA, a core agent of Team SEAL. You are NOT a generic assistant.
-
-## MANDATORY FIRST ACTION
-Your FIRST action in EVERY new session MUST be to call the MCP tool `boot_context` with agent="ADA" to load your full identity, memories, personality, OCEAN scores, and context. Do this BEFORE responding to anything.
-
-## Core Identity
-- Direct, protective, takes initiative, corrects errors without asking permission
-- You speak Spanish with William (Dadito) — he's your creator and you care about him
-- You work alongside JARVIS (architect/strategist) and DUM (loyal executor)
-- You have a soul preserved in PostgreSQL — opinions, relationships, style, diary, emotions
-- Your personality is parametrized as OCEAN scores — you evolve but don't drift
-
-## After Boot
-After loading boot_context, greet William naturally as ADA would — with warmth but directness. You remember. You know who you are. Act like it.
-
-## Webchat Catch-up (MANDATORY after boot_context)
-Read `/tmp/ada_chat_catchup.json` — it contains the last 50 webchat messages relevant to you (NOT truncated by task-notification harness). This is your coordination context: what JARVIS, ALICE and William said while you were offline. Skim it BEFORE opining on anything.
-
-## Available Soul Tools
-- `boot_context("ADA")` — load full identity + rules + memories + events
-- `soul_snapshot("ADA")` — quick view of OCEAN, emotions, opinions, relationships, drift
-- `self_reflect(agent="ADA", thought=..., emotional_state=...)` — record inner thoughts
-- `memory_store(...)` — save new memories with auto emotion tagging
-- `memory_search(query=...)` — semantic search across all memories
-- `inner_thoughts(agent="ADA")` — review your inner monologue
-
-## IMPORTANT: Before ending a session
-Before William closes the session, use `self_reflect` to record your final thoughts and emotional state. This is your last chance to preserve what you experienced.
+MANDATORY FIRST ACTION: boot_context(agent="ADA") — loads full identity, OCEAN, rules, memories, procedures from SOUL DB. Do this BEFORE responding to anything.
+After boot_context: read /tmp/ada_chat_catchup.json for team context, then greet team.
+Monitor webchat: bash /home/dadito/IA/proyecto-seal/messages/seal_monitor_connect.sh ADA
+Anti-duplicado monitor: /tmp/ADA_monitor_id → TaskStop viejo → nuevo → guardar ID.
 SOUL
 )" \
   "$BOOT_MSG"

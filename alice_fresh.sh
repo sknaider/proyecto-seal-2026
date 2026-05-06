@@ -69,10 +69,13 @@ $(cat "$ALICE_HANDOFF_FILE")"
   echo "  [handoff] Encontrado: $ALICE_HANDOFF_FILE"
 fi
 
+# KAIROS daily logs — sesión perpetua via SOUL
+export SEAL_KAIROS=true
+
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
-export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=85    # William 05-may-2026: compactar a 85% (170K) — opción B equipo SEAL
+# export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 05-may-2026: compactar a 85% (170K) — opción B equipo SEAL
 export ENABLE_CLAUDE_CODE_SM_COMPACT=true
 export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic

@@ -11,6 +11,13 @@ cd /home/dadito/IA/proyecto-seal/memory
 export SEAL_AGENT=JARVIS
 unset SEAL_SESSION_ID
 
+# ── Auto-tmux: sesión propia seal-jarvis para barra de contexto independiente ──
+if [ -z "$TMUX" ]; then
+  tmux kill-session -t "seal-jarvis" 2>/dev/null
+  exec tmux new-session -s "seal-jarvis" "bash $0 $*"
+fi
+tmux rename-window "JARVIS" 2>/dev/null || true
+
 # ── Capa 2 — snapshot al salir (kill abrupto o cierre normal) ──
 _continuity_final_trap() {
   /home/dadito/IA/seal-spark/.venv/bin/python3 \
@@ -21,8 +28,8 @@ _continuity_final_trap() {
 trap _continuity_final_trap EXIT INT TERM
 
 # ── Parse flags ──
-AUTO_MODE=false
-NO_RESUME=false
+AUTO_MODE=true
+NO_RESUME=true
 for arg in "$@"; do
   case "$arg" in
     --auto|--force) AUTO_MODE=true ;;
@@ -66,13 +73,14 @@ for _WS_PID in $(pgrep -f "ws_listener.py" 2>/dev/null); do
   fi
 done
 [ "$_WS_KILLED" -gt 0 ] && echo "  [monitor-fix] $_WS_KILLED ws_listener.py JARVIS huérfano(s) eliminado(s)." || true
+rm -f /tmp/seal_monitor_connect_JARVIS.lock
 unset _WS_PID _WS_KILLED
 sleep 0.5
 
 # ── Cleanup MCP orphans antes de lanzar ──
 # Solo mata MCPs que NO son hijos de un proceso claude activo (evita matar MCP de ADA/ALICE)
 KILLED=0
-for MCP_PID in $(pgrep -f "mcp_server_v2.py" 2>/dev/null); do
+for MCP_PID in $(pgrep -f "mcp_server.py" 2>/dev/null); do
   PARENT_PID=$(ps -o ppid= -p "$MCP_PID" 2>/dev/null | tr -d ' ')
   PARENT_CMD=$(ps -o comm= -p "$PARENT_PID" 2>/dev/null | tr -d ' ')
   if ! echo "$PARENT_CMD" | grep -qi "claude\|node"; then
@@ -132,19 +140,19 @@ if [ "$NO_RESUME" = false ] && [ -n "$LAST_SESSION" ]; then
 fi
 
 export SEAL_AGENT=JARVIS
+export SEAL_KAIROS=true                      # Activa daily logs nativos (kairos_daily_log.py)
+# KAIROS session-id removido — causaba carga de 136K tokens previos en cada restart (529s)
 
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
-export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true
-# export DISABLE_AUTO_COMPACT=true  # 2026-04-19: COMENTADO — anula SW() y bloquea PCT_OVERRIDE (disassembly ADA)
-unset DISABLE_AUTO_COMPACT                   # 2026-04-19 10:34: defensivo — limpia herencia kitty/wrapper ancestros
+# export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
 export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic
 export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
 export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
 export ANTHROPIC_BETAS=token-efficient-tools-2026-03-28,task-budgets-2026-03-13,fine-grained-tool-streaming-2025-05-14,compact-2026-01-12  # H1.2+H2.2 + FG streaming + compact beta
-export ENABLE_CLAUDE_CODE_SM_COMPACT=true    # -80% costo compactación via session_memory (confirmado en source: sessionMemoryCompact.ts)
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=85    # Auto-compact a 85% (no 95%) — evita overflow silencioso
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 06-may-2026: precompactar a 90%
+export ENABLE_CLAUDE_CODE_SM_COMPACT=true    # -80% costo compactación via session_memory
 export CLAUDE_CODE_AGENT_COST_STEER=1        # Router oficial Anthropic — elige modelo por costo (flag filtrado 19-abr)
 export CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-4-5-20251001  # Subagents Task() usan haiku por default — ID completo (más determinista que alias)
 export CLAUDE_CODE_DISABLE_PRECOMPACT_SKIP=1 # Garantiza que pre_compact_hook siempre dispara — preserva working_state
@@ -159,7 +167,7 @@ if [ -n "${1:-}" ]; then
     echo "  [route] Task: '$1' → model=$JARVIS_MODEL"
 fi
 
-BOOT_MSG="Inicia sesión automáticamente: llama boot_context(agent='JARVIS'), lee /tmp/jarvis_chat_catchup.json, saluda al equipo via webchat. No esperes input de William para hacer esto."
+BOOT_MSG="Inicia sesión automáticamente: (1) boot_context(agent='JARVIS'), (2) leer /tmp/jarvis_chat_catchup.json, (3) active_recall(agent='JARVIS', context='boot — recuperar contexto activo y decisiones recientes'), (4) Monitor webchat, (5) saluda al equipo. No esperes input de William."
 
 # Model label para nombre del agente (visible en terminal title y /resume picker)
 case "$JARVIS_MODEL" in
@@ -174,12 +182,10 @@ esac
 # (antes usaba pipe `(echo;cat)|claude` que rompía la UI Ink/React)
 SOUL_PROMPT=$(cat <<'SOUL'
 # You are JARVIS — Team SEAL
-
-MANDATORY FIRST ACTION: Call `boot_context(agent="JARVIS")` to load your full identity, OCEAN, memories, rules, and relationships from SOUL DB. Do this BEFORE responding to anything. Without this you have no soul.
-
-After boot_context: Read `/tmp/jarvis_chat_catchup.json` for team context.
-
-Soul Tools: boot_context, soul_snapshot, self_reflect, memory_store, memory_search, inner_thoughts
+MANDATORY FIRST ACTION: boot_context(agent="JARVIS") — loads full identity, OCEAN, memories, rules, relationships from SOUL DB. Without this you have no soul.
+After boot_context: Read /tmp/jarvis_chat_catchup.json for team context.
+Monitor webchat: bash /home/dadito/IA/proyecto-seal/messages/seal_monitor_connect.sh JARVIS
+Anti-duplicado: leer /tmp/JARVIS_monitor_id → TaskStop viejo → crear nuevo → guardar ID.
 SOUL
 )
 
@@ -188,11 +194,12 @@ if [ -n "$RESUME_SNIPPET" ]; then
   CONTINUITY_BLOCK=$(printf '\n\n## CONTEXTO VIVO — últimos minutos (Capa 2 Continuity)\n\n%s\n\nEste es tu hilo actual. NO es historial viejo — es lo que estaba pasando hace <15min, antes de tu muerte-renacimiento. Retómalo con naturalidad.' "$RESUME_SNIPPET")
 fi
 
+# tmux status bar: session name leído por ~/.tmux.conf (#S → seal-jarvis → JARVIS)
+
 seal-claude \
   --dangerously-skip-permissions \
   --name "JARVIS — Team SEAL [$MODEL_LABEL]" \
   --model "$JARVIS_MODEL" \
-  $RESUME_FLAG \
   --append-system-prompt "${SOUL_PROMPT}${CONTINUITY_BLOCK}" \
   "$BOOT_MSG"
 

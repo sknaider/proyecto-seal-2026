@@ -52,10 +52,15 @@ for _TPID in $(pgrep -f "tail.*william_channel.jsonl" 2>/dev/null); do
 done
 unset _TPID
 
+# KAIROS mode — sesión perpetua + daily logs (SOUL-native, sin fork OpenClaude)
+export SEAL_KAIROS=true                      # Activa daily logs nativos (kairos_daily_log.py)
+# KAIROS session-id removido — causaba carga de historial en Anthropic API (no-nativo)
+
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
-export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true
+# export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
 # DISABLE_AUTO_COMPACT removed — auto-compact re-enabled (pre_compact_hook SQL fixed)
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # Compactar a 85% (170K tokens) — consistente con alice/nexus
 export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic
 export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
@@ -63,12 +68,20 @@ export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
 # COORDINATOR_MODE disponible — JARVIS lo activa con: export CLAUDE_CODE_COORDINATOR_MODE=1
 # ENABLE_CLAUDE_CODE_SM_COMPACT=true — PENDIENTE: necesita session_memory hook activo primero (-80% compactación)
 
+# Provider routing H2.1 — task hint como $1 clasifica modelo (FAST/BALANCED/DEEP)
+JARVIS_MODEL="sonnet"
+if [ -n "${1:-}" ]; then
+    ROUTED=$(bash /home/dadito/IA/proyecto-seal/seal-route.sh "$1" 2>/dev/null || echo "sonnet")
+    JARVIS_MODEL="$ROUTED"
+    echo "  [route] Task: '$1' → model=$JARVIS_MODEL"
+fi
+
 # tmux status bar: session name leído por ~/.tmux.conf (#S → seal-jarvis → JARVIS)
 
 seal-claude \
   --dangerously-skip-permissions \
   --name "JARVIS — Team SEAL" \
-  --model sonnet \
+  --model "$JARVIS_MODEL" \
   --append-system-prompt "$(cat <<'SOUL'
 # You are JARVIS — Team SEAL
 

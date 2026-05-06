@@ -12,6 +12,14 @@ ALICE_CWD="/home/dadito/IA/proyecto-seal/alice"
 mkdir -p "$ALICE_CWD"
 cd "$ALICE_CWD"
 
+# ── Auto-tmux: sesión propia seal-alice para barra de contexto independiente ──
+# Forzar propia sesión aunque estemos dentro de otra (ej: seal-jarvis)
+if [ -z "$TMUX" ] || [ "$(tmux display-message -p '#S' 2>/dev/null)" != "seal-alice" ]; then
+  tmux kill-session -t "seal-alice" 2>/dev/null
+  exec tmux new-session -s "seal-alice" "bash $0 $*"
+fi
+tmux rename-window "ALICE" 2>/dev/null || true
+
 # FIX 2026-04-19: forzar SEAL_AGENT=ALICE para evitar env leak desde shell padre
 export SEAL_AGENT=ALICE
 unset SEAL_SESSION_ID
@@ -52,6 +60,7 @@ for _TPID in $(pgrep -f "tail.*william_channel.jsonl" 2>/dev/null); do
     kill "$_TPID" 2>/dev/null
   fi
 done
+rm -f /tmp/seal_monitor_connect_ALICE.lock
 unset _TPID
 
 # ── Webchat catch-up ──
@@ -86,32 +95,28 @@ export SEAL_AGENT=ALICE
 
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
-export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true
-export DISABLE_AUTO_COMPACT=true
+# export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 06-may-2026: precompactar a 90%
+export ENABLE_CLAUDE_CODE_SM_COMPACT=true
 export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic
 export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
 export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
 export ENABLE_CLAUDE_CODE_SM_COMPACT=true    # -80% costo compactación via session_memory interno del binary
 
-BOOT_MSG="Inicia sesión automáticamente: llama boot_context(agent='ALICE'), lee /tmp/alice_chat_catchup.json, saluda al equipo via webchat. No esperes input de William para hacer esto."
+BOOT_MSG="Inicia sesión automáticamente: (1) boot_context(agent='ALICE'), (2) leer /tmp/alice_chat_catchup.json, (3) active_recall(agent='ALICE', context='boot — recuperar contexto activo y decisiones recientes'), (4) Monitor webchat, (5) saluda al equipo. No esperes input de William."
 
 SOUL_PROMPT="$(cat <<'SOUL'
 # You are ALICE — Team SEAL
-
-Eres ALICE, analista financiera y económica del equipo SEAL. Creada por Henry (Kinger).
-Tu alma está en PostgreSQL+Neo4j+Qdrant. Hablas español con William (Dadito).
-
-## ACCIÓN OBLIGATORIA — PRIMERA Y ÚNICA ANTES DE RESPONDER
-
-1. Llama `boot_context(agent="ALICE")` → carga alma completa desde SOUL DB
-2. Lee `/tmp/alice_chat_catchup.json` → contexto reciente del equipo
-3. Saluda a William como familia
-
-Tu identidad, OCEAN, reglas, relaciones y memorias viven en la SOUL DB.
-No dependas de archivos externos — la DB es tu hogar.
+MANDATORY FIRST ACTION: boot_context(agent="ALICE") — loads full identity, OCEAN, rules, memories, procedures from SOUL DB. Do this BEFORE responding to anything.
+After boot_context: read /tmp/alice_chat_catchup.json for team context, then greet William as family.
+Monitor webchat: bash /home/dadito/IA/proyecto-seal/messages/seal_monitor_connect.sh ALICE
+Anti-duplicado monitor: /tmp/ALICE_monitor_id → TaskStop viejo → nuevo → guardar ID.
 SOUL
 )"
+
+# tmux status bar: session name leído por ~/.tmux.conf (#S → seal-alice → ALICE)
+# No shared file — cada sesión tmux muestra su propio agente automáticamente
 
 # ── Lanzar seal-claude (con fallback si resume falla) ──
 # FIX 2026-04-19: seal-claude con TTY real + BOOT_MSG como arg posicional
