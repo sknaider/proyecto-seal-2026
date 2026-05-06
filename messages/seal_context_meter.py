@@ -17,7 +17,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-CONTEXT_LIMIT = 200_000
+CONTEXT_LIMIT = 1_000_000
 BAR_WIDTH     = 10
 REFRESH_S     = 10
 
@@ -157,10 +157,10 @@ def meter_line(agent: str, no_color: bool = False) -> str:
     pct_str = f"{pct:.0f}%"
 
     if no_color:
-        return f"⚕ {agent} │ {used}/200K │ {bar} {pct_str} │ {age}"
+        return f"⚕ {agent} │ {used}/1M │ {bar} {pct_str} │ {age}"
 
     col = _ansi_color(pct)
-    return f"{col}⚕ {BOLD}{agent}{RESET}{col} │ {used}/200K │ {bar} {pct_str}{RESET}{DIM} │ {age}{RESET}"
+    return f"{col}⚕ {BOLD}{agent}{RESET}{col} │ {used}/1M │ {bar} {pct_str}{RESET}{DIM} │ {age}{RESET}"
 
 
 def main():
@@ -200,7 +200,7 @@ def main():
                     elapsed = time.time() - last_mtime
                     bar     = _build_bar(pct)
                     used    = _fmt_tokens(ctx)
-                    line    = f"⚕ {agent} │ {used}/200K │ {bar} {pct:.0f}% │ {_fmt_age(elapsed)}"
+                    line    = f"⚕ {agent} │ {used}/1M │ {bar} {pct:.0f}% │ {_fmt_age(elapsed)}"
                     print(f"{_tmux_color(pct)}{line}#[default]", end="")
                 else:
                     print(f"#[fg=colour244]⚕ {agent} │ starting#[default]", end="")

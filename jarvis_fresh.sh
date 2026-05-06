@@ -68,7 +68,7 @@ export SEAL_KAIROS=true                      # Activa daily logs nativos (kairos
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 # export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
 # DISABLE_AUTO_COMPACT removed — auto-compact re-enabled (pre_compact_hook SQL fixed)
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=95    # William 06-may-2026: compactar a 95%
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=85    # William 06-may-2026: compactar a 85% (1M context)
 export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic
 export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
