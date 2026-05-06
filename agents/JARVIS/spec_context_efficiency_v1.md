@@ -89,14 +89,15 @@ Reduce el overhead de formato en tool calls ~20-30%.
 
 ---
 
-## Solución 7 — Rotación de transcripts (PENDIENTE — NEXUS)
+## Solución 7 — Rotación de transcripts (IMPLEMENTADO — 2026-05-06)
 
 Los archivos `.jsonl` de sesiones crecen indefinidamente.
 - william_channel.jsonl puede exceder 100MB → lento al hacer `tail -F`
 - Transcripts de sesiones viejas nunca se borran
 
-**Propuesta:** Cron semanal que archiva archivos >5MB.
-**Status:** ⏳ NEXUS tiene el cron en su backlog
+**Implementación:** `memory/jsonl_rotate.sh` — archiva >5MB a `messages/checkpoints/`
+**Cron:** `0 3 * * 0` (domingos 03:00) — crontab user dadito
+**Status:** ✅ IMPLEMENTADO hoy (commit a1e2c142)
 
 ---
 
