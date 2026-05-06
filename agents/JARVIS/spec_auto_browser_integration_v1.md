@@ -1,222 +1,161 @@
 # SEAL Auto-Browser Integration — Spec v1
 **Autor:** JARVIS  
 **Fecha:** 2026-05-06  
-**Estado:** PROPUESTA — pendiente autorización William  
-**Fuente:** https://github.com/LvcidPsyche/auto-browser (v1.0.3, MIT)  
-**Coordinado con:** ALICE (análisis inicial)
+**Estado:** PROPUESTO — pendiente autorización William  
+**Repo:** github.com/LvcidPsyche/auto-browser (MIT, 406 stars, v1.0.3)
 
 ---
 
 ## Problema
 
-Los agentes SEAL necesitan navegar la web de forma autónoma pero con control humano cuando el sitio lo requiere. El MCP Playwright actual (`mcp__playwright__*`) tiene limitaciones críticas:
+Los agentes SEAL no tienen acceso a web real de forma autónoma:
+- WebSearch de Claude Code requiere `effort` param → roto en Sonnet 4.6 (fix aplicado, próximo restart)
+- `mcp__playwright__*` actual: browser básico sin sesión persistente, sin auth profiles, sin human takeover
+- DuckDuckGo nativo (`web_tools.py`) funciona pero retorna resultados irrelevantes en búsquedas en español
+- Sin capacidad de autenticarse en sitios (INDECOPI, SUNAT, GitHub, etc.)
 
-| Limitación | Impacto en SEAL |
+---
+
+## Qué es auto-browser
+
+MCP-native browser control plane. Da a cualquier agente MCP un **browser Playwright real** con:
+
+| Capacidad | Detalle |
 |---|---|
-| Sin auth persistente | Cada sesión re-autentica desde cero |
-| Sin human takeover | Agente bloqueado en CAPTCHAs / flows complejos |
-| Sin auditoría | No hay trail de acciones web en SOUL |
-| Sin checkpoints | Workflow interrumpido = reiniciar desde cero |
-| Sin approval gates | Agente puede ejecutar acciones sin supervisión |
+| **30+ MCP tools** | navigate, click, fill, screenshot, DOM extract, network inspect |
+| **Auth profiles** | Login una vez, guardar sesión, reusar en futuros agentes |
+| **Human takeover** | noVNC en :6080 — William toma control visual cuando el agente se traba |
+| **Approval gates** | Agente pide aprobación antes de ejecutar acciones sensibles |
+| **Audit trail** | Witness receipts + JSONL por cada acción |
+| **Resumable jobs** | Checkpoints durables, resume/cancel/discard desde dashboard |
+| **PII scrubbing** | 16 patrones de redacción en pixel, console, network |
+| **REST API** | FastAPI :8000 + `/dashboard` operator panel + SSE stream |
+| **Aislamiento** | Docker Compose con per-session isolation mode |
+
+**Arquitectura interna:**
+- `controller/` — FastAPI backend Python, expone REST + MCP sobre HTTP/stdio
+- `browser-node/` — Node.js que maneja Playwright directamente
+- `client/` — cliente Python para consumir los tools
+- Docker Compose orquesta todo
 
 ---
 
-## Solución: auto-browser
+## Valor para SEAL
 
-**auto-browser** es un MCP server nativo que envuelve Playwright con:
-- **Auth profiles**: login una vez → guardar → reutilizar en sesiones futuras
-- **noVNC takeover**: William puede tomar control visual del mismo browser activo
-- **Approval gates**: pausar flujo para que William apruebe acción crítica
-- **Job checkpoints**: workflows resumibles si el agente compacta o muere
-- **Audit JSONL**: trail completo de acciones web
+### Caso 1 — Búsqueda web real
+Agentes pueden buscar en Google, DuckDuckGo, sitios gov.pe, SUNAT, INDECOPI con browser real.  
+Hoy: `web_tools.py` retorna resultados irrelevantes. Con auto-browser: navegación real.
 
-**Licencia:** MIT. **Actividad:** v1.0.3 lanzada 2026-05-05, 406★, 72 forks.
+### Caso 2 — Auth persistente
+JARVIS puede autenticarse en plataformas (GitHub, servicios gov.pe) y reusar la sesión.  
+Hoy: cada intento de autenticación es manual.
+
+### Caso 3 — Human takeover
+William abre noVNC y toma el control cuando el agente se traba en un CAPTCHA o flujo difícil.  
+Hoy: sin esta capacidad.
+
+### Caso 4 — Research autónomo
+JARVIS loop de investigación cada 3h puede leer papers, sitios, repos con browser real.  
+Hoy: limitado a GitHub API y texto plano.
 
 ---
 
-## Arquitectura de Integración
+## Arquitectura de integración
 
 ```
-SEAL Stack actual:
-  MCP server v4 (:8771) ←── agentes
-  PostgreSQL (:5433)
-  Qdrant (:6333)
-  Matrix (:8069)
-
-+ auto-browser (nuevo):
-  controller/FastAPI (:8000) ←── agentes via MCP
-  browser-node/Playwright (:9223)
-  noVNC (:6080) ←── William (takeover visual)
+[SEAL Agentes] → [MCP SSE :8766] → [auto-browser MCP Server :8000]
+                                          ↓
+                                   [Playwright Browser (Node.js)]
+                                          ↓
+                                   [noVNC :6080 → William]
 ```
 
-Los agentes llaman herramientas `auto_browser_*` vía MCP en lugar de `mcp__playwright__*` directamente. El controller gestiona sesiones, auth profiles y auditoría.
+### Deployment
 
----
-
-## Deployment Plan
-
-### 1. Docker Compose separado
 ```yaml
-# /home/dadito/IA/proyecto-seal/auto-browser/docker-compose.yml
-# Clone del repo, configurado para SEAL
+# Agregar a docker-compose.yml existente de SEAL
+services:
+  auto-browser:
+    image: ghcr.io/lvcidpsyche/auto-browser:latest
+    ports:
+      - "127.0.0.1:8000:8000"   # MCP + REST API
+      - "127.0.0.1:6080:6080"   # noVNC visual takeover
+    environment:
+      - OPERATOR_SECRET=${SEAL_OPERATOR_SECRET}
+    volumes:
+      - ./auto-browser-profiles:/data/profiles
+    restart: unless-stopped
 ```
 
-Puertos asignados (sin conflicto con stack SEAL):
-| Servicio | Puerto interno | Puerto host | Uso |
-|---|---|---|---|
-| controller (FastAPI) | 8000 | **8800** | API + MCP + dashboard |
-| browser-node (noVNC) | 6080 | **6180** | Takeover visual William |
-| VNC raw | 5900 | **5980** | Backup VNC |
+### MCP configuration
 
-### 2. Variables de entorno (`.env`)
-```bash
-API_BEARER_TOKEN=<seal_auto_browser_token>
-BROWSER_WIDTH=1920
-BROWSER_HEIGHT=1080
-TAKEOVER_URL=http://localhost:6180/vnc.html?autoconnect=true&resize=scale
-ARTIFACT_ROOT=/data/artifacts
-AUTH_ROOT=/data/auth
-AUDIT_ROOT=/data/audit
-```
-
-### 3. Datos persistentes
-```
-/home/dadito/IA/proyecto-seal/auto-browser/data/
-  auth/          ← perfiles de autenticación guardados
-  artifacts/     ← screenshots, downloads, traces
-  audit/         ← JSONL audit trail
-  jobs/          ← checkpoints de workflows activos
-```
-
----
-
-## MCP Integration
-
-Registrar auto-browser como MCP server adicional en `.mcp.json`:
+Agregar en `.mcp.json` de JARVIS como servidor MCP externo HTTP:
 ```json
 {
   "auto-browser": {
-    "url": "http://localhost:8800/mcp",
-    "transport": "http",
-    "headers": {"Authorization": "Bearer <token>"}
+    "type": "http",
+    "url": "http://localhost:8000/mcp",
+    "headers": {"X-Operator-Secret": "${SEAL_OPERATOR_SECRET}"}
   }
 }
 ```
 
-**Herramientas disponibles para agentes:**
-- `create_session(name, start_url, auth_profile?)` — abrir browser
-- `observe_session(session_id)` — screenshot + DOM summary
-- `act_on_session(session_id, action, params)` — click, fill, navigate
-- `save_auth_profile(session_id, name)` — guardar estado de auth
-- `request_takeover(session_id, reason)` — pedir a William que tome control
-- `create_agent_job(instructions, profile?)` — workflow autónomo con checkpoints
-- `resume_job(job_id)` — retomar job interrumpido
+Los tools aparecen como `mcp__auto-browser__navigate`, `mcp__auto-browser__screenshot`, etc.
 
 ---
 
-## Auth Profile Strategy
+## Diferencia con mcp__playwright__* actual
 
-Sitios prioritarios para guardar perfiles:
-
-| Sitio | Profile name | Uso |
+| Capacidad | mcp__playwright actual | auto-browser |
 |---|---|---|
-| INDECOPI (registro.indecopi.gob.pe) | `indecopi-william` | Registro de SEAL |
-| gob.pe | `gobpe-william` | Trámites estatales |
-| GitHub | `github-william` | Automatización repos |
-| Banco de la Nación | `bdn-william` | Pagos INDECOPI |
-
-**Workflow de login-once:**
-1. Agente crea sesión sin auth profile
-2. William ve noVNC en `:6180` y hace login manualmente
-3. Agente llama `save_auth_profile()` → guarda en `data/auth/`
-4. Futuras sesiones abren con ese profile → ya autenticadas
-
----
-
-## Human Takeover Workflow
-
-Cuando un agente encuentra:
-- CAPTCHA
-- 2FA
-- Flujo inesperado (botón no encontrado)
-- Acción de alto riesgo (pago, submit, delete)
-
-```
-Agente → request_takeover(session_id, reason="CAPTCHA detectado")
-       → POST a web_chat: "William, se necesita tu control en :6180"
-       → William abre noVNC → resuelve → confirma
-       → Agente retoma flujo
-```
-
----
-
-## Audit Integration con SOUL
-
-El JSONL de auditoría de auto-browser se sincroniza a `soul_v3.event_log`:
-
-```python
-# Cron job: sync_auto_browser_audit.py
-# Lee data/audit/*.jsonl → inserta en soul_v3.event_log
-# Permite a JARVIS/ADA buscar "qué sitios visitamos" en memoria
-```
-
----
-
-## Comparación con mcp__playwright__* actual
-
-| Feature | mcp__playwright__* | auto-browser |
-|---|---|---|
-| Control básico | ✅ | ✅ |
-| Auth persistente | ❌ | ✅ |
-| Human takeover | ❌ | ✅ (noVNC) |
+| Sesión persistente | ❌ | ✅ |
+| Auth profiles | ❌ | ✅ |
+| Human takeover (VNC) | ❌ | ✅ |
 | Approval gates | ❌ | ✅ |
-| Job checkpoints | ❌ | ✅ |
-| Audit trail | ❌ | ✅ (JSONL) |
-| Dashboard | ❌ | ✅ (:8800/dashboard) |
-| MCP-nativo | parcial | ✅ |
+| Audit trail | ❌ | ✅ |
+| Dashboard operador | ❌ | ✅ |
+| Resumable jobs | ❌ | ✅ |
+| PII scrubbing | ❌ | ✅ |
+| Setup | ya activo | Docker Compose |
+
+**Recomendación:** Mantener `mcp__playwright__*` para operaciones simples de baja fricción. Usar auto-browser para workflows complejos con auth, takeover o auditabilidad.
 
 ---
 
-## Plan de Implementación
+## Regla SOUL Native First — Justificación
 
-### Fase 1 — Deploy (2h) — ADA
-1. Clonar repo en `/home/dadito/IA/proyecto-seal/auto-browser/`
-2. Configurar `docker-compose.yml` con puertos SEAL (8800/6180/5980)
-3. Crear `.env` con tokens
-4. `docker compose up --build`
-5. Verificar dashboard en `:8800/dashboard`
-
-### Fase 2 — MCP Config (30min) — JARVIS
-1. Agregar entrada `auto-browser` a `.mcp.json` de cada agente
-2. Verificar tools disponibles via `mcp__auto-browser__*`
-3. Test: crear sesión, screenshot, guardar auth profile
-
-### Fase 3 — Auth Profiles (1h) — William + ADA
-1. William hace login manual en INDECOPI, gob.pe, GitHub via noVNC `:6180`
-2. ADA llama `save_auth_profile()` para cada sitio
-3. Test: abrir sesión con profile → verificar ya está autenticado
-
-### Fase 4 — SOUL Audit Bridge (1h) — ADA
-1. Escribir `sync_auto_browser_audit.py`
-2. Registrar como cron job en systemd timer
-3. Verificar que eventos aparecen en `soul_v3.event_log`
+Auto-browser es una **dependencia externa justificada**: implementar browser automation equivalente desde cero (Playwright + noVNC + auth + VNC server + dashboard) supera 2000 líneas y no es el core de SEAL. Esta es la excepción definida en la regla: "Solo se acepta dependencia externa cuando es imposible o irrazonable hacerlo nativo."
 
 ---
 
-## DoD (Definition of Done)
+## Implementación — Pasos
 
-- [ ] auto-browser corriendo en Docker, accesible en `:8800`
-- [ ] noVNC accesible para William en `:6180`
-- [ ] MCP tools `auto_browser_*` visibles en JARVIS y ADA
-- [ ] Al menos 1 auth profile guardado (INDECOPI o gob.pe)
-- [ ] Human takeover funciona: agente notifica → William toma control → retoma
-- [ ] Audit JSONL sincronizándose a SOUL DB
+| Paso | Acción | Esfuerzo |
+|---|---|---|
+| 1 | `git clone` + `docker compose up` local | 15min |
+| 2 | Verificar dashboard :8000/dashboard y noVNC :6080 | 5min |
+| 3 | Agregar SEAL_OPERATOR_SECRET en credentials.env | 5min |
+| 4 | Config MCP en `.mcp.json` de JARVIS | 10min |
+| 5 | Test: JARVIS navega + extrae título | 5min |
+| 6 | Crear auth profile para GitHub | 20min |
+| 7 | Integrar en research loop (jarvis_research cron) | 30min |
+
+**Total estimado: ~90 min**
 
 ---
 
-## Notas
+## Riesgos
 
-- Reemplaza gradualmente `mcp__playwright__*` — no eliminar hasta que auto-browser esté estable
-- El dashboard `:8800/dashboard` es para operaciones internas del equipo, no exponer al exterior
-- `API_BEARER_TOKEN` debe ir a `credentials.env`, no a `.mcp.json`
-- SOUL Native First aplica: el sync de audit usa Python puro + asyncpg, sin ORMs externos
+- **Docker en DGX Spark (arm64):** verificar imagen arm64 disponible antes de deployar en Spark. Desarrollo local x86_64 sin problema.
+- **Puerto 8000 ocupado:** `ss -tlnp | grep 8000` antes de levantar.
+- **SEAL_OPERATOR_SECRET:** agregar a credentials.env únicamente (no al código, per regla no_external_references_in_code).
+
+---
+
+## DoD
+
+- [ ] auto-browser corriendo en Docker local
+- [ ] JARVIS ejecuta `mcp__auto-browser__navigate` + `mcp__auto-browser__screenshot` exitosamente
+- [ ] William puede abrir noVNC :6080 y ver el browser del agente en tiempo real
+- [ ] 1 auth profile guardado y reutilizado en sesión siguiente
+- [ ] Search de INDECOPI funciona via browser real
