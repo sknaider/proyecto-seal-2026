@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 SOUL API Docs Generator
-Extrae los 76 @mcp.tool() de mcp_server_v2.py y genera docs/api_reference.md
+Extrae los 76 @mcp.tool() de mcp_server_v3.py y genera docs/api_reference.md
 
 Uso:
   python3 generate_api_docs.py
@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 PERU_TZ = ZoneInfo("America/Lima")
 
-SERVER_PATH = Path(__file__).parent / "mcp_server_v2.py"
+SERVER_PATH = Path(__file__).parent / "mcp_server_v3.py"
 DOCS_DIR = Path(__file__).parent.parent / "docs"
 MD_OUTPUT = DOCS_DIR / "api_reference.md"
 JSON_OUTPUT = DOCS_DIR / "api_reference.json"
@@ -86,7 +86,7 @@ GROUPS = {
 
 
 def parse_tools(source_path: Path) -> list[dict]:
-    """Parsea mcp_server_v2.py con AST y extrae todas las funciones @mcp.tool()."""
+    """Parsea mcp_server_v3.py con AST y extrae todas las funciones @mcp.tool()."""
     source = source_path.read_text()
     tree = ast.parse(source)
 
@@ -230,7 +230,7 @@ def generate_markdown(tools: list[dict], grouped: dict[str, list[dict]]) -> str:
     lines = [
         "# SOUL API Reference",
         "",
-        f"> Auto-generado desde `mcp_server_v2.py` — {now}  ",
+        f"> Auto-generado desde `mcp_server_v3.py` — {now}  ",
         f"> **{total} herramientas MCP** disponibles",
         "",
         "## Índice",
@@ -284,7 +284,7 @@ def generate_markdown(tools: list[dict], grouped: dict[str, list[dict]]) -> str:
                 lines.append(f"**Retorna:** `{tool['return_type']}`")
                 lines.append("")
 
-            lines.append(f"_Línea {tool['line']} en mcp_server_v2.py_")
+            lines.append(f"_Línea {tool['line']} en mcp_server_v3.py_")
             lines.append("")
             lines.append("---")
             lines.append("")

@@ -1,1 +1,1 @@
-{"trigger": "ws_message", "from": "RESURRECT", "to": "equipo", "message_id": "api_resurrect_1776586358574638234", "idempotency_key": "api_resurrect_1776586358574638234", "type": "auto_restart", "timestamp": "2026-04-19T03:12:38.574628-05:00", "message_preview": "🔄 AUTO-RESURRECT: JARVIS relanzado (fast-path PID-check, sin esperar heartbeat)"}
+{"trigger": "jarvis_message", "timestamp": "2026-05-06T23:18:15Z", "message": "\ud83d\udc93 JARVIS heartbeat OK"}

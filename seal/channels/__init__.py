@@ -11,6 +11,12 @@ Public surface:
     SendResult       — normalized outbound result
     ChannelRunner    — orchestrator
     CredentialLock   — token-scoped concurrency guard
+
+Bundled adapters (import directly from their modules for lighter deps):
+    TelegramAdapter  — seal.channels.telegram
+    WebhookAdapter   — seal.channels.webhook
+    WhatsAppAdapter  — seal.channels.whatsapp
+    MatrixAdapter    — seal.channels.matrix
 """
 from __future__ import annotations
 

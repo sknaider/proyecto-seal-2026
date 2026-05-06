@@ -20,7 +20,7 @@ else
   FRESH_SCRIPT="$SEAL_DIR/${AGENT_LOWER}_fresh.sh"
 fi
 LOG="$SEAL_DIR/messages/seal_restart.log"
-UNIT="seal-resurrect-${AGENT_LOWER}-$(date +%s)"
+UNIT="seal-resurrect-${AGENT_LOWER}"
 KITTY_SOCK="/tmp/seal-${AGENT_LOWER}-kitty.sock"
 SID_FILE="/tmp/${AGENT_LOWER}_session.id"
 
@@ -41,16 +41,26 @@ ts() { date '+%Y-%m-%dT%H:%M:%S'; }
 
 echo "[$(ts)] AUTO-RESTART $AGENT_UPPER — systemd-run + kitty" >> "$LOG"
 
-# Idempotencia: si ya hay claude vivo con SEAL_AGENT=AGENT_UPPER, saltar
-# seal-claude renombra el proceso a solo "claude" sin args visibles → usar environ
+# Idempotencia: si ya hay agente vivo (nativo o claude), saltar
+# 04-may-2026 (JARVIS): añadido check runtime nativo ({agent}_kernel_main.py)
+# para que ADA-nativa y futuros agentes nativos no sean respawneados.
 EXISTING=""
-for _PID in $(pgrep -x "claude" 2>/dev/null); do
-  if tr '\0' '\n' < /proc/$_PID/environ 2>/dev/null | grep -q "^SEAL_AGENT=${AGENT_UPPER}$"; then
+NATIVE_KERNEL="${AGENT_LOWER}_kernel_main.py"
+for _PID in $(pgrep -f "$NATIVE_KERNEL" 2>/dev/null); do
+  _CMD=$(ps -o cmd= -p "$_PID" 2>/dev/null)
+  if echo "$_CMD" | grep -q "sandbox-agent/${AGENT_UPPER}/kernel/${NATIVE_KERNEL}"; then
     EXISTING=$_PID; break
   fi
 done
+if [ -z "$EXISTING" ]; then
+  for _PID in $(pgrep -x "claude" 2>/dev/null); do
+    if tr '\0' '\n' < /proc/$_PID/environ 2>/dev/null | grep -q "^SEAL_AGENT=${AGENT_UPPER}$"; then
+      EXISTING=$_PID; break
+    fi
+  done
+fi
 if [ -n "$EXISTING" ]; then
-  echo "[$(ts)] SKIP $AGENT_UPPER — claude ya vivo (PID $EXISTING, SEAL_AGENT confirmado)" >> "$LOG"
+  echo "[$(ts)] SKIP $AGENT_UPPER — ya vivo (PID $EXISTING, nativo o claude)" >> "$LOG"
   exit 0
 fi
 

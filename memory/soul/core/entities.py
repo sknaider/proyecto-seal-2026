@@ -1,7 +1,7 @@
 """SEAL SOUL — Entity extraction for MAGMA MENTIONS edges.
 
-Extracted from mcp_server_v2.py (Wave 2).
-Used by: mcp_server_v2.py, sleep_gate_cron.py
+Extracted from mcp_server_v3.py (Wave 2).
+Used by: mcp_server_v3.py, sleep_gate_cron.py
 """
 from __future__ import annotations
 
@@ -68,5 +68,5 @@ def extract_entities(text: str) -> list[tuple[str, str]]:
     return list(found.items())
 
 
-# Legacy alias — keeps mcp_server_v2.py working without changes
+# Legacy alias — keeps mcp_server_v3.py working without changes
 _extract_entities = extract_entities

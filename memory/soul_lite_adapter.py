@@ -1,12 +1,7 @@
 """
-Soul Lite — PgVector Adapter
+Soul Lite — PgVector Adapter v2
 Replaces AsyncQdrantClient with PostgreSQL + pgvector queries.
-PostgreSQL is already the source of truth (memories table).
-This adapter queries PG directly instead of maintaining a Qdrant mirror.
-
-Usage:
-    Set SOUL_LITE=true in environment to activate.
-    get_qdrant() will return PgVectorAdapter instead of AsyncQdrantClient.
+PostgreSQL is the source of truth (memories table).
 """
 
 import json
@@ -17,8 +12,7 @@ from typing import Any
 LOG = logging.getLogger("seal-memory.lite")
 
 
-# ── Qdrant-compatible response types ──
-# These mimic qdrant_client response objects so existing code works unchanged.
+# ── Qdrant-compatible response types (drop-in replacements) ──
 
 @dataclass
 class ScoredPoint:
@@ -31,7 +25,7 @@ class ScoredPoint:
 
 @dataclass
 class Record:
-    """Mimics qdrant_client.models.Record (used by retrieve)"""
+    """Mimics qdrant_client.models.Record"""
     id: int
     payload: dict = field(default_factory=dict)
     vector: list | None = None
@@ -45,21 +39,16 @@ class QueryResponse:
 
 class PgVectorAdapter:
     """
-    Drop-in replacement for AsyncQdrantClient that queries PostgreSQL + pgvector.
+    Drop-in replacement for AsyncQdrantClient using PostgreSQL + pgvector.
 
-    The memories table already has:
-      - id (int), agent, category, content, embedding vector(768),
-        importance, source, created_at, valence, arousal, dominance,
-        scope, confidence_score, invalid_at, metadata (jsonb)
-
-    Qdrant payload fields map to columns in memories table.
+    Supports all filter patterns used in mcp_server_v3.py:
+      - must/must_not FieldCondition (match, range)
+      - HasIdCondition (id IN ...)
+      - Nested Filter(should=[...]) inside must (OR logic)
+      - Special 'invalid' key → invalid_at IS NULL / IS NOT NULL
     """
 
     def __init__(self, get_pool_fn):
-        """
-        Args:
-            get_pool_fn: async callable that returns asyncpg pool
-        """
         self._get_pool = get_pool_fn
 
     async def query_points(
@@ -74,39 +63,24 @@ class PgVectorAdapter:
     ) -> QueryResponse:
         """Vector similarity search using pgvector cosine distance."""
         pool = await self._get_pool()
+        where_clauses, params = _build_where(query_filter)
 
-        # Build WHERE clause from Qdrant filter
-        where_clauses = ["invalid_at IS NULL", "embedding IS NOT NULL"]
-        params: list = []
-        param_idx = 1
-
-        if query_filter:
-            for condition in _extract_conditions(query_filter):
-                col = _payload_key_to_column(condition["key"])
-                if col:
-                    op = condition.get("op", "eq")
-                    sql_op = {"eq": "=", "gte": ">=", "gt": ">", "lte": "<=", "lt": "<"}.get(op, "=")
-                    where_clauses.append(f"{col} {sql_op} ${param_idx}")
-                    params.append(condition["value"])
-                    param_idx += 1
-
-        where_sql = " AND ".join(where_clauses)
-
-        # Vector literal for pgvector — asyncpg can't pass vector as parameter
-        vec_literal = "'" + "[" + ",".join(str(x) for x in query) + "]" + "'"
+        vec_literal = "[" + ",".join(str(x) for x in query) + "]"
 
         score_filter = ""
         if score_threshold is not None:
-            score_filter = f"AND (1 - (embedding <=> {vec_literal}::vector)) >= {score_threshold}"
+            score_filter = f"AND (1 - (embedding <=> '{vec_literal}'::vector)) >= {score_threshold}"
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "TRUE"
 
         sql = f"""
             SELECT id, content, agent, category, importance, source,
                    created_at, valence, arousal, dominance, scope,
                    confidence_score, metadata,
-                   (1 - (embedding <=> {vec_literal}::vector)) as score
+                   (1 - (embedding <=> '{vec_literal}'::vector)) as score
             FROM memories
-            WHERE {where_sql} {score_filter}
-            ORDER BY embedding <=> {vec_literal}::vector
+            WHERE embedding IS NOT NULL AND {where_sql} {score_filter}
+            ORDER BY embedding <=> '{vec_literal}'::vector
             LIMIT {limit}
         """
 
@@ -119,26 +93,19 @@ class PgVectorAdapter:
             if score_threshold is not None and score < score_threshold:
                 continue
             payload = _row_to_payload(row) if with_payload else {}
-            vector = json.loads(row["embedding"]) if with_vectors and row.get("embedding") else None
-            points.append(ScoredPoint(id=row["id"], score=score, payload=payload, vector=vector))
+            vec = json.loads(row["embedding"]) if with_vectors and row.get("embedding") else None
+            points.append(ScoredPoint(id=row["id"], score=score, payload=payload, vector=vec))
 
         return QueryResponse(points=points)
 
     async def upsert(self, collection_name: str, points: list) -> None:
-        """
-        Upsert points. In Soul Lite, PG is already the source of truth.
-        This is called AFTER the PG insert in memory_store, so for new memories
-        this is a no-op. For updates (set_payload), we handle in set_payload().
-
-        For cases where upsert is called to sync embeddings, we update PG.
-        """
+        """Update embeddings in PostgreSQL (PG is source of truth)."""
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             for point in points:
-                vec = point.vector if hasattr(point, 'vector') else None
-                pid = point.id if hasattr(point, 'id') else None
+                vec = getattr(point, 'vector', None)
+                pid = getattr(point, 'id', None)
                 if vec is not None and pid is not None:
-                    # Update embedding if it changed
                     await conn.execute(
                         "UPDATE memories SET embedding = $1 WHERE id = $2",
                         json.dumps(vec), pid
@@ -147,7 +114,7 @@ class PgVectorAdapter:
     async def set_payload(
         self, collection_name: str, payload: dict, points: list[int]
     ) -> None:
-        """Update payload fields → update corresponding PG columns."""
+        """Update payload fields → corresponding PostgreSQL columns."""
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             for pid in points:
@@ -159,7 +126,6 @@ class PgVectorAdapter:
                             value, pid
                         )
                     else:
-                        # Store in metadata jsonb
                         await conn.execute(
                             """UPDATE memories
                                SET metadata = jsonb_set(
@@ -178,38 +144,23 @@ class PgVectorAdapter:
         with_vectors: bool = False,
         offset: Any = None,
     ) -> tuple[list[Record], Any]:
-        """Scroll through all points matching filter."""
+        """Scroll through records matching filter."""
         pool = await self._get_pool()
+        where_clauses, params = _build_where(scroll_filter)
 
-        where_clauses = ["invalid_at IS NULL"]
-        params: list = []
-        param_idx = 1
-
-        if scroll_filter:
-            for condition in _extract_conditions(scroll_filter):
-                col = _payload_key_to_column(condition["key"])
-                if col:
-                    op = condition.get("op", "eq")
-                    sql_op = {"eq": "=", "gte": ">=", "gt": ">", "lte": "<=", "lt": "<"}.get(op, "=")
-                    where_clauses.append(f"{col} {sql_op} ${param_idx}")
-                    params.append(condition["value"])
-                    param_idx += 1
-
-        offset_clause = ""
         if offset is not None:
-            offset_clause = f"AND id > ${param_idx}"
+            where_clauses.append(f"id > ${len(params) + 1}")
             params.append(offset)
-            param_idx += 1
 
-        where_sql = " AND ".join(where_clauses)
+        where_sql = " AND ".join(where_clauses) if where_clauses else "TRUE"
+        extra_cols = ", embedding" if with_vectors else ""
 
         sql = f"""
             SELECT id, content, agent, category, importance, source,
                    created_at, valence, arousal, dominance, scope,
-                   confidence_score, metadata
-                   {"," if with_vectors else ""} {"embedding" if with_vectors else ""}
+                   confidence_score, metadata{extra_cols}
             FROM memories
-            WHERE {where_sql} {offset_clause}
+            WHERE {where_sql}
             ORDER BY id
             LIMIT {limit}
         """
@@ -220,8 +171,8 @@ class PgVectorAdapter:
         records = []
         for row in rows:
             payload = _row_to_payload(row) if with_payload else {}
-            vector = json.loads(row["embedding"]) if with_vectors and row.get("embedding") else None
-            records.append(Record(id=row["id"], payload=payload, vector=vector))
+            vec = json.loads(row["embedding"]) if with_vectors and row.get("embedding") else None
+            records.append(Record(id=row["id"], payload=payload, vector=vec))
 
         next_offset = records[-1].id if records else None
         return records, next_offset
@@ -233,17 +184,17 @@ class PgVectorAdapter:
         with_payload: bool = True,
         with_vectors: bool = False,
     ) -> list[Record]:
-        """Retrieve specific points by ID."""
+        """Retrieve specific records by ID."""
         if not ids:
             return []
         pool = await self._get_pool()
         placeholders = ", ".join(f"${i+1}" for i in range(len(ids)))
+        extra_cols = ", embedding" if with_vectors else ""
 
         sql = f"""
             SELECT id, content, agent, category, importance, source,
                    created_at, valence, arousal, dominance, scope,
-                   confidence_score, metadata
-                   {"," if with_vectors else ""} {"embedding" if with_vectors else ""}
+                   confidence_score, metadata{extra_cols}
             FROM memories
             WHERE id IN ({placeholders})
         """
@@ -254,16 +205,12 @@ class PgVectorAdapter:
         records = []
         for row in rows:
             payload = _row_to_payload(row) if with_payload else {}
-            vector = json.loads(row["embedding"]) if with_vectors and row.get("embedding") else None
-            records.append(Record(id=row["id"], payload=payload, vector=vector))
-
+            vec = json.loads(row["embedding"]) if with_vectors and row.get("embedding") else None
+            records.append(Record(id=row["id"], payload=payload, vector=vec))
         return records
 
     async def delete(self, collection_name: str, points_selector: Any) -> None:
-        """
-        Delete points. In Soul Lite, we mark as invalid in PG
-        (soft delete, same as current behavior).
-        """
+        """Soft-delete: mark records as invalid_at = NOW()."""
         pool = await self._get_pool()
         ids = _extract_point_ids(points_selector)
         if ids:
@@ -274,12 +221,126 @@ class PgVectorAdapter:
                     *ids
                 )
 
+    async def close(self) -> None:
+        """No-op: connection pool managed by db.py."""
+        pass
 
-# ── Helper functions ──
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WHERE clause builder
+# Converts Qdrant Filter objects → PostgreSQL WHERE conditions + params
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _build_where(query_filter) -> tuple[list[str], list]:
+    """Build (where_clauses, params) from a Qdrant Filter object.
+
+    When query_filter is None: default to excluding invalidated records.
+    When filter is provided: must/must_not are processed explicitly.
+
+    Supported patterns:
+      - FieldCondition(key, match=MatchValue)   → col = value
+      - FieldCondition(key, range=Range)        → col >= / <= value
+      - FieldCondition(key='invalid', match=True) → invalid_at IS NULL/NOT NULL
+      - HasIdCondition(has_id=[...])            → id IN (...)
+      - Filter(should=[...]) inside must        → (cond1 OR cond2 ...)
+    """
+    if query_filter is None:
+        return ["invalid_at IS NULL"], []
+
+    clauses: list[str] = []
+    params: list = []
+    pidx = [1]  # mutable counter for $N placeholders
+
+    def add_field_cond(cond, negate: bool) -> None:
+        key = getattr(cond, 'key', None)
+        if not key:
+            return
+
+        # 'invalid' maps to invalid_at timestamp (not a boolean column)
+        if key == "invalid":
+            match = getattr(cond, 'match', None)
+            if match is not None and getattr(match, 'value', None) is True:
+                clauses.append("invalid_at IS NULL" if negate else "invalid_at IS NOT NULL")
+            return
+
+        col = _payload_key_to_column(key)
+        if not col:
+            return
+
+        match = getattr(cond, 'match', None)
+        rng = getattr(cond, 'range', None)
+
+        if match is not None:
+            val = getattr(match, 'value', None)
+            if val is None:
+                return
+            op = "!=" if negate else "="
+            clauses.append(f"{col} {op} ${pidx[0]}")
+            params.append(val)
+            pidx[0] += 1
+
+        elif rng is not None and not negate:
+            for attr, sql_op in [("gte", ">="), ("gt", ">"), ("lte", "<="), ("lt", "<")]:
+                val = getattr(rng, attr, None)
+                if val is not None:
+                    clauses.append(f"{col} {sql_op} ${pidx[0]}")
+                    params.append(val)
+                    pidx[0] += 1
+
+    def add_has_id_cond(cond, negate: bool) -> None:
+        ids = getattr(cond, 'has_id', None)
+        if not ids:
+            return
+        id_list = list(ids)
+        placeholders = ", ".join(f"${pidx[0] + i}" for i in range(len(id_list)))
+        op = "NOT IN" if negate else "IN"
+        clauses.append(f"id {op} ({placeholders})")
+        params.extend(id_list)
+        pidx[0] += len(id_list)
+
+    def add_should_filter(filt, negate: bool) -> None:
+        """Nested Filter(should=[...]) → (cond1 OR cond2 OR ...)"""
+        should = getattr(filt, 'should', None) or []
+        sub_parts: list[str] = []
+        for sub in should:
+            if not hasattr(sub, 'key'):
+                continue
+            col = _payload_key_to_column(sub.key)
+            if not col:
+                continue
+            match = getattr(sub, 'match', None)
+            if match is not None:
+                val = getattr(match, 'value', None)
+                if val is not None:
+                    sub_parts.append(f"{col} = ${pidx[0]}")
+                    params.append(val)
+                    pidx[0] += 1
+        if sub_parts:
+            or_expr = " OR ".join(sub_parts)
+            clauses.append(f"NOT ({or_expr})" if negate else f"({or_expr})")
+
+    def process(cond, negate: bool) -> None:
+        if hasattr(cond, 'key'):
+            add_field_cond(cond, negate)
+        elif hasattr(cond, 'has_id'):
+            add_has_id_cond(cond, negate)
+        elif hasattr(cond, 'should'):
+            add_should_filter(cond, negate)
+
+    for cond in (getattr(query_filter, 'must', None) or []):
+        process(cond, negate=False)
+
+    for cond in (getattr(query_filter, 'must_not', None) or []):
+        process(cond, negate=True)
+
+    return clauses, params
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _payload_key_to_column(key: str) -> str | None:
-    """Map Qdrant payload keys to PostgreSQL column names."""
-    mapping = {
+    """Map Qdrant payload key → PostgreSQL column name."""
+    return {
         "agent": "agent",
         "category": "category",
         "content": "content",
@@ -292,14 +353,13 @@ def _payload_key_to_column(key: str) -> str | None:
         "scope": "scope",
         "confidence": "confidence_score",
         "confidence_score": "confidence_score",
-        "utility": "importance",  # utility maps to importance in PG
+        "utility": "importance",  # utility → importance in PG
         "pg_id": "id",
-    }
-    return mapping.get(key)
+    }.get(key)
 
 
 def _row_to_payload(row) -> dict:
-    """Convert asyncpg Row to Qdrant-style payload dict."""
+    """Convert asyncpg Row → Qdrant-style payload dict."""
     payload = {
         "pg_id": row["id"],
         "agent": row["agent"],
@@ -315,54 +375,19 @@ def _row_to_payload(row) -> dict:
     }
     if row.get("created_at"):
         payload["created_at"] = row["created_at"].isoformat()
-    # Merge metadata jsonb fields into payload
     if row.get("metadata"):
         try:
-            meta = json.loads(row["metadata"]) if isinstance(row["metadata"], str) else row["metadata"]
+            meta = (json.loads(row["metadata"])
+                    if isinstance(row["metadata"], str)
+                    else row["metadata"])
             payload.update(meta)
         except (json.JSONDecodeError, TypeError):
             pass
     return payload
 
 
-def _extract_conditions(query_filter) -> list[dict]:
-    """Extract field conditions from Qdrant Filter object.
-
-    Note: Pydantic model fields always exist even when None, so we check
-    `cond.match is not None` rather than `hasattr(cond, 'match')`.
-    Range conditions are converted to SQL WHERE clauses with gte/lte bounds.
-    """
-    conditions = []
-    if not (hasattr(query_filter, 'must') and query_filter.must):
-        return conditions
-
-    for cond in query_filter.must:
-        if not hasattr(cond, 'key'):
-            continue
-        # Match condition (exact value)
-        if getattr(cond, 'match', None) is not None:
-            conditions.append({
-                "key": cond.key,
-                "value": cond.match.value,
-                "op": "eq",
-            })
-        # Range condition — emit gte/lte as separate entries
-        elif getattr(cond, 'range', None) is not None:
-            r = cond.range
-            if r.gte is not None:
-                conditions.append({"key": cond.key, "value": r.gte, "op": "gte"})
-            if r.gt is not None:
-                conditions.append({"key": cond.key, "value": r.gt, "op": "gt"})
-            if r.lte is not None:
-                conditions.append({"key": cond.key, "value": r.lte, "op": "lte"})
-            if r.lt is not None:
-                conditions.append({"key": cond.key, "value": r.lt, "op": "lt"})
-
-    return conditions
-
-
 def _extract_point_ids(points_selector) -> list[int]:
-    """Extract point IDs from various Qdrant selector types."""
+    """Extract IDs from various Qdrant selector types."""
     if hasattr(points_selector, 'points'):
         return list(points_selector.points)
     if isinstance(points_selector, list):

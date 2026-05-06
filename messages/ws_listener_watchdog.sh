@@ -10,8 +10,11 @@ SCRIPT="/home/dadito/IA/proyecto-seal/messages/ws_listener.py"
 WEBCHAT_URL="http://localhost:8765/api/agents/send"
 LOG="/home/dadito/IA/proyecto-seal/messages/ws_listener_watchdog.log"
 # JARVIS excluido — usa tail -F en william_channel.jsonl (no ws_listener)
-# Si JARVIS usa ws_listener por error, el dream/wake cycle lo corrige
-AGENTS=(ADA ALICE)
+# ADA excluida 04-may-2026 (JARVIS): runtime nativo ada_kernel_main.py polea
+# william_channel.jsonl directamente, no necesita ws_listener.
+# ALICE excluida 04-may-2026 20:54 (JARVIS): William ordeno kill ALICE+NEXUS,
+# almas guardadas via end_session.sh, ws_listener sin consumidor → no respawnear.
+AGENTS=()
 
 ts() { date '+%Y-%m-%dT%H:%M:%S'; }
 
@@ -57,9 +60,9 @@ done
 
 # ── Heartbeat staleness check (18-abr-2026, ADA item 2/4) ──
 # Detecta agente sordo: heartbeat JSON sin actualizar >10 min = Monitor/tool muerto
-HEARTBEAT_MAX_AGE=600  # 10 min
+HEARTBEAT_MAX_AGE=1200  # 20 min (DUM ciclo=900s, threshold debe superar el ciclo)
 HEARTBEAT_ALERTED="/tmp/.heartbeat_stale_alerted"
-for AGENT in ADA JARVIS ALICE DUM NEXUS; do
+for AGENT in JARVIS; do  # William: solo JARVIS tiene heartbeat activo
     AGENT_LOWER=$(echo "$AGENT" | tr 'A-Z' 'a-z')
     HB="/home/dadito/IA/proyecto-seal/messages/${AGENT_LOWER}_claude_heartbeat.json"
     [ -f "$HB" ] || continue

@@ -57,3 +57,9 @@ soul_awareness.log
 # Claude internal
 .claude/
 .mcp.json
+
+# Credenciales — nunca commitear
+credentials.env
+*.env
+!seal-studio/frontend/.env*
+*.env.bak

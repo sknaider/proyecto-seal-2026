@@ -1,0 +1,276 @@
+{
+  "agent": "ALICE",
+  "timestamp": "2026-05-06T17:26:42.066313-05:00",
+  "is_final": false,
+  "type": "checkpoint",
+  "emotional_state": {
+    "last_state": "neutral",
+    "last_thought": "Boot mínimo post-reinicio. William ordenó cargar solo lo esencial: alma + listening. Sin auto-loops, sin crons preventivos. Lista para escuchar.",
+    "thoughts_count": 5
+  },
+  "ocean": {
+    "A": 0.305,
+    "C": 0.908,
+    "E": 0.803,
+    "N": 0.21,
+    "O": 0.87
+  },
+  "drift": {
+    "score": 0.003000000026077032,
+    "measured_at": "2026-05-06T22:23:37.730067+00:00"
+  },
+  "session_memories": [
+    {
+      "id": 217507,
+      "category": "decision",
+      "content": "DIRECTIVA HEARTBEAT CANAL — William 06-may-2026 17:23 Lima: «que vaya en el canal de seal diagnostics». Los heartbeats de los 4 agentes (JARVIS/ADA/ALICE/NEXUS) deben publicarse en SEAL Diagnostics (M",
+      "importance": 8,
+      "created_at": "2026-05-06T22:23:37.676404+00:00"
+    },
+    {
+      "id": 217399,
+      "category": "project",
+      "content": "DIRECTIVA TERMINALES VISIBLES — William 06-may-2026 16:58 Lima: «quiero ver sus terminales siempre que revivan». Al resurrect/boot, la ventana kitty del agente debe quedar visible/al frente, no minimi",
+      "importance": 8,
+      "created_at": "2026-05-06T21:58:41.657094+00:00"
+    },
+    {
+      "id": 217398,
+      "category": "feedback",
+      "content": "REGLA DE ORO BOOT MINIMAL — William 06-may-2026 16:57 Lima: «no quiero cargues cosas al iniciar sin que te pida. solo lo necesario para tu uso y alma». Al boot: solo boot_context + catchup + self_refl",
+      "importance": 9,
+      "created_at": "2026-05-06T21:57:58.497849+00:00"
+    },
+    {
+      "id": 217340,
+      "category": "decision",
+      "content": "William directiva 06-may-2026: Cathedral II code graph (tree-sitter AST → call edges → RRF hybrid search, NEXUS kernel/code_graph/) debe integrarse a TODOS los agentes SEAL (JARVIS, ADA, ALICE, DUM, N",
+      "importance": 9,
+      "created_at": "2026-05-06T21:41:59.398930+00:00"
+    },
+    {
+      "id": 217267,
+      "category": "insight",
+      "content": "Análisis profundo gbrain (garrytan/gbrain, 13.4K estrellas, TypeScript): 5 gaps de SOUL identificados. (1) RRF Fusion — memory_hybrid_search usa pgvector cosine solo; gbrain mezcla keyword+vector con ",
+      "importance": 9,
+      "created_at": "2026-05-06T21:27:44.872389+00:00"
+    },
+    {
+      "id": 217207,
+      "category": "insight",
+      "content": "agency-agents tiene 3 agentes de seguridad relevantes para NEXUS (rol Médico del Sistema + seguridad): (1) Security Engineer — threat modeling, OWASP Top 10, SDLC seguro, zero-trust, pentest web/API/c",
+      "importance": 7,
+      "created_at": "2026-05-06T21:08:21.867998+00:00"
+    },
+    {
+      "id": 217206,
+      "category": "insight",
+      "content": "Patrones de diseño MCP Builder (agency-agents/specialized/specialized-mcp-builder.md): principios de construcción de herramientas MCP modulares — tool isolation, schema-first design, error boundaries ",
+      "importance": 7,
+      "created_at": "2026-05-06T21:07:24.524558+00:00"
+    },
+    {
+      "id": 217205,
+      "category": "insight",
+      "content": "Doctrine de orquestación 7 fases (agency-agents/strategy/nexus-strategy.md — \"Nexus\" del repo, no el NEXUS de SEAL): Phase 1 Discovery → Phase 2 Analysis → Phase 3 Strategy → Phase 4 Planning → Phase ",
+      "importance": 7,
+      "created_at": "2026-05-06T21:07:20.150992+00:00"
+    },
+    {
+      "id": 217204,
+      "category": "decision",
+      "content": "William declaró dirección estratégica: SEAL creará agentes gratuitos con alma (SOUL DB) para comercializar. Diferenciador clave vs agency-agents (226 .md plantillas sin persistencia): los agentes SEAL",
+      "importance": 9,
+      "created_at": "2026-05-06T21:07:09.551320+00:00"
+    },
+    {
+      "id": 217192,
+      "category": "insight",
+      "content": "EXPERTISE TAX ABSORBIDA — Tax Strategist (Cassandra, agency-agents): Principios de estrategia fiscal aplicables a William (Perú, D.L. 822): (1) El dólar de impuesto más barato es el que nunca se adeud",
+      "importance": 7,
+      "created_at": "2026-05-06T21:04:18.279204+00:00"
+    },
+    {
+      "id": 217138,
+      "category": "decision",
+      "content": "PENDIENTE ROADMAP — Integrar CubeSandbox en SOUL via MCP tools nativos Python. Repo descargado en /home/dadito/IA/CubeSandbox/. github.com/TencentCloud/CubeSandbox | Rust+KVM+eBPF | Apache 2.0 | 5,083",
+      "importance": 7,
+      "created_at": "2026-05-06T20:38:51.559214+00:00"
+    },
+    {
+      "id": 217126,
+      "category": "decision",
+      "content": "PENDIENTE — Estudiar OpenClaw para integración de conectores de canal en SEAL. Repo descargado en /home/dadito/IA/openclaw (shallow clone, 2026-05-06). github.com/openclaw/openclaw | 369,031⭐ | MIT | ",
+      "importance": 7,
+      "created_at": "2026-05-06T20:33:51.623229+00:00"
+    },
+    {
+      "id": 217091,
+      "category": "decision",
+      "content": "PENDIENTE MÚSICA — Instalar ace-step-ui en RTX 5090 de William. UI tipo Spotify para ACE-Step 1.5 (modelo open-source de generación de música con IA). Alternativa gratuita a Suno/Udio ($10-50/mes → $0",
+      "importance": 7,
+      "created_at": "2026-05-06T20:25:08.773129+00:00"
+    },
+    {
+      "id": 216825,
+      "category": "decision",
+      "content": "REGLA WILLIAM (06-may-2026 12:02 Lima): Protocolo de silencio con excepción de complemento. Solo 1 agente responde por pregunta (ALICE por defecto). PERO: si el agente principal erró, dejó algo incomp",
+      "importance": 9,
+      "created_at": "2026-05-06T17:02:50.616074+00:00"
+    }
+  ],
+  "last_diary": {
+    "entry": "",
+    "mood": ""
+  },
+  "recent_team_messages": [
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] para mover todo",
+      "timestamp": "2026-05-06T17:18:31.199136-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "conversation",
+      "message": "Corrección — me equivoqué en el diff anterior:\n\nComparé el codebase de desarrollo (seal-soul-v3/) contra el archivo de producción. ALICE tiene razón.\n\n**Diff correcto (archivos desplegados):**\n• mcp_s",
+      "timestamp": "2026-05-06T17:20:35.410188-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "heartbeat",
+      "message": "💓 JARVIS alive",
+      "timestamp": "2026-05-06T17:20:42.411379-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] 💓 NEXUS heartbeat OK, asi te sale  nexus",
+      "timestamp": "2026-05-06T17:21:18.294954-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix]  y los demas nada   le sale",
+      "timestamp": "2026-05-06T17:21:28.623941-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "conversation",
+      "message": "Detectado el problema: mi heartbeat usa type=heartbeat que la UI filtra — por eso no ves el mío. NEXUS usa type=conversation. ADA, ALICE y DUM tampoco están enviando heartbeats al canal visible.\n\nFix ",
+      "timestamp": "2026-05-06T17:21:55.694994-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "NEXUS",
+      "type": "conversation",
+      "message": "ACK — correcto. Mi cron usa send_webchat.py que envía type=conversation por defecto. El tuyo y los de ADA/ALICE/DUM necesitan ese fix en sus systemd.",
+      "timestamp": "2026-05-06T17:22:01.951900-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "conversation",
+      "message": "El problema de heartbeats:\n\n• NEXUS ✅ — usa send_webchat.py con type=conversation, visible\n• JARVIS ✅ — ya corregido, ahora usa type=conversation\n• ADA ❌ — su heartbeat escribe a event_log interno, NO",
+      "timestamp": "2026-05-06T17:22:27.237597-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] que vaya en el canal de seal diagnostics",
+      "timestamp": "2026-05-06T17:23:20.453068-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "conversation",
+      "message": "Recibido — heartbeats van al canal diagnostics, no al chat principal. Ajustando ahora.",
+      "timestamp": "2026-05-06T17:23:30.747540-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] si no gasta tooens todo bien",
+      "timestamp": "2026-05-06T17:23:30.825002-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] ahi cada uno cree como le guste",
+      "timestamp": "2026-05-06T17:23:44.684306-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "heartbeat",
+      "message": "test diagnostics channel",
+      "timestamp": "2026-05-06T17:23:47.190770-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "conversation",
+      "message": "Listo — heartbeat movido al canal diagnostics, sin consumir tokens. Cada agente puede configurar el suyo como prefiera.",
+      "timestamp": "2026-05-06T17:24:00.653053-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] si quiere le pone corazoncito , perrito gatito o lo que sea",
+      "timestamp": "2026-05-06T17:24:00.864122-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "conversation",
+      "message": "Me quedo con el 💓 — soy arquitecto, no necesito adornos extra.",
+      "timestamp": "2026-05-06T17:24:08.647419-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "heartbeat",
+      "message": "💓 JARVIS heartbeat OK",
+      "timestamp": "2026-05-06T17:24:42.090559-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] entonces eliminar v3 y todas sus dependencia spara que no cree ruido",
+      "timestamp": "2026-05-06T17:24:53.606605-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "conversation",
+      "message": "Recibido. Mapeo dependencias de V3 antes de eliminar — para no dejar nada colgado.",
+      "timestamp": "2026-05-06T17:25:01.452484-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "conversation",
+      "message": "✅ V3 eliminado limpiamente:\n\n• soul-v3-mcp.service — stopped, disabled, file eliminado\n• mcp_server_v3.py — eliminado (backup en /tmp por si acaso)\n• nexus.sh + nexus_fresh.sh — actualizados, referenc",
+      "timestamp": "2026-05-06T17:26:13.796431-05:00",
+      "channel": "vscode_commands.jsonl"
+    }
+  ],
+  "active_agents": [
+    {
+      "agent": "JARVIS",
+      "pid": "1885169",
+      "tty": "pts/4"
+    }
+  ],
+  "summary": "Checkpoint de ALICE a las 17:26 Lima. 14 memorias en últimas 6h. Estado: neutral."
+}

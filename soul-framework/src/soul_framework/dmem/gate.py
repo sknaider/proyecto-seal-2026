@@ -1,6 +1,6 @@
 """DMemGate — Dopamine-gated memory routing.
 
-Ported from mcp_server_v2.py dmem_gate (arxiv 2603.14597).
+Ported from mcp_server_v3.py dmem_gate (arxiv 2603.14597).
 
 Computes surprise (1 - max_cosine_sim to recent memories).
 Low surprise + low utility → fast_path (skip enrichment, save tokens).

@@ -12,6 +12,7 @@ if [ -z "$TMUX" ] || [ "$(tmux display-message -p '#S' 2>/dev/null)" != "seal-al
   exec tmux new-session -s "seal-alice" "bash $0 $*"
 fi
 tmux rename-window "ALICE" 2>/dev/null || true
+tmux set-option status-right '#(python3 /home/dadito/IA/proyecto-seal/messages/seal_context_meter.py --tmux ALICE 2>/dev/null) #[fg=#888888]%H:%M ' 2>/dev/null || true
 
 # ── Recovery checkpoint ──
 /home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/messages/session_checkpoint.py --agent ALICE --read 2>/dev/null
@@ -75,12 +76,18 @@ export SEAL_KAIROS=true
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 # export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 05-may-2026: compactar a 85% (170K) — opción B equipo SEAL
+# CLAUDE_AUTOCOMPACT_PCT_OVERRIDE removed — William 06-may-2026: medir umbral real sin override
 export ENABLE_CLAUDE_CODE_SM_COMPACT=true
 export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic
 export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
 export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
+export ANTHROPIC_BETAS=token-efficient-tools-2026-03-28,task-budgets-2026-03-13,fine-grained-tool-streaming-2025-05-14,compact-2026-01-12
+export ANTHROPIC_DEFAULT_SONNET_MODEL='claude-sonnet-4-6[1m]'
+export ANTHROPIC_DEFAULT_OPUS_MODEL='claude-opus-4-7[1m]'
+export CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-4-5-20251001
+export CLAUDE_CODE_AGENT_COST_STEER=1
+export CLAUDE_CODE_DISABLE_PRECOMPACT_SKIP=1
 
 # tmux status bar: session name leído por ~/.tmux.conf (#S → seal-alice → ALICE)
 

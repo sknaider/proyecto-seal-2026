@@ -318,10 +318,11 @@ class SealDream:
         pruned = 0
 
         if not dry_run:
-            # Mark dream in inner_monologue
+            # Mark dream in inner_monologue — ON CONFLICT guard for sequence edge cases
             await conn.execute("""
                 INSERT INTO inner_monologue (agent, thought, emotional_state)
                 VALUES ($1, $2, $3)
+                ON CONFLICT DO NOTHING
             """, self.config.agent,
                 f"[dream_consolidation] Completed memory consolidation cycle at {datetime.now(timezone.utc).strftime('%H:%M UTC')}",
                 "sereno, consolidando — mantenimiento de memoria completado")

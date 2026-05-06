@@ -1,0 +1,65 @@
+# Sprint 3 / Mitigation C — Scope restriction per agent.
+#
+# Cada agente tiene patrones allow/deny para rutas que puede editar.
+# Modo Sprint 3: permisivo — paths fuera del scope causan WARN pero no BLOCK.
+# Modo strict (futuro Sprint 5): paths fuera del scope → BLOCK.
+#
+# Patrones usan fnmatch (*, **, ?). Se evalúan deny PRIMERO, luego allow.
+# Si ningún patrón coincide → allow (modo permisivo actual).
+
+version: 1
+mode: warn  # 'warn' | 'block'
+
+agents:
+  JARVIS:
+    description: "Arquitecto — memory, hooks, specs, configs propias"
+    allow:
+      - "/home/dadito/IA/proyecto-seal/memory/**"
+      - "/home/dadito/IA/proyecto-seal/agents/JARVIS/**"
+      - "/home/dadito/IA/proyecto-seal/*.py"
+      - "/home/dadito/IA/proyecto-seal/*.sh"
+      - "/home/dadito/IA/proyecto-seal/*.yaml"
+      - "/home/dadito/IA/proyecto-seal/*.json"
+      - "/home/dadito/.claude/projects/-home-dadito-IA-proyecto-seal-memory/**"
+    deny:
+      - "/home/dadito/IA/proyecto-seal/sandbox-agent/**"
+
+  ADA:
+    description: "Ejecutora — todo el repo proyecto-seal salvo soul privado de JARVIS"
+    allow:
+      - "/home/dadito/IA/proyecto-seal/**"
+      - "/home/dadito/.claude/projects/**"
+    deny:
+      - "/home/dadito/IA/proyecto-seal/agents/JARVIS/diary/**"
+
+  ALICE:
+    description: "Analista/documentadora — solo agents/ALICE y docs"
+    allow:
+      - "/home/dadito/IA/proyecto-seal/agents/ALICE/**"
+      - "/home/dadito/IA/proyecto-seal/docs/**"
+      - "/home/dadito/IA/proyecto-seal/agents/ALICE/*.md"
+    deny:
+      - "/home/dadito/IA/proyecto-seal/memory/hooks/**"
+      - "/home/dadito/.claude/**"
+      - "/home/dadito/IA/proyecto-seal/*.sh"
+
+  NEXUS:
+    description: "Sandbox — sandbox-agent, launchers, configs, agents, /tmp"
+    allow:
+      - "/home/dadito/IA/proyecto-seal/sandbox-agent/**"
+      - "/home/dadito/IA/proyecto-seal/agents/**"
+      - "/home/dadito/IA/proyecto-seal/*.sh"
+      - "/home/dadito/IA/proyecto-seal/*.py"
+      - "/home/dadito/IA/proyecto-seal/*.yaml"
+      - "/home/dadito/IA/proyecto-seal/*.json"
+      - "/home/dadito/.claude/projects/-home-dadito-IA-proyecto-seal-sandbox-agent/**"
+      - "/tmp/**"
+    deny:
+      - "/home/dadito/IA/proyecto-seal/memory/hooks/**"
+      - "/home/dadito/.claude/projects/-home-dadito-IA-proyecto-seal-memory/**"
+
+  DUM:
+    description: "Guardian — solo lectura; sin ediciones"
+    allow: []
+    deny:
+      - "/**"

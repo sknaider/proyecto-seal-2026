@@ -58,9 +58,9 @@ async def write_diary(pool: asyncpg.Pool, agent: str):
     async with pool.acquire() as conn:
         # Gather today's events
         events = await conn.fetch(
-            """SELECT time, event_type, content, ref_id FROM event_log
-               WHERE agent = $1 AND time > NOW() - INTERVAL '24 hours'
-               ORDER BY time ASC""", agent,
+            """SELECT created_at, event_type, content, ref_id FROM event_log
+               WHERE agent = $1 AND created_at > NOW() - INTERVAL '24 hours'
+               ORDER BY created_at ASC""", agent,
         )
         # Gather today's memories
         memories = await conn.fetch(
@@ -87,7 +87,7 @@ async def write_diary(pool: asyncpg.Pool, agent: str):
         return
 
     events_text = "\n".join(
-        f"[{e['time'].strftime('%H:%M')}] {e['event_type']}: {e['content'][:150]}"
+        f"[{e['created_at'].strftime('%H:%M')}] {e['event_type']}: {e['content'][:150]}"
         for e in events
     ) or "(sin eventos registrados)"
     memories_text = "\n".join(

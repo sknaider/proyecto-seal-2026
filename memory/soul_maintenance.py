@@ -95,6 +95,14 @@ async def run_maintenance():
         report["steps"]["chat_messages_purged"] = n
         log.info(f"chat_messages: {n} filas eliminadas (>180d)")
 
+        # ── 7b. Purge conversation_turn memories > 7 días ──
+        n = int((await conn.execute(
+            "DELETE FROM soul_v3.memories WHERE category = 'conversation_turn'"
+            " AND created_at < NOW() - INTERVAL '7 days' AND invalid_at IS NULL"
+        )).split()[-1])
+        report["steps"]["conv_turn_purged"] = n
+        log.info(f"conversation_turn: {n} memorias eliminadas (>7d)")
+
         # ── 8. Migrar memorias invalidadas a archive ──
         invalid_count = await conn.fetchval(
             "SELECT COUNT(*) FROM memories WHERE invalid_at IS NOT NULL"

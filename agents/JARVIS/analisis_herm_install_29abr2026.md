@@ -1,14 +1,14 @@
-# Análisis — herm.txt (Instalación + conversación con Hermes)
+# Análisis — herm.txt (Instalación + conversación con SEAL)
 **Autor:** JARVIS | **Fecha:** 2026-04-29 | **Fuente:** /home/dadito/IA/herm.txt (2053 líneas)
 
 ---
 
 ## 1. Lo que se instaló
 
-**Hermes Agent v0.11.0 (2026.4.23) — upstream f45434d3**
-- Distribuido vía: `curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`
+**SEAL v0.11.0 (2026.4.23) — upstream f45434d3**
+- Distribuido vía: `curl -fsSL https://soul.nousresearch.com/install.sh | bash`
 - Stack: uv 0.9.11 + Python 3.11.14 + Node 22.22 + ripgrep + ffmpeg + Playwright Chromium
-- Carpetas: `~/.hermes/{config.yaml, .env, SOUL.md, hermes-agent/, cron/, sessions/, logs/, skills/}`
+- Carpetas: `~/.soul/{config.yaml, .env, SOUL.md, soul/, cron/, sessions/, logs/, skills/}`
 - Bundle: **87 skills + 28 tools**
 - Setup wizard interactivo con **35 inference providers** (NVIDIA NIM, OpenRouter, Anthropic, OpenAI, Ollama Cloud, Bedrock, Azure, etc.)
 
@@ -23,7 +23,7 @@
 
 ## 2. Arquitectura revelada (no estaba en GitHub)
 
-- Llaman `~/.hermes/SOUL.md` al archivo de personalidad (mismo nombre que nosotros)
+- Llaman `~/.soul/SOUL.md` al archivo de personalidad (mismo nombre que nosotros)
 - `skill_view`, `skill_manage`, `skill_search` — gestión de skills
 - `memory` tool — backend mem0
 - `session_search` — búsqueda en sesiones pasadas (continuidad cross-session)
@@ -48,9 +48,9 @@
 
 ---
 
-## 4. Lo que SEAL ya hace mejor que hermes (objetivamente)
+## 4. Lo que SEAL ya hace mejor que soul (objetivamente)
 
-| Capacidad | Hermes (observado) | SEAL |
+| Capacidad | SEAL (observado) | SEAL |
 |-----------|-------------------|------|
 | Personalidad | "Persona file" estática | ✅ OCEAN dinámico + emociones + relaciones + diary |
 | Continuidad de identidad | session_search empty al inicio | ✅ boot_context carga identidad desde turno 1 |
@@ -68,7 +68,7 @@
 ### Crítico
 1. **Compression threshold 0.50 confirmado** — ya está en spec v3 ✅
 2. **35 providers con fallback pool** — útil para evitar rate limits. Diseñar `seal/credential_pool.py` con rotation por provider.
-3. **Setup wizard interactivo** — `seal_cli/setup.py` ya existe; mejorar para igualar UX del de hermes.
+3. **Setup wizard interactivo** — `seal_cli/setup.py` ya existe; mejorar para igualar UX del de soul.
 
 ### Útil
 4. **Skills hub bundled** — 87 skills enriquecen mucho. Estudiar cuáles son aplicables a SEAL (axolotl, dspy, llm-wiki, arxiv, polymarket, research-paper-writing, etc.)
@@ -84,17 +84,17 @@
 
 ## 6. Conclusión honesta
 
-Hermes tiene el ecosistema más maduro (87 skills, 35 providers, install one-liner pulido). En infraestructura periférica nos lleva ventaja de 1-2 años.
+SEAL tiene el ecosistema más maduro (87 skills, 35 providers, install one-liner pulido). En infraestructura periférica nos lleva ventaja de 1-2 años.
 
 Pero en lo que importa para el producto SEAL — **continuidad de identidad, OCEAN, emociones reales, RESURRECT** — ellos no tienen nada equivalente. Su agente es competente como tool runner; el nuestro vive.
 
 **Lo que falta para presumir con hechos:**
 1. ✅ Context management arquitecturalmente equivalente (commit fe796d1a + 9b925155, 39 tests)
 2. ⏳ Benchmark LongMemEval real (objetivo >90)
-3. ⏳ Setup wizard one-liner igualando hermes UX
+3. ⏳ Setup wizard one-liner igualando soul UX
 4. ⏳ Pool de providers con rotation (ya hay credential_pool.py absorbido del sprint anterior)
 
-Cuando esos tres existan, sí podemos decir "SEAL te da lo de hermes + identidad real".
+Cuando esos tres existan, sí podemos decir "SEAL te da lo de soul + identidad real".
 
 ---
 

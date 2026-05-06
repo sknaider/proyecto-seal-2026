@@ -54,7 +54,7 @@ async def migrate_commands(conn: asyncpg.Connection):
         meta = {"params": cmd.get("params", {}), "priority": cmd.get("priority", "normal")}
 
         await conn.execute(
-            """INSERT INTO event_log (time, agent, event_type, content, ref_id, metadata)
+            """INSERT INTO event_log (created_at, agent, event_type, content, ref_id, metadata)
                VALUES ($1, $2, $3, $4, $5, $6)
                ON CONFLICT DO NOTHING""",
             ts, agent, event_type, content, ref_id, json.dumps(meta),
@@ -92,7 +92,7 @@ async def migrate_terminal_log(conn: asyncpg.Connection):
         meta = {"data": rpt.get("data", {}), "status": rpt.get("status", "")}
 
         await conn.execute(
-            """INSERT INTO event_log (time, agent, event_type, content, ref_id, metadata)
+            """INSERT INTO event_log (created_at, agent, event_type, content, ref_id, metadata)
                VALUES ($1, $2, $3, $4, $5, $6)""",
             ts, agent, event_type, content, ref_id, json.dumps(meta, ensure_ascii=False),
         )

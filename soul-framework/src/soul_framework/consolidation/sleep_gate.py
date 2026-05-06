@@ -1,6 +1,6 @@
 """SleepGate — 4-phase nocturnal memory consolidation.
 
-Ported from mcp_server_v2.py sleep_gate (arxiv 2603.14517).
+Ported from mcp_server_v3.py sleep_gate (arxiv 2603.14517).
 
 Phases:
 1. REPLAY — boost relevance for recently activated memories

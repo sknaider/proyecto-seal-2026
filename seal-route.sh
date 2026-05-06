@@ -19,7 +19,7 @@ if echo "$TASK" | grep -qiE \
   "arquitectura|diseña|spec|roadmap|estrategia|estrategico|\
 connectome|ocean.*drift|soul.*critico|\
 mejora.*soul|mejorar.*soul|soul.*mejora|sprint.*soul|asimila|\
-mcp_server.*v2|hermes.*analiz|hermes.*asimil|\
+mcp_server.*v2|\
 dgm.*(scoring|loop|nightly)|scoring.*(dgm|dilema)|dilema|benchmark|\
 cbsoft|paper|academic|investigacion|\
 decision.critica|irreversible|produccion.*critica|\

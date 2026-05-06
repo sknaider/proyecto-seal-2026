@@ -22,7 +22,7 @@ async def write_event(agent: str, event_type: str, content: str, metadata: str =
     from datetime import datetime, timezone
     now = datetime.now(LIMA_TZ)
     await conn.execute(
-        "INSERT INTO event_log (agent, event_type, content, metadata, time) VALUES ($1, $2, $3, $4, $5)",
+        "INSERT INTO soul_v3.event_log (agent, event_type, content, metadata, created_at) VALUES ($1, $2, $3, $4, $5)",
         agent, event_type, content, metadata, now,
     )
     await conn.close()

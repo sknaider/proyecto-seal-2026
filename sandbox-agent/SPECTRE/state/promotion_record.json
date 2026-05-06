@@ -1,0 +1,16 @@
+{
+  "signed_by": "William",
+  "authorized_at": "2026-05-02T17:28:00Z",
+  "message": "luz verde, firmo la promotion",
+  "sandbox_version": "v1_sandbox",
+  "promoted_version": "v1_promoted",
+  "test_results": {
+    "total_pass": 124,
+    "total_suites": 13,
+    "failures": 0
+  },
+  "soak_status": "running_24h",
+  "git_tag": "spectre-v1.0-promoted",
+  "promoted_at": "2026-05-02T17:31:18.050368+00:00",
+  "promotion_script": "promotion_script.py"
+}

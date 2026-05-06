@@ -33,9 +33,9 @@ async def fetch_soul_context(agent: str, dsn: str) -> dict:
             """
             SELECT content FROM rules
             WHERE active = true
-              AND LOWER(priority) IN ('critical', 'high')
+              AND priority >= 8
             ORDER BY
-              CASE LOWER(priority) WHEN 'critical' THEN 0 ELSE 1 END,
+              CASE WHEN priority = 10 THEN 0 ELSE 1 END,
               created_at DESC
             LIMIT 3
             """,

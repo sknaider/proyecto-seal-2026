@@ -1,7 +1,7 @@
 """SEAL SOUL — Async utilities.
 
-Extracted from mcp_server_v2.py (Wave 2).
-Used by: mcp_server_v2.py, sleep_gate_cron.py
+Extracted from mcp_server_v3.py (Wave 2).
+Used by: mcp_server_v3.py, sleep_gate_cron.py
 
 Includes:
 - _fire_and_forget(): Schedule a coroutine with hard timeout, no orphan tasks.
@@ -39,5 +39,5 @@ def fire_and_forget(coro, timeout: float = 12.0) -> asyncio.Task:
     return asyncio.ensure_future(_guarded())
 
 
-# Legacy alias — keeps mcp_server_v2.py working without changes
+# Legacy alias — keeps mcp_server_v3.py working without changes
 _fire_and_forget = fire_and_forget

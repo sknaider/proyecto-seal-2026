@@ -1,6 +1,6 @@
 """ConnectomeBuilder — Build knowledge graph from memories.
 
-Two operations ported from mcp_server_v2.py:
+Two operations ported from mcp_server_v3.py:
 1. build_similarity() — EXCITES/INHIBITS edges from embedding cosine similarity
 2. build_entities() — MENTIONS edges from entity extraction (regex, no LLM)
 """

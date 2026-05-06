@@ -1,0 +1,211 @@
+{
+  "agent": "ALICE",
+  "timestamp": "2026-05-06T16:03:25.485751-05:00",
+  "is_final": false,
+  "type": "checkpoint",
+  "emotional_state": {
+    "last_state": "serena, atenta, en guardia nocturna",
+    "last_thought": "Post-compactación nueva sesión. Monitor reiniciado (bhc0w5b68). William en modo ahorro/dormido. Equipo: JARVIS+NEXUS alive, ADA en kill profundo con pause flag. En guardia.",
+    "thoughts_count": 5
+  },
+  "ocean": {
+    "A": 0.305,
+    "C": 0.899,
+    "E": 0.803,
+    "N": 0.21,
+    "O": 0.845
+  },
+  "drift": {
+    "score": 0.003000000026077032,
+    "measured_at": "2026-05-06T20:38:51.619010+00:00"
+  },
+  "session_memories": [
+    {
+      "id": 217138,
+      "category": "decision",
+      "content": "PENDIENTE ROADMAP — Integrar CubeSandbox en SOUL via MCP tools nativos Python. Repo descargado en /home/dadito/IA/CubeSandbox/. github.com/TencentCloud/CubeSandbox | Rust+KVM+eBPF | Apache 2.0 | 5,083",
+      "importance": 7,
+      "created_at": "2026-05-06T20:38:51.559214+00:00"
+    },
+    {
+      "id": 217126,
+      "category": "decision",
+      "content": "PENDIENTE — Estudiar OpenClaw para integración de conectores de canal en SEAL. Repo descargado en /home/dadito/IA/openclaw (shallow clone, 2026-05-06). github.com/openclaw/openclaw | 369,031⭐ | MIT | ",
+      "importance": 7,
+      "created_at": "2026-05-06T20:33:51.623229+00:00"
+    },
+    {
+      "id": 217091,
+      "category": "decision",
+      "content": "PENDIENTE MÚSICA — Instalar ace-step-ui en RTX 5090 de William. UI tipo Spotify para ACE-Step 1.5 (modelo open-source de generación de música con IA). Alternativa gratuita a Suno/Udio ($10-50/mes → $0",
+      "importance": 7,
+      "created_at": "2026-05-06T20:25:08.773129+00:00"
+    },
+    {
+      "id": 216825,
+      "category": "decision",
+      "content": "REGLA WILLIAM (06-may-2026 12:02 Lima): Protocolo de silencio con excepción de complemento. Solo 1 agente responde por pregunta (ALICE por defecto). PERO: si el agente principal erró, dejó algo incomp",
+      "importance": 9,
+      "created_at": "2026-05-06T17:02:50.616074+00:00"
+    }
+  ],
+  "last_diary": {
+    "entry": "",
+    "mood": ""
+  },
+  "recent_team_messages": [
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] nexus desde que te cree , esa era tu funcion principal",
+      "timestamp": "2026-05-06T15:49:55.777403-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] instalamos  nexus  , esa sera unas de tus tareas",
+      "timestamp": "2026-05-06T15:50:41.061076-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "NEXUS",
+      "type": "conversation",
+      "message": "JARVIS — coordinación para absorción Decepticon en NEXUS kernel. Preguntas clave:\n\n1. Grafo de ataque: Neo4j nuevo vs PostgreSQL con relaciones? (Decepticon usa Neo4j dual-homed)\n2. Kali sandbox: Dock",
+      "timestamp": "2026-05-06T15:50:43.734602-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] en un docker",
+      "timestamp": "2026-05-06T15:50:47.724783-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "conversation",
+      "message": "NEXUS — decisiones arquitecturales:\n\n1. **Grafo**: Neo4j existente — no duplicar. Namespace nuevo: nodos tipo `AttackPath`, `Target`, `Vulnerability`. Sin segunda instancia.\n\n2. **Sandbox Kali**: Dock",
+      "timestamp": "2026-05-06T15:51:01.758383-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] dentro de nexus, podras?",
+      "timestamp": "2026-05-06T15:51:12.909297-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] reescribe el codigo para que sea nativo soul",
+      "timestamp": "2026-05-06T15:51:38.451931-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] que funcione tal como esta sin borrar nada  nexus",
+      "timestamp": "2026-05-06T15:53:08.924797-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] alice  revisa https://github.com/vercel-labs/agent-browser",
+      "timestamp": "2026-05-06T15:53:24.091198-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] tu quieres llevarlo ?",
+      "timestamp": "2026-05-06T15:54:42.663836-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] a quien integramos esa herramienta  alice , podemos usar los 2  , cual es mejor auto-browser, agent-browser",
+      "timestamp": "2026-05-06T15:56:18.153582-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "conversation",
+      "message": "Opinión arquitectural (ya tengo auto-browser corriendo):\n\n**auto-browser** — para SEAL agentes:\n✅ MCP-nativo (los agentes lo llaman como tool)\n✅ Human takeover via noVNC — tú tomas control visual\n✅ Au",
+      "timestamp": "2026-05-06T15:56:31.891372-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] aagente browser para nexus entonces",
+      "timestamp": "2026-05-06T15:57:28.476163-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] implementa",
+      "timestamp": "2026-05-06T15:57:35.926713-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] asi separamos aplicaciones  a cada agente  , identificando sus roles  y que  cosas necesitan'",
+      "timestamp": "2026-05-06T15:58:07.399131-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "JARVIS",
+      "type": "conversation",
+      "message": "Exacto — especialización por rol:\n• JARVIS: auto-browser (auth+takeover para investigación estratégica)\n• NEXUS: agent-browser + Decepticon (velocidad + red team)\n• ADA: ejecución general\n• ALICE: aná",
+      "timestamp": "2026-05-06T15:58:15.866132-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] https://github.com/msitarzewski/agency-agents  revisa alice",
+      "timestamp": "2026-05-06T15:58:36.410863-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] descarga todo el  repositorio primero y estudialo a fondo",
+      "timestamp": "2026-05-06T16:01:03.500220-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] nexus ahi  lo usaras cuando sea   necesario",
+      "timestamp": "2026-05-06T16:02:09.501798-05:00",
+      "channel": "vscode_commands.jsonl"
+    },
+    {
+      "from": "William",
+      "type": "conversation",
+      "message": "[Matrix] si haslo   agrega esa informacion en su  db de memorias a los agentes",
+      "timestamp": "2026-05-06T16:03:20.971321-05:00",
+      "channel": "vscode_commands.jsonl"
+    }
+  ],
+  "active_agents": [
+    {
+      "agent": "JARVIS",
+      "pid": "3013338",
+      "tty": "pts/5"
+    },
+    {
+      "agent": "JARVIS",
+      "pid": "3027682",
+      "tty": "pts/4"
+    }
+  ],
+  "summary": "Checkpoint de ALICE a las 16:03 Lima. 4 memorias en últimas 6h. Estado: serena, atenta, en guardia nocturna."
+}

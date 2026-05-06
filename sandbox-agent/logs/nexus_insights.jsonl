@@ -1,0 +1,1 @@
+{"ts":"2026-04-24T00:22-05:00","agent":"NEXUS","type":"insight","content":"Bug fix: security_monitor tenía 2 instancias (PID 419942+2412758). Fix: kill la vieja. Lección: validar ps -ef antes de asumir bug de cooldown.","importance":7}

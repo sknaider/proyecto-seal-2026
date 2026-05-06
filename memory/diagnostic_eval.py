@@ -180,7 +180,7 @@ async def _run_baseline(q: TestQuery) -> QueryResult:
 
 async def _run_hybrid(q: TestQuery, top_k: int = DEFAULT_TOP_K) -> QueryResult:
     """Mode 2: memory_hybrid_search → LLM answer."""
-    from mcp_server_v2 import memory_hybrid_search  # lazy import
+    from mcp_server_v3 import memory_hybrid_search  # lazy import
     r = QueryResult(query_id=q.query_id, mode=Mode.HYBRID_SEARCH)
     t0 = time.perf_counter()
     try:
@@ -198,9 +198,9 @@ async def _run_hybrid(q: TestQuery, top_k: int = DEFAULT_TOP_K) -> QueryResult:
 
 async def _run_magma_erl(q: TestQuery, top_k: int = DEFAULT_TOP_K) -> QueryResult:
     """Mode 4: MAGMA multi-graph fusion (+ ERL heuristics if available)."""
-    from mcp_server_v2 import magma_retrieve  # lazy import
+    from mcp_server_v3 import magma_retrieve  # lazy import
     try:
-        from mcp_server_v2 import erl_inject  # optional
+        from mcp_server_v3 import erl_inject  # optional
     except ImportError:
         erl_inject = None  # type: ignore
     r = QueryResult(query_id=q.query_id, mode=Mode.MAGMA_ERL)

@@ -78,7 +78,7 @@ def _first_hit(retrieved: list[int], expected: set[int]) -> int | None:
 
 
 async def _retrieve_magma(q: TestQuery, top_k: int) -> tuple[list[int], int, str | None]:
-    from mcp_server_v2 import magma_retrieve
+    from mcp_server_v3 import magma_retrieve
     t0 = time.perf_counter()
     try:
         raw = await magma_retrieve(agent=DEFAULT_AGENT, query=q.query, top_k=top_k)

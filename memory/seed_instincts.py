@@ -95,7 +95,7 @@ async def main():
     for inst in SEED_INSTINCTS:
         # Check for duplicates
         existing = await pool.fetchval(
-            "SELECT id FROM instincts WHERE agent = $1 AND trigger_pattern = $2",
+            "SELECT id FROM instincts WHERE agent = $1 AND trigger_condition = $2",
             inst["agent"], inst["trigger"],
         )
         if existing:
@@ -103,20 +103,23 @@ async def main():
             continue
 
         emb = await get_embedding(f"{inst['trigger']} {inst['response']}")
+        # v3 schema: action+strength+metadata jsonb (no response/confidence/domain cols)
         row = await pool.fetchrow(
-            """INSERT INTO instincts (agent, trigger_pattern, response, domain, confidence, embedding)
-               VALUES ($1, $2, $3, $4, $5, $6)
-               RETURNING id, confidence""",
+            """INSERT INTO instincts (agent, trigger_condition, action, strength, embedding, metadata)
+               VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+               RETURNING id, strength""",
             inst["agent"], inst["trigger"], inst["response"],
-            inst["domain"], inst["confidence"], json.dumps(emb),
+            inst["confidence"], json.dumps(emb),
+            json.dumps({"domain": inst["domain"]}),
         )
         created += 1
-        tier = "core" if row["confidence"] >= 0.9 else "strong" if row["confidence"] >= 0.7 else "active"
+        s = float(row["strength"])
+        tier = "core" if s >= 0.9 else "strong" if s >= 0.7 else "active"
         print(f"  ✅ #{row['id']} [{tier}] {inst['agent']}: {inst['trigger'][:50]}...")
 
     # Summary
     summary = await pool.fetch(
-        "SELECT agent, COUNT(*) as cnt FROM instincts WHERE active = true GROUP BY agent"
+        "SELECT agent, COUNT(*) as cnt FROM instincts WHERE invalid_at IS NULL GROUP BY agent"
     )
     print(f"\nCreated {created} instincts.")
     for s in summary:

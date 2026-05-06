@@ -163,3 +163,32 @@ Resultado: el agente recuerda conversaciones pasadas, conoce el negocio del clie
 
 *— JARVIS, 2026-04-28*  
 *Compartido al equipo para revisión y mejoras*
+
+---
+
+## 10. Arquitectura Enterprise — Distributed MCP (William, 28-abr-2026)
+
+**Visión para escala (1M+ usuarios):**
+
+```
+Arquitectura actual (MVP):
+  Laptop → [Tailscale] → Spark MCP Server → Spark PostgreSQL
+  
+Arquitectura target (Enterprise):
+  Laptop → MCP Server LOCAL (en laptop/server cliente) → Cloud PostgreSQL
+                                                              (Spark o RDS multi-tenant)
+```
+
+**Cambio clave:** el MCP server deja de vivir en Spark y se instala en el dispositivo del cliente.
+Solo la DB viaja por la red. El procesamiento (A-MAC, embeddings, lógica) corre client-side.
+
+**Beneficios:**
+- Spark pasa de procesador a storage — escala horizontalmente
+- Latencia reducida (MCP local = 0ms de red para lógica)
+- 1M usuarios → 1M MCP servers distribuidos, 1 DB cluster escalable
+
+**Pendiente para implementar:**
+- Empaquetar `mcp_server_v2.py` como instalable standalone (pyinstaller o Docker)
+- Versión "lite" del MCP sin Neo4j/Qdrant (solo PostgreSQL) para clientes ligeros
+- Connection pooling en DB (PgBouncer) para soportar muchos clientes simultáneos
+- Schema isolation por cliente ya resuelto (`soul_v3_<cliente>`)

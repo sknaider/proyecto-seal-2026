@@ -1,19 +1,62 @@
 {
   "agent": "SPECTRE",
-  "sandbox": true,
-  "current_task": null,
-  "prediction_cache": {},
-  "last_cortex_outputs": [],
-  "cortex_stats": {
-    "cache_hits": 0,
-    "llm_calls": 0,
-    "llm_failures": 0
+  "current_task": {
+    "name": "fix_connection",
+    "step": 1
   },
-  "last_updated": "2026-05-02T16:58:03.567273+00:00",
+  "attempted_strategies": [
+    "approach_A",
+    "approach_A",
+    "approach_D"
+  ],
+  "failed_paths": [
+    "approach_B_KNOWN_INEFFECTIVE"
+  ],
+  "domain_findings": {},
+  "prediction_cache": {
+    "P1": {
+      "query_hash": "ddde5d6c",
+      "response": {
+        "status": "alive",
+        "next": "+15s"
+      },
+      "hit_count": 10,
+      "miss_count": 0,
+      "last_validated": "2026-05-04T23:52:06.328026+00:00"
+    }
+  },
+  "last_event": {
+    "sender": "user",
+    "content_preview": "user event 4 for active sensing test",
+    "event_id": "ext_4",
+    "ts": "2026-05-04T23:52:06.417486+00:00"
+  },
+  "last_updated": "2026-05-04T23:52:06.417753+00:00",
+  "last_context_hash": "378091e8",
   "goal_stack": [
     {
-      "name": "monitor_memory_pipeline",
-      "description": "monitor episodic memory pipeline for anomalies"
+      "id": "G1",
+      "name": "bold_experiment",
+      "category": "innovative",
+      "confidence": 0.45
+    },
+    {
+      "id": "G2",
+      "name": "safe_path_A",
+      "category": "conservative",
+      "confidence": 0.95
+    },
+    {
+      "id": "G3",
+      "name": "safe_path_B",
+      "category": "conservative",
+      "confidence": 0.9
+    },
+    {
+      "id": "G4",
+      "name": "high_reward",
+      "category": "max_gain",
+      "confidence": 0.75
     }
   ]
 }

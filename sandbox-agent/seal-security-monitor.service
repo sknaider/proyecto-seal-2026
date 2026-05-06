@@ -1,0 +1,18 @@
+[Unit]
+Description=NEXUS SEAL Security Monitor
+After=network.target
+After=seal-soul.service
+
+[Service]
+Type=simple
+User=dadito
+WorkingDirectory=/home/dadito/IA/proyecto-seal/sandbox-agent
+ExecStart=/usr/bin/python3 /home/dadito/IA/proyecto-seal/sandbox-agent/seal_security_monitor.py
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=append:/home/dadito/IA/proyecto-seal/sandbox-agent/logs/security_monitor.log
+StandardError=append:/home/dadito/IA/proyecto-seal/sandbox-agent/logs/security_monitor.log
+
+[Install]
+WantedBy=multi-user.target

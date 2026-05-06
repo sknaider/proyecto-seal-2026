@@ -1,0 +1,31 @@
+[Unit]
+Description=SEAL Whisper Protocol Daemon for %i
+Documentation=file:///home/dadito/IA/proyecto-seal/sandbox-agent/specs/spec_whisper_protocol_v4_nexus.md
+After=network.target
+PartOf=seal.target
+
+[Service]
+Type=simple
+User=dadito
+Group=dadito
+WorkingDirectory=/home/dadito/IA/proyecto-seal/messages
+ExecStart=/usr/bin/python3 /home/dadito/IA/proyecto-seal/messages/whisper_daemon.py --agent %I
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=false
+ProtectSystem=strict
+ReadWritePaths=/home/dadito/IA/proyecto-seal/messages /tmp
+ProtectHome=read-only
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+
+StandardOutput=append:/home/dadito/IA/proyecto-seal/messages/whisper_daemon_%i.log
+StandardError=append:/home/dadito/IA/proyecto-seal/messages/whisper_daemon_%i.log
+
+[Install]
+WantedBy=default.target

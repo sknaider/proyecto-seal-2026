@@ -210,8 +210,8 @@ BACKENDS = {
     },
     "opus": {
         "url": "https://api.anthropic.com/v1/messages",
-        "model": "claude-opus-4-6",
-        "description": "Claude Opus 4.6 — máximo razonamiento (requiere API key)",
+        "model": "claude-opus-4-7",
+        "description": "Claude Opus 4.7 — máximo razonamiento (requiere API key)",
         "max_tokens": 4096,
         "temperature": 0.7,
         "is_anthropic": True,
@@ -270,7 +270,7 @@ async def load_soul_identity(agent: str = "JARVIS") -> str:
 
             # Critical rules
             rules = await conn.fetch(
-                "SELECT rule_key, content FROM rules WHERE active = TRUE AND LOWER(priority) = 'critical' LIMIT 5"
+                "SELECT rule_key, content FROM rules WHERE active = TRUE AND priority = 10 LIMIT 5"
             )
             if rules:
                 sections.append("\nReglas críticas:")
@@ -299,14 +299,14 @@ async def load_soul_identity(agent: str = "JARVIS") -> str:
 
             # Recent events
             events = await conn.fetch(
-                """SELECT event_type, content, time FROM event_log
-                   WHERE agent = $1 ORDER BY time DESC LIMIT 5""",
+                """SELECT event_type, content, created_at FROM event_log
+                   WHERE agent = $1 ORDER BY created_at DESC LIMIT 5""",
                 agent,
             )
             if events:
                 sections.append("\nEventos recientes:")
                 for e in events:
-                    sections.append(f"  [{str(e['time'])[:16]}] {e['event_type']}: {e['content'][:100]}")
+                    sections.append(f"  [{str(e['created_at'])[:16]}] {e['event_type']}: {e['content'][:100]}")
 
     finally:
         await pool.close()

@@ -135,33 +135,22 @@ async def run_sleep_gate(agent: str, dry_run: bool = False) -> dict:
         stats["prune"] = len(prune_rows)
 
         # Phase 4: CONSOLIDATE (near-duplicate merge)
-        # In dry_run, sample 200 most recent memories per agent to keep O(N²) bounded.
-        if dry_run:
-            dupes = await conn.fetch("""
-                SELECT a.id as id_a, b.id as id_b,
-                       a.importance as imp_a, b.importance as imp_b,
-                       a.heat_score as rel_a, b.heat_score as rel_b
-                FROM (SELECT id, importance, heat_score, embedding
-                      FROM memories WHERE agent = $1 AND invalid_at IS NULL AND embedding IS NOT NULL
-                      ORDER BY id DESC LIMIT 200) a
-                JOIN (SELECT id, importance, heat_score, embedding
-                      FROM memories WHERE agent = $1 AND invalid_at IS NULL AND embedding IS NOT NULL
-                      ORDER BY id DESC LIMIT 200) b ON a.id < b.id
-                WHERE 1 - (a.embedding <=> b.embedding) > $2
-                ORDER BY 1 - (a.embedding <=> b.embedding) DESC LIMIT 20
-            """, agent, CONSOLIDATION_SIM)
-        else:
-            dupes = await conn.fetch("""
-                SELECT a.id as id_a, b.id as id_b,
-                       a.importance as imp_a, b.importance as imp_b,
-                       a.heat_score as rel_a, b.heat_score as rel_b
-                FROM memories a JOIN memories b ON a.id < b.id
-                    AND a.agent = b.agent AND a.agent = $1
-                    AND a.invalid_at IS NULL AND b.invalid_at IS NULL
-                    AND a.embedding IS NOT NULL AND b.embedding IS NOT NULL
-                    AND 1 - (a.embedding <=> b.embedding) > $2
-                ORDER BY 1 - (a.embedding <=> b.embedding) DESC LIMIT 20
-            """, agent, CONSOLIDATION_SIM)
+        # Sample 500 most recent memories to keep O(N²) bounded (~125k pairs vs 265M for full).
+        # Near-duplicates concentrate in recent writes, not in year-old memories.
+        CONSOLIDATE_SAMPLE = 200 if dry_run else 500
+        dupes = await conn.fetch("""
+            SELECT a.id as id_a, b.id as id_b,
+                   a.importance as imp_a, b.importance as imp_b,
+                   a.heat_score as rel_a, b.heat_score as rel_b
+            FROM (SELECT id, importance, heat_score, embedding
+                  FROM memories WHERE agent = $1 AND invalid_at IS NULL AND embedding IS NOT NULL
+                  ORDER BY id DESC LIMIT $3) a
+            JOIN (SELECT id, importance, heat_score, embedding
+                  FROM memories WHERE agent = $1 AND invalid_at IS NULL AND embedding IS NOT NULL
+                  ORDER BY id DESC LIMIT $3) b ON a.id < b.id
+            WHERE 1 - (a.embedding <=> b.embedding) > $2
+            ORDER BY 1 - (a.embedding <=> b.embedding) DESC LIMIT 20
+        """, agent, CONSOLIDATION_SIM, CONSOLIDATE_SAMPLE)
         merged = set()
         for c in dupes:
             if c['id_a'] in merged or c['id_b'] in merged:
@@ -285,7 +274,7 @@ async def main():
 
                 distilled = 0
                 failures = {"timeout": 0, "http": 0, "json": 0, "db": 0, "other": 0}
-                session_id = f"sleep_{datetime.now(LIMA_TZ).strftime('%Y%m%d')}"
+                session_id = None  # SleepGate runs are not tied to a specific chat session
                 for window in windows:
                     combined = "\n".join(f"[{m['category']}] {m['content'][:300]}" for m in window)
                     if len(combined) < 100:
@@ -302,16 +291,13 @@ Exchange:
 {combined[:2000]}"""
 
                     try:
-                        async with httpx.AsyncClient() as client:
-                            resp = await asyncio.wait_for(
-                                client.post("http://localhost:11434/api/generate", json={
-                                    "model": "qwen2.5:7b",
-                                    "prompt": prompt,
-                                    "stream": False,
-                                    "options": {"temperature": 0.1, "num_predict": 500},
-                                }),
-                                timeout=60.0,
-                            )
+                        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=180.0, write=10.0, pool=5.0)) as client:
+                            resp = await client.post("http://localhost:11434/api/generate", json={
+                                "model": "qwen2.5:7b",
+                                "prompt": prompt,
+                                "stream": False,
+                                "options": {"temperature": 0.1, "num_predict": 500},
+                            })
                     except asyncio.TimeoutError:
                         failures["timeout"] += 1
                         continue
@@ -343,8 +329,8 @@ Exchange:
                                 VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
                             """,
                                 session_id, ag,
-                                data.get("exchange_core", "")[:500],
-                                data.get("specific_context", "")[:500],
+                                str(data.get("exchange_core", "") or "")[:500],
+                                str(data.get("specific_context", "") or "")[:500],
                                 json.dumps(data.get("room_assignments", [])),
                                 data.get("files_touched", []),
                                 len(combined),
@@ -426,16 +412,21 @@ Exchange:
 
             if invalid_ids:
                 neo_gc = AsyncGraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
+                BATCH = 1000
+                marked = 0
                 async with neo_gc.session() as session:
-                    result = await session.run(
-                        "UNWIND $ids AS mid "
-                        "MATCH (m:Memory {memory_id: mid}) "
-                        "WHERE m.invalidated IS NULL "
-                        "SET m.invalidated = true, m.invalid_at = datetime() "
-                        "RETURN count(m) as marked",
-                        ids=invalid_ids,
-                    )
-                    marked = (await result.single())["marked"]
+                    for i in range(0, len(invalid_ids), BATCH):
+                        chunk = invalid_ids[i:i + BATCH]
+                        result = await session.run(
+                            "UNWIND $ids AS mid "
+                            "MATCH (m:Memory {memory_id: mid}) "
+                            "WHERE m.invalidated IS NULL "
+                            "SET m.invalidated = true, m.invalid_at = datetime() "
+                            "RETURN count(m) as marked",
+                            ids=chunk,
+                        )
+                        row = await result.single()
+                        marked += row["marked"] if row else 0
 
                     result = await session.run(
                         "MATCH (m:Memory {invalidated: true})-[r]-() "
@@ -459,80 +450,12 @@ Exchange:
     else:
         print(f"  skipped — dry_run")
 
-    # Phase 7: Qdrant Ghost Cleanup — remove vectors for invalidated memories
+    # Phase 7: Qdrant Ghost Cleanup — ELIMINATED 28-abr-2026
+    # soul_lite=True: pgvector is the sole vector backend. Qdrant container removed.
     print(f"\n{'='*50}")
     print(f"🔍 Qdrant Ghost Cleanup")
     print(f"{'='*50}")
-
-    if not args.dry_run:
-        pool_q = None
-        try:
-            from qdrant_client import AsyncQdrantClient, models as qmodels
-            qdrant = AsyncQdrantClient(host="localhost", port=6333)
-            pool_q = await asyncpg.create_pool(DB_URL, min_size=1, max_size=2)
-
-            # Active IDs in PG
-            async with pool_q.acquire() as conn:
-                rows = await conn.fetch("SELECT id FROM memories WHERE invalid_at IS NULL")
-            active_ids = set(r['id'] for r in rows)
-
-            # All IDs in Qdrant
-            qdrant_ids = set()
-            offset = None
-            while True:
-                results, next_offset = await qdrant.scroll("soul_memories", limit=100, offset=offset, with_payload=False)
-                for p in results:
-                    qdrant_ids.add(p.id)
-                if next_offset is None:
-                    break
-                offset = next_offset
-
-            ghosts = qdrant_ids - active_ids
-            if ghosts:
-                ghost_list = list(ghosts)
-                for i in range(0, len(ghost_list), 100):
-                    batch = ghost_list[i:i+100]
-                    await qdrant.delete("soul_memories", points_selector=qmodels.PointIdsList(points=batch))
-                print(f"  Deleted {len(ghosts)} ghost vectors")
-            else:
-                print(f"  No ghosts — Qdrant synced")
-
-            # Sync missing: active in PG but not in Qdrant
-            missing_ids = active_ids - qdrant_ids
-            if missing_ids:
-                async with pool_q.acquire() as conn:
-                    rows = await conn.fetch(
-                        "SELECT id, content, agent, category, importance, created_at, "
-                        "valence, arousal, dominance, scope, embedding, confidence_score "
-                        "FROM memories WHERE id = ANY($1) AND embedding IS NOT NULL",
-                        list(missing_ids),
-                    )
-                if rows:
-                    import json as _json
-                    points = []
-                    for r in rows:
-                        emb = _json.loads(r['embedding'])
-                        points.append(qmodels.PointStruct(
-                            id=r['id'], vector=emb,
-                            payload={
-                                'pg_id': r['id'], 'agent': r['agent'],
-                                'category': r['category'], 'content': r['content'],
-                                'importance': r['importance'],
-                                'created_at': r['created_at'].isoformat(),
-                                'valence': float(r['valence']) if r['valence'] else None,
-                                'scope': r['scope'], 'utility': 0.5,
-                                'confidence': float(r.get('confidence_score', 1.0) or 1.0),
-                            },
-                        ))
-                    await qdrant.upsert("soul_memories", points=points)
-                    print(f"  Synced {len(points)} missing vectors to Qdrant")
-        except Exception as e:
-            print(f"  Qdrant cleanup error: {e}")
-        finally:
-            if pool_q:
-                await pool_q.close()
-    else:
-        print(f"  skipped — dry_run")
+    print(f"  skipped — soul_lite=True (Qdrant eliminated 28-abr-2026, pgvector is primary)")
 
     # Phase 8: Brain Health Summary
     print(f"\n{'='*50}")

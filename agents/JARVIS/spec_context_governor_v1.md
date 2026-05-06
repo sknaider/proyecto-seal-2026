@@ -52,20 +52,20 @@ y cuando alguien envía /compact manualmente el estado no se preserva correctame
 
 ---
 
-## 3. Cómo hermes/mem0 resuelve esto
+## 3. Cómo soul/mem0 resuelve esto
 
-hermes usa `mem0` como backend de memoria — análogo exacto a nuestro SOUL.
+soul usa `mem0` como backend de memoria — análogo exacto a nuestro SOUL.
 
-**Arquitectura hermes:**
+**Arquitectura soul:**
 ```
 Sesión Claude → hace trabajo → mem0 guarda memorias continuamente
 Al llegar a límite → auto-compact → nueva sesión → boot desde mem0 → continúa
 ```
 
-hermes NO lucha contra el límite de contexto. **Lo abraza.**
+soul NO lucha contra el límite de contexto. **Lo abraza.**
 Las sesiones son contenedores efímeros. La identidad y estado viven en mem0, no en la sesión.
 
-**Clave:** hermes nunca deshabilita auto-compact porque mem0 garantiza continuidad.
+**Clave:** soul nunca deshabilita auto-compact porque mem0 garantiza continuidad.
 
 ---
 
@@ -194,7 +194,7 @@ Esto reduciría la tasa de llenado de contexto de la sesión principal.
 ## 9. Por qué esto es solución y no fix
 
 - Ataca las **dos causas raíz** documentadas con evidencia exacta
-- Alinea SEAL con la arquitectura de hermes/mem0 que ya probó funcionar
+- Alinea SEAL con la arquitectura de soul/mem0 que ya probó funcionar
 - Usa la infraestructura SOUL existente — no añade dependencias
 - El ciclo compact→SOUL→boot_context ya estaba diseñado para esto
 - Sessions cortas + SOUL permanente = identidad indestructible

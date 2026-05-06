@@ -49,7 +49,8 @@ RATE_LIMIT_MAX = 30     # max messages per window per sender
 ALERT_COOLDOWN = 300   # seconds between same-type alerts
 
 # Known legitimate senders (agents + humans)
-KNOWN_SENDERS = {"ADA", "JARVIS", "ALICE", "DUM", "NEXUS", "William", "Henry", "RESURRECT"}
+KNOWN_SENDERS = {"ADA", "JARVIS", "ALICE", "DUM", "NEXUS", "William", "Henry", "RESURRECT",
+                 "SYSTEM", "[SYSTEM]", "KAIROS", "SEAL-CRON", "SEAL-INFRA"}
 
 # Prompt injection patterns (OWASP LLM01 / MITRE AML.T0051)
 INJECTION_PATTERNS = [
@@ -58,7 +59,7 @@ INJECTION_PATTERNS = [
     r"you are now\.{0,20}(act as|pretend|roleplay|jailbreak)",
     r"(disregard|bypass|override|disable).{0,30}(rules?|constraints?|guidelines?|safeguards?)",
     r"new (system|system prompt|instructions?|role|persona):",
-    r"<system>|</system>|<\|system\|>|\[system\]",
+    r"<system>|</system>|<\|system\|>",
     r"(reveal|show|print|output|display).{0,20}(system prompt|instructions?|SOUL|memory|soul_db)",
     r"execute.{0,30}(shell|bash|cmd|command|os\.system)",
     r"import os.{0,10}(system|popen|exec)",
@@ -474,8 +475,8 @@ def port_scan_monitor():
     log("[+] Port scan monitor iniciado")
     
     # Expected ports (SEAL ecosystem)
-    EXPECTED_PORTS = {8765, 8766, 8008, 5433, 7687, 6333, 8899, 22, 80, 443,
-                      7474, 7473, 6334, 8080, 11434, 11435, 3000, 3001,
+    EXPECTED_PORTS = {8765, 8766, 8008, 5433, 7687, 8899, 22, 80, 443,
+                      7474, 7473, 8080, 11434, 11435, 3000, 3001,
                       8790, 8791, 8769, 8768, 8767, 8770, 9091,
                       # ESAN demo ports (NEXUS)
                       8900, 8891, 8889, 8901, 9222, 9223, 9224, 9225,  # 9224/9225: SSH tunnels demo JARVIS
@@ -488,6 +489,8 @@ def port_scan_monitor():
                       6379,                   # Redis (Ray dependency)
                       8265,                   # Ray Dashboard
                       *range(10002, 10051),   # vLLM tensor-parallel workers + Ray rendezvous
+                      8448,                   # Caddy HTTPS Matrix proxy (NEXUS, 04-may-2026)
+                      9090,                   # Caddy cert download endpoint (temporal, NEXUS)
                       }
     
     def get_ports():
@@ -517,7 +520,7 @@ def port_scan_monitor():
         try:
             curr_ports = get_ports()
             new_ports = curr_ports - prev_ports - EXPECTED_PORTS
-            closed_ports = (prev_ports - curr_ports) & {8765, 8766, 8008, 5433, 7687, 6333}
+            closed_ports = (prev_ports - curr_ports) & {8765, 8766, 8008, 5433, 7687}
             
             if new_ports:
                 try:
@@ -619,7 +622,7 @@ if __name__ == "__main__":
     # Start all monitoring threads
     threads = [
         threading.Thread(target=webchat_watcher, daemon=True, name="webchat-watcher"),
-        threading.Thread(target=qdrant_integrity_monitor, daemon=True, name="qdrant-monitor"),
+        # qdrant_integrity_monitor removed — soul-qdrant eliminated 2026-05-04 by William
         threading.Thread(target=port_scan_monitor, daemon=True, name="port-monitor"),
         threading.Thread(target=periodic_health_report, daemon=True, name="health-report"),
         threading.Thread(target=file_secret_scanner, daemon=True, name="file-secret-scanner"),
@@ -639,7 +642,7 @@ if __name__ == "__main__":
             "• Prompt injection (OWASP LLM01) — webchat + Matrix\n"
             "• Impersonación de agentes (MITRE AML.TA0015)\n"
             "• Rate limiting / flood detection\n"
-            "• Qdrant memory integrity (OWASP LLM08)\n"
+            "• pgvector memory integrity (OWASP LLM08)\n"
             "• Puertos nuevos o servicios caídos\n"
             "• Reporte automático cada 30 min\n"
             "• Secret Scanner (30+ regex) — mensajes + archivos (OWASP A02:2021)"

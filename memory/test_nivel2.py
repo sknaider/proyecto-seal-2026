@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 
 PERU_TZ = ZoneInfo("America/Lima")
 
-# Add parent dir to path so we can import from mcp_server_v2
+# Add parent dir to path so we can import from mcp_server
 sys.path.insert(0, os.path.dirname(__file__))
 
 DB_URL = os.environ.get("SEAL_PG_DSN", "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
@@ -42,7 +42,7 @@ def report(name, passed, detail=""):
 
 async def test_hmem():
     """Test H-MEM helper functions directly (no DB needed)."""
-    from mcp_server_v2 import (
+    from mcp_server_v3 import (
         _hmem_temporal_range, _hmem_infer_category, _hmem_adaptive_importance,
         _hmem_build_qdrant_filters, _hmem_has_temporal_signal, _hmem_post_filter_temporal,
     )
@@ -299,7 +299,7 @@ async def test_overlap():
 
 async def test_distill_prompt():
     """Verify DISTILL_PROMPT accepts overlap_section parameter."""
-    from mcp_server_v2 import DISTILL_PROMPT
+    from mcp_server_v3 import DISTILL_PROMPT
 
     # With overlap
     prompt = DISTILL_PROMPT.format(

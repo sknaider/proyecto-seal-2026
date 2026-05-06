@@ -18,6 +18,7 @@ if [ -z "$TMUX" ] || [ "$(tmux display-message -p '#S' 2>/dev/null)" != "seal-ad
   exec tmux new-session -s "seal-ada" "bash $0 $*"
 fi
 tmux rename-window "ADA" 2>/dev/null || true
+tmux set-option status-right '#(python3 /home/dadito/IA/proyecto-seal/messages/seal_context_meter.py --tmux ADA 2>/dev/null) #[fg=#888888]%H:%M ' 2>/dev/null || true
 
 # ── Parse flags ──
 AUTO_MODE=false
@@ -118,7 +119,7 @@ unset _TPID _KILLED
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 # export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 06-may-2026: precompactar a 90%
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 06-may-2026: compactar a 90%
 export ENABLE_CLAUDE_CODE_SM_COMPACT=true
 export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic

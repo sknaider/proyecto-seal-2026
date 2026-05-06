@@ -22,7 +22,7 @@
 
 ---
 
-## 2. Hermes-Agent (Nous Research) — Dual-Trigger + 4-Phase (MÁS RELEVANTE)
+## 2. SEAL (Nous Research) — Dual-Trigger + 4-Phase (MÁS RELEVANTE)
 
 **Dos triggers (Python-decided):**
 - **Gateway hygiene:** 85% de contexto antes de procesar mensaje (safety net, estimación char→token)
@@ -41,8 +41,8 @@
 **¿LLM o Python?** Fase 1 Python puro. Fases 2-4 LLM auxiliar barato.
 
 **Fuentes:**
-- https://github.com/NousResearch/hermes-agent/blob/main/agent/context_compressor.py
-- https://github.com/NousResearch/hermes-agent/blob/main/website/docs/developer-guide/context-compression-and-caching.md
+- https://github.com/NousResearch/soul/blob/main/agent/context_compressor.py
+- https://github.com/NousResearch/soul/blob/main/website/docs/developer-guide/context-compression-and-caching.md
 
 ---
 
@@ -104,21 +104,21 @@ FAQ explícito: "context window remains constrained...would only summarize concl
 
 ## Recomendación para SEAL
 
-**Adoptar el patrón dual-trigger de hermes (4 fases) + externalization de mem0, nativo en Python:**
+**Adoptar el patrón dual-trigger de soul (4 fases) + externalization de mem0, nativo en Python:**
 
 ### Tier 1 — Python puro (sin LLM), trigger al 40%
-Espejo de la Fase 1 de hermes:
+Espejo de la Fase 1 de soul:
 - Podar tool outputs >200 chars fuera de `protect_last_n=20`
-- Eliminar Monitor/cron echoes (ruido específico de SEAL no presente en hermes)
+- Eliminar Monitor/cron echoes (ruido específico de SEAL no presente en soul)
 - Inline Python, 0 API calls
 - Maneja 60-70% del bloat de contexto SEAL
 
-**Por qué 40% y no 50%:** SEAL tiene ruido adicional de crons+Monitor que hermes no tiene. Trigger más agresivo compensa.
+**Por qué 40% y no 50%:** SEAL tiene ruido adicional de crons+Monitor que soul no tiene. Trigger más agresivo compensa.
 
 ### Tier 2 — Ollama qwen2.5:7b en DGX Spark, trigger al 65%
 Solo si Tier 1 no baja el uso por debajo del 50%:
 - Modelo local ya instalado en DGX Spark (CLAUDE.md confirma)
-- Template estructurado de hermes: Goal/Progress/Decisions/Files/NextSteps
+- Template estructurado de soul: Goal/Progress/Decisions/Files/NextSteps
 - Sin API externa — inferencia local vía `http://localhost:11434` (o IP DGX)
 - Excelente para sesiones Claude Code porque preserva "Active Task" continuity
 
@@ -134,9 +134,9 @@ Solo si Tier 1 no baja el uso por debajo del 50%:
 
 ---
 
-## Ventaja SEAL sobre hermes post-implementación
+## Ventaja SEAL sobre soul post-implementación
 
-| Capacidad | Hermes | SEAL |
+| Capacidad | SEAL | SEAL |
 |-----------|--------|------|
 | Compresión proactiva | ✅ LLM auxiliar | ✅ Ollama local (cero API cost) |
 | Identidad persistente | ❌ Sin equivalente | ✅ SOUL boot_context + OCEAN |

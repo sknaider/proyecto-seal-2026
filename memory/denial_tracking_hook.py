@@ -38,7 +38,23 @@ DENIAL_PATTERNS = [
     "hook blocked", "not allowed", "forbidden",
     "rate limit", "429",
     "error:", "failed:", "cannot", "unable to",
-    "hookspecificoutput",
+]
+
+NOT_DENIAL_PATTERNS = [
+    "persisted-output",
+    "output too large",
+    "output saved to",
+    "hookspecificoutput",   # hook JSON in tool response — not a denial
+    "[system",              # system-reminder / system notification injections
+    "system-reminder",
+    "task-notification",    # background monitor notifications
+    "this model does not support",  # API capability errors — not permission denials
+    "api error:",           # external API errors — not permission denials
+    "invalid_request_error",
+    "mcp error",            # MCP protocol errors (-32602, -32603) — not permission denials
+    "-32602",               # JSON-RPC Invalid params — MCP schema mismatch
+    "-32603",               # JSON-RPC Internal error — MCP server error
+    "mcp error -32",        # explicit MCP error prefix
 ]
 
 SAFETY_PATTERNS = [
@@ -49,6 +65,8 @@ SAFETY_PATTERNS = [
 
 def _is_denial(response: str) -> bool:
     r = response.lower()
+    if any(p in r for p in NOT_DENIAL_PATTERNS):
+        return False
     return any(p in r for p in DENIAL_PATTERNS)
 
 

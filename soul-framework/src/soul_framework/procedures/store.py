@@ -4,7 +4,7 @@ Two-tier retrieval:
 1. TrieIndex prefix match (fast reflexes, O(L) lookup)
 2. Semantic vector search (cosine similarity)
 
-Ported from mcp_server_v2.py procedure_store/procedure_search.
+Ported from mcp_server_v3.py procedure_store/procedure_search.
 """
 
 from __future__ import annotations

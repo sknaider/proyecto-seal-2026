@@ -1,0 +1,13 @@
+{
+  "importance_at_5_baseline": 7.842,
+  "importance_at_5_hopfield": 7.836,
+  "importance_delta": -0.006,
+  "importance_pct": -0.08,
+  "avg_rank_shift": 0.43,
+  "overlap_at_5": 0.91,
+  "coverage_pct": 43.0,
+  "latency_baseline_ms": 3.3,
+  "latency_hopfield_ms": 7.7,
+  "veredicto": "REVISAR",
+  "n_queries": 100
+}

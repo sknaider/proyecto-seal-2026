@@ -32,7 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_opinions_search ON opinions USING gin(search_vect
 CREATE OR REPLACE FUNCTION opinions_tier5_trigger() RETURNS trigger AS $$
 BEGIN
     NEW.search_vector := to_tsvector('spanish',
-        coalesce(NEW.topic, '') || ' ' || coalesce(NEW.belief, ''));
+        coalesce(NEW.topic, '') || ' ' || coalesce(NEW.content, ''));
     NEW.updated_at := now();
     RETURN NEW;
 END;

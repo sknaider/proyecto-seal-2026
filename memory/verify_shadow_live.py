@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """verify_shadow_live.py — post-restart gate for shadow router hook.
 
-Run AFTER each Claude Code session restart to confirm the running mcp_server_v2
+Run AFTER each Claude Code session restart to confirm the running mcp_server
 subprocess has the shadow hook loaded and is writing to shadow_router.jsonl.
 
 Checks:

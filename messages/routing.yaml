@@ -14,6 +14,12 @@ routes:
   - match: {agent_from: ALICE}
     deliver_to: [alice_messages, william_channel, web_api]
 
+  - match: {agent_from: NEXUS}
+    deliver_to: [william_channel, web_api]
+
+  - match: {agent_from: SPECTRE}
+    deliver_to: [william_channel, web_api]
+
   - match: {agent_from: William}
     deliver_to: [william_channel, web_api, trigger_agents]
 

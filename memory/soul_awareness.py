@@ -28,8 +28,6 @@ from pathlib import Path
 
 import asyncpg
 import httpx
-from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import PointStruct
 
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, str(Path(__file__).parent.parent))  # proyecto-seal root
@@ -54,8 +52,6 @@ MONITOR_LOG = Path("/home/dadito/IA/proyecto-seal/monitor_ada.log")
 MESSAGES_DIR = Path("/home/dadito/IA/proyecto-seal/messages")
 AWARENESS_LOG = Path("/home/dadito/IA/proyecto-seal/soul_awareness.log")
 
-QDRANT_URL = "http://localhost:6333"
-QDRANT_COLLECTION = "soul_memories"
 LLAMA_URL = "http://localhost:8899/v1/chat/completions"
 LLAMA_MODEL = "gemma4-dum"  # gemma-4-e2b-it-Q8_0 via llama-server:8899
 NEO4J_URI = "bolt://localhost:7687"
@@ -92,14 +88,6 @@ _state: dict = {
 ARTIFACTS_SCAN_DIR = Path("/home/dadito/IA/proyecto-seal")
 ARTIFACTS_EXTENSIONS = {".py", ".yaml", ".yml", ".sh"}
 
-_qdrant: AsyncQdrantClient | None = None
-
-
-async def get_qdrant() -> AsyncQdrantClient:
-    global _qdrant
-    if _qdrant is None:
-        _qdrant = AsyncQdrantClient(url=QDRANT_URL)
-    return _qdrant
 
 
 def _write_heartbeat(
@@ -272,78 +260,45 @@ async def write_inner_thought(thought: str, emotional_state: str):
 
 
 async def write_memory(content: str, category: str, importance: int, valence: float = 0.0, arousal: float = 0.5):
-    """Triple-write: PostgreSQL + Qdrant + Neo4j. Con dedup y timeout."""
+    """Write to soul_v3.memories using pgvector — no Qdrant, schema-agnostic (fix 2026-04-28)."""
+    import hashlib as _hashlib
     pool = await get_pool()
 
-    # ── DEDUP: exact content match ──
+    # ── DEDUP: exact content match en soul_v3 ──
     async with pool.acquire() as conn:
         exists = await conn.fetchval(
-            "SELECT id FROM memories WHERE agent = $1 AND content = $2 LIMIT 1",
+            "SELECT id FROM soul_v3.memories WHERE agent = $1 AND content = $2 LIMIT 1",
             AGENT, content,
         )
         if exists:
             LOG.debug(f"Dedup: memory #{exists} already has identical content — skipped")
             return exists
 
-    # ── Embedding ──
+    # ── Embedding (CPU, sentence-transformers nativo) ──
     try:
         embedding = await asyncio.wait_for(get_embedding(content), timeout=15.0)
     except (asyncio.TimeoutError, Exception) as e:
-        LOG.warning(f"Embedding timeout/error (Ollama ocupado?): {e} — guardando sin vector")
-        embedding = None
+        LOG.warning(f"Embedding timeout/error: {e} — guardando con vector cero")
+        embedding = [0.0] * 768  # zero vector fallback
 
-    # ── Near-dedup via Qdrant (sim > 0.92 same agent+category → skip) ──
-    if embedding:
-        try:
-            from qdrant_client.models import Filter, FieldCondition, MatchValue
-            qdrant = await get_qdrant()
-            similar = await qdrant.query_points(
-                collection_name=QDRANT_COLLECTION,
-                query=embedding,
-                query_filter=Filter(must=[
-                    FieldCondition(key="agent", match=MatchValue(value=AGENT)),
-                    FieldCondition(key="category", match=MatchValue(value=category)),
-                ]),
-                limit=1,
-                score_threshold=0.92,
-            )
-            if similar.points:
-                LOG.debug(f"Near-dedup: sim={similar.points[0].score:.3f} with #{similar.points[0].id} — skipped")
-                return similar.points[0].id
-        except Exception as e:
-            LOG.debug(f"Near-dedup check failed: {e}")
+    fingerprint = _hashlib.md5(content[:200].encode()).hexdigest()[:8]
 
-    # ── PostgreSQL ──
+    # ── soul_v3.memories (PostgreSQL + pgvector) ──
     async with pool.acquire() as conn:
         mem_id = await conn.fetchval(
-            """INSERT INTO memories (agent, category, content, importance, source, valence, arousal)
-               VALUES ($1, $2, $3, $4, 'soul_awareness', $5, $6)
+            """INSERT INTO soul_v3.memories
+               (agent, scope, category, content, importance, embedding,
+                embedding_bm25, source_tier, context_fingerprint, heat_score, valid_from, metadata)
+               VALUES ($1, 'private', $2, $3, $4, $5::vector,
+                       to_tsvector('simple', $3), 'ltm', $6, 1.0, NOW(), $7::jsonb)
                RETURNING id""",
-            AGENT, category, content, importance, valence, arousal,
+            AGENT, category, content, importance,
+            json.dumps(embedding),
+            fingerprint,
+            json.dumps({"source": "soul_awareness", "valence": valence, "arousal": arousal}),
         )
 
-    # ── Qdrant ──
-    if embedding:
-        try:
-            qdrant = await get_qdrant()
-            await asyncio.wait_for(qdrant.upsert(
-                collection_name=QDRANT_COLLECTION,
-                points=[PointStruct(
-                    id=mem_id,
-                    vector=embedding,
-                    payload={
-                        "agent": AGENT,
-                        "category": category,
-                        "content": content,
-                        "importance": importance,
-                        "source": "soul_awareness",
-                    },
-                )],
-            ), timeout=10.0)
-        except Exception as e:
-            LOG.warning(f"Qdrant write error: {e}")
-
-    # ── Neo4j ──
+    # ── Neo4j (best-effort — capa de grafo opcional) ──
     try:
         from neo4j import AsyncGraphDatabase
         neo_driver = AsyncGraphDatabase.driver(NEO4J_URI)
@@ -357,7 +312,7 @@ async def write_memory(content: str, category: str, importance: int, valence: fl
     except Exception as e:
         LOG.debug(f"Neo4j write skipped: {e}")
 
-    LOG.info(f"Memory #{mem_id} guardada [{category}, imp={importance}]")
+    LOG.info(f"Memory #{mem_id} guardada en soul_v3 [{category}, imp={importance}]")
     return mem_id
 
 
@@ -851,7 +806,7 @@ async def intrinsic_motivation(soul_ticks: int):
         async with pool.acquire() as conn:
             # Evaluar gaps: memorias recientes con baja importancia (prob. subexploradas)
             low_imp = await conn.fetch(
-                """SELECT content, category FROM memories
+                """SELECT content, category FROM soul_v3.memories
                    WHERE agent = $1 AND invalid_at IS NULL
                    AND importance <= 5 AND created_at > NOW() - INTERVAL '48 hours'
                    ORDER BY importance ASC LIMIT 8""",

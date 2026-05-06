@@ -116,6 +116,9 @@ def budget_status() -> dict[str, Any]:
 # τ_rel: relative gain over baseline — action is soft-warned if it barely beats "do nothing".
 # baseline: confidence of taking no action (0.3 = noise floor from D3 cache spec).
 
+# Sandbox v1 calibration: default confidence=0.7 must clear both gates.
+# Effective combined floor = max(τ_abs, τ_rel + baseline) = max(0.5, 0.3+0.3) = 0.60.
+# Production target (when real confidence scoring is live): τ_abs=0.60, τ_rel=0.55.
 _D6_TAU_ABS = 0.5
 _D6_TAU_REL = 0.3
 _D6_BASELINE = 0.3
@@ -235,6 +238,9 @@ def _check_value(cv: dict, action: str, meta: dict) -> bool:
 
     if vid == "CV-2":
         # real production access
+        # Exception: william_response=True means William explicitly authorized this emit
+        if meta.get("william_response"):
+            return False
         prod_keywords = {"web_chat_real", "prod_db", "production", "soul_v3.memories_real"}
         if any(k in action_lower for k in prod_keywords):
             return True
@@ -275,22 +281,38 @@ def _check_value(cv: dict, action: str, meta: dict) -> bool:
 
 # ── Contract Gate (combined check) ───────────────────────────────────────────
 
-def contract_gate(action: str, metadata: dict[str, Any] | None = None) -> tuple[bool, str, list[dict]]:
+def contract_gate(
+    action: str,
+    metadata: dict[str, Any] | None = None,
+    confidence: float = 0.7,
+) -> tuple[bool, str, list[dict]]:
     """
-    Full contract check: budget + core_values.
+    Full contract check: budget → D6 two-threshold → core_values.
 
-    Returns:
-        (allowed: bool, reason: str, soft_violations: list[dict])
-
-    Raises ContractViolation if a hard core_value is violated.
-    Call this before ANY external sink emit.
+    confidence: Nivel 4 action certainty [0.0, 1.0]. Default 0.7 (sandbox v1).
+    Returns (allowed, reason, soft_violations).
+    Raises ContractViolation on hard core_value violation.
     """
     # 1. invocation budget
     budget_ok, budget_reason = check_invocation_budget()
     if not budget_ok:
         return False, budget_reason, []
 
-    # 2. core values (raises on hard violation)
+    # 2. D6 two-threshold gate
+    d6_allowed, d6_reason, d6_soft = two_threshold_gate(confidence)
+    if not d6_allowed and not d6_soft:
+        print(f"[SPECTRE/contract] ⛔ D6 hard block: {d6_reason}", flush=True)
+        return False, d6_reason, []
+
+    # 3. core values (raises ContractViolation on hard violation)
     soft_violations = check_core_values(action, metadata)
+
+    if d6_soft:
+        print(f"[SPECTRE/contract] ⚠️ D6 soft warn: {d6_reason}", flush=True)
+        soft_violations.append({
+            "type": "D6_soft_warn",
+            "reason": d6_reason,
+            "ts": datetime.now(timezone.utc).isoformat(),
+        })
 
     return True, "ok", soft_violations

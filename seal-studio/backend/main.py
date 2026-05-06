@@ -410,7 +410,7 @@ async def soul_ocean(agent: str = "ADA"):
 @app.get("/api/soul/ocean/all")
 async def soul_ocean_all():
     """Get current OCEAN scores for all agents in one call."""
-    agents = ["ADA", "JARVIS", "ALICE", "DUM"]
+    agents = ["ADA", "JARVIS", "ALICE", "NEXUS", "DUM"]
     results = []
     for agent in agents:
         try:

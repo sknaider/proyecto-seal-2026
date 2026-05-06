@@ -19,4 +19,8 @@ $PYTHON soul_reflect.py full "$AGENT" >> "$LOG" 2>&1
 $PYTHON soul_backup.py >> "$LOG" 2>&1
 
 echo "$(date) — Session capture complete for $AGENT" >> "$LOG"
+
+# KAIROS daily log — append session entry to logs/YYYY/MM/YYYY-MM-DD.md
+$PYTHON kairos_daily_log.py "$AGENT" >> "$LOG" 2>&1
+
 echo "Soul saved for $AGENT."

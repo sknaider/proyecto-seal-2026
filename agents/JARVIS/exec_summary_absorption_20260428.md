@@ -92,9 +92,9 @@ Para SEAL: esto reemplaza directamente nuestro `pre_edit_checkpoint.sh` que tien
 #### 1. Señal de Mercado: Patrón FHS Root = Claude Code
 Cuando se instala como administrador del sistema (root), el installer usa exactamente el mismo patrón que Claude Code CLI:
 ```
-código → /usr/local/lib/hermes-agent
-comando → /usr/local/bin/hermes
-datos → /root/.hermes
+código → /usr/local/lib/soul
+comando → /usr/local/bin/soul
+datos → /root/.soul
 ```
 Esto no es accidental. Los desarrolladores del agente estudiaron Claude Code y copiaron intencionalmente su estructura de instalación.
 
@@ -120,7 +120,7 @@ El installer detecta Android y usa Python stdlib en vez de `uv` (que no está di
 ---
 
 #### 4. Config que Sobrevive Actualizaciones
-Configuración del usuario (`~/.hermes/.env`) siempre gana sobre la configuración del sistema. Al actualizar el agente, el usuario no pierde su configuración.
+Configuración del usuario (`~/.soul/.env`) siempre gana sobre la configuración del sistema. Al actualizar el agente, el usuario no pierde su configuración.
 
 **Para SEAL:** `~/.seal/profiles/<cliente>/config.toml` nunca se sobreescribe en un `seal upgrade`. Los datos del cliente son sagrados.
 

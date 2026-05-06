@@ -1,0 +1,1 @@
+{"agent": "DUM", "alive": true, "timestamp": "2026-05-04T02:24:56Z", "status": "alertas", "model": "gemma4-dum:q8", "cycle": 584, "gpu_temp": 0, "gpu_util": 0, "alerts": 1, "sleep_mode": false}

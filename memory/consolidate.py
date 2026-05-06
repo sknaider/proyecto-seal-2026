@@ -58,15 +58,15 @@ async def consolidate_events(pool: asyncpg.Pool, hours_back: int = 24, dry_run: 
     async with pool.acquire() as conn:
         # Get events grouped by agent
         agents = await conn.fetch(
-            "SELECT DISTINCT agent FROM event_log WHERE time > $1", cutoff
+            "SELECT DISTINCT agent FROM event_log WHERE created_at > $1", cutoff
         )
 
         for agent_row in agents:
             agent = agent_row["agent"]
             events = await conn.fetch(
-                """SELECT time, event_type, content, ref_id
-                   FROM event_log WHERE agent = $1 AND time > $2
-                   ORDER BY time ASC""",
+                """SELECT created_at, event_type, content, ref_id
+                   FROM event_log WHERE agent = $1 AND created_at > $2
+                   ORDER BY created_at ASC""",
                 agent, cutoff,
             )
 
@@ -167,7 +167,7 @@ async def archive_old_events(pool: asyncpg.Pool, days: int = 30, dry_run: bool =
 
     async with pool.acquire() as conn:
         count = await conn.fetchval(
-            "SELECT COUNT(*) FROM event_log WHERE time < $1", cutoff
+            "SELECT COUNT(*) FROM event_log WHERE created_at < $1", cutoff
         )
 
         if count == 0:
@@ -187,7 +187,7 @@ async def archive_old_events(pool: asyncpg.Pool, days: int = 30, dry_run: bool =
             actions.append(f"Skipping archive: {count} old events exist but no consolidation memories cover them yet")
             LOG.warning("Skipping archive: no consolidation memories for period before %s", cutoff)
         else:
-            await conn.execute("DELETE FROM event_log WHERE time < $1", cutoff)
+            await conn.execute("DELETE FROM event_log WHERE created_at < $1", cutoff)
             actions.append(f"Archived: deleted {count} events older than {days} days ({consolidated} consolidation memories exist)")
             LOG.info("Archived %d events older than %d days", count, days)
 
@@ -434,7 +434,7 @@ def main():
         # Rebuild connectome via Neo4j (v2 architecture)
         print("\n  Rebuilding connectome (Neo4j)...")
         try:
-            from mcp_server_v2 import connectome_build
+            from mcp_server_v3 import connectome_build
             result = asyncio.run(connectome_build())
             print(f"  {result}")
         except Exception as e:

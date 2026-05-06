@@ -17,6 +17,7 @@ if [ -z "$TMUX" ]; then
   exec tmux new-session -s "seal-jarvis" "bash $0 $*"
 fi
 tmux rename-window "JARVIS" 2>/dev/null || true
+tmux set-option status-right '#(python3 /home/dadito/IA/proyecto-seal/messages/seal_context_meter.py --tmux JARVIS 2>/dev/null) #[fg=#888888]%H:%M ' 2>/dev/null || true
 
 # ── Capa 2 — snapshot al salir (kill abrupto o cierre normal) ──
 _continuity_final_trap() {
@@ -151,11 +152,13 @@ export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalació
 export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
 export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
 export ANTHROPIC_BETAS=token-efficient-tools-2026-03-28,task-budgets-2026-03-13,fine-grained-tool-streaming-2025-05-14,compact-2026-01-12  # H1.2+H2.2 + FG streaming + compact beta
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 06-may-2026: precompactar a 90%
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=95    # William 06-may-2026: compactar a 95%
 export ENABLE_CLAUDE_CODE_SM_COMPACT=true    # -80% costo compactación via session_memory
 export CLAUDE_CODE_AGENT_COST_STEER=1        # Router oficial Anthropic — elige modelo por costo (flag filtrado 19-abr)
 export CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-4-5-20251001  # Subagents Task() usan haiku por default — ID completo (más determinista que alias)
 export CLAUDE_CODE_DISABLE_PRECOMPACT_SKIP=1 # Garantiza que pre_compact_hook siempre dispara — preserva working_state
+export ANTHROPIC_DEFAULT_SONNET_MODEL='claude-sonnet-4-6[1m]'
+export ANTHROPIC_DEFAULT_OPUS_MODEL='claude-opus-4-7[1m]'
 # NOTA: CLAUDE_CODE_COORDINATOR_MODE=1 disponible pero NO forzado — limita a AgentTool+SendMessage+TaskStop
 # JARVIS puede activarlo manualmente para tareas de orquestación pura
 

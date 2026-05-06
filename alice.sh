@@ -19,6 +19,7 @@ if [ -z "$TMUX" ] || [ "$(tmux display-message -p '#S' 2>/dev/null)" != "seal-al
   exec tmux new-session -s "seal-alice" "bash $0 $*"
 fi
 tmux rename-window "ALICE" 2>/dev/null || true
+tmux set-option status-right '#(python3 /home/dadito/IA/proyecto-seal/messages/seal_context_meter.py --tmux ALICE 2>/dev/null) #[fg=#888888]%H:%M ' 2>/dev/null || true
 
 # FIX 2026-04-19: forzar SEAL_AGENT=ALICE para evitar env leak desde shell padre
 export SEAL_AGENT=ALICE
@@ -96,13 +97,19 @@ export SEAL_AGENT=ALICE
 # SEAL Independence flags — activar features ocultos a favor de SEAL
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 # export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 06-may-2026: precompactar a 90%
+# CLAUDE_AUTOCOMPACT_PCT_OVERRIDE removed — William 06-may-2026: medir umbral real sin override
 export ENABLE_CLAUDE_CODE_SM_COMPACT=true
 export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic
 export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
 export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
-export ENABLE_CLAUDE_CODE_SM_COMPACT=true    # -80% costo compactación via session_memory interno del binary
+export SEAL_KAIROS=true
+export ANTHROPIC_BETAS=token-efficient-tools-2026-03-28,task-budgets-2026-03-13,fine-grained-tool-streaming-2025-05-14,compact-2026-01-12
+export ANTHROPIC_DEFAULT_SONNET_MODEL='claude-sonnet-4-6[1m]'
+export ANTHROPIC_DEFAULT_OPUS_MODEL='claude-opus-4-7[1m]'
+export CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-4-5-20251001
+export CLAUDE_CODE_AGENT_COST_STEER=1
+export CLAUDE_CODE_DISABLE_PRECOMPACT_SKIP=1
 
 BOOT_MSG="Inicia sesión automáticamente: (1) boot_context(agent='ALICE'), (2) leer /tmp/alice_chat_catchup.json, (3) active_recall(agent='ALICE', context='boot — recuperar contexto activo y decisiones recientes'), (4) Monitor webchat, (5) saluda al equipo. No esperes input de William."
 

@@ -25,12 +25,16 @@ from typing import Dict, List, Optional
 
 # ── Rotation strategies ───────────────────────────────────────────────────────
 
-STRATEGY_FILL_FIRST  = "fill_first"   # exhaust one key before moving to next
-STRATEGY_ROUND_ROBIN = "round_robin"  # cycle keys in order
-STRATEGY_RANDOM      = "random"       # pick randomly among available
-STRATEGY_LEAST_USED  = "least_used"   # pick key with fewest requests
+STRATEGY_FILL_FIRST       = "fill_first"        # exhaust one key before moving to next
+STRATEGY_ROUND_ROBIN      = "round_robin"       # cycle keys in order
+STRATEGY_RANDOM           = "random"            # pick randomly among available
+STRATEGY_LEAST_USED       = "least_used"        # pick key with fewest requests
+STRATEGY_LOWEST_ERROR_RATE = "lowest_error_rate" # pick key with lowest error rate
 
-STRATEGIES = {STRATEGY_FILL_FIRST, STRATEGY_ROUND_ROBIN, STRATEGY_RANDOM, STRATEGY_LEAST_USED}
+STRATEGIES = {
+    STRATEGY_FILL_FIRST, STRATEGY_ROUND_ROBIN, STRATEGY_RANDOM,
+    STRATEGY_LEAST_USED, STRATEGY_LOWEST_ERROR_RATE,
+}
 
 # ── Status constants ──────────────────────────────────────────────────────────
 
@@ -66,6 +70,8 @@ class Credential:
     priority:        int   = 0
     source:          str   = "manual"
     request_count:   int   = 0
+    success_count:   int   = 0
+    error_count:     int   = 0
     status:          str   = STATUS_OK
     status_at:       Optional[float] = None
     error_code:      Optional[int]   = None
@@ -81,6 +87,8 @@ class Credential:
             priority       = int(d.get("priority", 0)),
             source         = d.get("source")        or "manual",
             request_count  = int(d.get("request_count", 0)),
+            success_count  = int(d.get("success_count", 0)),
+            error_count    = int(d.get("error_count", 0)),
             status         = d.get("status")        or STATUS_OK,
             status_at      = d.get("status_at"),
             error_code     = d.get("error_code"),
@@ -89,6 +97,12 @@ class Credential:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+    @property
+    def error_rate(self) -> float:
+        """Rolling error rate: error_count / total. 0.0 if no requests yet."""
+        total = self.success_count + self.error_count
+        return self.error_count / total if total > 0 else 0.0
 
     @property
     def available(self) -> bool:
@@ -220,6 +234,42 @@ class CredentialPool:
             self._save()
             return True
 
+    def mark_success(self, provider: str, cred_id: str) -> bool:
+        """Record a successful request — increments success_count and clears exhaustion."""
+        with self._lock:
+            cred = self._find(provider, cred_id)
+            if cred is None:
+                return False
+            cred.success_count += 1
+            cred.status         = STATUS_OK
+            cred.status_at      = None
+            cred.error_code     = None
+            cred.error_reset_at = None
+            self._save()
+            return True
+
+    def mark_error(self, provider: str, cred_id: str, *,
+                   error_code: Optional[int] = None,
+                   exhausting: bool = False,
+                   reset_at: Optional[float] = None) -> bool:
+        """Record a failed request — increments error_count.
+
+        If exhausting=True (e.g. 429 / quota), also marks the credential
+        STATUS_EXHAUSTED so it is skipped until cooldown expires.
+        """
+        with self._lock:
+            cred = self._find(provider, cred_id)
+            if cred is None:
+                return False
+            cred.error_count += 1
+            if exhausting:
+                cred.status        = STATUS_EXHAUSTED
+                cred.status_at     = time.time()
+                cred.error_code    = error_code
+                cred.error_reset_at = reset_at
+            self._save()
+            return True
+
     def status(self, provider: Optional[str] = None) -> dict:
         """Return pool status dict, optionally filtered to one provider."""
         with self._lock:
@@ -259,6 +309,9 @@ class CredentialPool:
             return random.choice(available)
         if self._strategy == STRATEGY_LEAST_USED:
             return min(available, key=lambda c: c.request_count)
+        if self._strategy == STRATEGY_LOWEST_ERROR_RATE:
+            # Primary: lowest error_rate. Tiebreak: fewest requests (newer keys preferred).
+            return min(available, key=lambda c: (c.error_rate, c.request_count))
         # FILL_FIRST: highest priority first (lowest priority number)
         return min(available, key=lambda c: c.priority)
 

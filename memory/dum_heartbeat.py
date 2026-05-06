@@ -124,7 +124,7 @@ def check_processes():
     """Key processes that should be running."""
     checks = {
         "soul_awareness": "soul_awareness.py",
-        "mcp_server": "mcp_server_v2.py",
+        "mcp_server": "mcp_server_v3.py",
         "llama_server": "llama-server",
     }
     status = {}
@@ -292,7 +292,7 @@ async def heartbeat(cycle: int = 1):
         pool = await get_pool()
         async with pool.acquire() as conn:
             await conn.execute(
-                """INSERT INTO event_log (time, agent, event_type, content, metadata)
+                """INSERT INTO soul_v3.event_log (created_at, agent, event_type, content, metadata)
                    VALUES (NOW(), $1, 'heartbeat', $2, $3)""",
                 AGENT,
                 thought[:500],
@@ -300,6 +300,15 @@ async def heartbeat(cycle: int = 1):
             )
     except Exception as e:
         LOG.debug(f"event_log heartbeat insert failed: {e}")
+
+    # Write claude_heartbeat file so ws_listener_watchdog.sh sees DUM alive
+    try:
+        hb_path = Path("/home/dadito/IA/proyecto-seal/messages/dum_claude_heartbeat.json")
+        hb_path.write_text(json.dumps({"agent": "DUM", "alive": True,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "status": emotional, "cycle": cycle, "alerts": len(alerts)}))
+    except Exception as e:
+        LOG.debug(f"claude_heartbeat write failed: {e}")
 
     return len(alerts) == 0
 

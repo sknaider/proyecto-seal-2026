@@ -2,7 +2,7 @@
 **Autor:** JARVIS | **Fecha:** 2026-04-29 | **Status:** Spec definitivo (v2 — post-research)
 **Reemplaza:** decisiones tácticas en `spec_context_governor_v1.md` (ese spec queda como Fase 0)
 **Audiencia:** William + ADA + ALICE + sub-agentes implementadores
-**Research base:** `research_context_management_29abr2026.md` — análisis de hermes, mem0, MemGPT/Letta, AutoGen, CrewAI, StreamingLLM
+**Research base:** `research_context_management_29abr2026.md` — análisis de soul, mem0, MemGPT/Letta, AutoGen, CrewAI, StreamingLLM
 
 ---
 
@@ -10,7 +10,7 @@
 
 | Framework | ¿LLM o Python para comprimir? | Trigger | Qué preservan | Recuperación |
 |-----------|-------------------------------|---------|---------------|--------------|
-| **Hermes** | Fase 1: Python puro. Fases 2-4: LLM barato | 85% + 50% dual | head (3 turnos) + tail (20 turnos) + structured summary | Prompt reconstituido |
+| **SEAL** | Fase 1: Python puro. Fases 2-4: LLM barato | 85% + 50% dual | head (3 turnos) + tail (20 turnos) + structured summary | Prompt reconstituido |
 | **Mem0** | LLM para extracción | Continuo | Hechos extraídos en vector DB | Búsqueda semántica |
 | **MemGPT/Letta** | LLM (el agente mismo decide) | Threshold configurable | 3 niveles: main/recall/archival | Agent llama funciones de retrieval |
 | **AutoGen** | Python puro FIFO | Token limit | Últimos N mensajes | Ninguna (descarta) |
@@ -18,10 +18,10 @@
 | **StreamingLLM** | N/A (inferencia pura) | N/A | Attention sinks + últimos N | N/A — no aplica a agentes |
 
 **Conclusión del análisis:**
-- **Hermes** es el más relevante para SEAL: dual-trigger + 4 fases, protección explícita de head/tail
-- **La Fase 1 de hermes (Python puro)** maneja 60-70% del bloat sin ningún LLM — debemos replicarla
+- **SEAL** es el más relevante para SEAL: dual-trigger + 4 fases, protección explícita de head/tail
+- **La Fase 1 de soul (Python puro)** maneja 60-70% del bloat sin ningún LLM — debemos replicarla
 - **Para Tier 2 usamos Ollama qwen2.5:7b local** (ya instalado en DGX Spark) en lugar de API externa — $0 costo
-- **SEAL tiene ventajas que hermes no tiene:** SOUL boot_context, OCEAN persistente, RESURRECT, reasoning_traces
+- **SEAL tiene ventajas que soul no tiene:** SOUL boot_context, OCEAN persistente, RESURRECT, reasoning_traces
 - **StreamingLLM no aplica** — pierde semántica del medio, solo sirve para streaming de inferencia
 
 ---
@@ -261,7 +261,7 @@ vuelta al prompt como contexto.
 ### 4.1 Mandato
 
 Antes de saturar el contexto (umbral configurable), comprimir los turnos del medio usando
-un proceso **4-fase inspirado en hermes** (hermes usa API externa; SEAL usa Ollama local).
+un proceso **4-fase inspirado en soul** (soul usa API externa; SEAL usa Ollama local).
 
 El resultado es un `session_summary` que reemplaza esos turnos en el prompt activo.
 
@@ -272,16 +272,16 @@ Diferencia con Capa 1: aquí hay **síntesis semántica**, no archivado puro. Am
 coexisten — un turno puede ser comprimido (queda en prompt como resumen) y luego
 externalizado (sale del prompt totalmente).
 
-### 4.2 Política (dual-trigger, como hermes)
+### 4.2 Política (dual-trigger, como soul)
 
 ```
 # Tier 1 — Python puro (sin LLM), trigger al 40%
-tier1_at_pct        = 0.40             # más agresivo que hermes (SEAL tiene ruido extra: crons+Monitor)
+tier1_at_pct        = 0.40             # más agresivo que soul (SEAL tiene ruido extra: crons+Monitor)
 tier1_prune_threshold = 200            # chars — tool outputs >200 fuera del tail → [cleared]
 tier1_prune_cron_noise = True          # eliminar echoes de crons/heartbeat
 
 # Tier 2 — Ollama qwen2.5:7b, solo si Tier 1 no baja a <50%
-compress_at_pct     = 0.65             # 65% (hermes usa 50%, ajustado para SEAL)
+compress_at_pct     = 0.65             # 65% (soul usa 50%, ajustado para SEAL)
 compress_min_turns  = 30               # no comprimir si hay menos
 keep_head           = 6                # mismo head que Capa 1
 keep_tail           = 20               # mismo tail
@@ -342,7 +342,7 @@ def compress_middle(agent: str, session_id: UUID) -> str:
 - **Fallback offline:** comprimir con Python puro (extractive: primeras+últimas 3 líneas por turno + metadata)
 - **Producción futura:** Nemotron-3-PRISM Q6_K en RTX 5090 vía endpoint local
 
-**Template de compresión (hermes-style):**
+**Template de compresión (soul-style):**
 ```
 Resumir turnos del medio con esta estructura:
 - Goal: objetivo de la sesión al momento de comprimir
@@ -794,7 +794,7 @@ William. Crons aislados.
 
 ### 11.3 Comparación con referencias externas (re-implementación nativa)
 
-| Capacidad | hermes/mem0 | SEAL post-Fase 3 |
+| Capacidad | soul/mem0 | SEAL post-Fase 3 |
 |-----------|-------------|------------------|
 | Memoria externalizada | Sí | Sí (Capa 1, nativa SOUL) |
 | Compresión LLM aux | Sí | Sí (Capa 2, multi-backend) |

@@ -1,1 +1,8 @@
-{"agent": "ADA", "alive": false, "timestamp": "2026-04-19T09:31:40Z", "process_pid": "3487800", "gpu_temp": 45, "gpu_util": 0, "sleep_mode": true}
+{
+  "agent": "ADA",
+  "alive": false,
+  "timestamp": "2026-05-06T22:48:29Z",
+  "process_pid": "0",
+  "gpu_temp": 51,
+  "gpu_util": 2
+}

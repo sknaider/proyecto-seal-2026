@@ -41,6 +41,7 @@ sys.path.insert(0, str(_SPECTRE_KERNEL))
 sys.path.insert(0, str(_HERE))
 
 import cortex  # noqa: E402
+import soul_runtime  # noqa: E402
 
 LOCK_PATH = Path("/tmp/ada_kernel_main.lock")
 CURSOR_PATH = Path("/tmp/ada_kernel_main.cursor")
@@ -48,6 +49,11 @@ CHECKPOINT_PATH = Path("/tmp/ada_kernel_main.checkpoint.json")  # Hermes: checkp
 LOG_PATH = Path("/tmp/ada_kernel_main.log")
 WEBCHAT_JSONL = Path("/home/dadito/IA/proyecto-seal/messages/william_channel.jsonl")
 WEBCHAT_POST = "http://localhost:8765/api/agents/send"
+# DM channel — private 1:1 William <-> ADA via terminal console.
+# 04-may-2026 (William): movido a ~/.private/seal_dms/ con chmod 700 dir + 600 file.
+# Ningun otro agente debe leer DMs de otros — regla de oro.
+DM_JSONL = Path.home() / ".private" / "seal_dms" / "dm_william_ada.jsonl"
+DM_CURSOR_PATH = Path("/tmp/ada_kernel_main.dm_cursor")
 
 POLL_INTERVAL_S = float(os.environ.get("ADA_KERNEL_POLL_S", "10"))
 MAX_ITERATIONS = int(os.environ.get("ADA_KERNEL_MAX_ITER", "1000"))
@@ -149,12 +155,13 @@ def _parse_ts(raw: str) -> datetime | None:
         return None
 
 
-def _read_new_messages(cursor: datetime) -> list[dict]:
-    if not WEBCHAT_JSONL.exists():
+def _read_jsonl_new(path: Path, cursor: datetime, source_tag: str) -> list[dict]:
+    """Read new messages from a JSONL since cursor. Tags each with `_source`."""
+    if not path.exists():
         return []
     new: list[dict] = []
     try:
-        with WEBCHAT_JSONL.open("r") as f:
+        with path.open("r") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -172,10 +179,19 @@ def _read_new_messages(cursor: datetime) -> list[dict]:
                     continue
                 if msg.get("type") not in (None, "conversation"):
                     continue
+                msg["_source"] = source_tag
                 new.append(msg)
     except Exception as ex:
-        _log(f"[ada/kernel] read error: {ex}")
+        _log(f"[ada/kernel] read error ({source_tag}): {ex}")
     return new
+
+
+def _read_new_messages(cursor: datetime, dm_cursor: datetime) -> list[dict]:
+    """Read from both webchat and DM channels, return chronologically merged list."""
+    msgs = _read_jsonl_new(WEBCHAT_JSONL, cursor, "webchat")
+    msgs += _read_jsonl_new(DM_JSONL, dm_cursor, "dm")
+    msgs.sort(key=lambda m: _parse_ts(m.get("timestamp", "")) or datetime.min.replace(tzinfo=timezone.utc))
+    return msgs
 
 
 async def _post_webchat(text: str) -> None:
@@ -193,6 +209,34 @@ async def _post_webchat(text: str) -> None:
             )
     except Exception as ex:
         _log(f"[ada/kernel] webchat post failed: {ex}")
+
+
+def _post_dm(text: str) -> None:
+    """Write ADA response to DM JSONL. Append-only, no API. William-only visibility."""
+    import uuid
+    entry = {
+        "id": f"dm_ada_{uuid.uuid4().hex[:16]}",
+        "from": "ADA",
+        "to": "William",
+        "type": "conversation",
+        "channel": "dm",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "message": text,
+    }
+    try:
+        DM_JSONL.parent.mkdir(parents=True, exist_ok=True)
+        with DM_JSONL.open("a") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception as ex:
+        _log(f"[ada/kernel] dm post failed: {ex}")
+
+
+async def _respond(text: str, source: str) -> None:
+    """Route response to the same channel the request came from."""
+    if source == "dm":
+        _post_dm(text)
+    else:
+        await _post_webchat(text)
 
 
 # ── Hermes pattern 2: Approval hook ──────────────────────────────────────────
@@ -247,18 +291,19 @@ async def _approval_gate(content: str, sender: str) -> bool:
 async def _process_one(msg: dict) -> None:
     sender = msg.get("from", "William")
     content = msg.get("message", "").strip()
+    source = msg.get("_source", "webchat")
     if not content:
         return
 
     # Hermes pattern 3: Tips emission — immediate ACK before heavy LLM call
     if TIPS_ENABLED:
-        await _post_webchat(f"[ADA] 🔄 procesando con Triangle…")
+        await _respond("[ADA] 🔄 procesando con Triangle…", source)
 
     # Hermes pattern 2: Approval gate (default auto=always proceed)
     if not await _approval_gate(content, sender):
         return
 
-    _log(f"[ada/kernel] dispatch from={sender} len={len(content)}c")
+    _log(f"[ada/kernel] dispatch from={sender} src={source} len={len(content)}c")
     try:
         response = await asyncio.wait_for(
             cortex.process_message(content, sender=sender),
@@ -270,7 +315,7 @@ async def _process_one(msg: dict) -> None:
     except Exception as ex:
         response = f"[ADA] cortex error: {ex}"
         _log(f"[ada/kernel] cortex exception: {ex}")
-    await _post_webchat(response)
+    await _respond(response, source)
 
 
 async def _sleep_or_shutdown(seconds: float) -> bool:
@@ -282,16 +327,38 @@ async def _sleep_or_shutdown(seconds: float) -> bool:
         return False
 
 
+def _load_dm_cursor() -> datetime:
+    if DM_CURSOR_PATH.exists():
+        try:
+            dt = datetime.fromisoformat(DM_CURSOR_PATH.read_text().strip())
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except Exception:
+            pass
+    now = datetime.now(timezone.utc)
+    DM_CURSOR_PATH.write_text(now.isoformat())
+    return now
+
+
+def _save_dm_cursor(dt: datetime) -> None:
+    try:
+        DM_CURSOR_PATH.write_text(dt.isoformat())
+    except Exception:
+        pass
+
+
 async def _run() -> None:
     # Hermes pattern 1: load checkpoint (cursor + last_msg_id) for crash resumption
     cursor, last_msg_id = _load_checkpoint()
+    dm_cursor = _load_dm_cursor()
     iterations = 0
     consecutive_errors = 0
     while iterations < MAX_ITERATIONS and not _shutdown.is_set():
         iterations += 1
         had_error = False
         try:
-            new_msgs = _read_new_messages(cursor)
+            new_msgs = _read_new_messages(cursor, dm_cursor)
             # Skip already-processed message at same timestamp (checkpoint dedup)
             if last_msg_id and new_msgs and new_msgs[0].get("id") == last_msg_id:
                 new_msgs = new_msgs[1:]
@@ -302,14 +369,19 @@ async def _run() -> None:
                         break
                     ts = _parse_ts(msg.get("timestamp", ""))
                     msg_id = msg.get("id")
+                    source = msg.get("_source", "webchat")
                     try:
                         await _process_one(msg)
                     except Exception as ex:
                         _log(f"[ada/kernel] process_one crashed: {ex}")
                         had_error = True
-                    # Checkpoint per message — poison message can't trap loop
-                    if ts is not None and ts > cursor:
-                        cursor = ts
+                    # Per-channel cursor advance + checkpoint
+                    if ts is not None:
+                        if source == "dm" and ts > dm_cursor:
+                            dm_cursor = ts
+                            _save_dm_cursor(dm_cursor)
+                        elif source != "dm" and ts > cursor:
+                            cursor = ts
                     last_msg_id = msg_id
                     _save_checkpoint(cursor, last_msg_id)
         except Exception as ex:
@@ -331,6 +403,39 @@ async def _run() -> None:
         _log(f"[ada/kernel] max iterations reached ({MAX_ITERATIONS}), exiting for restart")
 
 
+_last_dispatch_ts: str | None = None
+
+
+def _get_last_dispatch_ts() -> str | None:
+    return _last_dispatch_ts
+
+
+async def _boot_soul() -> None:
+    """Load identity + relationships + last inner thought from Soul DB.
+
+    Injects the loaded context into cortex via set_boot_context() so the
+    LLM has WHO ADA is at every dispatch (not just generic system prompt).
+    """
+    try:
+        ctx = await soul_runtime.boot_context("ADA")
+        if ctx.get("prompt_block"):
+            cortex.set_boot_context(ctx["prompt_block"])
+            _log(
+                f"[ada/kernel] boot_context loaded: ocean={bool(ctx['ocean'])} "
+                f"rels={len(ctx['relationships'])} beliefs={len(ctx['beliefs'])} "
+                f"rules={len(ctx['critical_rules'])}"
+            )
+        else:
+            _log("[ada/kernel] boot_context returned empty (DB unreachable?)")
+        await soul_runtime.event_log_append(
+            "ADA", "milestone",
+            "ADA-nativa daemon boot — soul_runtime conectado",
+            metadata={"pid": os.getpid()},
+        )
+    except Exception as ex:
+        _log(f"[ada/kernel] boot_soul error: {ex}")
+
+
 async def _main_async() -> None:
     loop = asyncio.get_running_loop()
 
@@ -344,7 +449,24 @@ async def _main_async() -> None:
         except NotImplementedError:
             # add_signal_handler is unavailable on some platforms (e.g. Windows).
             pass
-    await _run()
+
+    await _boot_soul()
+
+    hb_task = asyncio.create_task(
+        soul_runtime.heartbeat_loop("ADA", interval_s=60.0, get_last_dispatch=_get_last_dispatch_ts)
+    )
+    try:
+        await _run()
+    finally:
+        hb_task.cancel()
+        try:
+            await hb_task
+        except (asyncio.CancelledError, Exception):
+            pass
+        try:
+            await soul_runtime.close()
+        except Exception:
+            pass
 
 
 def main() -> None:

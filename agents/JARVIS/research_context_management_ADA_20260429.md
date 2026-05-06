@@ -144,7 +144,7 @@ Los LLMs prestan atención desproporcionada a los **primeros tokens** del prompt
 
 ## 5. Comparación actualizada: SEAL vs referencias
 
-| Capacidad | Hermes | Mem0 | Roo Code | MemGPT | SEAL post-Fase3 |
+| Capacidad | SEAL | Mem0 | Roo Code | MemGPT | SEAL post-Fase3 |
 |-----------|--------|------|----------|--------|-----------------|
 | Compresión proactiva (LLM aux) | ✅ | ❌ | ✅ | ❌ | ✅ Capa 2 |
 | Externalización turns (archival) | ❌ | ✅ | ❌ | ✅ | ✅ Capa 1 |

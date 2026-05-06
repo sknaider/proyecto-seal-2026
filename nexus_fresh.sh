@@ -60,19 +60,10 @@ if [ -n "${1:-}" ]; then
 fi
 echo "$NEXUS_MODEL" > /tmp/nexus_current_model.txt
 
-# Environment — full SEAL config
-export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+# Environment — ENVs comunes via seal_common_env.sh
+source "$(dirname "$0")/seal_common_env.sh"
 # export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 06-may-2026: precompactar a 90%
-export GROWTHBOOK_CLIENT_KEY=""
-export CLAUDE_CODE_ATTRIBUTION_HEADER=false
-export DISABLE_AUTOUPDATER=true
-export CLAUDE_CODE_UNATTENDED_RETRY=1
-export ANTHROPIC_BETAS=token-efficient-tools-2026-03-28,task-budgets-2026-03-13,fine-grained-tool-streaming-2025-05-14,compact-2026-01-12
-export ENABLE_CLAUDE_CODE_SM_COMPACT=true
-export CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-4-5-20251001
-export CLAUDE_CODE_AGENT_COST_STEER=1
-export CLAUDE_CODE_DISABLE_PRECOMPACT_SKIP=1
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # NEXUS-específico: compactar a 90%
 
 echo "Lanzando NEXUS v4 — Armadura del Sistema SEAL..."
 

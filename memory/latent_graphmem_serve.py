@@ -256,7 +256,7 @@ async def _magma_fallback(query: str, top_k: int, reason: str) -> dict:
     """Fallback to magma_retrieve via direct call."""
     t0 = time.perf_counter()
     try:
-        from mcp_server_v2 import magma_retrieve
+        from mcp_server_v3 import magma_retrieve
         raw = await magma_retrieve(agent="ADA", query=query, top_k=top_k)
         payload = json.loads(raw) if isinstance(raw, str) else raw
         return {

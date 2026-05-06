@@ -1,0 +1,19 @@
+<system version="1">
+  <cpu host_hash="0x61a1b09e7a4298ee" numaid="-1" arch="arm64">
+    <pci busid="0000:01:00.0" class="0x020000" vendor="0x15b3" device="0x1021" subsystem_vendor="0x15b3" subsystem_device="0x21ec" link_speed="32.0 GT/s PCIe" link_width="4">
+      <nic>
+        <net name="rocep1s0f0" dev="0" latency="0" speed="200000" port="1" guid="0xbcbf2c000347bb4c" maxconn="131072" gdr="0" net="1" gin="1"/>
+      </nic>
+    </pci>
+    <pci busid="0002:01:00.0" class="0x020000" vendor="0x15b3" device="0x1021" subsystem_vendor="0x15b3" subsystem_device="0x21ec" link_speed="32.0 GT/s PCIe" link_width="4">
+      <nic>
+        <net name="roceP2p1s0f0" dev="1" latency="0" speed="200000" port="1" guid="0xbcbf2c000347bb4c" maxconn="131072" gdr="0" net="1" gin="1"/>
+      </nic>
+    </pci>
+    <pci busid="000f:01:00.0" class="0x030000" vendor="0x10de" device="0x2e12" subsystem_vendor="0x10de" subsystem_device="0x0000" link_speed="2.5 GT/s PCIe" link_width="16">
+      <gpu dev="0" sm="121" rank="0" gdr="0">
+        <c2c bw="43125" count="8"/>
+      </gpu>
+    </pci>
+  </cpu>
+</system>

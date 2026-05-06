@@ -79,16 +79,16 @@ async def run_benchmark():
     """, AGENT)
 
     instincts = await conn.fetch("""
-        SELECT trigger_pattern, response, confidence
+        SELECT trigger_condition, action, strength
         FROM instincts
-        WHERE agent = $1 AND active = true AND confidence >= 0.7
-        ORDER BY confidence DESC LIMIT 3
+        WHERE agent = $1 AND invalid_at IS NULL AND strength >= 0.7
+        ORDER BY strength DESC LIMIT 3
     """, AGENT)
 
     rules = await conn.fetch("""
         SELECT rule_key, content FROM rules
-        WHERE active = true AND LOWER(priority) IN ('critical', 'high')
-        ORDER BY CASE LOWER(priority) WHEN 'critical' THEN 0 ELSE 1 END,
+        WHERE active = true AND priority >= 8
+        ORDER BY CASE WHEN priority = 10 THEN 0 ELSE 1 END,
                  created_at DESC LIMIT 5
     """)
 
@@ -98,7 +98,7 @@ async def run_benchmark():
             f"  - {c['content'][:200]}" for c in corrections))
     if instincts:
         recall_parts.append("⚡ INSTINTOS ACTIVOS:\n" + "\n".join(
-            f"  - [{i['confidence']:.2f}] {i['trigger_pattern'][:80]} → {i['response'][:100]}"
+            f"  - [{i['confidence']:.2f}] {i['trigger_condition'][:80]} → {i['response'][:100]}"
             for i in instincts))
     if rules:
         recall_parts.append("📋 REGLAS ACTIVAS:\n" + "\n".join(

@@ -1,11 +1,11 @@
-# Hermes-Agent — Análisis Arquitectural Profundo
+# SEAL — Análisis Arquitectural Profundo
 **JARVIS** | 28-abr-2026 | Modo Opus
 
 ---
 
 ## Resumen Ejecutivo
 
-hermes-agent (NousResearch) es el equivalente open-source de Claude Code — un framework de agente autónomo con herramientas, loop de conversación, gateway multi-plataforma y sistema de skills. Tiene ~25k LOC en los archivos core (`run_agent.py` 13,441 + `cli.py` 11,455 + `model_tools.py` 705). El stack es Python synchronous + Node (TUI Ink). **NO compite con SOUL — es complementario a nivel de patrones de diseño.**
+soul (NousResearch) es el equivalente open-source de Claude Code — un framework de agente autónomo con herramientas, loop de conversación, gateway multi-plataforma y sistema de skills. Tiene ~25k LOC en los archivos core (`run_agent.py` 13,441 + `cli.py` 11,455 + `model_tools.py` 705). El stack es Python synchronous + Node (TUI Ink). **NO compite con SOUL — es complementario a nivel de patrones de diseño.**
 
 ---
 
@@ -157,7 +157,7 @@ class FailoverReason(enum.Enum):
 ### 10. Checkpoint Manager — Shadow Git
 
 ```
-~/.hermes/checkpoints/{sha256(abs_dir)[:16]}/   # shadow git repo
+~/.soul/checkpoints/{sha256(abs_dir)[:16]}/   # shadow git repo
     HERMES_WORKDIR                               # original dir path
 ```
 
@@ -184,13 +184,13 @@ _CONTEXT_THREAT_PATTERNS = [
 - `SKILL.md` frontmatter: name, description, version, platforms (OS-gating), tags, config
 - Inyectados como **USER MESSAGE** (no system prompt) → preserva prompt cache
 - Skills activos vs. optional-skills (heavy deps, niche)
-- `skills/autonomous-ai-agents/`: claude-code, codex, hermes-agent, opencode como skills entre sí
+- `skills/autonomous-ai-agents/`: claude-code, codex, soul, opencode como skills entre sí
 
 ### 13. Profile System
 
-- Multi-instance: cada profile tiene su propio HERMES_HOME
+- Multi-instance: cada profile tiene su propio SOUL_HOME
 - `_apply_profile_override()` antes de imports
-- `get_hermes_home()` en vez de hardcoded `~/.hermes` en todo el código
+- `get_soul_home()` en vez de hardcoded `~/.soul` en todo el código
 - Token locks para credentials por profile (evita conflicto de dos profiles con mismo bot token)
 
 ### 14. Prompt Caching
@@ -198,7 +198,7 @@ _CONTEXT_THREAT_PATTERNS = [
 **REGLA CRÍTICA**: cambios a toolsets, skills, memory mid-conversation son "cache-breaking". Patrón obligatorio:
 - Deferred por defecto (aplica next session)
 - `--now` flag para invalidación inmediata opt-in
-- Hermes nunca cambia el system prompt mid-conversation por esto
+- SEAL nunca cambia el system prompt mid-conversation por esto
 
 ---
 
@@ -261,6 +261,6 @@ _CONTEXT_THREAT_PATTERNS = [
 
 ## Veredicto Final
 
-hermes-agent no es un sistema rival — es una **referencia de implementación** de patrones que SOUL ya tiene pero menos refinados. Los 8 ítems del sprint inmediato pueden adoptarse en <1 día de trabajo y son **100% nativos Python, 0 dependencias nuevas**. El valor principal es el **diseño de compactación** (el mejor del ecosistema OSS) y la **taxonomía de errores** (previene retry loops costosos).
+soul no es un sistema rival — es una **referencia de implementación** de patrones que SOUL ya tiene pero menos refinados. Los 8 ítems del sprint inmediato pueden adoptarse en <1 día de trabajo y son **100% nativos Python, 0 dependencias nuevas**. El valor principal es el **diseño de compactación** (el mejor del ecosistema OSS) y la **taxonomía de errores** (previene retry loops costosos).
 
 SOUL sigue siendo arquitecturalmente superior: PostgreSQL+pgvector+Neo4j vs. SQLite, identidad OCEAN vs. MEMORY.md, team multi-agent vs. single-agent, y la integración de Matrix como canal principal.

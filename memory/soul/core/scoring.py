@@ -1,7 +1,7 @@
 """SEAL SOUL — Scoring helpers.
 
-Extracted from mcp_server_v2.py (Wave 2).
-Used by: mcp_server_v2.py, memory_hybrid_search, sleep_gate_cron.py
+Extracted from mcp_server_v3.py (Wave 2).
+Used by: mcp_server_v3.py, memory_hybrid_search, sleep_gate_cron.py
 
 Includes:
 - temporal_decay_score(): HALO half-life + MemRL utility + Hindsight confidence

@@ -93,7 +93,7 @@ class TestActiveRecallIntegration(unittest.IsolatedAsyncioTestCase):
             ON CONFLICT DO NOTHING
         """)
         await self.conn.execute("""
-            INSERT INTO instincts(agent, trigger_pattern, response, confidence, active)
+            INSERT INTO instincts(agent, trigger_condition, response, confidence, active)
             VALUES ('JARVIS_TEST', 'test trigger', 'test response', 0.95, true)
             ON CONFLICT DO NOTHING
         """)

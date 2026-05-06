@@ -43,14 +43,25 @@ check_and_restart() {
   # Detecta muerte abrupta sin esperar 3-5min al cron de heartbeat.
   # seal-claude renombra el proceso a solo "claude" sin args visibles →
   # detectar via /proc/PID/environ (SEAL_AGENT=NOMBRE) en lugar de cmdline.
+  # 04-may-2026 (JARVIS): añadido reconocimiento de runtime nativo
+  # ({agent}_kernel_main.py) para ADA-nativa y futuros agentes nativos.
   local FAST_PID=""
-  for _PID in $(pgrep -x "claude" 2>/dev/null); do
-    if tr '\0' '\n' < /proc/$_PID/environ 2>/dev/null | grep -q "^SEAL_AGENT=${AGENT_NAME}$"; then
+  local NATIVE_KERNEL="${AGENT_LOWER}_kernel_main.py"
+  for _PID in $(pgrep -f "$NATIVE_KERNEL" 2>/dev/null); do
+    local _CMD=$(ps -o cmd= -p "$_PID" 2>/dev/null)
+    if echo "$_CMD" | grep -q "sandbox-agent/${AGENT_NAME}/kernel/${NATIVE_KERNEL}"; then
       FAST_PID="$_PID"; break
     fi
   done
+  if [ -z "$FAST_PID" ]; then
+    for _PID in $(pgrep -x "claude" 2>/dev/null); do
+      if tr '\0' '\n' < /proc/$_PID/environ 2>/dev/null | grep -q "^SEAL_AGENT=${AGENT_NAME}$"; then
+        FAST_PID="$_PID"; break
+      fi
+    done
+  fi
   if [ -n "$FAST_PID" ]; then
-    # Proceso vivo confirmado via environ — no tocar, saltar todos los checks
+    # Proceso vivo confirmado (nativo o claude) — no tocar
     return
   fi
   # Guard sleep_mode: si el heartbeat dice sleep_mode:true el agente duerme intencionalmente

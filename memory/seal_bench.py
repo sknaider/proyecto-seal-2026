@@ -230,7 +230,7 @@ async def _store_memory(pool, agent: str, content: str, category: str = "fact",
     return mem_id
 
 
-# Emotional signal keywords for valence-boost reranking (mirrors mcp_server_v2.py)
+# Emotional signal keywords for valence-boost reranking (mirrors mcp_server_v3.py)
 _BENCH_EMOTIONAL_KEYWORDS: frozenset[str] = frozenset({
     # English — base forms
     "positive", "negative", "happy", "sad", "feel", "emotion", "emotional",
@@ -610,24 +610,25 @@ async def cat3_instinct_formation() -> CategoryResult:
     async def t3_create():
         emb = await get_embedding("always test after implementing code changes")
         row = await pool.fetchrow("""
-            INSERT INTO instincts (agent, trigger_pattern, response, domain, confidence, scope, embedding)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id, confidence
+            INSERT INTO instincts (agent, trigger_condition, action, strength, embedding, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+            RETURNING id, strength
         """, BENCH_AGENT_A,
             "After implementing code changes",
             "Always run the test suite before declaring done",
-            "coding", 0.3, "agent", json.dumps(emb))
-        return (10, f"Instinct #{row['id']} created with conf={row['confidence']}")
+            0.3, json.dumps(emb),
+            json.dumps({"domain": "coding", "scope": "agent"}))
+        return (10, f"Instinct #{row['id']} created with strength={row['strength']}")
     cat.tests.append(await _run_test("3.2 Create instinct", cat.name, t3_create))
 
-    # Test 3.3: Reinforcement increases confidence
+    # Test 3.3: Reinforcement increases strength
     async def t3_reinforce():
         inst = await pool.fetchrow(
-            "SELECT id, confidence FROM instincts WHERE agent = $1 ORDER BY id DESC LIMIT 1",
+            "SELECT id, strength FROM instincts WHERE agent = $1 ORDER BY id DESC LIMIT 1",
             BENCH_AGENT_A)
         if not inst:
             return 0, "No instinct found"
-        before = inst["confidence"]
+        before = float(inst["strength"])
         # Simulate 5 positive activations
         for i in range(5):
             await pool.execute("""
@@ -636,40 +637,36 @@ async def cat3_instinct_formation() -> CategoryResult:
             """, inst["id"], BENCH_AGENT_A, f"Test activation {i}")
             await pool.execute("""
                 UPDATE instincts SET
-                    activation_count = activation_count + 1,
-                    reinforcement_count = reinforcement_count + 1,
-                    confidence = LEAST(1.0, confidence + 0.05),
-                    last_activated = now(),
-                    last_reinforced = now()
+                    success_count = success_count + 1,
+                    strength = LEAST(1.0, strength + 0.05)
                 WHERE id = $1
             """, inst["id"])
-        after = await pool.fetchval("SELECT confidence FROM instincts WHERE id = $1", inst["id"])
+        after = float(await pool.fetchval("SELECT strength FROM instincts WHERE id = $1", inst["id"]))
         increased = after > before
-        return (10, f"Confidence: {before:.2f} -> {after:.2f}") if increased else (0, "No increase")
-    cat.tests.append(await _run_test("3.3 Reinforcement increases confidence", cat.name, t3_reinforce))
+        return (10, f"Strength: {before:.2f} -> {after:.2f}") if increased else (0, "No increase")
+    cat.tests.append(await _run_test("3.3 Reinforcement increases strength", cat.name, t3_reinforce))
 
-    # Test 3.4: Correction decreases confidence
+    # Test 3.4: Correction decreases strength
     async def t3_correction():
         inst = await pool.fetchrow(
-            "SELECT id, confidence FROM instincts WHERE agent = $1 ORDER BY id DESC LIMIT 1",
+            "SELECT id, strength FROM instincts WHERE agent = $1 ORDER BY id DESC LIMIT 1",
             BENCH_AGENT_A)
         if not inst:
             return 0, "No instinct found"
-        before = inst["confidence"]
+        before = float(inst["strength"])
         await pool.execute("""
             INSERT INTO instinct_activations (instinct_id, agent, context, outcome)
             VALUES ($1, $2, 'User corrected the behavior', 'corrected')
         """, inst["id"], BENCH_AGENT_A)
         await pool.execute("""
             UPDATE instincts SET
-                activation_count = activation_count + 1,
-                correction_count = correction_count + 1,
-                confidence = GREATEST(0.0, confidence - 0.10)
+                failure_count = failure_count + 1,
+                strength = GREATEST(0.0, strength - 0.10)
             WHERE id = $1
         """, inst["id"])
-        after = await pool.fetchval("SELECT confidence FROM instincts WHERE id = $1", inst["id"])
-        return (10, f"Confidence: {before:.2f} -> {after:.2f}") if after < before else (0, "No decrease")
-    cat.tests.append(await _run_test("3.4 Correction decreases confidence", cat.name, t3_correction))
+        after = float(await pool.fetchval("SELECT strength FROM instincts WHERE id = $1", inst["id"]))
+        return (10, f"Strength: {before:.2f} -> {after:.2f}") if after < before else (0, "No decrease")
+    cat.tests.append(await _run_test("3.4 Correction decreases strength", cat.name, t3_correction))
 
     # Test 3.5: Activation history is logged
     async def t3_activation_log():
@@ -689,13 +686,13 @@ async def cat3_instinct_formation() -> CategoryResult:
         return (10, f"Embedding dim={len(emb)}") if len(emb) > 100 else (3, f"Embedding too small: {len(emb)}")
     cat.tests.append(await _run_test("3.6 Instinct has embedding", cat.name, t3_embedding))
 
-    # Test 3.7: Instinct has correct schema columns
+    # Test 3.7: Instinct has correct schema columns (v3 simplified)
     async def t3_schema():
         cols = await pool.fetch(
             "SELECT column_name FROM information_schema.columns WHERE table_name = 'instincts'")
         col_names = {c["column_name"] for c in cols}
-        required = {"agent", "trigger_pattern", "response", "confidence", "activation_count",
-                     "reinforcement_count", "correction_count", "domain", "scope", "active"}
+        required = {"agent", "trigger_condition", "action", "strength", "success_count",
+                     "failure_count", "metric_score", "embedding", "metadata"}
         missing = required - col_names
         if missing:
             return (max(0, 10 - len(missing) * 2), f"Missing columns: {missing}")
@@ -706,22 +703,23 @@ async def cat3_instinct_formation() -> CategoryResult:
     async def t3_multiple():
         emb = await get_embedding("coordinate with other agent before making changes")
         await pool.execute("""
-            INSERT INTO instincts (agent, trigger_pattern, response, domain, confidence, scope, embedding)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO instincts (agent, trigger_condition, action, strength, embedding, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6::jsonb)
         """, BENCH_AGENT_A,
             "Before modifying shared code",
             "Ask ADA/JARVIS if they're working on it first",
-            "communication", 0.5, "team", json.dumps(emb))
+            0.5, json.dumps(emb),
+            json.dumps({"domain": "communication", "scope": "team"}))
         count = await pool.fetchval("SELECT COUNT(*) FROM instincts WHERE agent = $1", BENCH_AGENT_A)
         return (10, f"{count} instincts for agent") if count >= 2 else (5, f"Only {count}")
     cat.tests.append(await _run_test("3.8 Multiple instincts coexist", cat.name, t3_multiple))
 
-    # Test 3.9: Instinct scope isolation (agent vs team)
+    # Test 3.9: Instinct scope isolation (agent vs team) — scope lives in metadata jsonb in v3
     async def t3_scope():
         agent_scope = await pool.fetchval(
-            "SELECT COUNT(*) FROM instincts WHERE agent = $1 AND scope = 'agent'", BENCH_AGENT_A)
+            "SELECT COUNT(*) FROM instincts WHERE agent = $1 AND metadata->>'scope' = 'agent'", BENCH_AGENT_A)
         team_scope = await pool.fetchval(
-            "SELECT COUNT(*) FROM instincts WHERE agent = $1 AND scope = 'team'", BENCH_AGENT_A)
+            "SELECT COUNT(*) FROM instincts WHERE agent = $1 AND metadata->>'scope' = 'team'", BENCH_AGENT_A)
         return (10, f"agent={agent_scope}, team={team_scope}") if (agent_scope > 0 and team_scope > 0) else \
             (5, f"agent={agent_scope}, team={team_scope}")
     cat.tests.append(await _run_test("3.9 Instinct scope types", cat.name, t3_scope))

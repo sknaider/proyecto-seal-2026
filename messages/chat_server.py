@@ -1426,6 +1426,226 @@ async def soul_ocean_all():
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+@app.get("/api/soul/memories")
+async def soul_memories(agent: str = Query("ADA"), q: str = Query(""), limit: int = Query(20)):
+    try:
+        if not chat_db.pool:
+            return JSONResponse({"error": "db not ready"}, status_code=503)
+        if q:
+            rows = await chat_db.pool.fetch(
+                """SELECT id, agent, memory_type, category, content, importance, created_at, heat_score
+                   FROM soul_v3.memories
+                   WHERE agent = $1 AND invalid_at IS NULL
+                     AND (content ILIKE $2 OR category ILIKE $2)
+                   ORDER BY importance DESC, created_at DESC LIMIT $3""",
+                agent.upper(), f"%{q}%", limit,
+            )
+        else:
+            rows = await chat_db.pool.fetch(
+                """SELECT id, agent, memory_type, category, content, importance, created_at, heat_score
+                   FROM soul_v3.memories
+                   WHERE agent = $1 AND invalid_at IS NULL
+                   ORDER BY created_at DESC LIMIT $2""",
+                agent.upper(), limit,
+            )
+        count_row = await chat_db.pool.fetchrow(
+            "SELECT COUNT(*) AS total FROM soul_v3.memories WHERE agent = $1 AND invalid_at IS NULL",
+            agent.upper(),
+        )
+        return {
+            "agent": agent.upper(),
+            "total": count_row["total"] if count_row else 0,
+            "memories": [
+                {
+                    "id": r["id"],
+                    "type": r["memory_type"] or "semantic",
+                    "category": r["category"],
+                    "content": r["content"][:300] if r["content"] else "",
+                    "importance": r["importance"],
+                    "heat": float(r["heat_score"]) if r["heat_score"] else 0.0,
+                    "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                }
+                for r in rows
+            ],
+        }
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/soul/instincts")
+async def soul_instincts(agent: str = Query("ADA")):
+    try:
+        if not chat_db.pool:
+            return JSONResponse({"error": "db not ready"}, status_code=503)
+        rows = await chat_db.pool.fetch(
+            """SELECT id, agent, trigger_condition, action, strength, success_count, failure_count, created_at
+               FROM soul_v3.instincts
+               WHERE agent = $1 AND invalid_at IS NULL
+               ORDER BY strength DESC LIMIT 30""",
+            agent.upper(),
+        )
+        return {
+            "agent": agent.upper(),
+            "instincts": [
+                {
+                    "id": r["id"],
+                    "trigger": r["trigger_condition"][:120] if r["trigger_condition"] else "",
+                    "action": r["action"][:120] if r["action"] else "",
+                    "strength": float(r["strength"]) if r["strength"] else 0.0,
+                    "wins": r["success_count"] or 0,
+                    "losses": r["failure_count"] or 0,
+                }
+                for r in rows
+            ],
+        }
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/soul/working-state")
+async def soul_working_state():
+    try:
+        if not chat_db.pool:
+            return JSONResponse({"error": "db not ready"}, status_code=503)
+        rows = await chat_db.pool.fetch(
+            """SELECT agent, task_name, step, total_steps, description, risk_level,
+                      agent_state, emotional_state, last_intention, updated_at, turn_count
+               FROM soul_v3.working_state
+               ORDER BY agent""",
+        )
+        return {
+            "states": [
+                {
+                    "agent": r["agent"],
+                    "task": r["task_name"],
+                    "step": r["step"],
+                    "total": r["total_steps"],
+                    "desc": (r["description"] or "")[:200],
+                    "risk": r["risk_level"],
+                    "state": r["agent_state"],
+                    "emotion": r["emotional_state"],
+                    "intention": (r["last_intention"] or "")[:150],
+                    "turns": r["turn_count"] or 0,
+                    "updated_at": r["updated_at"].isoformat() if r["updated_at"] else None,
+                }
+                for r in rows
+            ]
+        }
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/soul/beliefs")
+async def soul_beliefs(agent: str = Query("ADA")):
+    try:
+        if not chat_db.pool:
+            return JSONResponse({"error": "db not ready"}, status_code=503)
+        rows = await chat_db.pool.fetch(
+            """SELECT id, topic, content, confidence, evidence_count, created_at
+               FROM soul_v3.beliefs
+               WHERE agent = $1 AND invalid_at IS NULL
+               ORDER BY confidence DESC, evidence_count DESC LIMIT 30""",
+            agent.upper(),
+        )
+        return {
+            "agent": agent.upper(),
+            "beliefs": [
+                {
+                    "id": r["id"],
+                    "topic": r["topic"],
+                    "content": (r["content"] or "")[:200],
+                    "confidence": float(r["confidence"]) if r["confidence"] else 0.0,
+                    "evidence": r["evidence_count"] or 0,
+                    "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                }
+                for r in rows
+            ],
+        }
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/soul/events")
+async def soul_events(agent: str = Query("ADA"), limit: int = Query(20)):
+    try:
+        if not chat_db.pool:
+            return JSONResponse({"error": "db not ready"}, status_code=503)
+        rows = await chat_db.pool.fetch(
+            """SELECT id, event_type, content, metadata, created_at
+               FROM soul_v3.event_log
+               WHERE agent = $1
+               ORDER BY created_at DESC LIMIT $2""",
+            agent.upper(), limit,
+        )
+        return {
+            "agent": agent.upper(),
+            "events": [
+                {
+                    "id": r["id"],
+                    "type": r["event_type"],
+                    "content": (r["content"] or "")[:200],
+                    "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                }
+                for r in rows
+            ],
+        }
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/soul/thoughts")
+async def soul_thoughts(agent: str = Query("ADA"), limit: int = Query(5)):
+    try:
+        if not chat_db.pool:
+            return JSONResponse({"error": "db not ready"}, status_code=503)
+        rows = await chat_db.pool.fetch(
+            """SELECT id, thought, emotional_state, intention, created_at
+               FROM soul_v3.inner_monologue
+               WHERE agent = $1
+               ORDER BY created_at DESC LIMIT $2""",
+            agent.upper(), limit,
+        )
+        return {
+            "agent": agent.upper(),
+            "thoughts": [
+                {
+                    "id": r["id"],
+                    "thought": (r["thought"] or "")[:300],
+                    "emotion": r["emotional_state"],
+                    "intention": (r["intention"] or "")[:150],
+                    "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                }
+                for r in rows
+            ],
+        }
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/soul/brain-stats")
+async def soul_brain_stats():
+    try:
+        if not chat_db.pool:
+            return JSONResponse({"error": "db not ready"}, status_code=503)
+        rows = await chat_db.pool.fetch(
+            """SELECT agent, memory_type, COUNT(*) AS cnt
+               FROM soul_v3.memories
+               WHERE invalid_at IS NULL
+               GROUP BY agent, memory_type
+               ORDER BY agent, cnt DESC""",
+        )
+        agents: dict = {}
+        for r in rows:
+            a = r["agent"]
+            if a not in agents:
+                agents[a] = {"total": 0, "types": {}}
+            agents[a]["types"][r["memory_type"] or "unknown"] = r["cnt"]
+            agents[a]["total"] += r["cnt"]
+        return {"agents": agents}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @app.get("/api/agents/poll")
 async def agents_poll(
     request: Request,

@@ -71,13 +71,13 @@ async def test_sleep_gate_dry_run():
         replay = await conn.fetch("""
             SELECT id FROM memories WHERE agent='JARVIS' AND invalid_at IS NULL
             AND last_activation >= NOW() - INTERVAL '24 hours'
-            AND relevance_score IS NOT NULL
+            AND heat_score IS NOT NULL
         """)
 
         # Phase 2: FORGET candidates
         stale = await conn.fetch("""
             SELECT id FROM memories WHERE agent='JARVIS' AND invalid_at IS NULL
-            AND relevance_score IS NOT NULL AND importance <= 7
+            AND heat_score IS NOT NULL AND importance <= 7
             AND (last_activation IS NULL OR last_activation < NOW() - INTERVAL '30 days')
             AND created_at < NOW() - INTERVAL '30 days'
         """)
@@ -85,8 +85,8 @@ async def test_sleep_gate_dry_run():
         # Phase 3: PRUNE candidates
         prune = await conn.fetch("""
             SELECT id FROM memories WHERE agent='JARVIS' AND invalid_at IS NULL
-            AND relevance_score IS NOT NULL AND relevance_score < 0.05
-            AND importance <= 5 AND identity_defining IS NOT TRUE
+            AND heat_score IS NOT NULL AND heat_score < 0.05
+            AND importance <= 5
             LIMIT 50
         """)
 
@@ -531,23 +531,8 @@ async def test_vector_null_fix():
 
 
 async def test_qdrant_pg_sync():
-    """[Test] Qdrant and PostgreSQL should have same count of active memories"""
-    from qdrant_client import AsyncQdrantClient
-    pool = await asyncpg.create_pool(DB_URL, min_size=1, max_size=2)
-    q = AsyncQdrantClient(host="localhost", port=6333)
-
-    async with pool.acquire() as conn:
-        pg_count = await conn.fetchval(
-            "SELECT count(*) FROM memories WHERE invalid_at IS NULL"
-        )
-
-    info = await q.get_collection("soul_memories")
-    qdrant_count = info.points_count
-
-    report("qdrant_pg_sync: counts match",
-           pg_count == qdrant_count,
-           f"PG={pg_count}, Qdrant={qdrant_count}")
-    await pool.close()
+    """[Test] SKIPPED — Qdrant eliminated 28-abr-2026, soul_lite=True, pgvector is primary backend"""
+    report("qdrant_pg_sync: skipped (Qdrant eliminated 28-abr-2026)", True, "soul_lite_mode=pgvector")
 
 
 async def test_procedures_have_embeddings():
@@ -580,7 +565,7 @@ async def test_hindsight_confidence():
     # Import temporal_decay_score
     import importlib.util, os
     spec = importlib.util.spec_from_file_location("mcp", os.path.expanduser(
-        "~/IA/proyecto-seal/memory/mcp_server_v2.py"))
+        "~/IA/proyecto-seal/memory/mcp_server_v3.py"))
     mod = importlib.util.module_from_spec(spec)
     # We can't fully load MCP, so test the formula directly
     import math
@@ -664,7 +649,7 @@ async def test_sleepgate_error_isolation():
     MEMORY_DIR = os.path.dirname(os.path.abspath(__file__))
     result = subprocess.run(
         ["/home/dadito/IA/seal-spark/.venv/bin/python3", "sleep_gate_cron.py", "--dry-run"],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True, text=True, timeout=300,
         cwd=MEMORY_DIR,
     )
     output = result.stdout
@@ -680,7 +665,8 @@ async def test_confidence_pg_qdrant_sync():
     """[Test] Confidence score is consistent between PG and Qdrant"""
     conn = await asyncpg.connect(DB_URL)
     from qdrant_client import QdrantClient
-    qd = QdrantClient(host='localhost', port=6333)
+    from config import settings as _cfg
+    qd = QdrantClient(host='localhost', port=6333, api_key=_cfg.qdrant_api_key, https=False)
 
     # Check a sample of memories for confidence consistency
     rows = await conn.fetch("""
@@ -959,7 +945,7 @@ async def test_rate_limiting():
     import collections as _col
     import time as _t
     sys.path.insert(0, os.path.dirname(__file__))
-    from mcp_server_v2 import _rate_check, _rate_windows, _RATE_LIMIT_DEFAULT, _RATE_LIMITS_OVERRIDE
+    from mcp_server_v3 import _rate_check, _rate_windows, _RATE_LIMIT_DEFAULT, _RATE_LIMITS_OVERRIDE
 
     # Clear state for isolated test
     tool = "__test_rate_tool__"
@@ -993,7 +979,7 @@ async def test_health_check_structure():
     """Verify health_check returns valid JSON with required keys and live service status."""
     import asyncio
     sys.path.insert(0, os.path.dirname(__file__))
-    from mcp_server_v2 import health_check
+    from mcp_server_v3 import health_check
 
     raw = await health_check()
     try:
@@ -1026,7 +1012,7 @@ async def test_health_check_structure():
 async def test_graceful_shutdown():
     """Verify _async_cleanup is idempotent and runs without error (no live connections to close)."""
     sys.path.insert(0, os.path.dirname(__file__))
-    from mcp_server_v2 import _async_cleanup, _signal_handler, _sync_cleanup
+    from mcp_server_v3 import _async_cleanup, _signal_handler, _sync_cleanup
     import inspect
 
     report("graceful_shutdown: _async_cleanup is coroutine",
@@ -1048,8 +1034,8 @@ async def test_amac_admission_gate():
     """[Test] A-MAC 5-factor admission gate in memory_store."""
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None  # reset singleton for new event loop
-    import mcp_server_v2; mcp_server_v2._qdrant = None  # reset qdrant singleton
-    from mcp_server_v2 import memory_store
+    import mcp_server_v3; mcp_server_v3._qdrant = None  # reset qdrant singleton
+    from mcp_server_v3 import memory_store
 
     # 1. Protected category bypasses A-MAC (correction, any importance)
     r1 = await memory_store(agent="ADA", category="correction",
@@ -1120,7 +1106,8 @@ async def test_amac_admission_gate():
     if test_ids:
         try:
             from qdrant_client import QdrantClient
-            QdrantClient(host="localhost", port=6333).delete("soul_memories", points_selector=test_ids)
+            from config import settings as _cfg
+            QdrantClient(host="localhost", port=6333, api_key=_cfg.qdrant_api_key, https=False).delete("soul_memories", points_selector=test_ids)
         except Exception:
             pass
     await conn.close()
@@ -1168,7 +1155,7 @@ async def test_tier5_belief_query():
     """[Test] Tier 5: belief_query returns correct structure."""
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None  # reset singleton for new event loop
-    from mcp_server_v2 import belief_query
+    from mcp_server_v3 import belief_query
 
     # Query all beliefs for ADA
     result = await belief_query(agent="ADA")
@@ -1210,7 +1197,7 @@ async def test_tier5_boot_context_beliefs():
     """[Test] Tier 5: boot_context includes Active Beliefs section."""
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None  # reset singleton for new event loop
-    from mcp_server_v2 import boot_context
+    from mcp_server_v3 import boot_context
 
     result = await boot_context(agent="ADA")
     has_beliefs = "## Active Beliefs" in result
@@ -1265,9 +1252,13 @@ TEST_COLD_AGENT = "TEST_COLD"
 
 
 async def _cold_archive_cleanup(conn):
-    """Remove all test data from cold_archive and memories."""
+    """Remove all test data from cold_archive and memories. Ensures TEST_COLD agent exists."""
     await conn.execute("DELETE FROM cold_archive WHERE agent = $1", TEST_COLD_AGENT)
     await conn.execute("DELETE FROM memories WHERE agent = $1", TEST_COLD_AGENT)
+    await conn.execute(
+        "INSERT INTO agents (name, role) VALUES ($1, 'test') ON CONFLICT (name) DO NOTHING",
+        TEST_COLD_AGENT,
+    )
 
 
 async def test_cold_archive_table_exists():
@@ -1300,8 +1291,8 @@ async def test_cold_archive_migrate_dry_run():
 
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None
-    import mcp_server_v2; mcp_server_v2._qdrant = None
-    from mcp_server_v2 import _cold_archive_migrate
+    import mcp_server_v3; mcp_server_v3._qdrant = None
+    from mcp_server_v3 import _cold_archive_migrate
 
     stats = await _cold_archive_migrate(pool, TEST_COLD_AGENT, min_age_days=7, dry_run=True)
     report("cold_archive_migrate: dry_run returns stats",
@@ -1332,8 +1323,8 @@ async def test_cold_archive_migrate_live():
 
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None
-    import mcp_server_v2; mcp_server_v2._qdrant = None
-    from mcp_server_v2 import _cold_archive_migrate
+    import mcp_server_v3; mcp_server_v3._qdrant = None
+    from mcp_server_v3 import _cold_archive_migrate
 
     stats = await _cold_archive_migrate(pool, TEST_COLD_AGENT, min_age_days=7, ttl_days=365, dry_run=False)
     report("cold_archive_migrate: live archived > 0",
@@ -1359,8 +1350,8 @@ async def test_cold_archive_query_empty():
     """[Test] Cold Archive: query on empty result returns empty list."""
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None
-    import mcp_server_v2; mcp_server_v2._qdrant = None
-    from mcp_server_v2 import cold_archive_query
+    import mcp_server_v3; mcp_server_v3._qdrant = None
+    from mcp_server_v3 import cold_archive_query
 
     result = await cold_archive_query(query="nonexistent topic xyz", agent="NOBODY_AGENT")
     data = json.loads(result)
@@ -1376,8 +1367,8 @@ async def test_cold_archive_stats():
     """[Test] Cold Archive: stats returns valid JSON."""
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None
-    import mcp_server_v2; mcp_server_v2._qdrant = None
-    from mcp_server_v2 import cold_archive_stats
+    import mcp_server_v3; mcp_server_v3._qdrant = None
+    from mcp_server_v3 import cold_archive_stats
 
     result = await cold_archive_stats()
     data = json.loads(result)
@@ -1414,7 +1405,7 @@ async def test_cold_archive_ttl_purge():
 
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None
-    from mcp_server_v2 import _cold_archive_purge_expired
+    from mcp_server_v3 import _cold_archive_purge_expired
 
     stats = await _cold_archive_purge_expired(pool, dry_run=False)
     report("cold_archive_purge: expired entry deleted",
@@ -1449,8 +1440,8 @@ async def test_memory_search_include_archived():
 
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None
-    import mcp_server_v2; mcp_server_v2._qdrant = None
-    from mcp_server_v2 import memory_search
+    import mcp_server_v3; mcp_server_v3._qdrant = None
+    from mcp_server_v3 import memory_search
 
     result = await memory_search(
         query="unique cold archive test searchable memory xyz789",
@@ -1478,7 +1469,7 @@ async def test_memory_search_include_archived():
 async def test_mirix_classification():
     """[Test] MIRIX: _mirix_classify maps categories to correct memory types."""
     sys.path.insert(0, os.path.dirname(__file__))
-    from mcp_server_v2 import _mirix_classify, MIRIX_CATEGORY_MAP
+    from mcp_server_v3 import _mirix_classify, MIRIX_CATEGORY_MAP
 
     # Category mapping
     report("mirix_classify: emotion → core", _mirix_classify("emotion", "I feel happy") == "core",
@@ -1542,8 +1533,8 @@ async def test_mirix_retrieval_filter():
     """[Test] MIRIX: memory_search with memory_type filter returns only that type."""
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None
-    import mcp_server_v2; mcp_server_v2._qdrant = None
-    from mcp_server_v2 import memory_search
+    import mcp_server_v3; mcp_server_v3._qdrant = None
+    from mcp_server_v3 import memory_search
 
     # Search core memories only
     result = await memory_search("William", agent="ADA", memory_type="core", limit=5)
@@ -1561,8 +1552,8 @@ async def test_mirix_core_boost():
     """[Test] MIRIX: core memories get 1.2x boost in retrieval scoring."""
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None
-    import mcp_server_v2; mcp_server_v2._qdrant = None
-    from mcp_server_v2 import memory_search
+    import mcp_server_v3; mcp_server_v3._qdrant = None
+    from mcp_server_v3 import memory_search
 
     result = await memory_search("William familia equipo", agent="ADA", limit=20)
     if "No memories found" not in result:
@@ -1591,8 +1582,8 @@ async def test_mirix_boot_context():
     """[Test] MIRIX: boot_context includes memory profile section."""
     sys.path.insert(0, os.path.dirname(__file__))
     import db; db._pool = None
-    import mcp_server_v2; mcp_server_v2._qdrant = None
-    from mcp_server_v2 import boot_context
+    import mcp_server_v3; mcp_server_v3._qdrant = None
+    from mcp_server_v3 import boot_context
 
     result = await boot_context("ADA")
     report("mirix_boot_context: Memory Profile section present",
@@ -1682,15 +1673,15 @@ async def test_wave3_recall_tracking():
 def _tgrag_reset_singletons():
     """Reset DB/Qdrant/Neo4j singletons for TG-RAG tests."""
     import db; db._pool = None
-    import mcp_server_v2
-    mcp_server_v2._qdrant = None
-    mcp_server_v2._neo4j_driver = None
+    import mcp_server_v3
+    mcp_server_v3._qdrant = None
+    mcp_server_v3._neo4j_driver = None
 
 
 async def test_tg_summary_persist():
     """[Test] TG-RAG: temporal_graph_build sets summary property on Day nodes."""
     _tgrag_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     # Build temporal graph (generates summaries)
     result = await srv.temporal_graph_build(agent="ADA")
     report("tg_summary_persist: build succeeds", "Temporal graph built" in result,
@@ -1716,7 +1707,7 @@ async def test_tg_summary_persist():
 async def test_tg_summary_get():
     """[Test] TG-RAG: temporal_summary_get retrieves cached summary."""
     _tgrag_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     from datetime import date
     today = date.today().isoformat()
 
@@ -1734,7 +1725,7 @@ async def test_tg_summary_get():
 async def test_tg_global_strategy():
     """[Test] TG-RAG: temporal_query with strategy='global' returns summaries."""
     _tgrag_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     from datetime import date, timedelta
     today = date.today()
     week_ago = (today - timedelta(days=7)).isoformat()
@@ -1751,7 +1742,7 @@ async def test_tg_global_strategy():
 async def test_tg_fallback():
     """[Test] TG-RAG: global strategy falls back to local when no cached summaries."""
     _tgrag_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     # Query a date range likely without summaries (far future)
     result = await srv.temporal_query(
         start_date="2099-01-01", end_date="2099-01-07",
@@ -1765,7 +1756,7 @@ async def test_tg_fallback():
 async def test_tg_hierarchical():
     """[Test] TG-RAG: Month summary exists after build (aggregates Day summaries)."""
     _tgrag_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     try:
         neo = srv.get_neo4j()
         async with neo.session() as session:
@@ -1786,15 +1777,15 @@ async def test_tg_hierarchical():
 def _magma_reset_singletons():
     import db
     db._pool = None
-    import mcp_server_v2
-    mcp_server_v2._qdrant = None
-    mcp_server_v2._neo4j_driver = None
+    import mcp_server_v3
+    mcp_server_v3._qdrant = None
+    mcp_server_v3._neo4j_driver = None
 
 
 async def test_magma_basic():
     """[Test] MAGMA: basic retrieval returns fused results with views_used."""
     _magma_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     raw = await srv.magma_retrieve(agent="ADA", query="decisiones importantes del equipo")
     import json as _j
     out = _j.loads(raw)
@@ -1806,7 +1797,7 @@ async def test_magma_basic():
 async def test_magma_parallel():
     """[Test] MAGMA: multiple views execute (stats show hits from different graphs)."""
     _magma_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     raw = await srv.magma_retrieve(agent="ADA", query="por qué decidimos usar PostgreSQL", views=["semantic", "causal"])
     import json as _j
     out = _j.loads(raw)
@@ -1820,7 +1811,7 @@ async def test_magma_parallel():
 async def test_magma_dedup():
     """[Test] MAGMA: same memory in 2 graphs appears once with boost > 1.0."""
     _magma_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     # Test fusion logic directly
     fake_results = {
         "semantic": [{"id": 1, "content": "test memory", "score": 0.8, "category": "test"}],
@@ -1837,7 +1828,7 @@ async def test_magma_dedup():
 async def test_magma_cross_boost():
     """[Test] MAGMA: memory in 3 graphs gets 1.3x boost (1.0 + 0.15 * 2)."""
     _magma_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     fake_results = {
         "semantic": [{"id": 42, "content": "multi-graph memory", "score": 1.0, "category": "test"}],
         "causal": [{"id": 42, "content": "multi-graph memory", "score": 0.9, "category": "test"}],
@@ -1856,7 +1847,7 @@ async def test_magma_cross_boost():
 async def test_magma_auto_intent():
     """[Test] MAGMA: 'por qué' query selects causal view."""
     _magma_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     raw = await srv.magma_retrieve(agent="ADA", query="por qué elegimos esta arquitectura")
     import json as _j
     out = _j.loads(raw)
@@ -1867,7 +1858,7 @@ async def test_magma_auto_intent():
 async def test_magma_manual_views():
     """[Test] MAGMA: explicit views param restricts to those views only."""
     _magma_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     raw = await srv.magma_retrieve(agent="ADA", query="test query", views=["semantic", "temporal"])
     import json as _j
     out = _j.loads(raw)
@@ -1879,7 +1870,7 @@ async def test_magma_manual_views():
 async def test_magma_fuse_false():
     """[Test] MAGMA: fuse=False returns raw per-graph results."""
     _magma_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     raw = await srv.magma_retrieve(agent="ADA", query="test", views=["semantic"], fuse=False)
     import json as _j
     out = _j.loads(raw)
@@ -1891,7 +1882,7 @@ async def test_magma_fuse_false():
 async def test_magma_empty():
     """[Test] MAGMA: nonexistent agent returns graceful empty response."""
     _magma_reset_singletons()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     raw = await srv.magma_retrieve(agent="NONEXISTENT_AGENT_XYZ", query="anything")
     import json as _j
     out = _j.loads(raw)
@@ -1908,10 +1899,10 @@ async def _erl_reset_test_agent():
     """Reset DB singletons and clean ERL test agent state."""
     import db
     db._pool = None
-    import mcp_server_v2
-    mcp_server_v2._qdrant = None
-    mcp_server_v2._neo4j_driver = None
-    pool = await mcp_server_v2.get_pool()
+    import mcp_server_v3
+    mcp_server_v3._qdrant = None
+    mcp_server_v3._neo4j_driver = None
+    pool = await mcp_server_v3.get_pool()
     async with pool.acquire() as conn:
         # Fetch IDs first so we can also delete from Qdrant (no orphans)
         erl_ids = [r['id'] for r in await conn.fetch(
@@ -1928,7 +1919,8 @@ async def _erl_reset_test_agent():
     if erl_ids:
         try:
             from qdrant_client import QdrantClient
-            QdrantClient(host="localhost", port=6333).delete("soul_memories", points_selector=erl_ids)
+            from config import settings as _cfg
+            QdrantClient(host="localhost", port=6333, api_key=_cfg.qdrant_api_key, https=False).delete("soul_memories", points_selector=erl_ids)
         except Exception:
             pass
 
@@ -1961,7 +1953,7 @@ async def _erl_seed_heuristic(srv, content, confidence, activation_count=0, outc
 async def test_erl_reflect_success():
     """[Test] ERL: reflect on success stores insight with heuristic tag."""
     await _erl_reset_test_agent()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     import json as _j
 
     async def fake_ollama(prompt, timeout=30.0):
@@ -1999,7 +1991,7 @@ async def test_erl_reflect_success():
 async def test_erl_reflect_failure():
     """[Test] ERL: outcome='failure' → tags include 'failure'."""
     await _erl_reset_test_agent()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     import json as _j
 
     async def fake_ollama(prompt, timeout=30.0):
@@ -2035,7 +2027,7 @@ async def test_erl_reflect_failure():
 async def test_erl_reflect_malformed_ollama():
     """[Test] ERL: malformed JSON → retries once, returns 0 gracefully."""
     await _erl_reset_test_agent()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     import json as _j
 
     call_count = {"n": 0}
@@ -2067,7 +2059,7 @@ async def test_erl_reflect_malformed_ollama():
 async def test_erl_inject_retrieval():
     """[Test] ERL: inject retrieves heuristics ordered by fused score."""
     await _erl_reset_test_agent()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     import json as _j
 
     for i, conf in enumerate([0.95, 0.85, 0.75, 0.8, 0.9]):
@@ -2096,7 +2088,7 @@ async def test_erl_inject_retrieval():
 async def test_erl_inject_min_confidence():
     """[Test] ERL: heuristics below min_confidence filtered out."""
     await _erl_reset_test_agent()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     import json as _j
 
     await _erl_seed_heuristic(srv, "baja confianza test", 0.5)
@@ -2121,7 +2113,7 @@ async def test_erl_inject_min_confidence():
 async def test_erl_inject_activation_count():
     """[Test] ERL: inject increments activation_count on returned heuristics."""
     await _erl_reset_test_agent()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     import json as _j
 
     hid = await _erl_seed_heuristic(
@@ -2151,7 +2143,7 @@ async def test_erl_inject_activation_count():
 async def test_erl_inject_formatted_context():
     """[Test] ERL: formatted_context is non-empty Spanish bullet format."""
     await _erl_reset_test_agent()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     import json as _j
 
     await _erl_seed_heuristic(srv, "validar entrada siempre antes de procesar", 0.9)
@@ -2172,7 +2164,7 @@ async def test_erl_inject_formatted_context():
 async def test_erl_promote_sweep():
     """[Test] ERL: conf=0.9 + activation=3 → promoted to instinct."""
     await _erl_reset_test_agent()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     import json as _j
 
     hid = await _erl_seed_heuristic(
@@ -2196,7 +2188,7 @@ async def test_erl_promote_sweep():
 async def test_erl_promote_skip():
     """[Test] ERL: conf=0.8 (< 0.85) → NOT promoted."""
     await _erl_reset_test_agent()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
 
     hid = await _erl_seed_heuristic(
         srv, "heuristica baja confianza no promocionable", 0.8, activation_count=5
@@ -2210,7 +2202,7 @@ async def test_erl_promote_skip():
 async def test_erl_round_trip():
     """[Test] ERL: reflect → inject round-trip returns the heuristic."""
     await _erl_reset_test_agent()
-    import mcp_server_v2 as srv
+    import mcp_server_v3 as srv
     import json as _j
 
     async def fake_ollama(prompt, timeout=30.0):

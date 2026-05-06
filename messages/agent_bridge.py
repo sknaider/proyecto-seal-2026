@@ -23,8 +23,12 @@ except ImportError:
     print("ERROR: pip install websockets", file=sys.stderr)
     sys.exit(1)
 
+sys.path.insert(0, str(Path(__file__).parent))
+from seal_monitor_filter import filter_line
+
 DIR = Path(__file__).parent
 WS_URL = "ws://localhost:8765/ws/agents"
+INBOX_DIR = Path("/tmp")
 
 _TOKEN_PATH = DIR / ".agent_ws_token"
 
@@ -56,9 +60,6 @@ def write_trigger(agent_name: str, msg: dict) -> None:
     trigger_path = TRIGGER_MAP.get(agent_name.upper())
     if not trigger_path:
         return
-    # Guarda solo el ID del mensaje — el lector recupera el contenido completo del JSONL por ID.
-    # Antes: message[:500] truncaba mensajes largos silenciosamente.
-    # Fix: trigger es un puntero ligero, no una copia del contenido.
     payload = json.dumps({
         "trigger": "ws_message",
         "from": msg.get("from", ""),
@@ -67,11 +68,30 @@ def write_trigger(agent_name: str, msg: dict) -> None:
         "idempotency_key": msg.get("idempotency_key", msg.get("id", "")),
         "type": msg.get("type", ""),
         "timestamp": msg.get("timestamp", ""),
-        # message_preview: primeros 120 chars para diagnóstico rápido, sin truncar el flujo real
         "message_preview": msg.get("message", "")[:120],
     }, ensure_ascii=False)
     trigger_path.write_text(payload, encoding="utf-8")
     _log(f"trigger → {trigger_path.name} [{msg.get('from','?')}→{agent_name}]")
+
+
+def write_inbox(agent_name: str, msg: dict) -> None:
+    """Append filtered message to per-agent inbox file consumed by tail -F inside Claude.
+
+    Replaces the in-Claude `tail | python filter` pattern. The bridge applies the
+    same filter once and appends to /tmp/seal_inbox_<AGENT>.jsonl. Each Claude
+    session only does `tail -n 0 -F` of its inbox — no Python subprocess, no
+    accumulating zombies on crash.
+    """
+    line = json.dumps(msg, ensure_ascii=False)
+    filtered = filter_line(line, agent_name.upper())
+    if filtered is None:
+        return
+    inbox = INBOX_DIR / f"seal_inbox_{agent_name.upper()}.jsonl"
+    try:
+        with inbox.open("a", encoding="utf-8") as f:
+            f.write(filtered + "\n")
+    except OSError as e:
+        _log(f"inbox write error ({inbox}): {e}")
 
 
 async def run_bridge(agent_name: str) -> None:
@@ -96,6 +116,7 @@ async def run_bridge(agent_name: str) -> None:
                         if str(msg.get("from", "")).upper() == agent_name.upper():
                             continue
                         write_trigger(agent_name, msg)
+                        write_inbox(agent_name, msg)
                     except Exception as e:
                         _log(f"parse error: {e}")
 

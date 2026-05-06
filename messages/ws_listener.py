@@ -32,6 +32,10 @@ HEARTBEAT_INTERVAL = 270  # seconds — within 5-min cache window
 _TOKEN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".agent_ws_token")
 
 
+def _safe_dumps(data) -> str:
+    return json.dumps(data, ensure_ascii=False).encode("utf-8", errors="replace").decode("utf-8")
+
+
 def _load_agent_token() -> str:
     """Load the pre-shared agent WS token."""
     try:
@@ -73,7 +77,7 @@ async def listen_aiohttp(agent: str):
                                 # Only print messages FROM other agents (not echoes)
                                 sender = (data.get("from") or data.get("agent") or "").upper()
                                 if sender != agent:
-                                    print(json.dumps(data, ensure_ascii=False), flush=True)
+                                    print(_safe_dumps(data), flush=True)
                             elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
                                 break
                         except asyncio.TimeoutError:
@@ -118,7 +122,7 @@ async def listen_websockets(agent: str):
                         data = json.loads(raw)
                         sender = (data.get("from") or data.get("agent") or "").upper()
                         if sender != agent:
-                            print(json.dumps(data, ensure_ascii=False), flush=True)
+                            print(_safe_dumps(data), flush=True)
                     except asyncio.TimeoutError:
                         now = time.time()
                         if now - last_heartbeat >= HEARTBEAT_INTERVAL:

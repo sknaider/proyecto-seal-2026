@@ -328,12 +328,18 @@ def check_cycle() -> None:
         LOG.debug("heartbeat.json no disponible o sin timestamp")
 
     # ── 2-4. Verificar sesiones Claude Code ──
-    for agent_name in ["ADA", "JARVIS", "ALICE"]:
+    for agent_name in ["JARVIS"]:  # William: solo JARVIS tiene heartbeat activo
         _check_agent_heartbeat(now, agent_name)
 
 
 def _check_agent_heartbeat(now: datetime, agent: str) -> None:
     """Verifica el heartbeat de un agente desde event_log (fuente única de verdad)."""
+    # Pausa intencional — agente dormido por decisión de William, no alertar
+    pause_flag = Path("/tmp") / f"seal_pause_{agent.lower()}.flag"
+    if pause_flag.exists():
+        LOG.debug(f"{agent}: pausa intencional activa ({pause_flag}) — skip alert")
+        return
+
     silence_min = 9999.0
     reason = f"{agent}: sin heartbeat en event_log"
 

@@ -68,6 +68,11 @@ def read_new_messages() -> list[dict]:
     total = len(lines)
     last = int(COUNTER_FILE.read_text().strip()) if COUNTER_FILE.exists() else 0
 
+    # Auto-reset si el archivo fue rotado (total < last = contador desfasado)
+    if last > total:
+        COUNTER_FILE.write_text(str(total))
+        last = total
+
     if total <= last:
         return []
 

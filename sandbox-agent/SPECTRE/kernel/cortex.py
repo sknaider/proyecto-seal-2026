@@ -152,13 +152,10 @@ def _get_llm() -> MultiTierLLMClient:
         _load_spectre_env()
         opencode_key = os.environ.get("OPENCODE_API_KEY", "")
         backends = []
-        # T1: Claude Code CLI subprocess — uses William's Max plan OAuth, no API credits needed
-        model = os.environ.get("SPECTRE_CLAUDE_MODEL", "claude-opus-4-7")
-        backends.append(ClaudeCodeClient(model=model))
-        # T2: OpenCode fallback (minimax-m2.5-free)
+        # T1: OpenCode (William ordered SPECTRE back to OpenCode 02-may-2026 18:19 Lima)
         if opencode_key:
             backends.append(OpenCodeClient())
-        # T3: local Ollama (last resort)
+        # T2: local Ollama (last resort)
         backends.append(OllamaClient())
         _llm = MultiTierLLMClient(*backends)
     return _llm

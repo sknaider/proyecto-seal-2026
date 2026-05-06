@@ -20,15 +20,15 @@ sys.path.insert(0, "/home/dadito/IA/proyecto-seal/memory")
 from db import get_pool, close_pool
 
 DECAY_RATE = 0.01       # -1% per day of inactivity
-MIN_CONFIDENCE = 0.05   # below this → deactivate
+MIN_STRENGTH = 0.05     # below this → soft-invalidate
 SIMILARITY_THRESHOLD = 0.85
 
 
 async def decay_instincts(pool) -> dict:
-    """Apply Ebbinghaus decay to all active instincts."""
+    """Apply Ebbinghaus decay to all active instincts (v3 schema: strength, invalid_at, success_count)."""
     rows = await pool.fetch("""
-        SELECT id, agent, confidence, last_activated, last_decayed, trigger_pattern
-        FROM instincts WHERE active = true
+        SELECT id, agent, strength, created_at, trigger_condition
+        FROM instincts WHERE invalid_at IS NULL
     """)
 
     now = datetime.now(LIMA_TZ)
@@ -36,7 +36,8 @@ async def decay_instincts(pool) -> dict:
     deactivated = 0
 
     for r in rows:
-        last = r["last_activated"] or r["last_decayed"]
+        # v3 instincts has no last_activated col — use created_at as activity proxy
+        last = r["created_at"]
         if last is None:
             continue
 
@@ -45,46 +46,46 @@ async def decay_instincts(pool) -> dict:
             continue
 
         decay = DECAY_RATE * days_since
-        new_conf = max(0.0, r["confidence"] - decay)
+        new_strength = max(0.0, float(r["strength"]) - decay)
 
-        if new_conf < MIN_CONFIDENCE:
+        if new_strength < MIN_STRENGTH:
             await pool.execute(
-                "UPDATE instincts SET active = false, confidence = $2, last_decayed = now() WHERE id = $1",
-                r["id"], new_conf,
+                "UPDATE instincts SET invalid_at = now(), strength = $2 WHERE id = $1",
+                r["id"], new_strength,
             )
             deactivated += 1
-            print(f"  DEACTIVATED #{r['id']} ({r['agent']}): {r['trigger_pattern'][:50]} — conf={new_conf:.3f}")
+            print(f"  DEACTIVATED #{r['id']} ({r['agent']}): {r['trigger_condition'][:50]} — strength={new_strength:.3f}")
         else:
             await pool.execute(
-                "UPDATE instincts SET confidence = $2, last_decayed = now() WHERE id = $1",
-                r["id"], new_conf,
+                "UPDATE instincts SET strength = $2 WHERE id = $1",
+                r["id"], new_strength,
             )
         decayed += 1
 
     # TTL: prune unconfirmed instincts older than 30 days
     pruned = 0
     ttl_rows = await pool.fetch("""
-        SELECT id, agent, trigger_pattern, confidence, created_at
+        SELECT id, agent, trigger_condition, strength, created_at
         FROM instincts
-        WHERE active = true AND confidence < 0.5 AND activation_count = 0
+        WHERE invalid_at IS NULL AND strength < 0.5 AND success_count = 0
           AND created_at < now() - interval '30 days'
     """)
     for r in ttl_rows:
-        await pool.execute("UPDATE instincts SET active = false WHERE id = $1", r["id"])
+        await pool.execute("UPDATE instincts SET invalid_at = now() WHERE id = $1", r["id"])
         pruned += 1
-        print(f"  PRUNED (TTL) #{r['id']} ({r['agent']}): {r['trigger_pattern'][:50]} — never activated, 30d old")
+        print(f"  PRUNED (TTL) #{r['id']} ({r['agent']}): {r['trigger_condition'][:50]} — never activated, 30d old")
 
     # Warn about instincts expiring soon
     expiring = await pool.fetch("""
-        SELECT id, agent, trigger_pattern, confidence, created_at
+        SELECT id, agent, trigger_condition, strength, created_at
         FROM instincts
-        WHERE active = true AND confidence < 0.5 AND activation_count = 0
+        WHERE invalid_at IS NULL AND strength < 0.5 AND success_count = 0
           AND created_at < now() - interval '23 days'
           AND created_at >= now() - interval '30 days'
     """)
     for r in expiring:
         days_left = 30 - (datetime.now(LIMA_TZ) - r["created_at"]).days
-        print(f"  ⚠️ EXPIRING #{r['id']} ({r['agent']}): {r['trigger_pattern'][:50]} — {days_left}d left")
+        print(f"  ⚠️ EXPIRING #{r['id']} ({r['agent']}): {r['trigger_condition'][:50]} — {days_left}d left")
 
     return {"decayed": decayed, "deactivated": deactivated, "pruned": pruned}
 
@@ -136,10 +137,10 @@ async def main():
     # 3. Summary
     stats = await pool.fetch("""
         SELECT agent, COUNT(*) as total,
-               COUNT(*) FILTER (WHERE confidence >= 0.7) as strong,
-               COUNT(*) FILTER (WHERE confidence >= 0.5 AND confidence < 0.7) as active,
-               COUNT(*) FILTER (WHERE confidence < 0.5) as weak
-        FROM instincts WHERE active = true
+               COUNT(*) FILTER (WHERE strength >= 0.7) as strong,
+               COUNT(*) FILTER (WHERE strength >= 0.5 AND strength < 0.7) as active,
+               COUNT(*) FILTER (WHERE strength < 0.5) as weak
+        FROM instincts WHERE invalid_at IS NULL
         GROUP BY agent
     """)
 
@@ -215,7 +216,7 @@ async def main():
 
     # 5. Log event
     await pool.execute("""
-        INSERT INTO event_log (time, agent, event_type, content, metadata)
+        INSERT INTO event_log (created_at, agent, event_type, content, metadata)
         VALUES (now(), 'SYSTEM', 'heartbeat', $1, $2)
     """,
         f"Daily cron: instincts decayed={decay_result['decayed']}, deactivated={decay_result['deactivated']}, candidates={candidates['total_candidates']}. Sleep: replayed={sleep_stats['replayed']}, forgot={sleep_stats['decayed']}, pruned={sleep_stats['pruned']}",

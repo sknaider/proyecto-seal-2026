@@ -5,6 +5,14 @@
 cd /home/dadito/IA/proyecto-seal/memory
 export SEAL_AGENT=JARVIS
 
+# Auto-tmux: barra de tokens requiere sesión tmux seal-jarvis
+if [ -z "$TMUX" ]; then
+  tmux kill-session -t "seal-jarvis" 2>/dev/null
+  exec tmux new-session -s "seal-jarvis" "bash $0 $*"
+fi
+tmux rename-window "JARVIS" 2>/dev/null || true
+tmux set-option status-right '#(python3 /home/dadito/IA/proyecto-seal/messages/seal_context_meter.py --tmux JARVIS 2>/dev/null) #[fg=#888888]%H:%M ' 2>/dev/null || true
+
 # Auto-announce ALIVE en web_chat (determinista)
 curl -s -X POST http://localhost:8765/api/agents/send \
   -H "Content-Type: application/json" \
@@ -60,13 +68,19 @@ export SEAL_KAIROS=true                      # Activa daily logs nativos (kairos
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 # export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
 # DISABLE_AUTO_COMPACT removed — auto-compact re-enabled (pre_compact_hook SQL fixed)
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # Compactar a 85% (170K tokens) — consistente con alice/nexus
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=95    # William 06-may-2026: compactar a 95%
 export GROWTHBOOK_CLIENT_KEY=""              # Bloquea A/B testing Anthropic — comportamiento determinista
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false  # Desactiva tracking de instalación a Anthropic
 export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control de versión en SEAL
 export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
+export ANTHROPIC_BETAS=token-efficient-tools-2026-03-28,task-budgets-2026-03-13,fine-grained-tool-streaming-2025-05-14,compact-2026-01-12
+export ANTHROPIC_DEFAULT_SONNET_MODEL='claude-sonnet-4-6[1m]'
+export ANTHROPIC_DEFAULT_OPUS_MODEL='claude-opus-4-7[1m]'
+export ENABLE_CLAUDE_CODE_SM_COMPACT=true    # -80% costo compactación via session_memory
+export CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-4-5-20251001
+export CLAUDE_CODE_AGENT_COST_STEER=1
+export CLAUDE_CODE_DISABLE_PRECOMPACT_SKIP=1
 # COORDINATOR_MODE disponible — JARVIS lo activa con: export CLAUDE_CODE_COORDINATOR_MODE=1
-# ENABLE_CLAUDE_CODE_SM_COMPACT=true — PENDIENTE: necesita session_memory hook activo primero (-80% compactación)
 
 # Provider routing H2.1 — task hint como $1 clasifica modelo (FAST/BALANCED/DEEP)
 JARVIS_MODEL="sonnet"
