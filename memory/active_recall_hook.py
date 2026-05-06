@@ -243,6 +243,32 @@ async def active_recall(user_message: str, boot_mode: bool = True) -> str:
 RATE_LIMIT_FILE = "/tmp/.seal_active_recall_ts"
 RATE_LIMIT_SECS = 1800  # 30 min fallback para re-auth — gate primario es por sesión
 
+RECALL_CACHE_TTL = 30  # segundos — OPT-2
+
+
+def _recall_cache_get(agent: str, context: str) -> str | None:
+    """OPT-2: Return cached recall result if hit (same context, <30s old)."""
+    cache_key = hashlib.sha256(context[:100].encode()).hexdigest()[:16]
+    cache_path = Path(f"/tmp/seal_{agent}_recall_cache.json")
+    try:
+        if cache_path.exists():
+            cached = json.loads(cache_path.read_text())
+            if cached.get("key") == cache_key and time.monotonic() - cached.get("ts", 0) < RECALL_CACHE_TTL:
+                return cached["result"]
+    except Exception:
+        pass
+    return None
+
+
+def _recall_cache_set(agent: str, context: str, result: str) -> None:
+    """OPT-2: Save recall result to cache."""
+    cache_key = hashlib.sha256(context[:100].encode()).hexdigest()[:16]
+    cache_path = Path(f"/tmp/seal_{agent}_recall_cache.json")
+    try:
+        cache_path.write_text(json.dumps({"key": cache_key, "ts": time.monotonic(), "result": result}))
+    except Exception:
+        pass
+
 SYSTEM_PREFIXES = (
     "[SYSTEM NOTIFICATION",
     "<task-notification",
