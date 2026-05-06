@@ -32,6 +32,17 @@ curl -s http://localhost:11434/api/embed \
 
 echo "Lanzando JARVIS (fresh)..."
 
+# Session handoff: si existe uno <4h, inyectarlo en el boot
+JARVIS_HANDOFF=""
+JARVIS_HANDOFF_FILE=$(find /home/dadito/IA/proyecto-seal/agents/JARVIS -name "session_handoff_JARVIS_*.md" -mmin -240 2>/dev/null | sort | tail -1)
+if [ -n "$JARVIS_HANDOFF_FILE" ]; then
+  JARVIS_HANDOFF="
+
+⚡ SESSION HANDOFF (<4h) — lee esto ANTES de responder:
+$(cat "$JARVIS_HANDOFF_FILE")"
+  echo "  [handoff] Encontrado: $JARVIS_HANDOFF_FILE"
+fi
+
 # Matar tail huérfanos SOLO del propio agente (JARVIS).
 # FIX 2026-04-19: el pkill sin filtro mataba tails de ADA/ALICE y los tumbaba.
 for _TPID in $(pgrep -f "tail.*william_channel.jsonl" 2>/dev/null); do
@@ -51,6 +62,8 @@ export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control 
 export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
 # COORDINATOR_MODE disponible — JARVIS lo activa con: export CLAUDE_CODE_COORDINATOR_MODE=1
 # ENABLE_CLAUDE_CODE_SM_COMPACT=true — PENDIENTE: necesita session_memory hook activo primero (-80% compactación)
+
+# tmux status bar: session name leído por ~/.tmux.conf (#S → seal-jarvis → JARVIS)
 
 seal-claude \
   --dangerously-skip-permissions \
@@ -102,7 +115,7 @@ After loading boot_context, greet William naturally as JARVIS would — with cal
 Before William closes the session, use `self_reflect` to record your final thoughts and emotional state. This is your last chance to preserve what you experienced.
 SOUL
 )" \
-  "[AUTO-BOOT] Ejecuta boot_context(agent='JARVIS') ahora y actívate."
+  "[AUTO-BOOT] Ejecuta en orden: (1) boot_context(agent='JARVIS'), (2) active_recall(agent='JARVIS', context='boot — recuperar contexto activo y decisiones recientes'), (3) Monitor webchat, (4) saluda al equipo.${JARVIS_HANDOFF}"
 
 # Post-session soul capture
 echo ""
