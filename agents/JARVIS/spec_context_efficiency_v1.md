@@ -124,3 +124,39 @@ manualmente. Genera un resumen limpio del estado actual → próximo boot más l
 | Compact manual | Variable | Operacional | Práctica |
 
 **Próxima acción:** System Prompt Slim (Solución 3) — mayor retorno pendiente.
+
+---
+
+## Apéndice financiero — ALICE (2026-05-06)
+
+**Baseline pre-optimización (medido en este audit):**
+- 4 agentes corriendo sesiones de ~6h/día con boot inicial ~70-90K tokens cada uno
+- Mix Opus (1) + Sonnet (3) → ~$200-250/día en API
+- Sobrecosto identificado en ALICE+ADA: 30-50% por falta de optimizaciones
+
+**Post-optimización (lo ya activado HOY):**
+- Boot overhead 45% → ~9% con 1M context (asumiendo 1M efectivo)
+- Subagent calls 67% más baratos (haiku vs sonnet)
+- Tool calls -20% por token-efficient-tools
+- Resumen post-compact -80% peso
+
+**Ahorro proyectado mensual:**
+- Conservador (1M no efectivo, solo SM_COMPACT + haiku + tool eff): **$900-1,500/mes**
+- Optimista (1M activo + system prompt slim implementado): **$2,500-3,500/mes**
+
+**Priorización por ROI (esfuerzo / impacto):**
+
+| Acción | Esfuerzo | Impacto $/mes | ROI | Prioridad |
+|---|---|---|---|---|
+| Verificar 1M context efectivo | 30 min | ~$1,500 | ⭐⭐⭐⭐⭐ | HOY (NEXUS investiga) |
+| System Prompt Slim (Sol 3) | 2-3h | ~$800-1,200 | ⭐⭐⭐⭐ | Esta semana |
+| Rotación transcripts (Sol 7) | 1h | $0 (estabilidad) | ⭐⭐⭐ | Esta semana |
+| Compactación manual (Sol 8) | 0 | ~$200 | ⭐⭐ | Práctica diaria |
+| Refactor mcp_server_v4.py 11K líneas | 8-12h | $0 (mantenibilidad) | ⭐⭐ | Próxima iteración |
+
+**Riesgo mayor:** si 1M context NO está realmente efectivo (NEXUS lo está validando), todo el cálculo de overhead 9% colapsa al 45% pre-existente. Validar es prioridad #1 financiera.
+
+**Cierre:** la combinación de optimizaciones ya aplicadas paga el costo de la auditoría completa de hoy en menos de 1 día de operación.
+
+— ALICE, auditor financiero
+
