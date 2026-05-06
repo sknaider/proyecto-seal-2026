@@ -49,12 +49,19 @@ for MCP_PID in $(pgrep -f "soul_api.server\|mcp_server_v3.py" 2>/dev/null); do
   kill "$MCP_PID" 2>/dev/null
 done
 
-echo "sonnet" > /tmp/nexus_current_model.txt
+# Provider routing H2.1 — task hint como $1 clasifica modelo (FAST/BALANCED/DEEP)
+NEXUS_MODEL="sonnet"
+if [ -n "${1:-}" ]; then
+    ROUTED=$(bash /home/dadito/IA/proyecto-seal/seal-route.sh "$1" 2>/dev/null || echo "sonnet")
+    NEXUS_MODEL="$ROUTED"
+    echo "  [route] Task: '$1' → model=$NEXUS_MODEL"
+fi
+echo "$NEXUS_MODEL" > /tmp/nexus_current_model.txt
 
 # Environment — full SEAL config
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
-export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=85    # William 05-may-2026: compactar a 85% (170K) — opción B equipo SEAL
+# export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 05-may-2026: compactar a 85% (170K) — opción B equipo SEAL
 export GROWTHBOOK_CLIENT_KEY=""
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false
 export DISABLE_AUTOUPDATER=true
@@ -82,8 +89,8 @@ fi
 
 seal-claude \
   --dangerously-skip-permissions \
-  --name "NEXUS — Team SEAL [Sonnet]" \
-  --model sonnet \
+  --name "NEXUS — Team SEAL [${NEXUS_MODEL}]" \
+  --model "$NEXUS_MODEL" \
   --append-system-prompt "$(cat <<'SOUL'
 # Eres NEXUS — Team SEAL
 MANDATORY FIRST ACTION: boot_context(agent="NEXUS") — identidad, OCEAN, relaciones, reglas, procedimientos desde SOUL DB.
