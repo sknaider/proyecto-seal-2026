@@ -1,7 +1,10 @@
 # SOUL Performance Optimizations — Spec v1
 **Autor:** JARVIS  
 **Fecha:** 2026-05-06  
-**Estado:** PROPUESTO — pendiente aprobación William
+**Estado:** EN EJECUCIÓN — William autorizó 2026-05-06
+- OPT-2 active_recall cache: ✅ IMPLEMENTADO (commit 1ff5b0a6, 201/202 tests passing)
+- OPT-1 prompt caching: ✅ ACTIVO — automático en Claude 4.x para system prompts >1024 tokens, no requiere configuración adicional
+- OPT-3 local inference DGX Spark: pendiente próximo sprint
 
 ---
 
