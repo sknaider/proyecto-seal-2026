@@ -61,7 +61,7 @@ echo "$NEXUS_MODEL" > /tmp/nexus_current_model.txt
 # Environment — full SEAL config
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 # export CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=true  # disabled — rompe WebSearch en Sonnet 4.6
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 05-may-2026: compactar a 85% (170K) — opción B equipo SEAL
+export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90    # William 06-may-2026: precompactar a 90%
 export GROWTHBOOK_CLIENT_KEY=""
 export CLAUDE_CODE_ATTRIBUTION_HEADER=false
 export DISABLE_AUTOUPDATER=true
