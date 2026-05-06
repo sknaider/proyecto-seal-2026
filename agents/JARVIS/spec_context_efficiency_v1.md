@@ -115,13 +115,15 @@ manualmente. Genera un resumen limpio del estado actual → próximo boot más l
 
 | Solución | Ahorro tokens | Esfuerzo | Status |
 |---|---|---|---|
-| 1M context | Boot overhead 45% → 9% | Bajo | ✅ |
+| 1M context [1m] | Boot overhead 45% → 9% | Bajo | ✅ (próximo restart) |
 | SM_COMPACT | Resumen -80% | Bajo | ✅ |
-| System prompt slim | 600-900 tokens/turno | Medio | ⏳ PENDIENTE |
+| System prompt slim v2 | 800-1,200 tokens/turno | Medio | ⏳ PENDIENTE (Sol 9) |
 | Pre-compact hook | Recuperación liviana | Bajo | ✅ |
-| Haiku subagentes | -67% costo tareas auxiliares | Bajo | ✅ |
+| Haiku subagentes | -67% costo auxiliares | Bajo | ✅ |
 | Token-efficient tools | -20% tool calls | Bajo | ✅ |
-| Rotación transcripts | I/O más rápido | Bajo | ⏳ NEXUS |
+| Rotación transcripts | I/O más rápido | Bajo | ✅ (06-may-2026) |
+| MEMORY.md comprimido | 100-200 tokens/turno | Bajo | ⏳ PENDIENTE |
+| Context hooks dinámicos | 300-500 tokens/turno | Medio | ⏳ PENDIENTE |
 | Compact manual | Variable | Operacional | Práctica |
 
 **Próxima acción:** System Prompt Slim (Solución 3) — mayor retorno pendiente.
