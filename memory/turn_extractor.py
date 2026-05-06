@@ -25,7 +25,7 @@ EXTRACT_TOOLS = {"Edit", "Write", "Bash", "memory_store", "mcp__seal-memory__mem
 SKIP_PATTERNS = re.compile(r"heartbeat|monitor|ack|\[cron\]|\[dum\]|tick \d+", re.IGNORECASE)
 MIN_CONTENT_CHARS = 200
 MAX_FACTS = 5
-EXTRACT_TIMEOUT_S = 1.5
+EXTRACT_TIMEOUT_S = 8.0
 
 VALID_CATEGORIES = {
     "decision", "error_resolved", "file_modified",
@@ -163,8 +163,8 @@ async def extract_and_store(
             await conn.execute(
                 f"""
                 INSERT INTO {SCHEMA}.memories
-                    (agent, type, content, category, importance, metadata, created_at)
-                VALUES ($1, 'fact', $2, $3, $4, $5::jsonb, $6)
+                    (agent, memory_type, content, category, importance, metadata, created_at)
+                VALUES ($1, 'semantic', $2, $3, $4, $5::jsonb, $6)
                 """,
                 agent,
                 fact["statement"],
