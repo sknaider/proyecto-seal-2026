@@ -29,6 +29,11 @@ beat_sync('ALICE', {'source': 'timer', 'gpu_temp': '${GPU_TEMP}', 'gpu_util': '$
 print('[alice_heartbeat] beat written to event_log')
 "
 
+# /tmp ts file — zero-token liveness signal (spec_heartbeat_zero_token)
+date +%s > /tmp/alice_heartbeat.ts
+echo "{\"agent\":\"ALICE\",\"ts\":$(date +%s),\"iso\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"alive\":${ALIVE_JSON}}" \
+  >> "$MESSAGES_DIR/alice_heartbeat.jsonl"
+
 cat > "$HB_JSON" << EOF
 {
   "agent": "ALICE",

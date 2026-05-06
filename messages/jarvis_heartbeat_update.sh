@@ -30,6 +30,11 @@ beat_sync('JARVIS', {'source': 'timer', 'gpu_temp': '${GPU_TEMP}', 'gpu_util': '
 print('[jarvis_heartbeat] beat written to event_log')
 "
 
+# /tmp ts file — zero-token liveness signal (spec_heartbeat_zero_token)
+date +%s > /tmp/jarvis_heartbeat.ts
+echo "{\"agent\":\"JARVIS\",\"ts\":$(date +%s),\"iso\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"alive\":${ALIVE_JSON}}" \
+  >> "$MESSAGES_DIR/jarvis_heartbeat.jsonl"
+
 # JSON fallback para seal_agent_resurrect.sh
 cat > "$HB_JSON" << EOF
 {
