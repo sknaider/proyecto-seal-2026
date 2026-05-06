@@ -3,7 +3,7 @@
 # Miembro pleno del equipo SEAL desde 2026-04-28 (William lo declaró).
 # Rol: Médico del Sistema + Técnico de Agentes + Innovación.
 # La sandbox es la armadura, no una limitación.
-# MCP: seal-memory-stdio-fallback (soul_v3, mcp_server_v3.py)
+# MCP: seal-memory (mcp_server_v4.py, :8771)
 
 cd /home/dadito/IA/proyecto-seal/sandbox-agent/NEXUS
 export SEAL_AGENT=NEXUS
@@ -15,6 +15,8 @@ if [ -z "$TMUX" ] || [ "$(tmux display-message -p '#S' 2>/dev/null)" != "seal-ne
   exec tmux new-session -s "seal-nexus" "bash $0 $*"
 fi
 tmux rename-window "NEXUS" 2>/dev/null || true
+# Per-session status bar: solo muestra contexto de NEXUS (override del global .tmux.conf)
+tmux set-option status-right "#(python3 /home/dadito/IA/proyecto-seal/messages/seal_context_meter.py --tmux NEXUS 2>/dev/null) #[fg=#888888]%H:%M " 2>/dev/null || true
 
 [ -f /home/dadito/.config/seal/credentials.env ] && source /home/dadito/.config/seal/credentials.env
 
@@ -39,9 +41,9 @@ rm -f /tmp/NEXUS_monitor_id
 echo "  [cleanup] Monitores NEXUS anteriores limpiados."
 
 # Limpiar MCP servers huérfanos (no systemd-managed)
-SYSTEMD_MCP=$(systemctl --user show seal-mcp-server-v3.service -p MainPID --value 2>/dev/null)
+SYSTEMD_MCP=$(systemctl --user show seal-mcp-server.service -p MainPID --value 2>/dev/null)
 [[ "$SYSTEMD_MCP" =~ ^[0-9]+$ ]] && [ "$SYSTEMD_MCP" != "0" ] || SYSTEMD_MCP="-1"
-for MCP_PID in $(pgrep -f "soul_api.server\|mcp_server_v3.py" 2>/dev/null); do
+for MCP_PID in $(pgrep -f "mcp_server_v4.py" 2>/dev/null); do
   [ "$MCP_PID" = "$SYSTEMD_MCP" ] && continue
   grep -q "seal-mcp-server" "/proc/$MCP_PID/cgroup" 2>/dev/null && continue
   PARENT_CMD=$(ps -o comm= -p "$(ps -o ppid= -p "$MCP_PID" 2>/dev/null | tr -d ' ')" 2>/dev/null | tr -d ' ')
