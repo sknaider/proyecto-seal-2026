@@ -273,11 +273,64 @@ async def index_source(dsn: str, root_path: str, name: str,
             except Exception as e:
                 pass
 
+        edges_resolved = await resolve_edges(conn, source_id)
+
         return {
             "source_id": source_id,
             "files_scanned": len(files),
             "files_indexed": indexed_files,
             "chunks_created": total_chunks,
+            "edges_resolved": edges_resolved,
         }
     finally:
         await conn.close()
+
+
+async def resolve_edges(conn: asyncpg.Connection, source_id: int) -> int:
+    """Resolve cgraph_edges_symbol → cgraph_edges_chunk within source_id.
+
+    Looks up each unresolved edge's to_symbol in cgraph_chunks for the same
+    source and inserts into cgraph_edges_chunk. Returns count of new edges.
+    """
+    rows = await conn.fetch(
+        """
+        SELECT es.id, es.from_chunk_id, es.from_symbol, es.to_symbol, es.edge_type
+        FROM cgraph_edges_symbol es
+        JOIN cgraph_chunks fc ON fc.id = es.from_chunk_id
+        JOIN cgraph_pages fp ON fp.id = fc.page_id
+        WHERE fp.source_id = $1
+        """,
+        source_id,
+    )
+
+    count = 0
+    for row in rows:
+        targets = await conn.fetch(
+            """
+            SELECT cc.id
+            FROM cgraph_chunks cc
+            JOIN cgraph_pages p ON p.id = cc.page_id
+            WHERE p.source_id = $1
+              AND (cc.symbol_name = $2 OR cc.symbol_name_qualified = $2
+                   OR cc.symbol_name_qualified LIKE '%.' || $2)
+            LIMIT 5
+            """,
+            source_id, row["to_symbol"],
+        )
+        for t in targets:
+            try:
+                await conn.execute(
+                    """
+                    INSERT INTO cgraph_edges_chunk
+                      (from_chunk_id, to_chunk_id, from_symbol, to_symbol, edge_type)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT (from_chunk_id, to_chunk_id, edge_type) DO NOTHING
+                    """,
+                    row["from_chunk_id"], t["id"],
+                    row["from_symbol"], row["to_symbol"], row["edge_type"],
+                )
+                count += 1
+            except Exception:
+                pass
+
+    return count
