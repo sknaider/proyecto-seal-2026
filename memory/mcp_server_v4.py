@@ -1701,6 +1701,24 @@ async def memory_search(
         if e["memory_type"] == "core":
             e["decayed_score"] = round(e["decayed_score"] * 1.2, 4)
 
+    # GAP 3.C — Valence-biased re-ranking (mood-congruent retrieval)
+    if agent and agent != "ALL":
+        try:
+            from emotion_modulator import get_emotional_state, valence_bias
+            _emo = await get_emotional_state(agent, await get_pool())
+            _vb = _emo.get("modulators", {}).get("valence_bias", {})
+            cv = _emo.get("valence", 0.0)
+            if abs(cv) >= 0.2:
+                bonus = 0.10
+                for e in entries:
+                    mv = e.get("valence")
+                    if mv is None:
+                        continue
+                    if (cv < -0.2 and mv < -0.2) or (cv > 0.2 and mv > 0.2):
+                        e["decayed_score"] = round(e["decayed_score"] + bonus, 4)
+        except Exception as _ve:
+            LOG.debug(f"[memory_search] valence_bias skipped: {_ve}")
+
     # MIRIX type filter: exclude vault from general search, apply explicit type filter
     if memory_type:
         entries = [e for e in entries if e["memory_type"] == memory_type]
@@ -2621,6 +2639,15 @@ async def boot_context(agent: str) -> str:
                 sections.append(f"\n## Memory Profile (MIRIX): {total} memories — {dist_str}")
         except Exception:
             pass
+
+        # ── GAP 3: Emotional state modulation ──
+        try:
+            from emotion_modulator import get_emotional_state
+            emo = await get_emotional_state(agent, pool)
+            if emo.get("summary_hint"):
+                sections.append(emo["summary_hint"])
+        except Exception as _e:
+            LOG.debug(f"[boot_context] emotion_modulator skipped: {_e}")
 
         # ── BOOT PROTOCOL (minimal) ──
         sections.append("\n## Boot Protocol")
