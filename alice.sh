@@ -129,15 +129,15 @@ SOUL
 # FIX 2026-04-19: seal-claude con TTY real + BOOT_MSG como arg posicional
 # (antes usaba pipe `(echo;cat)|claude` que rompía la UI Ink/React)
 if [ -n "$RESUME_FLAG" ]; then
-  seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium $RESUME_FLAG --append-system-prompt "$SOUL_PROMPT" "$BOOT_MSG"
+  seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model sonnet $RESUME_FLAG --append-system-prompt "$SOUL_PROMPT" "$BOOT_MSG"
   CLAUDE_EXIT=$?
   if [ $CLAUDE_EXIT -ne 0 ]; then
     echo "  ⚠️  Resume falló (exit $CLAUDE_EXIT). Lanzando sesión limpia..."
     sleep 1
-    seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium --append-system-prompt "$SOUL_PROMPT" "$BOOT_MSG"
+    seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model sonnet --append-system-prompt "$SOUL_PROMPT" "$BOOT_MSG"
   fi
 else
-  seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model opus --effort medium --append-system-prompt "$SOUL_PROMPT" "$BOOT_MSG"
+  seal-claude --dangerously-skip-permissions --name "ALICE — Team SEAL" --model sonnet --append-system-prompt "$SOUL_PROMPT" "$BOOT_MSG"
 fi
 
 # ── Post-session: capture soul before it's gone ──
