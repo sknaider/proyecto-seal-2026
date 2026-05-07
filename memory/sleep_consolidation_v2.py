@@ -46,6 +46,11 @@ PATTERN_NEIGHBOR_LIMIT = 20        # ANN neighbors per correction
 PATTERN_INSTINCT_STRENGTH_CANDIDATE = 0.4
 PATTERN_INSTINCT_STRENGTH_FULL = 0.65
 
+# Procedural rehearsal constants (GAP 2.F)
+REHEARSE_MIN_HIT_COUNT = 2          # rehearse procedurals used at least 2 times
+REHEARSE_STALE_DAYS = 7             # rehearse if not refreshed in this many days
+REHEARSE_BATCH_LIMIT = 50           # max procedurals to rehearse per run (rate limit Ollama)
+
 
 async def _llm_generate(prompt: str, max_tokens: int = 300) -> str:
     async with httpx.AsyncClient(timeout=120.0) as client:
@@ -342,10 +347,84 @@ async def reinforce_connectome(pool: asyncpg.Pool, agent: str | None = None) -> 
     return stats
 
 
+async def procedural_rehearsal(pool: asyncpg.Pool, agent: str | None = None) -> dict:
+    """
+    GAP 2.F — Procedural memory rehearsal during sleep.
+
+    Refreshes embeddings for frequently-used procedures not rehearsed in >7 days.
+    Also auto-prunes procedures with >80% fail rate (deactivates them).
+
+    Selects: active=true, hit_count >= REHEARSE_MIN_HIT_COUNT,
+             last_rehearsed IS NULL OR < (now - 7 days).
+    Embeds: workflow text (falls back to query if workflow empty).
+
+    Returns: stats dict with rehearsed, skipped, errors, skipped_pruned.
+    """
+    agent_filter = "AND agent = $1" if agent and agent != "ALL" else ""
+    args: tuple = (agent, REHEARSE_MIN_HIT_COUNT, REHEARSE_BATCH_LIMIT) if agent and agent != "ALL" \
+        else (REHEARSE_MIN_HIT_COUNT, REHEARSE_BATCH_LIMIT)
+
+    # When agent is set: $1=agent, $2=hit_threshold, $3=limit
+    # When no agent:     $1=hit_threshold, $2=limit
+    hit_p  = 2 if agent and agent != "ALL" else 1
+    lim_p  = 3 if agent and agent != "ALL" else 2
+    candidates = await pool.fetch(f"""
+        SELECT id, agent, query, workflow, hit_count, fail_count
+        FROM procedural_memories
+        WHERE active = true
+          AND hit_count >= ${hit_p}
+          AND (last_rehearsed IS NULL OR last_rehearsed < now() - interval '{REHEARSE_STALE_DAYS} days')
+          {agent_filter}
+        ORDER BY hit_count DESC, updated_at ASC
+        LIMIT ${lim_p}
+    """, *args)
+
+    stats = {
+        "candidates_found": len(candidates),
+        "rehearsed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "skipped_pruned": 0,
+        "agents_processed": [],
+    }
+
+    seen_agents: set[str] = set()
+    for proc in candidates:
+        # Auto-prune: >5 uses, >80% failure rate → deactivate
+        total = proc["hit_count"] or 0
+        fails = proc["fail_count"] or 0
+        if total >= 5 and fails / total > 0.8:
+            await pool.execute(
+                "UPDATE procedural_memories SET active=false, last_rehearsed=now() WHERE id=$1",
+                proc["id"]
+            )
+            stats["skipped_pruned"] += 1
+            continue
+
+        try:
+            text = (proc["workflow"] or "").strip() or proc["query"]
+            new_emb = await get_embedding(text)
+            if not new_emb:
+                stats["errors"] += 1
+                continue
+            await pool.execute("""
+                UPDATE procedural_memories
+                SET embedding = $2::vector, last_rehearsed = now(), updated_at = now()
+                WHERE id = $1
+            """, proc["id"], json.dumps(new_emb))
+            stats["rehearsed"] += 1
+            seen_agents.add(proc["agent"])
+        except Exception:
+            stats["errors"] += 1
+
+    stats["agents_processed"] = list(seen_agents)
+    return stats
+
+
 async def main():
     if len(sys.argv) < 2:
         print("Uso: python3 sleep_consolidation_v2.py <step> [agent]")
-        print("Steps: connectome, patterns")
+        print("Steps: connectome, patterns, rehearsal")
         sys.exit(1)
 
     step = sys.argv[1]
@@ -388,6 +467,14 @@ async def main():
                     "AND metadata::jsonb->>'source' = 'pattern_abstraction'"
                 )
                 print(f"\n  Total pattern_abstraction instincts (all agents): {pa}")
+        elif step == "rehearsal":
+            print(f"=== procedural_rehearsal (agent={agent}) ===")
+            stats = await procedural_rehearsal(pool, agent)
+            print(f"  Rehearsed:    {stats['rehearsed']}")
+            print(f"  Skipped:      {stats['skipped']}")
+            print(f"  Errors:       {stats['errors']}")
+            if stats["rehearsed"]:
+                print(f"  Agents:       {stats.get('agents_processed', [])}")
         else:
             print(f"Unknown step: {step}")
             sys.exit(1)

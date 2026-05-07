@@ -193,6 +193,34 @@ async def run_daily_sleep_agent(agent: str, dry_run: bool) -> dict:
             "SELECT COUNT(*) FROM memories WHERE agent=$1 AND invalid_at IS NULL", agent)
         report["active_memories"] = active_count
 
+        # Phase 4b: Connectome hebbian reinforcement (GAP 2.C — sleep_consolidation_v2)
+        if not dry_run:
+            try:
+                from db import get_pool
+                from sleep_consolidation_v2 import reinforce_connectome
+                pool = await get_pool()
+                connectome_stats = await reinforce_connectome(pool, agent)
+                report["connectome"] = connectome_stats
+                LOG.info(f"[{agent}] connectome: {connectome_stats}")
+            except Exception as e:
+                LOG.warning(f"[{agent}] connectome reinforcement failed: {e}")
+                report["connectome"] = {"error": str(e)}
+        else:
+            report["connectome"] = {"dry_run": True}
+
+        # Phase 4c: Procedural rehearsal (GAP 2.F — sleep_consolidation_v2)
+        if not dry_run:
+            try:
+                from sleep_consolidation_v2 import procedural_rehearsal
+                rehearsal_stats = await procedural_rehearsal(pool, agent)
+                report["rehearsal"] = rehearsal_stats
+                LOG.info(f"[{agent}] rehearsal: {rehearsal_stats}")
+            except Exception as e:
+                LOG.warning(f"[{agent}] procedural rehearsal failed: {e}")
+                report["rehearsal"] = {"error": str(e)}
+        else:
+            report["rehearsal"] = {"dry_run": True}
+
     except Exception as e:
         LOG.error(f"[{agent}] Daily sleep failed: {e}", exc_info=True)
         report["error"] = str(e)
