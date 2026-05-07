@@ -19,6 +19,7 @@ Uso standalone:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import sys
@@ -735,6 +736,22 @@ async def cross_agent_consolidation(pool: asyncpg.Pool) -> dict:
         sample_block = "\n".join(f"- {c}" for c in sample_contents)
         agents_list = ", ".join(sorted(agents_in_cluster))
 
+        # Fingerprint = stable hash of sorted member IDs — dedup without LLM output
+        fingerprint = hashlib.md5(
+            json.dumps(sorted(members)).encode()
+        ).hexdigest()[:16]
+
+        existing = await pool.fetchval("""
+            SELECT id FROM memories
+            WHERE category = 'pattern' AND invalid_at IS NULL
+              AND scope = 'team'
+              AND metadata::jsonb->>'cluster_fingerprint' = $1
+            LIMIT 1
+        """, fingerprint)
+        if existing:
+            stats["skipped_existing"] += 1
+            continue
+
         prompt = f"""Analizando correcciones similares hechas a múltiples agentes SEAL ({agents_list}).
 {len(members)} correcciones cruzan {len(agents_in_cluster)} agentes:
 
@@ -767,24 +784,13 @@ Sé conciso. Idioma de las correcciones."""
 
         team_content = f"REGLA DE EQUIPO (cross-agent): {rule}\nMotivo: {why}"
 
-        existing = await pool.fetchval("""
-            SELECT id FROM memories
-            WHERE category = 'pattern' AND invalid_at IS NULL
-              AND scope = 'team'
-              AND metadata::jsonb->>'source' = 'cross_agent_consolidation'
-              AND content = $1
-            LIMIT 1
-        """, team_content)
-        if existing:
-            stats["skipped_existing"] += 1
-            continue
-
         try:
             emb = await get_embedding(team_content)
             meta = json.dumps({
                 "source": "cross_agent_consolidation",
                 "agents_involved": sorted(agents_in_cluster),
                 "cluster_size": len(members),
+                "cluster_fingerprint": fingerprint,
             })
             await pool.execute("""
                 INSERT INTO memories (

@@ -257,6 +257,17 @@ async def main(agents: list[str], dry_run: bool) -> None:
             LOG.error(f"Sleep failed for {agent}: {e}", exc_info=True)
             all_reports.append({"agent": agent, "error": str(e)})
 
+    # Phase cross-agent: GAP 2.E — run once after all agents (team-wide)
+    if not dry_run:
+        try:
+            from db import get_pool
+            from sleep_consolidation_v2 import cross_agent_consolidation
+            pool = await get_pool()
+            cross_stats = await cross_agent_consolidation(pool)
+            LOG.info(f"[TEAM] cross_agent: {cross_stats}")
+        except Exception as e:
+            LOG.warning(f"cross_agent_consolidation failed: {e}")
+
     # Summary notification
     total_compressed = sum(r.get("compress", {}).get("memories_invalidated", 0) for r in all_reports)
     summary = (
