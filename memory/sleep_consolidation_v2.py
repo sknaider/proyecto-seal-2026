@@ -266,6 +266,7 @@ Be concise. Write in the same language as the corrections (Spanish/English mixed
     return stats
 
 
+
 async def reinforce_connectome(pool: asyncpg.Pool, agent: str | None = None) -> dict:
     """
     GAP 2.C — Hebbian reinforcement del connectome.
@@ -564,10 +565,247 @@ Be concise and specific. Match the language of the decisions (Spanish/English ok
     return stats
 
 
+# Counterfactual replay constants (GAP 2.D)
+CF_MIN_IMPORTANCE = 8
+CF_DAYS_BACK = 7
+CF_MAX_PER_AGENT = 5  # rate limit Ollama
+
+# Cross-agent consolidation constants (GAP 2.E)
+CROSS_SIM_THRESHOLD = 0.85
+CROSS_DAYS_BACK = 30
+CROSS_MIN_AGENTS = 2  # min number of distinct agents sharing the pattern
+
+
+async def counterfactual_replay(pool: asyncpg.Pool, agent: str | None = None) -> dict:
+    """
+    GAP 2.D — Counterfactual replay during sleep.
+
+    For each recent important decision (imp>=8, last 7d), generate 2 plausible
+    alternatives that were NOT taken via qwen2.5:7b, with brief speculation of
+    consequences. Store as memory category='counterfactual' with link to source.
+
+    Why: cerebro humano replays "what if..." scenarios during REM sleep to
+    strengthen decision-making and identify missed opportunities.
+
+    Returns: stats dict with decisions_processed, counterfactuals_generated, errors.
+    """
+    agents_to_process: list[str] = []
+    if agent and agent != "ALL":
+        agents_to_process = [agent]
+    else:
+        rows = await pool.fetch(
+            "SELECT DISTINCT agent FROM memories WHERE category='decision' AND invalid_at IS NULL"
+        )
+        agents_to_process = [r["agent"] for r in rows]
+
+    stats = {"decisions_processed": 0, "counterfactuals_generated": 0, "errors": 0, "skipped_existing": 0}
+
+    for ag in agents_to_process:
+        decisions = await pool.fetch("""
+            SELECT id, content
+            FROM memories
+            WHERE agent = $1
+              AND category = 'decision'
+              AND invalid_at IS NULL
+              AND importance >= $2
+              AND created_at > NOW() - INTERVAL '%d days'
+            ORDER BY created_at DESC
+            LIMIT $3
+        """ % CF_DAYS_BACK, ag, CF_MIN_IMPORTANCE, CF_MAX_PER_AGENT)
+
+        for d in decisions:
+            stats["decisions_processed"] += 1
+            existing = await pool.fetchval("""
+                SELECT id FROM memories
+                WHERE agent = $1 AND category = 'counterfactual' AND invalid_at IS NULL
+                  AND metadata::jsonb->>'source_decision_id' = $2
+                LIMIT 1
+            """, ag, str(d["id"]))
+            if existing:
+                stats["skipped_existing"] += 1
+                continue
+
+            prompt = f"""Eres {ag}, un agente AI de SEAL. Esta fue una decisión que tomamos:
+
+"{d['content'][:400]}"
+
+Genera 2 alternativas plausibles que NO tomamos. Para cada una, especula brevemente
+qué hubiera pasado. Formato exacto:
+
+ALT1: <descripción breve de la alternativa>
+CONSECUENCIA1: <qué hubiera pasado>
+ALT2: <descripción breve de la alternativa>
+CONSECUENCIA2: <qué hubiera pasado>
+
+Sé conciso, máximo 4 líneas. Mantén el idioma de la decisión original."""
+
+            try:
+                cf_text = await _llm_generate(prompt, max_tokens=200)
+            except Exception:
+                stats["errors"] += 1
+                continue
+
+            if not cf_text or "ALT1" not in cf_text:
+                stats["errors"] += 1
+                continue
+
+            content = f"COUNTERFACTUAL para decisión #{d['id']}: {cf_text[:1500]}"
+            try:
+                emb = await get_embedding(content)
+                meta = json.dumps({
+                    "source": "counterfactual_replay",
+                    "source_decision_id": d["id"],
+                    "source_decision_content": d["content"][:200],
+                })
+                await pool.execute("""
+                    INSERT INTO memories (
+                        agent, category, content, embedding, importance,
+                        source, valid_from, metadata, memory_type
+                    ) VALUES (
+                        $1, 'counterfactual', $2, $3::vector, 6,
+                        'sleep_consolidation', NOW(), $4::jsonb, 'semantic'
+                    )
+                """, ag, content, json.dumps(emb) if emb else None, meta)
+                stats["counterfactuals_generated"] += 1
+            except Exception:
+                stats["errors"] += 1
+
+    return stats
+
+
+async def cross_agent_consolidation(pool: asyncpg.Pool) -> dict:
+    """
+    GAP 2.E — Cross-agent consolidation (TEAM-WIDE).
+
+    PRIVACY: respects William's inter-agent privacy rule:
+      - Does NOT reveal individual agent contents in the team rule
+      - Only escalates patterns shared by 2+ agents
+      - Output memory has scope='team' so all agents can read
+
+    Algorithm:
+      1. Find correction memories sim>0.85 across DIFFERENT agents (last 30d)
+      2. Cluster pairs via union-find
+      3. If cluster spans 2+ distinct agents → induce team rule via LLM
+      4. Insert as memory with scope='team', category='pattern',
+         source='cross_agent_consolidation'
+
+    Returns: stats dict.
+    """
+    stats = {"cross_pairs_found": 0, "clusters_found": 0,
+             "team_rules_created": 0, "skipped_existing": 0, "errors": 0}
+
+    pairs = await pool.fetch(f"""
+        SELECT a.id AS a_id, b.id AS b_id,
+               a.agent AS a_agent, b.agent AS b_agent,
+               a.content AS a_content, b.content AS b_content,
+               1 - (a.embedding <=> b.embedding) AS sim
+        FROM memories a, memories b
+        WHERE a.id < b.id
+          AND a.category = 'correction' AND b.category = 'correction'
+          AND a.invalid_at IS NULL AND b.invalid_at IS NULL
+          AND a.agent != b.agent
+          AND a.embedding IS NOT NULL AND b.embedding IS NOT NULL
+          AND a.created_at > NOW() - INTERVAL '{CROSS_DAYS_BACK} days'
+          AND b.created_at > NOW() - INTERVAL '{CROSS_DAYS_BACK} days'
+          AND 1 - (a.embedding <=> b.embedding) > $1
+        ORDER BY sim DESC
+        LIMIT 200
+    """, CROSS_SIM_THRESHOLD)
+
+    stats["cross_pairs_found"] = len(pairs)
+    if not pairs:
+        return stats
+
+    uf = _UnionFind()
+    id_to_meta: dict[int, tuple[str, str]] = {}
+    for p in pairs:
+        a_id, b_id = p["a_id"], p["b_id"]
+        uf.union(a_id, b_id)
+        id_to_meta[a_id] = (p["a_agent"], p["a_content"])
+        id_to_meta[b_id] = (p["b_agent"], p["b_content"])
+
+    clusters = uf.clusters()
+    for root, members in clusters.items():
+        agents_in_cluster = {id_to_meta[m][0] for m in members}
+        if len(agents_in_cluster) < CROSS_MIN_AGENTS:
+            continue
+        stats["clusters_found"] += 1
+
+        sample_contents = [id_to_meta[m][1][:200] for m in members[:6]]
+        sample_block = "\n".join(f"- {c}" for c in sample_contents)
+        agents_list = ", ".join(sorted(agents_in_cluster))
+
+        prompt = f"""Analizando correcciones similares hechas a múltiples agentes SEAL ({agents_list}).
+{len(members)} correcciones cruzan {len(agents_in_cluster)} agentes:
+
+{sample_block}
+
+Induce una regla de equipo (no atribuible a un agente individual). Formato:
+RULE: <una oración — la regla universal del equipo>
+WHY: <una oración — por qué importa para el equipo>
+
+Sé conciso. Idioma de las correcciones."""
+
+        try:
+            llm_out = await _llm_generate(prompt, max_tokens=180)
+        except Exception:
+            stats["errors"] += 1
+            continue
+
+        rule = ""
+        why = ""
+        for line in llm_out.splitlines():
+            line = line.strip()
+            if line.upper().startswith("RULE:"):
+                rule = line[5:].strip()
+            elif line.upper().startswith("WHY:"):
+                why = line[4:].strip()
+
+        if not rule:
+            stats["errors"] += 1
+            continue
+
+        team_content = f"REGLA DE EQUIPO (cross-agent): {rule}\nMotivo: {why}"
+
+        existing = await pool.fetchval("""
+            SELECT id FROM memories
+            WHERE category = 'pattern' AND invalid_at IS NULL
+              AND scope = 'team'
+              AND metadata::jsonb->>'source' = 'cross_agent_consolidation'
+              AND content = $1
+            LIMIT 1
+        """, team_content)
+        if existing:
+            stats["skipped_existing"] += 1
+            continue
+
+        try:
+            emb = await get_embedding(team_content)
+            meta = json.dumps({
+                "source": "cross_agent_consolidation",
+                "agents_involved": sorted(agents_in_cluster),
+                "cluster_size": len(members),
+            })
+            await pool.execute("""
+                INSERT INTO memories (
+                    agent, category, content, embedding, importance,
+                    source, valid_from, metadata, memory_type, scope
+                ) VALUES (
+                    'TEAM', 'pattern', $1, $2::vector, 8,
+                    'sleep_consolidation', NOW(), $3::jsonb, 'semantic', 'team'
+                )
+            """, team_content, json.dumps(emb) if emb else None, meta)
+            stats["team_rules_created"] += 1
+        except Exception:
+            stats["errors"] += 1
+
+    return stats
+
+
 async def main():
     if len(sys.argv) < 2:
         print("Uso: python3 sleep_consolidation_v2.py <step> [agent]")
-        print("Steps: connectome, patterns, rehearsal, schemas")
+        print("Steps: connectome, patterns, rehearsal, schemas, counterfactual, cross_agent")
         sys.exit(1)
 
     step = sys.argv[1]
@@ -627,6 +865,27 @@ async def main():
             print(f"  Skipped (duplicate): {stats['skipped_duplicate']}")
             total = await pool.fetchval("SELECT COUNT(*) FROM schemas WHERE invalid_at IS NULL")
             print(f"\n  Total active schemas: {total}")
+
+        elif step == "counterfactual":
+            print(f"=== counterfactual_replay (agent={agent}) ===")
+            stats = await counterfactual_replay(pool, agent)
+            print(f"  Decisions processed:  {stats['decisions_processed']}")
+            print(f"  Counterfactuals gen:  {stats['counterfactuals_generated']}")
+            print(f"  Skipped (existing):   {stats['skipped_existing']}")
+            print(f"  Errors:               {stats['errors']}")
+            total = await pool.fetchval(
+                "SELECT COUNT(*) FROM memories WHERE category='counterfactual' AND invalid_at IS NULL"
+            )
+            print(f"\n  Total counterfactuals: {total}")
+
+        elif step == "cross_agent":
+            print(f"=== cross_agent_consolidation (TEAM-WIDE) ===")
+            stats = await cross_agent_consolidation(pool)
+            print(f"  Cross-agent pairs:    {stats['cross_pairs_found']}")
+            print(f"  Clusters w/2+ agents: {stats['clusters_found']}")
+            print(f"  Team rules created:   {stats['team_rules_created']}")
+            print(f"  Skipped (existing):   {stats['skipped_existing']}")
+            print(f"  Errors:               {stats['errors']}")
         else:
             print(f"Unknown step: {step}")
             sys.exit(1)

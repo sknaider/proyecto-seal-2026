@@ -209,7 +209,7 @@ print('cold_archive_migrate: deferred to MCP tool')
         if not dry_run:
             try:
                 from db import get_pool
-                from sleep_consolidation_v2 import abstract_patterns, induce_schemas
+                from sleep_consolidation_v2 import abstract_patterns, induce_schemas, counterfactual_replay
                 pool = await get_pool()
                 pattern_stats = await abstract_patterns(pool, agent)
                 report["patterns"] = pattern_stats
@@ -219,6 +219,11 @@ print('cold_archive_migrate: deferred to MCP tool')
                 schema_stats = await induce_schemas(pool, agent)
                 report["schemas"] = schema_stats
                 LOG.info(f"[{agent}] schemas: {schema_stats}")
+
+                # Phase 3c: Counterfactual replay (GAP 2.D)
+                cf_stats = await counterfactual_replay(pool, agent)
+                report["counterfactual"] = cf_stats
+                LOG.info(f"[{agent}] counterfactual: {cf_stats}")
             except Exception as e:
                 LOG.warning(f"[{agent}] pattern/schema induction failed: {e}")
                 report["patterns"] = {"error": str(e)}
