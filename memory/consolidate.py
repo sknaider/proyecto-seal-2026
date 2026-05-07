@@ -434,7 +434,7 @@ def main():
         # Rebuild connectome via Neo4j (v2 architecture)
         print("\n  Rebuilding connectome (Neo4j)...")
         try:
-            from mcp_server_v3 import connectome_build
+            from mcp_server_v4 import connectome_build
             result = asyncio.run(connectome_build())
             print(f"  {result}")
         except Exception as e:
