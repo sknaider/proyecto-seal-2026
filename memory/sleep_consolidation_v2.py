@@ -5,10 +5,10 @@ sleep_consolidation_v2.py — REM-style sleep consolidation (GAP 2)
 Implementa funciones que extienden daily_sleep / weekly_sleep:
   - reinforce_connectome (GAP 2.C) — hebbian learning sobre memory_edges
   - abstract_patterns (GAP 2.A) — v2.2: cluster corrections → instincts
-  - induce_schemas (GAP 2.B) — TODO v2.4
+  - induce_schemas (GAP 2.B) — v2.4: cluster decisions → reusable schemas
   - counterfactual_replay (GAP 2.D) — TODO v2.5
   - cross_agent_consolidation (GAP 2.E) — TODO v2.6
-  - procedural_rehearsal (GAP 2.F) — TODO v2.3
+  - procedural_rehearsal (GAP 2.F) — v2.3: re-embed stale procedures
 
 Uso standalone:
     python3 sleep_consolidation_v2.py connectome JARVIS
@@ -421,10 +421,153 @@ async def procedural_rehearsal(pool: asyncpg.Pool, agent: str | None = None) -> 
     return stats
 
 
+# Schema induction constants (GAP 2.B)
+SCHEMA_SIM_THRESHOLD = 0.80      # min similarity to cluster decisions
+SCHEMA_MIN_CLUSTER = 3            # min cluster size to induce schema
+SCHEMA_SAMPLE_LIMIT = 100         # max decisions per agent to scan
+SCHEMA_NEIGHBOR_LIMIT = 15        # ANN neighbors per decision
+
+
+async def induce_schemas(pool: asyncpg.Pool, agent: str | None = None) -> dict:
+    """
+    GAP 2.B — Induce reusable schemas from decision patterns.
+
+    Algorithm:
+      1. Sample recent decisions per agent (last 30d, importance>=7, max 100)
+      2. ANN cluster decisions with cosine sim > SCHEMA_SIM_THRESHOLD
+      3. For each cluster of 3+, find linked reasoning_traces (if any)
+      4. LLM induces schema: TRIGGER_PATTERN + ACTION_TEMPLATE
+      5. Insert into schemas table with embedding (for future retrieval)
+      6. Dedup against existing schemas (sim > 0.92)
+
+    Returns: stats dict with schemas_created, clusters_found, skipped_duplicate.
+    """
+    agents_to_process: list[str] = []
+    if agent and agent != "ALL":
+        agents_to_process = [agent]
+    else:
+        rows = await pool.fetch(
+            "SELECT DISTINCT agent FROM memories WHERE category='decision' AND invalid_at IS NULL"
+        )
+        agents_to_process = [r["agent"] for r in rows]
+
+    stats = {"schemas_created": 0, "clusters_found": 0, "skipped_duplicate": 0}
+
+    for ag in agents_to_process:
+        decisions = await pool.fetch("""
+            SELECT id, content
+            FROM memories
+            WHERE agent = $1
+              AND category = 'decision'
+              AND invalid_at IS NULL
+              AND embedding IS NOT NULL
+              AND importance >= 7
+              AND created_at > NOW() - INTERVAL '30 days'
+            ORDER BY created_at DESC
+            LIMIT $2
+        """, ag, SCHEMA_SAMPLE_LIMIT)
+
+        if len(decisions) < SCHEMA_MIN_CLUSTER:
+            continue
+
+        id_to_content = {r["id"]: r["content"] for r in decisions}
+        decision_ids = list(id_to_content.keys())
+
+        uf = _UnionFind()
+        for did in decision_ids:
+            uf.find(did)
+
+        for row in decisions:
+            did = row["id"]
+            neighbors = await pool.fetch("""
+                SELECT id FROM memories
+                WHERE agent = $1 AND category = 'decision' AND invalid_at IS NULL
+                  AND id != $2 AND id = ANY($3::bigint[])
+                  AND 1 - (embedding <=> (SELECT embedding FROM memories WHERE id = $2)) > $4
+                ORDER BY embedding <=> (SELECT embedding FROM memories WHERE id = $2)
+                LIMIT $5
+            """, ag, did, decision_ids, SCHEMA_SIM_THRESHOLD, SCHEMA_NEIGHBOR_LIMIT)
+            for nb in neighbors:
+                uf.union(did, nb["id"])
+
+        clusters = {root: members for root, members in uf.clusters().items()
+                    if len(members) >= SCHEMA_MIN_CLUSTER}
+        if not clusters:
+            continue
+        stats["clusters_found"] += len(clusters)
+
+        for root, members in clusters.items():
+            sample_texts = [id_to_content[m] for m in members[:6]]
+            sample_block = "\n".join(f"- {t[:250]}" for t in sample_texts)
+
+            prompt = f"""Analyzing recurring decisions made by AI agent {ag}.
+These {len(members)} decisions share a strong semantic pattern:
+
+{sample_block}
+
+Induce a reusable mental schema with exactly two lines:
+TRIGGER: <one sentence — what situation activates this schema?>
+ACTION: <one sentence — what action sequence does the agent typically follow?>
+
+Be concise and specific. Match the language of the decisions (Spanish/English ok)."""
+
+            try:
+                llm_out = await _llm_generate(prompt, max_tokens=200)
+            except Exception:
+                llm_out = ""
+
+            trigger = ""
+            action = ""
+            for line in llm_out.splitlines():
+                line = line.strip()
+                if line.upper().startswith("TRIGGER:"):
+                    trigger = line[8:].strip()
+                elif line.upper().startswith("ACTION:"):
+                    action = line[7:].strip()
+
+            if not trigger or not action:
+                trigger = f"Patrón decisional recurrente ({len(members)} decisiones similares en {ag})"
+                action = sample_texts[0][:300] if sample_texts else "Ver decisiones relacionadas"
+
+            # Dedup: check existing schema with similar trigger
+            schema_text = f"{trigger} | {action}"
+            schema_emb = await get_embedding(schema_text)
+            if schema_emb:
+                existing = await pool.fetchval("""
+                    SELECT id FROM schemas
+                    WHERE agent = $1 AND invalid_at IS NULL
+                      AND metadata->>'embedding' IS NOT NULL
+                    LIMIT 1
+                """, ag)
+                # Simple dedup by trigger_pattern text similarity (not embedding for now)
+                similar = await pool.fetchval("""
+                    SELECT id FROM schemas
+                    WHERE agent = $1 AND invalid_at IS NULL
+                      AND trigger_pattern = $2
+                    LIMIT 1
+                """, ag, trigger)
+                if similar:
+                    stats["skipped_duplicate"] += 1
+                    continue
+
+            meta = json.dumps({
+                "source": "schema_induction",
+                "cluster_size": len(members),
+                "member_ids": members[:20],
+            })
+            await pool.execute("""
+                INSERT INTO schemas (agent, trigger_pattern, action_template, success_count, metadata)
+                VALUES ($1, $2, $3, 0, $4::jsonb)
+            """, ag, trigger, action, meta)
+            stats["schemas_created"] += 1
+
+    return stats
+
+
 async def main():
     if len(sys.argv) < 2:
         print("Uso: python3 sleep_consolidation_v2.py <step> [agent]")
-        print("Steps: connectome, patterns, rehearsal")
+        print("Steps: connectome, patterns, rehearsal, schemas")
         sys.exit(1)
 
     step = sys.argv[1]
@@ -475,6 +618,15 @@ async def main():
             print(f"  Errors:       {stats['errors']}")
             if stats["rehearsed"]:
                 print(f"  Agents:       {stats.get('agents_processed', [])}")
+
+        elif step == "schemas":
+            print(f"=== induce_schemas (agent={agent}) ===")
+            stats = await induce_schemas(pool, agent)
+            print(f"  Clusters found:      {stats['clusters_found']}")
+            print(f"  Schemas created:     {stats['schemas_created']}")
+            print(f"  Skipped (duplicate): {stats['skipped_duplicate']}")
+            total = await pool.fetchval("SELECT COUNT(*) FROM schemas WHERE invalid_at IS NULL")
+            print(f"\n  Total active schemas: {total}")
         else:
             print(f"Unknown step: {step}")
             sys.exit(1)

@@ -209,16 +209,22 @@ print('cold_archive_migrate: deferred to MCP tool')
         if not dry_run:
             try:
                 from db import get_pool
-                from sleep_consolidation_v2 import abstract_patterns
+                from sleep_consolidation_v2 import abstract_patterns, induce_schemas
                 pool = await get_pool()
                 pattern_stats = await abstract_patterns(pool, agent)
                 report["patterns"] = pattern_stats
                 LOG.info(f"[{agent}] patterns: {pattern_stats}")
+
+                # Phase 3b: Schema induction (GAP 2.B)
+                schema_stats = await induce_schemas(pool, agent)
+                report["schemas"] = schema_stats
+                LOG.info(f"[{agent}] schemas: {schema_stats}")
             except Exception as e:
-                LOG.warning(f"[{agent}] pattern abstraction failed: {e}")
+                LOG.warning(f"[{agent}] pattern/schema induction failed: {e}")
                 report["patterns"] = {"error": str(e)}
         else:
             report["patterns"] = {"dry_run": True}
+            report["schemas"] = {"dry_run": True}
 
         # Phase 4: Stats
         active_count = await conn.fetchval(
