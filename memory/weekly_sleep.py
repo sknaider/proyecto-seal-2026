@@ -205,7 +205,22 @@ print('cold_archive_migrate: deferred to MCP tool')
         else:
             report["cold_archive"] = "skipped (dry-run)"
 
-        # Phase 3: Stats
+        # Phase 3: Pattern abstraction (GAP 2.A — sleep_consolidation_v2)
+        if not dry_run:
+            try:
+                from db import get_pool
+                from sleep_consolidation_v2 import abstract_patterns
+                pool = await get_pool()
+                pattern_stats = await abstract_patterns(pool, agent)
+                report["patterns"] = pattern_stats
+                LOG.info(f"[{agent}] patterns: {pattern_stats}")
+            except Exception as e:
+                LOG.warning(f"[{agent}] pattern abstraction failed: {e}")
+                report["patterns"] = {"error": str(e)}
+        else:
+            report["patterns"] = {"dry_run": True}
+
+        # Phase 4: Stats
         active_count = await conn.fetchval(
             "SELECT COUNT(*) FROM memories WHERE agent=$1 AND invalid_at IS NULL", agent)
         report["active_memories_after"] = active_count
