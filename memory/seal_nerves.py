@@ -180,7 +180,7 @@ AGENT_TANK_OVERRIDES: dict[str, dict[str, dict]] = {
             "threshold":  25.0,      # OCEAN C=0.962 — muy sensible a pendientes
             "cooldown_s": 45 * 60,
         },
-        "curiosity_drive": {
+        "curiosity": {
             "threshold":  22.0,      # OCEAN O=0.905 — alta apertura
             "cooldown_s": 50 * 60,
         },
