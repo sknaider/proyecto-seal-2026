@@ -167,10 +167,24 @@ NERVES_V2_AGENTS: set[str] = {"JARVIS", "ALICE"}
 AGENT_TANK_OVERRIDES: dict[str, dict[str, dict]] = {
     "JARVIS": {
         "social_drive": {
-            "threshold":  35.0,      # social_drive Mejora 1 — OCEAN E=0.401 introvert
-            "cooldown_s": 90 * 60,   # social_drive Mejora 4 — 90min cooldown
+            "threshold":  35.0,      # OCEAN E=0.401 introvert
+            "cooldown_s": 90 * 60,
         }
-    }
+    },
+    "ALICE": {
+        "social_drive": {
+            "threshold":  18.0,      # OCEAN E=0.806 extrovert — dispara más seguido
+            "cooldown_s": 60 * 60,   # 60min (más corta que JARVIS 90min)
+        },
+        "task_drive": {
+            "threshold":  25.0,      # OCEAN C=0.962 — muy sensible a pendientes
+            "cooldown_s": 45 * 60,
+        },
+        "curiosity_drive": {
+            "threshold":  22.0,      # OCEAN O=0.905 — alta apertura
+            "cooldown_s": 50 * 60,
+        },
+    },
 }
 
 # Ventana nocturna social_drive (Lima UTC-5)
