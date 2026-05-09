@@ -871,23 +871,28 @@ async def sense_environment(engine: MotivationEngine):
     now = datetime.now(timezone.utc)
     log.info(f"[{engine.agent}] Sensing environment...")
 
-    # 1. Check tasks_in_progress from working_state JSON blob
+    # 1. Check tasks — Mejora A para agentes v2, fallback working_state para el resto
     pending = 0
     overdue = 0
-    try:
-        async with engine.pool.acquire() as conn:
-            row = await conn.fetchrow("""
-                SELECT state FROM working_state WHERE agent=$1
-            """, engine.agent)
-        if row and row["state"]:
-            state_data = json.loads(row["state"]) if isinstance(row["state"], str) else row["state"]
-            tasks_in_progress = state_data.get("tasks_in_progress", [])
-            pending = len(tasks_in_progress)
-    except Exception as e:
-        log.debug(f"working_state read: {e}")
-
-    if pending > 0:
-        await engine.stimulate("task_pending_1", multiplier=float(pending))
+    if engine.agent in NERVES_V2_AGENTS:
+        task_ctx = await _sense_task_drive(engine, now)
+        _task_drive_context.update(task_ctx)
+        pending = task_ctx["pending"]
+        overdue = task_ctx["overdue_1h"] + task_ctx["overdue_3h"]
+    else:
+        try:
+            async with engine.pool.acquire() as conn:
+                row = await conn.fetchrow("""
+                    SELECT state FROM working_state WHERE agent=$1
+                """, engine.agent)
+            if row and row["state"]:
+                state_data = json.loads(row["state"]) if isinstance(row["state"], str) else row["state"]
+                tasks_in_progress = state_data.get("tasks_in_progress", [])
+                pending = len(tasks_in_progress)
+        except Exception as e:
+            log.debug(f"working_state read: {e}")
+        if pending > 0:
+            await engine.stimulate("task_pending_1", multiplier=float(pending))
 
     # 2. Check last social message time (JARVIS messages in any non-dm channel)
     try:
