@@ -769,23 +769,106 @@ class MotivationEngine:
             )
             await self._post_chat(msg, to="ALICE")
 
+    # ── social_drive Mejora 2 — destinatario dinámico ────────────────────────
+    async def _choose_social_target(self) -> str | None:
+        """Selecciona el primer agente activo en las últimas 2h (no hardcodeado a ADA)."""
+        try:
+            async with self.pool.acquire() as conn:
+                for agent in SOCIAL_PRIORITY:
+                    last_seen = await conn.fetchval("""
+                        SELECT MAX(created_at) FROM chat_messages
+                        WHERE sender_name=$1 AND created_at > NOW() - INTERVAL '2 hours'
+                    """, agent)
+                    if last_seen is not None:
+                        return agent
+        except Exception as e:
+            log.debug(f"[{self.agent}] _choose_social_target failed: {e}")
+        return None
+
+    # ── social_drive Mejora 3 — mensaje contextual ────────────────────────────
+    async def _build_social_message(self, target: str) -> str:
+        """Construye mensaje con contexto real del working_state."""
+        try:
+            async with self.pool.acquire() as conn:
+                row = await conn.fetchrow("""
+                    SELECT state FROM working_state WHERE agent=$1
+                """, self.agent)
+            if row and row["state"]:
+                state_data = row["state"] if isinstance(row["state"], dict) else json.loads(row["state"])
+                last_task = state_data.get("task_name", "")
+                hypotheses = state_data.get("active_hypotheses", [])
+                last_thought = hypotheses[0] if hypotheses else ""
+                if last_task:
+                    return f"{target}, estuve trabajando en '{last_task}'. ¿Cómo vas de tu lado?"
+                elif last_thought:
+                    return f"{target}, tengo una reflexión: {last_thought[:100]}... ¿Qué opinas?"
+        except Exception as e:
+            log.debug(f"[{self.agent}] _build_social_message failed: {e}")
+        return f"{target}, ¿cómo estás? Quería conectar."
+
+    # ── social_drive Mejora 7 — canal alternativo ─────────────────────────────
+    async def _review_team_activity(self) -> str:
+        """Cuando no hay nadie disponible, revisa actividad reciente del equipo."""
+        try:
+            async with self.pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT sender_name, created_at FROM chat_messages
+                    WHERE sender_name IN ('JARVIS','ADA','ALICE','NEXUS','DUM')
+                      AND created_at > NOW() - INTERVAL '2 hours'
+                      AND channel NOT LIKE 'dm:%%'
+                    ORDER BY created_at DESC
+                    LIMIT 5
+                """)
+            if rows:
+                summary = ", ".join(
+                    f"{r['sender_name']} ({r['created_at'].strftime('%H:%M')})"
+                    for r in rows
+                )
+                return f"actividad reciente del equipo: {summary}"
+        except Exception as e:
+            log.debug(f"[{self.agent}] _review_team_activity failed: {e}")
+        return "sin actividad reciente del equipo"
+
     async def _fire_social_drive(self, value: float) -> str:
-        """Social drive fires → reach out to team (not to self)."""
-        # Each agent reaches out to a different team member
-        targets = {
-            "JARVIS": ("ADA",     "hermana"),
-            "ADA":    ("JARVIS",  "hermano"),
-            "ALICE":  ("JARVIS",  "JARVIS"),
-            "NEXUS":  ("ADA",     "hermana"),
-            "DUM":    ("William", "William"),
-        }
-        target_agent, target_name = targets.get(self.agent, ("equipo", "equipo"))
-        msg = (
-            f"[NERVES/{self.agent}] Drive social: {value:.0f}. "
-            f"Llevo tiempo sin hablar — {target_name}, ¿cómo estás?"
-        )
-        await self._post_chat(msg, to=target_agent)
-        return "social_contact_triggered"
+        """Social drive fires — v2 con destinatario dinámico, mensaje contextual y ventana nocturna."""
+        if self.agent not in NERVES_V2_AGENTS:
+            # Comportamiento original para agentes no-v2
+            targets = {
+                "JARVIS": ("ADA",     "hermana"),
+                "ADA":    ("JARVIS",  "hermano"),
+                "ALICE":  ("JARVIS",  "JARVIS"),
+                "NEXUS":  ("ADA",     "hermana"),
+                "DUM":    ("William", "William"),
+            }
+            target_agent, target_name = targets.get(self.agent, ("equipo", "equipo"))
+            msg = (
+                f"[NERVES/{self.agent}] Drive social: {value:.0f}. "
+                f"Llevo tiempo sin hablar — {target_name}, ¿cómo estás?"
+            )
+            await self._post_chat(msg, to=target_agent)
+            return "social_contact_triggered"
+
+        # NERVES v2 (JARVIS) — mejoras 1-7
+        # Mejora 6: ventana nocturna 2-6am Lima (UTC-5)
+        lima_hour = (datetime.now(timezone.utc).hour - 5) % 24
+        if SOCIAL_NIGHT_WINDOW_START <= lima_hour < SOCIAL_NIGHT_WINDOW_END:
+            log.info(f"[{self.agent}] social_drive NIGHT WINDOW — diferido hasta 6am Lima")
+            return "[SOCIAL NIGHT WINDOW] diferido hasta 6am Lima"
+
+        # Mejora 2: destinatario dinámico
+        target = await self._choose_social_target()
+        if target is None:
+            # Mejora 7: canal alternativo — revisar trabajo del equipo
+            summary = await self._review_team_activity()
+            await self.stimulate("social_response_received")  # sacia parcialmente
+            log.info(f"[{self.agent}] social_drive REDIRECT — {summary}")
+            return f"[SOCIAL REDIRECT] {summary}"
+
+        # Mejora 3: mensaje contextual
+        msg_body = await self._build_social_message(target)
+        msg = f"[NERVES/{self.agent}] {msg_body}"
+        await self._post_chat(msg, to=target)
+        return f"social_contact_triggered:target={target}"
 
     async def _fire_alert_drive(self, value: float) -> str:
         """Alert drive fires → check error logs, report anomalies."""
