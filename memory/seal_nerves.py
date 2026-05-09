@@ -260,6 +260,18 @@ LOG_SOURCES_ADA: dict[str, str] = {
 }
 ADA_DOMAIN = ["test", "deploy", "exception", "traceback", "import", "syntax", "runtime", "ada"]
 ADA_PAUSE_FLAG = Path("/tmp/seal_pause_ada.flag")
+
+# alert_drive NEXUS — dominio: auditoría, coordinación, salud del equipo
+LOG_SOURCES_NEXUS: dict[str, str] = {
+    "nexus_ops": "/home/dadito/IA/proyecto-seal/messages/nexus_messages.jsonl",
+    "nerves":    "/home/dadito/IA/proyecto-seal/research/flywire_results/nerves.log",
+    "mcp":       "/home/dadito/IA/proyecto-seal/memory/logs/mcp_sse_daemon.log",
+}
+NEXUS_DOMAIN = [
+    "audit", "spec", "discrepancy", "mismatch", "routing",
+    "agent_stale", "coordination", "nexus", "monitor",
+]
+
 CONTEXT_PRESSURE_THRESHOLDS_DEFAULT = {"silent": 60.0, "active": 75.0, "urgent": 85.0}
 
 # Mejora B — contexto compartido entre sensor y fire handler (per-agent, updated each tick)
