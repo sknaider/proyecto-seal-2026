@@ -161,7 +161,7 @@ STIMULI: dict[str, float] = {
 WILLIAM_ACTIVE_WINDOW_S = 15 * 60  # 15 minutos
 
 # Agentes con NERVES v2 activado — se expande agente por agente cuando llega su turno
-NERVES_V2_AGENTS: set[str] = {"JARVIS", "ALICE"}
+NERVES_V2_AGENTS: set[str] = {"JARVIS", "ALICE", "ADA"}
 
 # Per-agent tank overrides — applied at runtime, overrides global TANKS baseline
 AGENT_TANK_OVERRIDES: dict[str, dict[str, dict]] = {
