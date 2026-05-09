@@ -295,6 +295,25 @@ class MotivationEngine:
             "context_70pct":     ["context_pressure"],
         }
 
+        # Routing table — which tanks each stimulus affects
+        tank_routing: dict[str, list[str]] = {
+            "idle_30min":               ["curiosity"],
+            "topic_interesting":        ["curiosity"],
+            "paper_mentioned":          ["curiosity"],
+            "task_pending_1":           ["task_drive"],
+            "task_overdue_1h":          ["task_drive"],
+            "task_created":             ["task_drive"],
+            "idle_1h_social":           ["social_drive"],
+            "ada_unanswered":           ["social_drive"],
+            "william_idle_2h":          ["social_drive"],
+            "error_log":                ["alert_drive"],
+            "critical_error":           ["alert_drive"],
+            "service_down":             ["alert_drive"],
+            "session_30min":            ["context_pressure"],
+            "context_70pct":            ["context_pressure"],
+            "william_conversation_real": ["social_drive"],  # Mejora 5
+        }
+
         affected_tanks = [target_tank] if target_tank else tank_routing.get(stimulus_key, [])
         results = {}
 
@@ -319,7 +338,7 @@ class MotivationEngine:
                 else:
                     current = 0.0
 
-                new_value = min(100.0, current + delta)  # cap at 100
+                new_value = max(0.0, min(100.0, current + delta))  # floor=0, cap=100
 
                 await conn.execute("""
                     UPDATE motivation_states
