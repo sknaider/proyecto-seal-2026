@@ -150,6 +150,8 @@ STIMULI: dict[str, float] = {
     "context_70pct":       +40.0,  # estimated 70%+ context usage
     # social_drive reset (Mejora 5 — saciación real)
     "william_conversation_real": -100.0,  # reset efectivo social_drive a 0
+    # task_drive feedback (Mejora D — saciación al completar tarea)
+    "task_completed":            -20.0,
 }
 
 # Mejora 1 — supresión por presencia activa (JARVIS spec v1.0)
