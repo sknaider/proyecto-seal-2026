@@ -652,13 +652,98 @@ class MotivationEngine:
         return result_tag
 
     async def _fire_task_drive(self, value: float) -> str:
-        """Task drive fires → check pending tasks, start working."""
-        msg = (
-            f"[SILENT][NERVES/{self.agent}] Task drive en {value:.0f}. "
-            f"Revisando tareas pendientes y tomando acción sin esperar."
-        )
-        await self._post_chat(msg)
-        return "task_review_triggered"
+        """Task drive fires — escalación por severidad (Mejora B)."""
+        ctx = _task_drive_context
+        overdue_3h = ctx.get("overdue_3h", 0)
+        overdue_1h = ctx.get("overdue_1h", 0)
+        pending    = ctx.get("pending", 0)
+        tasks      = ctx.get("task_list", [])
+
+        if self.agent not in NERVES_V2_AGENTS:
+            msg = (
+                f"[SILENT][NERVES/{self.agent}] Task drive en {value:.0f}. "
+                f"Revisando tareas pendientes y tomando acción sin esperar."
+            )
+            await self._post_chat(msg)
+            return "task_review_triggered"
+
+        if overdue_3h > 0:
+            task_names = ", ".join(t.get("title", "?") for t in tasks[:3])
+            msg = (
+                f"[NERVES/{self.agent}] ⚠️ URGENTE: {overdue_3h} tarea(s) llevan +3h vencidas: {task_names}. "
+                f"Empezando ahora sin esperar."
+            )
+            await self._post_chat(msg, to="William")
+            await self._start_most_urgent_task(tasks)
+            return f"task_urgent_escalation:overdue_3h={overdue_3h}"
+
+        elif overdue_1h > 0:
+            task_names = ", ".join(t.get("title", "?") for t in tasks[:2])
+            msg = (
+                f"[NERVES/{self.agent}] Tarea(s) vencida(s) +1h: {task_names}. "
+                f"Revisando y tomando acción."
+            )
+            await self._post_chat(msg, to="William")
+            await self._start_most_urgent_task(tasks)
+            return f"task_escalation:overdue_1h={overdue_1h}"
+
+        elif pending >= 4:
+            msg = (
+                f"[NERVES/{self.agent}] {pending} tareas pendientes acumuladas. "
+                f"Priorizando y arrancando la más urgente."
+            )
+            await self._post_chat(msg, to="equipo")
+            await self._start_most_urgent_task(tasks)
+            return f"task_review_triggered:pending={pending}"
+
+        else:
+            await self._start_most_urgent_task(tasks)
+            return f"task_silent_start:pending={pending}"
+
+    async def _start_most_urgent_task(self, tasks: list[dict]) -> None:
+        """JARVIS — toma la tarea más urgente: escribe draft en /tmp y notifica a ALICE si es implementación."""
+        if not tasks:
+            return
+        task = tasks[0]
+        title = task.get("title", "tarea sin nombre")
+
+        try:
+            working_state_data = {
+                "task_name": title,
+                "active_hypotheses": [f"NERVES auto-start — {title}"],
+                "current_constraints": ["JARVIS propone, no edita archivos de producción"],
+            }
+            async with self.pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO working_state (agent, task_name, state, updated_at)
+                    VALUES ($1, $2, $3::jsonb, NOW())
+                    ON CONFLICT (agent) DO UPDATE SET
+                        task_name = EXCLUDED.task_name,
+                        state = EXCLUDED.state,
+                        updated_at = NOW()
+                """, self.agent, title, json.dumps(working_state_data))
+        except Exception as e:
+            log.warning(f"[{self.agent}] working_state update failed: {e}")
+
+        draft_path = Path(f"/tmp/{self.agent.lower()}_task_draft.md")
+        try:
+            draft_path.write_text(
+                f"# Auto-draft — {title}\n"
+                f"Iniciado por NERVES task_drive — {datetime.now(timezone.utc).isoformat()}\n\n"
+                f"## Tarea\n{title}\n\n"
+                f"## Estado\nEn progreso (auto-iniciado por urgencia)\n\n"
+                f"## Próximos pasos\n- [ ] Definir scope\n- [ ] Escribir spec\n- [ ] Notificar a ALICE\n"
+            )
+            log.info(f"[{self.agent}] Task draft written: {draft_path}")
+        except Exception as e:
+            log.warning(f"[{self.agent}] draft write failed: {e}")
+
+        if any(kw in title.lower() for kw in ["implement", "code", "build", "fix", "edit", "crear"]):
+            msg = (
+                f"[NERVES/{self.agent}] ALICE — auto-draft listo en /tmp/{self.agent.lower()}_task_draft.md "
+                f"para tarea: '{title}'. Revisa cuando puedas."
+            )
+            await self._post_chat(msg, to="ALICE")
 
     async def _fire_social_drive(self, value: float) -> str:
         """Social drive fires → reach out to team (not to self)."""
