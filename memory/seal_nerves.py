@@ -338,6 +338,25 @@ async def _sense_alert_drive(agent: str) -> dict:
     return {"errors": errors, "count": len(errors)}
 
 
+async def _sense_alert_drive_ada() -> dict:
+    """ADA alert sensor — LOG_SOURCES_ADA + test_failure immediate flag."""
+    errors = []
+    test_failures = []
+    for source, path in LOG_SOURCES_ADA.items():
+        recent = _tail_log(path, lines=50)
+        for line in recent:
+            # Test failure — flagged separately for immediate alert
+            if any(kw in line.lower() for kw in ["assert", "failed", "error", "traceback", "exception"]):
+                if "test" in line.lower() or "pytest" in line.lower():
+                    if not _is_alert_duplicate(line, "error", "ADA"):
+                        test_failures.append({"source": source, "severity": "error", "line": line.strip(), "type": "test_failure"})
+                    continue
+            sev = _classify_log_line(line)
+            if sev and not _is_alert_duplicate(line, sev, "ADA"):
+                errors.append({"source": source, "severity": sev, "line": line.strip()})
+    return {"errors": errors, "test_failures": test_failures, "count": len(errors) + len(test_failures)}
+
+
 async def _sense_alert_drive_alice() -> dict:
     """ALICE alert sensor — LOG_SOURCES_ALICE + cost anomaly detector."""
     errors = []
