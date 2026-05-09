@@ -431,6 +431,49 @@ async def _sense_alert_drive_nexus() -> dict:
     return {"errors": errors, "count": len(errors)}
 
 
+async def _sense_alert_drive_dum() -> dict:
+    """DUM alert sensor — LOG_SOURCES_DUM + GPU temp bypass + MCP health check."""
+    errors = []
+    critical = []
+    # Log sources scan
+    for source, path in LOG_SOURCES_DUM.items():
+        recent = _tail_log(path, lines=50)
+        for line in recent:
+            if any(kw in line.lower() for kw in DUM_CRITICAL_KEYWORDS):
+                if not _is_alert_duplicate(line, "critical", "DUM"):
+                    critical.append({"source": source, "severity": "critical",
+                                     "line": line.strip(), "type": "infra_critical"})
+                continue
+            sev = _classify_log_line(line)
+            if sev and not _is_alert_duplicate(line, sev, "DUM"):
+                errors.append({"source": source, "severity": sev, "line": line.strip()})
+    # GPU temperature check (>90°C → critical bypass)
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        )
+        temp = int(result.stdout.strip())
+        if temp > 90:
+            line = f"GPU temperature {temp}°C > 90°C threshold"
+            if not _is_alert_duplicate(line, "critical", "DUM"):
+                critical.append({"source": "nvidia_smi", "severity": "critical",
+                                  "line": line, "type": "gpu_overheat"})
+    except Exception:
+        pass  # nvidia-smi not available or parse error — skip silently
+    # MCP :8766 health check
+    try:
+        import socket
+        with socket.create_connection(("localhost", 8766), timeout=2):
+            pass  # MCP OK
+    except Exception:
+        line = "MCP :8766 connection failed"
+        if not _is_alert_duplicate(line, "error", "DUM"):
+            errors.append({"source": "mcp_check", "severity": "error",
+                           "line": line, "type": "mcp_down", "notify": "JARVIS"})
+    return {"errors": errors, "critical": critical, "count": len(errors) + len(critical)}
+
+
 async def _sense_alert_drive_alice() -> dict:
     """ALICE alert sensor — LOG_SOURCES_ALICE + cost anomaly detector."""
     errors = []
