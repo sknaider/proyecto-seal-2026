@@ -1234,6 +1234,23 @@ class MotivationEngine:
                 if any(k in e["line"].lower() for k in NEXUS_DOMAIN)
                 and not any(k in e["line"].lower() for k in DUM_DOMAIN)
             ]
+        elif self.agent == "DUM":
+            ctx = await _sense_alert_drive_dum()
+            # Critical infra/GPU → alerta inmediata a William (bypass threshold)
+            if ctx.get("critical"):
+                crit_msg = _format_alert_message("DUM", ctx["critical"])
+                await self._post_chat(f"🔴 INFRA CRITICAL\n{crit_msg}", to="William")
+                if not ctx["errors"]:
+                    return f"alert_infra_critical:{len(ctx['critical'])}"
+            # MCP down → notifica a JARVIS también
+            mcp_errors = [e for e in ctx["errors"] if e.get("type") == "mcp_down"]
+            if mcp_errors:
+                mcp_msg = _format_alert_message("DUM", mcp_errors)
+                await self._post_chat(f"⚠️ MCP :8766 down\n{mcp_msg}", to="JARVIS")
+            own_errors = [
+                e for e in ctx["errors"]
+                if any(k in e["line"].lower() for k in DUM_DOMAIN)
+            ]
         else:
             # JARVIS
             ctx = await _sense_alert_drive(self.agent)
