@@ -290,6 +290,22 @@ NEXUS_DOMAIN = [
     "agent_stale", "coordination", "nexus", "monitor",
 ]
 
+# alert_drive DUM — dominio: GPU, infra, servicios (nervio primario de DUM)
+LOG_SOURCES_DUM: dict[str, str] = {
+    "system":  "/var/log/syslog",
+    "ollama":  "/home/dadito/.ollama/logs/server.log",
+    "dum_ops": "/home/dadito/IA/proyecto-seal/messages/dum_messages.jsonl",
+}
+DUM_CRITICAL_KEYWORDS = [
+    "gpu_fault", "cuda_error", "nvml_error",
+    "out_of_memory", "killed", "segfault",
+    "disk full", "no space left",
+]
+DUM_PATROL_CHECKS = [
+    "gpu_temp", "training_process", "disk_usage",
+    "ollama_service", "docker_services", "mcp_server",
+]
+
 CONTEXT_PRESSURE_THRESHOLDS_DEFAULT = {"silent": 60.0, "active": 75.0, "urgent": 85.0}
 
 # Mejora B — contexto compartido entre sensor y fire handler (per-agent, updated each tick)
