@@ -406,6 +406,7 @@ class MotivationEngine:
             "session_30min":            ["context_pressure"],
             "context_70pct":            ["context_pressure"],
             "william_conversation_real": ["social_drive"],  # Mejora 5
+            "task_completed":            ["task_drive"],     # Mejora D
         }
 
         affected_tanks = [target_tank] if target_tank else tank_routing.get(stimulus_key, [])
