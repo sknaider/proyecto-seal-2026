@@ -185,6 +185,20 @@ AGENT_TANK_OVERRIDES: dict[str, dict[str, dict]] = {
             "cooldown_s": 50 * 60,
         },
     },
+    "ADA": {
+        "social_drive": {
+            "threshold":  12.0,      # OCEAN E=1.0 — máxima extroversión
+            "cooldown_s": 45 * 60,
+        },
+        "task_drive": {
+            "threshold":  15.0,      # OCEAN C=1.0 — reacciona casi inmediatamente
+            "cooldown_s": 30 * 60,
+        },
+        "curiosity": {
+            "threshold":  25.0,      # OCEAN O=0.821 — moderada-alta
+            "cooldown_s": 75 * 60,   # entre ALICE 50min y JARVIS 90min
+        },
+    },
 }
 
 # Ventana nocturna social_drive (Lima UTC-5)
