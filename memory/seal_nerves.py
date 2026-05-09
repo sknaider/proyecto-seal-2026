@@ -175,6 +175,113 @@ class MotivationEngine:
         if self.pool:
             await self.pool.close()
 
+    # ── Mejora 1 — Supresión por presencia activa ─────────────────────────────
+
+    async def _should_suppress(self) -> bool:
+        """True si William estuvo activo en los últimos 15 minutos."""
+        try:
+            async with self.pool.acquire() as conn:
+                last_william = await conn.fetchval("""
+                    SELECT MAX(created_at) FROM chat_messages
+                    WHERE sender_name IN ('William', 'Henry', 'Kinger')
+                      AND channel NOT LIKE 'dm:%%'
+                """)
+            if last_william is None:
+                return False
+            elapsed = (datetime.now(timezone.utc) - last_william).total_seconds()
+            return elapsed < WILLIAM_ACTIVE_WINDOW_S
+        except Exception as e:
+            log.debug(f"[{self.agent}] _should_suppress check failed: {e}")
+            return False
+
+    # ── Mejora 2 — Cola explícita ─────────────────────────────────────────────
+
+    def _enqueue_impulse(self, tank: str, value: float) -> None:
+        """Guarda un impulso suprimido en la cola local del agente."""
+        queue_path = Path(f"/tmp/{self.agent.lower()}_curiosity_queue.json")
+        try:
+            data = json.loads(queue_path.read_text()) if queue_path.exists() else {"pending": []}
+            data["pending"].append({
+                "tank": tank,
+                "value": value,
+                "fired_at": datetime.now(timezone.utc).isoformat(),
+                "topic_hint": None,
+                "processed": False,
+            })
+            queue_path.write_text(json.dumps(data, indent=2))
+            log.info(f"[{self.agent}] Enqueued {tank} (value={value:.1f}) — William activo")
+        except Exception as e:
+            log.error(f"[{self.agent}] _enqueue_impulse failed: {e}")
+
+    async def _flush_queue_if_idle(self) -> None:
+        """Procesa impulsos pendientes cuando William lleva >15min inactivo."""
+        queue_path = Path(f"/tmp/{self.agent.lower()}_curiosity_queue.json")
+        if not queue_path.exists():
+            return
+        try:
+            data = json.loads(queue_path.read_text())
+            pending = [e for e in data.get("pending", []) if not e.get("processed")]
+            if not pending:
+                return
+            handler_map = {
+                "curiosity":    self._fire_curiosity,
+                "social_drive": self._fire_social_drive,
+            }
+            for entry in pending:
+                handler = handler_map.get(entry["tank"])
+                if handler:
+                    await handler(entry["value"])
+                    entry["processed"] = True
+                    log.info(f"[{self.agent}] Flushed queued {entry['tank']} from queue")
+            queue_path.write_text(json.dumps(data, indent=2))
+        except Exception as e:
+            log.error(f"[{self.agent}] _flush_queue_if_idle failed: {e}")
+
+    # ── Mejora 3 — Deduplicación de tema ─────────────────────────────────────
+
+    async def _get_recent_topics(self, days: int = 7) -> list[str]:
+        """Temas ya investigados en los últimos N días (evitar repetición)."""
+        path = Path(f"/tmp/{self.agent.lower()}_investigated_topics.json")
+        try:
+            if not path.exists():
+                return []
+            data = json.loads(path.read_text())
+            cutoff = datetime.now(timezone.utc).timestamp() - (days * 86400)
+            return [
+                e["topic"] for e in data
+                if datetime.fromisoformat(e["ts"]).timestamp() > cutoff
+            ]
+        except Exception:
+            return []
+
+    def _record_investigated_topic(self, topic: str) -> None:
+        """Registra un tema investigado para deduplicación futura."""
+        path = Path(f"/tmp/{self.agent.lower()}_investigated_topics.json")
+        try:
+            data = json.loads(path.read_text()) if path.exists() else []
+            data.append({"topic": topic, "ts": datetime.now(timezone.utc).isoformat()})
+            path.write_text(json.dumps(data[-50:]))  # máximo 50 entradas
+        except Exception:
+            pass
+
+    # ── Mejora 4 — Curiosidad dirigida ───────────────────────────────────────
+
+    async def _consume_priority_topic(self) -> str | None:
+        """Consume el primer tema de la lista de prioridad de William (FIFO)."""
+        priority_file = Path(f"/tmp/{self.agent.lower()}_curiosity_priority.json")
+        try:
+            if not priority_file.exists():
+                return None
+            topics = json.loads(priority_file.read_text())
+            if not topics:
+                return None
+            topic = topics.pop(0)
+            priority_file.write_text(json.dumps(topics))
+            log.info(f"[{self.agent}] Priority topic consumed: {topic}")
+            return topic
+        except Exception:
+            return None
+
     async def _ensure_table(self):
         """Create motivation_states and nerves_metrics_log tables if they don't exist."""
         async with self.pool.acquire() as conn:
