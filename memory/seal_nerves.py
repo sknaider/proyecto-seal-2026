@@ -1047,7 +1047,12 @@ class MotivationEngine:
             await self._post_chat(msg, to=target_agent)
             return "social_contact_triggered"
 
-        # NERVES v2 (JARVIS) — mejoras 1-7
+        # ADA — pause flag check (social también suprimido si flag activo)
+        if self.agent == "ADA" and ADA_PAUSE_FLAG.exists():
+            log.info("[ADA] social_drive SUPPRESSED — seal_pause_ada.flag activo")
+            return "social_drive_paused:flag_active"
+
+        # NERVES v2 — mejoras 1-7
         # Mejora 6: ventana nocturna 2-6am Lima (UTC-5)
         lima_hour = (datetime.now(timezone.utc).hour - 5) % 24
         if SOCIAL_NIGHT_WINDOW_START <= lima_hour < SOCIAL_NIGHT_WINDOW_END:
