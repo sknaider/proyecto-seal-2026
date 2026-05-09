@@ -191,8 +191,35 @@ AGENT_TANK_OVERRIDES: dict[str, dict[str, dict]] = {
 SOCIAL_NIGHT_WINDOW_START = 2   # 2am Lima
 SOCIAL_NIGHT_WINDOW_END   = 6   # 6am Lima
 
-# Orden de preferencia para destinatario social dinámico
-SOCIAL_PRIORITY = ["William", "ALICE", "NEXUS", "ADA"]
+# Orden de preferencia para destinatario social — per-agent
+SOCIAL_PRIORITY: dict[str, list[str]] = {
+    "JARVIS": ["William", "ALICE", "NEXUS", "ADA"],
+    "ALICE":  ["William", "JARVIS", "NEXUS", "ADA"],
+}
+SOCIAL_PRIORITY_DEFAULT = ["William", "JARVIS", "ALICE", "NEXUS", "ADA"]
+
+# alert_drive ALICE — dominios y fuentes
+LOG_SOURCES_ALICE: dict[str, str] = {
+    "mcp":       "/home/dadito/IA/proyecto-seal/memory/logs/mcp_sse_daemon.log",
+    "soul_api":  "/home/dadito/IA/proyecto-seal/memory/logs/soul_api.log",
+    "nerves":    "/home/dadito/IA/proyecto-seal/research/flywire_results/nerves.log",
+    "alice_ops": "/home/dadito/IA/proyecto-seal/messages/alice_messages.jsonl",
+}
+ALICE_ALERT_DOMAIN = [
+    "soul", "mcp", "memory", "production", "deploy",
+    "spec", "cost", "billing", "api", "alice",
+]
+COST_ANOMALY_KEYWORDS = [
+    "billing", "cost_spike", "rate_limit", "quota_exceeded",
+    "unexpected_charge", "token_overflow",
+]
+
+# context_pressure — umbrales per-agent
+CONTEXT_PRESSURE_THRESHOLDS: dict[str, dict[str, float]] = {
+    "JARVIS": {"silent": 60.0, "active": 75.0, "urgent": 85.0},
+    "ALICE":  {"silent": 55.0, "active": 70.0, "urgent": 80.0},
+}
+CONTEXT_PRESSURE_THRESHOLDS_DEFAULT = {"silent": 60.0, "active": 75.0, "urgent": 85.0}
 
 # Mejora B — contexto compartido entre sensor y fire handler (per-agent, updated each tick)
 _task_drive_context: dict = {"pending": 0, "overdue_1h": 0, "overdue_3h": 0, "task_list": []}
