@@ -277,24 +277,6 @@ class MotivationEngine:
             log.warning(f"Unknown stimulus: {stimulus_key}")
             return {}
 
-        # Determine which tanks are affected
-        tank_routing: dict[str, list[str]] = {
-            "idle_30min":        ["curiosity"],
-            "topic_interesting": ["curiosity"],
-            "paper_mentioned":   ["curiosity"],
-            "task_pending_1":    ["task_drive"],
-            "task_overdue_1h":   ["task_drive"],
-            "task_created":      ["task_drive"],
-            "idle_1h_social":    ["social_drive"],
-            "ada_unanswered":    ["social_drive"],
-            "william_idle_2h":   ["social_drive"],
-            "error_log":         ["alert_drive"],
-            "critical_error":    ["alert_drive"],
-            "service_down":      ["alert_drive"],
-            "session_30min":     ["context_pressure"],
-            "context_70pct":     ["context_pressure"],
-        }
-
         # Routing table — which tanks each stimulus affects
         tank_routing: dict[str, list[str]] = {
             "idle_30min":               ["curiosity"],
