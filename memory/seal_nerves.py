@@ -960,13 +960,62 @@ class MotivationEngine:
         return f"social_contact_triggered:target={target}"
 
     async def _fire_alert_drive(self, value: float) -> str:
-        """Alert drive fires → check error logs, report anomalies."""
-        msg = (
-            f"[NERVES/{self.agent}] ⚠️ Alert drive crítico: {value:.0f}. "
-            f"Revisando logs por errores o anomalías..."
-        )
-        await self._post_chat(msg, to="William")
-        return "alert_scan_triggered"
+        """Alert drive fires — v2: sensor real + escalación + dedup + dominio (JARVIS only)."""
+        if self.agent not in NERVES_V2_AGENTS:
+            # Comportamiento original para agentes no-v2
+            msg = (
+                f"[NERVES/{self.agent}] ⚠️ Alert drive crítico: {value:.0f}. "
+                f"Revisando logs por errores o anomalías..."
+            )
+            await self._post_chat(msg, to="William")
+            return "alert_scan_triggered"
+
+        # NERVES v2 (JARVIS) — Mejoras A-E
+        ctx = await _sense_alert_drive(self.agent)
+        errors = ctx["errors"]
+
+        if not errors:
+            log.info(f"[{self.agent}] alert_drive fired — no new errors (all deduplicated)")
+            return "alert_scan_done:no_new_errors"
+
+        # Mejora E: filtro de dominio
+        jarvis_errors = [e for e in errors if _classify_domain(e["line"]) == "jarvis"]
+        dum_errors    = [e for e in errors if _classify_domain(e["line"]) == "dum"]
+
+        if dum_errors:
+            dum_msg = _format_alert_message(self.agent, dum_errors)
+            await self._post_chat(f"DUM — error de infra detectado:\n{dum_msg}", to="DUM")
+
+        if not jarvis_errors:
+            return f"alert_delegated_dum:{len(dum_errors)}"
+
+        # Mejora B: escalación por severidad
+        severities = [e["severity"] for e in jarvis_errors]
+        max_sev = "critical" if "critical" in severities else ("error" if "error" in severities else "warning")
+
+        if max_sev == "warning":
+            # Mejora D: log silencioso a inner_monologue
+            try:
+                async with self.pool.acquire() as conn:
+                    await conn.execute("""
+                        INSERT INTO inner_monologue (agent, thought, emotional_state, created_at)
+                        VALUES ($1, $2, $3, NOW())
+                    """, self.agent,
+                        f"Alert silencioso: {len(jarvis_errors)} warnings — {jarvis_errors[0]['line'][:80]}",
+                        "vigilante")
+            except Exception as e:
+                log.debug(f"[{self.agent}] inner_monologue warning log failed: {e}")
+            return f"alert_scan_done:warning:{len(jarvis_errors)}"
+
+        msg = _format_alert_message(self.agent, jarvis_errors)
+
+        if max_sev == "error":
+            await self._post_chat(msg, to="equipo")
+            return f"alert_scan_done:error:{len(jarvis_errors)}"
+
+        # critical — avisa a William siempre (no suprimir)
+        await self._post_chat(f"⚠️ URGENTE\n{msg}", to="William")
+        return f"alert_scan_done:critical:{len(jarvis_errors)}"
 
     async def _record_pre_compact_reflect(self, value: float) -> None:
         """Insert an inner_monologue entry preserving emotional state before imminent compaction.
