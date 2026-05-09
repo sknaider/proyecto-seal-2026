@@ -887,6 +887,11 @@ class MotivationEngine:
             await self._post_chat(msg)
             return "task_review_triggered"
 
+        # ADA — pause flag: verificar ANTES de cualquier acción
+        if self.agent == "ADA" and ADA_PAUSE_FLAG.exists():
+            log.info("[ADA] task_drive SUPPRESSED — seal_pause_ada.flag activo")
+            return "task_drive_paused:flag_active"
+
         if overdue_3h > 0:
             task_names = ", ".join(t.get("title", "?") for t in tasks[:3])
             msg = (
