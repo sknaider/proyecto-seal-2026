@@ -584,20 +584,21 @@ class MotivationEngine:
 
     async def _fire_curiosity(self, value: float) -> str:
         """Curiosity fires — check priority list, avoid recent topics, search."""
-        # Mejora 4: temas prioritarios de William primero
-        topic = await self._consume_priority_topic()
+        hint = ""
+        result_tag = "curiosity_search_triggered:free"
 
-        # Mejora 3: contexto de temas ya investigados
-        recent = await self._get_recent_topics()
+        if self.agent in NERVES_V2_AGENTS:
+            # Mejora 4: temas prioritarios de William primero
+            topic = await self._consume_priority_topic()
+            # Mejora 3: contexto de temas ya investigados
+            recent = await self._get_recent_topics()
 
-        if topic:
-            hint = f" Investigar: '{topic}'."
-            self._record_investigated_topic(topic)
-            result_tag = f"curiosity_search_triggered:priority:{topic}"
-        else:
-            recent_hint = f" Evitar: {', '.join(recent[:3])}." if recent else ""
-            hint = recent_hint
-            result_tag = "curiosity_search_triggered:free"
+            if topic:
+                hint = f" Investigar: '{topic}'."
+                self._record_investigated_topic(topic)
+                result_tag = f"curiosity_search_triggered:priority:{topic}"
+            elif recent:
+                hint = f" Evitar: {', '.join(recent[:3])}."
 
         msg = (
             f"[SILENT][NERVES/{self.agent}] Mi impulso de curiosidad alcanzó {value:.0f}.{hint}"
