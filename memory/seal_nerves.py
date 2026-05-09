@@ -1209,14 +1209,15 @@ class MotivationEngine:
                 log.warning(f"daily_brief_writer failed: {e}")
             return "distillation_triggered"
 
-        # NERVES v2 (JARVIS) — Mejoras 1-4
+        # NERVES v2 — Mejoras 1-4
         # Mejora 4: checkpoint inmediato siempre
         await self._run_session_checkpoint()
 
-        # Determine level
-        if value >= CONTEXT_PRESSURE_THRESHOLDS["urgent"]:
+        # Determine level — per-agent thresholds
+        thresholds = CONTEXT_PRESSURE_THRESHOLDS.get(self.agent, CONTEXT_PRESSURE_THRESHOLDS_DEFAULT)
+        if value >= thresholds["urgent"]:
             level = "urgent"
-        elif value >= CONTEXT_PRESSURE_THRESHOLDS["active"]:
+        elif value >= thresholds["active"]:
             level = "active"
         else:
             level = "silent"
