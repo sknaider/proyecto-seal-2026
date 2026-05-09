@@ -160,6 +160,47 @@ WILLIAM_ACTIVE_WINDOW_S = 15 * 60  # 15 minutos
 # Agentes con NERVES v2 activado — se expande agente por agente cuando llega su turno
 NERVES_V2_AGENTS: set[str] = {"JARVIS"}
 
+# Mejora B — contexto compartido entre sensor y fire handler (per-agent, updated each tick)
+_task_drive_context: dict = {"pending": 0, "overdue_1h": 0, "overdue_3h": 0, "task_list": []}
+
+
+async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
+    """Mejora A — sensor real para task_drive: lee tabla tasks con deadlines y pesos por urgencia."""
+    try:
+        async with engine.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT id, title, status, deadline, created_at
+                FROM tasks
+                WHERE agent = $1
+                  AND status IN ('pending', 'in_progress')
+                ORDER BY deadline ASC NULLS LAST
+            """, engine.agent)
+    except Exception:
+        rows = []
+
+    pending = len(rows)
+    overdue_1h = 0
+    overdue_3h = 0
+    task_list = []
+
+    for r in rows:
+        task_list.append({"id": str(r["id"]), "title": r["title"]})
+        if r["deadline"] and r["deadline"].replace(tzinfo=timezone.utc) < now:
+            hours_overdue = (now - r["deadline"].replace(tzinfo=timezone.utc)).total_seconds() / 3600
+            if hours_overdue >= 3:
+                overdue_3h += 1
+            elif hours_overdue >= 1:
+                overdue_1h += 1
+
+    if pending > 0:
+        await engine.stimulate("task_pending_1", multiplier=float(pending))
+    if overdue_1h > 0:
+        await engine.stimulate("task_overdue_1h", multiplier=float(overdue_1h))
+    if overdue_3h > 0:
+        await engine.stimulate("task_overdue_1h", multiplier=float(overdue_3h) * 2.0)
+
+    return {"pending": pending, "overdue_1h": overdue_1h, "overdue_3h": overdue_3h, "task_list": task_list}
+
 
 class MotivationEngine:
     """
