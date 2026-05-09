@@ -1150,8 +1150,15 @@ class MotivationEngine:
                 e for e in ctx["errors"]
                 if not any(k in e["line"].lower() for k in DUM_DOMAIN)
             ]
+        elif self.agent == "NEXUS":
+            ctx = await _sense_alert_drive_nexus()
+            own_errors = [
+                e for e in ctx["errors"]
+                if any(k in e["line"].lower() for k in NEXUS_DOMAIN)
+                and not any(k in e["line"].lower() for k in DUM_DOMAIN)
+            ]
         else:
-            # JARVIS (y futuros agentes v2)
+            # JARVIS
             ctx = await _sense_alert_drive(self.agent)
             own_errors = [e for e in ctx["errors"] if _classify_domain(e["line"]) == "jarvis"]
 
