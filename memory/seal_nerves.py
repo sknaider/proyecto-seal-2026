@@ -199,6 +199,20 @@ AGENT_TANK_OVERRIDES: dict[str, dict[str, dict]] = {
             "cooldown_s": 75 * 60,   # entre ALICE 50min y JARVIS 90min
         },
     },
+    "NEXUS": {
+        "social_drive": {
+            "threshold":  24.0,      # OCEAN E=0.662 — entre JARVIS(35) y ALICE(18)
+            "cooldown_s": 70 * 60,   # 70min — entre JARVIS(90) y ALICE(60)
+        },
+        "task_drive": {
+            "threshold":  20.0,      # OCEAN C=1.0, pero audita (no ejecuta como ADA)
+            "cooldown_s": 35 * 60,
+        },
+        "curiosity": {
+            "threshold":  27.0,      # OCEAN O=0.792 — menor que JARVIS/ALICE
+            "cooldown_s": 75 * 60,   # reflexión deliberada
+        },
+    },
 }
 
 # Ventana nocturna social_drive (Lima UTC-5)
