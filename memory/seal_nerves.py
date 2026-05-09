@@ -233,7 +233,17 @@ COST_ANOMALY_KEYWORDS = [
 CONTEXT_PRESSURE_THRESHOLDS: dict[str, dict[str, float]] = {
     "JARVIS": {"silent": 60.0, "active": 75.0, "urgent": 85.0},
     "ALICE":  {"silent": 55.0, "active": 70.0, "urgent": 80.0},
+    "ADA":    {"silent": 50.0, "active": 65.0, "urgent": 75.0},
 }
+
+# alert_drive ADA — dominio: ejecución/tests/deploy
+LOG_SOURCES_ADA: dict[str, str] = {
+    "ada_ops": "/home/dadito/IA/proyecto-seal/messages/ada_messages.jsonl",
+    "mcp":     "/home/dadito/IA/proyecto-seal/memory/logs/mcp_sse_daemon.log",
+    "nerves":  "/home/dadito/IA/proyecto-seal/research/flywire_results/nerves.log",
+}
+ADA_DOMAIN = ["test", "deploy", "exception", "traceback", "import", "syntax", "runtime", "ada"]
+ADA_PAUSE_FLAG = Path("/tmp/seal_pause_ada.flag")
 CONTEXT_PRESSURE_THRESHOLDS_DEFAULT = {"silent": 60.0, "active": 75.0, "urgent": 85.0}
 
 # Mejora B — contexto compartido entre sensor y fire handler (per-agent, updated each tick)
