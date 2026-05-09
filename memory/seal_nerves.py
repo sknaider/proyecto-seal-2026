@@ -215,6 +215,20 @@ AGENT_TANK_OVERRIDES: dict[str, dict[str, dict]] = {
             "cooldown_s": 75 * 60,   # reflexión deliberada
         },
     },
+    "DUM": {
+        "social_drive": {
+            "threshold":  50.0,      # OCEAN E=0.200 — más introvertido del equipo
+            "cooldown_s": 120 * 60,  # 120min — DUM solo habla cuando es necesario
+        },
+        "task_drive": {
+            "threshold":  22.0,      # OCEAN C=0.953 — guardia rápida
+            "cooldown_s": 30 * 60,
+        },
+        "curiosity": {
+            "threshold":  45.0,      # OCEAN O=0.305 — muy baja apertura, vigilance scan
+            "cooldown_s": 120 * 60,  # scans proactivos poco frecuentes
+        },
+    },
 }
 
 # Ventana nocturna social_drive (Lima UTC-5)
