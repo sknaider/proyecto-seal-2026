@@ -408,9 +408,11 @@ class MotivationEngine:
 
         now = datetime.now(timezone.utc)
         states = {}
+        agent_overrides = AGENT_TANK_OVERRIDES.get(self.agent, {})
         for row in rows:
             tank_name = row["tank"]
             cfg = TANKS.get(tank_name, {})
+            tank_overrides = agent_overrides.get(tank_name, {})
             τ = cfg.get("decay_tau_s", 3600)
 
             # LIF decay: V(t) = V(t0) * exp(-Δt/τ_eff)  — τ_eff = τ × circadian_multiplier
@@ -419,21 +421,23 @@ class MotivationEngine:
             decayed_value = row["value"] * math.exp(-dt / τ_eff)
 
             # Cooldown check: if tank fired recently, suppress even if above threshold
-            cooldown_s = cfg.get("cooldown_s", 0)
+            # Per-agent override takes precedence over global cfg
+            cooldown_s = tank_overrides.get("cooldown_s", cfg.get("cooldown_s", 0))
             in_cooldown = False
             if cooldown_s > 0 and row["last_fired"] is not None:
                 elapsed_since_fire = (now - row["last_fired"]).total_seconds()
                 in_cooldown = elapsed_since_fire < cooldown_s
 
+            threshold = tank_overrides.get("threshold", cfg.get("threshold", 50.0))
             states[tank_name] = {
                 "value":       decayed_value,
-                "threshold":   cfg.get("threshold", 50.0),
+                "threshold":   threshold,
                 "tau_s":       τ,
                 "last_update": row["last_update"],
                 "last_fired":  row["last_fired"],
                 "fire_count":  row["fire_count"],
                 "in_cooldown": in_cooldown,
-                "above_threshold": decayed_value >= cfg.get("threshold", 50.0) and not in_cooldown,
+                "above_threshold": decayed_value >= threshold and not in_cooldown,
             }
         return states
 
