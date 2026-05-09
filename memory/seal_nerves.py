@@ -905,9 +905,10 @@ class MotivationEngine:
     # ── social_drive Mejora 2 — destinatario dinámico ────────────────────────
     async def _choose_social_target(self) -> str | None:
         """Selecciona el primer agente activo en las últimas 2h (no hardcodeado a ADA)."""
+        priority = SOCIAL_PRIORITY.get(self.agent, SOCIAL_PRIORITY_DEFAULT)
         try:
             async with self.pool.acquire() as conn:
-                for agent in SOCIAL_PRIORITY:
+                for agent in priority:
                     last_seen = await conn.fetchval("""
                         SELECT MAX(created_at) FROM chat_messages
                         WHERE sender_name=$1 AND created_at > NOW() - INTERVAL '2 hours'
