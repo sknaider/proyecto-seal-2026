@@ -148,7 +148,12 @@ STIMULI: dict[str, float] = {
     # context_pressure
     "session_30min":       +10.0,  # every 30min of session = pressure accumulates
     "context_70pct":       +40.0,  # estimated 70%+ context usage
+    # social_drive reset (Mejora 5 — saciación real)
+    "william_conversation_real": -100.0,  # reset efectivo social_drive a 0
 }
+
+# Mejora 1 — supresión por presencia activa (JARVIS spec v1.0)
+WILLIAM_ACTIVE_WINDOW_S = 15 * 60  # 15 minutos
 
 
 class MotivationEngine:
