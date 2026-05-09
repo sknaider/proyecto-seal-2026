@@ -152,6 +152,8 @@ STIMULI: dict[str, float] = {
     "william_conversation_real": -100.0,  # reset efectivo social_drive a 0
     # task_drive feedback (Mejora D — saciación al completar tarea)
     "task_completed":            -20.0,
+    # social_drive feedback (social_drive Mejora 5 — respuesta recibida)
+    "social_response_received":  -8.0,
 }
 
 # Mejora 1 — supresión por presencia activa (JARVIS spec v1.0)
@@ -159,6 +161,23 @@ WILLIAM_ACTIVE_WINDOW_S = 15 * 60  # 15 minutos
 
 # Agentes con NERVES v2 activado — se expande agente por agente cuando llega su turno
 NERVES_V2_AGENTS: set[str] = {"JARVIS"}
+
+# Per-agent tank overrides — applied at runtime, overrides global TANKS baseline
+AGENT_TANK_OVERRIDES: dict[str, dict[str, dict]] = {
+    "JARVIS": {
+        "social_drive": {
+            "threshold":  35.0,      # social_drive Mejora 1 — OCEAN E=0.401 introvert
+            "cooldown_s": 90 * 60,   # social_drive Mejora 4 — 90min cooldown
+        }
+    }
+}
+
+# Ventana nocturna social_drive (Lima UTC-5)
+SOCIAL_NIGHT_WINDOW_START = 2   # 2am Lima
+SOCIAL_NIGHT_WINDOW_END   = 6   # 6am Lima
+
+# Orden de preferencia para destinatario social dinámico
+SOCIAL_PRIORITY = ["William", "ALICE", "NEXUS", "ADA"]
 
 # Mejora B — contexto compartido entre sensor y fire handler (per-agent, updated each tick)
 _task_drive_context: dict = {"pending": 0, "overdue_1h": 0, "overdue_3h": 0, "task_list": []}
