@@ -183,6 +183,94 @@ SOCIAL_PRIORITY = ["William", "ALICE", "NEXUS", "ADA"]
 # Mejora B — contexto compartido entre sensor y fire handler (per-agent, updated each tick)
 _task_drive_context: dict = {"pending": 0, "overdue_1h": 0, "overdue_3h": 0, "task_list": []}
 
+# ── alert_drive v2 — constantes y helpers ────────────────────────────────────
+
+LOG_SOURCES: dict[str, str] = {
+    "nerves":  "/home/dadito/IA/proyecto-seal/research/flywire_results/nerves.log",
+    "mcp":     "/home/dadito/IA/proyecto-seal/memory/logs/mcp_sse_daemon.log",
+}
+
+JARVIS_DOMAIN = ["soul", "mcp", "memory", "boot_context", "connectome", "nerves", "seal"]
+DUM_DOMAIN    = ["gpu", "cuda", "docker", "network", "disk", "ollama", "nvidia"]
+
+ALERT_DEDUP_COOLDOWN = {"warning": 120, "error": 60, "critical": 15}  # minutes
+
+
+def _tail_log(path: str, lines: int = 50) -> list[str]:
+    """Read last N lines from a log file. Returns [] if file missing or unreadable."""
+    p = Path(path)
+    if not p.exists():
+        return []
+    try:
+        return p.read_text(errors="replace").splitlines()[-lines:]
+    except Exception:
+        return []
+
+
+def _classify_log_line(line: str) -> str | None:
+    """Classify log line as 'critical', 'error', 'warning', or None."""
+    upper = line.upper()
+    if " CRITICAL " in upper or "CRITICAL:" in upper:
+        return "critical"
+    if " ERROR " in upper or "ERROR:" in upper or "Traceback" in line:
+        return "error"
+    if " WARNING " in upper or "WARN " in upper or "WARNING:" in upper:
+        return "warning"
+    return None
+
+
+def _classify_domain(error_line: str) -> str:
+    """Returns 'dum' for infra errors, 'jarvis' for SOUL/arch errors."""
+    line_lower = error_line.lower()
+    if any(k in line_lower for k in DUM_DOMAIN):
+        return "dum"
+    return "jarvis"
+
+
+def _is_alert_duplicate(error_line: str, severity: str, agent: str) -> bool:
+    """Check dedup file in /tmp — returns True if same error was alerted recently."""
+    key = hashlib.md5(error_line[:80].encode()).hexdigest()[:8]
+    cooldown_s = ALERT_DEDUP_COOLDOWN.get(severity, 60) * 60
+    dedup_path = Path(f"/tmp/{agent.lower()}_alert_seen.json")
+    try:
+        data = json.loads(dedup_path.read_text()) if dedup_path.exists() else {}
+        last_ts = data.get(key)
+        now = datetime.now(timezone.utc)
+        if last_ts:
+            elapsed = (now - datetime.fromisoformat(last_ts)).total_seconds()
+            if elapsed < cooldown_s:
+                return True
+        data[key] = now.isoformat()
+        # Prune old entries (keep last 200)
+        if len(data) > 200:
+            data = dict(list(data.items())[-200:])
+        dedup_path.write_text(json.dumps(data))
+    except Exception:
+        pass
+    return False
+
+
+def _format_alert_message(agent: str, errors: list[dict]) -> str:
+    """Format alert message with concrete error lines (max 3)."""
+    lines = [f"[NERVES/{agent}] Detectado:"]
+    for e in errors[:3]:
+        lines.append(f"  [{e['severity'].upper()}] {e['source']}: {e['line'][:100]}")
+    if len(errors) > 3:
+        lines.append(f"  ... y {len(errors) - 3} más en logs")
+    return "\n".join(lines)
+
+
+async def _sense_alert_drive(agent: str) -> dict:
+    """Lee logs reales y clasifica errores nuevos (no duplicados) para alert_drive v2."""
+    errors = []
+    for source, path in LOG_SOURCES.items():
+        recent = _tail_log(path, lines=50)
+        for line in recent:
+            sev = _classify_log_line(line)
+            if sev and not _is_alert_duplicate(line, sev, agent):
+                errors.append({"source": source, "severity": sev, "line": line.strip()})
+    return {"errors": errors, "count": len(errors)}
+
 
 async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
     """Mejora A — sensor real para task_drive: lee tabla tasks con deadlines y pesos por urgencia."""
