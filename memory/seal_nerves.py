@@ -472,6 +472,11 @@ class MotivationEngine:
         Returns list of fired actions.
         Palanca #3: batch all nerves_fire messages from this tick into one POST.
         """
+        # Mejora 1+2: flush cola pendiente si William no está activo
+        william_active = await self._should_suppress()
+        if not william_active:
+            await self._flush_queue_if_idle()
+
         states = await self.get_states()
         fired = []
         self._tick_batch = []  # start batch collection for this tick
@@ -480,6 +485,19 @@ class MotivationEngine:
             if not state["above_threshold"]:
                 # Log non-fire tick for frequency baseline
                 await self._log_metric(tank_name, state, fired=False)
+                continue
+
+            # Mejora 1: suprimir curiosity/social si William está activo — encolar
+            if william_active and tank_name in ("curiosity", "social_drive"):
+                self._enqueue_impulse(tank_name, state["value"])
+                async with self.pool.acquire() as conn:
+                    await conn.execute("""
+                        UPDATE motivation_states
+                        SET value=0.0, last_update=NOW(), last_fired=NOW(),
+                            fire_count=fire_count+1
+                        WHERE agent=$1 AND tank=$2
+                    """, self.agent, tank_name)
+                log.info(f"[{self.agent}] {tank_name} SUPPRESSED (William activo) → enqueued")
                 continue
 
             # Fire — measure latency from decision to action complete
