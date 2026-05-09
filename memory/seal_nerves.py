@@ -1086,7 +1086,20 @@ class MotivationEngine:
             return "alert_scan_triggered"
 
         # Selección de sensor y dominio según agente
-        if self.agent == "ALICE":
+        if self.agent == "ADA":
+            ctx = await _sense_alert_drive_ada()
+            # Test failures → alerta inmediata a William (fuera del flujo de threshold normal)
+            if ctx.get("test_failures"):
+                tf_msg = _format_alert_message("ADA", ctx["test_failures"])
+                await self._post_chat(f"⚠️ TEST FAILURE\n{tf_msg}", to="William")
+                if not ctx["errors"]:
+                    return f"alert_test_failure:{len(ctx['test_failures'])}"
+            own_errors = [
+                e for e in ctx["errors"]
+                if any(k in e["line"].lower() for k in ADA_DOMAIN)
+                and not any(k in e["line"].lower() for k in DUM_DOMAIN)
+            ]
+        elif self.agent == "ALICE":
             ctx = await _sense_alert_drive_alice()
             own_errors = [
                 e for e in ctx["errors"]
