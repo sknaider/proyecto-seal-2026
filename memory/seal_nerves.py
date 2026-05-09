@@ -385,6 +385,18 @@ async def _sense_alert_drive_ada() -> dict:
     return {"errors": errors, "test_failures": test_failures, "count": len(errors) + len(test_failures)}
 
 
+async def _sense_alert_drive_nexus() -> dict:
+    """NEXUS alert sensor — LOG_SOURCES_NEXUS, dominio auditoría/coordinación."""
+    errors = []
+    for source, path in LOG_SOURCES_NEXUS.items():
+        recent = _tail_log(path, lines=50)
+        for line in recent:
+            sev = _classify_log_line(line)
+            if sev and not _is_alert_duplicate(line, sev, "NEXUS"):
+                errors.append({"source": source, "severity": sev, "line": line.strip()})
+    return {"errors": errors, "count": len(errors)}
+
+
 async def _sense_alert_drive_alice() -> dict:
     """ALICE alert sensor — LOG_SOURCES_ALICE + cost anomaly detector."""
     errors = []
