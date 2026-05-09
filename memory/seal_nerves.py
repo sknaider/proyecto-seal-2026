@@ -272,6 +272,16 @@ async def _sense_alert_drive(agent: str) -> dict:
     return {"errors": errors, "count": len(errors)}
 
 
+# ── context_pressure v2 — constantes (William 08-may-2026) ───────────────────
+
+CONTEXT_PRESSURE_THRESHOLDS = {
+    "silent":  60.0,   # checkpoint inmediato, sin avisar
+    "active":  75.0,   # distilación activa a SOUL DB
+    "urgent":  85.0,   # avisa a William — compactación inminente
+}
+AUTOCOMPACT_PCT = 75  # target 300K/400K tokens — William 08-may-2026
+
+
 async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
     """Mejora A — sensor real para task_drive: lee tabla tasks con deadlines y pesos por urgencia."""
     try:
