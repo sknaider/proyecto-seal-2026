@@ -475,10 +475,12 @@ class MotivationEngine:
         Returns list of fired actions.
         Palanca #3: batch all nerves_fire messages from this tick into one POST.
         """
-        # Mejora 1+2: flush cola pendiente si William no está activo
-        william_active = await self._should_suppress()
-        if not william_active:
-            await self._flush_queue_if_idle()
+        # Mejora 1+2: flush cola pendiente si William no está activo (solo agentes v2)
+        william_active = False
+        if self.agent in NERVES_V2_AGENTS:
+            william_active = await self._should_suppress()
+            if not william_active:
+                await self._flush_queue_if_idle()
 
         states = await self.get_states()
         fired = []
