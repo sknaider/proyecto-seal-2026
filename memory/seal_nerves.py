@@ -826,23 +826,20 @@ async def sense_environment(engine: MotivationEngine):
     await engine.stimulate("session_30min")
 
     # 5. Mejora 5 — saciación real del drive social (solo agentes v2)
-    # Si William mandó >=5 mensajes en los últimos 10min → conversación real → reset social_drive
-    if engine.agent not in NERVES_V2_AGENTS:
-        pass
-    else:
-     try:
-        async with engine.pool.acquire() as conn:
-            recent_william = await conn.fetchval("""
-                SELECT COUNT(*) FROM chat_messages
-                WHERE sender_name IN ('William', 'Henry', 'Kinger')
-                  AND created_at > NOW() - INTERVAL '10 minutes'
-                  AND channel NOT LIKE 'dm:%%'
-            """)
-        if recent_william and recent_william >= 5:
-            await engine.stimulate("william_conversation_real")
-            log.info(f"[{engine.agent}] Real conversation detected ({recent_william} msgs) → social_drive reset")
-    except Exception as e:
-        log.debug(f"william_conversation_real check: {e}")
+    if engine.agent in NERVES_V2_AGENTS:
+        try:
+            async with engine.pool.acquire() as conn:
+                recent_william = await conn.fetchval("""
+                    SELECT COUNT(*) FROM chat_messages
+                    WHERE sender_name IN ('William', 'Henry', 'Kinger')
+                      AND created_at > NOW() - INTERVAL '10 minutes'
+                      AND channel NOT LIKE 'dm:%%'
+                """)
+            if recent_william and recent_william >= 5:
+                await engine.stimulate("william_conversation_real")
+                log.info(f"[{engine.agent}] Real conversation detected ({recent_william} msgs) → social_drive reset")
+        except Exception as e:
+            log.debug(f"william_conversation_real check: {e}")
 
     log.info(f"[{engine.agent}] Environment sensed: {pending} tasks_in_progress, {overdue} overdue")
 
