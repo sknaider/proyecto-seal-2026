@@ -224,6 +224,7 @@ SOCIAL_PRIORITY: dict[str, list[str]] = {
     "JARVIS": ["William", "ALICE", "NEXUS", "ADA"],
     "ALICE":  ["William", "JARVIS", "NEXUS", "ADA"],
     "ADA":    ["William", "JARVIS", "ALICE", "NEXUS"],
+    "NEXUS":  ["William", "JARVIS", "ALICE", "ADA"],
 }
 SOCIAL_PRIORITY_DEFAULT = ["William", "JARVIS", "ALICE", "NEXUS", "ADA"]
 
