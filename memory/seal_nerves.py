@@ -155,6 +155,9 @@ STIMULI: dict[str, float] = {
 # Mejora 1 — supresión por presencia activa (JARVIS spec v1.0)
 WILLIAM_ACTIVE_WINDOW_S = 15 * 60  # 15 minutos
 
+# Agentes con NERVES v2 activado — se expande agente por agente cuando llega su turno
+NERVES_V2_AGENTS: set[str] = {"JARVIS"}
+
 
 class MotivationEngine:
     """
