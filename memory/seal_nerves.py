@@ -267,6 +267,7 @@ CONTEXT_PRESSURE_THRESHOLDS: dict[str, dict[str, float]] = {
     "ALICE":  {"silent": 55.0, "active": 70.0, "urgent": 80.0},
     "ADA":    {"silent": 50.0, "active": 65.0, "urgent": 75.0},
     "NEXUS":  {"silent": 58.0, "active": 72.0, "urgent": 82.0},
+    "DUM":    {"silent": 62.0, "active": 77.0, "urgent": 87.0},
 }
 
 # alert_drive ADA — dominio: ejecución/tests/deploy
