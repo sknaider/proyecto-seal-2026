@@ -928,6 +928,8 @@ class MotivationEngine:
         try:
             async with self.pool.acquire() as conn:
                 for agent in priority:
+                    if agent == self.agent:
+                        continue  # no contactar a sí mismo
                     last_seen = await conn.fetchval("""
                         SELECT MAX(created_at) FROM chat_messages
                         WHERE sender_name=$1 AND created_at > NOW() - INTERVAL '2 hours'
