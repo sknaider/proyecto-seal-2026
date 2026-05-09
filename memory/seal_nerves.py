@@ -313,6 +313,25 @@ async def _sense_alert_drive(agent: str) -> dict:
     return {"errors": errors, "count": len(errors)}
 
 
+async def _sense_alert_drive_alice() -> dict:
+    """ALICE alert sensor — LOG_SOURCES_ALICE + cost anomaly detector."""
+    errors = []
+    for source, path in LOG_SOURCES_ALICE.items():
+        recent = _tail_log(path, lines=50)
+        for line in recent:
+            sev = _classify_log_line(line)
+            if sev and not _is_alert_duplicate(line, sev, "ALICE"):
+                errors.append({"source": source, "severity": sev, "line": line.strip()})
+            # Extra: cost anomaly keywords
+            elif any(kw in line.lower() for kw in COST_ANOMALY_KEYWORDS):
+                if not _is_alert_duplicate(line, "error", "ALICE"):
+                    errors.append({
+                        "source": source, "severity": "error",
+                        "line": line.strip(), "type": "cost_anomaly",
+                    })
+    return {"errors": errors, "count": len(errors)}
+
+
 AUTOCOMPACT_PCT = 75  # target 300K/400K tokens — William 08-may-2026
 
 
