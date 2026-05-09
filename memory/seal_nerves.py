@@ -241,6 +241,7 @@ SOCIAL_PRIORITY: dict[str, list[str]] = {
     "ALICE":  ["William", "JARVIS", "NEXUS", "ADA"],
     "ADA":    ["William", "JARVIS", "ALICE", "NEXUS"],
     "NEXUS":  ["William", "JARVIS", "ALICE", "ADA"],
+    "DUM":    ["William"],  # DUM solo reporta a William — no hace chatter con el equipo
 }
 SOCIAL_PRIORITY_DEFAULT = ["William", "JARVIS", "ALICE", "NEXUS", "ADA"]
 
