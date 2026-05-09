@@ -161,7 +161,7 @@ STIMULI: dict[str, float] = {
 WILLIAM_ACTIVE_WINDOW_S = 15 * 60  # 15 minutos
 
 # Agentes con NERVES v2 activado — se expande agente por agente cuando llega su turno
-NERVES_V2_AGENTS: set[str] = {"JARVIS"}
+NERVES_V2_AGENTS: set[str] = {"JARVIS", "ALICE"}
 
 # Per-agent tank overrides — applied at runtime, overrides global TANKS baseline
 AGENT_TANK_OVERRIDES: dict[str, dict[str, dict]] = {
@@ -1048,37 +1048,171 @@ class MotivationEngine:
         except Exception as e:
             log.warning(f"[{self.agent}] pre-compact self_reflect failed: {e}")
 
-    async def _fire_context_pressure(self, value: float) -> str:
-        """Context pressure fires → generate daily_brief + trigger proactive distillation."""
-        msg = (
-            f"[NERVES/{self.agent}] Presión de contexto: {value:.0f}. "
-            f"Iniciando distilación proactiva antes de que se llene la ventana."
-        )
-        await self._post_chat(msg)
+    # ── context_pressure v2 helpers (JARVIS) ─────────────────────────────────
 
-        # ADA item 3/4 (18-abr-2026): pre-compact self_reflect when pressure >= 80
-        if value >= 80:
-            await self._record_pre_compact_reflect(value)
-
-        # Nivel 1 — Emergency sleep: write daily_brief to preserve context
+    async def _run_session_checkpoint(self) -> None:
+        """Mejora 4 — checkpoint inmediato al disparar (no esperar al cron 30min)."""
+        cmd = [
+            "/home/dadito/IA/seal-spark/.venv/bin/python3",
+            "/home/dadito/IA/proyecto-seal/messages/session_checkpoint.py",
+            "--agent", self.agent,
+        ]
         try:
-            import sys
-            from pathlib import Path as _Path
-            _mem_dir = str(_Path(__file__).parent)
-            if _mem_dir not in sys.path:
-                sys.path.insert(0, _mem_dir)
-            from daily_brief_writer import write_daily_brief
-            result = await write_daily_brief(agent=self.agent, dry_run=False, force=False)
-            if result.get("was_generated"):
-                await self._post_chat(
-                    f"[{self.agent}] daily_brief guardado — contexto preservado "
-                    f"({result.get('brief_length', 0)} chars, "
-                    f"{result.get('msgs_count', 0)} msgs)."
-                )
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.wait_for(proc.wait(), timeout=10)
+            log.info(f"[{self.agent}] session_checkpoint executed immediately")
         except Exception as e:
-            log.warning(f"daily_brief_writer failed in nerves fire: {e}")
+            log.warning(f"[{self.agent}] session_checkpoint failed: {e}")
 
-        return "distillation_triggered"
+    async def _distill_active(self) -> None:
+        """Mejora 2 — guarda decisiones/specs activos de la sesión a SOUL DB via asyncpg INSERT."""
+        try:
+            # Find specs created in this session (last 8h)
+            spec_dir = Path("/home/dadito/IA/proyecto-seal/memory")
+            cutoff = datetime.now(timezone.utc).timestamp() - 8 * 3600
+            recent_specs = [
+                p.name for p in spec_dir.glob("spec_*.md")
+                if p.stat().st_mtime > cutoff
+            ]
+
+            if not recent_specs:
+                return
+
+            content = (
+                f"Specs activos en sesión pre-compactación: {', '.join(recent_specs[:5])}. "
+                f"Contexto: {self.agent} trabajando en NERVES/SOUL improvements."
+            )
+            async with self.pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO memories
+                        (agent, scope, category, content, importance, source_tier, memory_type, created_at)
+                    VALUES ($1, 'team', 'milestone', $2, 9, 'episodic', 'semantic', NOW())
+                """, self.agent, content)
+            log.info(f"[{self.agent}] _distill_active: {len(recent_specs)} specs guardados a SOUL DB")
+        except Exception as e:
+            log.warning(f"[{self.agent}] _distill_active failed: {e}")
+
+    async def _write_recovery_briefing(self, pressure: float) -> None:
+        """Mejora 3 — recovery briefing con hilo de diseño para continuar tras compactación."""
+        try:
+            # Read working_state for current task context
+            task_name = ""
+            hypotheses: list[str] = []
+            try:
+                async with self.pool.acquire() as conn:
+                    row = await conn.fetchrow("""
+                        SELECT state FROM working_state WHERE agent=$1
+                    """, self.agent)
+                if row and row["state"]:
+                    ws = row["state"] if isinstance(row["state"], dict) else json.loads(row["state"])
+                    task_name = ws.get("task_name", "")
+                    hypotheses = ws.get("active_hypotheses", [])
+            except Exception:
+                pass
+
+            # Find recent specs
+            spec_dir = Path("/home/dadito/IA/proyecto-seal/memory")
+            cutoff = datetime.now(timezone.utc).timestamp() - 8 * 3600
+            recent_specs = [
+                p.name for p in spec_dir.glob("spec_*.md")
+                if p.stat().st_mtime > cutoff
+            ]
+
+            ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            content = (
+                f"# {self.agent} Recovery Briefing — {ts}\n"
+                f"## Presión de contexto: {pressure:.0f}%\n\n"
+                f"### Qué estábamos haciendo\n"
+                f"{task_name or 'Ver historial reciente de conversación'}\n\n"
+                f"### Specs en progreso\n"
+                f"{chr(10).join('- ' + s for s in recent_specs) if recent_specs else '- Ninguno reciente'}\n\n"
+                f"### Hipótesis activas\n"
+                f"{chr(10).join('- ' + h for h in hypotheses[:5]) if hypotheses else '- Ninguna registrada'}\n\n"
+                f"### Siguiente paso inmediato\n"
+                f"1. boot_context(agent='{self.agent}')\n"
+                f"2. Leer este briefing\n"
+                f"3. Continuar con spec en progreso o preguntar a William\n\n"
+                f"### Nota\nGenerado automáticamente por NERVES context_pressure al {pressure:.0f}%\n"
+            )
+
+            tmp_path = Path(f"/tmp/{self.agent.lower()}_recovery_briefing.md")
+            persistent_path = Path(f"/home/dadito/IA/proyecto-seal/messages/{self.agent.lower()}_recovery_briefing.md")
+            tmp_path.write_text(content)
+            persistent_path.write_text(content)
+            log.info(f"[{self.agent}] recovery_briefing written to {tmp_path} and {persistent_path}")
+        except Exception as e:
+            log.warning(f"[{self.agent}] _write_recovery_briefing failed: {e}")
+
+    async def _fire_context_pressure(self, value: float) -> str:
+        """Context pressure fires — v2: escalación 3 niveles + distilación + recovery briefing."""
+        if self.agent not in NERVES_V2_AGENTS:
+            # Comportamiento original para agentes no-v2
+            msg = (
+                f"[NERVES/{self.agent}] Presión de contexto: {value:.0f}. "
+                f"Iniciando distilación proactiva antes de que se llene la ventana."
+            )
+            await self._post_chat(msg)
+            if value >= 80:
+                await self._record_pre_compact_reflect(value)
+            try:
+                import sys as _sys
+                _mem_dir = str(Path(__file__).parent)
+                if _mem_dir not in _sys.path:
+                    _sys.path.insert(0, _mem_dir)
+                from daily_brief_writer import write_daily_brief
+                result = await write_daily_brief(agent=self.agent, dry_run=False, force=False)
+                if result.get("was_generated"):
+                    await self._post_chat(
+                        f"[{self.agent}] daily_brief guardado "
+                        f"({result.get('brief_length', 0)} chars, {result.get('msgs_count', 0)} msgs)."
+                    )
+            except Exception as e:
+                log.warning(f"daily_brief_writer failed: {e}")
+            return "distillation_triggered"
+
+        # NERVES v2 (JARVIS) — Mejoras 1-4
+        # Mejora 4: checkpoint inmediato siempre
+        await self._run_session_checkpoint()
+
+        # Determine level
+        if value >= CONTEXT_PRESSURE_THRESHOLDS["urgent"]:
+            level = "urgent"
+        elif value >= CONTEXT_PRESSURE_THRESHOLDS["active"]:
+            level = "active"
+        else:
+            level = "silent"
+
+        if level in ("active", "urgent"):
+            # Mejora 2: distilación activa a SOUL DB
+            await self._distill_active()
+            # Daily brief siempre en nivel activo+
+            try:
+                import sys as _sys
+                _mem_dir = str(Path(__file__).parent)
+                if _mem_dir not in _sys.path:
+                    _sys.path.insert(0, _mem_dir)
+                from daily_brief_writer import write_daily_brief
+                await write_daily_brief(agent=self.agent, dry_run=False, force=False)
+            except Exception as e:
+                log.warning(f"daily_brief_writer failed: {e}")
+
+        if level == "urgent":
+            # Mejora 3: recovery briefing + avisa a William
+            await self._write_recovery_briefing(value)
+            await self._record_pre_compact_reflect(value)
+            await self._post_chat(
+                f"[NERVES/{self.agent}] Contexto al {value:.0f}% — compactación inminente. "
+                f"Recovery briefing guardado en /tmp/{self.agent.lower()}_recovery_briefing.md. "
+                f"Al despertar: boot_context + leer briefing.",
+                to="William"
+            )
+
+        log.info(f"[{self.agent}] context_pressure handled: level={level}, value={value:.1f}")
+        return f"context_pressure_handled:level={level}"
 
     async def _post_chat(self, message: str, to: str = "equipo"):
         """Queue message for batch send (palanca #3) or post directly if outside tick."""
