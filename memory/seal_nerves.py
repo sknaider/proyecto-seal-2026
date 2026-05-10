@@ -502,12 +502,12 @@ AUTOCOMPACT_PCT = 75  # target 300K/400K tokens — William 08-may-2026
 
 
 async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
-    """Mejora A — sensor real para task_drive: lee tabla tasks con deadlines y pesos por urgencia."""
+    """Mejora A2 — sensor real: soul_v3.agent_tasks con deadlines + urgencia futura."""
     try:
         async with engine.pool.acquire() as conn:
             rows = await conn.fetch("""
-                SELECT id, title, status, deadline, created_at
-                FROM tasks
+                SELECT id, title, status, deadline, priority
+                FROM soul_v3.agent_tasks
                 WHERE agent = $1
                   AND status IN ('pending', 'in_progress')
                 ORDER BY deadline ASC NULLS LAST
@@ -518,16 +518,34 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
     pending = len(rows)
     overdue_1h = 0
     overdue_3h = 0
+    due_2h = 0
+    due_8h = 0
+    due_24h = 0
+    due_72h = 0
     task_list = []
 
     for r in rows:
         task_list.append({"id": str(r["id"]), "title": r["title"]})
-        if r["deadline"] and r["deadline"].replace(tzinfo=timezone.utc) < now:
-            hours_overdue = (now - r["deadline"].replace(tzinfo=timezone.utc)).total_seconds() / 3600
+        if not r["deadline"]:
+            continue
+        dl = r["deadline"] if r["deadline"].tzinfo else r["deadline"].replace(tzinfo=timezone.utc)
+        delta_s = (dl - now).total_seconds()
+        if delta_s < 0:
+            hours_overdue = -delta_s / 3600
             if hours_overdue >= 3:
                 overdue_3h += 1
             elif hours_overdue >= 1:
                 overdue_1h += 1
+        else:
+            hours_until = delta_s / 3600
+            if hours_until < 2:
+                due_2h += 1
+            elif hours_until < 8:
+                due_8h += 1
+            elif hours_until < 24:
+                due_24h += 1
+            elif hours_until < 72:
+                due_72h += 1
 
     # NEXUS: diagnósticos pendientes de revisión son tareas de auditoría
     pending_diagnoses = 0
@@ -546,15 +564,56 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
         except Exception:
             pass
 
+    # GAM feed — acciones pendientes del grafo de metas
+    gam_pending = 0
+    if engine.agent in NERVES_V2_AGENTS:
+        try:
+            async with engine.pool.acquire() as conn:
+                gam_rows = await conn.fetch(
+                    """
+                    SELECT e.event, e.metadata
+                    FROM soul_v3.gam_event_graph e
+                    JOIN soul_v3.gam_topics t ON t.id = e.topic_id
+                    WHERE e.agent = $1
+                      AND t.relevance_score > 0
+                      AND (
+                          e.metadata->>'status' IS NULL
+                          OR e.metadata->>'status' = 'pending'
+                      )
+                    """,
+                    engine.agent,
+                )
+            for r in gam_rows:
+                task_list.append({
+                    "id": f"gam_{abs(hash(r['event']))}",
+                    "title": f"[GAM] {r['event'][:80]}",
+                })
+            gam_pending = len(gam_rows)
+            pending += gam_pending
+        except Exception:
+            pass
+
     if pending > 0:
         await engine.stimulate("task_pending_1", multiplier=float(pending))
     if overdue_1h > 0:
         await engine.stimulate("task_overdue_1h", multiplier=float(overdue_1h))
     if overdue_3h > 0:
         await engine.stimulate("task_overdue_1h", multiplier=float(overdue_3h) * 2.0)
+    if due_2h > 0:
+        await engine.stimulate("task_due_2h", multiplier=float(due_2h))
+    if due_8h > 0:
+        await engine.stimulate("task_due_8h", multiplier=float(due_8h))
+    if due_24h > 0:
+        await engine.stimulate("task_due_24h", multiplier=float(due_24h))
+    if due_72h > 0:
+        await engine.stimulate("task_due_72h", multiplier=float(due_72h))
 
-    return {"pending": pending, "overdue_1h": overdue_1h, "overdue_3h": overdue_3h,
-            "task_list": task_list, "pending_diagnoses": pending_diagnoses}
+    return {
+        "pending": pending, "overdue_1h": overdue_1h, "overdue_3h": overdue_3h,
+        "due_2h": due_2h, "due_8h": due_8h, "due_24h": due_24h, "due_72h": due_72h,
+        "task_list": task_list, "pending_diagnoses": pending_diagnoses,
+        "gam_pending": gam_pending,
+    }
 
 
 class MotivationEngine:
