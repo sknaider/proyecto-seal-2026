@@ -151,6 +151,11 @@ STIMULI: dict[str, float] = {
     "context_70pct":       +40.0,  # estimated 70%+ context usage
     # social_drive reset (Mejora 5 — saciación real)
     "william_conversation_real": -100.0,  # reset efectivo social_drive a 0
+    # upcoming deadline urgency (Mejora A2 — peso por deadline futuro)
+    "task_due_2h":               +25.0,  # deadline en <2h
+    "task_due_8h":               +15.0,  # deadline en <8h
+    "task_due_24h":              +8.0,   # deadline en <24h
+    "task_due_72h":              +3.0,   # deadline en <72h
     # task_drive feedback (Mejora D — saciación al completar tarea)
     "task_completed":            -20.0,
     # social_drive feedback (social_drive Mejora 5 — respuesta recibida)
