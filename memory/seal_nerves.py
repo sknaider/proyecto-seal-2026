@@ -524,6 +524,23 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
             elif hours_overdue >= 1:
                 overdue_1h += 1
 
+    # NEXUS: diagnósticos pendientes de revisión son tareas de auditoría
+    pending_diagnoses = 0
+    if engine.agent == "NEXUS":
+        try:
+            async with engine.pool.acquire() as conn:
+                diag_rows = await conn.fetch("""
+                    SELECT id, diagnosis FROM soul_v3.reflective_diagnoses
+                    WHERE status = 'pending_review'
+                    ORDER BY created_at ASC
+                """)
+            pending_diagnoses = len(diag_rows)
+            for r in diag_rows:
+                task_list.append({"id": f"diag_{r['id']}", "title": f"[DIAGNÓSTICO] {r['diagnosis'][:80]}"})
+            pending += pending_diagnoses
+        except Exception:
+            pass
+
     if pending > 0:
         await engine.stimulate("task_pending_1", multiplier=float(pending))
     if overdue_1h > 0:
@@ -531,7 +548,8 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
     if overdue_3h > 0:
         await engine.stimulate("task_overdue_1h", multiplier=float(overdue_3h) * 2.0)
 
-    return {"pending": pending, "overdue_1h": overdue_1h, "overdue_3h": overdue_3h, "task_list": task_list}
+    return {"pending": pending, "overdue_1h": overdue_1h, "overdue_3h": overdue_3h,
+            "task_list": task_list, "pending_diagnoses": pending_diagnoses}
 
 
 class MotivationEngine:
