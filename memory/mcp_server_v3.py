@@ -13,6 +13,10 @@ from mcp_server_v4 import (  # noqa: F401
     _signal_handler,
     _sync_cleanup,
     _cold_archive_migrate,
+    _cold_archive_purge_expired,
+    _mirix_classify,
+    _magma_fuse,
+    _erl_call_ollama,
     _qdrant,
     _qdrant_lite,
 )
