@@ -1382,6 +1382,50 @@ class MotivationEngine:
         await self._post_chat(f"⚠️ URGENTE\n{msg}", to="William")
         return f"alert_scan_done:critical:{len(own_errors)}"
 
+    async def _write_emotional_diary(self, context_pct: float) -> None:
+        """Write emotional diary entry before compaction (spec_emotional_continuity_v1 Componente 2)."""
+        try:
+            import sys as _sys
+            _mem_dir = str(Path(__file__).parent)
+            if _mem_dir not in _sys.path:
+                _sys.path.insert(0, _mem_dir)
+
+            _ec_name = "emotional_continuity"
+            if _ec_name not in _sys.modules:
+                import importlib.util as _ilu
+                _spec = _ilu.spec_from_file_location(
+                    _ec_name, Path(__file__).parent / "emotional_continuity.py"
+                )
+                _mod = _ilu.module_from_spec(_spec)
+                _sys.modules[_ec_name] = _mod
+                _spec.loader.exec_module(_mod)
+            ec = _sys.modules[_ec_name]
+
+            # Get current valence/arousal from DB (emotion_modulator)
+            valence, arousal = 0.0, min(0.9, context_pct / 100.0)
+            try:
+                from emotion_modulator import get_emotional_state
+                emo = await get_emotional_state(self.agent, self.pool)
+                valence = emo.get("valence", 0.0)
+                arousal = emo.get("arousal", arousal)
+            except Exception:
+                pass
+
+            context_summary = (
+                f"Compactación inminente — contexto al {context_pct:.0f}%. "
+                f"Agente {self.agent} preservando continuidad narrativa antes de reiniciar."
+            )
+            await ec.write_diary(
+                agent=self.agent,
+                valence=float(valence),
+                arousal=float(arousal),
+                context_summary=context_summary,
+                compaction_triggered=True,
+            )
+            log.info(f"[{self.agent}] emotional_diary written pre-compaction (ctx={context_pct:.0f}%)")
+        except Exception as e:
+            log.warning(f"[{self.agent}] _write_emotional_diary failed: {e}")
+
     async def _record_pre_compact_reflect(self, value: float) -> None:
         """Insert an inner_monologue entry preserving emotional state before imminent compaction.
         ADA item 3/4 (18-abr-2026): triggered when context pressure >= 80."""
