@@ -1604,6 +1604,8 @@ class MotivationEngine:
             # Mejora 3: recovery briefing + avisa a William
             await self._write_recovery_briefing(value)
             await self._record_pre_compact_reflect(value)
+            # spec_emotional_continuity_v1 Componente 2 — diario narrativo pre-compactación
+            await self._write_emotional_diary(value)
             await self._post_chat(
                 f"[NERVES/{self.agent}] Contexto al {value:.0f}% — compactación inminente. "
                 f"Recovery briefing guardado en /tmp/{self.agent.lower()}_recovery_briefing.md. "
