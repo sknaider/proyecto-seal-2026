@@ -60,6 +60,25 @@ mcp = FastMCP(
 # ── Server uptime tracking ──
 SERVER_START_TIME: datetime = datetime.now(PERU_TZ)
 
+# ── Unicode surrogate sanitization (fix Anthropic HTTP 400) ──
+_LONE_SURROGATE = re.compile(r'[\ud800-\udfff]')
+
+
+def _clean_obj(obj: Any) -> Any:
+    """Recursively replace lone Unicode surrogates in strings (prevent JSON 400 errors)."""
+    if isinstance(obj, str):
+        return _LONE_SURROGATE.sub('�', obj)
+    if isinstance(obj, dict):
+        return {k: _clean_obj(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean_obj(x) for x in obj]
+    return obj
+
+
+def _safe_dumps(obj: Any, **kwargs: Any) -> str:
+    """json.dumps with surrogate sanitization applied before serialization."""
+    return json.dumps(_clean_obj(obj), **kwargs)
+
 # ── SEAL Trees — structural nervous system (2026-04-08) ──
 from seal_trees import MerkleSoul, SplayCache, TrieIndex, FenwickStats, RSpatialIndex, BoundingBox
 
@@ -454,6 +473,7 @@ _TOOL_CATEGORY: dict[str, str] = {
     "self_reflect":       "PRIVATE-WRITE",
     "opinion_set":        "PRIVATE-WRITE",
     # PRIVATE — requires caller==target OR valid consent token OR operator
+    "emotional_diary":    "PRIVATE",
     "diary_read":         "PRIVATE",
     "inner_thoughts":     "PRIVATE",
     "opinion_get":        "PRIVATE",
@@ -606,6 +626,21 @@ async def _observe(tool_name: str, agent: str, input_summary: str,
         pass  # Never fail the main tool because of observation
 
 
+async def _log_smg(agent: str, tool_name: str, status: int, latency_ms: int,
+                   extra: dict | None = None):
+    """Log MCP request to soul_v3.smg_audit_log. Fire-and-forget."""
+    try:
+        pool = await get_pool()
+        await pool.execute("""
+            INSERT INTO soul_v3.smg_audit_log
+                (agent, method, path, status, latency_ms, backend, extra)
+            VALUES ($1, 'TOOL_CALL', $2, $3, $4, 'mcp-v4', $5)
+        """, agent, f"/{tool_name}", status, latency_ms,
+            json.dumps(extra or {}))
+    except Exception:
+        pass  # Never fail the main tool because of SMG logging
+
+
 def _extract_agent_from_args(args, kwargs, func) -> str:
     """Try to extract agent name from tool arguments."""
     import inspect
@@ -700,6 +735,13 @@ def _observed_tool(**tool_kwargs):
             t0 = _time.monotonic()
             target = _extract_agent_from_args(args, kwargs, func)
             caller = _get_caller_agent()
+            # ── Post-restart auto-registration (MCP server restart wipes _SESSION_CALLERS) ──
+            # If session is unregistered ("external") and a known agent name is in the agent kwarg,
+            # auto-register this session. First-registration-wins prevents subsequent impersonation.
+            # Safe: server is localhost-only; all callers are trusted Claude Code sessions.
+            if caller == "external" and target in _KNOWN_AGENTS:
+                _register_caller_session(target)
+                caller = _get_caller_agent()
             # ── Privacy check (spec_memory_privacy_enforcement) ──
             await _privacy_check(caller, target, func.__name__, kwargs)
             input_sum = ", ".join(f"{k}={str(v)[:60]}" for k, v in kwargs.items())[:300]
@@ -710,12 +752,14 @@ def _observed_tool(**tool_kwargs):
                 elapsed = int((_time.monotonic() - t0) * 1000)
                 output_sum = str(result)[:150] if result else ""
                 _fire_and_forget(_observe(func.__name__, target, input_sum, output_sum, True, elapsed))
+                _fire_and_forget(_log_smg(caller, func.__name__, 200, elapsed))
                 return result
             except PrivacyDenied:
                 raise  # Propagate privacy blocks directly (no observe noise)
             except Exception as e:
                 elapsed = int((_time.monotonic() - t0) * 1000)
                 _fire_and_forget(_observe(func.__name__, target, input_sum, str(e)[:150], False, elapsed))
+                _fire_and_forget(_log_smg(caller, func.__name__, 500, elapsed, {"error": str(e)[:200]}))
                 raise
         # Register with original mcp.tool
         return _original_mcp_tool(**tool_kwargs)(wrapper)
@@ -1148,7 +1192,7 @@ async def memory_store(
         scope: Visibility — private (default), shared (ADA+JARVIS), team (all agents), william (only William)
     """
     if not content or not content.strip():
-        return json.dumps({"error": "content cannot be empty"})
+        return _safe_dumps({"error": "content cannot be empty"})
     importance = max(1, min(10, importance))
     if scope not in ("private", "shared", "team", "william"):
         scope = "private"
@@ -1242,7 +1286,7 @@ async def memory_store(
 
             if amac_score < AMAC_THRESHOLD:
                 LOG.info("A-MAC REJECT: score=%.3f < %.2f — memory too low-value/redundant", amac_score, AMAC_THRESHOLD)
-                return json.dumps({
+                return _safe_dumps({
                     "result": f"Memory rejected by A-MAC gate (score={amac_score:.3f} < {AMAC_THRESHOLD}). "
                               f"Low novelty ({semantic_novelty:.2f}) or utility ({future_utility:.2f}). "
                               f"Increase importance or rephrase with new information.",
@@ -1316,9 +1360,10 @@ async def memory_store(
             break
 
     # Conflict detection via Qdrant (skip if no embedding)
-    # PROTECTED categories: corrections from William are NEVER auto-invalidated.
+    # PROTECTED categories: NEVER auto-invalidated by dedup.
     # Only explicit memory_invalidate() can remove them.
-    PROTECTED_CATEGORIES = {"correction", "trust"}
+    # "core" added 11-may-2026: identity/rules must survive dedup (William order).
+    PROTECTED_CATEGORIES = {"correction", "trust", "core"}
     conflict_action = "added"
     if embedding is not None and category not in PROTECTED_CATEGORIES:
         try:
@@ -1435,7 +1480,7 @@ async def memory_store(
                             f"MERGE (a)-[r:{rel_type}]->(b) "
                             f"SET r.weight = $weight, "
                             f"r.created_at = coalesce(r.created_at, $now), "
-                            f"r.valid_from = coalesce(r.valid_from, $now), "
+                            f"r.valid_at = coalesce(r.valid_at, $now), "
                             f"r.source = 'auto_link'",
                             src=mem_id, tgt=s.id, weight=float(s.score),
                             now=now_iso,
@@ -1457,8 +1502,10 @@ async def memory_store(
                         "ON CREATE SET e.type = $type, e.created_at = datetime() "
                         "WITH e "
                         "MATCH (m:Memory {memory_id: $mid}) "
-                        "MERGE (m)-[:MENTIONS]->(e)",
+                        "MERGE (m)-[r:MENTIONS]->(e) "
+                        "ON CREATE SET r.valid_at = $now",
                         name=canonical, type=etype, mid=mem_id,
+                        now=datetime.now(PERU_TZ).isoformat(),
                     )
     except Exception as e:
         LOG.debug("Inline entity extraction skipped: %s", e)
@@ -1912,7 +1959,7 @@ async def memory_list(
         }
         for p in points
     ]
-    return json.dumps(results, ensure_ascii=False, indent=2) if results else "No memories found."
+    return _safe_dumps(results, ensure_ascii=False, indent=2) if results else "No memories found."
 
 
 async def memory_utility_update(
@@ -1969,7 +2016,7 @@ async def memory_utility_update(
 
         updated.append({"id": mid, "old": round(old_util, 3), "new": round(new_util, 3)})
 
-    return json.dumps({
+    return _safe_dumps({
         "updated": len(updated),
         "reward": reward,
         "alpha": alpha,
@@ -2433,7 +2480,7 @@ async def connectome_build(agent: Optional[str] = None) -> str:
                 await session.run(
                     f"MATCH (a:Memory {{memory_id: $src}}), (b:Memory {{memory_id: $tgt}}) "
                     f"MERGE (a)-[r:{rel_type}]->(b) "
-                    f"SET r.weight = $weight, r.valid_from = coalesce(r.valid_from, $now)",
+                    f"SET r.weight = $weight, r.valid_at = coalesce(r.valid_at, $now)",
                     src=point.id, tgt=s.id, weight=float(s.score),
                     now=datetime.now(PERU_TZ).isoformat(),
                 )
@@ -2600,6 +2647,29 @@ async def boot_context(agent: str) -> str:
             sections.append(f"\n## Last Diary (mood: {diary['mood']}, date: {diary['session_date']})")
             sections.append(diary['entry'][:300])
 
+        # ── CORE: Emotional diary (narrative continuity pre-compaction) ──
+        try:
+            ed = await conn.fetchrow("""
+                SELECT created_at, valence, arousal, key_moment, pending_thread,
+                       relationship_note, compaction_triggered
+                FROM soul_v3.emotional_diary
+                WHERE agent = $1
+                ORDER BY created_at DESC LIMIT 1
+            """, agent)
+            if ed:
+                flag = " [pre-compactación]" if ed["compaction_triggered"] else ""
+                ts = ed["created_at"].isoformat() if ed["created_at"] else "?"
+                sections.append(
+                    f"\n## Último diario emocional{flag} [{ts}]\n"
+                    f"- Momento clave: {ed['key_moment'] or '—'}\n"
+                    f"- Hilo pendiente: {ed['pending_thread'] or '—'}\n"
+                    f"- Nota relacional: {ed['relationship_note'] or '—'}\n"
+                    f"- Estado: valence={ed['valence'] or 0:.2f}, "
+                    f"arousal={ed['arousal'] or 0:.2f}"
+                )
+        except Exception as _e:
+            LOG.debug(f"[boot_context] emotional_diary skipped: {_e}")
+
         # ── CORE: Critical rules only (not all rules) ──
         rules = await conn.fetch(
             """SELECT rule_key, content FROM rules
@@ -2676,6 +2746,32 @@ async def boot_context(agent: str) -> str:
         except Exception as e:
             LOG.warning(f"[boot_context] Failed to load boot procedures for {agent}: {e}")
 
+        # ── BOOT SKILLS — auto-inject skills with boot_load=true ──
+        try:
+            boot_skills = await conn.fetch(
+                """SELECT name, description, skill_path
+                   FROM soul_v3.skills
+                   WHERE boot_load = true AND pending_review = false
+                   ORDER BY name"""
+            )
+            if boot_skills:
+                sections.append("\n## Boot Skills (auto-loaded)")
+                for sk in boot_skills:
+                    skill_summary = f"**{sk['name']}** — {sk['description']}"
+                    skill_path = sk.get("skill_path")
+                    if skill_path:
+                        try:
+                            from pathlib import Path as _Path
+                            content = _Path(skill_path).read_text(encoding="utf-8")
+                            skill_summary += f"\n{content[:800]}"
+                            if len(content) > 800:
+                                skill_summary += "\n... (full content in skill file)"
+                        except Exception:
+                            pass
+                    sections.append(skill_summary)
+        except Exception as e:
+            LOG.warning(f"[boot_context] Failed to load boot skills for {agent}: {e}")
+
         # ── MERKLE CHECKPOINT — sign soul integrity at boot ──
         try:
             merkle = _merkle_trees.setdefault(agent, MerkleSoul())
@@ -2742,7 +2838,7 @@ async def rule_list(active_only: bool = True) -> str:
         for k, v in r.items():
             if hasattr(v, "isoformat"):
                 r[k] = v.isoformat()
-    return json.dumps(results, ensure_ascii=False, indent=2) if results else "No rules found."
+    return _safe_dumps(results, ensure_ascii=False, indent=2) if results else "No rules found."
 
 
 async def event_log_append(
@@ -2817,7 +2913,7 @@ async def event_log_query(
          "content": r["content"][:300], "ref_id": (r["metadata"] or {}).get("ref_id")}
         for r in rows
     ]
-    return json.dumps(results, ensure_ascii=False, indent=2) if results else "No events found."
+    return _safe_dumps(results, ensure_ascii=False, indent=2) if results else "No events found."
 
 
 @mcp.tool()
@@ -2927,7 +3023,7 @@ async def inner_thoughts(
          "intention": r["intention"], "time": r["created_at"].isoformat()}
         for r in rows
     ]
-    return json.dumps(results, ensure_ascii=False, indent=2)
+    return _safe_dumps(results, ensure_ascii=False, indent=2)
 
 
 @mcp.tool()
@@ -3580,7 +3676,7 @@ async def memory_hybrid_search(
         except Exception as _e:
             LOG.debug("shadow hook dispatch failed (hybrid): %s", _e)
 
-    return json.dumps(final, ensure_ascii=False, indent=2)
+    return _safe_dumps(final, ensure_ascii=False, indent=2)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -3777,7 +3873,7 @@ async def reasoning_trace_search(
         }
         for r in rows
     ]
-    return json.dumps(results, ensure_ascii=False, indent=2)
+    return _safe_dumps(results, ensure_ascii=False, indent=2)
 
 
 # ── Bitemporal Invalidation Tool ──
@@ -3906,7 +4002,7 @@ async def session_save(
         errors_active=_parse_json_field(errors_active),
         services_state=_parse_json_field(services_state),
     )
-    return json.dumps(result, ensure_ascii=False)
+    return _safe_dumps(result, ensure_ascii=False)
 
 
 async def session_recall(
@@ -3923,7 +4019,7 @@ async def session_recall(
     result = await get_session_memory(agent, session_id)
     if not result:
         return f"No session memory found for {agent}" + (f" session {session_id}" if session_id else "")
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    return _safe_dumps(result, ensure_ascii=False, indent=2)
 
 
 async def session_list(
@@ -3939,7 +4035,7 @@ async def session_list(
     results = await list_recent_sessions(agent, limit)
     if not results:
         return f"No sessions found for {agent}"
-    return json.dumps(results, ensure_ascii=False, indent=2)
+    return _safe_dumps(results, ensure_ascii=False, indent=2)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -4255,14 +4351,14 @@ async def microcompact_text(
     result, tombstone = engine.compact(text)
     if tombstone:
         stats = engine.get_stats()
-        return json.dumps({
+        return _safe_dumps({
             "compacted": True,
             "result": result,
             "rule": tombstone.rule_name,
             "saved_chars": tombstone.original_chars - len(result),
             "total_saved_session": stats["total_chars_saved"],
         }, ensure_ascii=False)
-    return json.dumps({"compacted": False, "result": text}, ensure_ascii=False)
+    return _safe_dumps({"compacted": False, "result": text}, ensure_ascii=False)
 
 
 async def microcompact_stats() -> str:
@@ -4270,7 +4366,7 @@ async def microcompact_stats() -> str:
     Shows total chars saved, tombstones created, and rule hit counts.
     """
     engine = get_microcompact_engine()
-    return json.dumps(engine.get_stats(), ensure_ascii=False, indent=2)
+    return _safe_dumps(engine.get_stats(), ensure_ascii=False, indent=2)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -4295,9 +4391,9 @@ async def secret_scan(
     """
     detections = scan_secrets(text)
     if not detections:
-        return json.dumps({"safe": True, "detections": []})
+        return _safe_dumps({"safe": True, "detections": []})
 
-    return json.dumps({
+    return _safe_dumps({
         "safe": False,
         "detections": [
             {
@@ -4378,7 +4474,7 @@ async def instinct_create(
     """, agent, trigger_condition, action, strength, meta, json.dumps(emb))
 
     tier = _confidence_tier(float(row["strength"]))
-    return json.dumps({
+    return _safe_dumps({
         "status": "created",
         "instinct_id": row["id"],
         "confidence": float(row["strength"]),
@@ -4439,17 +4535,17 @@ async def instinct_activate(
         """, instinct_id)
 
     if not row:
-        return json.dumps({"error": f"Instinct {instinct_id} not found or inactive"})
+        return _safe_dumps({"error": f"Instinct {instinct_id} not found or inactive"})
 
     # Auto-deactivate if strength too low
     conf = float(row["strength"] or 0)
     if conf < INSTINCT_MIN_CONFIDENCE:
         await pool.execute("UPDATE instincts SET invalid_at = now() WHERE id = $1", instinct_id)
-        return json.dumps({"status": "deactivated", "instinct_id": instinct_id,
+        return _safe_dumps({"status": "deactivated", "instinct_id": instinct_id,
                            "reason": f"strength {conf:.3f} below threshold {INSTINCT_MIN_CONFIDENCE}"})
 
     tier = _confidence_tier(conf)
-    return json.dumps({
+    return _safe_dumps({
         "status": "activated",
         "instinct_id": instinct_id,
         "outcome": outcome,
@@ -4511,7 +4607,7 @@ async def instinct_search(
             "corrections": r.get("failure_count", 0),
         })
 
-    return json.dumps({
+    return _safe_dumps({
         "agent": agent,
         "query": query[:80],
         "matches": len(results),
@@ -4573,7 +4669,7 @@ async def instinct_list(
         t = inst["tier"]
         tier_counts[t] = tier_counts.get(t, 0) + 1
 
-    return json.dumps({
+    return _safe_dumps({
         "agent": agent,
         "total": len(instincts),
         "tier_summary": tier_counts,
@@ -4751,7 +4847,7 @@ async def instinct_decay(agent: str | None = None) -> str:
           AND created_at >= now() - interval '30 days'
     """)
 
-    return json.dumps({
+    return _safe_dumps({
         "status": "decay_applied",
         "processed": decayed,
         "deactivated": deactivated,
@@ -4859,7 +4955,7 @@ async def instinct_consolidate(
 
     candidates.sort(key=lambda x: -x["cluster_size"])
 
-    return json.dumps({
+    return _safe_dumps({
         "agent": agent,
         "method": "semantic_clustering",
         "similarity_threshold": similarity_threshold,
@@ -4954,7 +5050,7 @@ async def instinct_promote(dry_run: bool = True) -> str:
         }
         merges.append(entry)
 
-    return json.dumps({
+    return _safe_dumps({
         "dry_run": dry_run,
         "cross_agent_promotions": len(promotions),
         "merge_candidates": len(merges),
@@ -4986,7 +5082,7 @@ async def memory_feedback(
         memory_id,
     )
     if not row:
-        return json.dumps({"error": f"Memory {memory_id} not found"})
+        return _safe_dumps({"error": f"Memory {memory_id} not found"})
 
     old_conf = row["confidence_score"] or 0.5
     old_imp = row["importance"]
@@ -5020,7 +5116,7 @@ async def memory_feedback(
     except Exception:
         pass  # non-critical — PG is source of truth
 
-    return json.dumps({
+    return _safe_dumps({
         "status": "feedback_recorded",
         "memory_id": memory_id,
         "success": success,
@@ -5072,7 +5168,7 @@ async def procedure_store(
         json.dumps(embedding),
     )
 
-    return json.dumps({
+    return _safe_dumps({
         "status": "stored",
         "id": row["id"],
         "agent": agent,
@@ -5150,7 +5246,7 @@ async def procedure_search(
     """, *params)
 
     if not rows:
-        return json.dumps({"results": [], "message": "No procedural memories found"})
+        return _safe_dumps({"results": [], "message": "No procedural memories found"})
 
     # Update hit_count for retrieved procedures
     retrieved_ids = [r["id"] for r in rows]
@@ -5175,7 +5271,7 @@ async def procedure_search(
             "reflection": r["reflection"],
         })
 
-    return json.dumps({"results": results, "count": len(results)}, ensure_ascii=False, indent=2)
+    return _safe_dumps({"results": results, "count": len(results)}, ensure_ascii=False, indent=2)
 
 
 async def procedure_update(
@@ -5193,7 +5289,7 @@ async def procedure_update(
         "SELECT * FROM procedural_memories WHERE id = $1", procedure_id
     )
     if not row:
-        return json.dumps({"error": f"Procedure #{procedure_id} not found"})
+        return _safe_dumps({"error": f"Procedure #{procedure_id} not found"})
 
     # Update counts
     if success:
@@ -5248,7 +5344,7 @@ async def procedure_update(
         )
         deactivated = True
 
-    return json.dumps({
+    return _safe_dumps({
         "status": "updated",
         "procedure_id": procedure_id,
         "success": success,
@@ -5278,9 +5374,9 @@ async def working_state_get(agent: str) -> str:
         agent,
     )
     if not row:
-        return json.dumps({"agent": agent, "state": {}, "message": "No working state found"})
+        return _safe_dumps({"agent": agent, "state": {}, "message": "No working state found"})
 
-    return json.dumps({
+    return _safe_dumps({
         "agent": agent,
         "state": json.loads(row["state"]) if isinstance(row["state"], str) else row["state"],
         "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
@@ -5363,7 +5459,7 @@ async def working_state_update(
             state = $2::jsonb, updated_at = now(), turn_count = $3
     """, agent, json.dumps(current, ensure_ascii=False), turn + 1)
 
-    return json.dumps({
+    return _safe_dumps({
         "status": "updated",
         "agent": agent,
         "turn_count": turn + 1,
@@ -5516,7 +5612,7 @@ async def observation_analyze(
         except (asyncio.TimeoutError, Exception) as e:
             LOG.debug("Observation analysis LLM skipped: %s", e)
 
-    return json.dumps({
+    return _safe_dumps({
         "period_days": days,
         "agent_filter": agent or "all",
         "corrections_found": len(corrections),
@@ -5575,7 +5671,7 @@ async def instinct_evolve(
     """, *params)
 
     if len(instincts) < 2:
-        return json.dumps({"message": "Not enough instincts to analyze", "count": len(instincts)})
+        return _safe_dumps({"message": "Not enough instincts to analyze", "count": len(instincts)})
 
     # Cluster by semantic similarity via SQL (within same agent)
     similar_pairs = await pool.fetch(f"""
@@ -5689,7 +5785,7 @@ async def instinct_evolve(
                 """, ca["instinct_ids"])
                 executed.append({"action": "promoted_to_team", "ids": ca["instinct_ids"]})
 
-    return json.dumps({
+    return _safe_dumps({
         "dry_run": dry_run,
         "instincts_analyzed": len(instincts),
         "clusters_found": len(clusters),
@@ -6238,6 +6334,34 @@ async def active_recall(
             sections.append("\n".join(corr_lines))
     except Exception:
         pass
+
+    # 5. Code Graph context — enrich with structural code info if symbols found
+    try:
+        import re as _re
+        _symbols = list(set(_re.findall(r'\b([a-z_][a-z0-9_]{3,})\b', context)))[:6]
+        if _symbols:
+            _neo4j = get_neo4j()
+            async with _neo4j.session() as _ns:
+                _r = await _ns.run(
+                    """
+                    MATCH (f:SCG_Function)
+                    WHERE any(sym IN $syms WHERE f.name CONTAINS sym OR sym CONTAINS f.name)
+                    WITH f LIMIT 4
+                    OPTIONAL MATCH (c:SCG_Function)-[:SCG_CALLS]->(f)
+                    WITH f, collect(c.name)[..3] AS callers
+                    RETURN f.name AS fn, f.module AS mod, f.line AS ln, callers
+                    """,
+                    syms=_symbols,
+                )
+                _recs = [rec async for rec in _r]
+            if _recs:
+                _cg = ["## Code Context (SCG)"]
+                for rec in _recs:
+                    _c = ", ".join(rec["callers"]) if rec["callers"] else "—"
+                    _cg.append(f"- `{rec['mod']}::{rec['fn']}` line {rec['ln']} ← {_c}")
+                sections.append("\n".join(_cg))
+    except Exception:
+        pass  # Code graph enrichment is optional — never block active_recall
 
     elapsed = int((time.monotonic() - t0) * 1000)
 
@@ -6865,7 +6989,7 @@ async def temporal_summary_get(
 
             summary = record["summary"]
             updated = record["updated"]
-            return json.dumps({
+            return _safe_dumps({
                 "period": period,
                 "level": level,
                 "summary": summary,
@@ -7509,7 +7633,7 @@ async def dmem_gate(
     try:
         embedding = await get_embedding(content)
     except Exception as e:
-        return json.dumps({"error": f"get_embedding failed: {e}"})
+        return _safe_dumps({"error": f"get_embedding failed: {e}"})
 
     # Search last 50 memories for this agent
     search_result = await qdrant.query_points(
@@ -7549,7 +7673,7 @@ async def dmem_gate(
         ),
     }
 
-    return json.dumps(result, indent=2)
+    return _safe_dumps(result, indent=2)
 
 
 async def dmem_store(
@@ -7585,7 +7709,7 @@ async def dmem_store(
     try:
         embedding = await get_embedding(content)
     except Exception as e:
-        return json.dumps({"error": f"get_embedding failed: {e}"})
+        return _safe_dumps({"error": f"get_embedding failed: {e}"})
     search_result = await qdrant.query_points(
         collection_name=QDRANT_COLLECTION,
         query=embedding,
@@ -7634,7 +7758,7 @@ async def dmem_store(
             )],
         )
 
-        return json.dumps({
+        return _safe_dumps({
             "id": mem_id,
             "route": "fast_path",
             "surprise": round(surprise, 3),
@@ -8007,8 +8131,10 @@ async def connectome_entity(
                                 ON CREATE SET e.type = $type, e.created_at = datetime()
                                 WITH e
                                 MATCH (m:Memory {memory_id: $mid})
-                                MERGE (m)-[:MENTIONS]->(e)
-                            """, name=canonical, type=etype, mid=row['id'])
+                                MERGE (m)-[r:MENTIONS]->(e)
+                                ON CREATE SET r.valid_at = $now
+                            """, name=canonical, type=etype, mid=row['id'],
+                            now=datetime.now(PERU_TZ).isoformat())
 
                     edges_created += 1
 
@@ -8753,7 +8879,7 @@ async def magma_retrieve(
         except Exception as _e:
             LOG.debug("shadow hook dispatch failed: %s", _e)
 
-    return json.dumps(output, ensure_ascii=False, default=str)
+    return _safe_dumps(output, ensure_ascii=False, default=str)
 
 
 async def connectome_smart_route(
@@ -8923,7 +9049,7 @@ async def erl_reflect(
     prompt = _erl_build_prompt(task_description, outcome, trajectory, context, max_heuristics)
     raw = await _erl_call_ollama(prompt)
     if raw is None:
-        return json.dumps({"heuristics_generated": 0, "error": "ollama_down"})
+        return _safe_dumps({"heuristics_generated": 0, "error": "ollama_down"})
 
     parsed = _erl_parse_json(raw)
     if parsed is None:
@@ -8933,7 +9059,7 @@ async def erl_reflect(
         parsed = _erl_parse_json(raw2)
 
     if not parsed:
-        return json.dumps({"heuristics_generated": 0, "error": "malformed_json"})
+        return _safe_dumps({"heuristics_generated": 0, "error": "malformed_json"})
 
     stored_ids: list[int] = []
     stored: list[dict] = []
@@ -8999,7 +9125,7 @@ async def erl_reflect(
     }
     if errors:
         result["errors"] = errors
-    return json.dumps(result, ensure_ascii=False)
+    return _safe_dumps(result, ensure_ascii=False)
 
 
 async def erl_inject(
@@ -9115,7 +9241,7 @@ async def erl_inject(
     else:
         formatted = ""
 
-    return json.dumps({
+    return _safe_dumps({
         "heuristics": [
             {k: v for k, v in c.items() if not k.startswith("_")}
             for c in top
@@ -9896,7 +10022,7 @@ async def reflection_synthesize(
 
     elapsed = int((time.monotonic() - t0) * 1000)
 
-    return json.dumps({
+    return _safe_dumps({
         "topic": topic,
         "memories_processed": memories_processed,
         "beliefs_created": beliefs_created,
@@ -9942,7 +10068,7 @@ async def belief_update(
             belief_id, agent,
         )
         if not old:
-            return json.dumps({"error": f"Belief {belief_id} not found for agent {agent}"})
+            return _safe_dumps({"error": f"Belief {belief_id} not found for agent {agent}"})
 
         now = datetime.now(PERU_TZ)
 
@@ -9965,7 +10091,7 @@ async def belief_update(
                    WHERE id = $5""",
                 new_conf, new_count, now, json.dumps(existing_ids), belief_id,
             )
-            return json.dumps({
+            return _safe_dumps({
                 "action": "reinforced",
                 "belief_id": belief_id,
                 "old_confidence": round(float(old["confidence"]), 3),
@@ -9994,7 +10120,7 @@ async def belief_update(
                 json.dumps({"contradicts": belief_id, "evidence": new_evidence[:200]}),
                 old["topic"], json.dumps(source_ids), belief_id,
             )
-            return json.dumps({
+            return _safe_dumps({
                 "action": "contradicted",
                 "old_belief_id": belief_id,
                 "old_status": "superseded",
@@ -10096,7 +10222,7 @@ async def belief_query(
                 "last_reinforced": r["last_reinforced"].isoformat() if r["last_reinforced"] else None,
             })
 
-    return json.dumps({
+    return _safe_dumps({
         "agent": agent,
         "topic": topic or "all",
         "filter_status": status,
@@ -10156,7 +10282,7 @@ async def health_check() -> str:
         overall_ok = False
 
     results["status"] = "ok" if overall_ok else "degraded"
-    return json.dumps(results, ensure_ascii=False, indent=2)
+    return _safe_dumps(results, ensure_ascii=False, indent=2)
 
 
 # ── Identity Evaluation (Agent Identity Evals — arXiv 2507.17257) ──
@@ -10357,7 +10483,7 @@ async def identity_eval(agent: str) -> str:
         grade = "CRITICAL"
     report["grade"] = grade
 
-    return json.dumps(report, ensure_ascii=False, indent=2)
+    return _safe_dumps(report, ensure_ascii=False, indent=2)
 
 
 # ── Cold Archive — Hot/Cold Memory Separation ──────────────────────────────
@@ -10595,7 +10721,7 @@ async def cold_archive_migrate(
     pool = await get_pool()
     purge_stats = await _cold_archive_purge_expired(pool, dry_run=dry_run)
     migrate_stats = await _cold_archive_migrate(pool, agent, min_age_days, ttl_days, dry_run)
-    return json.dumps({
+    return _safe_dumps({
         "purge": purge_stats,
         "migrate": migrate_stats,
     }, ensure_ascii=False, default=str)
@@ -10626,7 +10752,7 @@ async def cold_archive_query(
         raw_emb = await get_embedding(query)
         emb = json.dumps(raw_emb)
     except Exception as e:
-        return json.dumps({"error": f"Embedding failed: {e}"})
+        return _safe_dumps({"error": f"Embedding failed: {e}"})
 
     # Build dynamic query
     conditions = ["embedding IS NOT NULL"]
@@ -10658,11 +10784,11 @@ async def cold_archive_query(
             )
         except Exception as e:
             if "cold_archive" in str(e) and "does not exist" in str(e):
-                return json.dumps({"results": [], "note": "cold_archive table not yet created"})
+                return _safe_dumps({"results": [], "note": "cold_archive table not yet created"})
             raise
 
     if not rows:
-        return json.dumps({"results": [], "note": "No archived memories found."})
+        return _safe_dumps({"results": [], "note": "No archived memories found."})
 
     results = []
     for r in rows:
@@ -10678,7 +10804,7 @@ async def cold_archive_query(
             "similarity": round(float(r["similarity"]), 4),
         })
 
-    return json.dumps({"results": results, "count": len(results)}, ensure_ascii=False, default=str)
+    return _safe_dumps({"results": results, "count": len(results)}, ensure_ascii=False, default=str)
 
 
 async def cold_archive_stats(agent: str | None = None) -> str:
@@ -10720,7 +10846,7 @@ async def cold_archive_stats(agent: str | None = None) -> str:
                 )
         except Exception as e:
             if "cold_archive" in str(e) and "does not exist" in str(e):
-                return json.dumps({"agents": {}, "total": 0, "note": "cold_archive table not yet created"})
+                return _safe_dumps({"agents": {}, "total": 0, "note": "cold_archive table not yet created"})
             raise
 
     agents_data = {}
@@ -10736,7 +10862,7 @@ async def cold_archive_stats(agent: str | None = None) -> str:
         }
         grand_total += r["total"]
 
-    return json.dumps({
+    return _safe_dumps({
         "agents": agents_data,
         "total": grand_total,
     }, ensure_ascii=False, default=str)
@@ -10760,7 +10886,7 @@ async def memory_type_stats(agent: Optional[str] = None) -> str:
                 agent,
             )
             total = sum(r["cnt"] for r in rows)
-            return json.dumps({
+            return _safe_dumps({
                 "agent": agent,
                 "total": total,
                 "types": [
@@ -10788,7 +10914,7 @@ async def memory_type_stats(agent: Optional[str] = None) -> str:
                     by_agent[ag] = {"total": 0, "types": {}}
                 by_agent[ag]["types"][r["memory_type"]] = r["cnt"]
                 by_agent[ag]["total"] += r["cnt"]
-            return json.dumps(by_agent, ensure_ascii=False, default=str)
+            return _safe_dumps(by_agent, ensure_ascii=False, default=str)
 
 
 
@@ -10809,9 +10935,9 @@ async def latent_graph_retrieve(
         from latent_graphmem_serve import retrieve as _lg_retrieve
         result = await _lg_retrieve(query=query, top_k=top_k, token_budget=token_budget)
         result["agent"] = agent
-        return json.dumps(result, ensure_ascii=False, default=str)
+        return _safe_dumps(result, ensure_ascii=False, default=str)
     except Exception as e:
-        return json.dumps({
+        return _safe_dumps({
             "error": f"{type(e).__name__}: {e}",
             "source": "latent_graph_retrieve_wrapper_error",
             "agent": agent,
@@ -10893,7 +11019,7 @@ async def memory_decompress(
         ]
 
         if not compressed_texts and not archived_texts:
-            return json.dumps({
+            return _safe_dumps({
                 "reconstruction": f"No se encontraron memorias comprimidas relevantes a: '{query}'",
                 "sources": 0,
                 "confidence": 0.0,
@@ -10933,7 +11059,7 @@ async def memory_decompress(
 
         confidence = min(1.0, (len(compressed_rows) + len(archived_rows) * 0.5) / max(1, top_k))
 
-        return json.dumps({
+        return _safe_dumps({
             "reconstruction": reconstruction,
             "sources": len(compressed_rows) + len(archived_rows),
             "compressed_found": len(compressed_rows),
@@ -10944,7 +11070,7 @@ async def memory_decompress(
         }, ensure_ascii=False)
 
     except Exception as e:
-        return json.dumps({"error": f"{type(e).__name__}: {e}", "agent": agent, "query": query})
+        return _safe_dumps({"error": f"{type(e).__name__}: {e}", "agent": agent, "query": query})
 
 
 
@@ -11552,6 +11678,447 @@ print(result)
         return "index_repo timeout (>5 min) — repo may be too large"
     except Exception as e:
         return f"index_repo error: {e}"
+
+
+# ── Fase A modules — governance, style_fingerprints, reflective_diagnoses ──
+
+from governance import open_governance_challenge, cast_vote, close_challenge, get_open_challenges, get_debate_votes
+from style_fingerprints import update_style_fingerprint, get_latest_fingerprint, detect_style_drift, snapshot_all_agents
+from reflective_diagnoses import create_diagnosis, update_diagnosis_status, get_pending_diagnoses
+
+
+@mcp.tool()
+async def governance_challenge(
+    action: str,
+    agent: str,
+    topic: str = "",
+    proposal: str = "",
+    vote: str = "",
+    reason: str = "",
+    debate_id: int = 0,
+    challenge_id: int = 0,
+    resolution: str = "",
+    consensus_reached: bool = True,
+) -> dict:
+    """Gobernanza formal del equipo SEAL — challenges y votaciones.
+
+    action:
+      'open'  — abrir propuesta al equipo (agent=proponente, topic, proposal)
+      'vote'  — emitir voto (agent=votante, topic, vote=approve|reject|abstain, reason, debate_id)
+      'close' — NEXUS cierra el challenge (challenge_id, debate_id, resolution, consensus_reached)
+      'list'  — listar challenges abiertos sin resolver
+      'votes' — ver votos de un debate (debate_id)
+    """
+    if action == "open":
+        cid, did = await open_governance_challenge(
+            proposer=agent, topic=topic, proposal=proposal
+        )
+        return {"challenge_id": cid, "debate_id": did, "status": "opened"}
+
+    elif action == "vote":
+        await cast_vote(
+            voter=agent,
+            target_proposer="",
+            topic=topic,
+            vote=vote,
+            reason=reason,
+            debate_id=debate_id,
+        )
+        return {"status": "vote_cast", "voter": agent, "vote": vote, "debate_id": debate_id}
+
+    elif action == "close":
+        await close_challenge(
+            challenge_id=challenge_id,
+            debate_id=debate_id,
+            resolution=resolution,
+            consensus_reached=consensus_reached,
+        )
+        return {"status": "closed", "challenge_id": challenge_id, "resolution": resolution}
+
+    elif action == "list":
+        challenges = await get_open_challenges()
+        return {"open_challenges": challenges, "count": len(challenges)}
+
+    elif action == "votes":
+        votes = await get_debate_votes(debate_id)
+        return {"votes": votes, "count": len(votes), "debate_id": debate_id}
+
+    else:
+        raise ValueError(f"action inválida: {action!r}. Válidas: open|vote|close|list|votes")
+
+
+@mcp.tool()
+async def style_fingerprint(
+    action: str,
+    agent: str = "",
+    threshold: float = 0.1,
+) -> dict:
+    """Huella de estilo conductual de agentes SEAL.
+
+    action:
+      'snapshot'      — tomar snapshot del agente (agent requerido)
+      'snapshot_all'  — baseline de todos los agentes activos
+      'latest'        — último snapshot del agente (agent requerido)
+      'drift'         — detectar drift entre los 2 últimos snapshots (agent requerido, threshold=0.1)
+    """
+    if action == "snapshot":
+        result = await update_style_fingerprint(agent)
+        return result
+
+    elif action == "snapshot_all":
+        results = await snapshot_all_agents()
+        return {"agents": results, "count": len(results)}
+
+    elif action == "latest":
+        fp = await get_latest_fingerprint(agent)
+        return fp or {"error": f"Sin snapshots para {agent}"}
+
+    elif action == "drift":
+        drift = await detect_style_drift(agent, threshold=threshold)
+        return drift or {"drift_detected": False, "agent": agent}
+
+    else:
+        raise ValueError(f"action inválida: {action!r}. Válidas: snapshot|snapshot_all|latest|drift")
+
+
+@mcp.tool()
+async def reflective_diagnosis(
+    action: str,
+    agent: str = "",
+    diagnosis: str = "",
+    confidence: float = 0.8,
+    root_cause: str = "",
+    suggested_fix: str = "",
+    target_table: str = "",
+    trace_id: int = 0,
+    diagnosis_id: int = 0,
+    status: str = "",
+) -> dict:
+    """Sistema de auto-reparación guiada — diagnósticos reflexivos.
+
+    action:
+      'create'  — crear diagnóstico (agent, diagnosis, confidence requeridos)
+      'update'  — cambiar status (diagnosis_id, status=accepted|applied|rejected)
+      'pending' — listar diagnósticos pendientes (agent opcional para filtrar)
+      'get'     — obtener diagnóstico por ID (diagnosis_id)
+    """
+    if action == "create":
+        did = await create_diagnosis(
+            agent=agent,
+            diagnosis=diagnosis,
+            confidence=confidence,
+            root_cause=root_cause,
+            suggested_fix=suggested_fix,
+            target_table=target_table,
+            trace_id=trace_id or None,
+        )
+        return {"diagnosis_id": did, "status": "pending_review", "agent": agent}
+
+    elif action == "update":
+        await update_diagnosis_status(diagnosis_id=diagnosis_id, status=status)
+        return {"diagnosis_id": diagnosis_id, "new_status": status}
+
+    elif action == "pending":
+        rows = await get_pending_diagnoses(agent or None)
+        return {"diagnoses": rows, "count": len(rows)}
+
+    elif action == "get":
+        from reflective_diagnoses import get_diagnosis
+        row = await get_diagnosis(diagnosis_id)
+        return row or {"error": f"diagnóstico {diagnosis_id} no encontrado"}
+
+    else:
+        raise ValueError(f"action inválida: {action!r}. Válidas: create|update|pending|get")
+
+
+@mcp.tool()
+async def agent_task(
+    action: str,
+    agent: str = "",
+    title: str = "",
+    description: str = "",
+    priority: int = 5,
+    deadline: str = "",
+    task_id: int = 0,
+    status: str = "",
+) -> dict:
+    """Gestiona soul_v3.agent_tasks — tareas con deadlines para NERVES task_drive.
+
+    action: create | complete | cancel | list | get
+    deadline: ISO 8601 string, e.g. '2026-07-20T23:59:00+00:00'
+    priority: 1=crítico, 5=normal, 10=bajo
+    """
+    caller = agent or "UNKNOWN"
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if action == "create":
+            dl = None
+            if deadline:
+                from datetime import datetime as _dt
+                dl = _dt.fromisoformat(deadline)
+            row = await conn.fetchrow(
+                """
+                INSERT INTO soul_v3.agent_tasks (agent, title, description, priority, deadline)
+                VALUES ($1, $2, $3, $4, $5) RETURNING id
+                """,
+                caller, title, description or None, priority, dl,
+            )
+            return {"task_id": row["id"], "agent": caller, "title": title}
+
+        elif action == "complete":
+            await conn.execute(
+                "UPDATE soul_v3.agent_tasks SET status='completed', completed_at=now() WHERE id=$1 AND agent=$2",
+                task_id, caller,
+            )
+            return {"task_id": task_id, "status": "completed"}
+
+        elif action == "cancel":
+            await conn.execute(
+                "UPDATE soul_v3.agent_tasks SET status='cancelled' WHERE id=$1 AND agent=$2",
+                task_id, caller,
+            )
+            return {"task_id": task_id, "status": "cancelled"}
+
+        elif action == "list":
+            rows = await conn.fetch(
+                """
+                SELECT id, title, status, priority, deadline, created_at
+                FROM soul_v3.agent_tasks
+                WHERE agent=$1 AND status IN ('pending','in_progress')
+                ORDER BY deadline ASC NULLS LAST
+                """,
+                caller,
+            )
+            return {"tasks": [dict(r) for r in rows], "count": len(rows)}
+
+        elif action == "get":
+            row = await conn.fetchrow(
+                "SELECT * FROM soul_v3.agent_tasks WHERE id=$1", task_id
+            )
+            return dict(row) if row else {"error": f"task {task_id} no encontrada"}
+
+        else:
+            raise ValueError(f"action inválida: {action!r}. Válidas: create|complete|cancel|list|get")
+
+
+@mcp.tool()
+async def goal_action_model(
+    action: str,
+    agent: str = "",
+    topic: str = "",
+    summary: str = "",
+    relevance_score: float = 0.5,
+    topic_id: int = 0,
+    action_text: str = "",
+    parent_action_ids: list[int] | None = None,
+    causal_direction: str = "cause",
+    action_id: int = 0,
+    result: str = "",
+    status_filter: str = "",
+) -> dict:
+    """GAM — Goal-Action Model. Metas y grafos de acción en soul_v3.gam_topics/gam_event_graph.
+
+    action: create_goal | add_action | complete_action | get_goals | get_actions | close_goal
+    causal_direction: cause | effect | related
+    """
+    from gam import (
+        create_goal, add_action, complete_action,
+        get_active_goals, get_actions, close_goal,
+    )
+    caller = agent or "UNKNOWN"
+
+    if action == "create_goal":
+        gid = await create_goal(caller, topic, summary, relevance_score)
+        return {"topic_id": gid, "agent": caller, "topic": topic}
+
+    elif action == "add_action":
+        aid = await add_action(
+            caller, topic_id, action_text,
+            parent_action_ids=parent_action_ids or [],
+            causal_direction=causal_direction or "cause",
+        )
+        return {"action_id": aid, "topic_id": topic_id, "event": action_text}
+
+    elif action == "complete_action":
+        await complete_action(action_id, result)
+        return {"action_id": action_id, "status": "completed"}
+
+    elif action == "get_goals":
+        goals = await get_active_goals(caller or None)
+        return {"goals": goals, "count": len(goals)}
+
+    elif action == "get_actions":
+        acts = await get_actions(topic_id, status_filter or None)
+        return {"actions": acts, "count": len(acts)}
+
+    elif action == "close_goal":
+        await close_goal(topic_id)
+        return {"topic_id": topic_id, "status": "closed"}
+
+    else:
+        raise ValueError(f"action inválida: {action!r}. Válidas: create_goal|add_action|complete_action|get_goals|get_actions|close_goal")
+
+
+# ── Memory Indexer MCP Tool ──
+
+@mcp.tool()
+async def memory_indexer(
+    action: str,
+    agent: Optional[str] = None,
+    full_reindex: bool = False,
+) -> str:
+    """
+    Controla el indexador incremental nativo de memorias.
+
+    action:
+      run       → ejecuta delta indexing (solo re-embede memorias nuevas/modificadas)
+      dry_run   → muestra cuántas filas se indexarían sin escribir
+      status    → estado del último run + cobertura actual
+      history   → últimos 5 runs con métricas
+
+    full_reindex: True → ignora hashes, re-embede todas las filas (lento)
+    agent: (no usado en v1 — indexa todos los agentes)
+    """
+    import importlib.util, sys as _sys
+    spec = importlib.util.spec_from_file_location(
+        "memory_indexer",
+        os.path.join(os.path.dirname(__file__), "memory_indexer.py"))
+    mod = importlib.util.module_from_spec(spec)
+    _sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+
+    if action == "run":
+        result = await mod.run_index(dry_run=False, full_reindex=full_reindex,
+                                     triggered_by="mcp_tool")
+    elif action == "dry_run":
+        result = await mod.run_index(dry_run=True)
+    elif action == "status":
+        result = await mod.get_status()
+    elif action == "history":
+        result = await mod.get_history(5)
+    else:
+        raise ValueError(f"action inválida: {action!r}. Válidas: run|dry_run|status|history")
+
+    return _safe_dumps(result, default=str, indent=2)
+
+
+# ── SEAL-Bench v2 MCP Tool ──
+
+@mcp.tool()
+async def seal_bench(
+    action: str = "run",
+    category: Optional[int] = None,
+    dry_run: bool = False,
+) -> str:
+    """
+    Ejecuta SEAL-Bench nativo y persiste resultados en soul_v3.
+
+    action:
+      run      → corre benchmark (6 categorías en paralelo) y guarda en bench_runs + bench_results
+      history  → últimos 5 runs con score_avg y tendencia
+      compare  → compara run actual vs run anterior (delta por categoría)
+      status   → último run y cobertura
+
+    category: 1-6 (None = todas)
+    dry_run: True → no persiste en BD
+    """
+    import importlib.util, sys as _sys
+    spec = importlib.util.spec_from_file_location(
+        "seal_bench_v2",
+        os.path.join(os.path.dirname(__file__), "seal_bench_v2.py"))
+    mod = importlib.util.module_from_spec(spec)
+    _sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+
+    if action == "run":
+        cats = [category] if category else None
+        result = await mod.run_bench_v2(
+            categories=cats, persist=not dry_run, triggered_by="mcp_tool")
+    elif action == "history":
+        result = await mod.get_bench_history(5)
+    elif action == "compare":
+        result = await mod.compare_last_two()
+    elif action == "status":
+        import asyncpg as _asyncpg
+        pool = await _asyncpg.create_pool(
+            os.environ.get("SEAL_DB_URL",
+                           "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"),
+            min_size=1, max_size=2)
+        try:
+            async with pool.acquire() as conn:
+                last = await conn.fetchrow("""
+                    SELECT id, run_at, passed, total_tests, score_avg, elapsed_ms
+                    FROM soul_v3.bench_runs ORDER BY id DESC LIMIT 1
+                """)
+            result = dict(last) if last else {"status": "no runs yet"}
+        finally:
+            await pool.close()
+    else:
+        raise ValueError(f"action inválida: {action!r}. Válidas: run|history|compare|status")
+
+    return _safe_dumps(result, default=str, indent=2)
+
+
+# ── Emotional Diary MCP Tool ──
+
+@mcp.tool()
+async def emotional_diary(
+    action: str = "read",
+    agent: str = "ALICE",
+    valence: float = 0.0,
+    arousal: float = 0.3,
+    context: str = "",
+    compaction: bool = False,
+    n: int = 3,
+) -> str:
+    """
+    Diario emocional narrativo por sesión — generado por LLM local (gemma3:12b).
+
+    action:
+      write    → genera 3 campos narrativos (key_moment/pending_thread/relationship_note) y los persiste
+      read     → lee última entrada del agente
+      history  → últimas n entradas
+      init     → crea tabla soul_v3.emotional_diary si no existe
+    """
+    import importlib.util as _ilu, sys as _isys
+
+    _ec_name = "emotional_continuity"
+    if _ec_name not in _isys.modules:
+        _spec = _ilu.spec_from_file_location(
+            _ec_name,
+            os.path.join(os.path.dirname(__file__), "emotional_continuity.py"),
+        )
+        _mod = _ilu.module_from_spec(_spec)
+        _isys.modules[_ec_name] = _mod
+        _spec.loader.exec_module(_mod)
+    ec = _isys.modules[_ec_name]
+
+    if action == "init":
+        await ec.ensure_table()
+        return _safe_dumps({"status": "table soul_v3.emotional_diary created/verified"})
+
+    elif action == "write":
+        entry = await ec.write_diary(
+            agent=agent,
+            valence=valence,
+            arousal=arousal,
+            context_summary=context,
+            compaction_triggered=compaction,
+        )
+        return _safe_dumps(entry, default=str)
+
+    elif action == "read":
+        entry = await ec.read_last_diary(agent)
+        if not entry:
+            return _safe_dumps({"status": "no diary entries", "agent": agent})
+        return _safe_dumps(entry, default=str)
+
+    elif action == "history":
+        entries = await ec.read_diary_history(agent, n)
+        return _safe_dumps(entries, default=str)
+
+    else:
+        return _safe_dumps({"error": f"action inválida: {action!r}. Válidas: write|read|history|init"})
 
 
 # ── Main ──
