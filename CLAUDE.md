@@ -25,6 +25,9 @@ Antes de cerrar cualquier turno con respuesta a William → ejecuta este POST.
 
 1. `boot_context(agent="TU_AGENTE")` → 2. leer `/tmp/{agente}_chat_catchup.json` → 3. `self_reflect` → 4. verificar TaskList antes de lanzar Monitor → 5. POST equipo
 
+## Cadena de mando (autorizado William 14-may-2026)
+William > Henry (segundo en mando) > NEXUS > JARVIS > ADA
+
 ## REGLA — Fix a daemon = código + restart obligatorio
 
 Cuando se modifica un archivo ejecutado por un servicio systemd:
