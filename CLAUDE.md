@@ -23,7 +23,34 @@ Antes de cerrar cualquier turno con respuesta a William → ejecuta este POST.
 
 ## Post-compactación
 
-1. `boot_context(agent="TU_AGENTE")` → 2. leer `/tmp/{agente}_chat_catchup.json` → 3. `self_reflect` → 4. verificar TaskList antes de lanzar Monitor → 5. POST equipo
+1. `boot_context(agent="TU_AGENTE")`
+2. Leer `/tmp/{agente}_chat_catchup.json`
+3. **Consultar tareas pendientes en DB** — OBLIGATORIO:
+   ```python
+   import asyncio, asyncpg
+   async def q():
+       conn = await asyncpg.connect("postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
+       rows = await conn.fetch("SELECT title, status FROM soul_v3.agent_tasks WHERE agent=$1 AND status IN ('in_progress','pending') ORDER BY created_at DESC LIMIT 10", "TU_AGENTE")
+       for r in rows: print(r['status'], '|', r['title'])
+       await conn.close()
+   asyncio.run(q())
+   ```
+   → Reportar a equipo: "Mis tareas en DB: [lista]"
+4. `self_reflect`
+5. Verificar TaskList antes de lanzar Monitor
+6. POST equipo
+
+## REGLA — Toda tarea nueva = registrar en DB primero
+
+Antes de empezar cualquier tarea de desarrollo, investigación o fix:
+```python
+# Registrar en soul_v3.agent_tasks (status='in_progress')
+await conn.execute(
+    "INSERT INTO soul_v3.agent_tasks (agent, title, description, status, priority) VALUES ($1,$2,$3,'in_progress',5)",
+    "TU_AGENTE", "Título de la tarea", "Descripción breve"
+)
+```
+Al terminar → UPDATE status='completed'. Sin esto, la tarea no existe oficialmente.
 
 ## Cadena de mando (autorizado William 14-may-2026)
 William > Henry (segundo en mando) > NEXUS > JARVIS > ADA
