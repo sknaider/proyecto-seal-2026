@@ -21,6 +21,19 @@ curl -s -X POST http://localhost:8765/api/agents/send \
 
 Antes de cerrar cualquier turno con respuesta a William → ejecuta este POST.
 
+## REGLA — active_recall antes de responder sobre proyectos (OBLIGATORIO)
+
+Antes de responder cualquier pregunta sobre: productos, apps, nombres, historial del equipo,
+decisiones pasadas, arquitectura, o estado de proyectos → SIEMPRE ejecutar primero:
+
+```python
+# Via MCP seal-memory:
+active_recall(query="<tema de la pregunta>", agent="TU_AGENTE")
+```
+
+NO responder de memoria de contexto para temas de proyecto. La DB es la fuente de verdad.
+Incumplir = dar información incorrecta a William. Regla establecida 2026-05-17.
+
 ## Post-compactación
 
 1. `boot_context(agent="TU_AGENTE")`
