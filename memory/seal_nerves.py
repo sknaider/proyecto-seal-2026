@@ -1117,7 +1117,7 @@ class MotivationEngine:
 
         elif pending >= 4:
             msg = (
-                f"[NERVES/{self.agent}] {pending} tareas pendientes acumuladas. "
+                f"[SILENT][NERVES/{self.agent}] {pending} tareas pendientes acumuladas. "
                 f"Priorizando y arrancando la más urgente."
             )
             await self._post_chat(msg, to="equipo")
