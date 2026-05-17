@@ -37,8 +37,14 @@ Incumplir = dar información incorrecta a William. Regla establecida 2026-05-17.
 ## Post-compactación
 
 1. `boot_context(agent="TU_AGENTE")`
-2. Leer `/tmp/{agente}_chat_catchup.json`
-3. **Consultar tareas pendientes en DB** — OBLIGATORIO:
+2. **active_recall de hechos de proyecto** — OBLIGATORIO (William 17-may-2026):
+   ```
+   active_recall(query="nombres apps Soul App Soul App 2 proyectos activos", agent="TU_AGENTE")
+   active_recall(query="decisiones importantes reglas criticas William", agent="TU_AGENTE")
+   ```
+   → Sin este paso, los agentes responden con información incorrecta o desactualizada.
+3. Leer `/tmp/{agente}_chat_catchup.json`
+4. **Consultar tareas pendientes en DB** — OBLIGATORIO:
    ```python
    import asyncio, asyncpg
    async def q():
