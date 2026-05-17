@@ -1624,7 +1624,10 @@ class MotivationEngine:
             await self._post_chat_direct(message, to)
 
     async def _post_chat_direct(self, message: str, to: str = "equipo"):
-        """Post message to SEAL web_chat immediately."""
+        """Post message to SEAL web_chat immediately. [SILENT] prefix suppresses webchat."""
+        if message.startswith("[SILENT]"):
+            log.info(f"[{self.agent}] {message}")
+            return
         payload = {
             "from":    self.agent,
             "to":      to,
