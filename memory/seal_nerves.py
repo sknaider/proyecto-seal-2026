@@ -1624,15 +1624,22 @@ class MotivationEngine:
             await self._post_chat_direct(message, to)
 
     async def _post_chat_direct(self, message: str, to: str = "equipo"):
-        """Post message to SEAL web_chat immediately. [SILENT] prefix suppresses webchat."""
+        """Post message to SEAL webchat. [SILENT] → terminal only. Agent-to-agent → DM channel."""
         if message.startswith("[SILENT]"):
             log.info(f"[{self.agent}] {message}")
             return
+        # Inter-agent coordination goes to DM, not public webchat (William's rule)
+        _public_targets = {"equipo", "william", "henry", "William", "Henry"}
+        if to not in _public_targets:
+            parts = sorted([self.agent.lower(), to.lower()])
+            channel = f"dm:{parts[0]}:{parts[1]}"
+        else:
+            channel = "web_chat"
         payload = {
             "from":    self.agent,
             "to":      to,
             "type":    "nerves_fire",
-            "channel": "web_chat",
+            "channel": channel,
             "message": message,
         }
         try:
