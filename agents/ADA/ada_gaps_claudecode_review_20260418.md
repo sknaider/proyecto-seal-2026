@@ -1,4 +1,6 @@
 # ADA — Gap Analysis Independiente: Claude Code vs SEAL
+
+> ⚠️ **NOTA 2026-05-20 (correctness sweep ALICE por orden William):** El modelo local oficial del equipo SEAL es **Gemma 4** (`gemma4-dum:q8`, Gemma 4 e2b Q8_0 GGUF en llama-server :8899 sobre DGX Spark). Las referencias a `qwen2.5:7b` en este documento son **históricas** (pre-27-abr-2026, antes de la migración a Gemma 4) y se mantienen para preservar el contexto del momento. Para cualquier decisión técnica actual: verificar con `curl http://localhost:8899/v1/models`.
 > Perspectiva: autora original de los 16 SPECs (4-5 abril 2026)
 > Fecha review: 2026-04-18 23:10 Lima
 > Scope: SPEC_01-04 + SPEC_09-10 + SPEC_15-16 + OPENCLAUDE_DELTA + HIDDEN_FEATURES
