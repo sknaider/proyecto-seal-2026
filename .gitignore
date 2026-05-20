@@ -63,3 +63,13 @@ credentials.env
 *.env
 !seal-studio/frontend/.env*
 *.env.bak
+
+# Virtual environments (NUNCA commitear — incluyen binarios NVIDIA/PyTorch de 200MB-720MB)
+**/liveportrait-venv/
+**/.venv/
+**/venv/
+**/site-packages/
+
+# Datasets pesados que no deben estar en git
+research/flywire_results/nt_types.json
+research/flywire_results/*.json
