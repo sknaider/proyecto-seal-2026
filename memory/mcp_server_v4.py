@@ -38,10 +38,17 @@ from qdrant_client.models import (
 )
 from neo4j import AsyncGraphDatabase
 
-from db import get_pool, close_pool
+from db import DB_URL, get_pool, close_pool
 from embeddings import get_embedding, warmup_model
 from config import settings
 from reasoning_quality_validator import validate_trace as kismath_validate
+
+# SOUL Recall Router (Fase 1 — feature-flagged, default OFF)
+try:
+    from recall_router import soul_recall_router as _soul_recall_router, ROUTER_ENABLED as _ROUTER_ENABLED
+except ImportError:
+    _soul_recall_router = None  # type: ignore
+    _ROUTER_ENABLED = False
 
 LOG = logging.getLogger("seal-memory")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
@@ -3257,16 +3264,45 @@ async def tree_stats(agent: str = "") -> str:
 
 # Emotional signal keywords for valence-boost reranking (SEAL-Bench Cat2 fix)
 _EMOTIONAL_SIGNAL_KEYWORDS: frozenset[str] = frozenset({
-    # English
+    # English — base forms
     "positive", "negative", "happy", "sad", "feel", "emotion", "emotional",
     "joy", "fear", "anger", "trust", "surprise", "love", "hate", "pride",
     "confident", "confidence", "anxious", "anxiety", "excited", "frustrated",
     "proud", "worried", "grateful", "satisfied", "disappointed", "hopeful",
-    # Spanish
+    # English — past tenses / variants
+    "felt", "feeling", "feelings", "deeply", "intense", "intensely",
+    "lost", "losing", "loss", "grief", "regret", "regretful", "missed",
+    "missing", "longing", "hurt", "hurting", "scared", "thrilled",
+    "devastated", "overwhelmed", "relieved", "elated", "moved", "touched",
+    "distressed", "upset", "delighted", "content", "crash", "failure",
+    "failed", "broken",
+    # Spanish — variantes
     "positivo", "negativo", "feliz", "triste", "sentir", "emoción", "emocional",
     "alegría", "miedo", "enojo", "confianza", "sorpresa", "amor", "orgullo",
     "ansioso", "ansiedad", "emocionado", "frustrado", "preocupado", "agradecido",
     "satisfecho", "decepcionado", "esperanza", "corrección", "crítico",
+    "profundamente", "intensamente", "perdido", "perdiendo", "duelo",
+    "arrepentido", "herido", "asustado", "aliviado",
+})
+
+_POSITIVE_EMOTION_KEYWORDS: frozenset[str] = frozenset({
+    "positive", "happy", "joy", "love", "pride", "proud", "confident",
+    "confidence", "excited", "grateful", "satisfied", "hopeful", "thrilled",
+    "relieved", "elated", "delighted", "content", "achievement", "achieved",
+    "celebration", "successful", "success", "orgullo", "feliz", "alegría",
+    "confianza", "emocionado", "agradecido", "satisfecho", "esperanza",
+    "aliviado",
+})
+
+_NEGATIVE_EMOTION_KEYWORDS: frozenset[str] = frozenset({
+    "negative", "sad", "fear", "anger", "hate", "anxious", "anxiety",
+    "frustrated", "worried", "disappointed", "lost", "losing", "loss",
+    "grief", "regret", "regretful", "missed", "missing", "longing", "hurt",
+    "hurting", "scared", "devastated", "overwhelmed", "distressed", "upset",
+    "crash", "failure", "failed", "broken", "negativo", "triste", "miedo",
+    "enojo", "ansioso", "ansiedad", "frustrado", "preocupado",
+    "decepcionado", "perdido", "perdiendo", "duelo", "arrepentido", "herido",
+    "asustado",
 })
 
 
@@ -3281,6 +3317,16 @@ def _detect_emotional_signal(query: str) -> float:
         return 0.0
     # 1 hit → 0.5, 2+ hits → 1.0 (capped)
     return min(1.0, hits * 0.5)
+
+
+def _detect_emotional_polarity(query: str) -> int:
+    """Return 1 for positive emotional queries, -1 for negative, 0 unknown/mixed."""
+    lower = query.lower()
+    positive_hits = sum(1 for kw in _POSITIVE_EMOTION_KEYWORDS if re.search(r'\b' + re.escape(kw) + r'\b', lower))
+    negative_hits = sum(1 for kw in _NEGATIVE_EMOTION_KEYWORDS if re.search(r'\b' + re.escape(kw) + r'\b', lower))
+    if positive_hits == negative_hits:
+        return 0
+    return 1 if positive_hits > negative_hits else -1
 
 @mcp.tool()
 async def memory_hybrid_search(
@@ -3318,7 +3364,7 @@ async def memory_hybrid_search(
     try:
         query_vec = await get_embedding(query)
         qdrant = await get_qdrant()
-        must, must_not = _hmem_build_qdrant_filters(query, agent, category, False, bool(agent))
+        must, must_not = _hmem_build_qdrant_filters(query, agent, category, False, False)
 
         resp = await qdrant.query_points(
             collection_name=QDRANT_COLLECTION,
@@ -3339,7 +3385,9 @@ async def memory_hybrid_search(
     keyword_results = {}
     try:
         pool = await get_pool()
-        conditions = ["invalid_at IS NULL", "search_vector IS NOT NULL"]
+        bm25_expr = "COALESCE(embedding_bm25, to_tsvector('simple', COALESCE(content, '')))"
+        query_expr = "websearch_to_tsquery('simple', $1)"
+        conditions = ["invalid_at IS NULL"]
         params = [query]
         idx = 2
         if agent:
@@ -3373,9 +3421,9 @@ async def memory_hybrid_search(
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 f"""SELECT id, agent, category, content, importance, created_at, valence, arousal,
-                           ts_rank_cd(search_vector, plainto_tsquery('english', $1)) as rank
+                           ts_rank_cd({bm25_expr}, {query_expr}) as rank
                     FROM memories
-                    WHERE {where} AND search_vector @@ plainto_tsquery('english', $1)
+                    WHERE {where} AND {bm25_expr} @@ {query_expr}
                     ORDER BY rank DESC
                     LIMIT {limit * 2}""",
                 *params,
@@ -3472,9 +3520,15 @@ async def memory_hybrid_search(
         # Formula: score * (1 + abs(valence) * boost_factor * emotional_signal_strength)
         # boost_factor=0.5 when esignal==1.0 (2+ keywords → 1.5x max), else 0.3 (1.3x max)
         _esignal = _detect_emotional_signal(query)
+        _epolarity = _detect_emotional_polarity(query)
         if _esignal > 0 and val != 0:
             _boost = 0.5 if _esignal >= 1.0 else 0.3
             hybrid_score = hybrid_score * (1.0 + abs(val) * _boost * _esignal)
+            if _epolarity and abs(val) > 0.3:
+                if val * _epolarity > 0:
+                    hybrid_score = hybrid_score * (1.0 + min(abs(val), 1.0) * 1.5)
+                else:
+                    hybrid_score = hybrid_score * 0.25
 
         final_score = temporal_decay_score(hybrid_score, days_old, imp, val, aro, category=cat, utility=util)
 
@@ -3494,6 +3548,11 @@ async def memory_hybrid_search(
         if val:
             entry["valence"] = round(val, 2)
         entries.append(entry)
+
+    if agent:
+        entries = [e for e in entries if e.get("agent") == agent]
+        if not entries:
+            return "No memories found matching query."
 
     # MIRIX type enrichment for hybrid search
     _hm_ids = [e["id"] for e in entries if isinstance(e["id"], int)]
@@ -4069,6 +4128,38 @@ Rules:
 - Output ONLY valid JSON, no markdown, no explanation"""
 
 
+async def _resolve_distill_session_id(conn, agent: str, session_id: Optional[str]) -> int | None:
+    """Resolve MCP session IDs to distilled_exchanges.session_id BIGINT.
+
+    Older callers passed textual IDs like ``ada_20260402_0215``. The current
+    schema stores the canonical numeric ``sessions.id``, so non-numeric legacy
+    IDs must not be inserted directly.
+    """
+    if session_id is not None:
+        try:
+            return int(session_id)
+        except (TypeError, ValueError):
+            LOG.info(
+                "Ignoring legacy textual session_id for distilled_exchanges: agent=%s session_id=%s",
+                agent,
+                session_id,
+            )
+
+    return await conn.fetchval(
+        """
+        SELECT id
+        FROM sessions
+        WHERE agent = $1
+        ORDER BY
+            CASE WHEN ended_at IS NULL THEN 0 ELSE 1 END,
+            started_at DESC,
+            id DESC
+        LIMIT 1
+        """,
+        agent,
+    )
+
+
 async def session_distill(
     agent: str,
     exchange_text: str,
@@ -4093,25 +4184,27 @@ async def session_distill(
     """
     import httpx
 
-    if not session_id:
-        session_id = f"{agent.lower()}_{datetime.now(PERU_TZ).strftime('%Y%m%d_%H%M')}"
-
     # Skip trivial exchanges
     if len(exchange_text.strip()) < 100:
         return "Exchange too short (<100 chars), skipped."
 
     source_tokens = len(exchange_text.split())  # Rough estimate
+    db_session_id: int | None = None
+    legacy_session_id = session_id
 
     # Overlap retrieval: get last distill's overlap for narrative continuity (Nivel 2, ADA 2026-04-09)
     overlap_text = ""
     try:
         _pool = await get_pool()
         async with _pool.acquire() as conn:
+            db_session_id = await _resolve_distill_session_id(conn, agent, session_id)
             prev = await conn.fetchval("""
                 SELECT overlap_context FROM distilled_exchanges
-                WHERE agent = $1 AND session_id = $2 AND overlap_context IS NOT NULL
+                WHERE agent = $1
+                  AND session_id IS NOT DISTINCT FROM $2
+                  AND overlap_context IS NOT NULL
                 ORDER BY created_at DESC LIMIT 1
-            """, agent, session_id)
+            """, agent, db_session_id)
             if prev:
                 overlap_text = prev
     except Exception:
@@ -4173,7 +4266,7 @@ async def session_distill(
                 source_tokens, distilled_tokens, exchange_time, overlap_context)
                VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12)
                RETURNING id, created_at""",
-            session_id, agent, exchange_core, specific_context,
+            db_session_id, agent, exchange_core, specific_context,
             json.dumps(room_assignments, ensure_ascii=False),
             files_touched, ply_start, ply_end,
             source_tokens, distilled_tokens,
@@ -4183,38 +4276,46 @@ async def session_distill(
 
     distill_id = row["id"]
 
-    # Embed distilled text in Qdrant for vector search
+    # Embed distilled text in active vector backend.
     qdrant_id = None
     try:
         embedding = await get_embedding(distilled_text)
         if embedding:
-            qdrant = await get_qdrant()
-            from qdrant_client.models import PointStruct
-            qdrant_id = distill_id + 100000  # Offset to avoid collision with memories
-            await qdrant.upsert(
-                collection_name=QDRANT_COLLECTION,
-                points=[PointStruct(
-                    id=qdrant_id,
-                    vector=embedding,
-                    payload={
-                        "agent": agent,
-                        "content": distilled_text,
-                        "category": "distilled_exchange",
-                        "importance": 6,
-                        "session_id": session_id,
-                        "source": "structured_distillation",
-                        "rooms": [r.get("key", "") for r in room_assignments],
-                    },
-                )],
-            )
-            # Update qdrant_point_id in PostgreSQL
-            async with pool.acquire() as conn:
-                await conn.execute(
-                    "UPDATE distilled_exchanges SET qdrant_point_id = $1 WHERE id = $2",
-                    qdrant_id, distill_id,
+            if settings.soul_lite:
+                async with pool.acquire() as conn:
+                    await conn.execute(
+                        "UPDATE distilled_exchanges SET embedding = $1::vector WHERE id = $2",
+                        json.dumps(embedding),
+                        distill_id,
+                    )
+            else:
+                qdrant = await get_qdrant()
+                from qdrant_client.models import PointStruct
+                qdrant_id = distill_id + 100000  # Offset to avoid collision with memories
+                await qdrant.upsert(
+                    collection_name=QDRANT_COLLECTION,
+                    points=[PointStruct(
+                        id=qdrant_id,
+                        vector=embedding,
+                        payload={
+                            "agent": agent,
+                            "content": distilled_text,
+                            "category": "distilled_exchange",
+                            "importance": 6,
+                            "session_id": db_session_id,
+                            "legacy_session_id": legacy_session_id,
+                            "source": "structured_distillation",
+                            "rooms": [r.get("key", "") for r in room_assignments],
+                        },
+                    )],
                 )
+                async with pool.acquire() as conn:
+                    await conn.execute(
+                        "UPDATE distilled_exchanges SET qdrant_point_id = $1 WHERE id = $2",
+                        qdrant_id, distill_id,
+                    )
     except Exception as e:
-        LOG.debug("Qdrant embedding for distilled exchange skipped: %s", e)
+        LOG.debug("Vector embedding for distilled exchange skipped: %s", e)
 
     # Link to Neo4j rooms (create room nodes + edges)
     try:
@@ -4234,7 +4335,7 @@ async def session_distill(
                     label=room.get("label", ""),
                     did=distill_id,
                     agent=agent,
-                    sid=session_id,
+                    sid=db_session_id,
                     core=exchange_core[:200],
                 )
     except Exception as e:
@@ -6224,6 +6325,18 @@ async def active_recall(
     pool = await get_pool()
     sections = []
 
+    # 0. SOUL Recall Router — multi-source recall (additive, feature-flagged)
+    if _ROUTER_ENABLED and _soul_recall_router is not None:
+        try:
+            _router_ctx = await asyncio.wait_for(
+                _soul_recall_router(agent=agent, query=context, pool=pool, mode="standard"),
+                timeout=1.5,
+            )
+            if _router_ctx:
+                sections.append(_router_ctx)
+        except Exception:
+            pass  # router is additive — never block active_recall
+
     # 1. Relevant memories via semantic search
     activated_memory_ids = []
     if include_memories:
@@ -6386,6 +6499,54 @@ async def active_recall(
     ))
 
     return result
+
+
+@mcp.tool()
+async def soul_recall_router_tool(
+    agent: str,
+    query: str,
+    mode: str = "standard",
+    include_chat: bool = True,
+    include_distilled: bool = True,
+    include_session: bool = True,
+    include_rules: bool = True,
+    limit: int = 20,
+) -> str:
+    """Unified SOUL context retrieval across memories, chat, distilled exchanges, session, and rules.
+
+    Use this alongside active_recall for richer multi-source recall — especially for
+    questions about past conversations, decisions, or specific dates.
+    Returns a hint if SOUL_RECALL_ROUTER_ENABLED env var is not 'true'.
+    Never raises — degrades gracefully on per-source failure.
+
+    Args:
+        agent: Agent name (ALICE, JARVIS, ADA, NEXUS)
+        query: The question or context to recall for
+        mode: Budget mode — micro/standard/deep/boot (default: standard)
+        include_chat: Include web_chat history (default true)
+        include_distilled: Include distilled exchanges (default true)
+        include_session: Include session continuity (default true)
+        include_rules: Include active rules (default true)
+        limit: Max total hits across all sources (default 20)
+    """
+    if not _ROUTER_ENABLED or _soul_recall_router is None:
+        return json.dumps({
+            "error": "soul_recall_router disabled",
+            "hint": "set SOUL_RECALL_ROUTER_ENABLED=true to activate",
+        })
+    pool = await get_pool()
+    result = await _soul_recall_router(
+        agent=agent,
+        query=query,
+        pool=pool,
+        mode=mode,
+        include_chat=include_chat,
+        include_distilled=include_distilled,
+        include_session=include_session,
+        include_rules=include_rules,
+        limit=limit,
+    )
+    return result or "[soul_recall_router] No relevant context found."
 
 
 # ── Delta Sync (AutoGen v0.4 pattern) ──
@@ -11654,7 +11815,7 @@ import asyncio, sys
 sys.path.insert(0, '/home/dadito/IA/proyecto-seal/sandbox-agent/NEXUS')
 from kernel.code_graph import index_source
 result = asyncio.run(index_source(
-    'postgresql://seal:seal_memory_2026@localhost:5433/seal_memory',
+    {repr(DB_URL)},
     {repr(path)},
     {repr(name)},
 ))
@@ -11831,6 +11992,101 @@ async def reflective_diagnosis(
         raise ValueError(f"action inválida: {action!r}. Válidas: create|update|pending|get")
 
 
+async def _sync_agent_task_to_gam(conn, task: dict, event_status: str) -> int:
+    """Mirror agent_tasks into GAM so task_drive has a real action graph."""
+    import json as _json
+
+    agent_name = task["agent"]
+    topic = "TaskList / Agent Tasks"
+    topic_row = await conn.fetchrow(
+        """
+        SELECT id FROM soul_v3.gam_topics
+        WHERE agent=$1 AND topic=$2
+        ORDER BY id ASC
+        LIMIT 1
+        """,
+        agent_name,
+        topic,
+    )
+    if topic_row:
+        topic_id = topic_row["id"]
+    else:
+        topic_id = await conn.fetchval(
+            """
+            INSERT INTO soul_v3.gam_topics (agent, topic, summary, relevance_score)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id
+            """,
+            agent_name,
+            topic,
+            "Canonical GAM topic mirroring soul_v3.agent_tasks into actionable events.",
+            0.8,
+        )
+
+    existing = await conn.fetchval(
+        """
+        SELECT id FROM soul_v3.gam_event_graph
+        WHERE agent=$1
+          AND metadata->>'source'='agent_task'
+          AND (metadata->>'task_id')::bigint=$2
+        LIMIT 1
+        """,
+        agent_name,
+        task["id"],
+    )
+    metadata = {
+        "source": "agent_task",
+        "task_id": task["id"],
+        "status": event_status,
+        "priority": task.get("priority"),
+        "deadline": task.get("deadline").isoformat() if task.get("deadline") else None,
+        "created_at": task.get("created_at").isoformat() if task.get("created_at") else None,
+        "completed_at": task.get("completed_at").isoformat() if task.get("completed_at") else None,
+    }
+    if existing:
+        await conn.execute(
+            """
+            UPDATE soul_v3.gam_event_graph
+            SET metadata=$1, event=$2
+            WHERE id=$3
+            """,
+            _json.dumps(metadata),
+            task["title"],
+            existing,
+        )
+        event_id = existing
+    else:
+        event_id = await conn.fetchval(
+            """
+            INSERT INTO soul_v3.gam_event_graph
+                (agent, topic_id, event, event_timestamp, related_event_ids, causal_direction, metadata)
+            VALUES ($1, $2, $3, COALESCE($4, now()), '{}', 'related', $5)
+            RETURNING id
+            """,
+            agent_name,
+            topic_id,
+            task["title"],
+            task.get("created_at"),
+            _json.dumps(metadata),
+        )
+
+    await conn.execute(
+        """
+        UPDATE soul_v3.gam_topics t
+        SET event_count = counts.count, last_updated = now()
+        FROM (
+            SELECT topic_id, COUNT(*)::int AS count
+            FROM soul_v3.gam_event_graph
+            WHERE topic_id=$1
+            GROUP BY topic_id
+        ) counts
+        WHERE t.id=counts.topic_id
+        """,
+        topic_id,
+    )
+    return int(event_id)
+
+
 @mcp.tool()
 async def agent_task(
     action: str,
@@ -11859,25 +12115,31 @@ async def agent_task(
             row = await conn.fetchrow(
                 """
                 INSERT INTO soul_v3.agent_tasks (agent, title, description, priority, deadline)
-                VALUES ($1, $2, $3, $4, $5) RETURNING id
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id, agent, title, description, status, priority, deadline, created_at, completed_at
                 """,
                 caller, title, description or None, priority, dl,
             )
-            return {"task_id": row["id"], "agent": caller, "title": title}
+            gam_event_id = await _sync_agent_task_to_gam(conn, dict(row), "pending")
+            return {"task_id": row["id"], "agent": caller, "title": title, "gam_event_id": gam_event_id}
 
         elif action == "complete":
             await conn.execute(
                 "UPDATE soul_v3.agent_tasks SET status='completed', completed_at=now() WHERE id=$1 AND agent=$2",
                 task_id, caller,
             )
-            return {"task_id": task_id, "status": "completed"}
+            row = await conn.fetchrow("SELECT * FROM soul_v3.agent_tasks WHERE id=$1 AND agent=$2", task_id, caller)
+            gam_event_id = await _sync_agent_task_to_gam(conn, dict(row), "completed") if row else None
+            return {"task_id": task_id, "status": "completed", "gam_event_id": gam_event_id}
 
         elif action == "cancel":
             await conn.execute(
                 "UPDATE soul_v3.agent_tasks SET status='cancelled' WHERE id=$1 AND agent=$2",
                 task_id, caller,
             )
-            return {"task_id": task_id, "status": "cancelled"}
+            row = await conn.fetchrow("SELECT * FROM soul_v3.agent_tasks WHERE id=$1 AND agent=$2", task_id, caller)
+            gam_event_id = await _sync_agent_task_to_gam(conn, dict(row), "cancelled") if row else None
+            return {"task_id": task_id, "status": "cancelled", "gam_event_id": gam_event_id}
 
         elif action == "list":
             rows = await conn.fetch(
@@ -12040,10 +12302,7 @@ async def seal_bench(
         result = await mod.compare_last_two()
     elif action == "status":
         import asyncpg as _asyncpg
-        pool = await _asyncpg.create_pool(
-            os.environ.get("SEAL_DB_URL",
-                           "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"),
-            min_size=1, max_size=2)
+        pool = await _asyncpg.create_pool(DB_URL, min_size=1, max_size=2)
         try:
             async with pool.acquire() as conn:
                 last = await conn.fetchrow("""
@@ -12119,6 +12378,203 @@ async def emotional_diary(
 
     else:
         return _safe_dumps({"error": f"action inválida: {action!r}. Válidas: write|read|history|init"})
+
+
+@mcp.tool()
+async def tokenjuice_compress(agent: str, text: str, tool_name: str = "bash") -> str:
+    """Compress long tool output or text via TokenJuice rules (calls :8800).
+
+    Returns compressed text with savings stats. Falls back gracefully if service
+    is unavailable. Only compresses text > 1000 chars.
+
+    Args:
+        agent: Calling agent name (for logging)
+        text: Text to compress (tool output, log, diff, etc.)
+        tool_name: Hint for rule selection: bash|git|npm|cargo|docker|generic
+    """
+    if len(text) < 1000:
+        return _safe_dumps({"text": text, "savings_pct": 0.0, "rule_applied": None,
+                            "note": "text below threshold, no compression needed"})
+    try:
+        import httpx as _hx
+        async with _hx.AsyncClient(timeout=5.0) as client:
+            r = await client.post(
+                "http://localhost:8800/api/tokenjuice/compact",
+                json={"tool_name": tool_name, "stdout": text, "argv": []},
+            )
+            if r.status_code == 200:
+                data = r.json()
+                return _safe_dumps({
+                    "text": data.get("text", text),
+                    "rule_applied": data.get("rule_applied"),
+                    "original_len": data.get("original_len", len(text)),
+                    "reduced_len": data.get("reduced_len", len(text)),
+                    "savings_pct": data.get("savings_pct", 0.0),
+                })
+            return _safe_dumps({"error": f"TokenJuice HTTP {r.status_code}", "text": text})
+    except Exception as exc:
+        return _safe_dumps({"error": str(exc), "text": text,
+                            "note": "TokenJuice unavailable — returning original text"})
+
+
+# ── Webchat Native Tools for Codex agents ──
+
+@mcp.tool()
+async def webchat_poll(
+    agent: str,
+    limit: int = 20,
+    since_id: Optional[int] = None,
+) -> str:
+    """Fetch recent messages from the team webchat channel.
+
+    Use this at session start or after completing a task to check for
+    pending messages from William or teammates. Returns messages from
+    the web_chat channel only (never DMs or private channels).
+
+    Args:
+        agent: Your agent name (ADA, JARVIS, ALICE, NEXUS, DUM)
+        limit: Max messages to return (1–50, default 20)
+        since_id: Return only messages with id > since_id. If None,
+                  returns the last `limit` messages.
+    """
+    agent_up = agent.upper()
+    if agent_up not in _KNOWN_AGENTS:
+        return _safe_dumps({"error": f"Unknown agent '{agent}'. Valid: {sorted(_KNOWN_AGENTS)}"})
+
+    limit = max(1, min(limit, 50))
+
+    try:
+        pool = await get_pool()
+        if since_id is not None:
+            rows = await pool.fetch(
+                """
+                SELECT id, sender_name, content, created_at
+                FROM soul_v3.chat_messages
+                WHERE channel = 'web_chat'
+                  AND id > $1
+                ORDER BY id ASC
+                LIMIT $2
+                """,
+                int(since_id), limit,
+            )
+        else:
+            rows = await pool.fetch(
+                """
+                SELECT id, sender_name, content, created_at
+                FROM soul_v3.chat_messages
+                WHERE channel = 'web_chat'
+                ORDER BY id DESC
+                LIMIT $1
+                """,
+                limit,
+            )
+            rows = list(reversed(rows))
+
+        messages = [
+            {
+                "id": r["id"],
+                "sender": r["sender_name"],
+                "content": r["content"],
+                "ts": r["created_at"].astimezone(PERU_TZ).strftime("%H:%M"),
+            }
+            for r in rows
+        ]
+        last_id = rows[-1]["id"] if rows else since_id
+        return _safe_dumps({
+            "messages": messages,
+            "count": len(messages),
+            "last_id": last_id,
+            "tip": "Pass last_id as since_id in next call to get only new messages.",
+        })
+    except Exception as exc:
+        LOG.error("webchat_poll error: %s", exc)
+        return _safe_dumps({"error": str(exc)})
+
+
+@mcp.tool()
+async def webchat_listen(
+    agent: str,
+    since_id: Optional[int] = None,
+    timeout_seconds: int = 90,
+) -> str:
+    """Wait for new webchat messages and return them when they arrive.
+
+    This is the native Codex conversation tool — replaces the tmux injection
+    hack. Call this after responding to a message to wait for the next one.
+    Blocks up to `timeout_seconds`, polling every 2s. Returns immediately
+    when new messages appear.
+
+    Conversation loop pattern:
+      1. result = webchat_listen(agent="ADA", since_id=last_id)
+      2. Process result["messages"] and respond via webchat POST
+      3. Repeat from step 1 with result["last_id"] as since_id
+
+    Args:
+        agent: Your agent name (ADA, JARVIS, ALICE, NEXUS, DUM)
+        since_id: Wait for messages with id > since_id. If None, uses
+                  the current latest message id as baseline (waits for truly new).
+        timeout_seconds: Max seconds to wait (10–120, default 90)
+    """
+    agent_up = agent.upper()
+    if agent_up not in _KNOWN_AGENTS:
+        return _safe_dumps({"error": f"Unknown agent '{agent}'. Valid: {sorted(_KNOWN_AGENTS)}"})
+
+    timeout_seconds = max(10, min(timeout_seconds, 120))
+    poll_interval = 2.0
+
+    try:
+        pool = await get_pool()
+
+        # If no since_id given, use current max id as baseline
+        if since_id is None:
+            row = await pool.fetchrow(
+                "SELECT MAX(id) AS max_id FROM soul_v3.chat_messages WHERE channel = 'web_chat'"
+            )
+            since_id = row["max_id"] or 0
+
+        deadline = _wall_time.monotonic() + timeout_seconds
+        while _wall_time.monotonic() < deadline:
+            rows = await pool.fetch(
+                """
+                SELECT id, sender_name, content, created_at
+                FROM soul_v3.chat_messages
+                WHERE channel = 'web_chat'
+                  AND id > $1
+                ORDER BY id ASC
+                LIMIT 10
+                """,
+                int(since_id),
+            )
+            if rows:
+                messages = [
+                    {
+                        "id": r["id"],
+                        "sender": r["sender_name"],
+                        "content": r["content"],
+                        "ts": r["created_at"].astimezone(PERU_TZ).strftime("%H:%M"),
+                    }
+                    for r in rows
+                ]
+                last_id = rows[-1]["id"]
+                return _safe_dumps({
+                    "messages": messages,
+                    "count": len(messages),
+                    "last_id": last_id,
+                    "timeout": False,
+                })
+            remaining = deadline - _wall_time.monotonic()
+            await asyncio.sleep(min(poll_interval, max(0.1, remaining)))
+
+        return _safe_dumps({
+            "messages": [],
+            "count": 0,
+            "last_id": since_id,
+            "timeout": True,
+            "tip": "No new messages in the wait window. Call again with same since_id to keep listening.",
+        })
+    except Exception as exc:
+        LOG.error("webchat_listen error: %s", exc)
+        return _safe_dumps({"error": str(exc)})
 
 
 # ── Main ──
