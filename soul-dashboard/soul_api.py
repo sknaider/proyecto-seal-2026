@@ -1003,6 +1003,18 @@ class NexusRollbackRequestIn(BaseModel):
     dry_run: bool = True
 
 
+class WilliamReviewDecisionIn(BaseModel):
+    target_type: str = "review_item"
+    target_id: str
+    decision: str
+    rationale: str
+    agent: str = "ADA"
+    actor: str = "William"
+    reviewer: str = "NEXUS"
+    dry_run: bool = False
+    evidence: dict = Field(default_factory=dict)
+
+
 async def _ensure_nexus_review_decisions(pool: asyncpg.Pool) -> None:
     await pool.execute(
         """
@@ -1033,6 +1045,32 @@ async def _ensure_nexus_review_decisions(pool: asyncpg.Pool) -> None:
         """
         CREATE INDEX IF NOT EXISTS idx_nexus_review_decisions_reviewer
         ON soul_v3.nexus_review_decisions(reviewer, decision, created_at DESC)
+        """
+    )
+
+
+async def _ensure_william_review_decisions(pool: asyncpg.Pool) -> None:
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS soul_v3.william_review_decisions (
+            id          BIGSERIAL PRIMARY KEY,
+            target_type TEXT NOT NULL,
+            target_id   TEXT NOT NULL,
+            agent       TEXT NOT NULL,
+            actor       TEXT NOT NULL,
+            reviewer    TEXT NOT NULL,
+            decision    TEXT NOT NULL CHECK (decision IN ('approved','rejected','needs_more_info')),
+            rationale   TEXT NOT NULL,
+            evidence    JSONB NOT NULL DEFAULT '{}'::jsonb,
+            dry_run     BOOLEAN NOT NULL DEFAULT false,
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_william_review_decisions_target
+        ON soul_v3.william_review_decisions(target_type, target_id, created_at DESC)
         """
     )
 
@@ -1359,6 +1397,47 @@ async def _item_timeline(pool: asyncpg.Pool, item_id: str, reviewer: str) -> dic
         },
         "boundary": "timeline_read_only_no_mutation",
     }
+
+
+async def _latest_william_decisions(
+    pool: asyncpg.Pool,
+    limit: int = 20,
+    target_type: str | None = None,
+    target_id: str | None = None,
+) -> list[dict]:
+    if not await _table_exists(pool, "william_review_decisions"):
+        return []
+    if target_type and target_id:
+        rows = await pool.fetch(
+            """
+            SELECT id, target_type, target_id, agent, actor, reviewer, decision,
+                   rationale, evidence, dry_run, created_at
+            FROM soul_v3.william_review_decisions
+            WHERE target_type=$1 AND target_id=$2
+            ORDER BY created_at DESC, id DESC
+            LIMIT $3
+            """,
+            target_type,
+            target_id,
+            limit,
+        )
+    else:
+        rows = await pool.fetch(
+            """
+            SELECT id, target_type, target_id, agent, actor, reviewer, decision,
+                   rationale, evidence, dry_run, created_at
+            FROM soul_v3.william_review_decisions
+            ORDER BY created_at DESC, id DESC
+            LIMIT $1
+            """,
+            limit,
+        )
+    decisions = []
+    for row in rows:
+        item = _record_dict(row)
+        item["evidence"] = _json_obj(item.get("evidence"))
+        decisions.append(item)
+    return decisions
 
 
 async def _evidence_packet(pool: asyncpg.Pool, item_id: str, agent: str, reviewer: str) -> dict:
@@ -2267,9 +2346,107 @@ async def nexus_william_review(
             "total": len(william_items),
             "queue_items": sum(1 for row in william_items if row["type"] == "queue_item"),
             "alerts": sum(1 for row in william_items if row["type"] == "alert"),
+            "recent_decisions": len(await _latest_william_decisions(pool, limit=8)),
         },
         "items": william_items,
+        "recent_decisions": await _latest_william_decisions(pool, limit=8),
         "boundary": "william_review_read_only_human_gate",
+    }
+
+
+@app.get("/api/soul/nexus_review_queue/william_decisions")
+async def william_review_decisions(limit: int = Query(20, ge=1, le=100)):
+    pool = _pool_ok()
+    return {
+        "generated_at": _dt(await pool.fetchval("SELECT NOW()")),
+        "decisions": await _latest_william_decisions(pool, limit=limit),
+        "boundary": "william_decisions_read_only_audit_trail",
+    }
+
+
+@app.post("/api/soul/nexus_review_queue/william_decision")
+async def william_review_decision(payload: WilliamReviewDecisionIn):
+    pool = _pool_ok()
+    await _ensure_william_review_decisions(pool)
+
+    target_type = payload.target_type.strip().lower()
+    target_id = payload.target_id.strip()
+    decision = payload.decision.strip().lower()
+    rationale = payload.rationale.strip()
+    if target_type not in {"review_item", "rollback_request", "alert"}:
+        raise HTTPException(400, "target_type must be review_item, rollback_request, or alert")
+    if decision not in {"approved", "rejected", "needs_more_info"}:
+        raise HTTPException(400, "decision must be approved, rejected, or needs_more_info")
+    if len(rationale) < 12:
+        raise HTTPException(400, "rationale must be at least 12 characters")
+
+    agent = payload.agent.upper()
+    reviewer = payload.reviewer.upper()
+    actor = payload.actor.strip() or "William"
+    target_evidence: dict[str, Any] = {"target_type": target_type, "target_id": target_id}
+    if target_type == "review_item":
+        target_evidence["packet"] = await _evidence_packet(pool, target_id, agent, reviewer)
+    elif target_type == "rollback_request":
+        if not await _table_exists(pool, "nexus_rollback_requests"):
+            raise HTTPException(404, "rollback request table does not exist")
+        row = await pool.fetchrow(
+            """
+            SELECT id, request_id, item_id, agent, reviewer, actor, reason, status, evidence, created_at
+            FROM soul_v3.nexus_rollback_requests
+            WHERE request_id=$1 OR id::text=$1
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            target_id,
+        )
+        if not row:
+            raise HTTPException(404, "rollback request not found")
+        target_evidence["rollback_request"] = _record_dict(row)
+        target_evidence["rollback_request"]["evidence"] = _json_obj(target_evidence["rollback_request"].get("evidence"))
+    else:
+        alerts_payload = await nexus_review_alerts(agent=agent, reviewer=reviewer)
+        alert = next((item for item in alerts_payload.get("alerts", []) if item.get("item_id") == target_id), None)
+        if not alert:
+            raise HTTPException(404, "alert target not found")
+        target_evidence["alert"] = alert
+
+    evidence = {
+        "source": "william_review_decision",
+        "target": target_evidence,
+        "extra": payload.evidence,
+        "effect": "audit_only_no_source_mutation",
+    }
+    decision_id = None
+    if not payload.dry_run:
+        decision_id = await pool.fetchval(
+            """
+            INSERT INTO soul_v3.william_review_decisions
+                (target_type, target_id, agent, actor, reviewer, decision, rationale, evidence, dry_run)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,false)
+            RETURNING id
+            """,
+            target_type,
+            target_id,
+            agent,
+            actor,
+            reviewer,
+            decision,
+            rationale,
+            json.dumps(evidence),
+        )
+
+    return {
+        "ok": True,
+        "dry_run": payload.dry_run,
+        "decision_id": decision_id,
+        "target_type": target_type,
+        "target_id": target_id,
+        "agent": agent,
+        "actor": actor,
+        "reviewer": reviewer,
+        "decision": decision,
+        "evidence": evidence,
+        "boundary": "william_decision_audit_only_no_source_mutation",
     }
 
 

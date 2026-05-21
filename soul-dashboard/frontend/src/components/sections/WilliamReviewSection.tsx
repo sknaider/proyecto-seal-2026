@@ -8,11 +8,21 @@ type WilliamReviewPayload = {
     total: number;
     queue_items: number;
     alerts: number;
+    recent_decisions: number;
   };
   items: {
     type: string;
     item: Record<string, unknown>;
     policy: Record<string, unknown>;
+  }[];
+  recent_decisions: {
+    id: number;
+    target_type: string;
+    target_id: string;
+    actor: string;
+    decision: string;
+    rationale: string;
+    created_at: string | null;
   }[];
   boundary: string;
 };
@@ -40,6 +50,9 @@ function Metric({ label, value, color }: { label: string; value: string | number
 export default function WilliamReviewSection({ agent }: { agent: string }) {
   const [data, setData] = useState<WilliamReviewPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rationales, setRationales] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = () => {
     fetch(`/api/soul/nexus_review_queue/william_review?agent=${agent}&reviewer=NEXUS`)
@@ -63,6 +76,41 @@ export default function WilliamReviewSection({ agent }: { agent: string }) {
 
   const s = data.summary;
 
+  const submitDecision = (targetType: string, targetId: string, decision: "approved" | "rejected" | "needs_more_info") => {
+    const key = `${targetType}:${targetId}`;
+    const rationale = (rationales[key] || "").trim();
+    if (rationale.length < 12) {
+      setNotice("Rationale minimo de 12 caracteres.");
+      return;
+    }
+    setSaving(`${key}:${decision}`);
+    setNotice(null);
+    fetch("/api/soul/nexus_review_queue/william_decision", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        target_type: targetType,
+        target_id: targetId,
+        decision,
+        rationale,
+        agent,
+        actor: "William",
+        reviewer: "NEXUS",
+        dry_run: false,
+        evidence: { ui: "william_review" },
+      }),
+    })
+      .then(async (r) => {
+        const payload = await r.json();
+        if (!r.ok) throw new Error(payload.detail || "william decision failed");
+        setRationales((prev) => ({ ...prev, [key]: "" }));
+        setNotice(`Decision William ${payload.decision} registrada para ${targetId}.`);
+        load();
+      })
+      .catch((err) => setNotice(String(err.message || err)))
+      .finally(() => setSaving(null));
+  };
+
   return (
     <div className="max-w-6xl space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -81,8 +129,14 @@ export default function WilliamReviewSection({ agent }: { agent: string }) {
         <Metric label="Total" value={s.total} color={s.total ? "var(--seal-warning)" : "var(--seal-success)"} />
         <Metric label="Queue" value={s.queue_items} color="var(--seal-text)" />
         <Metric label="Alerts" value={s.alerts} color={s.alerts ? "var(--seal-warning)" : "var(--seal-success)"} />
-        <Metric label="Boundary" value="human" color="var(--seal-text-dim)" />
+        <Metric label="Decisions" value={s.recent_decisions || 0} color="var(--seal-success)" />
       </div>
+
+      {notice ? (
+        <div className="card text-xs" style={{ color: notice.includes("registrada") ? "var(--seal-success)" : "var(--seal-warning)" }}>
+          {notice}
+        </div>
+      ) : null}
 
       <div className="card">
         <div className="flex items-center justify-between gap-3 mb-3">
@@ -107,9 +161,64 @@ export default function WilliamReviewSection({ agent }: { agent: string }) {
               <pre className="max-h-36 overflow-auto rounded border p-2 text-[10px]" style={{ borderColor: "var(--seal-border)", color: "var(--seal-text-dim)" }}>
                 {JSON.stringify({ item: row.item, policy: row.policy }, null, 2)}
               </pre>
+              <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-2">
+                <textarea
+                  className="w-full min-h-[48px] rounded border bg-transparent px-2 py-1 text-xs outline-none"
+                  style={{ borderColor: "var(--seal-border)", color: "var(--seal-text)" }}
+                  placeholder="Rationale William"
+                  value={rationales[`${row.type}:${String(row.item.item_id || row.item.id || "")}`] || ""}
+                  onChange={(e) => setRationales((prev) => ({
+                    ...prev,
+                    [`${row.type}:${String(row.item.item_id || row.item.id || "")}`]: e.target.value,
+                  }))}
+                />
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  {(["approved", "needs_more_info", "rejected"] as const).map((decision) => {
+                    const targetId = String(row.item.item_id || row.item.id || "");
+                    const key = `${row.type}:${targetId}`;
+                    const disabled = saving !== null || (rationales[key] || "").trim().length < 12 || !targetId;
+                    return (
+                      <button
+                        key={decision}
+                        type="button"
+                        className="px-2 py-1 rounded border text-[10px] font-semibold disabled:opacity-40"
+                        style={{
+                          borderColor: decision === "approved" ? "var(--seal-success)" : decision === "rejected" ? "var(--seal-error)" : "var(--seal-warning)",
+                          color: decision === "approved" ? "var(--seal-success)" : decision === "rejected" ? "var(--seal-error)" : "var(--seal-warning)",
+                        }}
+                        disabled={disabled}
+                        onClick={() => submitDecision(row.type === "alert" ? "alert" : "review_item", targetId, decision)}
+                      >
+                        {saving === `${key}:${decision}` ? "..." : decision}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )) : (
             <p className="text-xs" style={{ color: "var(--seal-success)" }}>No hay nada que requiera autorizacion de William.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h3 className="text-sm font-semibold" style={{ color: "var(--seal-text)" }}>William Decisions</h3>
+          <span className="text-[10px]" style={{ color: "var(--seal-text-dim)" }}>audit trail</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {data.recent_decisions?.length ? data.recent_decisions.map((decision) => (
+            <div key={decision.id} className="border rounded p-2 text-xs" style={{ borderColor: "var(--seal-border)" }}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold" style={{ color: decision.decision === "approved" ? "var(--seal-success)" : "var(--seal-warning)" }}>{decision.decision}</span>
+                <span style={{ color: "var(--seal-text-dim)" }}>{fmtDate(decision.created_at)}</span>
+              </div>
+              <p className="break-words" style={{ color: "var(--seal-text)" }}>{decision.target_type}:{decision.target_id}</p>
+              <p className="break-words" style={{ color: "var(--seal-text-dim)" }}>{decision.rationale}</p>
+            </div>
+          )) : (
+            <p className="text-xs" style={{ color: "var(--seal-text-dim)" }}>Sin decisiones William registradas.</p>
           )}
         </div>
       </div>
