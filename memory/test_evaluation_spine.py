@@ -28,13 +28,28 @@ def test_threshold_contract() -> None:
     assert not _passed("bridge_natural_journal_observer", THRESHOLDS["bridge_natural_journal_observer"] - 1)
     assert not _passed("bridge_natural_close_watcher", THRESHOLDS["bridge_natural_close_watcher"] - 1)
     assert not _passed("daily_evidence_dashboard", THRESHOLDS["daily_evidence_dashboard"] - 1)
+    assert not _passed("awareness_dashboard_3005", THRESHOLDS["awareness_dashboard_3005"] - 1)
+    assert not _passed("soul_app_awareness_5173", THRESHOLDS["soul_app_awareness_5173"] - 1)
     assert not _passed("auxiliary_secrets_debt", THRESHOLDS["auxiliary_secrets_debt"] - 1)
     assert not _passed("kernel_forge", THRESHOLDS["kernel_forge"] - 1)
+    assert not _passed("awareness_event_collector", THRESHOLDS["awareness_event_collector"] - 1)
+    assert not _passed("attention_governor", THRESHOLDS["attention_governor"] - 1)
+    assert not _passed("awareness_tick_ledger", THRESHOLDS["awareness_tick_ledger"] - 1)
+    assert not _passed("awareness_reflex_actions", THRESHOLDS["awareness_reflex_actions"] - 1)
+    assert not _passed("local_runtime_contract", THRESHOLDS["local_runtime_contract"] - 1)
+    assert not _passed("awareness_loop_shadow", THRESHOLDS["awareness_loop_shadow"] - 1)
+    assert not _passed("awareness_experience_dataset", THRESHOLDS["awareness_experience_dataset"] - 1)
+    assert not _passed("awareness_closed_loop", THRESHOLDS["awareness_closed_loop"] - 1)
+    assert not _passed("latent_graphmem_phase2", THRESHOLDS["latent_graphmem_phase2"] - 1)
+    assert not _passed("awareness_247_process", THRESHOLDS["awareness_247_process"] - 1)
     assert not _passed("agi_gap_ledger", THRESHOLDS["agi_gap_ledger"] - 1)
     assert not _passed("autonomous_lifecycle", THRESHOLDS["autonomous_lifecycle"] - 1)
     assert not _passed("autonomous_lifecycle_persistence", THRESHOLDS["autonomous_lifecycle_persistence"] - 1)
     assert not _passed("autonomous_lifecycle_delegation", THRESHOLDS["autonomous_lifecycle_delegation"] - 1)
     assert not _passed("autonomous_lifecycle_review_gate", THRESHOLDS["autonomous_lifecycle_review_gate"] - 1)
+    assert not _passed("nexus_review_queue", THRESHOLDS["nexus_review_queue"] - 1)
+    assert not _passed("nexus_review_actions", THRESHOLDS["nexus_review_actions"] - 1)
+    assert not _passed("soul_autonomy_pipeline", THRESHOLDS["soul_autonomy_pipeline"] - 1)
 
 
 def test_plan_phases_include_sprint_11_awaiter() -> None:
@@ -218,6 +233,20 @@ def test_cli_parser_accepts_daily_evidence_dashboard_suite() -> None:
     assert args.name == "daily_evidence_dashboard"
 
 
+def test_cli_parser_accepts_awareness_dashboard_3005_suite() -> None:
+    args = build_parser().parse_args(["--agent", "ADA", "run-suite", "awareness_dashboard_3005", "--no-persist"])
+    assert args.agent == "ADA"
+    assert args.command == "run-suite"
+    assert args.name == "awareness_dashboard_3005"
+
+
+def test_cli_parser_accepts_soul_app_awareness_5173_suite() -> None:
+    args = build_parser().parse_args(["--agent", "ADA", "run-suite", "soul_app_awareness_5173", "--no-persist"])
+    assert args.agent == "ADA"
+    assert args.command == "run-suite"
+    assert args.name == "soul_app_awareness_5173"
+
+
 def test_cli_parser_accepts_auxiliary_secrets_debt_suite() -> None:
     args = build_parser().parse_args(["--agent", "ADA", "run-suite", "auxiliary_secrets_debt", "--no-persist"])
     assert args.agent == "ADA"
@@ -230,6 +259,25 @@ def test_cli_parser_accepts_kernel_forge_suite() -> None:
     assert args.agent == "ADA"
     assert args.command == "run-suite"
     assert args.name == "kernel_forge"
+
+
+def test_cli_parser_accepts_awareness_suites() -> None:
+    for suite in [
+        "awareness_event_collector",
+        "attention_governor",
+        "awareness_tick_ledger",
+        "awareness_reflex_actions",
+        "local_runtime_contract",
+        "awareness_loop_shadow",
+        "awareness_experience_dataset",
+        "awareness_closed_loop",
+        "latent_graphmem_phase2",
+        "awareness_247_process",
+    ]:
+        args = build_parser().parse_args(["--agent", "ADA", "run-suite", suite, "--no-persist"])
+        assert args.agent == "ADA"
+        assert args.command == "run-suite"
+        assert args.name == suite
 
 
 def test_cli_parser_accepts_autonomous_lifecycle_suite() -> None:

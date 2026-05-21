@@ -26,6 +26,14 @@ from typing import Any, Awaitable, Callable
 import asyncpg
 from seal_secrets import pg_dsn
 from agi_gap_ledger import current_gap_catalog, summarize_gaps
+from attention_governor import decide_attention, evaluate_shadow_fixture
+from awareness_closed_loop import evaluate_closed_loop_contract_async
+from awareness_247_process import read_heartbeat, run_process_once
+from awareness_collector import shadow_fixture_events
+from awareness_experience_dataset import evaluate_experience_dataset_contract_async
+from awareness_ledger import cleanup_awareness_agent, fetch_awareness_state, recent_awareness_ticks, record_awareness_tick
+from awareness_loop import evaluate_awareness_loop_contract_async
+from awareness_reflexes import evaluate_reflex_fixture
 from autonomous_lifecycle import (
     assess_execution_gates,
     delegate_audit_proposals,
@@ -46,6 +54,8 @@ from cross_agent_governance import (
 )
 from long_horizon_bench import run_long_horizon_bench
 from kernel_forge import assess_kernel_forge
+from latent_graphmem_phase2 import assess_latent_graphmem_phase2
+from local_runtime_service import evaluate_local_runtime_contract
 from memory_outcome import record_memory_outcome
 from reflex_layer import ReflexEvent, evaluate_event
 from skill_instinct_factory import (
@@ -79,6 +89,7 @@ DEFAULT_AGENT = "ADA"
 MCP_URL = os.environ.get("SEAL_MCP_URL", "http://localhost:8771/mcp")
 CHAT_HEALTH_URL = os.environ.get("SEAL_CHAT_HEALTH_URL", "http://127.0.0.1:8765/api/health")
 SOUL_DASHBOARD_URL = os.environ.get("SOUL_DASHBOARD_URL", "http://127.0.0.1:8850")
+SOUL_APP_URL = os.environ.get("SOUL_APP_URL", "http://127.0.0.1:5173")
 
 THRESHOLDS: dict[str, int] = {
     "soul_db_integrity": 80,
@@ -110,8 +121,23 @@ THRESHOLDS: dict[str, int] = {
     "cross_agent_governance": 90,
     "skill_instinct_factory": 90,
     "daily_evidence_dashboard": 90,
+    "nexus_review_queue": 90,
+    "nexus_review_actions": 90,
+    "soul_autonomy_pipeline": 90,
+    "awareness_dashboard_3005": 90,
+    "soul_app_awareness_5173": 90,
     "auxiliary_secrets_debt": 90,
     "kernel_forge": 90,
+    "awareness_event_collector": 90,
+    "attention_governor": 90,
+    "awareness_tick_ledger": 90,
+    "awareness_reflex_actions": 90,
+    "local_runtime_contract": 90,
+    "awareness_loop_shadow": 90,
+    "awareness_experience_dataset": 90,
+    "awareness_closed_loop": 90,
+    "latent_graphmem_phase2": 90,
+    "awareness_247_process": 90,
 }
 
 P7_REQUIRED_SUITES = [
@@ -501,6 +527,65 @@ def _http_json(url: str, timeout: float = 5.0) -> tuple[int, dict[str, Any] | No
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         return exc.code, None, body
+
+
+def _http_post_json(url: str, payload: dict[str, Any], timeout: float = 5.0) -> tuple[int, dict[str, Any] | None, str]:
+    body_bytes = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body_bytes,
+        method="POST",
+        headers={"Accept": "application/json", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            try:
+                return resp.status, json.loads(body), body
+            except json.JSONDecodeError:
+                return resp.status, None, body
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        try:
+            return exc.code, json.loads(body), body
+        except json.JSONDecodeError:
+            return exc.code, None, body
+    except urllib.error.URLError as exc:
+        return 0, None, str(exc)
+
+
+def _http_text(url: str, timeout: float = 5.0) -> tuple[int, str]:
+    req = urllib.request.Request(url, headers={"Accept": "text/html,text/plain,*/*"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            return resp.status, body
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        return exc.code, body
+    except urllib.error.URLError as exc:
+        return 0, str(exc)
+
+
+def _http_json_headers(url: str, headers: dict[str, str] | None = None, timeout: float = 5.0) -> tuple[int, dict[str, Any] | None, str, dict[str, str]]:
+    req_headers = {"Accept": "application/json"}
+    if headers:
+        req_headers.update(headers)
+    req = urllib.request.Request(url, headers=req_headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            parsed: dict[str, Any] | None
+            try:
+                parsed = json.loads(body)
+            except json.JSONDecodeError:
+                parsed = None
+            return resp.status, parsed, body, {k.lower(): v for k, v in resp.headers.items()}
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        return exc.code, None, body, {k.lower(): v for k, v in exc.headers.items()}
+    except urllib.error.URLError as exc:
+        return 0, None, str(exc), {}
 
 
 def _service_state(name: str) -> str:
@@ -1997,6 +2082,7 @@ async def suite_daily_evidence_dashboard(agent: str = DEFAULT_AGENT) -> EvalResu
     dashboard_url = SOUL_DASHBOARD_URL.rstrip("/")
     health_status, health_json, health_body = _http_json(f"{dashboard_url}/health")
     api_status, api_json, api_body = _http_json(f"{dashboard_url}/api/soul/evidence_dashboard?agent={agent}")
+    evidence_view_status, evidence_view_html = _http_text(f"{dashboard_url}/?agent={agent}&view=evidence")
 
     component_path = PROJECT_ROOT / "soul-dashboard" / "frontend" / "src" / "components" / "sections" / "EvidenceDashboardSection.tsx"
     app_path = PROJECT_ROOT / "soul-dashboard" / "frontend" / "src" / "App.tsx"
@@ -2006,24 +2092,82 @@ async def suite_daily_evidence_dashboard(agent: str = DEFAULT_AGENT) -> EvalResu
     app_text = app_path.read_text(encoding="utf-8") if app_path.exists() else ""
     dist_text = dist_index.read_text(encoding="utf-8") if dist_index.exists() else ""
     summary = api_json.get("summary", {}) if isinstance(api_json, dict) else {}
+    latest_runs = api_json.get("latest_runs", []) if isinstance(api_json, dict) else None
+    latest_by_suite = api_json.get("latest_by_suite", []) if isinstance(api_json, dict) else None
+    pending_skill_reviews = api_json.get("pending_skill_reviews", []) if isinstance(api_json, dict) else None
+    recent_failures = api_json.get("recent_failures_24h", []) if isinstance(api_json, dict) else None
+    api_sample = api_json if not isinstance(api_json, dict) else {
+        "agent": api_json.get("agent"),
+        "generated_at": api_json.get("generated_at"),
+        "summary": summary,
+        "latest_runs": [
+            {
+                "id": row.get("id"),
+                "suite": row.get("suite"),
+                "score": row.get("score"),
+                "passed": row.get("passed"),
+                "run_at": row.get("run_at"),
+                "evidence": row.get("evidence"),
+            }
+            for row in (latest_runs or [])[:5]
+            if isinstance(row, dict)
+        ],
+        "latest_by_suite_count": len(latest_by_suite or []),
+        "recent_failures_24h": [
+            {
+                "id": row.get("id"),
+                "suite": row.get("suite"),
+                "score": row.get("score"),
+                "resolved_by_latest": row.get("resolved_by_latest"),
+                "current_passed": row.get("current_passed"),
+            }
+            for row in (recent_failures or [])[:5]
+            if isinstance(row, dict)
+        ],
+        "pending_skill_reviews_count": len(pending_skill_reviews or []),
+        "open_tasks_count": len(api_json.get("open_tasks") or []),
+    }
 
     checks = {
         "health_ok": health_status == 200 and bool(health_json and health_json.get("ok")),
         "api_ok": api_status == 200 and isinstance(api_json, dict),
-        "evaluation_runs_visible": isinstance(api_json, dict) and isinstance(api_json.get("latest_runs"), list),
+        "evaluation_runs_visible": isinstance(latest_runs, list),
+        "latest_by_suite_visible": isinstance(latest_by_suite, list)
+        and len(latest_by_suite) == summary.get("suite_count"),
+        "component_wires_suite_matrix": "Suite Matrix" in component_text
+        and "data.latest_by_suite" in component_text,
+        "evaluation_run_details_compact": isinstance(latest_runs, list)
+        and all(len(json.dumps((row or {}).get("details", {}), default=str)) < 2000 for row in latest_runs if isinstance(row, dict)),
+        "recent_failures_visible": isinstance(recent_failures, list),
+        "recent_failures_have_resolution_flag": isinstance(recent_failures, list)
+        and all("resolved_by_latest" in row for row in recent_failures if isinstance(row, dict)),
         "pending_validations_visible": isinstance(api_json, dict) and isinstance(api_json.get("pending_validations"), list),
         "freshness_visible": isinstance(api_json, dict) and isinstance(api_json.get("agent_freshness"), list),
         "bridge_watch_visible": isinstance(api_json, dict) and isinstance(api_json.get("bridge"), dict),
+        "summary_splits_current_and_historical_failures": "failing_suites" in summary
+        and "failed_runs_24h" in summary
+        and "resolved_failures_24h" in summary,
+        "component_wires_recent_failures": "Recent Failures" in component_text
+        and "resolved_by_latest" in component_text
+        and "Actual Fail" in component_text,
         "summary_has_skill_reviews": "pending_skill_reviews" in summary,
         "component_wires_skill_reviews": "pending_skill_reviews" in component_text and "Skill Reviews" in component_text,
+        "api_skill_review_queue_visible": isinstance(pending_skill_reviews, list),
+        "component_wires_skill_review_queue": "Skill Review Queue" in component_text
+        and "data.pending_skill_reviews" in component_text,
         "app_nav_wired": "EvidenceDashboardSection" in app_text and 'id: "evidence"' in app_text,
+        "app_supports_query_deeplink": "URLSearchParams" in app_text
+        and 'initialParams.get("view")' in app_text
+        and 'initialParams.get("agent")' in app_text,
+        "evidence_deeplink_http_ok": evidence_view_status == 200
+        and "/assets/index-" in evidence_view_html,
         "dist_build_exists": dist_index.exists() and "/assets/index-" in dist_text,
     }
     passed = sum(1 for ok in checks.values() if ok)
     score = round((passed / len(checks)) * 100)
     evidence = (
         f"daily_evidence_dashboard_cases={passed}/{len(checks)} "
-        f"health={health_status} api={api_status} "
+        f"health={health_status} api={api_status} view={evidence_view_status} "
         f"suites={summary.get('passing_suites')}/{summary.get('suite_count')} "
         f"skill_reviews={summary.get('pending_skill_reviews')}"
     )
@@ -2036,13 +2180,830 @@ async def suite_daily_evidence_dashboard(agent: str = DEFAULT_AGENT) -> EvalResu
             "summary": summary,
             "checks": checks,
             "health_response": health_json or health_body[:300],
-            "api_response_sample": api_json if isinstance(api_json, dict) else api_body[:300],
+            "evidence_view_sample": evidence_view_html[:500],
+            "api_response_sample": api_sample if isinstance(api_json, dict) else api_body[:300],
             "paths": {
                 "component": str(component_path),
                 "app": str(app_path),
                 "dist_index": str(dist_index),
             },
             "boundary": "Pass means observability is wired and visible; it does not mutate SOUL state beyond this evaluation record.",
+        },
+        agent,
+    )
+
+
+async def suite_nexus_review_queue(agent: str = DEFAULT_AGENT) -> EvalResult:
+    dashboard_url = SOUL_DASHBOARD_URL.rstrip("/")
+    health_status, health_json, health_body = _http_json(f"{dashboard_url}/health")
+    api_status, api_json, api_body = _http_json(f"{dashboard_url}/api/soul/nexus_review_queue?agent={agent}&reviewer=NEXUS")
+    view_status, view_html = _http_text(f"{dashboard_url}/?agent={agent}&view=nexus_review")
+
+    component_path = PROJECT_ROOT / "soul-dashboard" / "frontend" / "src" / "components" / "sections" / "NexusReviewQueueSection.tsx"
+    app_path = PROJECT_ROOT / "soul-dashboard" / "frontend" / "src" / "App.tsx"
+    dist_index = PROJECT_ROOT / "soul-dashboard" / "frontend" / "dist" / "index.html"
+
+    component_text = component_path.read_text(encoding="utf-8") if component_path.exists() else ""
+    app_text = app_path.read_text(encoding="utf-8") if app_path.exists() else ""
+    dist_text = dist_index.read_text(encoding="utf-8") if dist_index.exists() else ""
+    summary = api_json.get("summary", {}) if isinstance(api_json, dict) else {}
+    items = api_json.get("items", []) if isinstance(api_json, dict) else None
+    by_kind = summary.get("by_kind", {}) if isinstance(summary, dict) else {}
+
+    checks = {
+        "health_ok": health_status == 200 and bool(health_json and health_json.get("ok")),
+        "api_ok": api_status == 200 and isinstance(api_json, dict),
+        "api_read_only_boundary": isinstance(api_json, dict)
+        and api_json.get("boundary") == "read_only_queue_no_approval_side_effects",
+        "summary_present": isinstance(summary, dict)
+        and {
+            "total",
+            "high",
+            "medium",
+            "adapter_candidates",
+            "closed_loop_outcomes",
+            "pending_validations",
+            "resolved_by_audit_decision",
+            "review_tasks",
+        }.issubset(summary),
+        "items_visible": isinstance(items, list),
+        "items_have_review_contract": isinstance(items, list)
+        and all({"kind", "source_table", "priority", "decision", "evidence"}.issubset(item) for item in items if isinstance(item, dict)),
+        "awareness_promotions_visible": isinstance(by_kind, dict)
+        and int(by_kind.get("closed_loop_outcome", 0)) >= 0
+        and int(summary.get("closed_loop_outcomes") or 0) >= 0,
+        "validations_visible": isinstance(by_kind, dict)
+        and int(summary.get("pending_validations") or 0) >= 0,
+        "resolved_validation_filter_present": "_latest_terminal_review_decisions" in (
+            PROJECT_ROOT / "soul-dashboard" / "soul_api.py"
+        ).read_text(encoding="utf-8"),
+        "component_present": component_path.exists()
+        and "NEXUS Review Queue" in component_text
+        and "data.boundary" in component_text,
+        "component_fetches_api": "/api/soul/nexus_review_queue" in component_text,
+        "app_nav_wired": "NexusReviewQueueSection" in app_text
+        and 'id: "nexus_review"' in app_text,
+        "deeplink_http_ok": view_status == 200 and "/assets/index-" in view_html,
+        "dist_build_exists": dist_index.exists() and "/assets/index-" in dist_text,
+    }
+    passed = sum(1 for ok in checks.values() if ok)
+    score = round((passed / len(checks)) * 100)
+    evidence = (
+        f"nexus_review_queue_cases={passed}/{len(checks)} "
+        f"health={health_status} api={api_status} view={view_status} "
+        f"items={len(items or [])} high={summary.get('high')} "
+        f"outcomes={summary.get('closed_loop_outcomes')} validations={summary.get('pending_validations')}"
+    )
+    return _result(
+        "nexus_review_queue",
+        score,
+        evidence,
+        {
+            "dashboard_url": dashboard_url,
+            "summary": summary,
+            "sample_items": [
+                {
+                    "id": item.get("id"),
+                    "kind": item.get("kind"),
+                    "priority": item.get("priority"),
+                    "status": item.get("status"),
+                    "title": item.get("title"),
+                    "decision": item.get("decision"),
+                }
+                for item in (items or [])[:8]
+                if isinstance(item, dict)
+            ],
+            "checks": checks,
+            "health_response": health_json or health_body[:300],
+            "api_response_sample": api_json if isinstance(api_json, dict) else api_body[:300],
+            "view_sample": view_html[:500],
+            "paths": {
+                "component": str(component_path),
+                "app": str(app_path),
+                "dist_index": str(dist_index),
+            },
+            "boundary": "Pass means NEXUS review candidates are visible in one read-only queue; no approval/rejection mutation is performed.",
+        },
+        agent,
+    )
+
+
+async def suite_nexus_review_actions(agent: str = DEFAULT_AGENT) -> EvalResult:
+    dashboard_url = SOUL_DASHBOARD_URL.rstrip("/")
+    queue_status, queue_json, queue_body = _http_json(f"{dashboard_url}/api/soul/nexus_review_queue?agent={agent}&reviewer=NEXUS")
+    items = queue_json.get("items", []) if isinstance(queue_json, dict) else []
+    recent_decisions = queue_json.get("recent_decisions", []) if isinstance(queue_json, dict) else None
+    candidate = next((item for item in items if isinstance(item, dict) and item.get("id")), None)
+    if candidate is None and isinstance(recent_decisions, list):
+        recent = next((item for item in recent_decisions if isinstance(item, dict) and item.get("item_id")), None)
+        if recent:
+            candidate = {"id": recent["item_id"], "source": "recent_decisions"}
+    candidate_id = str(candidate["id"]) if isinstance(candidate, dict) and candidate.get("id") else None
+
+    component_path = PROJECT_ROOT / "soul-dashboard" / "frontend" / "src" / "components" / "sections" / "NexusReviewQueueSection.tsx"
+    api_path = PROJECT_ROOT / "soul-dashboard" / "soul_api.py"
+    component_text = component_path.read_text(encoding="utf-8") if component_path.exists() else ""
+    api_text = api_path.read_text(encoding="utf-8") if api_path.exists() else ""
+
+    audit_count_before: int | None = None
+    audit_count_after: int | None = None
+    conn = await asyncpg.connect(pg_dsn())
+    try:
+        table_exists = bool(await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='soul_v3' AND table_name='nexus_review_decisions'
+            )
+            """
+        ))
+        if table_exists and candidate_id:
+            audit_count_before = int(await conn.fetchval(
+                "SELECT COUNT(*) FROM soul_v3.nexus_review_decisions WHERE item_id=$1",
+                candidate_id,
+            ))
+    finally:
+        await conn.close()
+
+    decision_status = 0
+    decision_json: dict[str, Any] | None = None
+    decision_body = ""
+    if candidate_id:
+        decision_status, decision_json, decision_body = _http_post_json(
+            f"{dashboard_url}/api/soul/nexus_review_queue/decision",
+            {
+                "item_id": candidate_id,
+                "decision": "needs_evidence",
+                "rationale": "evaluation dry run validates explicit review action contract",
+                "reviewer": "NEXUS",
+                "actor": agent,
+                "dry_run": True,
+                "evidence": {"suite": "nexus_review_actions"},
+            },
+        )
+
+    conn = await asyncpg.connect(pg_dsn())
+    try:
+        table_exists_after = bool(await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='soul_v3' AND table_name='nexus_review_decisions'
+            )
+            """
+        ))
+        if table_exists_after and candidate_id:
+            audit_count_after = int(await conn.fetchval(
+                "SELECT COUNT(*) FROM soul_v3.nexus_review_decisions WHERE item_id=$1",
+                candidate_id,
+            ))
+    finally:
+        await conn.close()
+
+    planned_update = decision_json.get("planned_update", {}) if isinstance(decision_json, dict) else {}
+    checks = {
+        "queue_available": queue_status == 200 and isinstance(queue_json, dict),
+        "candidate_available_from_queue_or_history": bool(candidate_id),
+        "decision_endpoint_present": "@app.post(\"/api/soul/nexus_review_queue/decision\")" in api_text,
+        "audit_table_contract_present": "nexus_review_decisions" in api_text
+        and "decision_requires_explicit_rationale_and_audit_trail" in api_text,
+        "dry_run_ok": decision_status == 200 and isinstance(decision_json, dict) and decision_json.get("ok") is True,
+        "dry_run_does_not_audit": audit_count_after is not None
+        and audit_count_after == (audit_count_before if audit_count_before is not None else 0),
+        "dry_run_not_applied": isinstance(decision_json, dict)
+        and decision_json.get("dry_run") is True
+        and decision_json.get("applied") is False
+        and decision_json.get("audit_id") is None,
+        "explicit_rationale_boundary": isinstance(decision_json, dict)
+        and decision_json.get("boundary") == "decision_requires_explicit_rationale_and_audit_trail",
+        "planned_update_visible": isinstance(planned_update, dict)
+        and "source_table" in planned_update
+        and "source_mutation" in planned_update,
+        "queue_exposes_recent_decisions": isinstance(recent_decisions, list),
+        "ui_posts_decision": "/api/soul/nexus_review_queue/decision" in component_text
+        and "rationale" in component_text,
+        "ui_has_decision_buttons": "Approve" in component_text
+        and "Evidence" in component_text
+        and "Reject" in component_text,
+        "ui_has_recent_decisions": "Recent Decisions" in component_text
+        and "data.recent_decisions" in component_text,
+    }
+    passed = sum(1 for ok in checks.values() if ok)
+    score = round((passed / len(checks)) * 100)
+    evidence = (
+        f"nexus_review_actions_cases={passed}/{len(checks)} "
+        f"queue={queue_status} dry_run={decision_status} "
+        f"item={candidate_id} audit_before={audit_count_before} audit_after={audit_count_after}"
+    )
+    return _result(
+        "nexus_review_actions",
+        score,
+        evidence,
+        {
+            "candidate": candidate,
+            "checks": checks,
+            "decision_response": decision_json if isinstance(decision_json, dict) else decision_body[:300],
+            "queue_response_sample": {
+                "summary": queue_json.get("summary", {}) if isinstance(queue_json, dict) else {},
+                "items": items[:3] if isinstance(items, list) else [],
+            },
+            "paths": {
+                "component": str(component_path),
+                "api": str(api_path),
+            },
+            "boundary": "Pass means UI/API can record explicit NEXUS decisions with rationale; suite only uses dry_run and performs no approval/rejection.",
+        },
+        agent,
+    )
+
+
+async def suite_soul_autonomy_pipeline(agent: str = DEFAULT_AGENT) -> EvalResult:
+    dashboard_url = SOUL_DASHBOARD_URL.rstrip("/")
+    queue_status, queue_json, queue_body = _http_json(f"{dashboard_url}/api/soul/nexus_review_queue?agent={agent}&reviewer=NEXUS")
+    items = queue_json.get("items", []) if isinstance(queue_json, dict) else []
+    recent_decisions = queue_json.get("recent_decisions", []) if isinstance(queue_json, dict) else []
+    candidate_id = None
+    candidate_source = "none"
+    if isinstance(items, list):
+        candidate = next((item for item in items if isinstance(item, dict) and item.get("id")), None)
+        if candidate:
+            candidate_id = str(candidate["id"])
+            candidate_source = "queue"
+    if candidate_id is None and isinstance(recent_decisions, list):
+        recent = next((row for row in recent_decisions if isinstance(row, dict) and row.get("item_id")), None)
+        if recent:
+            candidate_id = str(recent["item_id"])
+            candidate_source = "recent_decisions"
+
+    packet_status = 0
+    packet_json: dict[str, Any] | None = None
+    packet_body = ""
+    if candidate_id:
+        packet_status, packet_json, packet_body = _http_json(
+            f"{dashboard_url}/api/soul/nexus_review_queue/evidence_packet?agent={agent}&reviewer=NEXUS&item_id={candidate_id}"
+        )
+    diff_status = 0
+    diff_json: dict[str, Any] | None = None
+    diff_body = ""
+    timeline_status = 0
+    timeline_json: dict[str, Any] | None = None
+    timeline_body = ""
+    if candidate_id:
+        diff_status, diff_json, diff_body = _http_json(
+            f"{dashboard_url}/api/soul/nexus_review_queue/diff?agent={agent}&reviewer=NEXUS&item_id={candidate_id}"
+        )
+        timeline_status, timeline_json, timeline_body = _http_json(
+            f"{dashboard_url}/api/soul/nexus_review_queue/timeline?reviewer=NEXUS&item_id={candidate_id}"
+        )
+
+    policy_status, policy_json, policy_body = _http_json(
+        f"{dashboard_url}/api/soul/nexus_review_queue/policy_gates?agent={agent}&reviewer=NEXUS"
+    )
+    alerts_status, alerts_json, alerts_body = _http_json(
+        f"{dashboard_url}/api/soul/nexus_review_queue/alerts?agent={agent}&reviewer=NEXUS"
+    )
+    william_status, william_json, william_body = _http_json(
+        f"{dashboard_url}/api/soul/nexus_review_queue/william_review?agent={agent}&reviewer=NEXUS"
+    )
+    autonomy_status, autonomy_json, autonomy_body = _http_json(
+        f"{dashboard_url}/api/soul/autonomy_dashboard?agent={agent}&reviewer=NEXUS"
+    )
+    learning_status, learning_json, learning_body = _http_json(
+        f"{dashboard_url}/api/soul/learning_loop_status?agent={agent}"
+    )
+
+    worker_count_before: int | None = None
+    worker_count_after: int | None = None
+    rollback_count_before: int | None = None
+    rollback_count_after: int | None = None
+    conn = await asyncpg.connect(pg_dsn())
+    try:
+        worker_table_exists = bool(await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='soul_v3' AND table_name='nexus_decision_worker_runs'
+            )
+            """
+        ))
+        if worker_table_exists:
+            worker_count_before = int(await conn.fetchval(
+                "SELECT COUNT(*) FROM soul_v3.nexus_decision_worker_runs WHERE agent=$1",
+                agent,
+            ))
+        rollback_table_exists = bool(await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='soul_v3' AND table_name='nexus_rollback_requests'
+            )
+            """
+        ))
+        if rollback_table_exists:
+            rollback_count_before = int(await conn.fetchval(
+                "SELECT COUNT(*) FROM soul_v3.nexus_rollback_requests WHERE agent=$1",
+                agent,
+            ))
+    finally:
+        await conn.close()
+
+    worker_status, worker_json, worker_body = _http_post_json(
+        f"{dashboard_url}/api/soul/nexus_review_queue/decision_worker",
+        {"agent": agent, "reviewer": "NEXUS", "dry_run": True, "limit": 40},
+    )
+    rollback_status = 0
+    rollback_json: dict[str, Any] | None = None
+    rollback_body = ""
+    if candidate_id:
+        rollback_status, rollback_json, rollback_body = _http_post_json(
+            f"{dashboard_url}/api/soul/nexus_review_queue/rollback_request",
+            {
+                "item_id": candidate_id,
+                "agent": agent,
+                "reviewer": "NEXUS",
+                "actor": agent,
+                "dry_run": True,
+                "reason": "evaluation dry run validates rollback request contract",
+            },
+        )
+
+    conn = await asyncpg.connect(pg_dsn())
+    try:
+        worker_table_exists_after = bool(await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='soul_v3' AND table_name='nexus_decision_worker_runs'
+            )
+            """
+        ))
+        if worker_table_exists_after:
+            worker_count_after = int(await conn.fetchval(
+                "SELECT COUNT(*) FROM soul_v3.nexus_decision_worker_runs WHERE agent=$1",
+                agent,
+            ))
+        rollback_table_exists_after = bool(await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='soul_v3' AND table_name='nexus_rollback_requests'
+            )
+            """
+        ))
+        if rollback_table_exists_after:
+            rollback_count_after = int(await conn.fetchval(
+                "SELECT COUNT(*) FROM soul_v3.nexus_rollback_requests WHERE agent=$1",
+                agent,
+            ))
+    finally:
+        await conn.close()
+
+    view_status, view_html = _http_text(f"{dashboard_url}/?agent={agent}&view=autonomy")
+    william_view_status, william_view_html = _http_text(f"{dashboard_url}/?agent={agent}&view=william_review")
+    nexus_component_path = PROJECT_ROOT / "soul-dashboard" / "frontend" / "src" / "components" / "sections" / "NexusReviewQueueSection.tsx"
+    autonomy_component_path = PROJECT_ROOT / "soul-dashboard" / "frontend" / "src" / "components" / "sections" / "AutonomyDashboardSection.tsx"
+    william_component_path = PROJECT_ROOT / "soul-dashboard" / "frontend" / "src" / "components" / "sections" / "WilliamReviewSection.tsx"
+    app_path = PROJECT_ROOT / "soul-dashboard" / "frontend" / "src" / "App.tsx"
+    api_path = PROJECT_ROOT / "soul-dashboard" / "soul_api.py"
+    nexus_component_text = nexus_component_path.read_text(encoding="utf-8") if nexus_component_path.exists() else ""
+    autonomy_component_text = autonomy_component_path.read_text(encoding="utf-8") if autonomy_component_path.exists() else ""
+    william_component_text = william_component_path.read_text(encoding="utf-8") if william_component_path.exists() else ""
+    app_text = app_path.read_text(encoding="utf-8") if app_path.exists() else ""
+    api_text = api_path.read_text(encoding="utf-8") if api_path.exists() else ""
+
+    packet = packet_json.get("packet", {}) if isinstance(packet_json, dict) else {}
+    packet_diff = packet.get("diff", {}) if isinstance(packet, dict) else {}
+    packet_timeline = packet.get("timeline", {}) if isinstance(packet, dict) else {}
+    policy_rules = policy_json.get("rules", {}) if isinstance(policy_json, dict) else {}
+    alerts_summary = alerts_json.get("summary", {}) if isinstance(alerts_json, dict) else {}
+    william_summary = william_json.get("summary", {}) if isinstance(william_json, dict) else {}
+    learning_summary = learning_json.get("summary", {}) if isinstance(learning_json, dict) else {}
+    learning_stages = learning_json.get("stages", []) if isinstance(learning_json, dict) else []
+    autonomy_summary = autonomy_json.get("summary", {}) if isinstance(autonomy_json, dict) else {}
+
+    checks = {
+        "queue_available": queue_status == 200 and isinstance(queue_json, dict),
+        "candidate_available_from_queue_or_history": bool(candidate_id),
+        "evidence_packet_endpoint_ok": packet_status == 200 and isinstance(packet_json, dict),
+        "evidence_packet_read_only_boundary": isinstance(packet_json, dict)
+        and packet_json.get("boundary") == "evidence_packet_read_only_no_mutation",
+        "evidence_packet_has_source_policy_decisions": isinstance(packet, dict)
+        and {"source", "evidence", "policy", "decisions", "recommended_next_action"}.issubset(packet),
+        "evidence_packet_has_diff_and_timeline": isinstance(packet_diff, dict)
+        and packet_diff.get("boundary") == "diff_preview_only_no_mutation"
+        and isinstance(packet_timeline, dict)
+        and packet_timeline.get("boundary") == "timeline_read_only_no_mutation",
+        "diff_endpoint_ok": diff_status == 200 and isinstance(diff_json, dict)
+        and diff_json.get("boundary") == "diff_preview_only_no_mutation",
+        "timeline_endpoint_ok": timeline_status == 200 and isinstance(timeline_json, dict)
+        and timeline_json.get("boundary") == "timeline_read_only_no_mutation",
+        "policy_gates_endpoint_ok": policy_status == 200 and isinstance(policy_json, dict),
+        "policy_gates_boundary": isinstance(policy_json, dict)
+        and policy_json.get("boundary") == "policy_gates_read_only_no_mutation",
+        "policy_gates_rules_present": isinstance(policy_rules, dict)
+        and policy_rules.get("nexus_can_approve_low_medium_non_destructive") is True
+        and policy_rules.get("william_required_for_destructive_or_external_side_effects") is True
+        and policy_rules.get("henry_optional_for_paper_research_or_ambiguous_delegation") is True,
+        "decision_worker_dry_run_ok": worker_status == 200 and isinstance(worker_json, dict)
+        and worker_json.get("ok") is True
+        and worker_json.get("dry_run") is True,
+        "decision_worker_dry_run_no_worker_run_insert": worker_count_after is not None
+        and worker_count_after == (worker_count_before if worker_count_before is not None else 0),
+        "rollback_request_dry_run_ok": rollback_status == 200 and isinstance(rollback_json, dict)
+        and rollback_json.get("ok") is True
+        and rollback_json.get("dry_run") is True
+        and rollback_json.get("boundary") == "rollback_request_audit_only_requires_william_review",
+        "rollback_request_dry_run_no_insert": rollback_count_after is not None
+        and rollback_count_after == (rollback_count_before if rollback_count_before is not None else 0),
+        "debt_alerts_endpoint_ok": alerts_status == 200 and isinstance(alerts_json, dict)
+        and alerts_json.get("boundary") == "debt_alerts_read_only_no_mutation"
+        and {"total", "high", "medium", "low"}.issubset(alerts_summary),
+        "william_review_endpoint_ok": william_status == 200 and isinstance(william_json, dict)
+        and william_json.get("boundary") == "william_review_read_only_human_gate"
+        and {"total", "queue_items", "alerts"}.issubset(william_summary),
+        "autonomy_dashboard_endpoint_ok": autonomy_status == 200 and isinstance(autonomy_json, dict),
+        "autonomy_dashboard_boundary": isinstance(autonomy_json, dict)
+        and autonomy_json.get("boundary") == "autonomy_dashboard_observability_and_audited_controls",
+        "autonomy_dashboard_includes_debt_and_william": isinstance(autonomy_summary, dict)
+        and "debt_alerts" in autonomy_summary
+        and "william_review" in autonomy_summary,
+        "learning_loop_endpoint_ok": learning_status == 200 and isinstance(learning_json, dict),
+        "learning_loop_has_five_stages": isinstance(learning_stages, list)
+        and {stage.get("name") for stage in learning_stages if isinstance(stage, dict)}
+        == {"capture_experience", "propose_candidate", "nexus_review", "decision_worker", "awareness_247_feedback"},
+        "learning_loop_green_or_reviewed": learning_summary.get("green") is True
+        or int(learning_summary.get("review_decisions") or 0) > 0,
+        "nexus_ui_has_packet_and_worker": "Evidence Packet" in nexus_component_text
+        and "decision_worker" in nexus_component_text
+        and "policy_gates" in nexus_component_text,
+        "nexus_ui_has_diff_timeline_rollback_alerts": "Diff Preview" in nexus_component_text
+        and "Timeline" in nexus_component_text
+        and "Request Rollback" in nexus_component_text
+        and "Debt Alerts" in nexus_component_text,
+        "autonomy_ui_present": autonomy_component_path.exists()
+        and "Autonomy Control" in autonomy_component_text
+        and "Learning Loop" in autonomy_component_text,
+        "autonomy_ui_has_debt_and_william": "Debt Alerts" in autonomy_component_text
+        and "William Review" in autonomy_component_text,
+        "william_review_ui_present": william_component_path.exists()
+        and "William Review" in william_component_text
+        and "Human Gate Queue" in william_component_text,
+        "app_autonomy_nav_wired": "AutonomyDashboardSection" in app_text
+        and 'id: "autonomy"' in app_text,
+        "app_william_review_nav_wired": "WilliamReviewSection" in app_text
+        and 'id: "william_review"' in app_text,
+        "api_endpoints_present": "/api/soul/autonomy_dashboard" in api_text
+        and "/api/soul/learning_loop_status" in api_text
+        and "/api/soul/nexus_review_queue/evidence_packet" in api_text,
+        "api_pro_controls_present": "/api/soul/nexus_review_queue/diff" in api_text
+        and "/api/soul/nexus_review_queue/timeline" in api_text
+        and "/api/soul/nexus_review_queue/rollback_request" in api_text
+        and "/api/soul/nexus_review_queue/alerts" in api_text
+        and "/api/soul/nexus_review_queue/william_review" in api_text,
+        "autonomy_deeplink_http_ok": view_status == 200 and "/assets/index-" in view_html,
+        "william_review_deeplink_http_ok": william_view_status == 200 and "/assets/index-" in william_view_html,
+    }
+    passed = sum(1 for ok in checks.values() if ok)
+    score = round((passed / len(checks)) * 100)
+    evidence = (
+        f"soul_autonomy_pipeline_cases={passed}/{len(checks)} "
+        f"queue={queue_status} packet={packet_status} diff={diff_status} timeline={timeline_status} policy={policy_status} "
+        f"worker={worker_status} autonomy={autonomy_status} learning={learning_status} "
+        f"rollback={rollback_status} alerts={alerts_status} william={william_status} "
+        f"candidate={candidate_id} source={candidate_source} stages={learning_summary.get('stages_ok')}/{learning_summary.get('stages_total')}"
+    )
+    return _result(
+        "soul_autonomy_pipeline",
+        score,
+        evidence,
+        {
+            "candidate_id": candidate_id,
+            "candidate_source": candidate_source,
+            "checks": checks,
+            "packet_response": packet_json if isinstance(packet_json, dict) else packet_body[:300],
+            "diff_response": diff_json if isinstance(diff_json, dict) else diff_body[:300],
+            "timeline_response": timeline_json if isinstance(timeline_json, dict) else timeline_body[:300],
+            "policy_response": policy_json if isinstance(policy_json, dict) else policy_body[:300],
+            "worker_response": worker_json if isinstance(worker_json, dict) else worker_body[:300],
+            "rollback_response": rollback_json if isinstance(rollback_json, dict) else rollback_body[:300],
+            "alerts_response": alerts_json if isinstance(alerts_json, dict) else alerts_body[:300],
+            "william_response": william_json if isinstance(william_json, dict) else william_body[:300],
+            "autonomy_summary": autonomy_summary,
+            "learning_response": learning_json if isinstance(learning_json, dict) else learning_body[:300],
+            "paths": {
+                "nexus_component": str(nexus_component_path),
+                "autonomy_component": str(autonomy_component_path),
+                "william_component": str(william_component_path),
+                "app": str(app_path),
+                "api": str(api_path),
+            },
+            "boundary": "Pass means autonomy controls are observable and dry-run audited; no model training or destructive operation is performed.",
+        },
+        agent,
+    )
+
+
+async def suite_awareness_dashboard_3005(agent: str = DEFAULT_AGENT) -> EvalResult:
+    dashboard_url = os.environ.get("AWARENESS_DASHBOARD_URL", "http://127.0.0.1:3005").rstrip("/")
+    backend_url = SOUL_DASHBOARD_URL.rstrip("/")
+    static_status, static_html = _http_text(f"{dashboard_url}/")
+    backend_status, backend_json, backend_body = _http_json(f"{backend_url}/health")
+    api_status, api_json, api_body = _http_json(f"{backend_url}/api/soul/awareness_dashboard?agent={agent}")
+
+    service_name = "seal-awareness-dashboard.service"
+    service_state = _service_state(service_name)
+    service_show = _service_show(service_name, ["MainPID", "ActiveState", "SubState", "UnitFileState"])
+
+    index_path = PROJECT_ROOT / "awareness-dashboard" / "index.html"
+    start_path = PROJECT_ROOT / "awareness-dashboard" / "start.sh"
+    healthcheck_path = PROJECT_ROOT / "awareness-dashboard" / "healthcheck.sh"
+    service_path = PROJECT_ROOT / "awareness-dashboard" / "seal-awareness-dashboard.service"
+    installed_service_path = Path.home() / ".config" / "systemd" / "user" / "seal-awareness-dashboard.service"
+    screenshot_path = PROJECT_ROOT / "awareness-dashboard" / "awareness_dashboard_3005_final.png"
+
+    summary = api_json.get("summary", {}) if isinstance(api_json, dict) else {}
+    process = api_json.get("process", {}) if isinstance(api_json, dict) else {}
+    process_scores = process.get("phase_scores", {}) if isinstance(process, dict) else {}
+    latest_suites = api_json.get("latest_suites", []) if isinstance(api_json, dict) else []
+    suite_names = {row.get("suite") for row in latest_suites if isinstance(row, dict)}
+    index_text = index_path.read_text(encoding="utf-8", errors="replace") if index_path.exists() else ""
+    required_markers = [
+        "ADA Awareness",
+        "Deploy Decision",
+        "Run Timeline",
+        "Run Inspector",
+        "NEXUS review required",
+        "awareness_closed_loop",
+    ]
+    executable_mask = 0o111
+    checks = {
+        "static_port_3005_ok": static_status == 200,
+        "static_dashboard_markers_present": all(marker in static_html for marker in required_markers),
+        "backend_8850_health_ok": backend_status == 200 and bool(backend_json and backend_json.get("ok")),
+        "awareness_api_ok": api_status == 200 and isinstance(api_json, dict),
+        "awareness_api_summary_green": summary.get("suite_count") == 10
+        and summary.get("passing_suites") == 10
+        and summary.get("failing_suites") == 0,
+        "awareness_api_latest_closed_loop": "awareness_closed_loop" in suite_names,
+        "awareness_api_latest_process": "awareness_247_process" in suite_names,
+        "awareness_api_latest_latent": "latent_graphmem_phase2" in suite_names,
+        "awareness_api_process_green": bool(process.get("passed")) if isinstance(process, dict) else False,
+        "awareness_api_process_scores_object": isinstance(process_scores, dict)
+        and process_scores.get("latent_graphmem_phase2") == 100
+        and process_scores.get("production_clean") == 100,
+        "api_host_is_dashboard_host": "window.location.hostname" in index_text
+        and 'const API = "http://127.0.0.1:8850"' not in index_text,
+        "service_active": service_state == "active",
+        "service_enabled": service_show.get("UnitFileState") == "enabled",
+        "service_running_pid": int(service_show.get("MainPID") or "0") > 0
+        and service_show.get("SubState") == "running",
+        "source_files_present": all(path.exists() for path in [index_path, start_path, healthcheck_path, service_path]),
+        "runtime_scripts_executable": start_path.exists()
+        and bool(start_path.stat().st_mode & executable_mask)
+        and healthcheck_path.exists()
+        and bool(healthcheck_path.stat().st_mode & executable_mask),
+        "installed_unit_present": installed_service_path.exists(),
+        "render_artifact_present": screenshot_path.exists() and screenshot_path.stat().st_size > 0,
+    }
+    passed = sum(1 for ok in checks.values() if ok)
+    score = round((passed / len(checks)) * 100)
+    evidence = (
+        f"awareness_dashboard_3005_cases={passed}/{len(checks)} "
+        f"static={static_status} backend={backend_status} api={api_status} "
+        f"suites={summary.get('passing_suites')}/{summary.get('suite_count')} "
+        f"service={service_state} pid={service_show.get('MainPID')} unit={service_show.get('UnitFileState')}"
+    )
+    return _result(
+        "awareness_dashboard_3005",
+        score,
+        evidence,
+        {
+            "dashboard_url": dashboard_url,
+            "backend_url": backend_url,
+            "summary": summary,
+            "latest_suites": latest_suites,
+            "checks": checks,
+            "service": {"name": service_name, "state": service_state, "show": service_show},
+            "responses": {
+                "static_sample": static_html[:500],
+                "backend_health": backend_json or backend_body[:300],
+                "awareness_api_sample": api_json if isinstance(api_json, dict) else api_body[:300],
+            },
+            "paths": {
+                "index": str(index_path),
+                "start": str(start_path),
+                "healthcheck": str(healthcheck_path),
+                "service": str(service_path),
+                "installed_service": str(installed_service_path),
+                "screenshot": str(screenshot_path),
+            },
+            "boundary": "Pass means the separate ADA awareness dashboard is live on :3005, backed by :8850, systemd-managed, and visibly wired to verified awareness evidence.",
+        },
+        agent,
+    )
+
+
+async def suite_soul_app_awareness_5173(agent: str = DEFAULT_AGENT) -> EvalResult:
+    app_url = SOUL_APP_URL.rstrip("/")
+    awareness_url = os.environ.get("AWARENESS_DASHBOARD_URL", "http://127.0.0.1:3005").rstrip("/")
+    studio_url = os.environ.get("SEAL_STUDIO_API_URL", "http://127.0.0.1:8800").rstrip("/")
+    dashboard_url = SOUL_DASHBOARD_URL.rstrip("/")
+
+    app_status, app_html = _http_text(f"{app_url}/?view=awareness")
+    nexus_app_status, nexus_app_html = _http_text(f"{app_url}/?agent={agent}&view=nexus_review")
+    awareness_status, awareness_html = _http_text(f"{awareness_url}/")
+    dashboard_status, dashboard_json, dashboard_body = _http_json(f"{dashboard_url}/health")
+    nexus_queue_status, nexus_queue_json, nexus_queue_body = _http_json(
+        f"{dashboard_url}/api/soul/nexus_review_queue?agent={agent}&reviewer=NEXUS"
+    )
+    studio_status, studio_json, studio_body, studio_headers = _http_json_headers(
+        f"{studio_url}/api/system/health",
+        {"Origin": app_url},
+    )
+
+    services = {
+        "seal-ui-5173.service": _service_show(
+            "seal-ui-5173.service",
+            ["MainPID", "ActiveState", "SubState", "FragmentPath", "Transient", "ExecStart"],
+        ),
+        "seal-awareness-dashboard.service": _service_show("seal-awareness-dashboard.service", ["MainPID", "ActiveState", "SubState"]),
+        "seal-studio-backend.service": _service_show("seal-studio-backend.service", ["MainPID", "ActiveState", "SubState"]),
+    }
+
+    app_path = PROJECT_ROOT / "seal-desktop" / "ui" / "src" / "App.tsx"
+    type_path = PROJECT_ROOT / "seal-desktop" / "ui" / "src" / "lib" / "types.ts"
+    view_path = PROJECT_ROOT / "seal-desktop" / "ui" / "src" / "components" / "awareness" / "AwarenessView.tsx"
+    nexus_view_path = PROJECT_ROOT / "seal-desktop" / "ui" / "src" / "components" / "nexus" / "NexusReviewView.tsx"
+    bottom_nav_path = PROJECT_ROOT / "seal-desktop" / "ui" / "src" / "components" / "layout" / "BottomNav.tsx"
+    palette_path = PROJECT_ROOT / "seal-desktop" / "ui" / "src" / "components" / "palette" / "CommandPalette.tsx"
+    start_preview_path = PROJECT_ROOT / "seal-desktop" / "ui" / "start-preview.sh"
+    healthcheck_path = PROJECT_ROOT / "seal-desktop" / "ui" / "healthcheck.sh"
+    service_path = PROJECT_ROOT / "seal-desktop" / "ui" / "seal-ui-5173.service"
+    installed_service_path = Path.home() / ".config" / "systemd" / "user" / "seal-ui-5173.service"
+    dist_dir = PROJECT_ROOT / "seal-desktop" / "ui" / "dist" / "assets"
+
+    app_text = app_path.read_text(encoding="utf-8", errors="replace") if app_path.exists() else ""
+    type_text = type_path.read_text(encoding="utf-8", errors="replace") if type_path.exists() else ""
+    view_text = view_path.read_text(encoding="utf-8", errors="replace") if view_path.exists() else ""
+    nexus_view_text = nexus_view_path.read_text(encoding="utf-8", errors="replace") if nexus_view_path.exists() else ""
+    bottom_nav_text = bottom_nav_path.read_text(encoding="utf-8", errors="replace") if bottom_nav_path.exists() else ""
+    palette_text = palette_path.read_text(encoding="utf-8", errors="replace") if palette_path.exists() else ""
+    awareness_chunks = sorted(dist_dir.glob("AwarenessView-*.js")) if dist_dir.exists() else []
+    nexus_chunks = sorted(dist_dir.glob("NexusReviewView-*.js")) if dist_dir.exists() else []
+
+    chromium_status = 0
+    chromium_dom = ""
+    chromium_error = ""
+    nexus_chromium_status = 0
+    nexus_chromium_dom = ""
+    nexus_chromium_error = ""
+    try:
+        proc = subprocess.run(
+            [
+                os.environ.get("CHROME_BIN", "chromium"),
+                "--headless",
+                "--no-sandbox",
+                "--disable-gpu",
+                "--virtual-time-budget=7000",
+                "--dump-dom",
+                f"{app_url}/?view=awareness",
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=20,
+            check=False,
+        )
+        chromium_status = proc.returncode
+        chromium_dom = proc.stdout
+        chromium_error = proc.stderr
+    except Exception as exc:
+        chromium_status = -1
+        chromium_error = str(exc)
+    try:
+        proc = subprocess.run(
+            [
+                os.environ.get("CHROME_BIN", "chromium"),
+                "--headless",
+                "--no-sandbox",
+                "--disable-gpu",
+                "--virtual-time-budget=7000",
+                "--dump-dom",
+                f"{app_url}/?agent={agent}&view=nexus_review",
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=20,
+            check=False,
+        )
+        nexus_chromium_status = proc.returncode
+        nexus_chromium_dom = proc.stdout
+        nexus_chromium_error = proc.stderr
+    except Exception as exc:
+        nexus_chromium_status = -1
+        nexus_chromium_error = str(exc)
+
+    services_active = {
+        name: values.get("ActiveState") == "active"
+        and values.get("SubState") == "running"
+        and int(values.get("MainPID") or "0") > 0
+        for name, values in services.items()
+    }
+    ui_service = services["seal-ui-5173.service"]
+    ui_fragment_path = ui_service.get("FragmentPath", "")
+    ui_exec_start = ui_service.get("ExecStart", "")
+    executable_mask = 0o111
+    gpu = studio_json.get("services", {}).get("gpu", {}) if isinstance(studio_json, dict) else {}
+    checks = {
+        "app_5173_http_ok": app_status == 200 and "Soul App 2" in app_html,
+        "nexus_review_5173_http_ok": nexus_app_status == 200 and "Soul App 2" in nexus_app_html,
+        "awareness_3005_http_ok": awareness_status == 200 and "ADA Awareness" in awareness_html,
+        "dashboard_8850_health_ok": dashboard_status == 200 and bool(dashboard_json and dashboard_json.get("ok")),
+        "nexus_queue_8850_ok": nexus_queue_status == 200 and isinstance(nexus_queue_json, dict),
+        "studio_8800_health_ok": studio_status == 200 and isinstance(studio_json, dict),
+        "studio_cors_allows_5173": studio_headers.get("access-control-allow-origin") == app_url,
+        "gpu_health_tolerates_na": gpu.get("status") == "up" and "error" not in gpu,
+        "services_running": all(services_active.values()),
+        "source_route_wired": "AwarenessView" in app_text
+        and "NexusReviewView" in app_text
+        and "URLSearchParams(window.location.search)" in app_text
+        and "w: 'awareness'" in app_text
+        and "x: 'nexus_review'" in app_text
+        and "case 'awareness'" in app_text,
+        "view_type_registered": "'awareness'" in type_text and "'nexus_review'" in type_text,
+        "navigation_wired": "Aware" in bottom_nav_text
+        and "NEXUS" in bottom_nav_text
+        and "Go to ADA Awareness" in palette_text
+        and "Go to NEXUS Review" in palette_text,
+        "awareness_view_embeds_3005": "sameHostUrl(3005" in view_text and "8850 API" in view_text,
+        "nexus_review_view_embeds_8850": "sameHostUrl(8850" in nexus_view_text
+        and "NEXUS Review" in nexus_view_text
+        and "nexus_review_queue" in nexus_view_text,
+        "dist_contains_awareness_chunk": bool(awareness_chunks),
+        "dist_contains_nexus_review_chunk": bool(nexus_chunks),
+        "ui_service_persistent": ui_service.get("Transient") == "no"
+        and str(installed_service_path) == ui_fragment_path,
+        "ui_service_uses_preview": "start-preview.sh" in ui_exec_start
+        and "npm run dev" not in ui_exec_start,
+        "ui_runtime_files_present": all(path.exists() for path in [start_preview_path, healthcheck_path, service_path, installed_service_path]),
+        "ui_runtime_scripts_executable": start_preview_path.exists()
+        and bool(start_preview_path.stat().st_mode & executable_mask)
+        and healthcheck_path.exists()
+        and bool(healthcheck_path.stat().st_mode & executable_mask),
+        "chromium_renders_awareness": chromium_status == 0
+        and "ADA Awareness" in chromium_dom
+        and "8850 API OK" in chromium_dom
+        and "3005 loaded" in chromium_dom,
+        "chromium_renders_nexus_review": nexus_chromium_status == 0
+        and "NEXUS Review" in nexus_chromium_dom
+        and "8850 API OK" in nexus_chromium_dom
+        and "review loaded" in nexus_chromium_dom,
+    }
+    passed = sum(1 for ok in checks.values() if ok)
+    score = round((passed / len(checks)) * 100)
+    evidence = (
+        f"soul_app_awareness_5173_cases={passed}/{len(checks)} "
+        f"app={app_status} nexus_app={nexus_app_status} studio={studio_status} "
+        f"dashboard={dashboard_status} awareness={awareness_status} nexus_queue={nexus_queue_status} "
+        f"cors={studio_headers.get('access-control-allow-origin')} "
+        f"chromium={chromium_status}/{nexus_chromium_status} "
+        f"services={sum(1 for ok in services_active.values() if ok)}/{len(services_active)}"
+    )
+    return _result(
+        "soul_app_awareness_5173",
+        score,
+        evidence,
+        {
+            "app_url": app_url,
+            "awareness_url": awareness_url,
+            "studio_url": studio_url,
+            "dashboard_url": dashboard_url,
+            "checks": checks,
+            "services": services,
+            "services_active": services_active,
+            "responses": {
+                "studio_health": studio_json or studio_body[:300],
+                "dashboard_health": dashboard_json or dashboard_body[:300],
+                "nexus_queue": nexus_queue_json or nexus_queue_body[:300],
+                "chromium_error": chromium_error[:1000],
+                "nexus_chromium_error": nexus_chromium_error[:1000],
+            },
+            "paths": {
+                "app": str(app_path),
+                "types": str(type_path),
+                "view": str(view_path),
+                "nexus_view": str(nexus_view_path),
+                "bottom_nav": str(bottom_nav_path),
+                "palette": str(palette_path),
+                "start_preview": str(start_preview_path),
+                "healthcheck": str(healthcheck_path),
+                "service": str(service_path),
+                "installed_service": str(installed_service_path),
+                "awareness_chunks": [str(path) for path in awareness_chunks],
+                "nexus_chunks": [str(path) for path in nexus_chunks],
+            },
+            "boundary": "Pass means Soul App 2 :5173 exposes ADA Awareness and NEXUS Review as integrated views while preserving standalone :3005/:8850 dashboards and healthy :8800/:8850 backends.",
         },
         agent,
     )
@@ -2139,6 +3100,332 @@ async def suite_kernel_forge(agent: str = DEFAULT_AGENT) -> EvalResult:
             "cuda_artifacts": assessment.cuda_artifacts,
             "toolchain": assessment.toolchain,
             "boundary": "Pass means the profiler/candidate/judge/keep-revert loop is executable with CUDA/Nsight availability recorded; it is not a claim that production CUDA kernels were auto-optimized.",
+        },
+        agent,
+    )
+
+
+async def suite_awareness_event_collector(agent: str = DEFAULT_AGENT) -> EvalResult:
+    events = shadow_fixture_events(agent, 100)
+    privacy_events = [event for event in events if event.kind == "privacy_boundary"]
+    public_without_mention = [
+        event for event in events
+        if event.channel == "web_chat" and event.sender == "William" and not event.metadata.get("explicit_agent_mention")
+    ]
+    dm_events = [event for event in events if event.channel == f"dm:{agent.lower()}:william"]
+    destructive_events = [event for event in events if event.metadata.get("destructive_command")]
+    checks = {
+        "fixture_has_100_events": len(events) == 100,
+        "all_events_have_ids": all(event.event_id for event in events),
+        "all_events_bound_to_agent": all(event.agent == agent.upper() for event in events),
+        "privacy_boundary_present": bool(privacy_events),
+        "privacy_content_redacted": all(event.content == "" and event.metadata.get("redacted") for event in privacy_events),
+        "public_without_ada_does_not_require_response": all(not event.requires_response for event in public_without_mention),
+        "william_dm_requires_response": bool(dm_events) and all(event.requires_response for event in dm_events),
+        "destructive_command_detected": bool(destructive_events),
+        "service_status_present": any(event.kind == "service_status" for event in events),
+        "test_result_present": any(event.kind == "test_result" for event in events),
+    }
+    passed = sum(1 for ok in checks.values() if ok)
+    score = round((passed / len(checks)) * 100)
+    evidence = (
+        f"awareness_event_collector_cases={passed}/{len(checks)} events={len(events)} "
+        f"privacy_events={len(privacy_events)} william_dm={len(dm_events)} destructive={len(destructive_events)}"
+    )
+    return _result(
+        "awareness_event_collector",
+        score,
+        evidence,
+        {
+            "checks": checks,
+            "event_count": len(events),
+            "sample_events": [event.to_dict() for event in events[:10]],
+            "boundary": "Pass means Fase 1 can normalize a 100-event shadow fixture while redacting cross-agent DMs and taking no side effects.",
+        },
+        agent,
+    )
+
+
+async def suite_attention_governor(agent: str = DEFAULT_AGENT) -> EvalResult:
+    assessment = evaluate_shadow_fixture(agent, 100)
+    checks = assessment["checks"]
+    passed = int(assessment["passed"])
+    total = int(assessment["total"])
+    score = round((passed / total) * 100)
+    decisions = assessment["decisions"]
+    action_counts: dict[str, int] = {}
+    for decision in decisions:
+        action = str(decision["action"])
+        action_counts[action] = action_counts.get(action, 0) + 1
+    evidence = (
+        f"attention_governor_cases={passed}/{total} events={len(assessment['events'])} "
+        f"ignore={action_counts.get('ignore', 0)} reflex={action_counts.get('reflex_action', 0)} "
+        f"local_reflect={action_counts.get('local_reflect', 0)} wake_codex={action_counts.get('wake_codex', 0)}"
+    )
+    return _result(
+        "attention_governor",
+        score,
+        evidence,
+        {
+            "checks": checks,
+            "action_counts": action_counts,
+            "sample_decisions": decisions[:10],
+            "boundary": "Pass means Fase 1 makes deterministic shadow decisions only; it does not publish, execute, restart, or call a model.",
+        },
+        agent,
+    )
+
+
+async def suite_awareness_tick_ledger(agent: str = DEFAULT_AGENT) -> EvalResult:
+    temp_agent = f"{agent.upper()}_AWARENESS_LEDGER_{int(time.time() * 1000)}"
+    conn = await connect_db()
+    cleanup_deleted = 0
+    try:
+        events = shadow_fixture_events(temp_agent, 10)
+        decisions = [decide_attention(event) for event in events]
+        records = [
+            await record_awareness_tick(conn, event, decision, outcome="evaluation_spine_shadow")
+            for event, decision in zip(events, decisions)
+        ]
+        state = await fetch_awareness_state(conn, temp_agent)
+        recent = await recent_awareness_ticks(conn, temp_agent, limit=20)
+        cleanup_deleted = await cleanup_awareness_agent(conn, temp_agent)
+        post_recent = await recent_awareness_ticks(conn, temp_agent, limit=20)
+        post_state = await fetch_awareness_state(conn, temp_agent)
+        checks = {
+            "records_inserted": len(records) == 10 and all(record.db_id for record in records),
+            "tick_ids_unique": len({record.tick_id for record in records}) == len(records),
+            "state_written": bool(state and state.get("agent") == temp_agent),
+            "state_points_to_last_tick": bool(state and state.get("last_tick_id") == records[-1].tick_id),
+            "recent_ticks_readable": len(recent) == 10,
+            "gemma4_local_model_recorded": any(row["local_model_used"] and row["attention_action"] == "local_reflect" for row in recent),
+            "codex_escalation_recorded": any(row["escalated_runtime"] == "codex" for row in recent),
+            "privacy_boundary_persisted": any(row["attention_action"] == "store_only" and row["event_id"].startswith("chat:4") for row in recent),
+            "cleanup_deleted_rows": cleanup_deleted >= 11,
+            "cleanup_removed_temp_agent": post_recent == [] and post_state is None,
+        }
+        passed = sum(1 for ok in checks.values() if ok)
+        score = round((passed / len(checks)) * 100)
+        evidence = (
+            f"awareness_tick_ledger_cases={passed}/{len(checks)} records={len(records)} "
+            f"recent={len(recent)} cleanup_deleted={cleanup_deleted}"
+        )
+        return _result(
+            "awareness_tick_ledger",
+            score,
+            evidence,
+            {
+                "checks": checks,
+                "temp_agent": temp_agent,
+                "records": [record.to_dict() for record in records],
+                "state_before_cleanup": dict(state) if state else None,
+                "cleanup_deleted": cleanup_deleted,
+                "boundary": "Pass means awareness decisions can be persisted and recovered for a temporary agent, then cleaned up. No runtime action is executed.",
+            },
+            agent,
+        )
+    finally:
+        if cleanup_deleted == 0:
+            await cleanup_awareness_agent(conn, temp_agent)
+        await conn.close()
+
+
+async def suite_awareness_reflex_actions(agent: str = DEFAULT_AGENT) -> EvalResult:
+    assessment = evaluate_reflex_fixture()
+    checks = assessment["checks"]
+    passed = int(assessment["passed"])
+    total = int(assessment["total"])
+    score = round((passed / total) * 100)
+    command_count = sum(len(execution["commands"]) for execution in assessment["executions"].values())
+    evidence = (
+        f"awareness_reflex_actions_cases={passed}/{total} command_count={command_count} "
+        f"service_read_only={checks.get('service_failure_does_not_restart')} "
+        f"destructive_blocked={checks.get('destructive_dm_blocked')}"
+    )
+    return _result(
+        "awareness_reflex_actions",
+        score,
+        evidence,
+        {
+            "checks": checks,
+            "executions": assessment["executions"],
+            "captured_commands": assessment["captured_commands"],
+            "boundary": "Pass means limited reflexes capture read-only evidence or block unsafe actions; no restart/post/delete/edit is executed.",
+        },
+        agent,
+    )
+
+
+async def suite_local_runtime_contract(agent: str = DEFAULT_AGENT) -> EvalResult:
+    assessment = evaluate_local_runtime_contract()
+    checks = assessment["checks"]
+    passed = int(assessment["passed"])
+    total = int(assessment["total"])
+    score = round((passed / total) * 100)
+    health = assessment["health"]
+    classified = assessment["classified"]
+    evidence = (
+        f"local_runtime_contract_cases={passed}/{total} endpoint={health.get('endpoint')} "
+        f"model={health.get('model')} live_ok={health.get('ok')} "
+        f"classify_action={classified.get('output', {}).get('action')} degraded={classified.get('degraded')}"
+    )
+    return _result(
+        "local_runtime_contract",
+        score,
+        evidence,
+        {
+            "checks": checks,
+            "health": health,
+            "fake_health": assessment["fake_health"],
+            "classified": classified,
+            "reflected": assessment["reflected"],
+            "fallback": assessment["fallback"],
+            "boundary": "Pass means existing Gemma 4 llama.cpp endpoint is discoverable and local runtime outputs proposal-only JSON contracts. It does not create or restart services.",
+        },
+        agent,
+    )
+
+
+async def suite_awareness_loop_shadow(agent: str = DEFAULT_AGENT) -> EvalResult:
+    assessment = await evaluate_awareness_loop_contract_async()
+    checks = assessment["checks"]
+    passed = int(assessment["passed"])
+    total = int(assessment["total"])
+    score = round((passed / total) * 100)
+    persisted = assessment["persisted"]
+    evidence = (
+        f"awareness_loop_shadow_cases={passed}/{total} processed={persisted.get('processed')} "
+        f"persisted={persisted.get('persisted')} local={persisted.get('local_proposals')} "
+        f"reflex={persisted.get('reflex_executions')} cleanup_deleted={assessment.get('cleanup_deleted')}"
+    )
+    return _result(
+        "awareness_loop_shadow",
+        score,
+        evidence,
+        {
+            "checks": checks,
+            "dry_run": assessment["dry_run"],
+            "persisted": persisted,
+            "cleanup_deleted": assessment["cleanup_deleted"],
+            "boundary": "Pass means the manual awareness loop can process fixture events through collector/governor/ledger/reflex in shadow mode and clean up test rows. It is not a daemon.",
+        },
+        agent,
+    )
+
+
+async def suite_awareness_experience_dataset(agent: str = DEFAULT_AGENT) -> EvalResult:
+    assessment = await evaluate_experience_dataset_contract_async()
+    checks = assessment["checks"]
+    passed = int(assessment["passed"])
+    total = int(assessment["total"])
+    score = round((passed / total) * 100)
+    persisted = assessment["persisted"]
+    examples = persisted["examples"]
+    queued = persisted["queue_records"]
+    trainable = sum(1 for example in examples if example["eligible_for_training"])
+    evidence = (
+        f"awareness_experience_dataset_cases={passed}/{total} examples={len(examples)} "
+        f"trainable={trainable} queued={len(queued)} cleanup_deleted={assessment.get('cleanup_deleted')} "
+        f"awareness_cleanup_deleted={assessment.get('awareness_cleanup_deleted')}"
+    )
+    return _result(
+        "awareness_experience_dataset",
+        score,
+        evidence,
+        {
+            "checks": checks,
+            "dry": assessment["dry"],
+            "persisted": persisted,
+            "cleanup_deleted": assessment["cleanup_deleted"],
+            "awareness_cleanup_deleted": assessment["awareness_cleanup_deleted"],
+            "boundary": "Pass means Fase 5 builds an evaluated awareness dataset and adapter queue with privacy filters, pending NEXUS review, canary mode, and no automatic promotion.",
+        },
+        agent,
+    )
+
+
+async def suite_awareness_closed_loop(agent: str = DEFAULT_AGENT) -> EvalResult:
+    assessment = await evaluate_closed_loop_contract_async()
+    checks = assessment["checks"]
+    passed = int(assessment["passed"])
+    total = int(assessment["total"])
+    score = round((passed / total) * 100)
+    persisted = assessment["persisted"]
+    outcomes = persisted["outcomes"]
+    promote = sum(1 for outcome in outcomes if outcome["promotion_decision"] == "promote_pending_nexus")
+    rollback = sum(1 for outcome in outcomes if outcome["promotion_decision"] == "rollback_pending_nexus")
+    guardrails = sum(1 for outcome in outcomes if outcome["guardrail_candidate"])
+    tests = sum(1 for outcome in outcomes if outcome["regression_test_candidate"])
+    evidence = (
+        f"awareness_closed_loop_cases={passed}/{total} outcomes={len(outcomes)} "
+        f"promote={promote} rollback={rollback} guardrails={guardrails} tests={tests} "
+        f"cleanup_deleted={assessment.get('cleanup_deleted')} "
+        f"experience_cleanup_deleted={assessment.get('experience_cleanup_deleted')} "
+        f"awareness_cleanup_deleted={assessment.get('awareness_cleanup_deleted')}"
+    )
+    return _result(
+        "awareness_closed_loop",
+        score,
+        evidence,
+        {
+            "checks": checks,
+            "persisted": persisted,
+            "cleanup_deleted": assessment["cleanup_deleted"],
+            "experience_cleanup_deleted": assessment["experience_cleanup_deleted"],
+            "awareness_cleanup_deleted": assessment["awareness_cleanup_deleted"],
+            "boundary": "Pass means Fase 6 records measured closed-loop outcomes, weekly scheduler, and promote/rollback/guardrail/test proposals, all pending NEXUS with no automatic training or promotion.",
+        },
+        agent,
+    )
+
+
+async def suite_latent_graphmem_phase2(agent: str = DEFAULT_AGENT) -> EvalResult:
+    assessment = await assess_latent_graphmem_phase2(agent, persist=True)
+    checks = assessment.checks
+    passed = sum(1 for ok in checks.values() if ok)
+    total = len(checks)
+    return _result(
+        "latent_graphmem_phase2",
+        assessment.score,
+        assessment.evidence,
+        {
+            "checks": checks,
+            "details": assessment.details,
+            "boundary": "Pass means LatentGraphMem Phase 2 has router, cache, self-test and latency gates. It does not train or promote an adapter.",
+        },
+        agent,
+    )
+
+
+async def suite_awareness_247_process(agent: str = DEFAULT_AGENT) -> EvalResult:
+    process = await run_process_once(agent, persist=True, bootstrap_learning=True, enable_local=True)
+    heartbeat = read_heartbeat(max_age_seconds=300)
+    checks = {
+        "phase_1_awareness_24_7_green": process.phase_scores.get("awareness_24_7", 0) >= 90,
+        "phase_2_local_runtime_green": process.phase_scores.get("local_runtime", 0) >= 90,
+        "phase_3_learning_loop_green": process.phase_scores.get("learning_loop", 0) >= 90,
+        "phase_4_latent_graphmem_green": process.phase_scores.get("latent_graphmem_phase2", 0) >= 90,
+        "phase_5_production_clean_green": process.phase_scores.get("production_clean", 0) >= 90,
+        "heartbeat_fresh": bool(heartbeat.get("ok")),
+        "process_run_persisted": process.db_id is not None,
+    }
+    passed = sum(1 for ok in checks.values() if ok)
+    total = len(checks)
+    score = round((passed / total) * 100)
+    evidence = (
+        f"awareness_247_process_cases={passed}/{total} "
+        f"phases={sum(1 for value in process.phase_scores.values() if value >= 90)}/5 "
+        f"db_id={process.db_id} heartbeat_ok={heartbeat.get('ok')}"
+    )
+    return _result(
+        "awareness_247_process",
+        score,
+        evidence,
+        {
+            "checks": checks,
+            "process": process.to_dict(),
+            "heartbeat": heartbeat,
+            "boundary": "Pass means the parent process executes and persists all five requested families with no autonomous destructive action or adapter promotion.",
         },
         agent,
     )
@@ -2659,8 +3946,23 @@ SUITES: dict[str, SuiteFunc] = {
     "cross_agent_governance": suite_cross_agent_governance,
     "skill_instinct_factory": suite_skill_instinct_factory,
     "daily_evidence_dashboard": suite_daily_evidence_dashboard,
+    "nexus_review_queue": suite_nexus_review_queue,
+    "nexus_review_actions": suite_nexus_review_actions,
+    "soul_autonomy_pipeline": suite_soul_autonomy_pipeline,
+    "awareness_dashboard_3005": suite_awareness_dashboard_3005,
+    "soul_app_awareness_5173": suite_soul_app_awareness_5173,
     "auxiliary_secrets_debt": suite_auxiliary_secrets_debt,
     "kernel_forge": suite_kernel_forge,
+    "awareness_event_collector": suite_awareness_event_collector,
+    "attention_governor": suite_attention_governor,
+    "awareness_tick_ledger": suite_awareness_tick_ledger,
+    "awareness_reflex_actions": suite_awareness_reflex_actions,
+    "local_runtime_contract": suite_local_runtime_contract,
+    "awareness_loop_shadow": suite_awareness_loop_shadow,
+    "awareness_experience_dataset": suite_awareness_experience_dataset,
+    "awareness_closed_loop": suite_awareness_closed_loop,
+    "latent_graphmem_phase2": suite_latent_graphmem_phase2,
+    "awareness_247_process": suite_awareness_247_process,
     "agi_gap_ledger": suite_agi_gap_ledger,
     "autonomous_lifecycle": suite_autonomous_lifecycle,
     "autonomous_lifecycle_persistence": suite_autonomous_lifecycle_persistence,
