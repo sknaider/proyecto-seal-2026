@@ -186,8 +186,13 @@ Behaviour:
 - After the audit window, anchors marked `state='approved'` (by NEXUS or
   auto-rule below) are promoted to the active anchor list consulted by
   `active_recall`.
-- Auto-approve rule: if the candidate is a William-authored decision
-  (`source ILIKE 'william_%'`), promote without waiting for NEXUS.
+- Auto-approve rule (NEXUS-fixed 2026-05-21 audit): the candidate is
+  auto-approved iff `scope='team' AND importance>=9` AND there exists a
+  `chat_messages` row authored by William within ±1 hour of the memory's
+  `created_at` whose content overlaps non-trivially (BM25 similarity
+  >0.3) with the memory's content. This replaces the brittle
+  `source ILIKE 'william_%'` heuristic, since William memories are
+  routinely stored with `source='conversation'`.
 - Retire rule: anchors with `metadata->>'outdated' = 'true'` or whose
   source memory has been invalidated (`invalid_at IS NOT NULL`) are
   removed from the active list (kept in the table for history).
