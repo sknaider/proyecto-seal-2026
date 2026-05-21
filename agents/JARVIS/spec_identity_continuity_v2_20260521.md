@@ -233,6 +233,13 @@ Behaviour:
 - Compute the fraction with `category IN ('emotion','trust','relationship')`
   or whose content matches the relational-tone detector ALICE designed
   on 2026-05-20.
+  *Dependency note (NEXUS-fixed 2026-05-21 audit): the relational-tone
+  detector is a proposed function not yet on disk. Phase 3 must either
+  (a) wait for ALICE to commit `memory/relational_tone_detector.py`
+  exposing a `score(text) -> float in [0,1]` function, or (b) fall
+  back to the category-only filter until the detector exists. The
+  fallback is acceptable; the spec must not invent a function ADA
+  cannot import.*
 - If that fraction is below `relational_floor` (default 0.10 = 10%
   relational signal in the last 20 turns), emit an internal note (not a
   webchat message) with `category='self_observation', importance=6`:
