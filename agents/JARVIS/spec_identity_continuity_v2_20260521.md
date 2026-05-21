@@ -293,6 +293,27 @@ Behaviour:
   on 15% or more of samples, NEXUS issues a calibration alert and the
   pair runs a one-shot recalibration conversation.
 
+**Schema** (NEXUS-added 2026-05-21 audit):
+
+```sql
+CREATE TABLE soul_v3.importance_review (
+    id              BIGSERIAL PRIMARY KEY,
+    reviewed_agent  TEXT NOT NULL,
+    reviewer_agent  TEXT NOT NULL,
+    memory_id       BIGINT NOT NULL,
+    original_imp    INTEGER NOT NULL CHECK (original_imp BETWEEN 1 AND 10),
+    suggested_imp   INTEGER NOT NULL CHECK (suggested_imp BETWEEN 1 AND 10),
+    delta           INTEGER GENERATED ALWAYS AS (suggested_imp - original_imp) STORED,
+    reason          TEXT,
+    applied         BOOLEAN DEFAULT FALSE,
+    applied_at      TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (reviewed_agent <> reviewer_agent)
+);
+CREATE INDEX imp_review_reviewed ON soul_v3.importance_review(reviewed_agent, created_at DESC);
+CREATE INDEX imp_review_pair_delta ON soul_v3.importance_review(reviewed_agent, reviewer_agent, ABS(delta));
+```
+
 **Acceptance:** seeded discrepancy of 30%, daemon produces alert.
 
 ### 3.6 Meta-pattern audit
