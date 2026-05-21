@@ -163,6 +163,11 @@ failing block and the `missing_reason`.
 5. **last_24h** — pass iff at least three `corrections` or `beliefs` with
    `created_at >= now() - interval '24 hours'` are surfaceable. This
    guarantees yesterday's learning is alive today.
+   *Dormancy exception (NEXUS-fixed 2026-05-21 audit): if the agent has
+   no `agent_sessions` row with `started_at >= now() - interval '24
+   hours'`, skip this block and write `pass=true` with
+   `missing_reason='dormant_skip'`. An agent that was legitimately
+   offline must not be flagged for erosion.*
 
 **Acceptance:** unit test `tests/test_biv.py` runs a fresh boot for each
 agent and asserts five `pass=true` rows. NEXUS owns the audit query.
