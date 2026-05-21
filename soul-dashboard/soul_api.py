@@ -1015,6 +1015,14 @@ class WilliamReviewDecisionIn(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class NexusRollbackExecuteIn(BaseModel):
+    rollback_request_id: str
+    agent: str = "ADA"
+    reviewer: str = "NEXUS"
+    actor: str = "ADA"
+    dry_run: bool = True
+
+
 async def _ensure_nexus_review_decisions(pool: asyncpg.Pool) -> None:
     await pool.execute(
         """
@@ -1045,6 +1053,32 @@ async def _ensure_nexus_review_decisions(pool: asyncpg.Pool) -> None:
         """
         CREATE INDEX IF NOT EXISTS idx_nexus_review_decisions_reviewer
         ON soul_v3.nexus_review_decisions(reviewer, decision, created_at DESC)
+        """
+    )
+
+
+async def _ensure_nexus_rollback_executions(pool: asyncpg.Pool) -> None:
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS soul_v3.nexus_rollback_executions (
+            id                   BIGSERIAL PRIMARY KEY,
+            execution_id         TEXT NOT NULL UNIQUE,
+            rollback_request_id  TEXT NOT NULL,
+            item_id              TEXT NOT NULL,
+            agent                TEXT NOT NULL,
+            reviewer             TEXT NOT NULL,
+            actor                TEXT NOT NULL,
+            status               TEXT NOT NULL,
+            dry_run              BOOLEAN NOT NULL DEFAULT true,
+            evidence             JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_nexus_rollback_executions_request
+        ON soul_v3.nexus_rollback_executions(rollback_request_id, created_at DESC)
         """
     )
 
@@ -1438,6 +1472,65 @@ async def _latest_william_decisions(
         item["evidence"] = _json_obj(item.get("evidence"))
         decisions.append(item)
     return decisions
+
+
+async def _latest_william_approval(pool: asyncpg.Pool, target_type: str, target_id: str) -> dict | None:
+    rows = await _latest_william_decisions(pool, limit=1, target_type=target_type, target_id=target_id)
+    if rows and rows[0].get("decision") == "approved" and not rows[0].get("dry_run"):
+        return rows[0]
+    return None
+
+
+async def _rollback_execution_plan(pool: asyncpg.Pool, rollback_request_id: str, agent: str, reviewer: str) -> dict:
+    if not await _table_exists(pool, "nexus_rollback_requests"):
+        raise HTTPException(404, "rollback request table does not exist")
+    row = await pool.fetchrow(
+        """
+        SELECT id, request_id, item_id, agent, reviewer, actor, reason, status, evidence, created_at
+        FROM soul_v3.nexus_rollback_requests
+        WHERE request_id=$1 OR id::text=$1
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        rollback_request_id,
+    )
+    if not row:
+        raise HTTPException(404, "rollback request not found")
+    request = _record_dict(row)
+    request["evidence"] = _json_obj(request.get("evidence"))
+    request_id = str(request["request_id"])
+    item_id = str(request["item_id"])
+    approval = await _latest_william_approval(pool, "rollback_request", request_id)
+    packet = await _evidence_packet(pool, item_id, agent, reviewer)
+    stored_diff = (
+        request.get("evidence", {})
+        .get("packet", {})
+        .get("diff", {})
+    )
+    current_diff = packet["packet"]["diff"]
+    diff_matches = bool(stored_diff) and stored_diff == current_diff
+    destructive = bool(current_diff.get("requires_william")) or "rollback" in str(current_diff).lower()
+    executable = bool(approval) and diff_matches and not destructive
+    blockers = []
+    if not approval:
+        blockers.append("missing_william_approval")
+    if not diff_matches:
+        blockers.append("diff_mismatch")
+    if destructive:
+        blockers.append("destructive_or_rollback_risk_requires_manual_execution")
+    return {
+        "request": request,
+        "approval": approval,
+        "packet": packet,
+        "stored_diff": stored_diff,
+        "current_diff": current_diff,
+        "diff_matches": diff_matches,
+        "destructive": destructive,
+        "executable": executable,
+        "blockers": blockers,
+        "planned_action": "mark_rollback_request_executed" if executable else "blocked",
+        "boundary": "rollback_execution_plan_no_mutation",
+    }
 
 
 async def _evidence_packet(pool: asyncpg.Pool, item_id: str, agent: str, reviewer: str) -> dict:
@@ -2316,6 +2409,67 @@ async def nexus_rollback_request(payload: NexusRollbackRequestIn):
         "status": "pending_william_review",
         "evidence": evidence,
         "boundary": "rollback_request_audit_only_requires_william_review",
+    }
+
+
+@app.post("/api/soul/nexus_review_queue/rollback_execute")
+async def nexus_rollback_execute(payload: NexusRollbackExecuteIn):
+    pool = _pool_ok()
+    await _ensure_nexus_rollback_requests(pool)
+    await _ensure_william_review_decisions(pool)
+    await _ensure_nexus_rollback_executions(pool)
+
+    agent = payload.agent.upper()
+    reviewer = payload.reviewer.upper()
+    actor = payload.actor.upper()
+    plan = await _rollback_execution_plan(pool, payload.rollback_request_id, agent, reviewer)
+    status = "would_execute" if plan["executable"] and payload.dry_run else ("executed" if plan["executable"] else "blocked")
+    execution_id = f"rollback-exec-{time.time_ns()}"
+    db_id = None
+    if not payload.dry_run:
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                db_id = await conn.fetchval(
+                    """
+                    INSERT INTO soul_v3.nexus_rollback_executions
+                        (execution_id, rollback_request_id, item_id, agent, reviewer, actor, status, dry_run, evidence)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8::jsonb)
+                    RETURNING id
+                    """,
+                    execution_id,
+                    str(plan["request"]["request_id"]),
+                    str(plan["request"]["item_id"]),
+                    agent,
+                    reviewer,
+                    actor,
+                    status,
+                    json.dumps({"source": "rollback_execute", "plan": plan}),
+                )
+                if plan["executable"]:
+                    await conn.execute(
+                        """
+                        UPDATE soul_v3.nexus_rollback_requests
+                        SET status='executed'
+                        WHERE request_id=$1
+                        """,
+                        str(plan["request"]["request_id"]),
+                    )
+    return {
+        "ok": True,
+        "dry_run": payload.dry_run,
+        "execution_id": None if payload.dry_run else execution_id,
+        "execution_db_id": db_id,
+        "status": status,
+        "rollback_request_id": str(plan["request"]["request_id"]),
+        "item_id": str(plan["request"]["item_id"]),
+        "blockers": plan["blockers"],
+        "plan": {
+            "diff_matches": plan["diff_matches"],
+            "has_william_approval": bool(plan["approval"]),
+            "destructive": plan["destructive"],
+            "planned_action": plan["planned_action"],
+        },
+        "boundary": "rollback_execute_requires_william_approval_and_matching_diff",
     }
 
 

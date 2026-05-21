@@ -258,6 +258,30 @@ export default function NexusReviewQueueSection({ agent }: { agent: string }) {
       .finally(() => setSaving(null));
   };
 
+  const executeRollback = (requestId: string, dryRun = true) => {
+    setSaving(`rollback-exec:${requestId}:${dryRun ? "dry" : "apply"}`);
+    setNotice(null);
+    fetch("/api/soul/nexus_review_queue/rollback_execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        rollback_request_id: requestId,
+        agent,
+        reviewer: "NEXUS",
+        actor: agent,
+        dry_run: dryRun,
+      }),
+    })
+      .then(async (r) => {
+        const payload = await r.json();
+        if (!r.ok) throw new Error(payload.detail || "rollback execute failed");
+        setNotice(`Rollback ${dryRun ? "dry-run" : "execute"}: status=${payload.status}; blockers=${(payload.blockers || []).join(",") || "none"}.`);
+        load();
+      })
+      .catch((err) => setNotice(String(err.message || err)))
+      .finally(() => setSaving(null));
+  };
+
   const actionStyle = (kind: "approve" | "reject" | "evidence") => {
     if (kind === "approve") return { borderColor: "var(--seal-success)", color: "var(--seal-success)" };
     if (kind === "reject") return { borderColor: "var(--seal-error)", color: "var(--seal-error)" };
@@ -514,6 +538,28 @@ export default function NexusReviewQueueSection({ agent }: { agent: string }) {
                   <span style={{ color: "var(--seal-text-dim)" }}>{fmtDate(alert.created_at)}</span>
                 </div>
                 <p style={{ color: "var(--seal-text)" }}>{alert.title}</p>
+                {alert.kind === "pending_william_rollback_review" && typeof alert.details?.request_id === "string" ? (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 rounded border text-[10px]"
+                      style={{ borderColor: "var(--seal-border)", color: "var(--seal-text)" }}
+                      disabled={saving !== null}
+                      onClick={() => executeRollback(String(alert.details.request_id), true)}
+                    >
+                      Exec Dry
+                    </button>
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 rounded border text-[10px]"
+                      style={{ borderColor: "var(--seal-warning)", color: "var(--seal-warning)" }}
+                      disabled={saving !== null}
+                      onClick={() => executeRollback(String(alert.details.request_id), false)}
+                    >
+                      Execute
+                    </button>
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   className="mt-1 px-2 py-0.5 rounded border text-[10px]"

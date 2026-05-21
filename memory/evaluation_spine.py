@@ -2476,6 +2476,8 @@ async def suite_soul_autonomy_pipeline(agent: str = DEFAULT_AGENT) -> EvalResult
     worker_count_after: int | None = None
     rollback_count_before: int | None = None
     rollback_count_after: int | None = None
+    rollback_execution_count_before: int | None = None
+    rollback_execution_count_after: int | None = None
     william_decision_count_before: int | None = None
     william_decision_count_after: int | None = None
     conn = await asyncpg.connect(pg_dsn())
@@ -2504,6 +2506,19 @@ async def suite_soul_autonomy_pipeline(agent: str = DEFAULT_AGENT) -> EvalResult
         if rollback_table_exists:
             rollback_count_before = int(await conn.fetchval(
                 "SELECT COUNT(*) FROM soul_v3.nexus_rollback_requests WHERE agent=$1",
+                agent,
+            ))
+        rollback_execution_table_exists = bool(await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='soul_v3' AND table_name='nexus_rollback_executions'
+            )
+            """
+        ))
+        if rollback_execution_table_exists:
+            rollback_execution_count_before = int(await conn.fetchval(
+                "SELECT COUNT(*) FROM soul_v3.nexus_rollback_executions WHERE agent=$1",
                 agent,
             ))
         william_table_exists = bool(await conn.fetchval(
@@ -2541,6 +2556,24 @@ async def suite_soul_autonomy_pipeline(agent: str = DEFAULT_AGENT) -> EvalResult
                 "reason": "evaluation dry run validates rollback request contract",
             },
         )
+    rollback_execute_status = 0
+    rollback_execute_json: dict[str, Any] | None = None
+    rollback_execute_body = ""
+    rollback_request_target = (
+        str(rollback_json.get("request_id") or rollback_json.get("request_db_id") or "")
+        if isinstance(rollback_json, dict)
+        else ""
+    )
+    rollback_execute_status, rollback_execute_json, rollback_execute_body = _http_post_json(
+        f"{dashboard_url}/api/soul/nexus_review_queue/rollback_execute",
+        {
+            "rollback_request_id": rollback_request_target or "evaluation_missing_rollback_request",
+            "agent": agent,
+            "reviewer": "NEXUS",
+            "actor": agent,
+            "dry_run": True,
+        },
+    )
     william_decision_status = 0
     william_decision_json: dict[str, Any] | None = None
     william_decision_body = ""
@@ -2589,6 +2622,19 @@ async def suite_soul_autonomy_pipeline(agent: str = DEFAULT_AGENT) -> EvalResult
         if rollback_table_exists_after:
             rollback_count_after = int(await conn.fetchval(
                 "SELECT COUNT(*) FROM soul_v3.nexus_rollback_requests WHERE agent=$1",
+                agent,
+            ))
+        rollback_execution_table_exists_after = bool(await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema='soul_v3' AND table_name='nexus_rollback_executions'
+            )
+            """
+        ))
+        if rollback_execution_table_exists_after:
+            rollback_execution_count_after = int(await conn.fetchval(
+                "SELECT COUNT(*) FROM soul_v3.nexus_rollback_executions WHERE agent=$1",
                 agent,
             ))
         william_table_exists_after = bool(await conn.fetchval(
@@ -2664,6 +2710,17 @@ async def suite_soul_autonomy_pipeline(agent: str = DEFAULT_AGENT) -> EvalResult
         and rollback_json.get("boundary") == "rollback_request_audit_only_requires_william_review",
         "rollback_request_dry_run_no_insert": rollback_count_after is not None
         and rollback_count_after == (rollback_count_before if rollback_count_before is not None else 0),
+        "rollback_execute_dry_run_blocked_without_request": rollback_execute_status in {200, 404}
+        and (
+            rollback_execute_status == 404
+            or (
+                isinstance(rollback_execute_json, dict)
+                and rollback_execute_json.get("dry_run") is True
+                and rollback_execute_json.get("boundary") == "rollback_execute_requires_william_approval_and_matching_diff"
+            )
+        ),
+        "rollback_execute_dry_run_no_insert": rollback_execution_count_after is not None
+        and rollback_execution_count_after == (rollback_execution_count_before if rollback_execution_count_before is not None else 0),
         "william_decision_dry_run_ok": william_decision_status == 200
         and isinstance(william_decision_json, dict)
         and william_decision_json.get("ok") is True
@@ -2699,6 +2756,8 @@ async def suite_soul_autonomy_pipeline(agent: str = DEFAULT_AGENT) -> EvalResult
         and "Timeline" in nexus_component_text
         and "Request Rollback" in nexus_component_text
         and "Debt Alerts" in nexus_component_text,
+        "nexus_ui_has_rollback_execute_controls": "rollback_execute" in nexus_component_text
+        and "Exec Dry" in nexus_component_text,
         "autonomy_ui_present": autonomy_component_path.exists()
         and "Autonomy Control" in autonomy_component_text
         and "Learning Loop" in autonomy_component_text,
@@ -2722,6 +2781,9 @@ async def suite_soul_autonomy_pipeline(agent: str = DEFAULT_AGENT) -> EvalResult
         and "/api/soul/nexus_review_queue/rollback_request" in api_text
         and "/api/soul/nexus_review_queue/alerts" in api_text
         and "/api/soul/nexus_review_queue/william_review" in api_text,
+        "api_rollback_execute_present": "/api/soul/nexus_review_queue/rollback_execute" in api_text
+        and "nexus_rollback_executions" in api_text
+        and "rollback_execute_requires_william_approval_and_matching_diff" in api_text,
         "api_william_approval_present": "/api/soul/nexus_review_queue/william_decision" in api_text
         and "william_review_decisions" in api_text,
         "autonomy_deeplink_http_ok": view_status == 200 and "/assets/index-" in view_html,
@@ -2733,7 +2795,7 @@ async def suite_soul_autonomy_pipeline(agent: str = DEFAULT_AGENT) -> EvalResult
         f"soul_autonomy_pipeline_cases={passed}/{len(checks)} "
         f"queue={queue_status} packet={packet_status} diff={diff_status} timeline={timeline_status} policy={policy_status} "
         f"worker={worker_status} autonomy={autonomy_status} learning={learning_status} "
-        f"rollback={rollback_status} alerts={alerts_status} william={william_status} william_decision={william_decision_status} "
+        f"rollback={rollback_status} rollback_execute={rollback_execute_status} alerts={alerts_status} william={william_status} william_decision={william_decision_status} "
         f"candidate={candidate_id} source={candidate_source} stages={learning_summary.get('stages_ok')}/{learning_summary.get('stages_total')}"
     )
     return _result(
@@ -2750,6 +2812,7 @@ async def suite_soul_autonomy_pipeline(agent: str = DEFAULT_AGENT) -> EvalResult
             "policy_response": policy_json if isinstance(policy_json, dict) else policy_body[:300],
             "worker_response": worker_json if isinstance(worker_json, dict) else worker_body[:300],
             "rollback_response": rollback_json if isinstance(rollback_json, dict) else rollback_body[:300],
+            "rollback_execute_response": rollback_execute_json if isinstance(rollback_execute_json, dict) else rollback_execute_body[:300],
             "william_decision_response": william_decision_json if isinstance(william_decision_json, dict) else william_decision_body[:300],
             "william_decisions_response": william_decisions_json if isinstance(william_decisions_json, dict) else william_decisions_body[:300],
             "alerts_response": alerts_json if isinstance(alerts_json, dict) else alerts_body[:300],
