@@ -489,14 +489,17 @@ Existing: `soul_v3.sycophancy_eval`. UI `Governance → Integrity` ya entregada 
 
 ## 12. Pricing — "Dale el dulce al bebé"
 
-### 12.1 Tier Free (default)
+### 12.1 Tier Free (default y único en MVP — William 2026-05-22)
 
 - **Local Gemma 4 ilimitado** (sin créditos, sin rate limit técnico)
 - **Todas las features funcionando** (Dreams, Memory Tree, Multi-agent, Audit, etc.)
-- **Integraciones nativas** (10-20)
+- **Integraciones nativas** (10)
+- BYOK cloud opcional sin markup
 - Limit suave: opcionalmente cap en `total_memories` (ej. 100k) para forzar maintenance/archive
 
-Mensaje: *"Esto es gratis para siempre. Sin créditos que se acaban."*
+Mensaje canónico UI: *"SOUL es gratis. Sin cuentas que vencen, sin créditos que se acaban. Tu IA en tu máquina."*
+
+> **MVP = solo Free.** Tier Plus/Pro NO se construye. Decisión William 2026-05-22: refuerzo "dale el dulce al bebé". Maximizar adopción 0→50k antes de pensar en conversion.
 
 ### 12.2 Tier BYOK (opt-in)
 
