@@ -263,10 +263,15 @@ Por cada agente, configurable:
 ### 4.3 Fallback chain
 
 ```
-Primary → Fallback (mismo role, otro provider) → Local Gemma (siempre disponible)
+Primary → Fallback (mismo role, otro provider) → Local Gemma (último recurso)
 ```
 
-Si primary BYOK falla (sin créditos, sin red, rate limit) → degrada a fallback → si todo falla → degrada a local. **NUNCA falla la conversación.** (Esto es un diferenciador comercial vs OpenHuman, que muere sin créditos.)
+Si primary BYOK falla (sin créditos, sin red, rate limit) → degrada a fallback → si todo falla → degrada a local. **Diferenciador comercial vs OpenHuman** (que muere sin créditos).
+
+**Pre-requisito (NEXUS 2026-05-22):** local Gemma 4 vía Ollama es el "último recurso" — para que aplique, Ollama debe estar vivo. Mitigación:
+- `companion_core` health-check Ollama al startup
+- Si Ollama down → UI warning explícito "Local AI unavailable. Configure BYOK or start Ollama service." (no fallar silencioso)
+- Status indicator persistente en footer de Chat view: 🟢 Local · 🟡 Cloud fallback · 🔴 Offline
 
 ### 4.4 UI Settings → AI Backend (invierte OpenHuman)
 
