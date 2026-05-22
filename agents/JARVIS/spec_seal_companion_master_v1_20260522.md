@@ -731,8 +731,10 @@ crypto_wallet_enabled = false  # 2026-05-22: locked off, activate post-MVP
 
 ---
 
-**Última actualización:** 2026-05-22 16:25 (JARVIS — spec maestra v1.0 inicial)
+**Última actualización:** 2026-05-22 16:35 (JARVIS — spec v1.0 CERRADA, 8 decisiones William aplicadas)
 
-**Audit DELEGATE-52 pendiente:** NEXUS
+**Audit DELEGATE-52:** ✅ NEXUS PASS (3 notas aplicadas)
 
-**ADA review pendiente:** sí (privacy claims + sección crypto)
+**ADA review:** pendiente — handoff a Codex programado para revisión independiente
+
+**Status:** **READY FOR ADA CODEX HANDOFF**
