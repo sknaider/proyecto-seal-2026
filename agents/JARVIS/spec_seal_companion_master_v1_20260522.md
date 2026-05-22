@@ -435,14 +435,24 @@ Referencia: ALICE doc 46 `calls_meet_agent.md`.
 - GDPR/LFPD requieren consent de TODOS los participantes
 - Wiretapping laws varían por jurisdicción
 
-### 9.2 Diferenciador SEAL
+### 9.2 Diferenciador SOUL — multi-jurisdicción desde día 1 (William 2026-05-22)
 
-Disclaimer obligatorio + checklist pre-meeting:
+Disclaimer obligatorio + checklist pre-meeting + **detección automática de jurisdicción** del host (geo-IP + timezone):
+
 - [ ] Anuncié a los participantes que la IA escucha
-- [ ] Tengo consent verbal grabado
-- [ ] Cumplo con regulación local
+- [ ] Tengo consent verbal grabado de TODOS los participantes
+- [ ] Cumplo con regulación local detectada: <jurisdicción>
 
-Audit log de cada participación + opción "modo notas privadas" donde el agente NO graba audio, solo escribe notas del host post-meeting.
+Disclaimers preparados para:
+- **EU (GDPR)**: consent explícito + DPO contact + Right to Erasure
+- **US two-party consent states** (CA, FL, IL, MD, MA, MT, NV, NH, PA, WA): all-party recording consent required
+- **US one-party consent states**: host consent sufficient
+- **LATAM (LFPD Perú, LGPD Brasil, LFPDPPP México)**: consent explícito + finalidad declarada
+- **UK (DPA 2018)**: consent + lawful basis
+
+Audit log de cada participación + opción **"modo notas privadas"** donde el agente NO graba audio, solo escribe notas del host post-meeting.
+
+**Pre-launch task**: abogado IP review disclaimer multi-jurisdicción (~$1500-3000 USD estimado por la complejidad multi-país, vs $500-1500 que sería solo Perú).
 
 ---
 
