@@ -38,7 +38,7 @@ app = FastAPI(title="SEAL Studio", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1|192\.168\.68\.\d{1,3}):(3000|3001|8800|8765|8790)$",
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1|192\.168\.68\.\d{1,3}):(3000|3001|3005|5173|8800|8765|8790)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -472,6 +472,125 @@ async def soul_drift(agent: str = "ADA", hours: int = 24):
         return {"error": str(e)}
 
 
+@app.get("/api/soul/context-meter")
+async def soul_context_meter():
+    """Tokens consumidos por agente, calculado nativo desde transcripts Claude Code.
+
+    FIX 2026-05-20 JARVIS: lógica portada desde soul_v3_studio_server._context_meter()
+    (retirado a las 14:18). Lee ~/.claude/projects/<proj>/*.jsonl, suma usage del último
+    mensaje de cada transcript y calcula pct vs 200K limit + age desde último update.
+    """
+    import time
+    from pathlib import Path
+
+    CONTEXT_LIMIT = 200_000
+    CORE_AGENTS = ["ADA", "JARVIS", "ALICE", "NEXUS"]
+    AGENT_PROJECT_DIRS = {
+        "JARVIS": "-home-dadito-IA-proyecto-seal",
+        "NEXUS":  "-home-dadito-IA-proyecto-seal-sandbox-agent-NEXUS",
+        "ALICE":  "-home-dadito-IA-proyecto-seal-alice",
+        "ADA":    "-home-dadito-IA-proyecto-seal-ada-local",
+    }
+    base_projects = Path.home() / ".claude" / "projects"
+
+    def _fmt_tokens(n):
+        return f"{n // 1000}K" if n >= 1000 else str(n)
+
+    def _fmt_age(s):
+        if s < 60: return f"{int(s)}s"
+        if s < 3600: return f"{int(s/60)}m"
+        return f"{s/3600:.1f}h"
+
+    def _find_transcript(agent):
+        proj = AGENT_PROJECT_DIRS.get(agent, "-home-dadito-IA-proyecto-seal")
+        d = base_projects / proj
+        if not d.exists():
+            d = base_projects / "-home-dadito-IA-proyecto-seal"
+        if not d.exists():
+            return None
+        candidates = sorted(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+        return candidates[0] if candidates else None
+
+    def _exact_usage(transcript):
+        last_usage = None
+        last_mtime = transcript.stat().st_mtime
+        try:
+            with open(transcript, "rb") as f:
+                for raw in f:
+                    try:
+                        e = json.loads(raw)
+                        msg = e.get("message", {})
+                        usage = msg.get("usage") if isinstance(msg, dict) else None
+                        if usage is None:
+                            usage = e.get("usage")
+                        if usage and isinstance(usage, dict):
+                            last_usage = usage
+                            ts = e.get("timestamp")
+                            if ts:
+                                try:
+                                    from dateutil import parser as _dp
+                                    last_mtime = _dp.parse(str(ts)).timestamp()
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        if not last_usage:
+            return 0, last_mtime
+        ctx = (last_usage.get("input_tokens", 0) or 0) + \
+              (last_usage.get("cache_creation_input_tokens", 0) or 0) + \
+              (last_usage.get("cache_read_input_tokens", 0) or 0)
+        return ctx, last_mtime
+
+    agents_data = []
+    for agent in CORE_AGENTS:
+        transcript = _find_transcript(agent)
+        if not transcript:
+            agents_data.append({"agent": agent, "pct": 0, "tokens": "0", "limit": _fmt_tokens(CONTEXT_LIMIT), "age": "—"})
+            continue
+        ctx_tokens, last_mtime = _exact_usage(transcript)
+        pct = min(ctx_tokens / CONTEXT_LIMIT * 100, 100)
+        age = _fmt_age(time.time() - last_mtime)
+        agents_data.append({
+            "agent": agent,
+            "pct": round(pct, 1),
+            "tokens": _fmt_tokens(ctx_tokens),
+            "limit": _fmt_tokens(CONTEXT_LIMIT),
+            "age": age,
+        })
+    return {"agents": agents_data}
+
+
+@app.post("/api/soul/agent-action")
+async def soul_agent_action(payload: dict):
+    """Pause/resurrect/reset_crashes an agent via seal_resurrect_panel pattern.
+    Rescued from :8768 by ALICE 2026-05-20."""
+    from fastapi import HTTPException
+    agent = (payload.get("agent") or "").upper()
+    action = payload.get("action", "")
+    CORE = {"ADA", "JARVIS", "ALICE", "NEXUS"}
+    if agent not in CORE:
+        raise HTTPException(status_code=400, detail=f"Unknown agent: {agent}")
+    if action not in ("pause", "resurrect", "resume", "reset_crashes"):
+        raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+    PAUSE_DIR = Path("/tmp/seal_pause_flags")
+    PAUSE_DIR.mkdir(exist_ok=True)
+    RESTART_SCRIPT = Path("/home/dadito/IA/proyecto-seal/start_agent.sh")
+    if action == "pause":
+        (PAUSE_DIR / f"{agent}.pause").touch()
+        return {"ok": True, "action": "paused", "agent": agent}
+    if action in ("resurrect", "resume"):
+        (PAUSE_DIR / f"{agent}.pause").unlink(missing_ok=True)
+        if RESTART_SCRIPT.exists():
+            subprocess.Popen(["/bin/bash", str(RESTART_SCRIPT), agent.lower()],
+                             env={**os.environ, "DISPLAY": ":0"})
+        return {"ok": True, "action": "resurrected", "agent": agent}
+    if action == "reset_crashes":
+        return {"ok": True, "action": "reset", "agent": agent}
+    return {"ok": False, "error": "unhandled"}
+
+
 @app.get("/api/soul/snapshot")
 async def soul_snapshot(agent: str = "ADA"):
     """Full soul snapshot — OCEAN + recent memories + thoughts + drift."""
@@ -498,6 +617,72 @@ async def soul_snapshot(agent: str = "ADA"):
     }
 
 
+@app.get("/api/soul/dreams")
+async def soul_dreams(agent: str = "all", cycle: str = "all", limit: int = 50):
+    """Dreams from soul_v3.daily_dreams — narrative continuity (Dream Cycle SOUL v1.0 §5)."""
+    _ALLOWED_AGENTS = {"ADA", "JARVIS", "ALICE", "NEXUS", "DUM"}
+    _ALLOWED_CYCLES = {"morning", "midday", "evening", "nocturnal"}
+    limit = min(max(1, limit), 200)
+
+    where, params = ["1=1"], []
+    if agent != "all":
+        if agent.upper() not in _ALLOWED_AGENTS:
+            return {"dreams": [], "error": f"unknown agent: {agent}"}
+        params.append(agent.upper())
+        where.append(f"agent = ${len(params)}")
+    if cycle != "all":
+        if cycle not in _ALLOWED_CYCLES:
+            return {"dreams": [], "error": f"unknown cycle: {cycle}"}
+        params.append(cycle)
+        where.append(f"cycle = ${len(params)}")
+    params.append(limit)
+
+    def _parse(v):
+        if v is None:
+            return None
+        if isinstance(v, (list, dict)):
+            return v
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except Exception:
+                return v
+        return v
+
+    try:
+        rows = await _db_query(
+            f"""SELECT id, agent, date, cycle, dream_narrative, key_events,
+                       emotional_arc, learnings, pending_threads, model_used,
+                       inject_to_prompt, created_at
+                FROM soul_v3.daily_dreams
+                WHERE {' AND '.join(where)}
+                ORDER BY date DESC, created_at DESC
+                LIMIT ${len(params)}""",
+            *params)
+        return {
+            "dreams": [
+                {
+                    "id": r["id"],
+                    "agent": r["agent"],
+                    "date": str(r["date"]) if r["date"] else None,
+                    "cycle": r["cycle"],
+                    "narrative": r["dream_narrative"],
+                    "key_events": _parse(r["key_events"]) or [],
+                    "emotional_arc": _parse(r["emotional_arc"]) or {},
+                    "learnings": _parse(r["learnings"]) or [],
+                    "pending_threads": _parse(r["pending_threads"]) or [],
+                    "model": r["model_used"],
+                    "inject_to_prompt": r["inject_to_prompt"],
+                    "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                }
+                for r in rows
+            ],
+            "count": len(rows),
+        }
+    except Exception as e:
+        return {"dreams": [], "error": str(e)}
+
+
 # ══════════════════════════════════════════════════════════
 # SYSTEM API
 # ══════════════════════════════════════════════════════════
@@ -505,20 +690,31 @@ async def soul_snapshot(agent: str = "ADA"):
 @app.get("/api/system/gpu")
 async def system_gpu():
     """Get GPU status via nvidia-smi."""
+    def parse_int(value: str) -> int | None:
+        value = value.strip()
+        if value in {"", "[N/A]", "N/A", "No devices were found"}:
+            return None
+        try:
+            return int(value)
+        except ValueError:
+            return None
+
     try:
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=temperature.gpu,utilization.gpu,memory.used,memory.total,name",
              "--format=csv,noheader,nounits"],
             capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
-            parts = result.stdout.strip().split(", ")
+            line = result.stdout.strip().splitlines()[0] if result.stdout.strip() else ""
+            parts = [part.strip() for part in line.split(",")]
             return {
-                "temperature": int(parts[0]),
-                "utilization": int(parts[1]),
-                "memory_used_mb": int(parts[2]),
-                "memory_total_mb": int(parts[3]),
+                "temperature": parse_int(parts[0]) if len(parts) > 0 else None,
+                "utilization": parse_int(parts[1]) if len(parts) > 1 else None,
+                "memory_used_mb": parse_int(parts[2]) if len(parts) > 2 else None,
+                "memory_total_mb": parse_int(parts[3]) if len(parts) > 3 else None,
                 "name": parts[4] if len(parts) > 4 else "unknown",
             }
+        return {"error": result.stderr.strip() or f"nvidia-smi exited {result.returncode}"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -620,6 +816,97 @@ async def ws_team(websocket: WebSocket):
             await asyncio.sleep(5)
     except WebSocketDisconnect:
         team_connections.remove(websocket)
+
+
+# ══════════════════════════════════════════════════════════
+# SOUL — Dream Cycle (read-only proxy to soul_v3.daily_dreams)
+# ══════════════════════════════════════════════════════════
+
+_DREAMS_ALLOWED_AGENTS = {"ADA", "JARVIS", "ALICE", "NEXUS", "DUM"}
+_DREAMS_VALID_CYCLES = {"morning", "evening"}
+
+
+@app.get("/api/soul/dreams")
+async def soul_list_dreams(
+    agent: Optional[str] = None,
+    cycle: Optional[str] = None,
+    limit: int = 20,
+    inject_only: bool = False,
+):
+    """List dreams from soul_v3.daily_dreams (Dream Cycle output).
+
+    Whitelisted agent + cycle. limit clamped to [1, 100].
+    Returns key_events/learnings/pending_threads/emotional_arc as native
+    JSON arrays/objects (asyncpg returns jsonb already decoded — but be
+    defensive in case future driver returns str).
+    """
+    import asyncpg
+    import json as _json
+
+    if agent and agent not in _DREAMS_ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="invalid agent")
+    if cycle and cycle not in _DREAMS_VALID_CYCLES:
+        raise HTTPException(status_code=400, detail="invalid cycle")
+    limit = max(1, min(int(limit), 100))
+
+    where: list[str] = []
+    params: list = []
+    idx = 1
+    if agent:
+        where.append(f"agent = ${idx}")
+        params.append(agent)
+        idx += 1
+    if cycle:
+        where.append(f"cycle = ${idx}")
+        params.append(cycle)
+        idx += 1
+    if inject_only:
+        where.append("inject_to_prompt = TRUE")
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    sql = (
+        "SELECT id, agent, date, cycle, dream_narrative, "
+        "key_events, emotional_arc, learnings, pending_threads, "
+        "model_used, source_memory_ids, inject_to_prompt, created_at "
+        f"FROM soul_v3.daily_dreams {where_sql} "
+        f"ORDER BY date DESC, created_at DESC LIMIT ${idx}"
+    )
+    params.append(limit)
+
+    def _coerce(value):
+        if isinstance(value, (list, dict)):
+            return value
+        if isinstance(value, str):
+            try:
+                return _json.loads(value)
+            except Exception:
+                return value
+        return value
+
+    try:
+        conn = await asyncpg.connect(DB_URL)
+        try:
+            rows = await conn.fetch(sql, *params)
+        finally:
+            await conn.close()
+        dreams = []
+        for r in rows:
+            d = dict(r)
+            if d.get("date") and hasattr(d["date"], "isoformat"):
+                d["date"] = d["date"].isoformat()
+            if d.get("created_at") and hasattr(d["created_at"], "isoformat"):
+                d["created_at"] = d["created_at"].isoformat()
+            d["key_events"] = _coerce(d.get("key_events")) or []
+            d["learnings"] = _coerce(d.get("learnings")) or []
+            d["pending_threads"] = _coerce(d.get("pending_threads")) or []
+            d["emotional_arc"] = _coerce(d.get("emotional_arc")) or {}
+            d["source_memory_ids"] = list(d.get("source_memory_ids") or [])
+            dreams.append(d)
+        return {"ok": True, "dreams": dreams, "count": len(dreams)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {"ok": False, "error": str(e), "dreams": []}
 
 
 # ══════════════════════════════════════════════════════════
