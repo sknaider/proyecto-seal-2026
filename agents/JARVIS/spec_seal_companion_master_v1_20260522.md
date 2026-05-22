@@ -15,9 +15,25 @@
 
 ---
 
-## 0. TL;DR
+## 0. Base confirmada (William 2026-05-22 16:23)
 
-**SEAL Companion es un asistente de IA personal de escritorio que invierte el modelo de OpenHuman:**
+**Base = Soul App / SEAL companion** = `/home/dadito/IA/proyecto-seal/seal-desktop/ui/` (Tauri v2 + Vite + React + TypeScript + Tailwind).
+
+UI verificada por captura del usuario:
+- Header: `SEAL companion` + estado "Companion Calm" emoji
+- Title: "Soul App"
+- Bottom nav 5 tabs: **Chat · Memory · Skills · Goals · Settings**
+- Chat con threads, input "Message your companion… (Enter to send)"
+- Backend: `companion_core :8769` FastAPI + SOUL DB :5433 (heredado)
+- v0.36 actual con 36+ iteraciones entregadas por ALICE
+
+**Estrategia confirmada:** evolucionar Soul App (NO desde cero), aplicando las features descubiertas en re-mapeo OpenHuman v0.53.31 + decisiones William 2026-05-22.
+
+---
+
+## 0.1 TL;DR
+
+**SEAL Companion / Soul App es un asistente de IA personal de escritorio que invierte el modelo de OpenHuman:**
 
 | Eje | OpenHuman (RECOMMENDED) | SEAL Companion (DEFAULT) |
 |---|---|---|
