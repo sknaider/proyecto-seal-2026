@@ -605,18 +605,37 @@ Antes de declarar features "done":
 
 ---
 
-## 16. Pendientes a resolver con William antes de ejecutar
+## 16. Decisiones cerradas (William 2026-05-22 16:34)
 
-| # | Pregunta | Owner | Tipo |
+| # | Decisión | Valor | Notas |
 |---|---|---|---|
-| 1 | Naming final (SOUL / Anima / SEAL Companion) | William | Decisión |
-| 2 | ¿Crypto wallet sí/no? (OpenHuman lo tiene activo) | William | Decisión |
-| 3 | Lista final 10-20 NATIVE integrations (priorizar) | William + JARVIS | Lista |
-| 4 | Sync cloud E2E ¿en MVP o v1.5+? | William | Scope |
-| 5 | Mobile companion ¿roadmap? | William | Scope |
-| 6 | Soft launch fecha + audiencia | William | Planning |
-| 7 | Audit legal disclaimer Calls (jurisdicción Perú vs global) | William + abogado | Compliance |
-| 8 | Tier Pro pricing $X/mo exacto | William | Pricing |
+| 1 | Naming final | **SOUL** | Window title "Soul App" preservado. SEAL companion → producto SOUL |
+| 2 | Crypto wallet | **Sí pero DESACTIVADO en MVP** | Feature flag `crypto_wallet_enabled=false`. Activable en update futuro. NO se construye UI ni schema en MVP |
+| 3 | Lista priorizada 10 NATIVE | **JARVIS sugerencia aprobada** | 1.Gmail 2.GCal 3.WhatsApp 4.Drive 5.Telegram 6.Slack 7.GitHub 8.Notion 9.Obsidian 10.Microsoft365 |
+| 4 | Sync cloud E2E | **v1.5+** | NO en MVP — standalone local-first puro |
+| 5 | Mobile companion | **post-v2.0** | Mes 3+. Desktop primero |
+| 6 | Soft launch beta | **~2026-06-20 · 20-50 usuarios técnicos** | Discord/Twitter círculo cercano. Validación cualitativa |
+| 7 | Compliance Calls jurisdicción | **Multi-jurisdicción desde día 1** | Disclaimer multi-país. Abogado IP review pre-launch. Costo upfront mayor — William prefiere robustez vs solo Perú |
+| 8 | Pricing | **GRATIS al comienzo** | Tier Pro deferido. Refuerza "dulce al bebé". Cuando masa instalada >50k → reevaluar pricing Plus/Pro |
+
+### 16.1 Crypto wallet — implementación feature-flag
+
+```toml
+# companion.toml
+[features]
+crypto_wallet_enabled = false  # 2026-05-22: locked off, activate post-MVP
+```
+
+- Schema `soul_v3.crypto_wallets` puede definirse pero migration **NO se aplica** hasta activación
+- UI section Settings → Wallet condicional `if feature_enabled`
+- Quando se active: BIP39 seed + AES-GCM encryption + UI clear "Esta función es experimental, custodia única"
+
+### 16.2 Pricing — modelo MVP "todo gratis"
+
+- Free tier ilimitado · Gemma 4 local · todas las features · BYOK opcional sin markup
+- Mensajería UI: *"SOUL es gratis. Sin cuentas que vencen, sin créditos que se acaban. Tu IA en tu máquina."*
+- Tier Plus/Pro **NO se construye en MVP**. La spec lo deja como referencia §12.3-12.4 para futuro
+- Estrategia: maximizar adopción 0-50k usuarios. Cuando llegue PMF, reevaluar conversion model con datos reales
 
 ---
 
