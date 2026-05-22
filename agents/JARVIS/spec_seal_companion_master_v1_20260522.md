@@ -92,6 +92,10 @@ UI verificada por captura del usuario:
 
 ## 2. Arquitectura técnica
 
+### 2.0 Nota de transición (NEXUS audit 2026-05-22)
+
+> Backend actual de Soul App = `seal-studio/backend/main.py` en **:8800**. El `companion_core :8769` definido en esta spec es el **nuevo proceso standalone** a construir. Durante la transición ambos coexisten: la UI seal-desktop apunta a :8800 hoy y migra a :8769 cuando esté listo. No hay corte abrupto.
+
 ### 2.1 Capas (4-tier)
 
 ```
