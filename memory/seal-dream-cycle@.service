@@ -1,0 +1,12 @@
+[Unit]
+Description=SOUL Dream Cycle (2x/day narrative consolidation per agent)
+After=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+Environment="DREAM_CYCLE_ARGS=--agent all"
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/dream_cycle.py --agent all --cycle %i
+StandardOutput=append:/home/dadito/IA/proyecto-seal/messages/dream_cycle.log
+StandardError=append:/home/dadito/IA/proyecto-seal/messages/dream_cycle.log
+TimeoutStartSec=900
