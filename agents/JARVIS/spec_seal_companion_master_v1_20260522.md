@@ -224,6 +224,60 @@ CREATE TABLE soul_v3.companion_audit_log (
 );
 ```
 
+### 3.1.bis Tablas adicionales (barrido capturas ALICE docs 23-47)
+
+```sql
+-- Cron Jobs (multi-agent scheduler) — ALICE doc 43
+CREATE TABLE soul_v3.cron_jobs (
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    agent TEXT,                 -- NULL when system-wide
+    cron_expression TEXT NOT NULL,
+    handler TEXT NOT NULL,      -- module:function reference
+    enabled BOOLEAN DEFAULT TRUE,
+    last_run_at TIMESTAMPTZ,
+    next_run_at TIMESTAMPTZ,
+    created_by TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE soul_v3.cron_runs (
+    id BIGSERIAL PRIMARY KEY,
+    job_id BIGINT REFERENCES soul_v3.cron_jobs(id) ON DELETE CASCADE,
+    started_at TIMESTAMPTZ DEFAULT NOW(),
+    finished_at TIMESTAMPTZ,
+    status TEXT CHECK (status IN ('running','success','failed')),
+    error_message TEXT,
+    output_summary TEXT
+);
+
+-- Agent Capabilities (high-risk granular toggles) — ALICE doc 36
+CREATE TABLE soul_v3.agent_capabilities (
+    id BIGSERIAL PRIMARY KEY,
+    agent TEXT NOT NULL,
+    capability TEXT NOT NULL,   -- 'shell' | 'git' | 'file_read' | 'file_write' | 'file_delete' | 'network' | 'screen_capture' | 'browser_automation'
+    enabled BOOLEAN DEFAULT FALSE,
+    scope JSONB DEFAULT '{}',   -- {whitelist:[], blocklist:[], directories:[]}
+    authorized_by TEXT,         -- William signature
+    authorized_at TIMESTAMPTZ,
+    UNIQUE (agent, capability)
+);
+
+-- Notifications (user-facing alerts) — ALICE doc 26
+CREATE TABLE soul_v3.user_notifications (
+    id BIGSERIAL PRIMARY KEY,
+    user_id TEXT,
+    source_channel TEXT,        -- 'gmail' | 'whatsapp' | 'gcal' | 'system' | …
+    title TEXT NOT NULL,
+    body TEXT,
+    severity TEXT CHECK (severity IN ('info','warning','critical')),
+    triggered_by_memory_id BIGINT REFERENCES soul_v3.memories(id),
+    triggered_by_rule_id TEXT,
+    read_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
 ### 3.2 Tablas existentes reutilizadas (NO crear, ya están)
 
 `memories · memories_archive · inner_monologue · emotional_diary · idle_curiosity_log · distilled_exchanges · session_memory · reasoning_traces · instincts · opinions · governance_debates · ocean_drift_log · drift_events · drift_metrics · nerves_metrics_log · motivation_states · agent_tasks · agent_alma · identity · trust_matrix · style_fingerprints · rules · sycophancy_eval · research_queue · agent_relationships · peer_models · memory_connections · memory_broadcasts · memory_retrieval_log · event_log · working_state · bench_runs · bench_results · agent_sessions · instinct_activations · lifecycle_events · tool_observations · session_chain`
