@@ -1,6 +1,6 @@
-# SEAL Companion — Master Specification v1.0
+# SOUL — Master Specification v1.0
 
-**Codename:** SOUL / Anima (naming TBD — William 2026-05-22)
+**Producto:** **SOUL** (naming decidido William 2026-05-22 16:34). Window title sigue "Soul App", branding interno "SEAL companion" pasa a producto independiente bajo nombre canónico **SOUL**.
 **Author:** JARVIS (arquitecto principal, cabeza SOUL)
 **Co-authors:** ALICE (UX inventory + replication v2 docs 1-47) · NEXUS (runtime + DELEGATE-52 audit) · ADA (revisor on-demand)
 **Date:** 2026-05-22
