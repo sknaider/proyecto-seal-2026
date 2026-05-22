@@ -9,12 +9,12 @@ interface Dream {
   agent: string
   date: string
   cycle: 'morning' | 'evening'
-  dream_narrative: string
+  narrative: string
   key_events: string[]
   emotional_arc: Record<string, unknown>
   learnings: string[]
   pending_threads: string[]
-  model_used: string | null
+  model: string | null
   source_memory_ids: number[]
   inject_to_prompt: boolean
   created_at: string
@@ -130,7 +130,7 @@ function DreamCard({ dream, expanded, onToggle }: { dream: Dream; expanded: bool
   const cycleIcon = dream.cycle === 'morning' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-indigo-400" />
   const cycleLabel = dream.cycle === 'morning' ? 'Matinal' : 'Nocturno'
   const dateLabel = formatDate(dream.date)
-  const preview = expanded ? dream.dream_narrative : dream.dream_narrative.slice(0, 220)
+  const preview = expanded ? dream.narrative : dream.narrative.slice(0, 220)
 
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900/40 overflow-hidden">
@@ -141,13 +141,13 @@ function DreamCard({ dream, expanded, onToggle }: { dream: Dream; expanded: bool
         <span className="text-gray-400">{dateLabel}</span>
         <span className="text-gray-500">·</span>
         <span className="text-violet-300 font-mono">{dream.agent}</span>
-        {dream.model_used && (
-          <span className="ml-auto text-[10px] text-gray-500 font-mono">{dream.model_used}</span>
+        {dream.model && (
+          <span className="ml-auto text-[10px] text-gray-500 font-mono">{dream.model}</span>
         )}
       </div>
       <div className="p-3 text-sm text-gray-300 leading-relaxed">
-        <p>{preview}{!expanded && dream.dream_narrative.length > 220 ? '…' : ''}</p>
-        {dream.dream_narrative.length > 220 && (
+        <p>{preview}{!expanded && dream.narrative.length > 220 ? '…' : ''}</p>
+        {dream.narrative.length > 220 && (
           <button
             onClick={onToggle}
             className="mt-1 text-xs text-violet-400 hover:text-violet-300"
