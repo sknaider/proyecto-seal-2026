@@ -624,13 +624,28 @@ Antes de declarar features "done":
 
 | Riesgo | Severidad | Mitigación |
 |---|---|---|
+| **Contaminación licencia GPL-3.0 OpenHuman** | **CRÍTICA** | **Policy clean room: NO copy-paste de su código. Solo estudio arquitectural. Validar c/PR.** |
 | WhatsApp ban (Meta detecta automation) | Alta | Disclaimer + WhatsApp Business API alternativa |
 | GDPR mensajes terceros sin consent | Alta | Disclaimer + audit log + opt-in user |
 | Calls wiretapping laws | Alta | Disclaimer + checklist consent + audit |
+| Ollama caído → fallback fail | Media | Health check startup + UI warning + status indicator |
+| OpenHuman v0.54.0 vs nuestro mapeo v0.53.31 | Baja | ALICE revisar changelog cuando haya bandwidth |
 | Local Gemma 4 calidad < Claude | Media | BYOK opcional + routing por role + fallback |
 | User no entiende "Local vs Cloud" | Media | UX inverted + tooltips + onboarding claro |
 | Costo cloud BYOK alto si usuario abusa | Baja | Cost dashboard transparente + límites configurables |
 | Drift OCEAN per-agente | Media | Drift detector existing + Identity Continuity v2 |
+
+### 17.1 Clean Room Policy (mandatorio)
+
+> Establecida 2026-05-22 tras verificar OpenHuman = GPL-3.0 viral copyleft.
+
+1. **NO** ejecutar `cp /home/dadito/IA/openhuman/... ./seal-desktop/...` ni equivalente
+2. **NO** copiar funciones, structs, schemas Rust/TS literales
+3. **SÍ** estudiar arquitectura, identificar patterns, escribir reimplementación nueva en `seal-desktop/ui` + `companion_core`
+4. **SÍ** referenciar features por nombre y descripción funcional ("ellos tienen Memory Tree h→d→m→y, hagamos uno similar con bitemporal")
+5. Cada commit que toque features inspiradas en OpenHuman → mensaje commit debe decir "clean room reimplementation of <feature>"
+6. NEXUS revisa commits trimestralmente con diff vs `/home/dadito/IA/openhuman/` para detectar contaminación
+7. Auditoría legal opcional ($500-1500 USD abogado IP Lima) antes de soft launch comercial
 
 ---
 
