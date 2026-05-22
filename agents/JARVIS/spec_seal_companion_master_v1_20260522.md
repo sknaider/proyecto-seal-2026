@@ -562,6 +562,56 @@ Cuando masa instalada >100k:
 
 ---
 
+## 13.5 Installer / Local AI auto-setup (ADA P3 — 2026-05-22)
+
+> ADA review elevó esto como prioridad P3: *"El usuario no debería necesitar terminal. La app debe detectar/instalar/configurar Ollama + modelo default + Whisper/STT + Piper/TTS."*
+
+**Pre-existing SOUL App requiere terminal para Ollama** — gap crítico para producto consumer.
+
+Componentes a construir:
+
+| Componente | Función |
+|---|---|
+| `bootstrap/ollama_installer.py` | Detecta si Ollama existe; si no, descarga binario per-OS + ejecuta install. macOS/Linux/Windows. |
+| `bootstrap/model_downloader.py` | Descarga `gemma3:12b` (default) o equivalente al primer arranque, con progress bar visible en UI |
+| `bootstrap/whisper_installer.py` | whisper.cpp local STT + modelo `base.en` o `medium.es` según locale |
+| `bootstrap/piper_installer.py` | Piper TTS local + voz default español (Lima) / inglés / otros idiomas |
+| `ui/FirstRunBootstrap.tsx` | Pantalla wizard "Instalando tu IA local…" con barras + skip-friendly |
+
+Sin terminal. Sin instrucciones técnicas. Click → ready en 3-10 minutos según conexión.
+
+## 13.6 Voice (STT + TTS) first-class (ADA P4 — 2026-05-22)
+
+> ADA: *"Voice input/output as a first-class control. Screen + voice surfaces matter for consumer."*
+
+Spec previa solo menciona "Voice input (Web Speech API)" en v0.5.1. ADA marca esto como insuficiente para producto comercial. Upgrade:
+
+| Capa | Hoy | Spec v1.0 |
+|---|---|---|
+| STT | Web Speech API (cloud Google) | **whisper.cpp local** + Web Speech API fallback |
+| TTS | navegador (variable) | **Piper local** + ElevenLabs BYOK opcional |
+| Voice activation | botón mic | **Hotword opcional** ("Hey SOUL") con WhisperWake o picovoice |
+| Audio I/O | input default | **Device selector** (mic + speakers) + level meter |
+
+## 13.7 Commercial readiness (ADA P5 — 2026-05-22)
+
+Lista de cosas que la spec implícitamente asumía pero ADA pidió hacer explícito:
+
+| Item | Status | Owner |
+|---|---|---|
+| Packaging .deb arm64 + .deb amd64 | en roadmap §15 v1.0 | NEXUS |
+| Packaging .dmg macOS Intel + Apple Silicon | en roadmap §15 v1.0 | NEXUS |
+| Packaging .exe / .msi Windows | a definir post-MVP | NEXUS |
+| Updates OTA (Tauri Updater) | a construir | NEXUS |
+| Public docs (GitBook o equivalent) | a construir | ALICE |
+| Discord/Twitter community | a crear pre-launch | William |
+| License/pricing decision | §12 (gratis MVP, Pro deferido) | William ✅ |
+| Safety/privacy mode toggles | parcial — Settings → Privacy existing | ALICE pulir |
+| Crash reporting opt-in | a construir | NEXUS |
+| Telemetry opt-in (privacy-respecting) | a construir | NEXUS + ADA review |
+
+---
+
 ## 14. DELEGATE-52 audit gates
 
 Antes de declarar features "done":
