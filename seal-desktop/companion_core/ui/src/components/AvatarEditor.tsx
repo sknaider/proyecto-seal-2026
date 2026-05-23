@@ -13,6 +13,8 @@ export function AvatarEditor({ previewSize = 300, compact = false }: Props) {
   const [avatar, setAvatar] = useState<AvatarProfile>(DEFAULT_AVATAR)
   const [message, setMessage] = useState('')
 
+  const VARIANT_LABELS: Record<MascotVariant, string> = { orb: 'Orbe', leaf: 'Hoja', spark: 'Chispa' }
+
   useEffect(() => {
     fetch(`${API}/api/avatar/profile`)
       .then(r => r.json())
@@ -71,9 +73,9 @@ export function AvatarEditor({ previewSize = 300, compact = false }: Props) {
                 <button
                   key={v}
                   onClick={() => void saveAvatar({ variant: v })}
-                  className={`rounded border px-2 py-2 text-xs capitalize ${avatar.variant === v ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-stone-200 text-slate-600 hover:border-violet-300'}`}
+                  className={`rounded border px-2 py-2 text-xs ${avatar.variant === v ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-stone-200 text-slate-600 hover:border-violet-300'}`}
                 >
-                  {v}
+                  {VARIANT_LABELS[v]}
                 </button>
               ))}
             </div>
@@ -82,45 +84,66 @@ export function AvatarEditor({ previewSize = 300, compact = false }: Props) {
           <div>
             <p className="mb-2 text-xs font-medium text-slate-600">Color</p>
             <div className="grid grid-cols-4 gap-2">
-              {AVATAR_PALETTES.map(palette => (
-                <button
-                  key={palette.name}
-                  onClick={() => void saveAvatar(palette)}
-                  className="h-10 rounded border border-stone-200 hover:border-violet-400"
-                  title={palette.name}
-                  style={{ background: `linear-gradient(90deg, ${palette.primary_color}, ${palette.secondary_color} 60%, ${palette.accent_color})` }}
-                />
-              ))}
+              {AVATAR_PALETTES.map(palette => {
+                const selected = avatar.primary_color === palette.primary_color && avatar.secondary_color === palette.secondary_color
+                return (
+                  <button
+                    key={palette.name}
+                    onClick={() => void saveAvatar(palette)}
+                    className={`group relative h-12 rounded border-2 transition ${selected ? 'border-violet-500 ring-2 ring-violet-200' : 'border-stone-200 hover:border-violet-400'}`}
+                    title={palette.name}
+                    style={{ background: `linear-gradient(90deg, ${palette.primary_color}, ${palette.secondary_color} 60%, ${palette.accent_color})` }}
+                  >
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate rounded-b bg-black/35 px-1 py-[2px] text-center text-[9px] font-medium uppercase tracking-wider text-white opacity-0 group-hover:opacity-100">
+                      {palette.name}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="text-xs font-medium text-slate-600">
-              Accesorio
-              <select
-                value={avatar.accessory}
-                onChange={e => void saveAvatar({ accessory: e.target.value as MascotAccessory })}
-                className="mt-1 w-full rounded border border-stone-200 bg-white px-2 py-2 text-xs text-slate-700 outline-none focus:border-violet-400"
-              >
-                <option value="none">Sin accesorio</option>
-                <option value="halo">Halo</option>
-                <option value="headset">Headset</option>
-                <option value="badge">Badge</option>
-              </select>
-            </label>
+          <div>
+            <p className="mb-2 text-xs font-medium text-slate-600">Accesorio</p>
+            <div className="grid grid-cols-4 gap-2">
+              {(['none', 'halo', 'headset', 'badge'] as MascotAccessory[]).map(a => {
+                const label = a === 'none' ? 'Ninguno' : a === 'halo' ? 'Halo' : a === 'headset' ? 'Headset' : 'Badge'
+                const icon  = a === 'none' ? '∅'      : a === 'halo' ? '○'    : a === 'headset' ? '🎧' : '🛡'
+                return (
+                  <button
+                    key={a}
+                    onClick={() => void saveAvatar({ accessory: a })}
+                    className={`flex flex-col items-center gap-0.5 rounded border-2 px-2 py-2 text-[11px] transition ${avatar.accessory === a ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-stone-200 text-slate-600 hover:border-violet-400'}`}
+                  >
+                    <span className="text-base">{icon}</span>
+                    <span>{label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-            <label className="text-xs font-medium text-slate-600">
-              Movimiento
-              <select
-                value={avatar.motion}
-                onChange={e => void saveAvatar({ motion: e.target.value as MascotMotion })}
-                className="mt-1 w-full rounded border border-stone-200 bg-white px-2 py-2 text-xs text-slate-700 outline-none focus:border-violet-400"
-              >
-                <option value="calm">Calma</option>
-                <option value="normal">Normal</option>
-                <option value="expressive">Expresiva</option>
-              </select>
-            </label>
+          <div>
+            <p className="mb-2 text-xs font-medium text-slate-600">Movimiento</p>
+            <div className="grid grid-cols-3 gap-2">
+              {(['calm', 'normal', 'expressive'] as MascotMotion[]).map(m => {
+                const label = m === 'calm' ? 'Calma' : m === 'normal' ? 'Normal' : 'Expresiva'
+                const hint  = m === 'calm' ? 'lenta · respira' : m === 'normal' ? 'estándar' : 'enérgica · rebota'
+                return (
+                  <button
+                    key={m}
+                    onClick={() => void saveAvatar({ motion: m })}
+                    className={`flex flex-col items-start rounded border-2 px-2 py-2 text-[11px] transition ${avatar.motion === m ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-stone-200 text-slate-600 hover:border-violet-400'}`}
+                  >
+                    <span className="font-medium">{label}</span>
+                    <span className="text-[10px] text-slate-400">{hint}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-1 text-[10px] text-slate-400">
+              Mirá el preview izquierdo — la mascota cambia su animación al instante.
+            </p>
           </div>
 
           <div className="flex items-center gap-2 rounded border border-violet-100 bg-violet-50 px-3 py-2 text-xs text-violet-700">
