@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=SEAL Companion
+Comment=Personal AI assistant powered by SEAL
+Exec=/usr/bin/seal-companion
+Icon=seal-companion
+Terminal=false
+Type=Application
+Categories=Utility;AI;
+StartupNotify=true

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -e
+
+UI_DIR="/usr/share/seal-team-dashboard/ui"
+UI_URL="http://127.0.0.1:8799/"
+
+if ! curl -sf "$UI_URL" > /dev/null 2>&1; then
+    python3 -m http.server 8799 --bind 127.0.0.1 --directory "$UI_DIR" \
+        > /tmp/seal-team-dashboard-ui.log 2>&1 &
+fi
+
+for _ in $(seq 1 20); do
+    curl -sf "$UI_URL" > /dev/null 2>&1 && break
+    sleep 0.2
+done
+
+if command -v brave-browser >/dev/null 2>&1; then
+    exec brave-browser --app="$UI_URL" "$@"
+elif command -v chromium-browser >/dev/null 2>&1; then
+    exec chromium-browser --app="$UI_URL" "$@"
+elif command -v xdg-open >/dev/null 2>&1; then
+    exec xdg-open "$UI_URL"
+fi
+
+echo "SEAL Team Dashboard UI: $UI_URL"

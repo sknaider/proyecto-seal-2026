@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=SEAL Team Dashboard
+Comment=SEAL agent monitoring dashboard
+Exec=/usr/bin/seal-team-dashboard
+Icon=seal-team-dashboard
+Terminal=false
+Type=Application
+Categories=Utility;Development;
+StartupNotify=true
