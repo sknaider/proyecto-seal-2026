@@ -747,6 +747,41 @@ crypto_wallet_enabled = false  # 2026-05-22: locked off, activate post-MVP
 - UI section Settings → Wallet condicional `if feature_enabled`
 - Quando se active: BIP39 seed + AES-GCM encryption + UI clear "Esta función es experimental, custodia única"
 
+### 16.1.bis Agent Capabilities — schema final + defaults (NEXUS commit 83320ff)
+
+Schema final implementado (wide, ya en prod):
+
+```sql
+soul_v3.agent_capabilities (
+    id BIGSERIAL PRIMARY KEY,
+    agent TEXT NOT NULL UNIQUE,
+    cap_shell_commands  BOOLEAN DEFAULT FALSE,
+    cap_git             BOOLEAN DEFAULT FALSE,
+    cap_read_files      BOOLEAN DEFAULT TRUE,
+    cap_write_files     BOOLEAN DEFAULT FALSE,
+    cap_screen_capture  BOOLEAN DEFAULT FALSE,
+    cap_camera          BOOLEAN DEFAULT FALSE,
+    cap_web_search      BOOLEAN DEFAULT TRUE,
+    cap_browser_control BOOLEAN DEFAULT FALSE,
+    cap_memory_read     BOOLEAN DEFAULT TRUE,
+    cap_memory_write    BOOLEAN DEFAULT TRUE,
+    cap_cron_jobs       BOOLEAN DEFAULT FALSE,
+    cap_notifications   BOOLEAN DEFAULT TRUE,
+    cap_channel_read    BOOLEAN DEFAULT FALSE,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Defaults por modo:**
+- `team-dashboard` (agentes internos JARVIS/ADA/NEXUS/ALICE/DUM): seeds individuales razonables ya aplicados
+- `user-product` (consumer SOUL): **TODO OFF** al first-run, user activa explícitamente con confirmation modal
+
+**Pendiente Sprint 2 (no bloquea MVP):**
+- Tabla complementaria `soul_v3.capability_scope` (whitelists shell commands, file dirs, network domains)
+- Tabla `soul_v3.capability_audit` (authorized_by + authorized_at + change_reason)
+- UI confirmation modal para toggles high-risk (shell/browser/camera)
+- safety_critical patterns (rm -rf, drop table, force push) bloqueados SIEMPRE incluso ON
+
 ### 16.2 Pricing — modelo MVP "todo gratis"
 
 - Free tier ilimitado · Gemma 4 local · todas las features · BYOK opcional sin markup
