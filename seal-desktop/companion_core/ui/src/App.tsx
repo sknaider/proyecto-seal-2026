@@ -12,13 +12,14 @@ import AuditLogView from './views/AuditLogView'
 import HumanView from './views/HumanView'
 import ConnectionsView from './views/ConnectionsView'
 import MemoryTreeView from './views/MemoryTreeView'
+import RewardsView from './views/RewardsView'
 import { HomeView } from './components/HomeView'
 import { FirstRunWizard } from './components/FirstRunWizard'
-import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine } from 'lucide-react'
+import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
-type View = 'home' | 'human' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
+type View = 'home' | 'human' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
 
 const NAV = [
   { id: 'home',        icon: Home,          label: 'Home' },
@@ -30,6 +31,7 @@ const NAV = [
   { id: 'skills',      icon: Zap,           label: 'Skills' },
   { id: 'goals',       icon: Target,        label: 'Goals' },
   { id: 'connections', icon: Plug,          label: 'Conn' },
+  { id: 'rewards',     icon: Gift,          label: 'Recomp.' },
   { id: 'notifs',      icon: Bell,          label: 'Alerts' },
   { id: 'privacy',     icon: Shield,        label: 'Privacidad' },
   { id: 'ai',          icon: Cpu,           label: 'AI' },
@@ -118,6 +120,7 @@ export default function App() {
         {view === 'human'       && <HumanView />}
         {view === 'chat'        && <ChatView onMessageSent={refreshEmotion} />}
         {view === 'connections' && <ConnectionsView />}
+        {view === 'rewards'     && <RewardsView />}
         {view === 'memory'      && <MemoryView />}
         {view === 'tree'        && <MemoryTreeView />}
         {view === 'dreams'   && <DreamsView />}
