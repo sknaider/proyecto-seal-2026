@@ -848,8 +848,8 @@ async def soul_audit_log(
         params.append(agent.upper())
         idx += 1
     if action:
-        where.append(f"action = ${idx}")
-        params.append(action)
+        where.append(f"action ILIKE ${idx}")
+        params.append(f"%{action}%")
         idx += 1
     if processed_locally is not None:
         where.append(f"processed_locally = ${idx}")
