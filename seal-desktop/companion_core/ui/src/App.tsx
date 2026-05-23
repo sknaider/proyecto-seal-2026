@@ -9,6 +9,7 @@ import PrivacyView from './views/PrivacyView'
 import NotificationsView from './views/NotificationsView'
 import AIBackendView from './views/AIBackendView'
 import { HomeView } from './components/HomeView'
+import { FirstRunWizard } from './components/FirstRunWizard'
 import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
@@ -35,17 +36,30 @@ const EMOTION_EMOJI: Record<string, string> = {
 export default function App() {
   const [view, setView] = useState<View>('home')
   const [userName, setUserName] = useState('')
-  const [agentName, setAgentName] = useState('Companion')
+  const [agentName, setAgentName] = useState('SEAL')
   const [emotion, setEmotion] = useState('calm')
+  const [showWizard, setShowWizard] = useState(false)
+  const [bootstrapped, setBootstrapped] = useState(false)
 
   useEffect(() => {
-    // Single bootstrap call instead of 3 separate fetches
+    // Bootstrap: read config + decide whether first-run wizard is needed.
+    fetch(`${API}/api/config`)
+      .then(r => r.json())
+      .then(d => {
+        if (d?.name) setUserName(d.name)
+        if (d?.primary_agent) setAgentName(d.primary_agent)
+        if (d && d.first_run_complete === false) setShowWizard(true)
+      })
+      .catch(() => {})
+      .finally(() => setBootstrapped(true))
+
+    // Secondary fetch for emotional state (best-effort).
     fetch(`${API}/api/companion/context`)
       .then(r => r.json())
       .then(d => {
-        if (d.user_name) setUserName(d.user_name)
-        if (d.agent?.name) setAgentName(d.agent.name)
-        if (d.agent?.emotional_state) setEmotion(d.agent.emotional_state)
+        if (d?.user_name) setUserName(d.user_name)
+        if (d?.agent?.name) setAgentName(d.agent.name)
+        if (d?.agent?.emotional_state) setEmotion(d.agent.emotional_state)
       })
       .catch(() => {})
   }, [])
@@ -58,8 +72,21 @@ export default function App() {
       .catch(() => {})
   }
 
+  if (!bootstrapped) {
+    return <div className="flex items-center justify-center h-screen bg-seal-bg text-slate-500 text-sm">Cargando tu SEAL App…</div>
+  }
+
   return (
     <div className="flex flex-col h-screen bg-seal-bg text-slate-200">
+      {showWizard && (
+        <FirstRunWizard
+          onFinish={(name) => {
+            setUserName(name)
+            setShowWizard(false)
+            setView('home')
+          }}
+        />
+      )}
       {/* Top bar */}
       <header className="flex items-center justify-between px-4 py-2 border-b border-seal-border shrink-0">
         <div className="flex items-center gap-2">
