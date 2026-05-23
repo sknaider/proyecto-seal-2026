@@ -4,13 +4,15 @@ import MemoryView from './views/MemoryView'
 import SkillsView from './views/SkillsView'
 import GoalsView from './views/GoalsView'
 import SettingsView from './views/SettingsView'
-import { MessageSquare, Brain, Zap, Target, Settings } from 'lucide-react'
+import { HomeView } from './components/HomeView'
+import { Home, MessageSquare, Brain, Zap, Target, Settings } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
-type View = 'chat' | 'memory' | 'skills' | 'goals' | 'settings'
+type View = 'home' | 'chat' | 'memory' | 'skills' | 'goals' | 'settings'
 
 const NAV = [
+  { id: 'home',     icon: Home,          label: 'Home' },
   { id: 'chat',     icon: MessageSquare, label: 'Chat' },
   { id: 'memory',   icon: Brain,         label: 'Memory' },
   { id: 'skills',   icon: Zap,           label: 'Skills' },
@@ -23,7 +25,7 @@ const EMOTION_EMOJI: Record<string, string> = {
 }
 
 export default function App() {
-  const [view, setView] = useState<View>('chat')
+  const [view, setView] = useState<View>('home')
   const [userName, setUserName] = useState('')
   const [agentName, setAgentName] = useState('Companion')
   const [emotion, setEmotion] = useState('calm')
@@ -69,6 +71,7 @@ export default function App() {
 
       {/* Main content */}
       <main className="flex-1 overflow-hidden">
+        {view === 'home'     && <HomeView agentName={agentName} userName={userName} emotion={emotion} onStartChat={() => setView('chat')} />}
         {view === 'chat'     && <ChatView onMessageSent={refreshEmotion} />}
         {view === 'memory'   && <MemoryView />}
         {view === 'skills'   && <SkillsView onUseSkill={(prompt) => { setView('chat'); window.dispatchEvent(new CustomEvent('inject-prompt', { detail: prompt })) }} />}
