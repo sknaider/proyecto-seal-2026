@@ -18,7 +18,7 @@ import argparse
 import asyncio
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -56,6 +56,34 @@ def _bucket_bounds(level: str, ref: datetime) -> tuple[str, str]:
 def _delta_sec(seconds: int):
     from datetime import timedelta
     return timedelta(seconds=seconds)
+
+
+def _parse_sqlite_utc(value: str) -> datetime:
+    """SQLite stores naive UTC timestamps as TEXT; convert them to Lima time."""
+    text = str(value).replace("T", " ").split(".")[0]
+    dt = datetime.strptime(text[:19], "%Y-%m-%d %H:%M:%S")
+    return dt.replace(tzinfo=timezone.utc).astimezone(LIMA_TZ)
+
+
+def _dedupe_bucket_refs(refs: list[datetime], level: str) -> list[datetime]:
+    seen: dict[tuple[int, int, int, int], datetime] = {}
+    for ref in refs:
+        if level == "hour":
+            key = (ref.year, ref.month, ref.day, ref.hour)
+            normalized = ref.replace(minute=0, second=0, microsecond=0)
+        elif level == "day":
+            key = (ref.year, ref.month, ref.day, 0)
+            normalized = ref.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif level == "month":
+            key = (ref.year, ref.month, 1, 0)
+            normalized = ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        elif level == "year":
+            key = (ref.year, 1, 1, 0)
+            normalized = ref.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        else:
+            raise ValueError(f"unknown level: {level}")
+        seen[key] = normalized
+    return [seen[k] for k in sorted(seen)]
 
 
 async def _summarize_text(items: list[str], context_label: str) -> str:
@@ -174,7 +202,29 @@ async def build_level(agent: str, level: str, ref: Optional[datetime] = None,
 
 
 async def build_all(agent: str, ref: Optional[datetime] = None, dry_run: bool = False) -> list[dict]:
-    """Build all 4 levels in order (hour → day → month → year)."""
+    """Build all 4 levels in order (hour → day → month → year).
+
+    When no explicit ref is supplied, rebuild every historical bucket that has
+    local memories. This makes the UI's "Reconstruir" action useful after the
+    app has already collected memories.
+    """
+    if ref is None:
+        db = get_db()
+        rows = await db.execute_fetchall(
+            """SELECT created_at FROM memories
+               WHERE agent = ? AND importance >= 4
+               ORDER BY created_at ASC""",
+            (agent,),
+        )
+        refs = [_parse_sqlite_utc(r["created_at"]) for r in rows]
+        if refs:
+            results: list[dict] = []
+            for level in LEVEL_ORDER:
+                for level_ref in _dedupe_bucket_refs(refs, level):
+                    results.append(await build_level(agent, level, ref=level_ref, dry_run=dry_run))
+            return results
+        ref = datetime.now(LIMA_TZ)
+
     results = []
     for level in LEVEL_ORDER:
         results.append(await build_level(agent, level, ref=ref, dry_run=dry_run))

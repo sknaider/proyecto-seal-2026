@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import Optional, Any
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -20,6 +21,18 @@ VERSION = "0.3.0"
 _config_cache: dict[str, Any] = {}
 
 
+async def _memory_tree_periodic():
+    """Run memory tree builder at startup then every hour (best-effort, silent on error)."""
+    await asyncio.sleep(5)  # let DB settle after init
+    while True:
+        try:
+            from companion_core.memory_tree_builder import build_all
+            await build_all(agent="USER")
+        except Exception:
+            pass
+        await asyncio.sleep(3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -31,7 +44,9 @@ async def lifespan(app: FastAPI):
             _config_cache[row[0]] = json.loads(row[1])
         except (json.JSONDecodeError, TypeError):
             _config_cache[row[0]] = row[1]
+    task = asyncio.create_task(_memory_tree_periodic())
     yield
+    task.cancel()
     await close_db()
 
 
@@ -1138,6 +1153,71 @@ class SkillUpdate(BaseModel):
     enabled: Optional[bool] = None
 
 
+class SkillMdImport(BaseModel):
+    path: Optional[str] = None
+    content: Optional[str] = None
+    name: Optional[str] = None
+    enabled: bool = True
+    overwrite: bool = False
+
+
+def _parse_skill_md(content: str, fallback_name: str = "Imported Skill") -> dict[str, str]:
+    text = content.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="SKILL.md content required")
+    if len(text) > 200_000:
+        raise HTTPException(status_code=400, detail="SKILL.md too large")
+
+    frontmatter: dict[str, str] = {}
+    body = text
+    if text.startswith("---"):
+        parts = text.split("---", 2)
+        if len(parts) == 3:
+            raw_frontmatter = parts[1]
+            body = parts[2].strip()
+            for line in raw_frontmatter.splitlines():
+                if ":" not in line:
+                    continue
+                key, value = line.split(":", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key in {"name", "description"} and value:
+                    frontmatter[key] = value
+
+    title = frontmatter.get("name", "").strip()
+    if not title:
+        for line in body.splitlines():
+            line = line.strip()
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
+    if not title:
+        title = fallback_name
+
+    description = frontmatter.get("description", "").strip()
+    if not description:
+        for line in body.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or line.startswith("---"):
+                continue
+            description = line[:240]
+            break
+
+    prompt = (
+        "Use this local SKILL.md guidance when handling the task below.\n\n"
+        f"{body}\n\n"
+        "Task:\n{task}"
+    )
+    trigger = title.lower().replace(" ", "-")[:64]
+    return {
+        "name": title[:80],
+        "description": description[:240],
+        "trigger_phrase": trigger,
+        "prompt_template": prompt,
+        "category": "skill-md",
+    }
+
+
 @app.post("/api/skills")
 async def create_skill(payload: SkillCreate):
     if not payload.name.strip():
@@ -1158,6 +1238,69 @@ async def create_skill(payload: SkillCreate):
             raise HTTPException(status_code=409, detail="skill name already exists")
         raise
     return {"ok": True, "id": cur.lastrowid}
+
+
+@app.post("/api/skills/import-skill-md")
+async def import_skill_md(payload: SkillMdImport):
+    source = "content"
+    content = payload.content or ""
+    fallback_name = payload.name or "Imported Skill"
+    if payload.path:
+        path = Path(payload.path).expanduser().resolve()
+        if path.name != "SKILL.md":
+            raise HTTPException(status_code=400, detail="path must point to SKILL.md")
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="SKILL.md not found")
+        if path.stat().st_size > 200_000:
+            raise HTTPException(status_code=400, detail="SKILL.md too large")
+        content = path.read_text(encoding="utf-8")
+        fallback_name = payload.name or path.parent.name
+        source = str(path)
+
+    parsed = _parse_skill_md(content, fallback_name=fallback_name)
+    if payload.name and payload.name.strip():
+        parsed["name"] = payload.name.strip()[:80]
+
+    db = get_db()
+    existing = await db.execute_fetchall(
+        "SELECT id FROM skills WHERE name = ?",
+        (parsed["name"],),
+    )
+    if existing and not payload.overwrite:
+        raise HTTPException(status_code=409, detail="skill name already exists")
+
+    if existing:
+        skill_id = existing[0]["id"]
+        await db.execute(
+            """UPDATE skills
+               SET description = ?, trigger_phrase = ?, prompt_template = ?,
+                   category = ?, enabled = ?
+               WHERE id = ?""",
+            (
+                parsed["description"],
+                parsed["trigger_phrase"],
+                parsed["prompt_template"],
+                parsed["category"],
+                int(payload.enabled),
+                skill_id,
+            ),
+        )
+    else:
+        cur = await db.execute(
+            "INSERT INTO skills (name, description, trigger_phrase, prompt_template, category, enabled) "
+            "VALUES (?,?,?,?,?,?)",
+            (
+                parsed["name"],
+                parsed["description"],
+                parsed["trigger_phrase"],
+                parsed["prompt_template"],
+                parsed["category"],
+                int(payload.enabled),
+            ),
+        )
+        skill_id = cur.lastrowid
+    await db.commit()
+    return {"ok": True, "id": skill_id, "name": parsed["name"], "source": source}
 
 
 @app.get("/api/skills")
@@ -2901,6 +3044,41 @@ async def cron_jobs_toggle(job_id: int):
     )
     await db.commit()
     return {"ok": True, "id": job_id}
+
+
+# ── 404 friendly handler for API ─────────────────────────────────────────────
+# Replaces FastAPI's generic {"detail":"Not Found"} with a hint that lists
+# a few real endpoints, so devs/users see the next action immediately.
+
+from fastapi.requests import Request as _Req
+from fastapi.responses import JSONResponse as _JSON
+
+
+@app.exception_handler(404)
+async def api_friendly_404(request: _Req, exc):
+    path = request.url.path
+    if not path.startswith("/api/"):
+        # let SPA fallback handle UI routes if installed
+        raise exc
+    # Collect a handful of registered API routes to suggest
+    routes = []
+    for r in app.routes:
+        rpath = getattr(r, "path", "")
+        if rpath.startswith("/api/") and rpath not in routes:
+            routes.append(rpath)
+        if len(routes) >= 12:
+            break
+    return _JSON(
+        status_code=404,
+        content={
+            "ok": False,
+            "error": "endpoint no encontrado",
+            "path": path,
+            "hint": "Verifica el método HTTP y la ruta. Endpoints disponibles más abajo.",
+            "available": routes[:5],
+            "available_examples": routes,
+        },
+    )
 
 
 # ── Static UI serving (production) ───────────────────────────────────────────
