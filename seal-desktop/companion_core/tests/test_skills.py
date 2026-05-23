@@ -39,6 +39,58 @@ async def test_create_skill_duplicate_returns_409():
 
 
 @pytest.mark.asyncio
+async def test_import_skill_md_from_content():
+    content = """---
+name: react-expert
+description: Use when building React components.
+---
+
+# React Expert
+
+Build accessible React views.
+"""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.post("/api/skills/import-skill-md", json={"content": content})
+        assert r.status_code == 200
+        sid = r.json()["id"]
+        run = await client.post(f"/api/skills/{sid}/run", json={"task": "Create AvatarView"})
+    assert run.json()["skill"] == "react-expert"
+    assert "Build accessible React views." in run.json()["prompt"]
+    assert "Create AvatarView" in run.json()["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_import_skill_md_from_path(tmp_path):
+    skill_dir = tmp_path / "systematic-debugging"
+    skill_dir.mkdir()
+    skill_file = skill_dir / "SKILL.md"
+    skill_file.write_text("# Systematic Debugging\n\nFind root cause before fixes.\n", encoding="utf-8")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.post("/api/skills/import-skill-md", json={"path": str(skill_file)})
+        assert r.status_code == 200
+        listed = await client.get("/api/skills")
+    skill = next(s for s in listed.json()["skills"] if s["name"] == "Systematic Debugging")
+    assert skill["category"] == "skill-md"
+    assert skill["trigger_phrase"] == "systematic-debugging"
+
+
+@pytest.mark.asyncio
+async def test_import_skill_md_overwrite_existing():
+    first = "# Duplicate Skill\n\nFirst version."
+    second = "# Duplicate Skill\n\nSecond version."
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r1 = await client.post("/api/skills/import-skill-md", json={"content": first})
+        assert r1.status_code == 200
+        conflict = await client.post("/api/skills/import-skill-md", json={"content": second})
+        assert conflict.status_code == 409
+        r2 = await client.post("/api/skills/import-skill-md", json={"content": second, "overwrite": True})
+        assert r2.status_code == 200
+        run = await client.post(f"/api/skills/{r2.json()['id']}/run", json={"task": "x"})
+    assert "Second version." in run.json()["prompt"]
+
+
+@pytest.mark.asyncio
 async def test_list_skills_empty():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         r = await client.get("/api/skills")

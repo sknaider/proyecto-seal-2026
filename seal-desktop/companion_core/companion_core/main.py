@@ -1153,6 +1153,71 @@ class SkillUpdate(BaseModel):
     enabled: Optional[bool] = None
 
 
+class SkillMdImport(BaseModel):
+    path: Optional[str] = None
+    content: Optional[str] = None
+    name: Optional[str] = None
+    enabled: bool = True
+    overwrite: bool = False
+
+
+def _parse_skill_md(content: str, fallback_name: str = "Imported Skill") -> dict[str, str]:
+    text = content.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="SKILL.md content required")
+    if len(text) > 200_000:
+        raise HTTPException(status_code=400, detail="SKILL.md too large")
+
+    frontmatter: dict[str, str] = {}
+    body = text
+    if text.startswith("---"):
+        parts = text.split("---", 2)
+        if len(parts) == 3:
+            raw_frontmatter = parts[1]
+            body = parts[2].strip()
+            for line in raw_frontmatter.splitlines():
+                if ":" not in line:
+                    continue
+                key, value = line.split(":", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key in {"name", "description"} and value:
+                    frontmatter[key] = value
+
+    title = frontmatter.get("name", "").strip()
+    if not title:
+        for line in body.splitlines():
+            line = line.strip()
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
+    if not title:
+        title = fallback_name
+
+    description = frontmatter.get("description", "").strip()
+    if not description:
+        for line in body.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or line.startswith("---"):
+                continue
+            description = line[:240]
+            break
+
+    prompt = (
+        "Use this local SKILL.md guidance when handling the task below.\n\n"
+        f"{body}\n\n"
+        "Task:\n{task}"
+    )
+    trigger = title.lower().replace(" ", "-")[:64]
+    return {
+        "name": title[:80],
+        "description": description[:240],
+        "trigger_phrase": trigger,
+        "prompt_template": prompt,
+        "category": "skill-md",
+    }
+
+
 @app.post("/api/skills")
 async def create_skill(payload: SkillCreate):
     if not payload.name.strip():
@@ -1173,6 +1238,69 @@ async def create_skill(payload: SkillCreate):
             raise HTTPException(status_code=409, detail="skill name already exists")
         raise
     return {"ok": True, "id": cur.lastrowid}
+
+
+@app.post("/api/skills/import-skill-md")
+async def import_skill_md(payload: SkillMdImport):
+    source = "content"
+    content = payload.content or ""
+    fallback_name = payload.name or "Imported Skill"
+    if payload.path:
+        path = Path(payload.path).expanduser().resolve()
+        if path.name != "SKILL.md":
+            raise HTTPException(status_code=400, detail="path must point to SKILL.md")
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="SKILL.md not found")
+        if path.stat().st_size > 200_000:
+            raise HTTPException(status_code=400, detail="SKILL.md too large")
+        content = path.read_text(encoding="utf-8")
+        fallback_name = payload.name or path.parent.name
+        source = str(path)
+
+    parsed = _parse_skill_md(content, fallback_name=fallback_name)
+    if payload.name and payload.name.strip():
+        parsed["name"] = payload.name.strip()[:80]
+
+    db = get_db()
+    existing = await db.execute_fetchall(
+        "SELECT id FROM skills WHERE name = ?",
+        (parsed["name"],),
+    )
+    if existing and not payload.overwrite:
+        raise HTTPException(status_code=409, detail="skill name already exists")
+
+    if existing:
+        skill_id = existing[0]["id"]
+        await db.execute(
+            """UPDATE skills
+               SET description = ?, trigger_phrase = ?, prompt_template = ?,
+                   category = ?, enabled = ?
+               WHERE id = ?""",
+            (
+                parsed["description"],
+                parsed["trigger_phrase"],
+                parsed["prompt_template"],
+                parsed["category"],
+                int(payload.enabled),
+                skill_id,
+            ),
+        )
+    else:
+        cur = await db.execute(
+            "INSERT INTO skills (name, description, trigger_phrase, prompt_template, category, enabled) "
+            "VALUES (?,?,?,?,?,?)",
+            (
+                parsed["name"],
+                parsed["description"],
+                parsed["trigger_phrase"],
+                parsed["prompt_template"],
+                parsed["category"],
+                int(payload.enabled),
+            ),
+        )
+        skill_id = cur.lastrowid
+    await db.commit()
+    return {"ok": True, "id": skill_id, "name": parsed["name"], "source": source}
 
 
 @app.get("/api/skills")
