@@ -9,26 +9,30 @@ import PrivacyView from './views/PrivacyView'
 import NotificationsView from './views/NotificationsView'
 import AIBackendView from './views/AIBackendView'
 import AuditLogView from './views/AuditLogView'
+import HumanView from './views/HumanView'
+import ConnectionsView from './views/ConnectionsView'
 import { HomeView } from './components/HomeView'
 import { FirstRunWizard } from './components/FirstRunWizard'
-import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList } from 'lucide-react'
+import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
-type View = 'home' | 'chat' | 'memory' | 'dreams' | 'skills' | 'goals' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
+type View = 'home' | 'human' | 'chat' | 'memory' | 'dreams' | 'skills' | 'goals' | 'connections' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
 
 const NAV = [
-  { id: 'home',     icon: Home,          label: 'Home' },
-  { id: 'chat',     icon: MessageSquare, label: 'Chat' },
-  { id: 'memory',   icon: Brain,         label: 'Memory' },
-  { id: 'dreams',   icon: Moon,          label: 'Dreams' },
-  { id: 'skills',   icon: Zap,           label: 'Skills' },
-  { id: 'goals',    icon: Target,        label: 'Goals' },
-  { id: 'notifs',   icon: Bell,          label: 'Alerts' },
-  { id: 'privacy',  icon: Shield,        label: 'Privacidad' },
-  { id: 'ai',       icon: Cpu,           label: 'AI' },
-  { id: 'audit',    icon: ClipboardList, label: 'Actividad' },
-  { id: 'settings', icon: Settings,      label: 'Config' },
+  { id: 'home',        icon: Home,          label: 'Home' },
+  { id: 'human',       icon: Mic,           label: 'Voz' },
+  { id: 'chat',        icon: MessageSquare, label: 'Chat' },
+  { id: 'memory',      icon: Brain,         label: 'Memory' },
+  { id: 'dreams',      icon: Moon,          label: 'Dreams' },
+  { id: 'skills',      icon: Zap,           label: 'Skills' },
+  { id: 'goals',       icon: Target,        label: 'Goals' },
+  { id: 'connections', icon: Plug,          label: 'Conn' },
+  { id: 'notifs',      icon: Bell,          label: 'Alerts' },
+  { id: 'privacy',     icon: Shield,        label: 'Privacidad' },
+  { id: 'ai',          icon: Cpu,           label: 'AI' },
+  { id: 'audit',       icon: ClipboardList, label: 'Actividad' },
+  { id: 'settings',    icon: Settings,      label: 'Config' },
 ] as const
 
 const EMOTION_EMOJI: Record<string, string> = {
@@ -108,9 +112,11 @@ export default function App() {
 
       {/* Main content */}
       <main className="flex-1 overflow-hidden">
-        {view === 'home'     && <HomeView agentName={agentName} userName={userName} emotion={emotion} onStartChat={() => setView('chat')} />}
-        {view === 'chat'     && <ChatView onMessageSent={refreshEmotion} />}
-        {view === 'memory'   && <MemoryView />}
+        {view === 'home'        && <HomeView agentName={agentName} userName={userName} emotion={emotion} onStartChat={() => setView('chat')} />}
+        {view === 'human'       && <HumanView />}
+        {view === 'chat'        && <ChatView onMessageSent={refreshEmotion} />}
+        {view === 'connections' && <ConnectionsView />}
+        {view === 'memory'      && <MemoryView />}
         {view === 'dreams'   && <DreamsView />}
         {view === 'skills'   && <SkillsView onUseSkill={(prompt) => { setView('chat'); window.dispatchEvent(new CustomEvent('inject-prompt', { detail: prompt })) }} />}
         {view === 'goals'    && <GoalsView />}
