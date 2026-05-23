@@ -297,8 +297,14 @@ def build_prompt(
         parts.append("Workspace files (sample): " + ", ".join(sample))
 
     if ocean:
-        traits = ", ".join(f"{k}={v:.2f}" for k, v in ocean.items())
-        parts.append(f"User OCEAN profile: {traits}. Adapt tone accordingly.")
+        numeric = {k: v for k, v in ocean.items() if isinstance(v, (int, float))}
+        if numeric:
+            traits = ", ".join(f"{k}={v:.2f}" for k, v in numeric.items())
+            parts.append(f"User OCEAN profile: {traits}. Adapt tone accordingly.")
+        else:
+            preset = ocean.get("preset") if isinstance(ocean, dict) else None
+            if preset:
+                parts.append(f"User OCEAN preset: {preset}. Adapt tone accordingly.")
 
     if nerves_state:
         hot = [k for k, v in nerves_state.items() if v >= 0.7]
