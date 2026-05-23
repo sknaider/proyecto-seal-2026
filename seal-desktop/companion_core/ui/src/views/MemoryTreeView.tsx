@@ -42,6 +42,7 @@ interface DetailResponse {
 }
 
 const LEVELS = ['hour', 'day', 'month', 'year'] as const
+const TREE_AGENT = 'USER'
 
 export default function MemoryTreeView() {
   const [level, setLevel] = useState<typeof LEVELS[number]>('day')
@@ -56,7 +57,7 @@ export default function MemoryTreeView() {
     setLoading(true)
     setMessage('')
     try {
-      const r = await fetch(`${API}/api/memory-tree?agent=SOUL&level=${level}&limit=60`)
+      const r = await fetch(`${API}/api/memory-tree?agent=${TREE_AGENT}&level=${level}&limit=60`)
       const d: TreeResponse = await r.json()
       setData(d.buckets || [])
       setDetail(null)
@@ -79,7 +80,7 @@ export default function MemoryTreeView() {
     setLoading(true)
     setMessage('')
     try {
-      const r = await fetch(`${API}/api/memory-tree/search?agent=SOUL&level=${level}&q=${encodeURIComponent(q)}&limit=60`)
+      const r = await fetch(`${API}/api/memory-tree/search?agent=${TREE_AGENT}&level=${level}&q=${encodeURIComponent(q)}&limit=60`)
       const d: TreeResponse = await r.json()
       setData(d.buckets || [])
       setDetail(null)
@@ -111,7 +112,7 @@ export default function MemoryTreeView() {
       const r = await fetch(`${API}/api/memory-tree/rebuild`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent: 'SOUL', level: 'all', dry_run: false }),
+        body: JSON.stringify({ agent: TREE_AGENT, level: 'all', dry_run: false }),
       })
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       setMessage('Memory Tree actualizado')

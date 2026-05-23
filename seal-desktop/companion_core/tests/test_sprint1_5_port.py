@@ -135,6 +135,37 @@ async def test_memory_tree_rebuild_calls_builder(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_memory_tree_rebuild_backfills_existing_user_memories(monkeypatch):
+    from companion_core.db import get_db
+    import companion_core.memory_tree_builder as builder
+
+    async def fake_summary(items: list[str], context_label: str) -> str:
+        return f"{context_label}: {len(items)} items"
+
+    monkeypatch.setattr(builder, "_summarize_text", fake_summary)
+
+    db = get_db()
+    await db.execute(
+        """INSERT INTO memories (agent, category, content, importance, created_at)
+           VALUES ('USER', 'preference', 'Le gusta guardar recuerdos locales.', 6, '2026-05-15 15:15:11')"""
+    )
+    await db.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.post("/api/memory-tree/rebuild", json={"agent": "USER", "level": "all"})
+        assert r.status_code == 200
+        d = r.json()
+        assert [x["level"] for x in d["result"]] == ["hour", "day", "month", "year"]
+        assert all(x["rows_in_bucket"] == 1 for x in d["result"])
+
+        day = await client.get("/api/memory-tree?agent=USER&level=day")
+        assert day.status_code == 200
+        day_d = day.json()
+        assert day_d["count"] == 1
+        assert day_d["buckets"][0]["bucket_start"] == "2026-05-15T00:00:00-05:00"
+
+
+@pytest.mark.asyncio
 async def test_memory_tree_rebuild_rejects_unknown_level():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         r = await client.post("/api/memory-tree/rebuild", json={"agent": "SOUL", "level": "decade"})
