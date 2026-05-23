@@ -11,19 +11,21 @@ import AIBackendView from './views/AIBackendView'
 import AuditLogView from './views/AuditLogView'
 import HumanView from './views/HumanView'
 import ConnectionsView from './views/ConnectionsView'
+import MemoryTreeView from './views/MemoryTreeView'
 import { HomeView } from './components/HomeView'
 import { FirstRunWizard } from './components/FirstRunWizard'
-import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug } from 'lucide-react'
+import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
-type View = 'home' | 'human' | 'chat' | 'memory' | 'dreams' | 'skills' | 'goals' | 'connections' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
+type View = 'home' | 'human' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
 
 const NAV = [
   { id: 'home',        icon: Home,          label: 'Home' },
   { id: 'human',       icon: Mic,           label: 'Voz' },
   { id: 'chat',        icon: MessageSquare, label: 'Chat' },
   { id: 'memory',      icon: Brain,         label: 'Memory' },
+  { id: 'tree',        icon: TreePine,      label: 'Árbol' },
   { id: 'dreams',      icon: Moon,          label: 'Dreams' },
   { id: 'skills',      icon: Zap,           label: 'Skills' },
   { id: 'goals',       icon: Target,        label: 'Goals' },
@@ -117,6 +119,7 @@ export default function App() {
         {view === 'chat'        && <ChatView onMessageSent={refreshEmotion} />}
         {view === 'connections' && <ConnectionsView />}
         {view === 'memory'      && <MemoryView />}
+        {view === 'tree'        && <MemoryTreeView />}
         {view === 'dreams'   && <DreamsView />}
         {view === 'skills'   && <SkillsView onUseSkill={(prompt) => { setView('chat'); window.dispatchEvent(new CustomEvent('inject-prompt', { detail: prompt })) }} />}
         {view === 'goals'    && <GoalsView />}
