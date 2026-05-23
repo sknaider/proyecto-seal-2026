@@ -82,9 +82,10 @@ El artefacto queda en `src-tauri\target\x86_64-pc-windows-msvc\release\bundle\ms
 ### Dónde guarda tus datos en Windows
 
 ```
-%APPDATA%\SEAL\companion.db          ← tu DB principal (chats, memorias)
-%APPDATA%\SEAL\settings.toml         ← configuración
-%LOCALAPPDATA%\SEAL\models\          ← modelos voz/LLM descargados
+%LOCALAPPDATA%\seal-app\companion.db       ← tu DB principal (chats, memorias)
+%APPDATA%\seal-app\companion.toml          ← configuración
+%APPDATA%\seal-app\vault\vault.enc         ← claves BYOK cifradas
+%LOCALAPPDATA%\seal-app\voice_models\      ← modelos de voz descargados
 ```
 
 ---
@@ -193,7 +194,7 @@ lsof -i :8769
 netstat -ano | findstr :8769
 ```
 
-Si está ocupado, cambialo en `~/.seal/companion.toml` (Linux) o `%APPDATA%\SEAL\settings.toml` (Windows):
+Si está ocupado, cambialo en `${XDG_CONFIG_HOME:-~/.config}/seal-app/companion.toml` (Linux) o `%APPDATA%\seal-app\companion.toml` (Windows):
 ```toml
 [server]
 port = 8779
@@ -214,12 +215,12 @@ curl -X POST http://localhost:8769/api/memory-tree/rebuild
 ```bash
 sudo dpkg -r seal-companion
 # Tus datos NO se borran. Para limpiar todo:
-rm -rf ~/.seal
+rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/seal-app" "${XDG_DATA_HOME:-$HOME/.local/share}/seal-app"
 ```
 
 **Windows:**
 - Configuración → Aplicaciones → SEAL App → Desinstalar
-- Tus datos quedan en `%APPDATA%\SEAL\`. Borralos manualmente si querés limpieza total.
+- Tus datos quedan en `%APPDATA%\seal-app\` y `%LOCALAPPDATA%\seal-app\`. Borralos manualmente si querés limpieza total.
 
 ---
 

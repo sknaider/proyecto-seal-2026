@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build:linux": "./build-linux.sh",
+    "build:windows": "powershell -ExecutionPolicy Bypass -File ./build-windows.ps1 -Arch x64"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

@@ -20,7 +20,7 @@ Crypto trace (per William rule 16-may-2026, trace bytes step by step):
   6. Endpoints expose only PROVIDER NAMES, never key values, except for
      internal LLM router which reads keys at runtime.
 
-File layout: ~/.config/soul-companion/vault.enc (mode 0o600)
+File layout: OS user config dir / seal-app / vault / vault.enc (mode 0o600)
 """
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Optional
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from companion_core.platform_paths import vault_dir
 
 try:
     import keyring
@@ -41,7 +42,7 @@ except ImportError:
 
 
 # ── Configuration ──
-VAULT_DIR = Path(os.environ.get("SOUL_VAULT_DIR", str(Path.home() / ".config" / "soul-companion")))
+VAULT_DIR = vault_dir()
 VAULT_PATH = VAULT_DIR / "vault.enc"
 KEYRING_SERVICE = "soul-companion-vault"
 KEYRING_USER = "master"
@@ -119,7 +120,7 @@ def _master_key_from_env() -> Optional[bytes]:
         return None
 
 
-# Key file path: ~/.config/soul-companion/.vault_master (mode 0600)
+# Key file path: <vault dir>/.vault_master (mode 0600)
 # Used when OS keyring is unavailable (e.g. systemd user service without D-Bus).
 _KEYFILE_PATH = VAULT_DIR / ".vault_master"
 
@@ -155,7 +156,7 @@ def get_or_create_master_key() -> bytes:
       1. In-process cache
       2. OS keyring (Linux libsecret / macOS Keychain)
       3. SOUL_VAULT_MASTER_KEY env var (headless/CI)
-      4. Filesystem keyfile ~/.config/soul-companion/.vault_master (0600)
+      4. Filesystem keyfile <vault dir>/.vault_master (0600)
          — generated automatically on first run when keyring unavailable
          (systemd user services without D-Bus session)
     """

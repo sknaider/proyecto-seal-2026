@@ -40,7 +40,7 @@ seal-companion
 ```
 
 ### Windows 10 / 11
-1. Descargá `seal-companion-0.3.0-x64.msi` desde [Releases](https://github.com/sknaider/seal-app/releases).
+1. Descargá `SEAL App_0.5.0_x64.msi` desde [Releases](https://github.com/sknaider/seal-app/releases).
 2. Doble-click → seguí el asistente.
 3. Abrí **SEAL App** desde el menú Inicio.
 

@@ -66,6 +66,9 @@ async def health():
     import time as _time
     import urllib.request as _u
     from companion_core.settings import db_path as _db_path
+    from companion_core.platform_paths import config_dir as _config_dir
+    from companion_core.platform_paths import data_dir as _data_dir
+    from companion_core.platform_paths import platform_name as _platform_name
 
     db = get_db()
     mem_count = await db.execute_fetchall("SELECT COUNT(*) FROM memories")
@@ -90,6 +93,11 @@ async def health():
         "status": "ok",
         "version": VERSION,
         "service": "companion_core",
+        "platform": {
+            "os": _platform_name(),
+            "config_dir": str(_config_dir()),
+            "data_dir": str(_data_dir()),
+        },
         "stats": {
             "memories": mem_count[0][0] if mem_count else 0,
             "messages": msg_count[0][0] if msg_count else 0,
@@ -2925,19 +2933,21 @@ async def screen_status():
 import base64 as _b64
 from pathlib import Path as _Path
 import re as _re
+from companion_core.platform_paths import screen_captures_dir as _screen_captures_dir
 
-_SCREEN_DIR = _Path.home() / ".config" / "soul-companion" / "screen_captures"
+_SCREEN_DIR: _Path | None = None
 _SCREEN_RING_MAX = 30
 _SCREEN_ID_RE = _re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
 
 def _screen_dir_ready() -> _Path:
-    _SCREEN_DIR.mkdir(parents=True, exist_ok=True)
+    screen_dir = _SCREEN_DIR or _screen_captures_dir()
+    screen_dir.mkdir(parents=True, exist_ok=True)
     try:
-        os.chmod(_SCREEN_DIR, 0o700)
+        os.chmod(screen_dir, 0o700)
     except Exception:
         pass
-    return _SCREEN_DIR
+    return screen_dir
 
 
 def _screen_image_path(image_id: str, *, thumbnail: bool = False) -> _Path:
@@ -3433,13 +3443,16 @@ async def cron_jobs_toggle(job_id: int):
 import base64 as _vb64
 import tempfile as _vtmp
 from pathlib import Path as _VPath
+from companion_core.platform_paths import voice_models_dir as _voice_models_dir
 
-_VOICE_MODELS = _VPath.home() / ".config" / "soul-companion" / "voice_models"
-_PIPER_VOICE = _VOICE_MODELS / "es_ES-davefx-medium.onnx"
 _WHISPER_MODEL_SIZE = "base"  # tiny | base | small | medium
 
 _whisper_model = None
 _piper_voice = None
+
+
+def _piper_voice_path() -> _VPath:
+    return _voice_models_dir() / "es_ES-davefx-medium.onnx"
 
 
 def _get_whisper():
@@ -3458,9 +3471,10 @@ def _get_piper():
     if _piper_voice is None:
         try:
             from piper import PiperVoice
-            if not _PIPER_VOICE.exists():
-                raise HTTPException(status_code=503, detail=f"piper voice missing: {_PIPER_VOICE}")
-            _piper_voice = PiperVoice.load(str(_PIPER_VOICE))
+            voice_path = _piper_voice_path()
+            if not voice_path.exists():
+                raise HTTPException(status_code=503, detail=f"piper voice missing: {voice_path}")
+            _piper_voice = PiperVoice.load(str(voice_path))
         except HTTPException:
             raise
         except Exception as e:
@@ -3487,9 +3501,9 @@ async def voice_status():
         "ok": True,
         "stt_available": has_whisper,
         "stt_model": _WHISPER_MODEL_SIZE if has_whisper else None,
-        "tts_available": has_piper and _PIPER_VOICE.exists(),
-        "tts_voice": "es_ES-davefx-medium" if _PIPER_VOICE.exists() else None,
-        "fully_local": has_whisper and has_piper and _PIPER_VOICE.exists(),
+        "tts_available": has_piper and _piper_voice_path().exists(),
+        "tts_voice": "es_ES-davefx-medium" if _piper_voice_path().exists() else None,
+        "fully_local": has_whisper and has_piper and _piper_voice_path().exists(),
         "permission_note": "Voz se procesa 100% localmente. El audio NO sale del equipo.",
     }
 
@@ -3615,8 +3629,11 @@ async def api_friendly_404(request: _Req, exc):
 
 # ── Static UI serving (production) ───────────────────────────────────────────
 # In dev: frontend runs on Vite :5174 with CORS.
-# In production (.deb install): UI lives at /usr/share/seal-companion/ui
-_UI_DIR = Path(os.environ.get("SEAL_UI_DIR", "/usr/share/seal-companion/ui"))
+# In production the UI may live in a Linux package directory, beside the
+# Windows executable, or in the source tree during portable/dev launches.
+from companion_core.platform_paths import ui_dir as _platform_ui_dir
+
+_UI_DIR = _platform_ui_dir()
 
 if _UI_DIR.is_dir():
     app.mount("/assets", StaticFiles(directory=str(_UI_DIR / "assets")), name="assets")
