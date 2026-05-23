@@ -683,6 +683,72 @@ async def soul_dreams(agent: str = "all", cycle: str = "all", limit: int = 50):
         return {"dreams": [], "error": str(e)}
 
 
+# ── LLM Routing (SOUL v1.0 §4) ───────────────────────────────────────────────
+
+_ROUTING_ROLES = {"reasoning", "agentic", "coding", "summary"}
+_ROUTING_PROVIDERS = {"ollama", "anthropic", "openai", "mistral", "google", "openrouter", "custom"}
+
+class RoutingRow(BaseModel):
+    role: str
+    provider: str
+    model: str
+    fallback_provider: Optional[str] = None
+    fallback_model: Optional[str] = None
+    enabled: bool = True
+
+class RoutingUpdate(BaseModel):
+    agent: str = "DEFAULT"
+    rows: list[RoutingRow]
+
+@app.get("/api/soul/llm-routing")
+async def llm_routing_get(agent: str = "DEFAULT"):
+    """Get LLM routing config for an agent (spec §4)."""
+    try:
+        rows = await _db_query(
+            "SELECT role, provider, model, fallback_provider, fallback_model, enabled "
+            "FROM soul_v3.llm_routing WHERE agent = $1 ORDER BY role", agent)
+        if not rows:
+            rows = await _db_query(
+                "SELECT role, provider, model, fallback_provider, fallback_model, enabled "
+                "FROM soul_v3.llm_routing WHERE agent = 'DEFAULT' ORDER BY role")
+        return {
+            "agent": agent,
+            "rows": [dict(r) for r in rows],
+        }
+    except Exception as e:
+        return {"agent": agent, "rows": [], "error": str(e)}
+
+@app.patch("/api/soul/llm-routing")
+async def llm_routing_update(req: RoutingUpdate):
+    """Upsert LLM routing config for an agent (spec §4)."""
+    for row in req.rows:
+        if row.role not in _ROUTING_ROLES:
+            return {"ok": False, "error": f"invalid role: {row.role}"}
+        if row.provider not in _ROUTING_PROVIDERS:
+            return {"ok": False, "error": f"invalid provider: {row.provider}"}
+    try:
+        import asyncpg
+        conn = await asyncpg.connect(DB_URL)
+        try:
+            for row in req.rows:
+                await conn.execute("""
+                    INSERT INTO soul_v3.llm_routing
+                        (agent, role, provider, model, fallback_provider, fallback_model, enabled, updated_at)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
+                    ON CONFLICT (agent, role) DO UPDATE SET
+                        provider=EXCLUDED.provider, model=EXCLUDED.model,
+                        fallback_provider=EXCLUDED.fallback_provider,
+                        fallback_model=EXCLUDED.fallback_model,
+                        enabled=EXCLUDED.enabled, updated_at=NOW()
+                """, req.agent, row.role, row.provider, row.model,
+                    row.fallback_provider, row.fallback_model, row.enabled)
+        finally:
+            await conn.close()
+        return {"ok": True, "agent": req.agent, "updated": len(req.rows)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 # ══════════════════════════════════════════════════════════
 # SYSTEM API
 # ══════════════════════════════════════════════════════════
