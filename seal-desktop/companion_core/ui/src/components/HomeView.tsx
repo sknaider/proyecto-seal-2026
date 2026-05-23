@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { SoulMascot, type MascotAccessory, type MascotMotion, type MascotState, type MascotVariant } from './SoulMascot'
-
-const API = 'http://localhost:8769'
+import { API } from '../App'
 
 interface HomeViewProps {
   agentName?: string
