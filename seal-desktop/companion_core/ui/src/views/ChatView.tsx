@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { API } from '../App'
-import { Send, Plus, ChevronDown } from 'lucide-react'
+import { Send, Plus, ChevronDown, Sparkles } from 'lucide-react'
 
 interface Msg { role: string; content: string; ts?: string }
 interface Thread { thread_id: string; msg_count: number; last_ts: string }
@@ -18,6 +18,7 @@ export default function ChatView({ onMessageSent }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [showThreads, setShowThreads] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -44,6 +45,24 @@ export default function ChatView({ onMessageSent }: Props) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Autocomplete — debounced ghost suggestions while typing
+  useEffect(() => {
+    const text = input
+    if (!text.trim()) { setSuggestions([]); return }
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`${API}/api/autocomplete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, thread_id: threadId, max_suggestions: 3 }),
+        })
+        const d = await r.json()
+        setSuggestions(Array.isArray(d.suggestions) ? d.suggestions : [])
+      } catch { setSuggestions([]) }
+    }, 200)
+    return () => clearTimeout(t)
+  }, [input, threadId])
 
   // Listen for skill injection from SkillsView
   useEffect(() => {
@@ -88,8 +107,21 @@ export default function ChatView({ onMessageSent }: Props) {
     setShowThreads(false)
   }
 
+  function acceptSuggestion(s: string) {
+    setInput(s)
+    setSuggestions([])
+    inputRef.current?.focus()
+  }
+
   function handleKey(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+    else if (e.key === 'Tab' && suggestions.length > 0) {
+      e.preventDefault()
+      acceptSuggestion(suggestions[0])
+    } else if (e.key === 'Escape' && suggestions.length > 0) {
+      e.preventDefault()
+      setSuggestions([])
+    }
   }
 
   return (
@@ -165,6 +197,27 @@ export default function ChatView({ onMessageSent }: Props) {
         )}
         <div ref={bottomRef} />
       </div>
+
+      {/* Autocomplete suggestions */}
+      {suggestions.length > 0 && (
+        <div className="px-3 pt-1.5 pb-1 border-t border-seal-border shrink-0 bg-seal-bg/60">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Sparkles size={11} className="text-blue-400/70 shrink-0" />
+            <span className="text-[10px] uppercase tracking-widest text-seal-muted">sugerencias</span>
+            {suggestions.map((s, i) => (
+              <button
+                key={`${i}-${s}`}
+                onClick={() => acceptSuggestion(s)}
+                className="text-xs px-2 py-0.5 rounded-full bg-blue-600/15 hover:bg-blue-600/30 text-blue-300 border border-blue-500/20 truncate max-w-[260px]"
+                title={i === 0 ? 'Tab para aceptar' : 'Click para usar'}
+              >
+                {s}
+              </button>
+            ))}
+            <span className="ml-auto text-[10px] text-seal-muted">Tab ↹ acepta · Esc cierra</span>
+          </div>
+        </div>
+      )}
 
       {/* Input */}
       <div className="p-3 border-t border-seal-border shrink-0">

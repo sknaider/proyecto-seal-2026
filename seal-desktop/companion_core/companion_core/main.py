@@ -137,6 +137,76 @@ async def _upsert_setting(key: str, value: Any) -> None:
     _config_cache[key] = value
 
 
+# ── Autocomplete inline (OpenHuman absorption — autocomplete namespace) ──────
+
+
+class AutocompleteBody(BaseModel):
+    text: str
+    thread_id: Optional[str] = None
+    max_suggestions: int = 3
+
+
+_AUTOCOMPLETE_SEED = (
+    "Resumime lo de hoy",
+    "Recordame ",
+    "Planeá ",
+    "Buscá ",
+    "Mostrame ",
+    "Cuál es ",
+    "Cómo hago ",
+    "Mi agenda mañana",
+    "Lista mis pendientes",
+    "Qué aprendí hoy",
+)
+
+
+@app.post("/api/autocomplete")
+async def autocomplete_inline(body: AutocompleteBody):
+    """Ghost-text suggestions for chat input.
+
+    Source order:
+      1. Recent user messages from this thread (high recency)
+      2. Common prompts seed (cold start)
+    No LLM round-trip — keeps latency under 5ms for typing UX.
+    """
+    text = (body.text or "").strip()
+    if not text:
+        return {"suggestions": list(_AUTOCOMPLETE_SEED[:body.max_suggestions])}
+
+    needle = text.lower()
+    suggestions: list[str] = []
+    seen: set[str] = set()
+
+    db = get_db()
+    if body.thread_id:
+        try:
+            rows = await db.execute_fetchall(
+                "SELECT content FROM chat_messages WHERE thread_id = ? AND role = 'user' "
+                "ORDER BY id DESC LIMIT 50",
+                (body.thread_id,),
+            )
+            for r in rows:
+                c = (r[0] if not isinstance(r, dict) else r.get("content", "") or "").strip()
+                lc = c.lower()
+                if lc.startswith(needle) and c not in seen and len(c) > len(text):
+                    seen.add(c)
+                    suggestions.append(c)
+                    if len(suggestions) >= body.max_suggestions:
+                        break
+        except Exception:
+            pass
+
+    if len(suggestions) < body.max_suggestions:
+        for seed in _AUTOCOMPLETE_SEED:
+            if seed.lower().startswith(needle) and seed not in seen:
+                seen.add(seed)
+                suggestions.append(seed)
+                if len(suggestions) >= body.max_suggestions:
+                    break
+
+    return {"suggestions": suggestions, "query": text}
+
+
 # ── Sub-agents (v0.6 — OpenHuman absorption) ─────────────────────────────────
 
 
@@ -3044,6 +3114,159 @@ async def cron_jobs_toggle(job_id: int):
     )
     await db.commit()
     return {"ok": True, "id": job_id}
+
+
+# ── Voice STT/TTS (local-first, offline) ────────────────────────────────────
+# STT: faster-whisper (CTranslate2 backend, runs on CPU, ARM-native).
+# TTS: piper-tts (Spanish voice davefx-medium pre-downloaded).
+# Both 100% local, no internet, no API key.
+
+import base64 as _vb64
+import tempfile as _vtmp
+from pathlib import Path as _VPath
+
+_VOICE_MODELS = _VPath.home() / ".config" / "soul-companion" / "voice_models"
+_PIPER_VOICE = _VOICE_MODELS / "es_ES-davefx-medium.onnx"
+_WHISPER_MODEL_SIZE = "base"  # tiny | base | small | medium
+
+_whisper_model = None
+_piper_voice = None
+
+
+def _get_whisper():
+    global _whisper_model
+    if _whisper_model is None:
+        try:
+            from faster_whisper import WhisperModel
+            _whisper_model = WhisperModel(_WHISPER_MODEL_SIZE, device="cpu", compute_type="int8")
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"whisper unavailable: {e}")
+    return _whisper_model
+
+
+def _get_piper():
+    global _piper_voice
+    if _piper_voice is None:
+        try:
+            from piper import PiperVoice
+            if not _PIPER_VOICE.exists():
+                raise HTTPException(status_code=503, detail=f"piper voice missing: {_PIPER_VOICE}")
+            _piper_voice = PiperVoice.load(str(_PIPER_VOICE))
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"piper unavailable: {e}")
+    return _piper_voice
+
+
+@app.get("/api/voice/status")
+async def voice_status():
+    """STT + TTS capability + local model status."""
+    has_whisper = False
+    try:
+        import faster_whisper  # noqa: F401
+        has_whisper = True
+    except Exception:
+        pass
+    has_piper = False
+    try:
+        import piper  # noqa: F401
+        has_piper = True
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "stt_available": has_whisper,
+        "stt_model": _WHISPER_MODEL_SIZE if has_whisper else None,
+        "tts_available": has_piper and _PIPER_VOICE.exists(),
+        "tts_voice": "es_ES-davefx-medium" if _PIPER_VOICE.exists() else None,
+        "fully_local": has_whisper and has_piper and _PIPER_VOICE.exists(),
+        "permission_note": "Voz se procesa 100% localmente. El audio NO sale del equipo.",
+    }
+
+
+class VoiceSTTBody(BaseModel):
+    audio_b64: str
+    language: str = "es"
+
+
+@app.post("/api/voice/stt")
+async def voice_stt(body: VoiceSTTBody):
+    """Transcribe audio (base64) to text. 100% local."""
+    try:
+        audio_bytes = _vb64.b64decode(body.audio_b64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid audio_b64")
+    if len(audio_bytes) < 100:
+        raise HTTPException(status_code=400, detail="audio too short")
+
+    model = _get_whisper()
+    import asyncio as _a
+    with _vtmp.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        f.write(audio_bytes)
+        tmp_path = f.name
+
+    def _do_transcribe():
+        segments, info = model.transcribe(tmp_path, language=body.language)
+        text_parts = [s.text for s in segments]
+        return " ".join(text_parts).strip(), info.language, info.duration
+
+    try:
+        text, lang, duration = await _a.to_thread(_do_transcribe)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"transcription failed: {e}")
+    finally:
+        try:
+            _VPath(tmp_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    await _audit_log("USER", "voice_stt", channel="local",
+                     metadata={"chars": len(text), "duration_s": round(duration, 2),
+                               "language": lang})
+    return {
+        "ok": True, "text": text, "language": lang,
+        "duration_seconds": round(duration, 2), "fully_local": True,
+    }
+
+
+class VoiceTTSBody(BaseModel):
+    text: str
+    voice: Optional[str] = None
+
+
+@app.post("/api/voice/tts")
+async def voice_tts(body: VoiceTTSBody):
+    """Synthesize text to wav (base64). 100% local."""
+    if not body.text or not body.text.strip():
+        raise HTTPException(status_code=400, detail="text required")
+    if len(body.text) > 5000:
+        raise HTTPException(status_code=400, detail="text too long (max 5000 chars)")
+
+    voice = _get_piper()
+    import asyncio as _a
+    import wave as _wave
+    import io as _io
+
+    def _do_synth():
+        buf = _io.BytesIO()
+        with _wave.open(buf, "wb") as wf:
+            voice.synthesize_wav(body.text.strip(), wf)
+        return buf.getvalue()
+
+    try:
+        wav_bytes = await _a.to_thread(_do_synth)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"synthesis failed: {e}")
+
+    await _audit_log("USER", "voice_tts", channel="local",
+                     metadata={"chars": len(body.text), "wav_bytes": len(wav_bytes)})
+    return {
+        "ok": True,
+        "audio_b64": _vb64.b64encode(wav_bytes).decode("ascii"),
+        "format": "wav", "bytes": len(wav_bytes),
+        "voice": "es_ES-davefx-medium", "fully_local": True,
+    }
 
 
 # ── 404 friendly handler for API ─────────────────────────────────────────────

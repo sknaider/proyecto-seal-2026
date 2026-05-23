@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect } from 'react'
 import { HomeView } from './components/HomeView'
 import { FirstRunWizard } from './components/FirstRunWizard'
-import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift, Monitor, Filter, Users, Palette } from 'lucide-react'
+import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift, Monitor, Filter, Users, Palette, CalendarClock } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
@@ -23,8 +23,9 @@ const RewardsView = lazy(() => import('./views/RewardsView'))
 const ScreenView = lazy(() => import('./views/ScreenView'))
 const TokenJuiceView = lazy(() => import('./views/TokenJuiceView'))
 const SubAgentsView = lazy(() => import('./views/SubAgentsView'))
+const CronJobsView = lazy(() => import('./views/CronJobsView'))
 
-type View = 'home' | 'human' | 'avatar' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'screen' | 'tokenjuice' | 'subagents' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
+type View = 'home' | 'human' | 'avatar' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'screen' | 'tokenjuice' | 'subagents' | 'cron' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
 
 const NAV = [
   { id: 'home',        icon: Home,          label: 'Inicio' },
@@ -40,6 +41,7 @@ const NAV = [
   { id: 'connections', icon: Plug,          label: 'Conectar' },
   { id: 'screen',      icon: Monitor,       label: 'Pantalla' },
   { id: 'tokenjuice',  icon: Filter,        label: 'Contexto' },
+  { id: 'cron',        icon: CalendarClock, label: 'Programar' },
   { id: 'rewards',     icon: Gift,          label: 'Recomp.' },
   { id: 'notifs',      icon: Bell,          label: 'Avisos' },
   { id: 'privacy',     icon: Shield,        label: 'Privacidad' },
@@ -144,6 +146,7 @@ export default function App() {
           {view === 'screen'      && <ScreenView />}
           {view === 'tokenjuice'  && <TokenJuiceView />}
           {view === 'subagents'   && <SubAgentsView />}
+          {view === 'cron'        && <CronJobsView />}
           {view === 'rewards'     && <RewardsView />}
           {view === 'memory'      && <MemoryView />}
           {view === 'tree'        && <MemoryTreeView />}
