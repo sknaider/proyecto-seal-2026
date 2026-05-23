@@ -749,6 +749,152 @@ async def llm_routing_update(req: RoutingUpdate):
         return {"ok": False, "error": str(e)}
 
 
+# ── Agent Capabilities (SOUL v1.0 §3 — 13 toggles) ──────────────────────────
+
+_CAP_AGENTS = {"ADA", "JARVIS", "ALICE", "NEXUS", "DUM"}
+_CAP_COLUMNS = [
+    "cap_shell_commands", "cap_git", "cap_read_files", "cap_write_files",
+    "cap_screen_capture", "cap_camera", "cap_web_search", "cap_browser_control",
+    "cap_memory_read", "cap_memory_write", "cap_cron_jobs", "cap_notifications",
+    "cap_channel_read",
+]
+
+class CapabilitiesUpdate(BaseModel):
+    agent: str
+    capabilities: dict  # key → bool
+
+@app.get("/api/soul/capabilities")
+async def capabilities_get(agent: str = "JARVIS"):
+    """Get capability toggles for an agent (spec §3)."""
+    if agent.upper() not in _CAP_AGENTS:
+        return {"error": f"unknown agent: {agent}"}
+    try:
+        rows = await _db_query(
+            f"SELECT {', '.join(_CAP_COLUMNS)}, updated_at "
+            "FROM soul_v3.agent_capabilities WHERE agent = $1", agent.upper())
+        if not rows:
+            return {"agent": agent, "capabilities": {c: False for c in _CAP_COLUMNS}}
+        r = rows[0]
+        return {
+            "agent": agent.upper(),
+            "capabilities": {c: bool(r[c]) for c in _CAP_COLUMNS},
+            "updated_at": r["updated_at"].isoformat() if r["updated_at"] else None,
+        }
+    except Exception as e:
+        return {"agent": agent, "capabilities": {}, "error": str(e)}
+
+@app.patch("/api/soul/capabilities")
+async def capabilities_update(req: CapabilitiesUpdate):
+    """Update capability toggles for an agent."""
+    if req.agent.upper() not in _CAP_AGENTS:
+        return {"ok": False, "error": f"unknown agent: {req.agent}"}
+    # only allow known capability columns
+    safe = {k: bool(v) for k, v in req.capabilities.items() if k in _CAP_COLUMNS}
+    if not safe:
+        return {"ok": False, "error": "no valid capability keys"}
+    try:
+        import asyncpg
+        conn = await asyncpg.connect(DB_URL)
+        try:
+            sets = ", ".join(f"{k} = ${i+2}" for i, k in enumerate(safe))
+            vals = [req.agent.upper()] + list(safe.values())
+            await conn.execute(
+                f"UPDATE soul_v3.agent_capabilities SET {sets}, updated_at=NOW() WHERE agent = $1",
+                *vals)
+            if conn.get_statusmsg() == "UPDATE 0":
+                col_names = ", ".join(safe.keys())
+                col_vals = ", ".join(f"${i+2}" for i in range(len(safe)))
+                await conn.execute(
+                    f"INSERT INTO soul_v3.agent_capabilities (agent, {col_names}) VALUES ($1, {col_vals}) "
+                    "ON CONFLICT (agent) DO NOTHING", *vals)
+        finally:
+            await conn.close()
+        return {"ok": True, "agent": req.agent.upper(), "updated": list(safe.keys())}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+# ══════════════════════════════════════════════════════════
+# SOUL — Companion audit log (S6B, spec §11)
+# ══════════════════════════════════════════════════════════
+
+_AUDIT_ALLOWED_AGENTS = {"ADA", "JARVIS", "ALICE", "NEXUS", "DUM", "USER"}
+
+
+@app.get("/api/soul/audit-log")
+async def soul_audit_log(
+    agent: Optional[str] = None,
+    action: Optional[str] = None,
+    processed_locally: Optional[bool] = None,
+    limit: int = 100,
+):
+    """Read-only proxy to soul_v3.companion_audit_log (S6B, spec §11).
+
+    Lists each invocation: agent, channel, action, target_id, metadata,
+    processed_locally (flag for "stayed in local LLM" vs "left to cloud"),
+    provider_used.
+
+    Whitelists agent. limit clamped to [1, 500].
+    """
+    if agent and agent.upper() not in _AUDIT_ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="invalid agent")
+    limit = max(1, min(int(limit), 500))
+
+    where: list[str] = []
+    params: list = []
+    idx = 1
+    if agent:
+        where.append(f"agent = ${idx}")
+        params.append(agent.upper())
+        idx += 1
+    if action:
+        where.append(f"action = ${idx}")
+        params.append(action)
+        idx += 1
+    if processed_locally is not None:
+        where.append(f"processed_locally = ${idx}")
+        params.append(processed_locally)
+        idx += 1
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    sql = (
+        "SELECT id, agent, channel, action, target_id, metadata, "
+        "processed_locally, provider_used, created_at "
+        f"FROM soul_v3.companion_audit_log {where_sql} "
+        f"ORDER BY created_at DESC LIMIT ${idx}"
+    )
+    params.append(limit)
+
+    try:
+        rows = await _db_query(sql, *params)
+        entries = []
+        for r in rows:
+            d = dict(r)
+            if d.get("created_at") and hasattr(d["created_at"], "isoformat"):
+                d["created_at"] = d["created_at"].isoformat()
+            md = d.get("metadata")
+            if isinstance(md, str):
+                try:
+                    d["metadata"] = json.loads(md)
+                except Exception:
+                    pass
+            entries.append(d)
+        local_count = sum(1 for e in entries if e.get("processed_locally"))
+        return {
+            "ok": True,
+            "entries": entries,
+            "count": len(entries),
+            "stats": {
+                "local": local_count,
+                "egress": len(entries) - local_count,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {"ok": False, "error": str(e), "entries": []}
+
+
 # ══════════════════════════════════════════════════════════
 # SYSTEM API
 # ══════════════════════════════════════════════════════════
