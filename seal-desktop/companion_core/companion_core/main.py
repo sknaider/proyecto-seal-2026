@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import Optional, Any
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -20,6 +21,18 @@ VERSION = "0.3.0"
 _config_cache: dict[str, Any] = {}
 
 
+async def _memory_tree_periodic():
+    """Run memory tree builder at startup then every hour (best-effort, silent on error)."""
+    await asyncio.sleep(5)  # let DB settle after init
+    while True:
+        try:
+            from companion_core.memory_tree_builder import build_all
+            await build_all(agent="SOUL")
+        except Exception:
+            pass
+        await asyncio.sleep(3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -31,7 +44,9 @@ async def lifespan(app: FastAPI):
             _config_cache[row[0]] = json.loads(row[1])
         except (json.JSONDecodeError, TypeError):
             _config_cache[row[0]] = row[1]
+    task = asyncio.create_task(_memory_tree_periodic())
     yield
+    task.cancel()
     await close_db()
 
 
@@ -2901,6 +2916,40 @@ async def cron_jobs_toggle(job_id: int):
     )
     await db.commit()
     return {"ok": True, "id": job_id}
+
+
+# ── 404 friendly handler for API ─────────────────────────────────────────────
+# Replaces FastAPI's generic {"detail":"Not Found"} with a hint that lists
+# a few real endpoints, so devs/users see the next action immediately.
+
+from fastapi.requests import Request as _Req
+from fastapi.responses import JSONResponse as _JSON
+
+
+@app.exception_handler(404)
+async def api_friendly_404(request: _Req, exc):
+    path = request.url.path
+    if not path.startswith("/api/"):
+        # let SPA fallback handle UI routes if installed
+        raise exc
+    # Collect a handful of registered API routes to suggest
+    routes = []
+    for r in app.routes:
+        rpath = getattr(r, "path", "")
+        if rpath.startswith("/api/") and rpath not in routes:
+            routes.append(rpath)
+        if len(routes) >= 12:
+            break
+    return _JSON(
+        status_code=404,
+        content={
+            "ok": False,
+            "error": "endpoint no encontrado",
+            "path": path,
+            "hint": "Verifica el método HTTP y la ruta. Endpoints disponibles más abajo.",
+            "available_examples": routes,
+        },
+    )
 
 
 # ── Static UI serving (production) ───────────────────────────────────────────
