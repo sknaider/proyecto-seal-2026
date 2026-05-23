@@ -31,6 +31,7 @@ const EvalView = lazy(() => import('./components/eval/EvalView').then(m => ({ de
 const AwarenessView = lazy(() => import('./components/awareness/AwarenessView').then(m => ({ default: m.AwarenessView })))
 const NexusReviewView = lazy(() => import('./components/nexus/NexusReviewView').then(m => ({ default: m.NexusReviewView })))
 const PrivacyView = lazy(() => import('./components/privacy/PrivacyView').then(m => ({ default: m.PrivacyView })))
+const AuditLogView = lazy(() => import('./components/privacy/AuditLogView').then(m => ({ default: m.AuditLogView })))
 
 const CHORD_G_HINTS = [
   { key: 'c', label: 'chat' },
@@ -156,6 +157,7 @@ export default function App() {
       case 'awareness':     return wrap(view, <AwarenessView />)
       case 'nexus_review':  return wrap(view, <NexusReviewView />)
       case 'privacy':       return wrap(view, <PrivacyView />)
+      case 'audit_log':     return wrap(view, <AuditLogView />)
     }
   }
 

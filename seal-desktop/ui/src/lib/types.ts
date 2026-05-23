@@ -40,7 +40,7 @@ export interface ChatMessage {
   timestamp: string
 }
 
-export type ViewId = 'chat' | 'memory' | 'agents' | 'goals' | 'skills' | 'nerves' | 'governance' | 'subconscious' | 'profile' | 'settings' | 'integrations' | 'screen' | 'bench' | 'codegraph' | 'activity' | 'pulse' | 'search' | 'replay' | 'speccompiler' | 'topology' | 'eval' | 'awareness' | 'nexus_review' | 'privacy'
+export type ViewId = 'chat' | 'memory' | 'agents' | 'goals' | 'skills' | 'nerves' | 'governance' | 'subconscious' | 'profile' | 'settings' | 'integrations' | 'screen' | 'bench' | 'codegraph' | 'activity' | 'pulse' | 'search' | 'replay' | 'speccompiler' | 'topology' | 'eval' | 'awareness' | 'nexus_review' | 'privacy' | 'audit_log'
 
 export const AGENT_COLORS: Record<string, string> = {
   ALICE: '#7c3aed',
