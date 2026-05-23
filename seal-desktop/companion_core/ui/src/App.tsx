@@ -6,12 +6,13 @@ import GoalsView from './views/GoalsView'
 import SettingsView from './views/SettingsView'
 import DreamsView from './views/DreamsView'
 import PrivacyView from './views/PrivacyView'
+import NotificationsView from './views/NotificationsView'
 import { HomeView } from './components/HomeView'
-import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield } from 'lucide-react'
+import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
-type View = 'home' | 'chat' | 'memory' | 'dreams' | 'skills' | 'goals' | 'privacy' | 'settings'
+type View = 'home' | 'chat' | 'memory' | 'dreams' | 'skills' | 'goals' | 'notifs' | 'privacy' | 'settings'
 
 const NAV = [
   { id: 'home',     icon: Home,          label: 'Home' },
@@ -20,6 +21,7 @@ const NAV = [
   { id: 'dreams',   icon: Moon,          label: 'Dreams' },
   { id: 'skills',   icon: Zap,           label: 'Skills' },
   { id: 'goals',    icon: Target,        label: 'Goals' },
+  { id: 'notifs',   icon: Bell,          label: 'Alerts' },
   { id: 'privacy',  icon: Shield,        label: 'Privacy' },
   { id: 'settings', icon: Settings,      label: 'Settings' },
 ] as const
@@ -81,6 +83,7 @@ export default function App() {
         {view === 'dreams'   && <DreamsView />}
         {view === 'skills'   && <SkillsView onUseSkill={(prompt) => { setView('chat'); window.dispatchEvent(new CustomEvent('inject-prompt', { detail: prompt })) }} />}
         {view === 'goals'    && <GoalsView />}
+        {view === 'notifs'   && <NotificationsView />}
         {view === 'privacy'  && <PrivacyView />}
         {view === 'settings' && <SettingsView onSaved={(n) => setUserName(n)} onAgentSaved={(n) => setAgentName(n)} />}
       </main>
