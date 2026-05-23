@@ -1,6 +1,25 @@
 import { useCallback, useEffect, useState } from 'react'
 import { API } from '../App'
-import { Brain, Send, Sparkles, ShieldQuestion, FlaskConical, Code2, ListChecks, RefreshCw } from 'lucide-react'
+import {
+  Brain,
+  Send,
+  Sparkles,
+  ShieldQuestion,
+  FlaskConical,
+  Code2,
+  ListChecks,
+  RefreshCw,
+  Database,
+  Monitor,
+  Gauge,
+  LockKeyhole,
+  PlugZap,
+  Mic,
+  TrendingUp,
+  FileText,
+  TestTubeDiagonal,
+  PackageCheck,
+} from 'lucide-react'
 
 interface SubAgent {
   name: string
@@ -15,6 +34,16 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   researcher: FlaskConical,
   critic: ShieldQuestion,
   code_executor: Code2,
+  memory_curator: Database,
+  screen_analyst: Monitor,
+  token_optimizer: Gauge,
+  privacy_guard: LockKeyhole,
+  connector_operator: PlugZap,
+  voice_companion: Mic,
+  product_strategist: TrendingUp,
+  documentation_writer: FileText,
+  test_runner: TestTubeDiagonal,
+  release_manager: PackageCheck,
 }
 
 const COLORS: Record<string, string> = {
@@ -23,6 +52,34 @@ const COLORS: Record<string, string> = {
   researcher:   'text-emerald-500 border-emerald-400',
   critic:       'text-amber-500 border-amber-400',
   code_executor:'text-pink-500 border-pink-400',
+  memory_curator: 'text-indigo-500 border-indigo-400',
+  screen_analyst: 'text-cyan-500 border-cyan-400',
+  token_optimizer: 'text-lime-600 border-lime-500',
+  privacy_guard: 'text-red-500 border-red-400',
+  connector_operator: 'text-blue-500 border-blue-400',
+  voice_companion: 'text-fuchsia-500 border-fuchsia-400',
+  product_strategist: 'text-orange-500 border-orange-400',
+  documentation_writer: 'text-stone-600 border-stone-400',
+  test_runner: 'text-teal-600 border-teal-500',
+  release_manager: 'text-green-600 border-green-500',
+}
+
+const PLACEHOLDERS: Record<string, string> = {
+  orchestrator: '¿Qué hago primero hoy?',
+  planner: 'Planeá cómo migrar 200 emails',
+  researcher: '¿Cuáles son las APIs públicas de Gmail?',
+  critic: 'Revisa este plan antes de enviarlo',
+  code_executor: 'Escribí un script que cuente líneas de un archivo',
+  memory_curator: 'Ordená estas notas para guardarlas como memoria',
+  screen_analyst: 'Analizá esta captura y decime el bloqueo visible',
+  token_optimizer: 'Compactá este contexto sin perder IDs ni comandos',
+  privacy_guard: 'Revisa si este cambio filtra secretos o rompe privacidad',
+  connector_operator: 'Diagnostica por qué GitHub no conecta',
+  voice_companion: 'Convertí esta respuesta en versión hablada breve',
+  product_strategist: 'Compará tres opciones de pricing para SEAL App',
+  documentation_writer: 'Redactá un changelog con evidencia de pruebas',
+  test_runner: 'Diseñá el smoke test mínimo para este cambio',
+  release_manager: 'Prepará build deb, install y healthcheck de release',
 }
 
 interface InvokeResult { agent: string; role: string; reply: string; suggested_route: string }
@@ -97,7 +154,7 @@ export default function SubAgentsView() {
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-violet-500" />
             <h1 className="text-xl font-semibold text-slate-800">Sub-agentes</h1>
-            <span className="text-xs text-seal-muted">5 especialistas — equipo interno de SEAL</span>
+            <span className="text-xs text-seal-muted">{agents.length || 15} especialistas - equipo interno de SEAL</span>
           </div>
           <button
             onClick={load}
@@ -122,7 +179,7 @@ export default function SubAgentsView() {
               >
                 <div className="flex items-center gap-2 mb-1">
                   <Icon className={`w-4 h-4 ${tone.split(' ')[0]}`} />
-                  <span className="text-sm font-semibold text-slate-800 capitalize">{a.name.replace('_', ' ')}</span>
+                  <span className="text-sm font-semibold text-slate-800 capitalize">{a.name.split('_').join(' ')}</span>
                 </div>
                 <p className="text-[11px] text-seal-muted leading-tight">{a.role}</p>
                 <p className="text-[12px] text-slate-600 mt-1.5 leading-snug">{a.specialty}</p>
@@ -140,17 +197,17 @@ export default function SubAgentsView() {
 
         {/* Invocador */}
         <div className="rounded-xl border border-seal-border bg-seal-surface p-4 shadow-sm">
-          <div className="text-xs uppercase tracking-widest text-seal-muted mb-2">Pedile algo a <span className="text-violet-600 font-medium">{selected.replace('_', ' ')}</span></div>
+          <div className="text-xs uppercase tracking-widest text-seal-muted mb-2">Pedile algo a <span className="text-violet-600 font-medium">{selected.split('_').join(' ')}</span></div>
           <textarea
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder={`Ej.: ${selected === 'planner' ? 'Planeá cómo migrar 200 emails' : selected === 'critic' ? 'Revisa este plan: …' : selected === 'researcher' ? '¿Cuáles son las APIs públicas de Gmail?' : selected === 'code_executor' ? 'Escribí un script que cuente líneas de un archivo' : '¿Qué hago primero hoy?'}`}
+            placeholder={`Ej.: ${PLACEHOLDERS[selected] || 'Ayudame con esta tarea'}`}
             rows={3}
             className="w-full bg-white border border-seal-border rounded-lg p-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-200"
           />
           {hint && (
             <p className="text-[11px] text-amber-600 mt-1.5">
-              Tip: parece más una tarea para <button onClick={() => setSelected(hint)} className="underline font-medium">{hint.replace('_', ' ')}</button>.
+              Tip: parece más una tarea para <button onClick={() => setSelected(hint)} className="underline font-medium">{hint.split('_').join(' ')}</button>.
             </p>
           )}
           <div className="flex items-center justify-end mt-2">
@@ -178,7 +235,7 @@ export default function SubAgentsView() {
         )}
 
         <div className="mt-6 text-[11px] text-seal-muted text-center pb-4">
-          Cada sub-agente recibe tu OCEAN para adaptar el tono. Mirror del sistema 15-agentes de OpenHuman, simplificado para SEAL App.
+          Cada sub-agente recibe tu OCEAN para adaptar el tono. Mirror del sistema 15-agentes de OpenHuman para SEAL App.
         </div>
       </div>
     </div>
