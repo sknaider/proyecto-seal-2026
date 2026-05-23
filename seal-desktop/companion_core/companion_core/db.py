@@ -101,6 +101,133 @@ END""",
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 )""",
+    # ── SEAL App Sprint 1 ported (PostgreSQL soul_v3 → SQLite local) ──
+    """CREATE TABLE IF NOT EXISTS daily_dreams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent TEXT NOT NULL,
+    date TEXT NOT NULL,
+    cycle TEXT NOT NULL CHECK (cycle IN ('morning','midday','evening','nocturnal')),
+    dream_narrative TEXT NOT NULL,
+    key_events TEXT DEFAULT '[]',
+    emotional_arc TEXT DEFAULT '{}',
+    learnings TEXT DEFAULT '[]',
+    pending_threads TEXT DEFAULT '[]',
+    model_used TEXT,
+    source_memory_ids TEXT DEFAULT '[]',
+    inject_to_prompt INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (agent, date, cycle)
+)""",
+    "CREATE INDEX IF NOT EXISTS daily_dreams_inject_idx ON daily_dreams (agent, inject_to_prompt, date DESC)",
+
+    """CREATE TABLE IF NOT EXISTS llm_routing (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('reasoning','agentic','coding','summary')),
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    fallback_provider TEXT,
+    fallback_model TEXT,
+    max_tokens INTEGER NOT NULL DEFAULT 4096,
+    temperature REAL NOT NULL DEFAULT 0.7,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (agent, role)
+)""",
+    # Seed DEFAULT routing — local Gemma 4 first, no cloud markup
+    "INSERT OR IGNORE INTO llm_routing (agent, role, provider, model, fallback_provider, fallback_model) VALUES ('DEFAULT', 'reasoning', 'ollama', 'gemma3:12b', 'ollama', 'llama3.1:8b')",
+    "INSERT OR IGNORE INTO llm_routing (agent, role, provider, model, fallback_provider, fallback_model) VALUES ('DEFAULT', 'agentic', 'ollama', 'gemma3:12b', 'ollama', 'llama3.1:8b')",
+    "INSERT OR IGNORE INTO llm_routing (agent, role, provider, model, fallback_provider, fallback_model) VALUES ('DEFAULT', 'coding', 'ollama', 'qwen2.5-coder:7b', 'ollama', 'gemma3:12b')",
+    "INSERT OR IGNORE INTO llm_routing (agent, role, provider, model, fallback_provider, fallback_model) VALUES ('DEFAULT', 'summary', 'ollama', 'gemma3:4b', 'ollama', 'llama3.2:3b')",
+
+    """CREATE TABLE IF NOT EXISTS companion_audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent TEXT NOT NULL,
+    channel TEXT,
+    action TEXT NOT NULL,
+    target_id TEXT,
+    metadata TEXT,
+    processed_locally INTEGER NOT NULL DEFAULT 1,
+    provider_used TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)""",
+    "CREATE INDEX IF NOT EXISTS audit_log_recent_idx ON companion_audit_log (created_at DESC)",
+
+    """CREATE TABLE IF NOT EXISTS memory_tree (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent TEXT NOT NULL,
+    level TEXT NOT NULL CHECK (level IN ('hour','day','month','year')),
+    bucket_start TEXT NOT NULL,
+    bucket_end TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    child_ids TEXT DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (agent, level, bucket_start)
+)""",
+    "CREATE INDEX IF NOT EXISTS memory_tree_lookup_idx ON memory_tree (agent, level, bucket_start DESC)",
+
+    """CREATE TABLE IF NOT EXISTS agent_capabilities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent TEXT NOT NULL UNIQUE,
+    cap_shell_commands INTEGER NOT NULL DEFAULT 0,
+    cap_git INTEGER NOT NULL DEFAULT 0,
+    cap_read_files INTEGER NOT NULL DEFAULT 1,
+    cap_write_files INTEGER NOT NULL DEFAULT 0,
+    cap_screen_capture INTEGER NOT NULL DEFAULT 0,
+    cap_camera INTEGER NOT NULL DEFAULT 0,
+    cap_web_search INTEGER NOT NULL DEFAULT 1,
+    cap_browser_control INTEGER NOT NULL DEFAULT 0,
+    cap_memory_read INTEGER NOT NULL DEFAULT 1,
+    cap_memory_write INTEGER NOT NULL DEFAULT 1,
+    cap_cron_jobs INTEGER NOT NULL DEFAULT 0,
+    cap_notifications INTEGER NOT NULL DEFAULT 1,
+    cap_channel_read INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+)""",
+    # Default capabilities for SEAL App user-product agent (TODO OFF except basics)
+    "INSERT OR IGNORE INTO agent_capabilities (agent) VALUES ('SOUL')",
+
+    """CREATE TABLE IF NOT EXISTS user_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('nerves_fire','governance_challenge','reflective_diagnosis','system_alert','integration_event','custom')),
+    severity TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('critical','warning','info','success')),
+    title TEXT NOT NULL,
+    body TEXT,
+    source_id INTEGER,
+    source_table TEXT,
+    read INTEGER NOT NULL DEFAULT 0,
+    dismissed INTEGER NOT NULL DEFAULT 0,
+    action_url TEXT,
+    metadata TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT
+)""",
+    "CREATE INDEX IF NOT EXISTS notifs_unread_idx ON user_notifications (agent, read, created_at DESC) WHERE dismissed = 0",
+
+    """CREATE TABLE IF NOT EXISTS cron_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    agent TEXT,
+    cron_expression TEXT NOT NULL,
+    handler TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_run_at TEXT,
+    next_run_at TEXT,
+    created_by TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)""",
+    """CREATE TABLE IF NOT EXISTS cron_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL,
+    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    finished_at TEXT,
+    status TEXT CHECK (status IN ('running','success','failed')),
+    error_message TEXT,
+    output_summary TEXT,
+    FOREIGN KEY (job_id) REFERENCES cron_jobs(id) ON DELETE CASCADE
+)""",
+    "CREATE INDEX IF NOT EXISTS cron_runs_job_idx ON cron_runs (job_id, started_at DESC)",
 ]
 
 _db_conn: aiosqlite.Connection | None = None

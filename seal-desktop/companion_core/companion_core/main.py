@@ -2229,8 +2229,9 @@ async def screen_capture():
             thumb.save(thumb_path, "PNG", optimize=True)
             return img.size
 
+    import asyncio as _asyncio
     try:
-        w, h = await asyncio.to_thread(_do_capture)
+        w, h = await _asyncio.to_thread(_do_capture)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"capture failed: {e}")
 

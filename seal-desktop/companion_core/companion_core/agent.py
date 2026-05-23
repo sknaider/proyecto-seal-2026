@@ -12,6 +12,8 @@ except ImportError:  # anthropic not installed → only Ollama/stub available
 
 _STUB = "[No AI backend available — configure API key in Settings or start Ollama]"
 _LONE_SURROGATE = re.compile(r'[\ud800-\udfff]')
+_COMPACT_THRESHOLD = 4000
+_TOKENJUICE_URL = "http://localhost:8769/api/tokenjuice/compact"
 
 
 def _sanitize(text: str) -> str:
@@ -28,6 +30,34 @@ def _clean_messages(messages: list[dict]) -> list[dict]:
             out.append({**m, "content": _sanitize(content)})
         else:
             out.append(m)
+    return out
+
+
+async def _tokenjuice_compact(text: str, tool_name: str = "chat") -> str:
+    """Compact long text through companion_core TokenJuice. Failure returns original text."""
+    if len(text) < _COMPACT_THRESHOLD:
+        return text
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as hx:
+            r = await hx.post(_TOKENJUICE_URL, json={"text": text, "tool_name": tool_name})
+        if r.status_code != 200:
+            return text
+        data = r.json()
+        compacted = data.get("output") or data.get("text")
+        return compacted if isinstance(compacted, str) else text
+    except Exception:
+        return text
+
+
+async def _compact_history(messages: list[dict]) -> list[dict]:
+    out: list[dict] = []
+    for msg in messages:
+        content = msg.get("content", "")
+        if isinstance(content, str) and len(content) >= _COMPACT_THRESHOLD:
+            out.append({**msg, "content": await _tokenjuice_compact(content)})
+        else:
+            out.append(msg)
     return out
 
 
@@ -157,12 +187,21 @@ async def get_reply(
     tool_executor: async callable(tool_name, tool_input) → result
     system: override system prompt (default builds from user_name)
     """
-    messages = [*thread_history, {"role": "user", "content": new_content}]
+    messages = await _compact_history([*thread_history, {"role": "user", "content": new_content}])
     if system is None:
         system = (
             f"You are a personal AI companion. The user's name is {user_name}."
             if user_name else "You are a personal AI companion."
         )
+
+    # Inject recent dreams (continuity narrative) if available — quiet on failure
+    try:
+        from companion_core.dream_cycle import get_dreams_for_prompt, render_dreams_section
+        dreams = await get_dreams_for_prompt(agent="SOUL", n=2)
+        if dreams:
+            system = system + "\n\n" + render_dreams_section(dreams)
+    except Exception:
+        pass
 
     if api_key:
         chosen_model = model or "claude-haiku-4-5-20251001"
