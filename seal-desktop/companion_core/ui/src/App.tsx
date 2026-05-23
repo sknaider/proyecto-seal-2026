@@ -8,13 +8,14 @@ import DreamsView from './views/DreamsView'
 import PrivacyView from './views/PrivacyView'
 import NotificationsView from './views/NotificationsView'
 import AIBackendView from './views/AIBackendView'
+import AuditLogView from './views/AuditLogView'
 import { HomeView } from './components/HomeView'
 import { FirstRunWizard } from './components/FirstRunWizard'
-import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu } from 'lucide-react'
+import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
-type View = 'home' | 'chat' | 'memory' | 'dreams' | 'skills' | 'goals' | 'notifs' | 'privacy' | 'ai' | 'settings'
+type View = 'home' | 'chat' | 'memory' | 'dreams' | 'skills' | 'goals' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
 
 const NAV = [
   { id: 'home',     icon: Home,          label: 'Home' },
@@ -24,9 +25,10 @@ const NAV = [
   { id: 'skills',   icon: Zap,           label: 'Skills' },
   { id: 'goals',    icon: Target,        label: 'Goals' },
   { id: 'notifs',   icon: Bell,          label: 'Alerts' },
-  { id: 'privacy',  icon: Shield,        label: 'Privacy' },
+  { id: 'privacy',  icon: Shield,        label: 'Privacidad' },
   { id: 'ai',       icon: Cpu,           label: 'AI' },
-  { id: 'settings', icon: Settings,      label: 'Settings' },
+  { id: 'audit',    icon: ClipboardList, label: 'Actividad' },
+  { id: 'settings', icon: Settings,      label: 'Config' },
 ] as const
 
 const EMOTION_EMOJI: Record<string, string> = {
@@ -115,6 +117,7 @@ export default function App() {
         {view === 'notifs'   && <NotificationsView />}
         {view === 'privacy'  && <PrivacyView />}
         {view === 'ai'       && <AIBackendView />}
+        {view === 'audit'    && <AuditLogView />}
         {view === 'settings' && <SettingsView onSaved={(n) => setUserName(n)} onAgentSaved={(n) => setAgentName(n)} />}
       </main>
 
