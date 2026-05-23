@@ -62,10 +62,30 @@ app.add_middleware(
 
 @app.get("/api/health")
 async def health():
+    import shutil as _shutil
+    import time as _time
+    import urllib.request as _u
+    from companion_core.settings import db_path as _db_path
+
     db = get_db()
     mem_count = await db.execute_fetchall("SELECT COUNT(*) FROM memories")
     msg_count = await db.execute_fetchall("SELECT COUNT(*) FROM conversations")
     srv_count = await db.execute_fetchall("SELECT COUNT(*) FROM mcp_servers")
+    db_file = _db_path()
+
+    disk = _shutil.disk_usage(str(db_file.parent if db_file.parent.exists() else Path.home()))
+    services = {"ollama": {"reachable": False, "latency_ms": None}}
+    started = _time.perf_counter()
+    try:
+        req = _u.Request("http://localhost:11434/api/tags", method="GET")
+        with _u.urlopen(req, timeout=1) as r:
+            services["ollama"] = {
+                "reachable": r.status == 200,
+                "latency_ms": round((_time.perf_counter() - started) * 1000, 1),
+            }
+    except Exception:
+        services["ollama"]["latency_ms"] = round((_time.perf_counter() - started) * 1000, 1)
+
     return {
         "status": "ok",
         "version": VERSION,
@@ -75,6 +95,16 @@ async def health():
             "messages": msg_count[0][0] if msg_count else 0,
             "mcp_servers": srv_count[0][0] if srv_count else 0,
         },
+        "database": {
+            "path": str(db_file),
+            "size_bytes": db_file.stat().st_size if db_file.exists() else 0,
+        },
+        "system": {
+            "disk_free_mb": round(disk.free / 1024 / 1024, 1),
+            "disk_total_mb": round(disk.total / 1024 / 1024, 1),
+            "load_average": list(os.getloadavg()) if hasattr(os, "getloadavg") else None,
+        },
+        "services": services,
     }
 
 
@@ -135,6 +165,76 @@ async def _upsert_setting(key: str, value: Any) -> None:
     )
     await db.commit()
     _config_cache[key] = value
+
+
+# ── Autocomplete inline (OpenHuman absorption — autocomplete namespace) ──────
+
+
+class AutocompleteBody(BaseModel):
+    text: str
+    thread_id: Optional[str] = None
+    max_suggestions: int = 3
+
+
+_AUTOCOMPLETE_SEED = (
+    "Resumime lo de hoy",
+    "Recordame ",
+    "Planeá ",
+    "Buscá ",
+    "Mostrame ",
+    "Cuál es ",
+    "Cómo hago ",
+    "Mi agenda mañana",
+    "Lista mis pendientes",
+    "Qué aprendí hoy",
+)
+
+
+@app.post("/api/autocomplete")
+async def autocomplete_inline(body: AutocompleteBody):
+    """Ghost-text suggestions for chat input.
+
+    Source order:
+      1. Recent user messages from this thread (high recency)
+      2. Common prompts seed (cold start)
+    No LLM round-trip — keeps latency under 5ms for typing UX.
+    """
+    text = (body.text or "").strip()
+    if not text:
+        return {"suggestions": list(_AUTOCOMPLETE_SEED[:body.max_suggestions])}
+
+    needle = text.lower()
+    suggestions: list[str] = []
+    seen: set[str] = set()
+
+    db = get_db()
+    if body.thread_id:
+        try:
+            rows = await db.execute_fetchall(
+                "SELECT content FROM chat_messages WHERE thread_id = ? AND role = 'user' "
+                "ORDER BY id DESC LIMIT 50",
+                (body.thread_id,),
+            )
+            for r in rows:
+                c = (r[0] if not isinstance(r, dict) else r.get("content", "") or "").strip()
+                lc = c.lower()
+                if lc.startswith(needle) and c not in seen and len(c) > len(text):
+                    seen.add(c)
+                    suggestions.append(c)
+                    if len(suggestions) >= body.max_suggestions:
+                        break
+        except Exception:
+            pass
+
+    if len(suggestions) < body.max_suggestions:
+        for seed in _AUTOCOMPLETE_SEED:
+            if seed.lower().startswith(needle) and seed not in seen:
+                seen.add(seed)
+                suggestions.append(seed)
+                if len(suggestions) >= body.max_suggestions:
+                    break
+
+    return {"suggestions": suggestions, "query": text}
 
 
 # ── Sub-agents (v0.6 — OpenHuman absorption) ─────────────────────────────────
@@ -2443,17 +2543,111 @@ async def memory_tree_rebuild(body: MemoryTreeRebuildBody):
 # ── Connections / Integrations (P2 — Add Account view) ───────────────────────
 
 _KNOWN_CONNECTORS = {
-    "gmail": {"name": "Gmail", "category": "email"},
-    "gcal": {"name": "Google Calendar", "category": "calendar"},
-    "gdrive": {"name": "Google Drive", "category": "storage"},
-    "github": {"name": "GitHub", "category": "dev"},
-    "notion": {"name": "Notion", "category": "notes"},
+    "gmail": {"name": "Gmail", "category": "email", "oauth": "google"},
+    "gcal": {"name": "Google Calendar", "category": "calendar", "oauth": "google"},
+    "gdrive": {"name": "Google Drive", "category": "storage", "oauth": "google"},
+    "github": {"name": "GitHub", "category": "dev", "oauth": "github"},
+    "notion": {"name": "Notion", "category": "notes", "oauth": "notion"},
     "slack": {"name": "Slack", "category": "chat"},
     "telegram": {"name": "Telegram", "category": "chat"},
     "obsidian": {"name": "Obsidian Vault", "category": "notes"},
     "whatsapp": {"name": "WhatsApp", "category": "chat"},
     "ms365": {"name": "Microsoft 365", "category": "office"},
 }
+
+_OAUTH_PROVIDERS = {
+    "google": {
+        "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_url": "https://oauth2.googleapis.com/token",
+        "client_id_env": ("SEAL_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_ID"),
+        "client_secret_env": ("SEAL_GOOGLE_CLIENT_SECRET", "GOOGLE_CLIENT_SECRET"),
+    },
+    "github": {
+        "auth_url": "https://github.com/login/oauth/authorize",
+        "token_url": "https://github.com/login/oauth/access_token",
+        "client_id_env": ("SEAL_GITHUB_CLIENT_ID", "GITHUB_CLIENT_ID"),
+        "client_secret_env": ("SEAL_GITHUB_CLIENT_SECRET", "GITHUB_CLIENT_SECRET"),
+    },
+    "notion": {
+        "auth_url": "https://api.notion.com/v1/oauth/authorize",
+        "token_url": "https://api.notion.com/v1/oauth/token",
+        "client_id_env": ("SEAL_NOTION_CLIENT_ID", "NOTION_CLIENT_ID"),
+        "client_secret_env": ("SEAL_NOTION_CLIENT_SECRET", "NOTION_CLIENT_SECRET"),
+    },
+}
+
+_OAUTH_SCOPES = {
+    "gmail": "https://www.googleapis.com/auth/gmail.readonly",
+    "gcal": "https://www.googleapis.com/auth/calendar.readonly",
+    "gdrive": "https://www.googleapis.com/auth/drive.metadata.readonly",
+    "github": "repo read:user user:email",
+    "notion": "",
+}
+
+
+def _first_env(names: tuple[str, ...]) -> Optional[str]:
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
+
+def _oauth_connector_meta(connector_id: str) -> dict:
+    cid = connector_id.lower().strip()
+    meta = _KNOWN_CONNECTORS.get(cid)
+    if not meta:
+        raise HTTPException(status_code=400, detail=f"unknown connector: {cid}")
+    provider = meta.get("oauth")
+    if not provider or provider not in _OAUTH_PROVIDERS:
+        raise HTTPException(status_code=400, detail=f"oauth not supported for: {cid}")
+    cfg = _OAUTH_PROVIDERS[provider]
+    client_id = _first_env(cfg["client_id_env"])
+    client_secret = _first_env(cfg["client_secret_env"])
+    return {
+        "connector_id": cid,
+        "provider": provider,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "configured": bool(client_id and client_secret),
+        "scope": _OAUTH_SCOPES.get(cid, ""),
+        "auth_url": cfg["auth_url"],
+        "token_url": cfg["token_url"],
+        "setup_hint": (
+            None if client_id and client_secret else
+            f"Configura {'/'.join(cfg['client_id_env'])} y {'/'.join(cfg['client_secret_env'])} antes de conectar."
+        ),
+    }
+
+
+def _encrypt_oauth_token(payload: dict) -> tuple[bytes, bytes]:
+    if not _BYOK_AVAILABLE:
+        raise HTTPException(status_code=503, detail="vault unavailable")
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    import secrets as _secrets
+    master = byok_vault.get_or_create_master_key()
+    nonce = _secrets.token_bytes(12)
+    data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    return AESGCM(master).encrypt(nonce, data, None), nonce
+
+
+async def _oauth_exchange_token(meta: dict, code: str, redirect_uri: str) -> dict:
+    import httpx
+    data = {
+        "client_id": meta["client_id"],
+        "client_secret": meta["client_secret"],
+        "code": code,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+    }
+    headers = {"Accept": "application/json"}
+    async with httpx.AsyncClient(timeout=20) as client:
+        r = await client.post(meta["token_url"], data=data, headers=headers)
+        r.raise_for_status()
+        token = r.json()
+    if "access_token" not in token:
+        raise HTTPException(status_code=502, detail="oauth token response missing access_token")
+    return token
 
 
 @app.get("/api/connections")
@@ -2471,6 +2665,13 @@ async def connections_list():
             "connected": cid in connected_map,
             "connected_at": connected_map.get(cid),
             "status": "connected" if cid in connected_map else "available",
+            "oauth_provider": meta.get("oauth"),
+            "oauth_configured": (
+                _oauth_connector_meta(cid)["configured"] if meta.get("oauth") else False
+            ),
+            "setup_hint": (
+                _oauth_connector_meta(cid)["setup_hint"] if meta.get("oauth") else None
+            ),
         })
     return {"ok": True, "connectors": sorted(items, key=lambda x: (x["category"], x["name"])), "count": len(items)}
 
@@ -2496,6 +2697,110 @@ async def connections_add(body: ConnectionAddBody):
     return {"ok": True, "connector": cid, "connected": True}
 
 
+class OAuthStartBody(BaseModel):
+    connector_id: str
+    redirect_uri: str = "http://localhost:8769/api/connections/oauth/callback"
+
+
+@app.post("/api/connections/oauth/start")
+async def connections_oauth_start(body: OAuthStartBody):
+    """Create a real OAuth authorization URL for supported connectors.
+
+    Credentials are read from environment variables, so the flow is live once
+    William supplies provider client id/secret. No fake connected state here.
+    """
+    import secrets as _secrets
+    from urllib.parse import urlencode
+
+    meta = _oauth_connector_meta(body.connector_id)
+    if not meta["configured"]:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "ok": False,
+                "connector": meta["connector_id"],
+                "provider": meta["provider"],
+                "configured": False,
+                "setup_hint": meta["setup_hint"],
+            },
+        )
+
+    state = _secrets.token_urlsafe(24)
+    db = get_db()
+    await db.execute(
+        """INSERT INTO oauth_states (state, connector_id, provider, redirect_uri)
+           VALUES (?, ?, ?, ?)""",
+        (state, meta["connector_id"], meta["provider"], body.redirect_uri),
+    )
+    await db.commit()
+
+    query = {
+        "client_id": meta["client_id"],
+        "redirect_uri": body.redirect_uri,
+        "response_type": "code",
+        "state": state,
+    }
+    if meta["scope"]:
+        query["scope"] = meta["scope"]
+    if meta["provider"] == "google":
+        query["access_type"] = "offline"
+        query["prompt"] = "consent"
+    if meta["provider"] == "notion":
+        query["owner"] = "user"
+
+    auth_url = f"{meta['auth_url']}?{urlencode(query)}"
+    await _audit_log("USER", "connection_oauth_start", channel="settings",
+                     target_id=meta["connector_id"], metadata={"provider": meta["provider"]})
+    return {
+        "ok": True,
+        "connector": meta["connector_id"],
+        "provider": meta["provider"],
+        "auth_url": auth_url,
+        "state": state,
+        "scope": meta["scope"],
+    }
+
+
+@app.get("/api/connections/oauth/callback")
+async def connections_oauth_callback(code: Optional[str] = None, state: Optional[str] = None,
+                                     error: Optional[str] = None):
+    if error:
+        raise HTTPException(status_code=400, detail=f"oauth error: {error}")
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="code and state required")
+
+    db = get_db()
+    rows = await db.execute_fetchall(
+        "SELECT state, connector_id, provider, redirect_uri FROM oauth_states WHERE state = ?",
+        (state,),
+    )
+    if not rows:
+        raise HTTPException(status_code=400, detail="invalid or expired oauth state")
+
+    row = rows[0]
+    meta = _oauth_connector_meta(row["connector_id"])
+    token = await _oauth_exchange_token(meta, code, row["redirect_uri"])
+    ciphertext, nonce = _encrypt_oauth_token({
+        "provider": row["provider"],
+        "connector_id": row["connector_id"],
+        "token": token,
+    })
+    await db.execute(
+        """INSERT INTO integrations (id, token_encrypted, nonce, connected_at)
+           VALUES (?, ?, ?, datetime('now'))
+           ON CONFLICT(id) DO UPDATE SET
+               token_encrypted=excluded.token_encrypted,
+               nonce=excluded.nonce,
+               connected_at=excluded.connected_at""",
+        (row["connector_id"], ciphertext, nonce),
+    )
+    await db.execute("DELETE FROM oauth_states WHERE state = ?", (state,))
+    await db.commit()
+    await _audit_log("USER", "connection_oauth_callback", channel="settings",
+                     target_id=row["connector_id"], metadata={"provider": row["provider"]})
+    return {"ok": True, "connector": row["connector_id"], "connected": True, "provider": row["provider"]}
+
+
 @app.delete("/api/connections/{connector_id}")
 async def connections_remove(connector_id: str):
     cid = connector_id.lower().strip()
@@ -2504,6 +2809,80 @@ async def connections_remove(connector_id: str):
     await db.commit()
     await _audit_log("USER", "connection_remove", channel="settings", target_id=cid)
     return {"ok": True, "connector": cid, "connected": False}
+
+
+# ── Billing / Plans (local entitlement layer) ───────────────────────────────
+
+_BILLING_PLANS = [
+    {
+        "id": "free",
+        "name": "Free",
+        "price_usd_month": 0,
+        "features": ["local_chat", "memory", "voice_browser_fallback", "basic_connectors"],
+        "limits": {"sub_agents": 5, "cron_jobs": 3, "oauth_connectors": 1},
+    },
+    {
+        "id": "plus",
+        "name": "Plus",
+        "price_usd_month": None,
+        "features": ["local_voice_offline", "15_sub_agents", "screen_intelligence", "tokenjuice", "cron_jobs"],
+        "limits": {"sub_agents": 15, "cron_jobs": 20, "oauth_connectors": 5},
+    },
+    {
+        "id": "pro",
+        "name": "Pro",
+        "price_usd_month": None,
+        "features": ["team_governance", "priority_local_models", "backup_restore", "advanced_oauth"],
+        "limits": {"sub_agents": 15, "cron_jobs": 100, "oauth_connectors": 20},
+    },
+]
+
+
+class BillingPatchBody(BaseModel):
+    plan_id: str
+    status: str = "active"
+
+
+def _billing_plan(plan_id: str) -> Optional[dict]:
+    return next((p for p in _BILLING_PLANS if p["id"] == plan_id), None)
+
+
+@app.get("/api/billing/plans")
+async def billing_plans():
+    """Local-first billing catalog. Prices remain unset until William decides."""
+    return {
+        "ok": True,
+        "plans": _BILLING_PLANS,
+        "payment_provider": "not_configured",
+        "requires_product_decision": ["plus.price_usd_month", "pro.price_usd_month", "payment_provider"],
+    }
+
+
+@app.get("/api/billing/subscription")
+async def billing_subscription():
+    plan_id = str(_config_cache.get("billing_plan", "free"))
+    plan = _billing_plan(plan_id) or _BILLING_PLANS[0]
+    return {
+        "ok": True,
+        "plan_id": plan["id"],
+        "status": _config_cache.get("billing_status", "local"),
+        "plan": plan,
+        "local_only": True,
+        "payment_required": False,
+    }
+
+
+@app.patch("/api/billing/subscription")
+async def billing_subscription_patch(body: BillingPatchBody):
+    if not _billing_plan(body.plan_id):
+        raise HTTPException(status_code=400, detail="unknown billing plan")
+    if body.status not in {"local", "active", "trialing", "past_due", "canceled"}:
+        raise HTTPException(status_code=400, detail="unknown billing status")
+    await _upsert_setting("billing_plan", body.plan_id)
+    await _upsert_setting("billing_status", body.status)
+    await _audit_log("USER", "billing_plan_set", channel="settings",
+                     target_id=body.plan_id, metadata={"status": body.status})
+    return {"ok": True, "plan_id": body.plan_id, "status": body.status}
 
 
 # ── Screen Awareness (P3 — local capture/analyze status) ─────────────────────
@@ -3044,6 +3423,159 @@ async def cron_jobs_toggle(job_id: int):
     )
     await db.commit()
     return {"ok": True, "id": job_id}
+
+
+# ── Voice STT/TTS (local-first, offline) ────────────────────────────────────
+# STT: faster-whisper (CTranslate2 backend, runs on CPU, ARM-native).
+# TTS: piper-tts (Spanish voice davefx-medium pre-downloaded).
+# Both 100% local, no internet, no API key.
+
+import base64 as _vb64
+import tempfile as _vtmp
+from pathlib import Path as _VPath
+
+_VOICE_MODELS = _VPath.home() / ".config" / "soul-companion" / "voice_models"
+_PIPER_VOICE = _VOICE_MODELS / "es_ES-davefx-medium.onnx"
+_WHISPER_MODEL_SIZE = "base"  # tiny | base | small | medium
+
+_whisper_model = None
+_piper_voice = None
+
+
+def _get_whisper():
+    global _whisper_model
+    if _whisper_model is None:
+        try:
+            from faster_whisper import WhisperModel
+            _whisper_model = WhisperModel(_WHISPER_MODEL_SIZE, device="cpu", compute_type="int8")
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"whisper unavailable: {e}")
+    return _whisper_model
+
+
+def _get_piper():
+    global _piper_voice
+    if _piper_voice is None:
+        try:
+            from piper import PiperVoice
+            if not _PIPER_VOICE.exists():
+                raise HTTPException(status_code=503, detail=f"piper voice missing: {_PIPER_VOICE}")
+            _piper_voice = PiperVoice.load(str(_PIPER_VOICE))
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"piper unavailable: {e}")
+    return _piper_voice
+
+
+@app.get("/api/voice/status")
+async def voice_status():
+    """STT + TTS capability + local model status."""
+    has_whisper = False
+    try:
+        import faster_whisper  # noqa: F401
+        has_whisper = True
+    except Exception:
+        pass
+    has_piper = False
+    try:
+        import piper  # noqa: F401
+        has_piper = True
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "stt_available": has_whisper,
+        "stt_model": _WHISPER_MODEL_SIZE if has_whisper else None,
+        "tts_available": has_piper and _PIPER_VOICE.exists(),
+        "tts_voice": "es_ES-davefx-medium" if _PIPER_VOICE.exists() else None,
+        "fully_local": has_whisper and has_piper and _PIPER_VOICE.exists(),
+        "permission_note": "Voz se procesa 100% localmente. El audio NO sale del equipo.",
+    }
+
+
+class VoiceSTTBody(BaseModel):
+    audio_b64: str
+    language: str = "es"
+
+
+@app.post("/api/voice/stt")
+async def voice_stt(body: VoiceSTTBody):
+    """Transcribe audio (base64) to text. 100% local."""
+    try:
+        audio_bytes = _vb64.b64decode(body.audio_b64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid audio_b64")
+    if len(audio_bytes) < 100:
+        raise HTTPException(status_code=400, detail="audio too short")
+
+    model = _get_whisper()
+    import asyncio as _a
+    with _vtmp.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        f.write(audio_bytes)
+        tmp_path = f.name
+
+    def _do_transcribe():
+        segments, info = model.transcribe(tmp_path, language=body.language)
+        text_parts = [s.text for s in segments]
+        return " ".join(text_parts).strip(), info.language, info.duration
+
+    try:
+        text, lang, duration = await _a.to_thread(_do_transcribe)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"transcription failed: {e}")
+    finally:
+        try:
+            _VPath(tmp_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    await _audit_log("USER", "voice_stt", channel="local",
+                     metadata={"chars": len(text), "duration_s": round(duration, 2),
+                               "language": lang})
+    return {
+        "ok": True, "text": text, "language": lang,
+        "duration_seconds": round(duration, 2), "fully_local": True,
+    }
+
+
+class VoiceTTSBody(BaseModel):
+    text: str
+    voice: Optional[str] = None
+
+
+@app.post("/api/voice/tts")
+async def voice_tts(body: VoiceTTSBody):
+    """Synthesize text to wav (base64). 100% local."""
+    if not body.text or not body.text.strip():
+        raise HTTPException(status_code=400, detail="text required")
+    if len(body.text) > 5000:
+        raise HTTPException(status_code=400, detail="text too long (max 5000 chars)")
+
+    voice = _get_piper()
+    import asyncio as _a
+    import wave as _wave
+    import io as _io
+
+    def _do_synth():
+        buf = _io.BytesIO()
+        with _wave.open(buf, "wb") as wf:
+            voice.synthesize_wav(body.text.strip(), wf)
+        return buf.getvalue()
+
+    try:
+        wav_bytes = await _a.to_thread(_do_synth)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"synthesis failed: {e}")
+
+    await _audit_log("USER", "voice_tts", channel="local",
+                     metadata={"chars": len(body.text), "wav_bytes": len(wav_bytes)})
+    return {
+        "ok": True,
+        "audio_b64": _vb64.b64encode(wav_bytes).decode("ascii"),
+        "format": "wav", "bytes": len(wav_bytes),
+        "voice": "es_ES-davefx-medium", "fully_local": True,
+    }
 
 
 # ── 404 friendly handler for API ─────────────────────────────────────────────

@@ -51,6 +51,14 @@ END""",
     nonce BLOB,
     connected_at TEXT DEFAULT (datetime('now'))
 )""",
+    """CREATE TABLE IF NOT EXISTS oauth_states (
+    state TEXT PRIMARY KEY,
+    connector_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    redirect_uri TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)""",
+    "CREATE INDEX IF NOT EXISTS oauth_states_created_idx ON oauth_states (created_at DESC)",
     """CREATE TABLE IF NOT EXISTS skills (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,

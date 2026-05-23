@@ -18,17 +18,20 @@ interface Connector {
   connected: boolean
   status: string
   connected_at?: string | null
+  oauth_provider?: string | null
+  oauth_configured?: boolean
+  setup_hint?: string | null
 }
 
 const CATALOG: Integration[] = [
   // Direct connections: top picks
-  { id: 'gmail',         label: 'Gmail',          category: 'messaging', tier: 'native', Icon: MessageCircle, comingSoon: true },
-  { id: 'gcal',          label: 'Google Calendar', category: 'productivity', tier: 'native', Icon: Calendar, comingSoon: true },
-  { id: 'gdrive',        label: 'Google Drive',   category: 'storage', tier: 'native', Icon: FileText, comingSoon: true },
-  { id: 'notion',        label: 'Notion',         category: 'productivity', tier: 'native', Icon: FileText, comingSoon: true },
+  { id: 'gmail',         label: 'Gmail',          category: 'messaging', tier: 'native', Icon: MessageCircle },
+  { id: 'gcal',          label: 'Google Calendar', category: 'productivity', tier: 'native', Icon: Calendar },
+  { id: 'gdrive',        label: 'Google Drive',   category: 'storage', tier: 'native', Icon: FileText },
+  { id: 'notion',        label: 'Notion',         category: 'productivity', tier: 'native', Icon: FileText },
   { id: 'slack',         label: 'Slack',          category: 'messaging', tier: 'native', Icon: MessageCircle, comingSoon: true },
   { id: 'discord',       label: 'Discord',        category: 'messaging', tier: 'native', Icon: MessageCircle, comingSoon: true },
-  { id: 'github',        label: 'GitHub',         category: 'dev', tier: 'native', Icon: Code, comingSoon: true },
+  { id: 'github',        label: 'GitHub',         category: 'dev', tier: 'native', Icon: Code },
   { id: 'linear',        label: 'Linear',         category: 'dev', tier: 'native', Icon: Briefcase, comingSoon: true },
   { id: 'telegram',      label: 'Telegram',       category: 'messaging', tier: 'native', Icon: MessageCircle, comingSoon: true },
   { id: 'whatsapp_biz',  label: 'WhatsApp Business', category: 'messaging', tier: 'native', Icon: MessageCircle, comingSoon: true },
@@ -117,6 +120,21 @@ export default function ConnectionsView() {
   const prepareConnection = async (id: string) => {
     setBusyId(id)
     try {
+      const start = await fetch(`${API}/api/connections/oauth/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connector_id: id }),
+      })
+      if (start.ok) {
+        const d = await start.json()
+        if (d.auth_url) {
+          window.location.href = d.auth_url
+          return
+        }
+      } else if (start.status === 409) {
+        await load()
+        return
+      }
       await fetch(`${API}/api/connections/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -195,6 +213,7 @@ export default function ConnectionsView() {
                   const Icon = it.Icon ?? Plug
                   const state = connectorMap.get(it.id)
                   const prepared = state?.connected === true
+                  const canOAuth = Boolean(state?.oauth_provider)
                   return (
                     <div key={it.id} className="flex items-center gap-3 p-3 rounded-lg border border-seal-border bg-seal-surface hover:bg-stone-50">
                       <div className="w-9 h-9 rounded bg-stone-100 flex items-center justify-center text-slate-600">
@@ -210,7 +229,7 @@ export default function ConnectionsView() {
                           disabled={busyId === it.id}
                           className="text-[10px] text-emerald-700 hover:text-red-500"
                         >
-                          Preparada
+                          Conectada
                         </button>
                       ) : it.comingSoon && !state ? (
                         <span className="text-[10px] text-seal-muted">pronto</span>
@@ -219,7 +238,7 @@ export default function ConnectionsView() {
                           onClick={() => setSelected(it)}
                           className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1"
                         >
-                          <Check className="w-3 h-3" /> Preparar
+                          <Check className="w-3 h-3" /> {canOAuth ? 'Conectar' : 'Preparar'}
                         </button>
                       )}
                     </div>
@@ -246,7 +265,11 @@ export default function ConnectionsView() {
               </button>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed mb-4">
-              SEAL guardará esta app como lista para conectar en este equipo. No leerá datos ni hará acciones hasta que agregues credenciales o permisos reales.
+              {connectorMap.get(selected.id)?.oauth_provider
+                ? (connectorMap.get(selected.id)?.oauth_configured
+                  ? 'SEAL abrirá el permiso OAuth del proveedor y guardará el token cifrado en este equipo.'
+                  : connectorMap.get(selected.id)?.setup_hint || 'Faltan credenciales OAuth para activar esta conexión.')
+                : 'SEAL guardará esta app como lista para conectar en este equipo. No leerá datos ni hará acciones hasta que agregues credenciales o permisos reales.'}
             </p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setSelected(null)} className="px-3 py-1.5 text-xs text-seal-muted hover:text-slate-700">Cancelar</button>
