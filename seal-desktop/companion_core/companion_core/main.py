@@ -12,6 +12,7 @@ from companion_core.db import init_db, close_db, get_db
 from companion_core.settings import toml_path
 from companion_core.agent import get_reply, stream_claude
 from companion_core.mcp_client import McpClient
+from companion_core import sub_agents as _sub_agents
 
 VERSION = "0.3.0"
 
@@ -119,6 +120,65 @@ async def _upsert_setting(key: str, value: Any) -> None:
     )
     await db.commit()
     _config_cache[key] = value
+
+
+# ── Sub-agents (v0.6 — OpenHuman absorption) ─────────────────────────────────
+
+
+@app.get("/api/sub-agents")
+async def list_sub_agents():
+    """Catalog of specialized sub-agents available for routing."""
+    return {"agents": _sub_agents.list_all(), "count": len(_sub_agents.ALL_SUB_AGENTS)}
+
+
+class SubAgentInvoke(BaseModel):
+    agent: str
+    query: str
+    user_goal: Optional[str] = None
+
+
+@app.post("/api/sub-agents/invoke")
+async def invoke_sub_agent(payload: SubAgentInvoke):
+    """Invoke a sub-agent with full dynamic prompt context.
+
+    Wires the LLM through the existing companion_core agent module so routing
+    config (BYOK key, GEMMA 4 local fallback, etc.) is respected.
+    """
+    sa = _sub_agents.get(payload.agent)
+    if sa is None:
+        raise HTTPException(status_code=404, detail=f"sub-agent '{payload.agent}' not found")
+
+    api_key = _config_cache.get("api_key")
+    model = _config_cache.get("model")
+    ocean = _config_cache.get("ocean")
+    user_name = _config_cache.get("name", "")
+
+    async def _llm(messages: list[dict], system: str) -> str:
+        last = messages[-1]["content"] if messages else payload.query
+        return await get_reply(
+            thread_history=messages[:-1],
+            new_content=last,
+            api_key=api_key,
+            model=model,
+            user_name=user_name,
+            system=system,
+        )
+
+    result = await _sub_agents.invoke_sub_agent(
+        payload.agent,
+        payload.query,
+        call_llm=_llm,
+        user_name=user_name,
+        user_goal=payload.user_goal or "",
+        ocean=ocean if isinstance(ocean, dict) else None,
+    )
+    return result
+
+
+@app.get("/api/sub-agents/route")
+async def suggest_sub_agent_route(query: str):
+    """Heuristic suggestion of which sub-agent fits a query best."""
+    return {"agent": _sub_agents.suggest_route(query), "query": query}
 
 
 @app.post("/api/companion/first-run")
@@ -1530,6 +1590,866 @@ async def list_server_tools(server_id: str):
     await db.commit()
 
     return {"server_id": server_id, "tools": tools}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SPRINT 1 PORT — Sprint features adapted from PostgreSQL soul_v3 to SQLite local
+# ══════════════════════════════════════════════════════════════════════════════
+# All endpoints below operate on companion_core SQLite. They do NOT touch
+# Soul App 2 backend at :8800. This makes SEAL App fully self-contained.
+
+# ── BYOK Vault ────────────────────────────────────────────────────────────────
+
+try:
+    from companion_core import byok_vault  # local AES-GCM vault, OS keyring + keyfile fallback
+    _BYOK_AVAILABLE = True
+except Exception as _e:
+    print(f"[byok_vault] disabled: {_e}")
+    byok_vault = None  # type: ignore
+    _BYOK_AVAILABLE = False
+
+
+class BYOKSaveBody(BaseModel):
+    provider: str
+    api_key: str
+
+
+async def _audit_log(
+    agent: str,
+    action: str,
+    *,
+    channel: Optional[str] = None,
+    target_id: Optional[str] = None,
+    metadata: Optional[dict] = None,
+    processed_locally: bool = True,
+    provider_used: Optional[str] = None,
+) -> None:
+    """Append entry to companion_audit_log. Never raises."""
+    try:
+        db = get_db()
+        await db.execute(
+            """INSERT INTO companion_audit_log
+               (agent, channel, action, target_id, metadata, processed_locally, provider_used)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                agent,
+                channel,
+                action,
+                target_id,
+                json.dumps(metadata) if metadata is not None else None,
+                1 if processed_locally else 0,
+                provider_used,
+            ),
+        )
+        await db.commit()
+    except Exception:
+        pass
+
+
+@app.get("/api/byok/status")
+async def byok_status():
+    """Vault status WITHOUT exposing key values."""
+    if not _BYOK_AVAILABLE:
+        return {"ok": False, "error": "byok_vault module unavailable"}
+    try:
+        return {"ok": True, **byok_vault.status()}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/byok/key")
+async def byok_save(body: BYOKSaveBody):
+    """Persist an API key for a provider (encrypted at rest)."""
+    if not _BYOK_AVAILABLE:
+        raise HTTPException(status_code=503, detail="vault unavailable")
+    try:
+        byok_vault.save_key(body.provider, body.api_key)
+        await _audit_log("USER", "byok_save", channel="settings",
+                         target_id=body.provider.lower().strip(),
+                         metadata={"success": True}, provider_used=body.provider)
+        return {"ok": True, "provider": body.provider.lower().strip()}
+    except byok_vault.VaultError as e:
+        await _audit_log("USER", "byok_save", channel="settings",
+                         target_id=body.provider,
+                         metadata={"success": False, "error": str(e)}, provider_used=body.provider)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/byok/key/{provider}")
+async def byok_delete(provider: str):
+    if not _BYOK_AVAILABLE:
+        raise HTTPException(status_code=503, detail="vault unavailable")
+    try:
+        removed = byok_vault.delete_key(provider)
+        await _audit_log("USER", "byok_delete", channel="settings",
+                         target_id=provider.lower().strip(),
+                         metadata={"removed": removed}, provider_used=provider)
+        return {"ok": True, "removed": removed, "provider": provider.lower().strip()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── Dreams ────────────────────────────────────────────────────────────────────
+
+_ALLOWED_AGENTS = {"SOUL", "USER", "ADA", "JARVIS", "ALICE", "NEXUS", "DUM"}
+_ALLOWED_CYCLES = {"morning", "midday", "evening", "nocturnal"}
+
+
+def _decode_json(s):
+    if s is None:
+        return None
+    if isinstance(s, (list, dict)):
+        return s
+    try:
+        return json.loads(s)
+    except Exception:
+        return s
+
+
+@app.get("/api/dreams")
+async def list_dreams(
+    agent: str = "all",
+    cycle: str = "all",
+    limit: int = 50,
+):
+    """List recent dreams from daily_dreams."""
+    if agent != "all" and agent.upper() not in _ALLOWED_AGENTS:
+        return {"dreams": [], "error": f"unknown agent: {agent}"}
+    if cycle != "all" and cycle not in _ALLOWED_CYCLES:
+        return {"dreams": [], "error": f"unknown cycle: {cycle}"}
+    limit = max(1, min(int(limit), 200))
+
+    db = get_db()
+    where = ["1=1"]
+    params: list = []
+    if agent != "all":
+        where.append("agent = ?")
+        params.append(agent.upper())
+    if cycle != "all":
+        where.append("cycle = ?")
+        params.append(cycle)
+    params.append(limit)
+    sql = (
+        "SELECT id, agent, date, cycle, dream_narrative, key_events, "
+        "emotional_arc, learnings, pending_threads, model_used, "
+        "inject_to_prompt, created_at "
+        "FROM daily_dreams WHERE " + " AND ".join(where) +
+        " ORDER BY date DESC, created_at DESC LIMIT ?"
+    )
+    rows = await db.execute_fetchall(sql, tuple(params))
+    return {
+        "dreams": [
+            {
+                "id": r["id"],
+                "agent": r["agent"],
+                "date": r["date"],
+                "cycle": r["cycle"],
+                "narrative": r["dream_narrative"],
+                "key_events": _decode_json(r["key_events"]) or [],
+                "emotional_arc": _decode_json(r["emotional_arc"]) or {},
+                "learnings": _decode_json(r["learnings"]) or [],
+                "pending_threads": _decode_json(r["pending_threads"]) or [],
+                "model": r["model_used"],
+                "inject_to_prompt": bool(r["inject_to_prompt"]),
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ],
+        "count": len(rows),
+    }
+
+
+# ── LLM Routing ───────────────────────────────────────────────────────────────
+
+_ALLOWED_ROLES = {"reasoning", "agentic", "coding", "summary"}
+_ALLOWED_PROVIDERS = {"ollama", "anthropic", "openai", "mistral", "google", "openrouter", "groq", "deepseek"}
+
+
+class RoutingPatchBody(BaseModel):
+    agent: str = "DEFAULT"
+    role: str
+    provider: str
+    model: str
+    fallback_provider: Optional[str] = None
+    fallback_model: Optional[str] = None
+    enabled: bool = True
+
+
+@app.get("/api/llm-routing")
+async def llm_routing_list(agent: str = "DEFAULT"):
+    if agent != "DEFAULT" and agent.upper() not in _ALLOWED_AGENTS:
+        return {"agent": agent, "rows": [], "error": "unknown agent"}
+    db = get_db()
+    rows = await db.execute_fetchall(
+        """SELECT role, provider, model, fallback_provider, fallback_model,
+                  max_tokens, temperature, enabled, updated_at
+           FROM llm_routing WHERE agent = ?
+           ORDER BY CASE role WHEN 'reasoning' THEN 1 WHEN 'agentic' THEN 2
+                              WHEN 'coding' THEN 3 WHEN 'summary' THEN 4
+                              ELSE 5 END""",
+        (agent.upper() if agent != "DEFAULT" else agent,),
+    )
+    return {
+        "agent": agent,
+        "rows": [
+            {
+                "role": r["role"],
+                "provider": r["provider"],
+                "model": r["model"],
+                "fallback_provider": r["fallback_provider"],
+                "fallback_model": r["fallback_model"],
+                "max_tokens": r["max_tokens"],
+                "temperature": r["temperature"],
+                "enabled": bool(r["enabled"]),
+                "updated_at": r["updated_at"],
+            }
+            for r in rows
+        ],
+    }
+
+
+@app.patch("/api/llm-routing")
+async def llm_routing_patch(body: RoutingPatchBody):
+    agent_norm = body.agent.upper() if body.agent != "DEFAULT" else "DEFAULT"
+    if agent_norm != "DEFAULT" and agent_norm not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="unknown agent")
+    if body.role not in _ALLOWED_ROLES:
+        raise HTTPException(status_code=400, detail="unknown role")
+    if body.provider not in _ALLOWED_PROVIDERS:
+        raise HTTPException(status_code=400, detail="unknown provider")
+    if not body.model.strip():
+        raise HTTPException(status_code=400, detail="model required")
+
+    db = get_db()
+    await db.execute(
+        """INSERT INTO llm_routing (agent, role, provider, model, fallback_provider, fallback_model, enabled, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(agent, role) DO UPDATE SET
+               provider = excluded.provider,
+               model = excluded.model,
+               fallback_provider = excluded.fallback_provider,
+               fallback_model = excluded.fallback_model,
+               enabled = excluded.enabled,
+               updated_at = datetime('now')""",
+        (agent_norm, body.role, body.provider, body.model.strip(),
+         body.fallback_provider, body.fallback_model, 1 if body.enabled else 0),
+    )
+    await db.commit()
+    return {"ok": True, "agent": agent_norm, "role": body.role}
+
+
+# ── Capabilities ──────────────────────────────────────────────────────────────
+
+_CAP_COLUMNS = {
+    "cap_shell_commands", "cap_git", "cap_read_files", "cap_write_files",
+    "cap_screen_capture", "cap_camera", "cap_web_search", "cap_browser_control",
+    "cap_memory_read", "cap_memory_write", "cap_cron_jobs", "cap_notifications",
+    "cap_channel_read",
+}
+
+
+class CapabilityPatchBody(BaseModel):
+    agent: str = "SOUL"
+    capability: str
+    enabled: bool
+
+
+@app.get("/api/capabilities")
+async def capabilities_get(agent: str = "SOUL"):
+    if agent.upper() not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="unknown agent")
+    db = get_db()
+    row = await db.execute_fetchall(
+        "SELECT * FROM agent_capabilities WHERE agent = ? LIMIT 1",
+        (agent.upper(),),
+    )
+    if not row:
+        # auto-create row with safe defaults
+        await db.execute("INSERT OR IGNORE INTO agent_capabilities (agent) VALUES (?)", (agent.upper(),))
+        await db.commit()
+        row = await db.execute_fetchall(
+            "SELECT * FROM agent_capabilities WHERE agent = ? LIMIT 1",
+            (agent.upper(),),
+        )
+    r = row[0]
+    caps = {col: bool(r[col]) for col in _CAP_COLUMNS}
+    return {
+        "agent": agent.upper(),
+        "capabilities": caps,
+        "updated_at": r["updated_at"],
+    }
+
+
+@app.patch("/api/capabilities")
+async def capabilities_patch(body: CapabilityPatchBody):
+    if body.agent.upper() not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="unknown agent")
+    if body.capability not in _CAP_COLUMNS:
+        raise HTTPException(status_code=400, detail=f"unknown capability: {body.capability}")
+    db = get_db()
+    await db.execute(
+        f"UPDATE agent_capabilities SET {body.capability} = ?, updated_at = datetime('now') WHERE agent = ?",
+        (1 if body.enabled else 0, body.agent.upper()),
+    )
+    await db.commit()
+    await _audit_log("USER", f"capability_toggle:{body.capability}", channel="settings",
+                     target_id=body.agent.upper(), metadata={"enabled": body.enabled})
+    return {"ok": True, "agent": body.agent.upper(), "capability": body.capability, "enabled": body.enabled}
+
+
+# ── Audit Log ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/audit-log")
+async def audit_log_list(
+    agent: Optional[str] = None,
+    action: Optional[str] = None,
+    processed_locally: Optional[bool] = None,
+    limit: int = 100,
+):
+    if agent and agent.upper() not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="invalid agent")
+    limit = max(1, min(int(limit), 500))
+
+    where: list[str] = ["1=1"]
+    params: list = []
+    if agent:
+        where.append("agent = ?")
+        params.append(agent.upper())
+    if action:
+        where.append("action LIKE ?")
+        params.append(f"%{action}%")
+    if processed_locally is not None:
+        where.append("processed_locally = ?")
+        params.append(1 if processed_locally else 0)
+    params.append(limit)
+
+    sql = (
+        "SELECT id, agent, channel, action, target_id, metadata, "
+        "processed_locally, provider_used, created_at "
+        "FROM companion_audit_log WHERE " + " AND ".join(where) +
+        " ORDER BY created_at DESC LIMIT ?"
+    )
+    db = get_db()
+    rows = await db.execute_fetchall(sql, tuple(params))
+    entries = []
+    for r in rows:
+        entries.append({
+            "id": r["id"],
+            "agent": r["agent"],
+            "channel": r["channel"],
+            "action": r["action"],
+            "target_id": r["target_id"],
+            "metadata": _decode_json(r["metadata"]),
+            "processed_locally": bool(r["processed_locally"]),
+            "provider_used": r["provider_used"],
+            "created_at": r["created_at"],
+        })
+    local_count = sum(1 for e in entries if e["processed_locally"])
+    return {
+        "ok": True,
+        "entries": entries,
+        "count": len(entries),
+        "stats": {"local": local_count, "egress": len(entries) - local_count},
+    }
+
+
+# ── Notifications ─────────────────────────────────────────────────────────────
+
+_ALLOWED_NOTIF_TYPES = {"nerves_fire", "governance_challenge", "reflective_diagnosis", "system_alert", "integration_event", "custom"}
+_ALLOWED_SEVERITY = {"critical", "warning", "info", "success"}
+
+
+class NotificationCreate(BaseModel):
+    agent: str = "SOUL"
+    type: str
+    title: str
+    body: Optional[str] = None
+    severity: str = "info"
+    action_url: Optional[str] = None
+    metadata: Optional[dict] = None
+
+
+@app.get("/api/notifications")
+async def notifications_list(unread_only: bool = False, limit: int = 50):
+    limit = max(1, min(int(limit), 200))
+    db = get_db()
+    if unread_only:
+        rows = await db.execute_fetchall(
+            "SELECT * FROM user_notifications WHERE read = 0 AND dismissed = 0 ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        )
+    else:
+        rows = await db.execute_fetchall(
+            "SELECT * FROM user_notifications WHERE dismissed = 0 ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        )
+    return {
+        "ok": True,
+        "notifications": [
+            {
+                "id": r["id"],
+                "agent": r["agent"],
+                "type": r["type"],
+                "severity": r["severity"],
+                "title": r["title"],
+                "body": r["body"],
+                "read": bool(r["read"]),
+                "action_url": r["action_url"],
+                "metadata": _decode_json(r["metadata"]),
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ],
+        "count": len(rows),
+    }
+
+
+@app.post("/api/notifications")
+async def notifications_create(body: NotificationCreate):
+    if body.agent.upper() not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="unknown agent")
+    if body.type not in _ALLOWED_NOTIF_TYPES:
+        raise HTTPException(status_code=400, detail="unknown notification type")
+    if body.severity not in _ALLOWED_SEVERITY:
+        raise HTTPException(status_code=400, detail="unknown severity")
+    db = get_db()
+    cur = await db.execute(
+        """INSERT INTO user_notifications (agent, type, severity, title, body, action_url, metadata)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (body.agent.upper(), body.type, body.severity, body.title, body.body,
+         body.action_url, json.dumps(body.metadata) if body.metadata else None),
+    )
+    await db.commit()
+    return {"ok": True, "id": cur.lastrowid}
+
+
+@app.post("/api/notifications/{notif_id}/read")
+async def notifications_mark_read(notif_id: int):
+    db = get_db()
+    await db.execute("UPDATE user_notifications SET read = 1 WHERE id = ?", (notif_id,))
+    await db.commit()
+    return {"ok": True, "id": notif_id}
+
+
+@app.delete("/api/notifications/{notif_id}")
+async def notifications_dismiss(notif_id: int):
+    db = get_db()
+    await db.execute("UPDATE user_notifications SET dismissed = 1 WHERE id = ?", (notif_id,))
+    await db.commit()
+    return {"ok": True, "id": notif_id}
+
+
+# ── Memory Tree (P1 — h→d→m→y user-friendly recall) ──────────────────────────
+
+_ALLOWED_LEVELS = {"hour", "day", "month", "year"}
+
+
+@app.get("/api/memory-tree")
+async def memory_tree_list(agent: str = "SOUL", level: str = "day", limit: int = 30):
+    if agent.upper() not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="unknown agent")
+    if level not in _ALLOWED_LEVELS:
+        raise HTTPException(status_code=400, detail=f"unknown level: {level}")
+    limit = max(1, min(int(limit), 100))
+    db = get_db()
+    rows = await db.execute_fetchall(
+        """SELECT id, level, bucket_start, bucket_end, summary, child_ids, created_at
+           FROM memory_tree WHERE agent = ? AND level = ?
+           ORDER BY bucket_start DESC LIMIT ?""",
+        (agent.upper(), level, limit),
+    )
+    return {
+        "ok": True,
+        "agent": agent.upper(),
+        "level": level,
+        "buckets": [
+            {
+                "id": r["id"],
+                "level": r["level"],
+                "bucket_start": r["bucket_start"],
+                "bucket_end": r["bucket_end"],
+                "summary": r["summary"],
+                "child_ids": _decode_json(r["child_ids"]) or [],
+                "created_at": r["created_at"],
+            } for r in rows
+        ],
+        "count": len(rows),
+    }
+
+
+# ── Connections / Integrations (P2 — Add Account view) ───────────────────────
+
+_KNOWN_CONNECTORS = {
+    "gmail": {"name": "Gmail", "category": "email"},
+    "gcal": {"name": "Google Calendar", "category": "calendar"},
+    "gdrive": {"name": "Google Drive", "category": "storage"},
+    "github": {"name": "GitHub", "category": "dev"},
+    "notion": {"name": "Notion", "category": "notes"},
+    "slack": {"name": "Slack", "category": "chat"},
+    "telegram": {"name": "Telegram", "category": "chat"},
+    "obsidian": {"name": "Obsidian Vault", "category": "notes"},
+    "whatsapp": {"name": "WhatsApp", "category": "chat"},
+    "ms365": {"name": "Microsoft 365", "category": "office"},
+}
+
+
+@app.get("/api/connections")
+async def connections_list():
+    """List all available connectors + their connection status (from integrations table)."""
+    db = get_db()
+    connected = await db.execute_fetchall("SELECT id, connected_at FROM integrations")
+    connected_map = {r["id"]: r["connected_at"] for r in connected}
+    items = []
+    for cid, meta in _KNOWN_CONNECTORS.items():
+        items.append({
+            "id": cid,
+            "name": meta["name"],
+            "category": meta["category"],
+            "connected": cid in connected_map,
+            "connected_at": connected_map.get(cid),
+            "status": "connected" if cid in connected_map else "available",
+        })
+    return {"ok": True, "connectors": sorted(items, key=lambda x: (x["category"], x["name"])), "count": len(items)}
+
+
+class ConnectionAddBody(BaseModel):
+    connector_id: str
+
+
+@app.post("/api/connections/add")
+async def connections_add(body: ConnectionAddBody):
+    """Mark a connector as connected. UI may then trigger OAuth flow externally."""
+    cid = body.connector_id.lower().strip()
+    if cid not in _KNOWN_CONNECTORS:
+        raise HTTPException(status_code=400, detail=f"unknown connector: {cid}")
+    db = get_db()
+    await db.execute(
+        "INSERT OR IGNORE INTO integrations (id, connected_at) VALUES (?, datetime('now'))",
+        (cid,),
+    )
+    await db.commit()
+    await _audit_log("USER", "connection_add", channel="settings", target_id=cid,
+                     metadata={"connector": cid})
+    return {"ok": True, "connector": cid, "connected": True}
+
+
+@app.delete("/api/connections/{connector_id}")
+async def connections_remove(connector_id: str):
+    cid = connector_id.lower().strip()
+    db = get_db()
+    await db.execute("DELETE FROM integrations WHERE id = ?", (cid,))
+    await db.commit()
+    await _audit_log("USER", "connection_remove", channel="settings", target_id=cid)
+    return {"ok": True, "connector": cid, "connected": False}
+
+
+# ── Screen Awareness (P3 — local capture/analyze status) ─────────────────────
+
+@app.get("/api/screen/status")
+async def screen_status():
+    """Returns capability status: whether the OS supports capture + analyzer model present."""
+    import shutil
+    has_mss = False
+    try:
+        import mss  # noqa: F401
+        has_mss = True
+    except Exception:
+        pass
+    # Ollama reachable?
+    has_ollama = False
+    try:
+        import urllib.request as _u
+        req = _u.Request("http://localhost:11434/api/tags", method="GET")
+        with _u.urlopen(req, timeout=2) as r:
+            has_ollama = r.status == 200
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "capture_available": has_mss,
+        "analyzer_available": has_ollama,
+        "recommended_model": "gemma3:4b" if has_ollama else None,
+        "permission_note": "Screen capture solo se ejecuta cuando el usuario lo pide. La imagen NO sale del equipo.",
+        "setup_hint": None if (has_mss and has_ollama) else (
+            "Para activar Screen Awareness: instalar mss (pip install mss) y arrancar Ollama con un modelo de visión (ollama pull gemma3:4b)."
+        ),
+    }
+
+
+# ── Screen Intelligence: capture + analyze + history (real impl) ─────────────
+
+# We persist screen captures as a thumbnail in user_notifications-adjacent table
+# Lightweight: keep a small ring buffer in memory + base64 thumbnails on disk.
+import base64 as _b64
+from io import BytesIO as _BytesIO
+from pathlib import Path as _Path
+
+_SCREEN_DIR = _Path.home() / ".config" / "soul-companion" / "screen_captures"
+_SCREEN_RING_MAX = 30
+
+
+def _screen_dir_ready() -> _Path:
+    _SCREEN_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(_SCREEN_DIR, 0o700)
+    except Exception:
+        pass
+    return _SCREEN_DIR
+
+
+class ScreenAnalyzeBody(BaseModel):
+    image_id: Optional[str] = None  # if omitted, captures fresh
+    prompt: str = "Describe what's on the screen in 2-3 sentences. Be specific."
+    model: str = "gemma3:4b"
+
+
+@app.post("/api/screen/capture")
+async def screen_capture():
+    """Capture current screen, save as PNG under user config, return id+thumbnail b64."""
+    try:
+        import mss
+        from PIL import Image
+    except ImportError as e:
+        raise HTTPException(status_code=503, detail=f"capture deps missing: {e}")
+
+    from datetime import datetime as _dt
+    sd = _screen_dir_ready()
+    image_id = _dt.now().strftime("%Y%m%dT%H%M%S")
+    path = sd / f"{image_id}.png"
+    thumb_path = sd / f"{image_id}.thumb.png"
+
+    def _do_capture() -> tuple[int, int]:
+        with mss.mss() as sct:
+            mon = sct.monitors[1]
+            raw = sct.grab(mon)
+            img = Image.frombytes("RGB", raw.size, raw.rgb)
+            img.save(path, "PNG", optimize=True)
+            thumb = img.copy()
+            thumb.thumbnail((320, 240))
+            thumb.save(thumb_path, "PNG", optimize=True)
+            return img.size
+
+    try:
+        w, h = await asyncio.to_thread(_do_capture)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"capture failed: {e}")
+
+    # Read thumbnail b64
+    thumb_b64 = _b64.b64encode(thumb_path.read_bytes()).decode("ascii")
+
+    # Trim ring buffer (oldest first)
+    pngs = sorted(sd.glob("*.png"))
+    full_pngs = [p for p in pngs if not p.name.endswith(".thumb.png")]
+    excess = len(full_pngs) - _SCREEN_RING_MAX
+    if excess > 0:
+        for old in full_pngs[:excess]:
+            old.unlink(missing_ok=True)
+            old.with_suffix(".thumb.png").unlink(missing_ok=True)
+
+    await _audit_log("USER", "screen_capture", channel="local",
+                     target_id=image_id, metadata={"size": f"{w}x{h}"})
+    return {
+        "ok": True, "image_id": image_id, "width": w, "height": h,
+        "thumbnail_b64": thumb_b64, "path": str(path),
+    }
+
+
+@app.post("/api/screen/analyze")
+async def screen_analyze(body: ScreenAnalyzeBody):
+    """Send a captured screen to local Ollama vision model and get description."""
+    sd = _screen_dir_ready()
+    if body.image_id:
+        path = sd / f"{body.image_id}.png"
+        if not path.exists():
+            raise HTTPException(status_code=404, detail=f"image not found: {body.image_id}")
+    else:
+        # capture fresh
+        cap = await screen_capture()
+        path = _Path(cap["path"])
+        body.image_id = cap["image_id"]
+
+    image_b64 = _b64.b64encode(path.read_bytes()).decode("ascii")
+
+    import urllib.request as _u
+    payload = json.dumps({
+        "model": body.model,
+        "prompt": body.prompt,
+        "images": [image_b64],
+        "stream": False,
+    }).encode()
+    try:
+        req = _u.Request("http://localhost:11434/api/generate",
+                         data=payload, headers={"Content-Type": "application/json"},
+                         method="POST")
+        with _u.urlopen(req, timeout=120) as r:
+            data = json.loads(r.read())
+        description = data.get("response", "").strip()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"analyzer failed: {e}")
+
+    await _audit_log("USER", "screen_analyze", channel="local",
+                     target_id=body.image_id,
+                     metadata={"model": body.model, "chars": len(description)},
+                     provider_used="ollama")
+    return {
+        "ok": True, "image_id": body.image_id, "model": body.model,
+        "description": description,
+    }
+
+
+@app.get("/api/screen/history")
+async def screen_history(limit: int = 20):
+    """List recent captures (id, timestamp, thumbnail path)."""
+    sd = _screen_dir_ready()
+    pngs = sorted([p for p in sd.glob("*.png") if not p.name.endswith(".thumb.png")], reverse=True)
+    items = []
+    for p in pngs[:limit]:
+        thumb = p.with_suffix(".thumb.png")
+        items.append({
+            "image_id": p.stem,
+            "captured_at": p.stem,
+            "has_thumbnail": thumb.exists(),
+            "size_bytes": p.stat().st_size,
+        })
+    return {"ok": True, "captures": items, "count": len(items)}
+
+
+@app.get("/api/screen/thumbnail/{image_id}")
+async def screen_thumbnail(image_id: str):
+    """Return thumbnail PNG for a captured image."""
+    sd = _screen_dir_ready()
+    thumb = sd / f"{image_id}.thumb.png"
+    if not thumb.exists():
+        raise HTTPException(status_code=404, detail="thumbnail not found")
+    from fastapi.responses import Response
+    return Response(content=thumb.read_bytes(), media_type="image/png")
+
+
+@app.delete("/api/screen/capture/{image_id}")
+async def screen_delete(image_id: str):
+    sd = _screen_dir_ready()
+    p = sd / f"{image_id}.png"
+    t = sd / f"{image_id}.thumb.png"
+    deleted = 0
+    for f in (p, t):
+        if f.exists():
+            f.unlink()
+            deleted += 1
+    return {"ok": True, "image_id": image_id, "files_deleted": deleted}
+
+
+# ── TokenJuice rules (P5 — context compression manager) ──────────────────────
+
+_TOKENJUICE_BUILTIN_RULES = [
+    {"id": "git_status_strip", "label": "Limpiar 'git status' largo",
+     "pattern": r"^On branch.*\n\nnothing to commit", "category": "git"},
+    {"id": "npm_install_quiet", "label": "Quitar ruido de npm install",
+     "pattern": r"npm warn deprecated.*", "category": "npm"},
+    {"id": "docker_pull_progress", "label": "Quitar progreso de docker pull",
+     "pattern": r"\w+: Pulling fs layer.*", "category": "docker"},
+    {"id": "ansi_color_codes", "label": "Quitar códigos de color ANSI",
+     "pattern": r"\x1b\[[0-9;]*m", "category": "shell"},
+    {"id": "trailing_whitespace", "label": "Quitar espacios al final de líneas",
+     "pattern": r"[ \t]+$", "category": "format"},
+]
+
+
+@app.get("/api/tokenjuice/rules")
+async def tokenjuice_rules():
+    """List active compression rules (user-friendly view of TokenJuice config)."""
+    return {
+        "ok": True,
+        "rules": _TOKENJUICE_BUILTIN_RULES,
+        "count": len(_TOKENJUICE_BUILTIN_RULES),
+        "user_friendly_label": "Reducir ruido del contexto",
+    }
+
+
+class TokenjuiceCompactBody(BaseModel):
+    text: str
+
+
+@app.post("/api/tokenjuice/compact")
+async def tokenjuice_compact(body: TokenjuiceCompactBody):
+    """Apply all builtin rules to compress text. Returns the compacted result + savings."""
+    import re as _re
+    src = body.text or ""
+    out = src
+    applied = []
+    for rule in _TOKENJUICE_BUILTIN_RULES:
+        try:
+            new, n = _re.subn(rule["pattern"], "", out, flags=_re.MULTILINE | _re.IGNORECASE)
+            if n > 0:
+                out = new
+                applied.append({"rule": rule["id"], "matches": n})
+        except Exception:
+            continue
+    return {
+        "ok": True,
+        "input_chars": len(src),
+        "output_chars": len(out),
+        "savings_pct": round((1 - len(out) / max(len(src), 1)) * 100, 1),
+        "rules_applied": applied,
+        "output": out,
+    }
+
+
+# ── Cron Jobs (visible schedules — P3 OpenHuman doc 43) ─────────────────────
+
+class CronCreateBody(BaseModel):
+    name: str
+    cron_expression: str
+    handler: str
+    agent: Optional[str] = None
+    enabled: bool = True
+
+
+@app.get("/api/cron-jobs")
+async def cron_jobs_list():
+    db = get_db()
+    rows = await db.execute_fetchall(
+        """SELECT id, name, agent, cron_expression, handler, enabled,
+                  last_run_at, next_run_at, created_by, created_at
+           FROM cron_jobs ORDER BY enabled DESC, name ASC"""
+    )
+    return {"ok": True, "jobs": [dict(r) for r in rows], "count": len(rows)}
+
+
+@app.post("/api/cron-jobs")
+async def cron_jobs_create(body: CronCreateBody):
+    if not body.name.strip() or not body.cron_expression.strip() or not body.handler.strip():
+        raise HTTPException(status_code=400, detail="name, cron_expression, handler required")
+    db = get_db()
+    try:
+        cur = await db.execute(
+            """INSERT INTO cron_jobs (name, agent, cron_expression, handler, enabled, created_by)
+               VALUES (?, ?, ?, ?, ?, 'USER')""",
+            (body.name.strip(), body.agent, body.cron_expression.strip(),
+             body.handler.strip(), 1 if body.enabled else 0),
+        )
+        await db.commit()
+        return {"ok": True, "id": cur.lastrowid, "name": body.name}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/cron-jobs/{job_id}")
+async def cron_jobs_delete(job_id: int):
+    db = get_db()
+    await db.execute("DELETE FROM cron_jobs WHERE id = ?", (job_id,))
+    await db.commit()
+    return {"ok": True, "id": job_id}
+
+
+@app.post("/api/cron-jobs/{job_id}/toggle")
+async def cron_jobs_toggle(job_id: int):
+    db = get_db()
+    await db.execute(
+        "UPDATE cron_jobs SET enabled = 1 - enabled WHERE id = ?",
+        (job_id,),
+    )
+    await db.commit()
+    return {"ok": True, "id": job_id}
 
 
 # ── Static UI serving (production) ───────────────────────────────────────────

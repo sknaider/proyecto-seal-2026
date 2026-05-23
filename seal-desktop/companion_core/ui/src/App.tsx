@@ -13,30 +13,36 @@ import HumanView from './views/HumanView'
 import ConnectionsView from './views/ConnectionsView'
 import MemoryTreeView from './views/MemoryTreeView'
 import RewardsView from './views/RewardsView'
+import ScreenView from './views/ScreenView'
+import TokenJuiceView from './views/TokenJuiceView'
+import SubAgentsView from './views/SubAgentsView'
 import { HomeView } from './components/HomeView'
 import { FirstRunWizard } from './components/FirstRunWizard'
-import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift } from 'lucide-react'
+import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift, Monitor, Filter, Users } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
-type View = 'home' | 'human' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
+type View = 'home' | 'human' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'screen' | 'tokenjuice' | 'subagents' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
 
 const NAV = [
-  { id: 'home',        icon: Home,          label: 'Home' },
+  { id: 'home',        icon: Home,          label: 'Inicio' },
   { id: 'human',       icon: Mic,           label: 'Voz' },
   { id: 'chat',        icon: MessageSquare, label: 'Chat' },
-  { id: 'memory',      icon: Brain,         label: 'Memory' },
-  { id: 'tree',        icon: TreePine,      label: 'Árbol' },
-  { id: 'dreams',      icon: Moon,          label: 'Dreams' },
-  { id: 'skills',      icon: Zap,           label: 'Skills' },
-  { id: 'goals',       icon: Target,        label: 'Goals' },
-  { id: 'connections', icon: Plug,          label: 'Conn' },
+  { id: 'memory',      icon: Brain,         label: 'Recuerdos' },
+  { id: 'tree',        icon: TreePine,      label: 'Resumen' },
+  { id: 'dreams',      icon: Moon,          label: 'Ideas' },
+  { id: 'skills',      icon: Zap,           label: 'Acciones' },
+  { id: 'subagents',   icon: Users,         label: 'Equipo' },
+  { id: 'goals',       icon: Target,        label: 'Metas' },
+  { id: 'connections', icon: Plug,          label: 'Conectar' },
+  { id: 'screen',      icon: Monitor,       label: 'Pantalla' },
+  { id: 'tokenjuice',  icon: Filter,        label: 'Contexto' },
   { id: 'rewards',     icon: Gift,          label: 'Recomp.' },
-  { id: 'notifs',      icon: Bell,          label: 'Alerts' },
+  { id: 'notifs',      icon: Bell,          label: 'Avisos' },
   { id: 'privacy',     icon: Shield,        label: 'Privacidad' },
-  { id: 'ai',          icon: Cpu,           label: 'AI' },
-  { id: 'audit',       icon: ClipboardList, label: 'Actividad' },
-  { id: 'settings',    icon: Settings,      label: 'Config' },
+  { id: 'ai',          icon: Cpu,           label: 'Cerebro' },
+  { id: 'audit',       icon: ClipboardList, label: 'Historial' },
+  { id: 'settings',    icon: Settings,      label: 'Ajustes' },
 ] as const
 
 const EMOTION_EMOJI: Record<string, string> = {
@@ -101,7 +107,7 @@ export default function App() {
       <header className="flex items-center justify-between px-4 py-2 border-b border-seal-border shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-blue-400 font-bold text-sm tracking-widest">SEAL</span>
-          <span className="text-seal-muted text-xs">companion</span>
+          <span className="text-seal-muted text-xs">asistente personal</span>
         </div>
         <div className="flex items-center gap-3">
           {/* Agent name + emotion */}
@@ -110,7 +116,7 @@ export default function App() {
             <span className="text-xs text-slate-300">{agentName}</span>
             <span className="text-xs text-seal-muted capitalize">{emotion}</span>
           </div>
-          {userName && <span className="text-xs text-seal-muted">Hi, {userName}</span>}
+          {userName && <span className="text-xs text-seal-muted">Hola, {userName}</span>}
         </div>
       </header>
 
@@ -120,6 +126,9 @@ export default function App() {
         {view === 'human'       && <HumanView />}
         {view === 'chat'        && <ChatView onMessageSent={refreshEmotion} />}
         {view === 'connections' && <ConnectionsView />}
+        {view === 'screen'      && <ScreenView />}
+        {view === 'tokenjuice'  && <TokenJuiceView />}
+        {view === 'subagents'   && <SubAgentsView />}
         {view === 'rewards'     && <RewardsView />}
         {view === 'memory'      && <MemoryView />}
         {view === 'tree'        && <MemoryTreeView />}
@@ -134,17 +143,17 @@ export default function App() {
       </main>
 
       {/* Bottom nav */}
-      <nav className="flex border-t border-seal-border shrink-0">
+      <nav className="flex border-t border-seal-border shrink-0 overflow-x-auto">
         {NAV.map(({ id, icon: Icon, label }) => (
           <button
             key={id}
             onClick={() => setView(id as View)}
-            className={`flex-1 flex flex-col items-center gap-1 py-2 text-xs transition-colors ${
+            className={`min-w-[72px] sm:min-w-0 sm:flex-1 shrink-0 flex flex-col items-center gap-1 py-2 text-[11px] sm:text-xs transition-colors ${
               view === id ? 'text-blue-400' : 'text-seal-muted hover:text-slate-300'
             }`}
           >
             <Icon size={18} />
-            {label}
+            <span className="whitespace-nowrap">{label}</span>
           </button>
         ))}
       </nav>
