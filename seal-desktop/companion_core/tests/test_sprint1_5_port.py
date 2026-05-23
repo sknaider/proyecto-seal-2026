@@ -172,6 +172,17 @@ async def test_memory_tree_rebuild_rejects_unknown_level():
         assert r.status_code == 400
 
 
+@pytest.mark.asyncio
+async def test_unknown_api_endpoint_returns_user_friendly_404():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.get("/api/inexistente")
+        assert r.status_code == 404
+        d = r.json()
+        assert d["error"] == "endpoint no encontrado"
+        assert "/api/health" in d["available"]
+        assert d["path"] == "/api/inexistente"
+
+
 # ─── P2 — Connections ────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

@@ -27,7 +27,7 @@ async def _memory_tree_periodic():
     while True:
         try:
             from companion_core.memory_tree_builder import build_all
-            await build_all(agent="SOUL")
+            await build_all(agent="USER")
         except Exception:
             pass
         await asyncio.sleep(3600)
@@ -2947,6 +2947,7 @@ async def api_friendly_404(request: _Req, exc):
             "error": "endpoint no encontrado",
             "path": path,
             "hint": "Verifica el método HTTP y la ruta. Endpoints disponibles más abajo.",
+            "available": routes[:5],
             "available_examples": routes,
         },
     )

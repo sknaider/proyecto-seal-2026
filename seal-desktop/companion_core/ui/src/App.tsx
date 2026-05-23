@@ -1,32 +1,35 @@
-import { useState, useEffect } from 'react'
-import ChatView from './views/ChatView'
-import MemoryView from './views/MemoryView'
-import SkillsView from './views/SkillsView'
-import GoalsView from './views/GoalsView'
-import SettingsView from './views/SettingsView'
-import DreamsView from './views/DreamsView'
-import PrivacyView from './views/PrivacyView'
-import NotificationsView from './views/NotificationsView'
-import AIBackendView from './views/AIBackendView'
-import AuditLogView from './views/AuditLogView'
-import HumanView from './views/HumanView'
-import ConnectionsView from './views/ConnectionsView'
-import MemoryTreeView from './views/MemoryTreeView'
-import RewardsView from './views/RewardsView'
-import ScreenView from './views/ScreenView'
-import TokenJuiceView from './views/TokenJuiceView'
-import SubAgentsView from './views/SubAgentsView'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { HomeView } from './components/HomeView'
 import { FirstRunWizard } from './components/FirstRunWizard'
-import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift, Monitor, Filter, Users } from 'lucide-react'
+import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift, Monitor, Filter, Users, Palette } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
-type View = 'home' | 'human' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'screen' | 'tokenjuice' | 'subagents' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
+const ChatView = lazy(() => import('./views/ChatView'))
+const MemoryView = lazy(() => import('./views/MemoryView'))
+const SkillsView = lazy(() => import('./views/SkillsView'))
+const GoalsView = lazy(() => import('./views/GoalsView'))
+const SettingsView = lazy(() => import('./views/SettingsView'))
+const DreamsView = lazy(() => import('./views/DreamsView'))
+const PrivacyView = lazy(() => import('./views/PrivacyView'))
+const NotificationsView = lazy(() => import('./views/NotificationsView'))
+const AIBackendView = lazy(() => import('./views/AIBackendView'))
+const AuditLogView = lazy(() => import('./views/AuditLogView'))
+const HumanView = lazy(() => import('./views/HumanView'))
+const AvatarView = lazy(() => import('./views/AvatarView'))
+const ConnectionsView = lazy(() => import('./views/ConnectionsView'))
+const MemoryTreeView = lazy(() => import('./views/MemoryTreeView'))
+const RewardsView = lazy(() => import('./views/RewardsView'))
+const ScreenView = lazy(() => import('./views/ScreenView'))
+const TokenJuiceView = lazy(() => import('./views/TokenJuiceView'))
+const SubAgentsView = lazy(() => import('./views/SubAgentsView'))
+
+type View = 'home' | 'human' | 'avatar' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'screen' | 'tokenjuice' | 'subagents' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
 
 const NAV = [
   { id: 'home',        icon: Home,          label: 'Inicio' },
   { id: 'human',       icon: Mic,           label: 'Voz' },
+  { id: 'avatar',      icon: Palette,       label: 'Avatar' },
   { id: 'chat',        icon: MessageSquare, label: 'Chat' },
   { id: 'memory',      icon: Brain,         label: 'Recuerdos' },
   { id: 'tree',        icon: TreePine,      label: 'Resumen' },
@@ -132,24 +135,27 @@ export default function App() {
 
       {/* Main content */}
       <main className="flex-1 overflow-hidden">
-        {view === 'home'        && <HomeView agentName={agentName} userName={userName} emotion={emotion} onStartChat={() => setView('chat')} />}
-        {view === 'human'       && <HumanView />}
-        {view === 'chat'        && <ChatView onMessageSent={refreshEmotion} />}
-        {view === 'connections' && <ConnectionsView />}
-        {view === 'screen'      && <ScreenView />}
-        {view === 'tokenjuice'  && <TokenJuiceView />}
-        {view === 'subagents'   && <SubAgentsView />}
-        {view === 'rewards'     && <RewardsView />}
-        {view === 'memory'      && <MemoryView />}
-        {view === 'tree'        && <MemoryTreeView />}
-        {view === 'dreams'   && <DreamsView />}
-        {view === 'skills'   && <SkillsView onUseSkill={(prompt) => { setView('chat'); window.dispatchEvent(new CustomEvent('inject-prompt', { detail: prompt })) }} />}
-        {view === 'goals'    && <GoalsView />}
-        {view === 'notifs'   && <NotificationsView />}
-        {view === 'privacy'  && <PrivacyView />}
-        {view === 'ai'       && <AIBackendView />}
-        {view === 'audit'    && <AuditLogView />}
-        {view === 'settings' && <SettingsView onSaved={(n) => setUserName(n)} onAgentSaved={(n) => setAgentName(n)} />}
+        <Suspense fallback={<div className="flex h-full items-center justify-center bg-seal-bg text-sm text-seal-muted">Cargando vista...</div>}>
+          {view === 'home'        && <HomeView agentName={agentName} userName={userName} emotion={emotion} onStartChat={() => setView('chat')} />}
+          {view === 'human'       && <HumanView />}
+          {view === 'avatar'      && <AvatarView />}
+          {view === 'chat'        && <ChatView onMessageSent={refreshEmotion} />}
+          {view === 'connections' && <ConnectionsView />}
+          {view === 'screen'      && <ScreenView />}
+          {view === 'tokenjuice'  && <TokenJuiceView />}
+          {view === 'subagents'   && <SubAgentsView />}
+          {view === 'rewards'     && <RewardsView />}
+          {view === 'memory'      && <MemoryView />}
+          {view === 'tree'        && <MemoryTreeView />}
+          {view === 'dreams'      && <DreamsView />}
+          {view === 'skills'      && <SkillsView onUseSkill={(prompt) => { setView('chat'); window.dispatchEvent(new CustomEvent('inject-prompt', { detail: prompt })) }} />}
+          {view === 'goals'       && <GoalsView />}
+          {view === 'notifs'      && <NotificationsView />}
+          {view === 'privacy'     && <PrivacyView />}
+          {view === 'ai'          && <AIBackendView />}
+          {view === 'audit'       && <AuditLogView />}
+          {view === 'settings'    && <SettingsView onSaved={(n) => setUserName(n)} onAgentSaved={(n) => setAgentName(n)} />}
+        </Suspense>
       </main>
 
       {/* Bottom nav */}

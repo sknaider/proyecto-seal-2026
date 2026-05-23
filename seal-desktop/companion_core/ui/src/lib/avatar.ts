@@ -1,0 +1,27 @@
+import type { MascotAccessory, MascotMotion, MascotVariant } from '../components/SoulMascot'
+
+export interface AvatarProfile {
+  variant: MascotVariant
+  primary_color: string
+  secondary_color: string
+  accent_color: string
+  accessory: MascotAccessory
+  motion: MascotMotion
+}
+
+export const DEFAULT_AVATAR: AvatarProfile = {
+  variant: 'orb',
+  primary_color: '#a78bfa',
+  secondary_color: '#7c3aed',
+  accent_color: '#fb7185',
+  accessory: 'none',
+  motion: 'normal',
+}
+
+export const AVATAR_PALETTES = [
+  { name: 'Violeta', primary_color: '#a78bfa', secondary_color: '#7c3aed', accent_color: '#fb7185' },
+  { name: 'Menta', primary_color: '#14b8a6', secondary_color: '#0f766e', accent_color: '#f59e0b' },
+  { name: 'Azul', primary_color: '#60a5fa', secondary_color: '#2563eb', accent_color: '#f472b6' },
+  { name: 'Ambar', primary_color: '#f59e0b', secondary_color: '#b45309', accent_color: '#38bdf8' },
+] as const
+

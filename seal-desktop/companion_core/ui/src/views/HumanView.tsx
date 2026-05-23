@@ -1,32 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { API } from '../App'
-import { SoulMascot, type MascotAccessory, type MascotMotion, type MascotState, type MascotVariant } from '../components/SoulMascot'
-import { Mic, MicOff, Volume2, VolumeX, Palette } from 'lucide-react'
+import { SoulMascot, type MascotState } from '../components/SoulMascot'
+import { DEFAULT_AVATAR, type AvatarProfile } from '../lib/avatar'
+import { Mic, MicOff, Volume2, VolumeX } from 'lucide-react'
 
 interface Msg { role: 'user' | 'assistant' | string; content: string; ts?: string }
-interface AvatarProfile {
-  variant: MascotVariant
-  primary_color: string
-  secondary_color: string
-  accent_color: string
-  accessory: MascotAccessory
-  motion: MascotMotion
-}
-
-const DEFAULT_AVATAR: AvatarProfile = {
-  variant: 'orb',
-  primary_color: '#a78bfa',
-  secondary_color: '#7c3aed',
-  accent_color: '#fb7185',
-  accessory: 'none',
-  motion: 'normal',
-}
-const PALETTES = [
-  { name: 'Violeta', primary_color: '#a78bfa', secondary_color: '#7c3aed', accent_color: '#fb7185' },
-  { name: 'Menta', primary_color: '#14b8a6', secondary_color: '#0f766e', accent_color: '#f59e0b' },
-  { name: 'Azul', primary_color: '#60a5fa', secondary_color: '#2563eb', accent_color: '#f472b6' },
-  { name: 'Ambar', primary_color: '#f59e0b', secondary_color: '#b45309', accent_color: '#38bdf8' },
-]
 
 /**
  * HumanView — voice-first chat con el SoulMascot grande.
@@ -43,7 +21,6 @@ export default function HumanView() {
   const [transcript, setTranscript] = useState('')
   const [supported, setSupported] = useState<boolean>(false)
   const [avatar, setAvatar] = useState<AvatarProfile>(DEFAULT_AVATAR)
-  const [avatarMessage, setAvatarMessage] = useState('')
   const recognitionRef = useRef<any>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -126,25 +103,6 @@ export default function HumanView() {
     }
   }
 
-  const saveAvatar = async (patch: Partial<AvatarProfile>) => {
-    const next = { ...avatar, ...patch }
-    setAvatar(next)
-    setAvatarMessage('')
-    try {
-      const r = await fetch(`${API}/api/avatar/profile`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      })
-      if (!r.ok) throw new Error(`HTTP ${r.status}`)
-      const d = await r.json()
-      setAvatar(d.avatar || next)
-      setAvatarMessage('Guardado')
-    } catch {
-      setAvatarMessage('No se pudo guardar')
-    }
-  }
-
   const mascotState: MascotState = listening ? 'listening' : thinking ? 'thinking' : 'idle'
 
   return (
@@ -171,59 +129,6 @@ export default function HumanView() {
         {transcript && (
           <p className="mt-3 text-xs text-violet-600 italic max-w-md text-center px-4">"{transcript}"</p>
         )}
-
-        <div className="mt-5 w-full max-w-md rounded-lg border border-stone-200 bg-white/80 p-3 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Palette className="w-4 h-4 text-violet-500" />
-              <h2 className="text-sm font-semibold text-slate-800">Avatar</h2>
-            </div>
-            {avatarMessage && <span className="text-[11px] text-slate-500">{avatarMessage}</span>}
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {(['orb', 'leaf', 'spark'] as MascotVariant[]).map(v => (
-              <button
-                key={v}
-                onClick={() => void saveAvatar({ variant: v })}
-                className={`rounded border px-2 py-1.5 text-xs capitalize ${avatar.variant === v ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-stone-200 text-slate-600'}`}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-          <div className="mt-2 flex gap-2">
-            {PALETTES.map(palette => (
-              <button
-                key={palette.name}
-                onClick={() => void saveAvatar(palette)}
-                className="h-8 flex-1 rounded border border-stone-200"
-                title={palette.name}
-                style={{ background: `linear-gradient(90deg, ${palette.primary_color}, ${palette.secondary_color} 60%, ${palette.accent_color})` }}
-              />
-            ))}
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <select
-              value={avatar.accessory}
-              onChange={e => void saveAvatar({ accessory: e.target.value as MascotAccessory })}
-              className="rounded border border-stone-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none"
-            >
-              <option value="none">Sin accesorio</option>
-              <option value="halo">Halo</option>
-              <option value="headset">Headset</option>
-              <option value="badge">Badge</option>
-            </select>
-            <select
-              value={avatar.motion}
-              onChange={e => void saveAvatar({ motion: e.target.value as MascotMotion })}
-              className="rounded border border-stone-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none"
-            >
-              <option value="calm">Calma</option>
-              <option value="normal">Normal</option>
-              <option value="expressive">Expresiva</option>
-            </select>
-          </div>
-        </div>
       </div>
 
       {/* Chat lateral + controles */}
