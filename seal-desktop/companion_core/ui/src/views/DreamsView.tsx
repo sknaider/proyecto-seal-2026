@@ -44,13 +44,13 @@ export default function DreamsView() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-blue-500" />
-            <h1 className="text-xl font-semibold text-slate-800">Sueños</h1>
-            <span className="text-xs text-seal-muted">narrativa consolidada 2x/día</span>
+            <h1 className="text-xl font-semibold text-slate-800">Ideas</h1>
+            <span className="text-xs text-seal-muted">resúmenes útiles de SEAL</span>
           </div>
           <button
             onClick={load}
             className="p-1.5 rounded border border-seal-border hover:border-blue-400 text-seal-muted hover:text-blue-500"
-            title="Refresh"
+            title="Actualizar"
             disabled={loading}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -59,8 +59,7 @@ export default function DreamsView() {
 
         {!loading && dreams.length === 0 && (
           <div className="text-center py-12 text-seal-muted text-sm">
-            Aún no hay sueños. El cron 7AM y 11PM Lima los generará automáticamente,
-            o probá `python3 memory/dream_cycle.py --agent SOUL --cycle morning`.
+            Aún no hay ideas guardadas. SEAL las creará cuando tenga suficiente actividad para resumir.
           </div>
         )}
 

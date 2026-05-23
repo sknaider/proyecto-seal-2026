@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { SoulMascot, type MascotState } from './SoulMascot'
+import { SoulMascot, type MascotAccessory, type MascotMotion, type MascotState, type MascotVariant } from './SoulMascot'
 
 const API = 'http://localhost:8769'
 
@@ -10,6 +10,24 @@ interface HomeViewProps {
   onStartChat?: () => void
 }
 
+interface AvatarProfile {
+  variant: MascotVariant
+  primary_color: string
+  secondary_color: string
+  accent_color: string
+  accessory: MascotAccessory
+  motion: MascotMotion
+}
+
+const DEFAULT_AVATAR: AvatarProfile = {
+  variant: 'orb',
+  primary_color: '#a78bfa',
+  secondary_color: '#7c3aed',
+  accent_color: '#fb7185',
+  accessory: 'none',
+  motion: 'normal',
+}
+
 /**
  * HomeView — SEAL App entry screen.
  *
@@ -17,30 +35,33 @@ interface HomeViewProps {
  *   • Left: SoulMascot (animated)
  *   • Right: status card + quick CTAs
  *
- * Mirrors doc 13 (Home post-onboarding) but with SEAL branding + Local
- * recommended messaging instead of cloud credits push.
+ * Mirrors doc 13 (Home post-onboarding) with SEAL local-first positioning.
  */
 export function HomeView({ agentName = 'SEAL', userName = '', emotion = 'calm', onStartChat }: HomeViewProps) {
-  const [model, setModel] = useState<string>('GEMMA 4 local')
+  const [model] = useState<string>('GEMMA 4 local')
   const [unread, setUnread] = useState<number>(0)
-  const [creditsHint, setCreditsHint] = useState<string>('Local · sin costo')
+  const [localityHint, setLocalityHint] = useState<string>('Local · sin costo')
+  const [avatar, setAvatar] = useState<AvatarProfile>(DEFAULT_AVATAR)
 
   useEffect(() => {
-    fetch(`${API}/api/companion/status`).then(r => r.json()).then(d => {
-      if (d?.model) setModel(d.model)
-      if (typeof d?.unread === 'number') setUnread(d.unread)
-      if (d?.credits_hint) setCreditsHint(d.credits_hint)
+    fetch(`${API}/api/health`).then(r => r.json()).then(d => {
+      if (typeof d?.stats?.messages === 'number') setUnread(d.stats.messages)
+      if (d?.status === 'ok') setLocalityHint('Local · sin costo')
     }).catch(() => {})
+    fetch(`${API}/api/avatar/profile`)
+      .then(r => r.json())
+      .then(d => { if (d?.avatar) setAvatar(d.avatar) })
+      .catch(() => {})
   }, [])
 
   const mascotState: MascotState = mapEmotion(emotion)
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-[#0a0814] to-[#13102b] text-gray-100">
-      {/* Optional top promo banner — replaces OpenHuman's $0.24 credits with honest local message */}
+      {/* Local-first status banner. */}
       <div className="px-4 py-2 text-xs text-violet-300/90 bg-violet-950/40 border-b border-violet-900/60 flex items-center justify-center gap-2">
         <span>🟣</span>
-        <span>{creditsHint}</span>
+        <span>{localityHint}</span>
         <span className="text-violet-300/50">·</span>
         <span className="text-violet-300/70">{model}</span>
       </div>
@@ -48,7 +69,17 @@ export function HomeView({ agentName = 'SEAL', userName = '', emotion = 'calm', 
       <div className="flex-1 flex flex-col md:flex-row items-center justify-center px-6 py-8 gap-6 md:gap-12 overflow-y-auto">
         {/* Left: mascot */}
         <div className="flex-shrink-0">
-          <SoulMascot state={mascotState} size={260} name={agentName} />
+          <SoulMascot
+            state={mascotState}
+            size={260}
+            name={agentName}
+            variant={avatar.variant}
+            primaryColor={avatar.primary_color}
+            secondaryColor={avatar.secondary_color}
+            accentColor={avatar.accent_color}
+            accessory={avatar.accessory}
+            motion={avatar.motion}
+          />
         </div>
 
         {/* Right: status card + CTA */}

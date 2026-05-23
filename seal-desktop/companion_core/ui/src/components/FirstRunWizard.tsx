@@ -202,7 +202,7 @@ function StepConfirm({ name, agentName, preset, loading, err, onBack, onFinish }
         <p><span className="text-slate-500">Personalidad:</span> <strong className="text-slate-800">{presetMeta?.emoji} {presetMeta?.label}</strong></p>
       </div>
       <p className="text-xs text-slate-500 max-w-md">
-        Tu SEAL guarda todo en tu equipo (SQLite local). Podés cambiar estas decisiones desde Ajustes en cualquier momento.
+        Tu SEAL guarda todo en este equipo. Puedes cambiar estas decisiones desde Ajustes en cualquier momento.
       </p>
       {err && <p className="text-xs text-red-500">{err}</p>}
       <div className="flex justify-between w-full max-w-md">

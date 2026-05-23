@@ -166,6 +166,24 @@ END""",
 )""",
     "CREATE INDEX IF NOT EXISTS memory_tree_lookup_idx ON memory_tree (agent, level, bucket_start DESC)",
 
+    """CREATE TABLE IF NOT EXISTS tokenjuice_rules (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    pattern TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'custom',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    builtin INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+)""",
+    """CREATE TABLE IF NOT EXISTS tokenjuice_rule_stats (
+    rule_id TEXT PRIMARY KEY,
+    match_count INTEGER NOT NULL DEFAULT 0,
+    chars_saved INTEGER NOT NULL DEFAULT 0,
+    last_used_at TEXT,
+    FOREIGN KEY (rule_id) REFERENCES tokenjuice_rules(id) ON DELETE CASCADE
+)""",
+
     """CREATE TABLE IF NOT EXISTS agent_capabilities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     agent TEXT NOT NULL UNIQUE,

@@ -45,12 +45,22 @@ const NAV = [
   { id: 'settings',    icon: Settings,      label: 'Ajustes' },
 ] as const
 
+const VIEW_IDS = new Set<View>(NAV.map(item => item.id as View))
+
+function initialView(): View {
+  try {
+    const requested = new URLSearchParams(window.location.search).get('view') as View | null
+    if (requested && VIEW_IDS.has(requested)) return requested
+  } catch {}
+  return 'home'
+}
+
 const EMOTION_EMOJI: Record<string, string> = {
   calm: '😌', energetic: '⚡', focused: '🎯', reflective: '💭', satisfied: '✨',
 }
 
 export default function App() {
-  const [view, setView] = useState<View>('home')
+  const [view, setView] = useState<View>(initialView)
   const [userName, setUserName] = useState('')
   const [agentName, setAgentName] = useState('SEAL')
   const [emotion, setEmotion] = useState('calm')

@@ -28,8 +28,8 @@ Mientras tanto, ¿en qué quieres enfocarte hoy? Puedo ayudarte a organizarte, f
 const PLACEHOLDER = { en: 'Type a message…', es: 'Escribe un mensaje…' }
 const SHIFT_HINT  = { en: 'Shift+Enter for newline', es: 'Mayús+Enter para nueva línea' }
 const CONN_ERR    = {
-  en: '⚠️ Connection error — check companion_core is running.',
-  es: '⚠️ Error de conexión — verifica que companion_core esté corriendo.',
+  en: '⚠️ I could not connect. Close and reopen SEAL App; if it keeps failing, open Settings.',
+  es: '⚠️ No pude conectarme. Cierra y abre SEAL App; si sigue fallando, abre Ajustes.',
 }
 
 export default function ChatArea({ threadId, agentName, lang, theme, onMessageSent }: Props) {

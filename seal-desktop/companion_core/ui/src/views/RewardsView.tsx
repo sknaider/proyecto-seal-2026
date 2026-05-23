@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react'
-import { API } from '../App'
 import { Gift, Flame, Award, Copy, Check, RefreshCw, Sparkles } from 'lucide-react'
 
 interface Achievement {
@@ -24,7 +23,7 @@ interface Snapshot {
   invite_codes: InviteCode[]
 }
 
-// Default mock until backend /api/rewards lands.
+// Local default until the rewards backend lands.
 const DEFAULT_SNAPSHOT: Snapshot = {
   plan: 'FREE',
   streak_days: 1,
@@ -56,13 +55,8 @@ export default function RewardsView() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    try {
-      const r = await fetch(`${API}/api/rewards`)
-      if (r.ok) {
-        const d = await r.json()
-        if (d?.snapshot) setSnap(d.snapshot)
-      }
-    } catch {/* mock fallback */} finally { setLoading(false) }
+    setSnap(DEFAULT_SNAPSHOT)
+    setLoading(false)
   }, [])
 
   useEffect(() => { void load() }, [load])

@@ -72,7 +72,7 @@ export default function SkillsView({ onUseSkill }: Props) {
         {skills.length === 0 && !showAdd && (
           <div className="flex flex-col items-center justify-center h-40 text-seal-muted text-sm gap-2">
             <div className="text-3xl">⚡</div>
-            <div>No skills yet — create one to supercharge your chat</div>
+            <div>Aún no hay acciones rápidas. Crea una para reutilizar instrucciones.</div>
           </div>
         )}
         {skills.map(s => {
@@ -104,7 +104,7 @@ export default function SkillsView({ onUseSkill }: Props) {
                   <p className="text-xs text-seal-muted font-mono bg-seal-bg p-2 rounded leading-relaxed whitespace-pre-wrap">{s.prompt_template}</p>
                   {vars.length > 0 && (
                     <div className="space-y-1">
-                      <p className="text-xs text-seal-muted">Fill variables:</p>
+                      <p className="text-xs text-seal-muted">Completa los datos:</p>
                       {vars.map(v => (
                         <div key={v} className="flex items-center gap-2">
                           <span className="text-xs text-blue-400 w-20 shrink-0">{'{'+v+'}'}</span>
@@ -123,14 +123,14 @@ export default function SkillsView({ onUseSkill }: Props) {
                   )}
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => deleteSkill(s.id)} className="flex items-center gap-1 px-2 py-1 text-xs text-seal-muted hover:text-red-400 transition-colors">
-                      <Trash2 size={12} /> Delete
+                      <Trash2 size={12} /> Borrar
                     </button>
                     <button
                       onClick={() => runSkill(s)}
                       disabled={!s.enabled}
                       className="flex items-center gap-1 px-3 py-1 text-xs bg-blue-600 hover:bg-blue-500 rounded-lg disabled:opacity-30 transition-colors"
                     >
-                      <Play size={12} /> Use in chat
+                      <Play size={12} /> Usar en chat
                     </button>
                   </div>
                 </div>
@@ -143,24 +143,24 @@ export default function SkillsView({ onUseSkill }: Props) {
       {/* Create skill form */}
       {showAdd && (
         <div className="border-t border-seal-border p-3 space-y-2 bg-seal-surface shrink-0">
-          <p className="text-xs text-seal-muted font-semibold uppercase tracking-wide">New Skill</p>
+          <p className="text-xs text-seal-muted font-semibold uppercase tracking-wide">Nueva acción rápida</p>
           <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            placeholder="Skill name *" className="w-full bg-seal-bg border border-seal-border rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-seal-muted outline-none" />
+            placeholder="Nombre *" className="w-full bg-seal-bg border border-seal-border rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-seal-muted outline-none" />
           <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Description" className="w-full bg-seal-bg border border-seal-border rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-seal-muted outline-none" />
+            placeholder="Descripción" className="w-full bg-seal-bg border border-seal-border rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-seal-muted outline-none" />
           <textarea value={form.prompt_template} onChange={e => setForm(f => ({ ...f, prompt_template: e.target.value }))}
-            placeholder="Prompt template * — use {variable} for inputs" rows={3}
+            placeholder="Instrucción reutilizable * — usa {dato} si necesitas completar algo" rows={3}
             className="w-full bg-seal-bg border border-seal-border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-seal-muted outline-none resize-none font-mono" />
           <div className="flex gap-2">
             <input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-              placeholder="Category" className="flex-1 bg-seal-bg border border-seal-border rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-seal-muted outline-none" />
+              placeholder="Tema" className="flex-1 bg-seal-bg border border-seal-border rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-seal-muted outline-none" />
             <input value={form.trigger_phrase} onChange={e => setForm(f => ({ ...f, trigger_phrase: e.target.value }))}
-              placeholder="Trigger phrase" className="flex-1 bg-seal-bg border border-seal-border rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-seal-muted outline-none" />
+              placeholder="Palabra para activarla" className="flex-1 bg-seal-bg border border-seal-border rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-seal-muted outline-none" />
           </div>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowAdd(false)} className="px-3 py-1 text-sm text-seal-muted hover:text-slate-300">Cancel</button>
+            <button onClick={() => setShowAdd(false)} className="px-3 py-1 text-sm text-seal-muted hover:text-slate-300">Cancelar</button>
             <button onClick={createSkill} disabled={!form.name.trim() || !form.prompt_template.trim()}
-              className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 rounded-lg disabled:opacity-30 transition-colors">Create</button>
+              className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 rounded-lg disabled:opacity-30 transition-colors">Crear</button>
           </div>
         </div>
       )}
@@ -169,7 +169,7 @@ export default function SkillsView({ onUseSkill }: Props) {
         <div className="p-3 border-t border-seal-border shrink-0">
           <button onClick={() => setShowAdd(true)}
             className="w-full flex items-center justify-center gap-2 py-2 text-sm text-seal-muted hover:text-slate-300 border border-dashed border-seal-border rounded-lg hover:border-slate-500 transition-colors">
-            <Plus size={14} /> New skill
+            <Plus size={14} /> Nueva acción rápida
           </button>
         </div>
       )}

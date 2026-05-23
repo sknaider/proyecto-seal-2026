@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Plug, Lock, Cloud, Code, MessageCircle, Calendar, FileText, Briefcase, Image, Music, Search, Check } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import { API } from '../App'
+import { Plug, Lock, Cloud, Code, MessageCircle, Calendar, FileText, Briefcase, Image, Music, Search, Check, X } from 'lucide-react'
 
 interface Integration {
   id: string
@@ -10,8 +11,17 @@ interface Integration {
   Icon?: React.ComponentType<{ className?: string }>
 }
 
+interface Connector {
+  id: string
+  name: string
+  category: string
+  connected: boolean
+  status: string
+  connected_at?: string | null
+}
+
 const CATALOG: Integration[] = [
-  // Native — top picks
+  // Direct connections: top picks
   { id: 'gmail',         label: 'Gmail',          category: 'messaging', tier: 'native', Icon: MessageCircle, comingSoon: true },
   { id: 'gcal',          label: 'Google Calendar', category: 'productivity', tier: 'native', Icon: Calendar, comingSoon: true },
   { id: 'gdrive',        label: 'Google Drive',   category: 'storage', tier: 'native', Icon: FileText, comingSoon: true },
@@ -23,7 +33,7 @@ const CATALOG: Integration[] = [
   { id: 'telegram',      label: 'Telegram',       category: 'messaging', tier: 'native', Icon: MessageCircle, comingSoon: true },
   { id: 'whatsapp_biz',  label: 'WhatsApp Business', category: 'messaging', tier: 'native', Icon: MessageCircle, comingSoon: true },
 
-  // MCP (open standard)
+  // Open connectors
   { id: 'jira',          label: 'Jira',           category: 'dev', tier: 'mcp', comingSoon: true },
   { id: 'confluence',    label: 'Confluence',     category: 'productivity', tier: 'mcp', comingSoon: true },
   { id: 'asana',         label: 'Asana',          category: 'productivity', tier: 'mcp', comingSoon: true },
@@ -33,7 +43,7 @@ const CATALOG: Integration[] = [
   { id: 'gphotos',       label: 'Google Photos',  category: 'media', tier: 'mcp', comingSoon: true },
   { id: 'spotify',       label: 'Spotify',        category: 'media', tier: 'mcp', Icon: Music, comingSoon: true },
 
-  // Composio fallback (long tail)
+  // External connector fallback
   { id: 'hubspot',       label: 'HubSpot',        category: 'productivity', tier: 'composio', comingSoon: true },
   { id: 'salesforce',    label: 'Salesforce',     category: 'productivity', tier: 'composio', comingSoon: true },
   { id: 'stripe',        label: 'Stripe',         category: 'other', tier: 'composio', comingSoon: true },
@@ -48,10 +58,10 @@ const CATALOG: Integration[] = [
 ]
 
 const TIER_META: Record<Integration['tier'], { label: string; tone: string; desc: string }> = {
-  native:   { label: '⚡ Native',    tone: 'bg-violet-100 text-violet-700 border-violet-200',     desc: 'OAuth directo · keys cifradas local' },
-  mcp:      { label: '🔌 MCP',       tone: 'bg-sky-100 text-sky-700 border-sky-200',             desc: 'Open standard MCP server' },
-  composio: { label: '☁ Composio',   tone: 'bg-amber-100 text-amber-700 border-amber-200',       desc: 'Vía Composio.dev — data pasa por terceros' },
-  custom:   { label: '🧪 Custom',    tone: 'bg-stone-100 text-stone-700 border-stone-200',       desc: 'Tu propio MCP server' },
+  native:   { label: 'Directo',      tone: 'bg-violet-100 text-violet-700 border-violet-200',     desc: 'Conexión directa guardada en este equipo' },
+  mcp:      { label: 'Abierto',      tone: 'bg-sky-100 text-sky-700 border-sky-200',             desc: 'Conector abierto que puedes revisar o cambiar' },
+  composio: { label: 'Externo',      tone: 'bg-amber-100 text-amber-700 border-amber-200',       desc: 'Usa un servicio externo con tu permiso' },
+  custom:   { label: 'Personal',     tone: 'bg-stone-100 text-stone-700 border-stone-200',       desc: 'Conector creado por ti' },
 }
 
 const CAT_LABELS: Record<Integration['category'], string> = {
@@ -64,10 +74,31 @@ const CAT_LABELS: Record<Integration['category'], string> = {
 }
 
 const FILTERS = ['all', 'native', 'mcp', 'composio'] as const
+const FILTER_LABELS: Record<typeof FILTERS[number], string> = {
+  all: 'Todas',
+  native: 'Directas',
+  mcp: 'Abiertas',
+  composio: 'Externas',
+}
 
 export default function ConnectionsView() {
   const [filter, setFilter] = useState<typeof FILTERS[number]>('all')
   const [search, setSearch] = useState('')
+  const [connectors, setConnectors] = useState<Connector[]>([])
+  const [selected, setSelected] = useState<Integration | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/api/connections`)
+      const d = await r.json()
+      setConnectors(d.connectors || [])
+    } catch {
+      setConnectors([])
+    }
+  }, [])
+
+  useEffect(() => { void load() }, [load])
 
   const visible = CATALOG.filter(it => {
     if (filter !== 'all' && it.tier !== filter) return false
@@ -81,6 +112,33 @@ export default function ConnectionsView() {
     return acc
   }, {} as Record<Integration['category'], Integration[]>)
 
+  const connectorMap = new Map(connectors.map(c => [c.id, c]))
+
+  const prepareConnection = async (id: string) => {
+    setBusyId(id)
+    try {
+      await fetch(`${API}/api/connections/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connector_id: id }),
+      })
+      setSelected(null)
+      await load()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const removeConnection = async (id: string) => {
+    setBusyId(id)
+    try {
+      await fetch(`${API}/api/connections/${id}`, { method: 'DELETE' })
+      await load()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-seal-bg p-4">
       <div className="max-w-4xl mx-auto">
@@ -91,13 +149,11 @@ export default function ConnectionsView() {
           </div>
         </div>
 
-        {/* Tier explainer */}
+        {/* Connection privacy explainer */}
         <div className="rounded-xl bg-seal-surface border border-seal-border p-4 mb-4">
           <p className="text-xs text-slate-600 leading-relaxed">
-            Tu SEAL puede conectarse a otras apps de tres formas — cada una con distinto nivel de privacidad.
-            <strong className="text-violet-700"> Native</strong> es la más privada (OAuth directo, tokens locales).
-            <strong className="text-sky-700"> MCP</strong> usa estándar abierto.
-            <strong className="text-amber-700"> Composio</strong> es fallback para apps long-tail — tu data pasa por terceros con tu consentimiento.
+            SEAL puede conectarse a otras apps de tres formas. <strong className="text-violet-700">Directo</strong> guarda la conexión en este equipo.
+            <strong className="text-sky-700"> Abierto</strong> usa conectores revisables. <strong className="text-amber-700">Externo</strong> usa un servicio fuera de tu equipo solo con tu permiso.
           </p>
         </div>
 
@@ -109,7 +165,7 @@ export default function ConnectionsView() {
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 ${filter === f ? 'bg-blue-500 text-white' : 'bg-seal-surface text-seal-muted hover:text-slate-700'}`}
-              >{f}</button>
+              >{FILTER_LABELS[f]}</button>
             ))}
           </div>
           <div className="flex-1 max-w-xs flex items-center gap-1 bg-seal-surface border border-seal-border rounded px-2 py-1.5">
@@ -137,6 +193,8 @@ export default function ConnectionsView() {
                 {grouped[cat].map(it => {
                   const meta = TIER_META[it.tier]
                   const Icon = it.Icon ?? Plug
+                  const state = connectorMap.get(it.id)
+                  const prepared = state?.connected === true
                   return (
                     <div key={it.id} className="flex items-center gap-3 p-3 rounded-lg border border-seal-border bg-seal-surface hover:bg-stone-50">
                       <div className="w-9 h-9 rounded bg-stone-100 flex items-center justify-center text-slate-600">
@@ -146,11 +204,22 @@ export default function ConnectionsView() {
                         <p className="text-sm font-medium text-slate-800 truncate">{it.label}</p>
                         <p className={`text-[10px] inline-block px-1.5 py-0.5 rounded border ${meta.tone}`} title={meta.desc}>{meta.label}</p>
                       </div>
-                      {it.comingSoon ? (
-                        <span className="text-[10px] text-seal-muted">soon</span>
+                      {prepared ? (
+                        <button
+                          onClick={() => removeConnection(it.id)}
+                          disabled={busyId === it.id}
+                          className="text-[10px] text-emerald-700 hover:text-red-500"
+                        >
+                          Preparada
+                        </button>
+                      ) : it.comingSoon && !state ? (
+                        <span className="text-[10px] text-seal-muted">pronto</span>
                       ) : (
-                        <button className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Conectar
+                        <button
+                          onClick={() => setSelected(it)}
+                          className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                        >
+                          <Check className="w-3 h-3" /> Preparar
                         </button>
                       )}
                     </div>
@@ -162,10 +231,36 @@ export default function ConnectionsView() {
         </div>
 
         <div className="mt-6 text-[11px] text-seal-muted text-center pb-4">
-          <Lock className="w-3 h-3 inline mr-1" /> Native + MCP guardan tus credenciales cifradas localmente.
-          <Cloud className="w-3 h-3 inline mx-1" /> Composio publica claves en sus servidores (opt-in explícito).
+          <Lock className="w-3 h-3 inline mr-1" /> Las conexiones directas y abiertas guardan tus credenciales cifradas en este equipo.
+          <Cloud className="w-3 h-3 inline mx-1" /> Las externas solo se activan cuando tú lo decides.
         </div>
       </div>
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-sm rounded-lg border border-seal-border bg-white p-4 shadow-xl">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="text-sm font-semibold text-slate-800">Preparar {selected.label}</h2>
+              <button onClick={() => setSelected(null)} className="p-1 text-seal-muted hover:text-slate-700">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed mb-4">
+              SEAL guardará esta app como lista para conectar en este equipo. No leerá datos ni hará acciones hasta que agregues credenciales o permisos reales.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setSelected(null)} className="px-3 py-1.5 text-xs text-seal-muted hover:text-slate-700">Cancelar</button>
+              <button
+                onClick={() => prepareConnection(selected.id)}
+                disabled={busyId === selected.id}
+                className="px-3 py-1.5 rounded bg-blue-500 hover:bg-blue-600 text-white text-xs disabled:opacity-50"
+              >
+                Preparar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

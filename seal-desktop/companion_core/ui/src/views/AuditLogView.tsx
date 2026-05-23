@@ -30,8 +30,9 @@ export default function AuditLogView() {
 
   useEffect(() => {
     setLoading(true)
-    const q = search ? `?action=${encodeURIComponent(search)}` : ''
-    fetch(`${API}/api/audit-log${q}&limit=100`)
+    const params = new URLSearchParams({ limit: '100' })
+    if (search) params.set('action', search)
+    fetch(`${API}/api/audit-log?${params}`)
       .then(r => r.json())
       .then(d => setEntries(d.entries ?? []))
       .catch(() => setEntries([]))

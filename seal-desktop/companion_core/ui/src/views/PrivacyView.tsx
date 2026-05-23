@@ -35,6 +35,22 @@ const RISK_META: Record<string, { label: string; tone: string }> = {
   cap_channel_read:    { label: '🟢 bajo', tone: 'text-emerald-600' },
 }
 
+const CAP_META: Record<string, { label: string; desc: string }> = {
+  cap_shell_commands:  { label: 'Ejecutar comandos',      desc: 'Permite acciones avanzadas en tu equipo.' },
+  cap_write_files:     { label: 'Editar archivos',        desc: 'Permite crear o cambiar archivos.' },
+  cap_git:             { label: 'Usar Git',               desc: 'Permite revisar cambios y trabajar con commits.' },
+  cap_browser_control: { label: 'Controlar navegador',    desc: 'Permite abrir paginas y probar pantallas.' },
+  cap_screen_capture:  { label: 'Ver pantalla',           desc: 'Permite entender lo que esta abierto.' },
+  cap_camera:          { label: 'Usar camara',            desc: 'Permite usar la camara si tu lo autorizas.' },
+  cap_read_files:      { label: 'Leer archivos',          desc: 'Permite leer archivos necesarios para una tarea.' },
+  cap_web_search:      { label: 'Buscar en internet',     desc: 'Permite consultar informacion actual.' },
+  cap_memory_read:     { label: 'Leer recuerdos',         desc: 'Permite usar lo que SEAL ya recuerda.' },
+  cap_memory_write:    { label: 'Guardar recuerdos',      desc: 'Permite guardar datos importantes para despues.' },
+  cap_cron_jobs:       { label: 'Tareas programadas',     desc: 'Permite ejecutar acciones en horarios definidos.' },
+  cap_notifications:   { label: 'Enviar avisos',          desc: 'Permite mostrar recordatorios y alertas.' },
+  cap_channel_read:    { label: 'Leer canales conectados', desc: 'Permite leer mensajes de canales autorizados.' },
+}
+
 export default function PrivacyView() {
   const [audit, setAudit] = useState<AuditEntry[]>([])
   const [auditStats, setAuditStats] = useState<{ local: number; egress: number }>({ local: 0, egress: 0 })
@@ -100,21 +116,24 @@ export default function PrivacyView() {
           </button>
         </div>
 
-        {/* Capabilities — SOUL agent */}
+        {/* Capabilities */}
         <section className="rounded-xl bg-seal-surface border border-seal-border p-4">
           <div className="flex items-center gap-2 mb-3">
             <h2 className="text-sm font-semibold text-slate-800">Capacidades de tu SEAL</h2>
-            <span className="text-[10px] text-seal-muted">agente: SOUL</span>
           </div>
           {!caps && <p className="text-xs text-seal-muted">Cargando…</p>}
           {caps && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {Object.entries(caps.capabilities).map(([key, enabled]) => {
                 const risk = RISK_META[key] || { label: '⚪ —', tone: 'text-stone-500' }
+                const meta = CAP_META[key] || { label: key.replace('cap_', '').replaceAll('_', ' '), desc: 'Permiso configurable.' }
                 return (
                   <div key={key} className="flex items-center gap-2 px-2 py-1.5 rounded border border-seal-border hover:bg-stone-50">
                     <span className={`text-[10px] ${risk.tone} w-14 shrink-0`}>{risk.label}</span>
-                    <span className="text-xs text-slate-700 flex-1 font-mono">{key.replace('cap_', '')}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-700">{meta.label}</p>
+                      <p className="text-[10px] text-seal-muted leading-snug">{meta.desc}</p>
+                    </div>
                     <button
                       onClick={() => toggleCap(key)}
                       disabled={savingCap === key}
@@ -133,33 +152,50 @@ export default function PrivacyView() {
         <section className="rounded-xl bg-seal-surface border border-seal-border p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-slate-800">Registro de acciones</h2>
+              <h2 className="text-sm font-semibold text-slate-800">Historial de privacidad</h2>
               <span className="text-[10px] text-seal-muted">últimas 200</span>
             </div>
             <div className="flex items-center gap-2 text-xs">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
-                <Lock className="w-3 h-3" /> {auditStats.local} local
+                <Lock className="w-3 h-3" /> {auditStats.local} en este equipo
               </span>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-                <Cloud className="w-3 h-3" /> {auditStats.egress} egress
+                <Cloud className="w-3 h-3" /> {auditStats.egress} salieron del equipo
               </span>
             </div>
           </div>
           {audit.length === 0 && (
             <p className="text-xs text-seal-muted text-center py-6">
-              No hay acciones registradas todavía.
+              Aún no hay acciones. Cuando SEAL lea, guarde o conecte algo, aparecerá aquí.
             </p>
           )}
           {audit.length > 0 && (
-            <div className="overflow-hidden border border-seal-border rounded">
+            <>
+            <div className="md:hidden space-y-2">
+              {audit.map(e => (
+                <div key={e.id} className="rounded border border-seal-border bg-stone-50 p-2">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-[11px] text-seal-muted">{formatTime(e.created_at)}</span>
+                    {e.processed_locally ? (
+                      <span className="text-[11px] text-emerald-600 inline-flex items-center gap-1"><Lock className="w-3 h-3" /> en este equipo</span>
+                    ) : (
+                      <span className="text-[11px] text-amber-600 inline-flex items-center gap-1"><Cloud className="w-3 h-3" /> salió del equipo</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-700">{formatAction(e.action)}</p>
+                  <p className="text-[11px] text-seal-muted mt-0.5">{e.provider_used ? `Servicio: ${e.provider_used}` : 'Sin servicio externo'}</p>
+                </div>
+              ))}
+            </div>
+            <div className="hidden md:block overflow-hidden border border-seal-border rounded">
               <table className="w-full text-xs">
                 <thead className="bg-stone-50 text-seal-muted uppercase tracking-widest">
                   <tr>
                     <th className="text-left px-2 py-1.5 font-medium">Cuándo</th>
                     <th className="text-left px-2 py-1.5 font-medium">Agente</th>
                     <th className="text-left px-2 py-1.5 font-medium">Acción</th>
-                    <th className="text-left px-2 py-1.5 font-medium">Egress</th>
-                    <th className="text-left px-2 py-1.5 font-medium">Proveedor</th>
+                    <th className="text-left px-2 py-1.5 font-medium">Dónde pasó</th>
+                    <th className="text-left px-2 py-1.5 font-medium">Servicio</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,12 +205,12 @@ export default function PrivacyView() {
                         {formatTime(e.created_at)}
                       </td>
                       <td className="px-2 py-1.5 text-blue-600 font-mono">{e.agent}</td>
-                      <td className="px-2 py-1.5 text-slate-700 font-mono text-[11px]">{e.action}</td>
+                      <td className="px-2 py-1.5 text-slate-700 text-[11px]">{formatAction(e.action)}</td>
                       <td className="px-2 py-1.5">
                         {e.processed_locally ? (
-                          <span className="text-emerald-600 inline-flex items-center gap-1"><Lock className="w-3 h-3" /> local</span>
+                          <span className="text-emerald-600 inline-flex items-center gap-1"><Lock className="w-3 h-3" /> en este equipo</span>
                         ) : (
-                          <span className="text-amber-600 inline-flex items-center gap-1"><Cloud className="w-3 h-3" /> egress</span>
+                          <span className="text-amber-600 inline-flex items-center gap-1"><Cloud className="w-3 h-3" /> salió del equipo</span>
                         )}
                       </td>
                       <td className="px-2 py-1.5 text-seal-muted font-mono text-[11px]">{e.provider_used ?? '—'}</td>
@@ -183,6 +219,7 @@ export default function PrivacyView() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </section>
 
@@ -201,4 +238,13 @@ function formatTime(iso: string): string {
   } catch {
     return iso
   }
+}
+
+function formatAction(action: string): string {
+  if (action.startsWith('capability_toggle:')) return 'Cambió un permiso'
+  if (action === 'connection_add') return 'Agregó una conexión'
+  if (action === 'connection_remove') return 'Quitó una conexión'
+  if (action === 'byok_save') return 'Guardó una clave externa'
+  if (action === 'byok_delete') return 'Quitó una clave externa'
+  return action.replaceAll('_', ' ')
 }

@@ -949,6 +949,56 @@ class UserProfileUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+_AVATAR_DEFAULT = {
+    "variant": "orb",
+    "primary_color": "#a78bfa",
+    "secondary_color": "#7c3aed",
+    "accent_color": "#fb7185",
+    "accessory": "none",
+    "motion": "normal",
+}
+_AVATAR_VARIANTS = {"orb", "leaf", "spark"}
+_AVATAR_ACCESSORIES = {"none", "halo", "headset", "badge"}
+_AVATAR_MOTION = {"calm", "normal", "expressive"}
+
+
+class AvatarProfileUpdate(BaseModel):
+    variant: Optional[str] = None
+    primary_color: Optional[str] = None
+    secondary_color: Optional[str] = None
+    accent_color: Optional[str] = None
+    accessory: Optional[str] = None
+    motion: Optional[str] = None
+
+
+def _validate_hex_color(value: str, field: str) -> str:
+    import re as _re_local
+    if not _re_local.fullmatch(r"#[0-9a-fA-F]{6}", value or ""):
+        raise HTTPException(status_code=400, detail=f"invalid {field}")
+    return value.lower()
+
+
+def _normalize_avatar_config(value: dict | None) -> dict:
+    raw = {**_AVATAR_DEFAULT, **(value or {})}
+    variant = str(raw.get("variant", "orb")).lower()
+    accessory = str(raw.get("accessory", "none")).lower()
+    motion = str(raw.get("motion", "normal")).lower()
+    if variant not in _AVATAR_VARIANTS:
+        variant = _AVATAR_DEFAULT["variant"]
+    if accessory not in _AVATAR_ACCESSORIES:
+        accessory = _AVATAR_DEFAULT["accessory"]
+    if motion not in _AVATAR_MOTION:
+        motion = _AVATAR_DEFAULT["motion"]
+    return {
+        "variant": variant,
+        "primary_color": _validate_hex_color(str(raw.get("primary_color")), "primary_color"),
+        "secondary_color": _validate_hex_color(str(raw.get("secondary_color")), "secondary_color"),
+        "accent_color": _validate_hex_color(str(raw.get("accent_color")), "accent_color"),
+        "accessory": accessory,
+        "motion": motion,
+    }
+
+
 @app.get("/api/agent/profile")
 async def get_agent_profile():
     db = get_db()
@@ -995,6 +1045,40 @@ async def update_agent_profile(payload: AgentProfileUpdate):
     await db.execute(f"UPDATE agent_profile SET {', '.join(set_parts)} WHERE id=1", values)
     await db.commit()
     return {"ok": True}
+
+
+@app.get("/api/avatar/profile")
+async def get_avatar_profile():
+    cfg = _normalize_avatar_config(_config_cache.get("avatar_profile"))
+    return {
+        "ok": True,
+        "avatar": cfg,
+        "options": {
+            "variants": sorted(_AVATAR_VARIANTS),
+            "accessories": sorted(_AVATAR_ACCESSORIES),
+            "motion": sorted(_AVATAR_MOTION),
+        },
+    }
+
+
+@app.patch("/api/avatar/profile")
+async def update_avatar_profile(payload: AvatarProfileUpdate):
+    current = _normalize_avatar_config(_config_cache.get("avatar_profile"))
+    updates = payload.model_dump(exclude_none=True)
+    if not updates:
+        return {"ok": True, "avatar": current}
+    candidate = {**current, **updates}
+    if "variant" in updates and str(candidate["variant"]).lower() not in _AVATAR_VARIANTS:
+        raise HTTPException(status_code=400, detail="invalid variant")
+    if "accessory" in updates and str(candidate["accessory"]).lower() not in _AVATAR_ACCESSORIES:
+        raise HTTPException(status_code=400, detail="invalid accessory")
+    if "motion" in updates and str(candidate["motion"]).lower() not in _AVATAR_MOTION:
+        raise HTTPException(status_code=400, detail="invalid motion")
+    avatar = _normalize_avatar_config(candidate)
+    await _upsert_setting("avatar_profile", avatar)
+    await _audit_log("USER", "avatar_profile_update", channel="settings",
+                     target_id="avatar_profile", metadata={"updated": list(updates.keys())})
+    return {"ok": True, "avatar": avatar, "updated": list(updates.keys())}
 
 
 @app.get("/api/agent/emotional-state")
@@ -2042,39 +2126,175 @@ async def notifications_dismiss(notif_id: int):
 # ── Memory Tree (P1 — h→d→m→y user-friendly recall) ──────────────────────────
 
 _ALLOWED_LEVELS = {"hour", "day", "month", "year"}
+_MEMORY_TREE_PARENT_LEVEL = {"hour": "day", "day": "month", "month": "year"}
+
+
+def _validate_memory_tree_args(agent: str, level: Optional[str] = None) -> tuple[str, Optional[str]]:
+    if agent.upper() not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="unknown agent")
+    if level is not None and level not in _ALLOWED_LEVELS:
+        raise HTTPException(status_code=400, detail=f"unknown level: {level}")
+    return agent.upper(), level
+
+
+def _memory_tree_bucket(r) -> dict:
+    child_ids = _decode_json(r["child_ids"]) or []
+    return {
+        "id": r["id"],
+        "level": r["level"],
+        "bucket_key": r["bucket_start"],
+        "bucket_start": r["bucket_start"],
+        "bucket_end": r["bucket_end"],
+        "summary": r["summary"],
+        "child_ids": child_ids,
+        "child_count": len(child_ids),
+        "created_at": r["created_at"],
+    }
 
 
 @app.get("/api/memory-tree")
 async def memory_tree_list(agent: str = "SOUL", level: str = "day", limit: int = 30):
-    if agent.upper() not in _ALLOWED_AGENTS:
-        raise HTTPException(status_code=400, detail="unknown agent")
-    if level not in _ALLOWED_LEVELS:
-        raise HTTPException(status_code=400, detail=f"unknown level: {level}")
+    agent_norm, level = _validate_memory_tree_args(agent, level)
     limit = max(1, min(int(limit), 100))
     db = get_db()
     rows = await db.execute_fetchall(
         """SELECT id, level, bucket_start, bucket_end, summary, child_ids, created_at
            FROM memory_tree WHERE agent = ? AND level = ?
            ORDER BY bucket_start DESC LIMIT ?""",
-        (agent.upper(), level, limit),
+        (agent_norm, level, limit),
     )
     return {
         "ok": True,
-        "agent": agent.upper(),
+        "agent": agent_norm,
         "level": level,
-        "buckets": [
-            {
-                "id": r["id"],
-                "level": r["level"],
-                "bucket_start": r["bucket_start"],
-                "bucket_end": r["bucket_end"],
-                "summary": r["summary"],
-                "child_ids": _decode_json(r["child_ids"]) or [],
-                "created_at": r["created_at"],
-            } for r in rows
-        ],
+        "buckets": [_memory_tree_bucket(r) for r in rows],
         "count": len(rows),
     }
+
+
+@app.get("/api/memory-tree/search")
+async def memory_tree_search(agent: str = "SOUL", q: str = "", level: Optional[str] = None, limit: int = 30):
+    agent_norm, level = _validate_memory_tree_args(agent, level)
+    query = q.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="q required")
+    limit = max(1, min(int(limit), 100))
+    db = get_db()
+    where = ["agent = ?", "lower(summary) LIKE ?"]
+    params: list[Any] = [agent_norm, f"%{query.lower()}%"]
+    if level:
+        where.append("level = ?")
+        params.append(level)
+    params.append(limit)
+    rows = await db.execute_fetchall(
+        """SELECT id, level, bucket_start, bucket_end, summary, child_ids, created_at
+           FROM memory_tree
+           WHERE """ + " AND ".join(where) + """
+           ORDER BY bucket_start DESC LIMIT ?""",
+        tuple(params),
+    )
+    return {
+        "ok": True,
+        "agent": agent_norm,
+        "level": level,
+        "query": query,
+        "buckets": [_memory_tree_bucket(r) for r in rows],
+        "count": len(rows),
+    }
+
+
+@app.get("/api/memory-tree/buckets/{bucket_id}")
+async def memory_tree_detail(bucket_id: int):
+    db = get_db()
+    rows = await db.execute_fetchall(
+        """SELECT id, agent, level, bucket_start, bucket_end, summary, child_ids, created_at
+           FROM memory_tree WHERE id = ?""",
+        (bucket_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="bucket not found")
+    row = rows[0]
+    bucket = _memory_tree_bucket(row)
+    child_ids = bucket["child_ids"]
+
+    child_buckets = []
+    memories = []
+    if child_ids:
+        placeholders = ",".join("?" for _ in child_ids)
+        if row["level"] == "hour":
+            memory_rows = await db.execute_fetchall(
+                f"""SELECT id, agent, category, content, importance, created_at
+                    FROM memories WHERE id IN ({placeholders})""",
+                tuple(child_ids),
+            )
+            by_id = {r["id"]: r for r in memory_rows}
+            for cid in child_ids:
+                r = by_id.get(cid)
+                if r:
+                    memories.append({
+                        "id": r["id"],
+                        "agent": r["agent"],
+                        "category": r["category"],
+                        "content": r["content"],
+                        "importance": r["importance"],
+                        "created_at": r["created_at"],
+                    })
+        else:
+            child_rows = await db.execute_fetchall(
+                f"""SELECT id, level, bucket_start, bucket_end, summary, child_ids, created_at
+                    FROM memory_tree WHERE id IN ({placeholders})""",
+                tuple(child_ids),
+            )
+            by_id = {r["id"]: r for r in child_rows}
+            child_buckets = [_memory_tree_bucket(by_id[cid]) for cid in child_ids if cid in by_id]
+
+    parent = None
+    parent_level = _MEMORY_TREE_PARENT_LEVEL.get(row["level"])
+    if parent_level:
+        parent_rows = await db.execute_fetchall(
+            """SELECT id, level, bucket_start, bucket_end, summary, child_ids, created_at
+               FROM memory_tree WHERE agent = ? AND level = ?
+               ORDER BY bucket_start DESC LIMIT 200""",
+            (row["agent"], parent_level),
+        )
+        for parent_row in parent_rows:
+            if bucket_id in (_decode_json(parent_row["child_ids"]) or []):
+                parent = _memory_tree_bucket(parent_row)
+                break
+
+    return {
+        "ok": True,
+        "bucket": bucket,
+        "parent": parent,
+        "children": child_buckets,
+        "memories": memories,
+        "child_count": len(child_buckets) + len(memories),
+    }
+
+
+class MemoryTreeRebuildBody(BaseModel):
+    agent: str = "SOUL"
+    level: str = "all"
+    dry_run: bool = False
+
+
+@app.post("/api/memory-tree/rebuild")
+async def memory_tree_rebuild(body: MemoryTreeRebuildBody):
+    agent_norm, _ = _validate_memory_tree_args(body.agent)
+    level = body.level
+    if level != "all" and level not in _ALLOWED_LEVELS:
+        raise HTTPException(status_code=400, detail=f"unknown level: {level}")
+    from companion_core.memory_tree_builder import build_all, build_level
+    try:
+        if level == "all":
+            result = await build_all(agent_norm, dry_run=body.dry_run)
+        else:
+            result = await build_level(agent_norm, level, dry_run=body.dry_run)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    await _audit_log("USER", "memory_tree_rebuild", channel="local",
+                     target_id=f"{agent_norm}:{level}", metadata={"dry_run": body.dry_run})
+    return {"ok": True, "agent": agent_norm, "level": level, "dry_run": body.dry_run, "result": result}
 
 
 # ── Connections / Integrations (P2 — Add Account view) ───────────────────────
@@ -2181,11 +2401,12 @@ async def screen_status():
 # We persist screen captures as a thumbnail in user_notifications-adjacent table
 # Lightweight: keep a small ring buffer in memory + base64 thumbnails on disk.
 import base64 as _b64
-from io import BytesIO as _BytesIO
 from pathlib import Path as _Path
+import re as _re
 
 _SCREEN_DIR = _Path.home() / ".config" / "soul-companion" / "screen_captures"
 _SCREEN_RING_MAX = 30
+_SCREEN_ID_RE = _re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
 
 def _screen_dir_ready() -> _Path:
@@ -2195,6 +2416,13 @@ def _screen_dir_ready() -> _Path:
     except Exception:
         pass
     return _SCREEN_DIR
+
+
+def _screen_image_path(image_id: str, *, thumbnail: bool = False) -> _Path:
+    if not _SCREEN_ID_RE.fullmatch(image_id):
+        raise HTTPException(status_code=400, detail="invalid image_id")
+    suffix = ".thumb.png" if thumbnail else ".png"
+    return _screen_dir_ready() / f"{image_id}{suffix}"
 
 
 class ScreenAnalyzeBody(BaseModel):
@@ -2214,9 +2442,9 @@ async def screen_capture():
 
     from datetime import datetime as _dt
     sd = _screen_dir_ready()
-    image_id = _dt.now().strftime("%Y%m%dT%H%M%S")
-    path = sd / f"{image_id}.png"
-    thumb_path = sd / f"{image_id}.thumb.png"
+    image_id = _dt.now().strftime("%Y%m%dT%H%M%S%f")
+    path = _screen_image_path(image_id)
+    thumb_path = _screen_image_path(image_id, thumbnail=True)
 
     def _do_capture() -> tuple[int, int]:
         with mss.mss() as sct:
@@ -2251,16 +2479,15 @@ async def screen_capture():
                      target_id=image_id, metadata={"size": f"{w}x{h}"})
     return {
         "ok": True, "image_id": image_id, "width": w, "height": h,
-        "thumbnail_b64": thumb_b64, "path": str(path),
+        "thumbnail_b64": thumb_b64, "path": str(path), "local_only": True,
     }
 
 
 @app.post("/api/screen/analyze")
 async def screen_analyze(body: ScreenAnalyzeBody):
     """Send a captured screen to local Ollama vision model and get description."""
-    sd = _screen_dir_ready()
     if body.image_id:
-        path = sd / f"{body.image_id}.png"
+        path = _screen_image_path(body.image_id)
         if not path.exists():
             raise HTTPException(status_code=404, detail=f"image not found: {body.image_id}")
     else:
@@ -2294,7 +2521,7 @@ async def screen_analyze(body: ScreenAnalyzeBody):
                      provider_used="ollama")
     return {
         "ok": True, "image_id": body.image_id, "model": body.model,
-        "description": description,
+        "description": description, "local_only": True,
     }
 
 
@@ -2302,6 +2529,7 @@ async def screen_analyze(body: ScreenAnalyzeBody):
 async def screen_history(limit: int = 20):
     """List recent captures (id, timestamp, thumbnail path)."""
     sd = _screen_dir_ready()
+    limit = max(1, min(limit, 100))
     pngs = sorted([p for p in sd.glob("*.png") if not p.name.endswith(".thumb.png")], reverse=True)
     items = []
     for p in pngs[:limit]:
@@ -2312,14 +2540,13 @@ async def screen_history(limit: int = 20):
             "has_thumbnail": thumb.exists(),
             "size_bytes": p.stat().st_size,
         })
-    return {"ok": True, "captures": items, "count": len(items)}
+    return {"ok": True, "captures": items, "count": len(items), "local_only": True}
 
 
 @app.get("/api/screen/thumbnail/{image_id}")
 async def screen_thumbnail(image_id: str):
     """Return thumbnail PNG for a captured image."""
-    sd = _screen_dir_ready()
-    thumb = sd / f"{image_id}.thumb.png"
+    thumb = _screen_image_path(image_id, thumbnail=True)
     if not thumb.exists():
         raise HTTPException(status_code=404, detail="thumbnail not found")
     from fastapi.responses import Response
@@ -2343,27 +2570,203 @@ async def screen_delete(image_id: str):
 
 _TOKENJUICE_BUILTIN_RULES = [
     {"id": "git_status_strip", "label": "Limpiar 'git status' largo",
-     "pattern": r"^On branch.*\n\nnothing to commit", "category": "git"},
+     "pattern": r"^On branch.*\n\nnothing to commit", "category": "git", "builtin": True, "enabled": True},
     {"id": "npm_install_quiet", "label": "Quitar ruido de npm install",
-     "pattern": r"npm warn deprecated.*", "category": "npm"},
+     "pattern": r"npm warn deprecated.*", "category": "npm", "builtin": True, "enabled": True},
     {"id": "docker_pull_progress", "label": "Quitar progreso de docker pull",
-     "pattern": r"\w+: Pulling fs layer.*", "category": "docker"},
+     "pattern": r"\w+: Pulling fs layer.*", "category": "docker", "builtin": True, "enabled": True},
     {"id": "ansi_color_codes", "label": "Quitar códigos de color ANSI",
-     "pattern": r"\x1b\[[0-9;]*m", "category": "shell"},
+     "pattern": r"\x1b\[[0-9;]*m", "category": "shell", "builtin": True, "enabled": True},
     {"id": "trailing_whitespace", "label": "Quitar espacios al final de líneas",
-     "pattern": r"[ \t]+$", "category": "format"},
+     "pattern": r"[ \t]+$", "category": "format", "builtin": True, "enabled": True},
 ]
+_TOKENJUICE_RULE_ID_RE = _re.compile(r"^[a-z0-9][a-z0-9_-]{1,63}$")
+
+
+def _tokenjuice_builtin_ids() -> set[str]:
+    return {str(r["id"]) for r in _TOKENJUICE_BUILTIN_RULES}
+
+
+def _tokenjuice_validate_id(rule_id: str) -> str:
+    cleaned = rule_id.strip().lower()
+    if not _TOKENJUICE_RULE_ID_RE.fullmatch(cleaned):
+        raise HTTPException(status_code=400, detail="invalid rule id")
+    return cleaned
+
+
+def _tokenjuice_validate_pattern(pattern: str) -> str:
+    import re as _re_local
+    pattern = pattern or ""
+    if not pattern:
+        raise HTTPException(status_code=400, detail="pattern required")
+    if len(pattern) > 500:
+        raise HTTPException(status_code=400, detail="pattern too long")
+    try:
+        _re_local.compile(pattern)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"invalid regex: {exc}")
+    return pattern
+
+
+def _tokenjuice_rule_from_row(r) -> dict:
+    return {
+        "id": r["id"],
+        "label": r["label"],
+        "pattern": r["pattern"],
+        "category": r["category"],
+        "enabled": bool(r["enabled"]),
+        "builtin": bool(r["builtin"]),
+        "created_at": r["created_at"],
+        "updated_at": r["updated_at"],
+    }
+
+
+async def _tokenjuice_custom_rules(include_disabled: bool = False) -> list[dict]:
+    db = get_db()
+    where = "" if include_disabled else "WHERE enabled = 1"
+    rows = await db.execute_fetchall(
+        f"""SELECT id, label, pattern, category, enabled, builtin, created_at, updated_at
+            FROM tokenjuice_rules {where}
+            ORDER BY category ASC, label ASC"""
+    )
+    return [_tokenjuice_rule_from_row(r) for r in rows]
+
+
+async def _tokenjuice_all_rules(include_disabled: bool = False) -> list[dict]:
+    custom = await _tokenjuice_custom_rules(include_disabled=include_disabled)
+    custom_ids = {r["id"] for r in custom}
+    builtins = [dict(r) for r in _TOKENJUICE_BUILTIN_RULES if include_disabled or r.get("enabled", True)]
+    return [*builtins, *[r for r in custom if r["id"] not in _tokenjuice_builtin_ids()]]
+
+
+async def _tokenjuice_record_stats(applied: list[dict], input_chars: int, output_chars: int) -> None:
+    if not applied:
+        return
+    db = get_db()
+    saved = max(0, input_chars - output_chars)
+    for item in applied:
+        rule_id = item["rule"]
+        matches = int(item["matches"])
+        await db.execute(
+            """INSERT INTO tokenjuice_rule_stats (rule_id, match_count, chars_saved, last_used_at)
+               VALUES (?, ?, ?, datetime('now'))
+               ON CONFLICT(rule_id) DO UPDATE SET
+                   match_count = match_count + excluded.match_count,
+                   chars_saved = chars_saved + excluded.chars_saved,
+                   last_used_at = excluded.last_used_at""",
+            (rule_id, matches, saved),
+        )
+    await db.commit()
 
 
 @app.get("/api/tokenjuice/rules")
-async def tokenjuice_rules():
+async def tokenjuice_rules(include_disabled: bool = False):
     """List active compression rules (user-friendly view of TokenJuice config)."""
+    rules = await _tokenjuice_all_rules(include_disabled=include_disabled)
     return {
         "ok": True,
-        "rules": _TOKENJUICE_BUILTIN_RULES,
-        "count": len(_TOKENJUICE_BUILTIN_RULES),
+        "rules": rules,
+        "count": len(rules),
         "user_friendly_label": "Reducir ruido del contexto",
     }
+
+
+class TokenjuiceRuleBody(BaseModel):
+    id: Optional[str] = None
+    label: str
+    pattern: str
+    category: str = "custom"
+    enabled: bool = True
+
+
+class TokenjuiceRulePatchBody(BaseModel):
+    label: Optional[str] = None
+    pattern: Optional[str] = None
+    category: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+@app.post("/api/tokenjuice/rules")
+async def tokenjuice_rule_create(body: TokenjuiceRuleBody):
+    import re as _re_local
+    label = body.label.strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="label required")
+    rule_id = _tokenjuice_validate_id(body.id or _re_local.sub(r"[^a-z0-9_-]+", "_", label.lower()).strip("_"))
+    if rule_id in _tokenjuice_builtin_ids():
+        raise HTTPException(status_code=400, detail="builtin rule id is protected")
+    pattern = _tokenjuice_validate_pattern(body.pattern)
+    category = (body.category or "custom").strip().lower()[:40] or "custom"
+    db = get_db()
+    await db.execute(
+        """INSERT INTO tokenjuice_rules (id, label, pattern, category, enabled, builtin)
+           VALUES (?, ?, ?, ?, ?, 0)
+           ON CONFLICT(id) DO UPDATE SET
+               label=excluded.label,
+               pattern=excluded.pattern,
+               category=excluded.category,
+               enabled=excluded.enabled,
+               updated_at=datetime('now')""",
+        (rule_id, label, pattern, category, int(body.enabled)),
+    )
+    await db.commit()
+    await _audit_log("USER", "tokenjuice_rule_upsert", channel="settings", target_id=rule_id)
+    return {"ok": True, "rule": {"id": rule_id, "label": label, "pattern": pattern,
+                                  "category": category, "enabled": body.enabled, "builtin": False}}
+
+
+@app.patch("/api/tokenjuice/rules/{rule_id}")
+async def tokenjuice_rule_update(rule_id: str, body: TokenjuiceRulePatchBody):
+    rule_id = _tokenjuice_validate_id(rule_id)
+    if rule_id in _tokenjuice_builtin_ids():
+        raise HTTPException(status_code=400, detail="builtin rules are read-only")
+    db = get_db()
+    rows = await db.execute_fetchall("SELECT id FROM tokenjuice_rules WHERE id = ?", (rule_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="rule not found")
+    updates = []
+    params: list[Any] = []
+    if body.label is not None:
+        label = body.label.strip()
+        if not label:
+            raise HTTPException(status_code=400, detail="label required")
+        updates.append("label = ?")
+        params.append(label)
+    if body.pattern is not None:
+        updates.append("pattern = ?")
+        params.append(_tokenjuice_validate_pattern(body.pattern))
+    if body.category is not None:
+        updates.append("category = ?")
+        params.append((body.category or "custom").strip().lower()[:40] or "custom")
+    if body.enabled is not None:
+        updates.append("enabled = ?")
+        params.append(int(body.enabled))
+    if updates:
+        updates.append("updated_at = datetime('now')")
+        params.append(rule_id)
+        await db.execute(f"UPDATE tokenjuice_rules SET {', '.join(updates)} WHERE id = ?", tuple(params))
+        await db.commit()
+    await _audit_log("USER", "tokenjuice_rule_update", channel="settings", target_id=rule_id)
+    rows = await db.execute_fetchall(
+        "SELECT id, label, pattern, category, enabled, builtin, created_at, updated_at FROM tokenjuice_rules WHERE id = ?",
+        (rule_id,),
+    )
+    return {"ok": True, "rule": _tokenjuice_rule_from_row(rows[0])}
+
+
+@app.delete("/api/tokenjuice/rules/{rule_id}")
+async def tokenjuice_rule_delete(rule_id: str):
+    rule_id = _tokenjuice_validate_id(rule_id)
+    if rule_id in _tokenjuice_builtin_ids():
+        raise HTTPException(status_code=400, detail="builtin rules are read-only")
+    db = get_db()
+    await db.execute("DELETE FROM tokenjuice_rule_stats WHERE rule_id = ?", (rule_id,))
+    cur = await db.execute("DELETE FROM tokenjuice_rules WHERE id = ?", (rule_id,))
+    await db.commit()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="rule not found")
+    await _audit_log("USER", "tokenjuice_rule_delete", channel="settings", target_id=rule_id)
+    return {"ok": True, "id": rule_id, "deleted": True}
 
 
 class TokenjuiceCompactBody(BaseModel):
@@ -2377,7 +2780,8 @@ async def tokenjuice_compact(body: TokenjuiceCompactBody):
     src = body.text or ""
     out = src
     applied = []
-    for rule in _TOKENJUICE_BUILTIN_RULES:
+    rules = await _tokenjuice_all_rules()
+    for rule in rules:
         try:
             new, n = _re.subn(rule["pattern"], "", out, flags=_re.MULTILINE | _re.IGNORECASE)
             if n > 0:
@@ -2385,6 +2789,7 @@ async def tokenjuice_compact(body: TokenjuiceCompactBody):
                 applied.append({"rule": rule["id"], "matches": n})
         except Exception:
             continue
+    await _tokenjuice_record_stats(applied, len(src), len(out))
     return {
         "ok": True,
         "input_chars": len(src),
@@ -2393,6 +2798,51 @@ async def tokenjuice_compact(body: TokenjuiceCompactBody):
         "rules_applied": applied,
         "output": out,
     }
+
+
+@app.get("/api/tokenjuice/stats")
+async def tokenjuice_stats():
+    rules = await _tokenjuice_all_rules(include_disabled=True)
+    labels = {r["id"]: r for r in rules}
+    db = get_db()
+    rows = await db.execute_fetchall(
+        "SELECT rule_id, match_count, chars_saved, last_used_at FROM tokenjuice_rule_stats ORDER BY chars_saved DESC, match_count DESC"
+    )
+    stats = []
+    for r in rows:
+        rule = labels.get(r["rule_id"], {"id": r["rule_id"], "label": r["rule_id"], "category": "unknown", "builtin": False})
+        stats.append({
+            "rule_id": r["rule_id"],
+            "label": rule["label"],
+            "category": rule["category"],
+            "builtin": bool(rule.get("builtin", False)),
+            "match_count": r["match_count"],
+            "chars_saved": r["chars_saved"],
+            "last_used_at": r["last_used_at"],
+        })
+    return {"ok": True, "stats": stats, "count": len(stats)}
+
+
+@app.get("/api/tokenjuice/export")
+async def tokenjuice_export():
+    return {
+        "ok": True,
+        "version": 1,
+        "custom_rules": await _tokenjuice_custom_rules(include_disabled=True),
+    }
+
+
+class TokenjuiceImportBody(BaseModel):
+    custom_rules: list[TokenjuiceRuleBody]
+
+
+@app.post("/api/tokenjuice/import")
+async def tokenjuice_import(body: TokenjuiceImportBody):
+    imported = []
+    for rule in body.custom_rules[:100]:
+        created = await tokenjuice_rule_create(rule)
+        imported.append(created["rule"]["id"])
+    return {"ok": True, "imported": imported, "count": len(imported)}
 
 
 # ── Cron Jobs (visible schedules — P3 OpenHuman doc 43) ─────────────────────

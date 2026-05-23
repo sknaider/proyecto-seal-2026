@@ -26,10 +26,10 @@ interface BYOKStatus {
 
 const PROVIDERS = ['ollama', 'anthropic', 'openai', 'openrouter', 'custom'] as const
 const ROLE_LABELS: Record<string, string> = {
-  reasoning: '🧠 Razonamiento',
-  agentic: '🤖 Agentic / tools',
-  coding: '💻 Coding',
-  summary: '📝 Summarization',
+  reasoning: 'Tareas difíciles',
+  agentic: 'Acciones',
+  coding: 'Código',
+  summary: 'Resúmenes',
 }
 
 export default function AIBackendView() {
@@ -83,7 +83,7 @@ export default function AIBackendView() {
 
   const saveKey = async () => {
     if (!keyValue.trim()) {
-      setKeyMsg('Ingresá un API key.')
+      setKeyMsg('Ingresa una clave.')
       return
     }
     setKeyMsg('Guardando…')
@@ -95,7 +95,7 @@ export default function AIBackendView() {
       })
       const d = await r.json()
       if (d.ok) {
-        setKeyMsg(`Guardado en vault (${keyProvider}).`)
+        setKeyMsg(`Clave guardada (${keyProvider}).`)
         setKeyValue('')
         load()
       } else {
@@ -116,7 +116,7 @@ export default function AIBackendView() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Cpu className="w-5 h-5 text-blue-500" />
-            <h1 className="text-xl font-semibold text-slate-800">Modelos de IA</h1>
+            <h1 className="text-xl font-semibold text-slate-800">Cerebro de SEAL</h1>
           </div>
           <button
             onClick={load}
@@ -127,11 +127,11 @@ export default function AIBackendView() {
           </button>
         </div>
 
-        {/* Routing por rol */}
+        {/* Model routing */}
         <section className="rounded-xl bg-seal-surface border border-seal-border p-4">
-          <h2 className="text-sm font-semibold text-slate-800 mb-1">Routing por rol</h2>
+          <h2 className="text-sm font-semibold text-slate-800 mb-1">Elegir cómo piensa SEAL</h2>
           <p className="text-xs text-seal-muted mb-3">
-            Tu SEAL App rutea cada tarea al modelo correcto. Default: local con Ollama. Cambiá si querés probar cloud (necesitás BYOK abajo).
+            SEAL usa el modelo local por defecto. Cambia esto solo si quieres conectar un servicio externo.
           </p>
           <div className="space-y-2">
             {rows.map(row => (
@@ -150,7 +150,7 @@ export default function AIBackendView() {
                   type="text"
                   value={row.model}
                   onChange={e => updateRow(row.role, { model: e.target.value })}
-                  placeholder="model name (ej: claude-opus-4-7)"
+                  placeholder="nombre del modelo"
                   className="md:col-span-4 px-2 py-1 text-xs bg-white border border-seal-border rounded font-mono"
                 />
                 <button
@@ -163,7 +163,7 @@ export default function AIBackendView() {
               </div>
             ))}
             {rows.length === 0 && !loading && (
-              <p className="text-xs text-seal-muted text-center py-4">No hay rows. (¿Backend :8769 disponible?)</p>
+              <p className="text-xs text-seal-muted text-center py-4">No hay modelos configurados. Revisa que SEAL App esté abierta.</p>
             )}
           </div>
           {savedHint && (
@@ -173,22 +173,22 @@ export default function AIBackendView() {
           )}
         </section>
 
-        {/* BYOK Vault */}
+        {/* External keys */}
         <section className="rounded-xl bg-seal-surface border border-seal-border p-4">
           <div className="flex items-center gap-2 mb-1">
             <Lock className="w-4 h-4 text-blue-500" />
-            <h2 className="text-sm font-semibold text-slate-800">API keys (BYOK)</h2>
+            <h2 className="text-sm font-semibold text-slate-800">Conectar servicios externos</h2>
           </div>
           <p className="text-xs text-seal-muted mb-3">
-            Tus claves se cifran AES-GCM 256 con master key en {byok?.master_key_source ?? '—'} (vault local).
+            Tus claves se guardan cifradas en este equipo. Solo se usan si activas servicios externos.
           </p>
 
           {byok && (
             <div className="mb-3 text-xs text-seal-muted flex flex-wrap items-center gap-2">
-              <span>Vault:</span>
+              <span>Guardado local:</span>
               <code className="font-mono px-1.5 py-0.5 bg-stone-100 rounded">{byok.vault_path}</code>
               <span>·</span>
-              <span>{byok.providers_configured.length === 0 ? 'sin keys' : byok.providers_configured.join(', ')}</span>
+              <span>{byok.providers_configured.length === 0 ? 'sin claves' : byok.providers_configured.join(', ')}</span>
             </div>
           )}
 
@@ -214,7 +214,7 @@ export default function AIBackendView() {
               disabled={!keyValue.trim()}
               className="px-3 py-1.5 rounded bg-blue-500 hover:bg-blue-600 text-white text-xs disabled:opacity-50 flex items-center gap-1"
             >
-              <Cloud className="w-3 h-3" /> Guardar en vault
+              <Cloud className="w-3 h-3" /> Guardar clave
             </button>
           </div>
           {keyMsg && (
@@ -225,7 +225,7 @@ export default function AIBackendView() {
         </section>
 
         <div className="text-[11px] text-seal-muted text-center pb-4">
-          Local-first. Cloud opt-in con tu propia API key — pagás directo al proveedor, sin markup.
+          Por defecto SEAL trabaja local. Los servicios externos solo se usan si tú agregas una clave.
         </div>
       </div>
     </div>
