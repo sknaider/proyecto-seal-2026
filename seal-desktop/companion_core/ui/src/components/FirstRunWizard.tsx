@@ -4,11 +4,11 @@ import { API } from '../App'
 import { SoulMascot } from './SoulMascot'
 
 const OCEAN_PRESETS = [
-  { id: 'balanced',   label: 'Equilibrado/a',  emoji: '⚖️', desc: 'Tono neutral, decisiones medidas' },
-  { id: 'warm',       label: 'Cálido/a',       emoji: '💜', desc: 'Cercanía afectiva, escucha activa' },
-  { id: 'sharp',      label: 'Analítico/a',    emoji: '🔬', desc: 'Precisión, datos, lógica' },
-  { id: 'creative',   label: 'Creativo/a',     emoji: '🎨', desc: 'Lluvia de ideas, asociaciones' },
-  { id: 'pareja',     label: 'Pareja',         emoji: '💕', desc: 'Compañía cariñosa diaria. No reemplaza a una persona — acompaña.' },
+  { id: 'balanced',   label: 'Equilibrio',    emoji: '⚖️', desc: 'Tono neutral, decisiones medidas' },
+  { id: 'warm',       label: 'Calidez',       emoji: '💜', desc: 'Cercanía afectiva, escucha activa' },
+  { id: 'sharp',      label: 'Análisis',      emoji: '🔬', desc: 'Precisión, datos, lógica' },
+  { id: 'creative',   label: 'Creatividad',   emoji: '🎨', desc: 'Lluvia de ideas, asociaciones' },
+  { id: 'pareja',     label: 'Pareja',        emoji: '💕', desc: 'Compañía cariñosa diaria. No reemplaza a una persona — acompaña.' },
 ] as const
 
 interface Props {
