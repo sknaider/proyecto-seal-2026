@@ -4,10 +4,11 @@ import { API } from '../App'
 import { SoulMascot } from './SoulMascot'
 
 const OCEAN_PRESETS = [
-  { id: 'balanced',   label: 'Equilibrada',  emoji: '⚖️', desc: 'Tono neutral, decisiones medidas' },
-  { id: 'warm',       label: 'Cálida',        emoji: '💜', desc: 'Cercanía afectiva, escucha activa' },
-  { id: 'sharp',      label: 'Analítica',     emoji: '🔬', desc: 'Precisión, datos, lógica' },
-  { id: 'creative',   label: 'Creativa',      emoji: '🎨', desc: 'Lluvia de ideas, asociaciones' },
+  { id: 'balanced',   label: 'Equilibrado/a',  emoji: '⚖️', desc: 'Tono neutral, decisiones medidas' },
+  { id: 'warm',       label: 'Cálido/a',       emoji: '💜', desc: 'Cercanía afectiva, escucha activa' },
+  { id: 'sharp',      label: 'Analítico/a',    emoji: '🔬', desc: 'Precisión, datos, lógica' },
+  { id: 'creative',   label: 'Creativo/a',     emoji: '🎨', desc: 'Lluvia de ideas, asociaciones' },
+  { id: 'pareja',     label: 'Pareja',         emoji: '💕', desc: 'Compañía cariñosa diaria. No reemplaza a una persona — acompaña.' },
 ] as const
 
 interface Props {
@@ -123,7 +124,7 @@ function StepName({ name, setName, err, onBack, onNext }: { name: string; setNam
         onKeyDown={e => e.key === 'Enter' && name.trim() && onNext()}
         placeholder="Tu nombre"
         autoFocus
-        className="w-full px-4 py-3 text-lg bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-300"
+        className="w-full px-4 py-3 text-lg font-medium text-slate-900 placeholder:text-slate-400 bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-300"
       />
       {err && <p className="text-xs text-red-500">{err}</p>}
       <div className="flex justify-between mt-6">
@@ -155,7 +156,7 @@ function StepPersonality({ preset, setPreset, agentName, setAgentName, onBack, o
           value={agentName}
           onChange={e => setAgentName(e.target.value)}
           placeholder="SEAL"
-          className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300"
+          className="w-full px-3 py-2 font-medium text-slate-900 placeholder:text-slate-400 bg-white border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300"
         />
       </div>
 
