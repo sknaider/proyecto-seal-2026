@@ -19,6 +19,16 @@ import {
   FileText,
   TestTubeDiagonal,
   PackageCheck,
+  Wrench,
+  Globe,
+  Archive,
+  Scissors,
+  Hammer,
+  Filter as FilterIcon,
+  Zap,
+  Sunrise,
+  HelpCircle,
+  Handshake,
 } from 'lucide-react'
 
 interface SubAgent {
@@ -44,6 +54,17 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   documentation_writer: FileText,
   test_runner: TestTubeDiagonal,
   release_manager: PackageCheck,
+  // 10 canonical OpenHuman additions (JARVIS)
+  tools_agent: Wrench,
+  integrations_agent: Globe,
+  archivist: Archive,
+  summarizer: Scissors,
+  tool_maker: Hammer,
+  trigger_triage: FilterIcon,
+  trigger_reactor: Zap,
+  morning_briefing: Sunrise,
+  help: HelpCircle,
+  welcome: Handshake,
 }
 
 const COLORS: Record<string, string> = {
@@ -62,6 +83,17 @@ const COLORS: Record<string, string> = {
   documentation_writer: 'text-stone-600 border-stone-400',
   test_runner: 'text-teal-600 border-teal-500',
   release_manager: 'text-green-600 border-green-500',
+  // 10 canonical OpenHuman
+  tools_agent: 'text-yellow-600 border-yellow-500',
+  integrations_agent: 'text-sky-700 border-sky-600',
+  archivist: 'text-amber-700 border-amber-600',
+  summarizer: 'text-rose-500 border-rose-400',
+  tool_maker: 'text-orange-600 border-orange-500',
+  trigger_triage: 'text-purple-500 border-purple-400',
+  trigger_reactor: 'text-fuchsia-600 border-fuchsia-500',
+  morning_briefing: 'text-yellow-500 border-yellow-400',
+  help: 'text-blue-400 border-blue-300',
+  welcome: 'text-emerald-400 border-emerald-300',
 }
 
 const PLACEHOLDERS: Record<string, string> = {
@@ -80,6 +112,17 @@ const PLACEHOLDERS: Record<string, string> = {
   documentation_writer: 'Redactá un changelog con evidencia de pruebas',
   test_runner: 'Diseñá el smoke test mínimo para este cambio',
   release_manager: 'Prepará build deb, install y healthcheck de release',
+  // 10 canonical OpenHuman
+  tools_agent: 'Ejecutá esta tarea usando shell + HTTP + memoria',
+  integrations_agent: 'Pedí a Gmail los últimos 5 emails de "factura"',
+  archivist: 'Preservá lo importante de esta sesión',
+  summarizer: 'Comprimí este output gigante de tool en 3 líneas',
+  tool_maker: 'Escribí un polyfill para "convert heic to jpg"',
+  trigger_triage: 'Clasificá este webhook que llegó recién',
+  trigger_reactor: 'Guardá nota y avisame mañana sobre esto',
+  morning_briefing: 'Dame un resumen accionable de hoy',
+  help: '¿Cómo activo el watchdog del sidecar?',
+  welcome: 'Ayudame a configurar mi SEAL por primera vez',
 }
 
 interface InvokeResult { agent: string; role: string; reply: string; suggested_route: string }
@@ -154,7 +197,7 @@ export default function SubAgentsView() {
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-violet-500" />
             <h1 className="text-xl font-semibold text-slate-800">Sub-agentes</h1>
-            <span className="text-xs text-seal-muted">{agents.length || 15} especialistas - equipo interno de SEAL</span>
+            <span className="text-xs text-seal-muted">{agents.length || 25} especialistas - equipo interno de SEAL</span>
           </div>
           <button
             onClick={load}
