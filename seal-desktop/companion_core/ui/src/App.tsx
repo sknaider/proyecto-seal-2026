@@ -141,7 +141,7 @@ export default function App() {
       {/* Main content */}
       <main className="flex-1 overflow-hidden">
         <Suspense fallback={<div className="flex h-full items-center justify-center bg-seal-bg text-sm text-seal-muted">Cargando vista...</div>}>
-          {view === 'home'        && <HomeView agentName={agentName} userName={userName} emotion={emotion} onStartChat={() => setView('chat')} />}
+          {view === 'home'        && <HomeView agentName={agentName} userName={userName} emotion={emotion} onStartChat={(prefill) => { setView('chat'); if (prefill) setTimeout(() => window.dispatchEvent(new CustomEvent('inject-prompt', { detail: prefill })), 50) }} />}
           {view === 'human'       && <HumanView />}
           {view === 'avatar'      && <AvatarView />}
           {view === 'chat'        && <ChatView onMessageSent={refreshEmotion} />}

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { SoulMascot, type MascotAccessory, type MascotMotion, type MascotState, type MascotVariant } from './SoulMascot'
 import { API } from '../App'
+import { Lock, Sparkles, Calendar, Sun, MessageCircle } from 'lucide-react'
 
 interface HomeViewProps {
   agentName?: string
   userName?: string
   emotion?: string
-  onStartChat?: () => void
+  onStartChat?: (prefill?: string) => void
 }
 
 interface AvatarProfile {
@@ -27,26 +28,23 @@ const DEFAULT_AVATAR: AvatarProfile = {
   motion: 'normal',
 }
 
+const QUICK_PROMPTS = [
+  { icon: Sun,           label: 'Resumime lo de hoy', prompt: 'Resumime lo de hoy en pocas frases.' },
+  { icon: Calendar,      label: 'Mi agenda mañana',   prompt: '¿Qué tengo mañana? Dame un resumen claro.' },
+  { icon: MessageCircle, label: 'Charlamos un rato',  prompt: 'Hola, ¿cómo estuviste hoy?' },
+] as const
+
 /**
  * HomeView — SEAL App entry screen.
  *
- * OpenHuman-inspired split layout:
- *   • Left: SoulMascot (animated)
- *   • Right: status card + quick CTAs
- *
- * Mirrors doc 13 (Home post-onboarding) with SEAL local-first positioning.
+ * Light theme coherente con el resto del producto.
+ * Layout split: mascot grande izquierda + tarjeta de bienvenida + quick prompts derecha.
  */
 export function HomeView({ agentName = 'SEAL', userName = '', emotion = 'calm', onStartChat }: HomeViewProps) {
   const [model] = useState<string>('GEMMA 4 local')
-  const [unread, setUnread] = useState<number>(0)
-  const [localityHint, setLocalityHint] = useState<string>('Local · sin costo')
   const [avatar, setAvatar] = useState<AvatarProfile>(DEFAULT_AVATAR)
 
   useEffect(() => {
-    fetch(`${API}/api/health`).then(r => r.json()).then(d => {
-      if (typeof d?.stats?.messages === 'number') setUnread(d.stats.messages)
-      if (d?.status === 'ok') setLocalityHint('Local · sin costo')
-    }).catch(() => {})
     fetch(`${API}/api/avatar/profile`)
       .then(r => r.json())
       .then(d => { if (d?.avatar) setAvatar(d.avatar) })
@@ -56,17 +54,21 @@ export function HomeView({ agentName = 'SEAL', userName = '', emotion = 'calm', 
   const mascotState: MascotState = mapEmotion(emotion)
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-b from-[#0a0814] to-[#13102b] text-gray-100">
-      {/* Local-first status banner. */}
-      <div className="px-4 py-2 text-xs text-violet-300/90 bg-violet-950/40 border-b border-violet-900/60 flex items-center justify-center gap-2">
-        <span>🟣</span>
-        <span>{localityHint}</span>
-        <span className="text-violet-300/50">·</span>
-        <span className="text-violet-300/70">{model}</span>
+    <div className="h-full flex flex-col bg-gradient-to-br from-stone-50 via-white to-violet-50 text-slate-800">
+      {/* Local-first status banner — pill flotante con sello */}
+      <div className="px-4 py-2 flex items-center justify-center gap-2 text-xs">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-sm">
+          <Lock className="w-3 h-3" />
+          Tus datos se quedan en tu equipo
+        </span>
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700">
+          <Sparkles className="w-3 h-3" />
+          {model}
+        </span>
       </div>
 
-      <div className="flex-1 flex flex-col md:flex-row items-center justify-center px-6 py-8 gap-6 md:gap-12 overflow-hidden">
-        {/* Left: mascot */}
+      <div className="flex-1 flex flex-col md:flex-row items-center justify-center px-6 py-6 gap-8 md:gap-12 overflow-hidden">
+        {/* Mascot */}
         <div className="flex-shrink-0">
           <SoulMascot
             state={mascotState}
@@ -81,57 +83,48 @@ export function HomeView({ agentName = 'SEAL', userName = '', emotion = 'calm', 
           />
         </div>
 
-        {/* Right: status card + CTA */}
+        {/* Welcome card + quick prompts */}
         <div className="w-full max-w-md flex flex-col gap-4">
-          <div className="rounded-2xl bg-white/5 backdrop-blur border border-white/10 shadow-2xl p-6 text-center">
-            <p className="text-3xl font-light tracking-tight">
-              {userName ? <>Hola, <span className="text-violet-300">{userName}</span></> : <>Hola.</>}
+          <div className="rounded-2xl bg-white border border-stone-200 shadow-lg shadow-violet-900/5 p-6 text-center">
+            <p className="text-3xl font-light tracking-tight text-slate-900">
+              {userName ? <>Hola, <span className="text-violet-600 font-medium">{userName}</span></> : <>Hola.</>}
             </p>
-            <p className="mt-2 text-sm text-gray-400">
+            <p className="mt-1.5 text-sm text-slate-500">
               {agentName} está despierta y lista para conversar.
             </p>
 
-            <div className="mt-5 flex items-center justify-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-900/40 border border-emerald-700/60 text-emerald-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Activa
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Activa
               </span>
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-violet-900/40 border border-violet-700/60 text-violet-300">
-                {model}
-              </span>
-              {unread > 0 && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-900/40 border border-amber-700/60 text-amber-300">
-                  {unread} sin leer
-                </span>
-              )}
             </div>
 
             <button
-              onClick={onStartChat}
-              className="mt-6 w-full py-3 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 transition-colors text-white font-medium shadow-lg shadow-violet-900/50"
+              onClick={() => onStartChat?.()}
+              className="mt-5 w-full py-3 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 active:bg-violet-700 transition-colors text-white font-medium shadow-md shadow-violet-200"
             >
               💬 Empezar a conversar
             </button>
-
-            <p className="mt-3 text-xs text-gray-500">
-              Pruebá pidiendo: <span className="text-gray-400">"Resumime lo de hoy"</span>, <span className="text-gray-400">"Mi agenda mañana"</span>, <span className="text-gray-400">"Recordame X"</span>
-            </p>
           </div>
 
-          {/* Community / Soporte card — equivalente al Discord card de OpenHuman pero más sobrio */}
-          <div className="rounded-2xl bg-white/5 backdrop-blur border border-white/10 p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-violet-900/60 flex items-center justify-center text-violet-300">💜</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-200">Únete a la comunidad SEAL</p>
-              <p className="text-xs text-gray-500">Updates, ideas y bugs en nuestro canal.</p>
+          {/* Quick prompts — chips clickeables que arrancan chat con prefill */}
+          <div>
+            <p className="text-[11px] uppercase tracking-widest text-slate-400 mb-2 text-center">
+              Pedile algo rápido
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {QUICK_PROMPTS.map(({ icon: Icon, label, prompt }) => (
+                <button
+                  key={label}
+                  onClick={() => onStartChat?.(prompt)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-stone-200 hover:border-violet-300 hover:bg-violet-50 transition-colors text-sm text-slate-700 hover:text-violet-700 shadow-sm text-left group"
+                >
+                  <Icon className="w-4 h-4 text-violet-500 shrink-0 group-hover:scale-110 transition-transform" />
+                  <span className="flex-1 truncate">{label}</span>
+                  <span className="text-stone-300 group-hover:text-violet-400">→</span>
+                </button>
+              ))}
             </div>
-            <a
-              href="https://github.com/sknaider"
-              target="_blank"
-              rel="noreferrer noopener"
-              className="text-xs text-violet-300 hover:text-violet-200"
-            >
-              Abrir →
-            </a>
           </div>
         </div>
       </div>
