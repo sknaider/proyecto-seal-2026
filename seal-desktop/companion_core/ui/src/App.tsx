@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect } from 'react'
 import { HomeView } from './components/HomeView'
 import { FirstRunWizard } from './components/FirstRunWizard'
-import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift, Monitor, Filter, Users, Palette, CalendarClock, CreditCard } from 'lucide-react'
+import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift, Monitor, Filter, Users, Palette, CalendarClock, CreditCard, MoreHorizontal } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
@@ -29,27 +29,27 @@ const BillingView = lazy(() => import('./views/BillingView'))
 type View = 'home' | 'human' | 'avatar' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'screen' | 'tokenjuice' | 'subagents' | 'cron' | 'billing' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
 
 const NAV = [
-  { id: 'home',        icon: Home,          label: 'Inicio' },
-  { id: 'human',       icon: Mic,           label: 'Voz' },
-  { id: 'avatar',      icon: Palette,       label: 'Avatar' },
-  { id: 'chat',        icon: MessageSquare, label: 'Chat' },
-  { id: 'memory',      icon: Brain,         label: 'Recuerdos' },
-  { id: 'tree',        icon: TreePine,      label: 'Resumen' },
-  { id: 'dreams',      icon: Moon,          label: 'Ideas' },
-  { id: 'skills',      icon: Zap,           label: 'Acciones' },
-  { id: 'subagents',   icon: Users,         label: 'Equipo' },
-  { id: 'goals',       icon: Target,        label: 'Metas' },
-  { id: 'connections', icon: Plug,          label: 'Conectar' },
-  { id: 'screen',      icon: Monitor,       label: 'Pantalla' },
-  { id: 'tokenjuice',  icon: Filter,        label: 'Contexto' },
-  { id: 'cron',        icon: CalendarClock, label: 'Programar' },
-  { id: 'billing',     icon: CreditCard,    label: 'Planes' },
-  { id: 'rewards',     icon: Gift,          label: 'Recomp.' },
-  { id: 'notifs',      icon: Bell,          label: 'Avisos' },
-  { id: 'privacy',     icon: Shield,        label: 'Privacidad' },
-  { id: 'ai',          icon: Cpu,           label: 'Cerebro' },
-  { id: 'audit',       icon: ClipboardList, label: 'Historial' },
-  { id: 'settings',    icon: Settings,      label: 'Ajustes' },
+  { id: 'home',        icon: Home,          label: 'Inicio',     primary: true  },
+  { id: 'human',       icon: Mic,           label: 'Voz',        primary: true  },
+  { id: 'avatar',      icon: Palette,       label: 'Avatar',     primary: false },
+  { id: 'chat',        icon: MessageSquare, label: 'Chat',       primary: true  },
+  { id: 'memory',      icon: Brain,         label: 'Recuerdos',  primary: true  },
+  { id: 'tree',        icon: TreePine,      label: 'Resumen',    primary: false },
+  { id: 'dreams',      icon: Moon,          label: 'Ideas',      primary: false },
+  { id: 'skills',      icon: Zap,           label: 'Acciones',   primary: true  },
+  { id: 'subagents',   icon: Users,         label: 'Equipo',     primary: false },
+  { id: 'goals',       icon: Target,        label: 'Metas',      primary: false },
+  { id: 'connections', icon: Plug,          label: 'Conectar',   primary: true  },
+  { id: 'screen',      icon: Monitor,       label: 'Pantalla',   primary: false },
+  { id: 'tokenjuice',  icon: Filter,        label: 'Contexto',   primary: false },
+  { id: 'cron',        icon: CalendarClock, label: 'Programar',  primary: false },
+  { id: 'billing',     icon: CreditCard,    label: 'Planes',     primary: false },
+  { id: 'rewards',     icon: Gift,          label: 'Recomp.',    primary: false },
+  { id: 'notifs',      icon: Bell,          label: 'Avisos',     primary: false },
+  { id: 'privacy',     icon: Shield,        label: 'Privacidad', primary: true  },
+  { id: 'ai',          icon: Cpu,           label: 'Cerebro',    primary: false },
+  { id: 'audit',       icon: ClipboardList, label: 'Historial',  primary: false },
+  { id: 'settings',    icon: Settings,      label: 'Ajustes',    primary: true  },
 ] as const
 
 const VIEW_IDS = new Set<View>(NAV.map(item => item.id as View))
@@ -73,6 +73,7 @@ export default function App() {
   const [emotion, setEmotion] = useState('calm')
   const [showWizard, setShowWizard] = useState(false)
   const [bootstrapped, setBootstrapped] = useState(false)
+  const [showMore, setShowMore] = useState(false)
 
   useEffect(() => {
     // Bootstrap: read config + decide whether first-run wizard is needed.
@@ -164,20 +165,69 @@ export default function App() {
         </Suspense>
       </main>
 
-      {/* Bottom nav */}
-      <nav className="flex border-t border-seal-border shrink-0 overflow-x-auto">
-        {NAV.map(({ id, icon: Icon, label }) => (
+      {/* Bottom nav — responsive: full grid en lg+, primary + Más en sm/md */}
+      <nav className="relative border-t border-seal-border shrink-0 bg-seal-bg/80 backdrop-blur">
+        {/* Full nav (xl+) — todos los 21 visibles */}
+        <div className="hidden xl:flex">
+          {NAV.map(({ id, icon: Icon, label }) => (
+            <button
+              key={id}
+              onClick={() => { setView(id as View); setShowMore(false) }}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 text-[11px] transition-colors ${
+                view === id ? 'text-blue-400' : 'text-seal-muted hover:text-slate-300'
+              }`}
+            >
+              <Icon size={18} />
+              <span className="whitespace-nowrap">{label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Compact nav (< xl) — solo primarios + botón Más */}
+        <div className="flex xl:hidden">
+          {NAV.filter(n => n.primary).map(({ id, icon: Icon, label }) => (
+            <button
+              key={id}
+              onClick={() => { setView(id as View); setShowMore(false) }}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 text-[11px] transition-colors ${
+                view === id ? 'text-blue-400' : 'text-seal-muted hover:text-slate-300'
+              }`}
+            >
+              <Icon size={18} />
+              <span className="whitespace-nowrap">{label}</span>
+            </button>
+          ))}
           <button
-            key={id}
-            onClick={() => setView(id as View)}
-            className={`min-w-[72px] sm:min-w-0 sm:flex-1 shrink-0 flex flex-col items-center gap-1 py-2 text-[11px] sm:text-xs transition-colors ${
-              view === id ? 'text-blue-400' : 'text-seal-muted hover:text-slate-300'
+            onClick={() => setShowMore(v => !v)}
+            className={`flex-1 flex flex-col items-center gap-1 py-2 text-[11px] transition-colors ${
+              showMore ? 'text-blue-400' : 'text-seal-muted hover:text-slate-300'
             }`}
+            aria-label="Más opciones"
           >
-            <Icon size={18} />
-            <span className="whitespace-nowrap">{label}</span>
+            <MoreHorizontal size={18} />
+            <span className="whitespace-nowrap">Más</span>
           </button>
-        ))}
+        </div>
+
+        {/* Popover "Más" — secundarios en grid */}
+        {showMore && (
+          <div className="absolute inset-x-0 bottom-full mb-1 mx-2 max-h-[60vh] overflow-y-auto rounded-xl border border-seal-border bg-seal-surface shadow-2xl backdrop-blur xl:hidden">
+            <div className="grid grid-cols-4 gap-1 p-2">
+              {NAV.filter(n => !n.primary).map(({ id, icon: Icon, label }) => (
+                <button
+                  key={id}
+                  onClick={() => { setView(id as View); setShowMore(false) }}
+                  className={`flex flex-col items-center gap-1 py-3 rounded-lg text-[11px] transition-colors ${
+                    view === id ? 'bg-blue-500/20 text-blue-400' : 'text-seal-muted hover:bg-seal-border/60 hover:text-slate-300'
+                  }`}
+                >
+                  <Icon size={18} />
+                  <span className="whitespace-nowrap">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
     </div>
   )
