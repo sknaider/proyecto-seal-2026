@@ -151,11 +151,22 @@ export default function OpenClawCatalogView() {
   const toggleCap = async (name: string, enabled: boolean) => {
     setCapBusy(name)
     try {
-      await fetch(`${API}/api/openclaw/capabilities/${encodeURIComponent(name)}`, {
+      const isCritical = name.includes('shell_exec') || name.includes('fs_write') || name.includes('network_egress')
+      // Si encendemos una critical, pedimos confirmación explícita antes
+      if (enabled && isCritical) {
+        const ok = confirm(`⚠️ Capability CRÍTICA: ${name}\n\nPodés exponerte a daño real (escritura de archivos, ejecución de shell, o tráfico de red). Solo activá esto si confiás 100% en el plugin.\n\n¿Confirmás?`)
+        if (!ok) return
+      }
+      const r = await fetch(`${API}/api/openclaw/capabilities/${encodeURIComponent(name)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled }),
+        body: JSON.stringify({ enabled, user_confirmed: enabled && isCritical }),
       })
+      const d = await r.json().catch(() => ({}))
+      if (d?.requires_confirmation) {
+        // Server pidió confirmación que no enviamos (shouldn't happen pero defensivo)
+        alert(`Backend rechazó el cambio: requiere user_confirmed=true para ${name}`)
+      }
       await loadSidecar()
     } finally { setCapBusy(null) }
   }
