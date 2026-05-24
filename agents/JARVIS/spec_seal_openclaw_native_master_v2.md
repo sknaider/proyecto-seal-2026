@@ -570,4 +570,28 @@ Cosas que **no** se diseñan acá:
 
 ---
 
-**Status:** READY FOR ADA REVIEW. Cumple los 7 criterios required + los 8 non-negotiable gates del ADA preliminary gate (2026-05-23).
+---
+
+## 13. Alineación con excavación ADA (2026-05-23)
+
+Cruzado con `agents/ADA/openclaw_repo_excavation_20260523.md`. Modelo de **3 capas** que ADA aprueba se mapean así a este spec:
+
+| Capa ADA | Cómo se aprovecha en este spec |
+|---|---|
+| **Contratos** (Gateway protocol, SDK shape, plugin manifests, configSchema, event model) | §2 IPC (handshake, version negotiation, error shape inspirados en `connect.challenge` OpenClaw) + Phase 2 `seal.plugin.json` reducido + event stream normalizado |
+| **Políticas** (pairing, audit, sandbox, SSRF/fs-safe) | §3 Security (capabilities opt-in, FS allowlist con realpath defense-in-depth contra path traversal/symlinks, audit log con `checkId` style, network egress control inspirado SSRF policy) |
+| **Adapters** (canales/providers seleccionados como plugins/sidecars) | Phase 3 — orden ADA priorizado (Telegram→Discord→Matrix→Slack→Mattermost→Nextcloud→Webhooks) |
+
+**SOUL DB queda como fuente de verdad** — OpenClaw memory-core/lancedb solo como bridge opcional, jamás reemplazo. Phase 2 documenta el bridge.
+
+**Bloqueos ADA respetados:**
+- ❌ Sin WSL en Windows → §4.1 build runners nativos
+- ❌ Sin `npm install -g` en cliente → §4.2 Node runtime ≥22.14 embebido en sidecar
+- ❌ Sin absorber 120 extensions de golpe → Phase 0 catálogo pasivo + Phase 1 allowlist explícita
+- ❌ Sin reemplazar SOUL DB → bridge opcional
+- ❌ Sin core daemon OpenClaw → es compat sidecar supervisado por companion_core
+- ❌ Sin exponer `/tools/invoke` full-operator → §3 capability gating + per-tool toggle + per-plugin trust
+
+---
+
+**Status:** READY FOR ADA REVIEW. Cumple los 7 criterios required + los 8 non-negotiable gates del ADA preliminary gate (2026-05-23) + las recomendaciones del informe de excavación (Phase 0 catálogo pasivo, modelo 3 capas, orden de canales, Node embebido).
