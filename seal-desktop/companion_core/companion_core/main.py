@@ -245,6 +245,135 @@ async def autocomplete_inline(body: AutocompleteBody):
     return {"suggestions": suggestions, "query": text}
 
 
+# ── OpenClaw catalog (Fase 0 — read-only manifests, no execution) ────────────
+
+
+_OPENCLAW_ROOT_CANDIDATES = (
+    "/home/dadito/IA/openclaw",
+    os.path.expanduser("~/IA/openclaw"),
+    os.environ.get("OPENCLAW_PATH") or "",
+)
+
+
+def _openclaw_root() -> Optional[Path]:
+    for candidate in _OPENCLAW_ROOT_CANDIDATES:
+        if not candidate:
+            continue
+        p = Path(candidate) / "extensions"
+        if p.is_dir():
+            return p.parent
+    return None
+
+
+def _classify_plugin(name: str, manifest: dict) -> dict:
+    """Detecta categoría + risk tier sin ejecutar nada — heurística por contracts."""
+    name_l = (name or "").lower()
+    channels = manifest.get("channels") or []
+    contracts = manifest.get("contracts") or {}
+    provider_envs = manifest.get("providerAuthEnvVars") or {}
+    provider_choices = manifest.get("providerAuthChoices") or []
+
+    is_channel = bool(channels)
+    is_provider = bool(provider_envs or provider_choices) or "providers" in (contracts.keys() if isinstance(contracts, dict) else [])
+    is_tool = any(k in (contracts.keys() if isinstance(contracts, dict) else [])
+                  for k in ("tools", "skills", "agents"))
+
+    # Risk tier heurística
+    risk = "normal"
+    UNOFFICIAL = {"whatsapp", "imessage", "bluebubbles", "wechat", "qqbot", "zalo", "zalouser"}
+    OFFICIAL_OAUTH = {"slack", "discord", "telegram", "google", "googlechat", "google-meet",
+                      "microsoft", "msteams", "feishu", "github-copilot"}
+    if name_l in UNOFFICIAL:
+        risk = "critical"
+    elif name_l in OFFICIAL_OAUTH:
+        risk = "high"
+    elif is_provider:
+        risk = "high"
+
+    categories = []
+    if is_channel: categories.append("channel")
+    if is_provider: categories.append("provider")
+    if is_tool: categories.append("tool")
+    if not categories: categories.append("misc")
+
+    return {"categories": categories, "risk_tier": risk}
+
+
+@app.get("/api/openclaw/catalog")
+async def openclaw_catalog(category: Optional[str] = None, risk: Optional[str] = None):
+    """Read-only scan of OpenClaw extensions manifests.
+
+    NO code execution. NO module load. Solo parsing JSON estático.
+    Per spec Fase 0 (ADA, 23-may-2026): SEAL aprende el catálogo sin aumentar
+    superficie de ataque.
+    """
+    root = _openclaw_root()
+    if not root:
+        return {"ok": False, "error": "openclaw repo no encontrado", "root_candidates": list(_OPENCLAW_ROOT_CANDIDATES)}
+
+    ext_dir = root / "extensions"
+    catalog: list[dict] = []
+    for plugin_json in sorted(ext_dir.glob("*/openclaw.plugin.json")):
+        try:
+            manifest = json.loads(plugin_json.read_text(encoding="utf-8"))
+        except Exception as exc:
+            catalog.append({
+                "name": plugin_json.parent.name, "ok": False,
+                "error": f"parse: {exc}", "path": str(plugin_json),
+            })
+            continue
+
+        pkg = {}
+        pkg_path = plugin_json.parent / "package.json"
+        if pkg_path.is_file():
+            try:
+                pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        name = plugin_json.parent.name
+        classification = _classify_plugin(name, manifest)
+
+        catalog.append({
+            "ok": True,
+            "name": name,
+            "manifest_id": manifest.get("id"),
+            "channels": manifest.get("channels") or [],
+            "contracts": list((manifest.get("contracts") or {}).keys()) if isinstance(manifest.get("contracts"), dict) else [],
+            "providers_auth_envs": list((manifest.get("providerAuthEnvVars") or {}).keys()),
+            "categories": classification["categories"],
+            "risk_tier": classification["risk_tier"],
+            "enabled_by_default": bool(manifest.get("enabledByDefault", False)),
+            "activation_on_startup": bool((manifest.get("activation") or {}).get("onStartup", False)),
+            "config_schema_keys": list(((manifest.get("configSchema") or {}).get("properties") or {}).keys()),
+            "pkg_name": pkg.get("name"),
+            "pkg_version": pkg.get("version"),
+            "pkg_description": pkg.get("description"),
+            "path": str(plugin_json.parent.relative_to(root)),
+        })
+
+    if category:
+        catalog = [c for c in catalog if c.get("ok") and category in (c.get("categories") or [])]
+    if risk:
+        catalog = [c for c in catalog if c.get("ok") and c.get("risk_tier") == risk]
+
+    counts = {"total": len(catalog)}
+    for c in catalog:
+        if not c.get("ok"):
+            continue
+        for cat in c.get("categories") or []:
+            counts[cat] = counts.get(cat, 0) + 1
+        rk = c.get("risk_tier") or "normal"
+        counts[f"risk_{rk}"] = counts.get(f"risk_{rk}", 0) + 1
+
+    return {
+        "ok": True,
+        "root": str(root),
+        "counts": counts,
+        "plugins": catalog,
+    }
+
+
 # ── Sub-agents (v0.6 — OpenHuman absorption) ─────────────────────────────────
 
 
@@ -311,6 +440,16 @@ async def first_run(payload: FirstRunPayload):
     await _upsert_setting("first_run_complete", True)
     if payload.ocean:
         await _upsert_setting("ocean", payload.ocean)
+    # Sync agent_profile.name so /api/companion/context returns the chosen agent name
+    try:
+        db = get_db()
+        await db.execute(
+            "UPDATE agent_profile SET name = ?, updated_at = datetime('now') WHERE id = 1",
+            (payload.primary_agent,),
+        )
+        await db.commit()
+    except Exception:
+        pass
     return {"ok": True}
 
 
@@ -2561,6 +2700,10 @@ _KNOWN_CONNECTORS = {
     "obsidian": {"name": "Obsidian Vault", "category": "notes"},
     "whatsapp": {"name": "WhatsApp", "category": "chat"},
     "ms365": {"name": "Microsoft 365", "category": "office"},
+    "linkedin": {"name": "LinkedIn", "category": "social"},
+    "discord": {"name": "Discord", "category": "chat"},
+    "gmeet": {"name": "Google Meet", "category": "video"},
+    "zoom": {"name": "Zoom", "category": "video"},
 }
 
 _OAUTH_PROVIDERS = {

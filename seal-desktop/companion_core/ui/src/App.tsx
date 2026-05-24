@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect } from 'react'
 import { HomeView } from './components/HomeView'
 import { FirstRunWizard } from './components/FirstRunWizard'
-import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift, Monitor, Filter, Users, Palette, CalendarClock, CreditCard, MoreHorizontal } from 'lucide-react'
+import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift, Monitor, Filter, Users, Palette, CalendarClock, CreditCard, MoreHorizontal, Box } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
@@ -24,9 +24,10 @@ const ScreenView = lazy(() => import('./views/ScreenView'))
 const TokenJuiceView = lazy(() => import('./views/TokenJuiceView'))
 const SubAgentsView = lazy(() => import('./views/SubAgentsView'))
 const CronJobsView = lazy(() => import('./views/CronJobsView'))
+const OpenClawCatalogView = lazy(() => import('./views/OpenClawCatalogView'))
 const BillingView = lazy(() => import('./views/BillingView'))
 
-type View = 'home' | 'human' | 'avatar' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'screen' | 'tokenjuice' | 'subagents' | 'cron' | 'billing' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
+type View = 'home' | 'human' | 'avatar' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'screen' | 'tokenjuice' | 'subagents' | 'cron' | 'billing' | 'openclaw' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
 
 const NAV = [
   { id: 'home',        icon: Home,          label: 'Inicio',     primary: true  },
@@ -44,6 +45,7 @@ const NAV = [
   { id: 'tokenjuice',  icon: Filter,        label: 'Contexto',   primary: false },
   { id: 'cron',        icon: CalendarClock, label: 'Programar',  primary: false },
   { id: 'billing',     icon: CreditCard,    label: 'Planes',     primary: false },
+  { id: 'openclaw',    icon: Box,           label: 'OpenClaw',   primary: false },
   { id: 'rewards',     icon: Gift,          label: 'Recomp.',    primary: false },
   { id: 'notifs',      icon: Bell,          label: 'Avisos',     primary: false },
   { id: 'privacy',     icon: Shield,        label: 'Privacidad', primary: true  },
@@ -151,6 +153,7 @@ export default function App() {
           {view === 'subagents'   && <SubAgentsView />}
           {view === 'cron'        && <CronJobsView />}
           {view === 'billing'     && <BillingView />}
+          {view === 'openclaw'    && <OpenClawCatalogView />}
           {view === 'rewards'     && <RewardsView />}
           {view === 'memory'      && <MemoryView />}
           {view === 'tree'        && <MemoryTreeView />}
