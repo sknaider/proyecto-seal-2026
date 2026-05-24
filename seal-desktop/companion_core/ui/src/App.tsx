@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect } from 'react'
 import { HomeView } from './components/HomeView'
 import { FirstRunWizard } from './components/FirstRunWizard'
-import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift, Monitor, Filter, Users, Palette, CalendarClock, CreditCard, MoreHorizontal, Box } from 'lucide-react'
+import { Home, MessageSquare, Brain, Zap, Target, Settings, Moon, Shield, Bell, Cpu, ClipboardList, Mic, Plug, TreePine, Gift, Monitor, Filter, Users, Palette, CalendarClock, CreditCard, MoreHorizontal, Box, Inbox } from 'lucide-react'
 
 export const API = 'http://localhost:8769'
 
@@ -18,6 +18,7 @@ const AuditLogView = lazy(() => import('./views/AuditLogView'))
 const HumanView = lazy(() => import('./views/HumanView'))
 const AvatarView = lazy(() => import('./views/AvatarView'))
 const ConnectionsView = lazy(() => import('./views/ConnectionsView'))
+const InboxView = lazy(() => import('./views/InboxView'))
 const MemoryTreeView = lazy(() => import('./views/MemoryTreeView'))
 const RewardsView = lazy(() => import('./views/RewardsView'))
 const ScreenView = lazy(() => import('./views/ScreenView'))
@@ -27,13 +28,14 @@ const CronJobsView = lazy(() => import('./views/CronJobsView'))
 const OpenClawCatalogView = lazy(() => import('./views/OpenClawCatalogView'))
 const BillingView = lazy(() => import('./views/BillingView'))
 
-type View = 'home' | 'human' | 'avatar' | 'chat' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'screen' | 'tokenjuice' | 'subagents' | 'cron' | 'billing' | 'openclaw' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
+type View = 'home' | 'human' | 'avatar' | 'chat' | 'inbox' | 'memory' | 'tree' | 'dreams' | 'skills' | 'goals' | 'connections' | 'screen' | 'tokenjuice' | 'subagents' | 'cron' | 'billing' | 'openclaw' | 'rewards' | 'notifs' | 'privacy' | 'ai' | 'audit' | 'settings'
 
 const NAV = [
   { id: 'home',        icon: Home,          label: 'Inicio',     primary: true  },
   { id: 'human',       icon: Mic,           label: 'Voz',        primary: true  },
   { id: 'avatar',      icon: Palette,       label: 'Avatar',     primary: false },
   { id: 'chat',        icon: MessageSquare, label: 'Chat',       primary: true  },
+  { id: 'inbox',       icon: Inbox,         label: 'Inbox',      primary: true  },
   { id: 'memory',      icon: Brain,         label: 'Recuerdos',  primary: true  },
   { id: 'tree',        icon: TreePine,      label: 'Resumen',    primary: false },
   { id: 'dreams',      icon: Moon,          label: 'Ideas',      primary: false },
@@ -100,6 +102,18 @@ export default function App() {
       .catch(() => {})
   }, [])
 
+  // Listen for nav events from views (rail in ChatView, quick prompts, etc.)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const target = (e as CustomEvent).detail
+      if (typeof target === 'string' && VIEW_IDS.has(target as View)) {
+        setView(target as View)
+      }
+    }
+    window.addEventListener('nav', handler as EventListener)
+    return () => window.removeEventListener('nav', handler as EventListener)
+  }, [])
+
   // Refresh emotional state after chat updates it
   function refreshEmotion() {
     fetch(`${API}/api/agent/emotional-state`)
@@ -147,6 +161,7 @@ export default function App() {
           {view === 'human'       && <HumanView />}
           {view === 'avatar'      && <AvatarView />}
           {view === 'chat'        && <ChatView onMessageSent={refreshEmotion} />}
+          {view === 'inbox'       && <InboxView />}
           {view === 'connections' && <ConnectionsView />}
           {view === 'screen'      && <ScreenView />}
           {view === 'tokenjuice'  && <TokenJuiceView />}

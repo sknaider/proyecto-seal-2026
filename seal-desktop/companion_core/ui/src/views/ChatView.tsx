@@ -1,9 +1,40 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { API } from '../App'
-import { Send, Plus, ChevronDown, Sparkles, Trash2 } from 'lucide-react'
+import { Send, Plus, ChevronDown, Sparkles, Trash2, MessageCircle, Mail, Hash, Briefcase, Video, Bot, Headphones, Inbox } from 'lucide-react'
 
 interface Msg { role: string; content: string; ts?: string }
 interface Thread { thread_id: string; msg_count: number; last_ts: string; first_ts?: string }
+interface InboxSource {
+  id: string
+  label: string
+  kind: string
+  connected: boolean
+  status: string
+  risk_tier?: string
+}
+
+const CHANNEL_ICONS: Record<string, typeof MessageCircle> = {
+  whatsapp: MessageCircle,
+  telegram: Send,
+  slack: Hash,
+  discord: Bot,
+  gmail: Mail,
+  google_meet: Video,
+  zoom: Video,
+  linkedin: Briefcase,
+  default: Headphones,
+}
+
+const CHANNEL_COLORS: Record<string, string> = {
+  whatsapp: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+  telegram: 'text-sky-600 bg-sky-50 border-sky-200',
+  slack: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-200',
+  discord: 'text-indigo-600 bg-indigo-50 border-indigo-200',
+  gmail: 'text-red-600 bg-red-50 border-red-200',
+  google_meet: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+  zoom: 'text-blue-600 bg-blue-50 border-blue-200',
+  linkedin: 'text-blue-700 bg-blue-50 border-blue-200',
+}
 
 function genThread() {
   return 'thread-' + Date.now()
@@ -43,6 +74,8 @@ export default function ChatView({ onMessageSent }: Props) {
   const [loading, setLoading] = useState(false)
   const [showThreads, setShowThreads] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [channelSources, setChannelSources] = useState<InboxSource[]>([])
+  const [activeChannel, setActiveChannel] = useState<string>('seal')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -60,6 +93,11 @@ export default function ChatView({ onMessageSent }: Props) {
 
   useEffect(() => {
     loadThreads()
+    // Load channel sources from ADA's inbox bridge
+    fetch(`${API}/api/inbox/overview`)
+      .then(r => r.json())
+      .then(d => { if (d?.ok && Array.isArray(d.sources)) setChannelSources(d.sources) })
+      .catch(() => {})
   }, [loadThreads])
 
   useEffect(() => {
@@ -167,8 +205,95 @@ export default function ChatView({ onMessageSent }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Thread selector bar */}
+    <div className="flex h-full">
+      {/* Column 1: Channel rail (60px) — estilo OpenHuman */}
+      <aside className="w-14 shrink-0 border-r border-stone-200 bg-stone-50 flex flex-col items-center py-3 gap-1.5">
+        {/* SEAL local (default agente) */}
+        <button
+          onClick={() => setActiveChannel('seal')}
+          className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all ${activeChannel === 'seal' ? 'bg-violet-500 text-white shadow-md ring-2 ring-violet-200' : 'bg-white text-violet-500 border border-stone-200 hover:border-violet-300'}`}
+          title="SEAL local · default"
+        >
+          ✦
+        </button>
+        <div className="w-6 h-px bg-stone-300 my-1" />
+        {/* Connected channels desde /api/inbox/overview */}
+        {channelSources.map(src => {
+          const Icon = CHANNEL_ICONS[src.id] || CHANNEL_ICONS.default
+          const colorClass = CHANNEL_COLORS[src.id] || 'text-slate-600 bg-white border-stone-200'
+          const isActive = activeChannel === src.id
+          return (
+            <button
+              key={src.id}
+              onClick={() => setActiveChannel(src.id)}
+              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all border-2 ${isActive ? 'ring-2 ring-violet-200 ' + colorClass : src.connected ? colorClass : 'bg-white text-stone-400 border-stone-200 hover:border-stone-300'}`}
+              title={`${src.label} · ${src.connected ? 'conectado' : src.status}`}
+            >
+              <Icon className="w-4 h-4" />
+              {!src.connected && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-white" title="pendiente conexión" />
+              )}
+            </button>
+          )
+        })}
+        {/* Add account button — abre Conectar */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('nav', { detail: 'connections' }))}
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-stone-400 border border-dashed border-stone-300 hover:border-violet-400 hover:text-violet-500 transition"
+          title="Agregar cuenta / canal"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('nav', { detail: 'inbox' }))}
+          className="mt-auto w-10 h-10 rounded-xl flex items-center justify-center text-stone-500 hover:bg-stone-200 transition"
+          title="Inbox unificado"
+        >
+          <Inbox className="w-4 h-4" />
+        </button>
+      </aside>
+
+      {/* Column 2: Threads sidebar (220px) — siempre visible */}
+      <aside className="w-56 shrink-0 border-r border-stone-200 bg-white flex flex-col">
+        <div className="px-3 py-2 border-b border-stone-200 flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-700 uppercase tracking-widest">Threads</span>
+          <button onClick={newThread} title="Nueva conversación" className="p-1 rounded hover:bg-stone-100 text-stone-500 hover:text-violet-600">
+            <Plus size={14} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {threads.map((t, i) => {
+            const label = threadLabel(t, i, threads.length)
+            const isActive = t.thread_id === threadId
+            return (
+              <div
+                key={t.thread_id}
+                className={`group flex items-center gap-2 px-3 py-2 text-xs hover:bg-stone-50 cursor-pointer ${isActive ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''}`}
+              >
+                <button
+                  onClick={() => selectThread(t.thread_id)}
+                  className={`flex-1 text-left truncate ${isActive ? 'text-blue-700 font-medium' : 'text-slate-700'}`}
+                >
+                  <div className="truncate">{label}</div>
+                  <div className="text-[10px] text-stone-400 mt-0.5">{t.msg_count} msgs</div>
+                </button>
+                <button
+                  onClick={() => deleteThread(t.thread_id, label)}
+                  title="Eliminar"
+                  className="p-1 rounded text-stone-400 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            )
+          })}
+          {threads.length === 0 && <div className="px-3 py-4 text-xs text-stone-400 italic">Sin conversaciones aún</div>}
+        </div>
+      </aside>
+
+      {/* Column 3: Chat principal (resto) */}
+      <div className="flex-1 flex flex-col h-full min-w-0">
+      {/* Thread title bar */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-stone-200 shrink-0 bg-white">
         <button
           onClick={() => setShowThreads(!showThreads)}
@@ -314,6 +439,7 @@ export default function ChatView({ onMessageSent }: Props) {
           </button>
         </div>
         <div className="text-xs text-stone-400 mt-1 text-center">Shift+Enter para nueva línea</div>
+      </div>
       </div>
     </div>
   )
