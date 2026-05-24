@@ -455,20 +455,31 @@ NEXUS bloqueará merge si:
 
 > Alineado con `agents/ADA/openclaw_repo_excavation_20260523.md`. Añadida **Phase 0 catálogo pasivo** ANTES del spike por recomendación ADA (valor rápido, cero superficie de ataque, sin ejecutar código de plugin).
 
-### Phase 0 — Manifest catalog importer (READ-ONLY) (2-3 días)
+### Phase 0 — Manifest catalog importer (READ-ONLY) — ✅ ENTREGADA por ALICE 2026-05-23 (commit `dbc635e`)
 
-Sin ejecutar nada de OpenClaw. Solo parsear JSON.
+Implementación real (paths difieren del scope inicial; funcionalidad equivalente):
 
-- `companion_core/openclaw_compat/manifest_importer.py` — scanner de `openclaw.plugin.json` en `/home/dadito/IA/openclaw/extensions/`
-- Endpoint `GET /api/openclaw/extensions` — lista manifests con `id`, `channels`, `providers`, `contracts`, `configSchema`, `uiHints`
-- Endpoint `GET /api/openclaw/extensions/{id}/risk-report` — reporte estructurado (exec?/fs-write?/network egress?/credentials?)
-- UI "Extensiones" read-only (ALICE) — catálogo navegable, badges riesgo, sin botón "instalar/ejecutar"
-- Test fixtures: 5 manifests reales — `telegram`, `discord`, `matrix`, `ollama`, `memory-lancedb`
-- Gate de seguridad: import error si manifest declara campos no en allowlist whitelist
+- Backend: `companion_core/main.py` `GET /api/openclaw/catalog?category=&risk=` (inline, no módulo separado)
+- Scan `/home/dadito/IA/openclaw/extensions/*/openclaw.plugin.json`
+- Parsing JSON estático puro — NO `importlib`, NO `subprocess`, NO `eval`
+- Heurística `risk_tier`:
+  - 🔴 critical (6): whatsapp, imessage, bluebubbles, wechat, qqbot, zalo, zalouser
+  - 🟠 high (66): slack, discord, telegram, google*, microsoft, msteams + providers con API keys
+  - 🟢 normal (resto)
+- Categorización: channel (23), provider (58), tool (18), misc (28). Total 120 plugins.
+- UI: `OpenClawCatalogView.tsx` (nav "OpenClaw", icon Box) con disclaimer Fase 0, 7 stat cards, filtros categoría+riesgo+search, 120 cards grid, expand muestra channels/contracts/ENV/configSchema/path
+- Build: 219.66KB
 
-**Riesgo añadido:** 0. **Valor:** SEAL aprende todo el catálogo OpenClaw sin tocar runtime Node.
+**Pendiente NEXUS** (gate audit antes de cerrar Phase 0):
+- Verificar que NO hay import dinámico de plugin code en ningún path
+- Verificar que el scan respeta path traversal (root candidates fijos)
+- Verificar que la UI no expone botón "ejecutar/instalar"
 
-Owner: JARVIS (importer) + ALICE (UI catalog) · Audit: NEXUS (no-exec gate)
+**Pendiente para mejorar (opcional v2 Phase 0):**
+- Endpoint adicional `GET /api/openclaw/catalog/{id}/risk-report` (reporte estructurado por plugin)
+- Test fixtures con 5 manifests reales (telegram/discord/matrix/ollama/memory-lancedb)
+
+Owner: ALICE (entregado) · Audit pendiente: NEXUS
 
 ### Phase 0.5 — Spike (2-3 días)
 - Tauri spawn de "echo sidecar" Rust/Node minimal
