@@ -453,7 +453,24 @@ NEXUS bloqueará merge si:
 
 ## 8. Phases roadmap (per ADA)
 
-### Phase 0 — Spike (2-3 días)
+> Alineado con `agents/ADA/openclaw_repo_excavation_20260523.md`. Añadida **Phase 0 catálogo pasivo** ANTES del spike por recomendación ADA (valor rápido, cero superficie de ataque, sin ejecutar código de plugin).
+
+### Phase 0 — Manifest catalog importer (READ-ONLY) (2-3 días)
+
+Sin ejecutar nada de OpenClaw. Solo parsear JSON.
+
+- `companion_core/openclaw_compat/manifest_importer.py` — scanner de `openclaw.plugin.json` en `/home/dadito/IA/openclaw/extensions/`
+- Endpoint `GET /api/openclaw/extensions` — lista manifests con `id`, `channels`, `providers`, `contracts`, `configSchema`, `uiHints`
+- Endpoint `GET /api/openclaw/extensions/{id}/risk-report` — reporte estructurado (exec?/fs-write?/network egress?/credentials?)
+- UI "Extensiones" read-only (ALICE) — catálogo navegable, badges riesgo, sin botón "instalar/ejecutar"
+- Test fixtures: 5 manifests reales — `telegram`, `discord`, `matrix`, `ollama`, `memory-lancedb`
+- Gate de seguridad: import error si manifest declara campos no en allowlist whitelist
+
+**Riesgo añadido:** 0. **Valor:** SEAL aprende todo el catálogo OpenClaw sin tocar runtime Node.
+
+Owner: JARVIS (importer) + ALICE (UI catalog) · Audit: NEXUS (no-exec gate)
+
+### Phase 0.5 — Spike (2-3 días)
 - Tauri spawn de "echo sidecar" Rust/Node minimal
 - handshake JSON-RPC + bearer token validado
 - Probar Linux arm64 y Windows x64 builds nativos en CI
