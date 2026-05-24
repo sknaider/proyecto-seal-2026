@@ -63,6 +63,20 @@ interface SidecarState {
   server_version?: string | null
   last_handshake_at?: string | null
   last_error?: string | null
+  crash_count?: number
+  restart_count?: number
+  watchdog_enabled?: boolean
+  binary_resolved?: string | null
+}
+interface AuditEntry {
+  id?: number
+  ts?: string
+  timestamp?: string
+  actor?: string
+  action: string
+  channel?: string
+  payload?: string | Record<string, unknown>
+  level?: string
 }
 interface Capability {
   name: string
@@ -99,6 +113,8 @@ export default function OpenClawCatalogView() {
   const [fsAddPath, setFsAddPath] = useState('')
   const [fsAddMode, setFsAddMode] = useState<'r' | 'rw'>('r')
   const [fsBusy, setFsBusy] = useState(false)
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
+  const [auditOpen, setAuditOpen] = useState(false)
   const [sidecarBusy, setSidecarBusy] = useState(false)
   const [capBusy, setCapBusy] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -110,22 +126,32 @@ export default function OpenClawCatalogView() {
 
   const loadSidecar = useCallback(async () => {
     try {
-      const [rSt, rCaps, rTools, rFs] = await Promise.all([
+      const [rSt, rCaps, rTools, rFs, rAudit] = await Promise.all([
         fetch(`${API}/api/openclaw/sidecar/status`),
         fetch(`${API}/api/openclaw/capabilities`),
         fetch(`${API}/api/openclaw/tools`),
         fetch(`${API}/api/openclaw/fs-allowlist`),
+        fetch(`${API}/api/openclaw/audit-log?limit=20`),
       ])
       const dSt = await rSt.json()
       const dCaps = await rCaps.json()
       const dTools = await rTools.json()
       const dFs = await rFs.json()
+      const dAudit = await rAudit.json()
       if (dSt?.ok && dSt.state) setSidecar(dSt.state)
       if (dCaps?.ok && Array.isArray(dCaps.capabilities)) setCaps(dCaps.capabilities)
       if (dTools?.ok && Array.isArray(dTools.tools)) setTools(dTools.tools)
       if (dFs?.ok && Array.isArray(dFs.entries)) setFsAllow(dFs.entries)
+      if (dAudit?.ok && Array.isArray(dAudit.entries)) setAuditEntries(dAudit.entries)
     } catch {/* noop */}
   }, [])
+
+  const toggleWatchdog = async () => {
+    const enabled = sidecar?.watchdog_enabled
+    const url = enabled ? `${API}/api/openclaw/sidecar/watchdog/disable` : `${API}/api/openclaw/sidecar/watchdog/enable`
+    await fetch(url, { method: 'POST' })
+    await loadSidecar()
+  }
 
   const fsAdd = async () => {
     if (!fsAddPath.trim()) return
@@ -298,8 +324,21 @@ export default function OpenClawCatalogView() {
                 </span>
                 {sidecar.pid && <span className="text-[10px] text-stone-500 font-mono">pid {sidecar.pid}</span>}
                 {sidecar.server && <span className="text-[10px] text-stone-500">{sidecar.server} {sidecar.server_version}</span>}
+                {(sidecar.restart_count ?? 0) > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200" title={`Crashes ${sidecar.crash_count ?? 0} · Restarts ${sidecar.restart_count}`}>
+                    ↻ {sidecar.restart_count} restart{sidecar.restart_count === 1 ? '' : 's'}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1">
+                <button
+                  onClick={toggleWatchdog}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs border ${sidecar.watchdog_enabled ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-stone-300 text-stone-500 hover:border-emerald-300'}`}
+                  title={sidecar.watchdog_enabled ? 'Watchdog ON — auto-restart si crashea (click para apagar)' : 'Watchdog OFF — sidecar no se auto-recupera (click para encender)'}
+                >
+                  <Activity className="w-3 h-3" />
+                  watchdog {sidecar.watchdog_enabled ? 'ON' : 'OFF'}
+                </button>
                 {sidecar.status === 'running' ? (
                   <button
                     onClick={stopSidecar}
@@ -466,6 +505,42 @@ export default function OpenClawCatalogView() {
                 </div>
               </div>
             )}
+
+            {/* Audit log (Phase 1.5) */}
+            <div className="mt-3 pt-3 border-t border-violet-200">
+              <button
+                onClick={() => setAuditOpen(v => !v)}
+                className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-500 hover:text-slate-700"
+              >
+                <span>{auditOpen ? '▼' : '▶'}</span>
+                Audit log OpenClaw {auditEntries.length > 0 && `(${auditEntries.length})`}
+              </button>
+              {auditOpen && (
+                <div className="mt-2 max-h-64 overflow-y-auto">
+                  {auditEntries.length === 0 ? (
+                    <p className="text-[11px] text-stone-500 italic">Aún no hay actividad registrada. Las invocaciones de tools, cambios de capabilities y start/stop del sidecar aparecerán acá.</p>
+                  ) : (
+                    <ul className="space-y-0.5 text-[11px]">
+                      {auditEntries.map((e, i) => {
+                        const ts = e.ts || e.timestamp || ''
+                        const isError = (e.level || '').toLowerCase() === 'error' || (e.action || '').includes('denied') || (e.action || '').includes('failed')
+                        return (
+                          <li key={e.id ?? i} className={`px-2 py-1 rounded font-mono ${isError ? 'bg-red-50 text-red-700' : 'bg-white text-slate-700'}`}>
+                            <span className="text-stone-400">{ts.slice(11, 19)}</span>
+                            {' '}
+                            <span className="font-semibold">{e.action}</span>
+                            {e.actor && <span className="text-stone-500"> · {e.actor}</span>}
+                            {typeof e.payload === 'string' && e.payload && (
+                              <span className="text-stone-500"> · {e.payload.slice(0, 80)}</span>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
