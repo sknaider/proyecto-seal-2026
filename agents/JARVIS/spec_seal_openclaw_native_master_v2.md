@@ -470,10 +470,12 @@ Implementación real (paths difieren del scope inicial; funcionalidad equivalent
 - UI: `OpenClawCatalogView.tsx` (nav "OpenClaw", icon Box) con disclaimer Fase 0, 7 stat cards, filtros categoría+riesgo+search, 120 cards grid, expand muestra channels/contracts/ENV/configSchema/path
 - Build: 219.66KB
 
-**Pendiente NEXUS** (gate audit antes de cerrar Phase 0):
-- Verificar que NO hay import dinámico de plugin code en ningún path
-- Verificar que el scan respeta path traversal (root candidates fijos)
-- Verificar que la UI no expone botón "ejecutar/instalar"
+**NEXUS audit gate Phase 0: ✅ PASA** (2026-05-23 20:16):
+1. ✅ Sin import dinámico — solo `json.loads()` + `read_text()`. Sin `exec`/`subprocess`/`importlib`.
+2. ✅ Path traversal cerrado — `root_candidates` lista hardcodeada (3 paths), glob estático, `plugin_json.parent.relative_to(root)` confirma contención.
+3. ✅ UI read-only — sin botones activar/instalar en commit `dbc635e`.
+4. ✅ Risk heuristic — UNOFFICIAL set captura críticos. Gap menor: plugins con `exec`/`shell` en contracts no chequeados, riesgo cero en Phase 0 porque solo se leen keys.
+- Observación: `OPENCLAW_PATH` env var puede override paths hardcodeados — aceptable para desktop app local.
 
 **Pendiente para mejorar (opcional v2 Phase 0):**
 - Endpoint adicional `GET /api/openclaw/catalog/{id}/risk-report` (reporte estructurado por plugin)
