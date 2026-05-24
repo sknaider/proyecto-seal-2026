@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { SoulMascot, type MascotAccessory, type MascotMotion, type MascotState, type MascotVariant } from './SoulMascot'
 import { API } from '../App'
-import { Lock, Sparkles, Calendar, Sun, MessageCircle, Inbox } from 'lucide-react'
+import { Lock, Sparkles, Calendar, Sun, MessageCircle, Inbox, RefreshCw } from 'lucide-react'
 
 interface HomeViewProps {
   agentName?: string
@@ -47,16 +47,29 @@ export function HomeView({ agentName = 'SEAL', userName = '', emotion = 'calm', 
   const [model] = useState<string>('GEMMA 4 local')
   const [avatar, setAvatar] = useState<AvatarProfile>(DEFAULT_AVATAR)
   const [briefing, setBriefing] = useState<BriefingOverview | null>(null)
+  const [briefingBusy, setBriefingBusy] = useState(false)
+
+  const loadBriefing = () => {
+    fetch(`${API}/api/inbox/overview`)
+      .then(r => r.json())
+      .then(d => { if (d?.ok && d.briefing) setBriefing(d.briefing) })
+      .catch(() => {})
+  }
+
+  const buildFreshBriefing = async () => {
+    setBriefingBusy(true)
+    try {
+      await fetch(`${API}/api/seal/briefing/build`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      loadBriefing()
+    } finally { setBriefingBusy(false) }
+  }
 
   useEffect(() => {
     fetch(`${API}/api/avatar/profile`)
       .then(r => r.json())
       .then(d => { if (d?.avatar) setAvatar(d.avatar) })
       .catch(() => {})
-    fetch(`${API}/api/inbox/overview`)
-      .then(r => r.json())
-      .then(d => { if (d?.ok && d.briefing) setBriefing(d.briefing) })
-      .catch(() => {})
+    loadBriefing()
   }, [])
 
   const mascotState: MascotState = mapEmotion(emotion)
@@ -117,27 +130,37 @@ export function HomeView({ agentName = 'SEAL', userName = '', emotion = 'calm', 
 
           {/* Briefing card — Tony Stark vibe: "Good morning Sir, here's your day" */}
           {briefing && briefing.summary && (
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('nav', { detail: 'inbox' }))}
-              className="text-left rounded-2xl bg-gradient-to-br from-violet-50 to-blue-50 border border-violet-200 hover:border-violet-400 hover:shadow-md transition p-4 group"
-            >
+            <div className="rounded-2xl bg-gradient-to-br from-violet-50 to-blue-50 border border-violet-200 hover:border-violet-400 hover:shadow-md transition p-4 group">
               <div className="flex items-center gap-2 mb-1.5">
                 <Inbox className="w-4 h-4 text-violet-600" />
                 <span className="text-[11px] uppercase tracking-widest text-violet-700 font-medium">Tu briefing</span>
-                <span className="ml-auto text-[10px] text-stone-400 group-hover:text-violet-500">abrir inbox →</span>
+                <button
+                  onClick={buildFreshBriefing}
+                  disabled={briefingBusy}
+                  className="ml-auto p-1 rounded hover:bg-white text-stone-500 hover:text-violet-600 disabled:opacity-50"
+                  title="Generar briefing fresco"
+                >
+                  <RefreshCw className={`w-3 h-3 ${briefingBusy ? 'animate-spin' : ''}`} />
+                </button>
               </div>
-              <p className="text-sm font-medium text-slate-800 mb-1.5 leading-snug">{briefing.title}</p>
-              <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">{briefing.summary}</p>
-              {briefing.sections.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {briefing.sections.slice(0, 4).map(s => (
-                    <span key={s.source} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/80 border border-stone-200 text-slate-600">
-                      {s.source} · {s.status}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </button>
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('nav', { detail: 'inbox' }))}
+                className="w-full text-left"
+              >
+                <p className="text-sm font-medium text-slate-800 mb-1.5 leading-snug">{briefing.title}</p>
+                <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">{briefing.summary}</p>
+                {briefing.sections.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {briefing.sections.slice(0, 4).map(s => (
+                      <span key={s.source} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/80 border border-stone-200 text-slate-600">
+                        {s.source} · {s.status}
+                      </span>
+                    ))}
+                    <span className="ml-auto text-[10px] text-stone-400 group-hover:text-violet-500 self-end">abrir inbox →</span>
+                  </div>
+                )}
+              </button>
+            </div>
           )}
 
           {/* Quick prompts — chips clickeables que arrancan chat con prefill */}
