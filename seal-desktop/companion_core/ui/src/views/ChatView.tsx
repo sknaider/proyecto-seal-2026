@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { API } from '../App'
 import { Send, Plus, ChevronDown, Sparkles, Trash2, MessageCircle, Mail, Hash, Briefcase, Video, Bot, Headphones, Inbox } from 'lucide-react'
+import AddAccountModal from '../components/AddAccountModal'
 
 interface Msg { role: string; content: string; ts?: string }
 interface Thread { thread_id: string; msg_count: number; last_ts: string; first_ts?: string }
@@ -76,6 +77,7 @@ export default function ChatView({ onMessageSent }: Props) {
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [channelSources, setChannelSources] = useState<InboxSource[]>([])
   const [activeChannel, setActiveChannel] = useState<string>('seal')
+  const [showAddAccount, setShowAddAccount] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -206,6 +208,18 @@ export default function ChatView({ onMessageSent }: Props) {
 
   return (
     <div className="flex h-full">
+      {showAddAccount && (
+        <AddAccountModal
+          onClose={() => setShowAddAccount(false)}
+          onConnected={() => {
+            // refresh channel sources
+            fetch(`${API}/api/inbox/overview`)
+              .then(r => r.json())
+              .then(d => { if (d?.ok && Array.isArray(d.sources)) setChannelSources(d.sources) })
+              .catch(() => {})
+          }}
+        />
+      )}
       {/* Column 1: Channel rail (60px) — estilo OpenHuman */}
       <aside className="w-14 shrink-0 border-r border-stone-200 bg-stone-50 flex flex-col items-center py-3 gap-1.5">
         {/* SEAL local (default agente) */}
@@ -236,9 +250,9 @@ export default function ChatView({ onMessageSent }: Props) {
             </button>
           )
         })}
-        {/* Add account button — abre Conectar */}
+        {/* Add account button — abre modal Add Account */}
         <button
-          onClick={() => window.dispatchEvent(new CustomEvent('nav', { detail: 'connections' }))}
+          onClick={() => setShowAddAccount(true)}
           className="w-10 h-10 rounded-xl flex items-center justify-center text-stone-400 border border-dashed border-stone-300 hover:border-violet-400 hover:text-violet-500 transition"
           title="Agregar cuenta / canal"
         >
