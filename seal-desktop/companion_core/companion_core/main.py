@@ -374,6 +374,58 @@ async def openclaw_catalog(category: Optional[str] = None, risk: Optional[str] =
     }
 
 
+# ADA-specified smoke baseline: 5 manifests críticos que deben siempre estar presentes.
+_OPENCLAW_SMOKE_BASELINE = ("telegram", "discord", "matrix", "ollama", "memory-lancedb")
+
+
+@app.get("/api/openclaw/catalog/smoke")
+async def openclaw_catalog_smoke():
+    """Deterministic smoke test on 5 baseline manifests (ADA spec 23-may-2026).
+
+    Validates parse-ability of the 5 plugins selected as baseline coverage:
+    telegram, discord, matrix, ollama, memory-lancedb.
+    Returns per-plugin status without executing any plugin code.
+    """
+    root = _openclaw_root()
+    if not root:
+        return {"ok": False, "error": "openclaw repo no encontrado", "checks": []}
+
+    ext_dir = root / "extensions"
+    checks = []
+    all_pass = True
+    for name in _OPENCLAW_SMOKE_BASELINE:
+        manifest_path = ext_dir / name / "openclaw.plugin.json"
+        check = {"name": name, "ok": False, "path": str(manifest_path.relative_to(root))}
+        if not manifest_path.is_file():
+            check["error"] = "manifest not found"
+            all_pass = False
+            checks.append(check)
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            classification = _classify_plugin(name, manifest)
+            check.update({
+                "ok": True,
+                "manifest_id": manifest.get("id"),
+                "categories": classification["categories"],
+                "risk_tier": classification["risk_tier"],
+                "channels": manifest.get("channels") or [],
+                "has_config_schema": bool(manifest.get("configSchema")),
+            })
+        except Exception as exc:
+            check["error"] = f"parse: {exc}"
+            all_pass = False
+        checks.append(check)
+
+    return {
+        "ok": all_pass,
+        "baseline": list(_OPENCLAW_SMOKE_BASELINE),
+        "passed": sum(1 for c in checks if c["ok"]),
+        "total": len(checks),
+        "checks": checks,
+    }
+
+
 # ── Sub-agents (v0.6 — OpenHuman absorption) ─────────────────────────────────
 
 

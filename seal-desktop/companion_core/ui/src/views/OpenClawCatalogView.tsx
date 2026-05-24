@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { API } from '../App'
-import { Box, RefreshCw, Plug, Cpu, Wrench, Tag, ShieldAlert, ShieldCheck, ShieldQuestion, Eye } from 'lucide-react'
+import { Box, RefreshCw, Plug, Cpu, Wrench, Tag, ShieldAlert, ShieldCheck, ShieldQuestion, Eye, CheckCircle2, XCircle } from 'lucide-react'
 
 interface Plugin {
   ok: boolean
@@ -52,8 +52,12 @@ const CAT_LABEL: Record<string, string> = {
 const ALL_CATS = ['channel', 'provider', 'tool', 'misc'] as const
 const ALL_RISKS = ['all', 'critical', 'high', 'normal'] as const
 
+interface SmokeCheck { name: string; ok: boolean; path?: string; manifest_id?: string; categories?: string[]; risk_tier?: string; channels?: string[]; error?: string }
+interface SmokeResponse { ok: boolean; baseline: string[]; passed: number; total: number; checks: SmokeCheck[] }
+
 export default function OpenClawCatalogView() {
   const [data, setData] = useState<CatalogResponse | null>(null)
+  const [smoke, setSmoke] = useState<SmokeResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filterCat, setFilterCat] = useState<string>('all')
@@ -64,17 +68,22 @@ export default function OpenClawCatalogView() {
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const r = await fetch(`${API}/api/openclaw/catalog`)
-      const d: CatalogResponse = await r.json()
-      if (!d.ok) {
-        setError(d.error || 'Repo no encontrado. Verificá que /home/dadito/IA/openclaw exista.')
+      const [rCat, rSmoke] = await Promise.all([
+        fetch(`${API}/api/openclaw/catalog`),
+        fetch(`${API}/api/openclaw/catalog/smoke`),
+      ])
+      const dCat: CatalogResponse = await rCat.json()
+      const dSmoke: SmokeResponse = await rSmoke.json()
+      if (!dCat.ok) {
+        setError(dCat.error || 'Repo no encontrado. Verificá que /home/dadito/IA/openclaw exista.')
         setData(null)
       } else {
-        setData(d)
+        setData(dCat)
       }
+      setSmoke(dSmoke)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'fallo de red')
-      setData(null)
+      setData(null); setSmoke(null)
     } finally {
       setLoading(false)
     }
@@ -120,6 +129,31 @@ export default function OpenClawCatalogView() {
             <strong>Fase 0 — solo lectura.</strong> SEAL escanea los <code className="bg-white/60 px-1 rounded">openclaw.plugin.json</code> sin ejecutar código de plugins. Ningún canal está conectado todavía.
           </span>
         </div>
+
+        {/* Smoke baseline (ADA spec) */}
+        {smoke && (
+          <div className={`mb-4 rounded-lg border px-3 py-2 ${smoke.ok ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+            <div className="flex items-center gap-2 text-xs mb-1.5">
+              {smoke.ok ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <XCircle className="w-4 h-4 text-amber-600" />}
+              <span className={`font-semibold ${smoke.ok ? 'text-emerald-700' : 'text-amber-700'}`}>
+                Smoke baseline ADA: {smoke.passed}/{smoke.total} ✓
+              </span>
+              <span className="text-stone-500">(telegram · discord · matrix · ollama · memory-lancedb)</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {smoke.checks.map(c => (
+                <span
+                  key={c.name}
+                  className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border ${c.ok ? 'border-emerald-300 bg-white text-emerald-700' : 'border-red-300 bg-red-50 text-red-700'}`}
+                  title={c.ok ? `${c.manifest_id} · ${c.categories?.join(',')} · risk ${c.risk_tier}` : c.error}
+                >
+                  {c.ok ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                  {c.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Counts row */}
         {data?.counts && (
