@@ -80,6 +80,12 @@ interface OpenClawTool {
   max_payload_bytes: number
   sidecar_method: string
 }
+interface FsAllowEntry {
+  path: string
+  mode: string
+  granted_at?: string | null
+  granted_by?: string | null
+}
 
 export default function OpenClawCatalogView() {
   const [data, setData] = useState<CatalogResponse | null>(null)
@@ -89,6 +95,10 @@ export default function OpenClawCatalogView() {
   const [tools, setTools] = useState<OpenClawTool[]>([])
   const [toolBusy, setToolBusy] = useState<string | null>(null)
   const [toolResult, setToolResult] = useState<{ tool: string; result: string } | null>(null)
+  const [fsAllow, setFsAllow] = useState<FsAllowEntry[]>([])
+  const [fsAddPath, setFsAddPath] = useState('')
+  const [fsAddMode, setFsAddMode] = useState<'r' | 'rw'>('r')
+  const [fsBusy, setFsBusy] = useState(false)
   const [sidecarBusy, setSidecarBusy] = useState(false)
   const [capBusy, setCapBusy] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -100,19 +110,44 @@ export default function OpenClawCatalogView() {
 
   const loadSidecar = useCallback(async () => {
     try {
-      const [rSt, rCaps, rTools] = await Promise.all([
+      const [rSt, rCaps, rTools, rFs] = await Promise.all([
         fetch(`${API}/api/openclaw/sidecar/status`),
         fetch(`${API}/api/openclaw/capabilities`),
         fetch(`${API}/api/openclaw/tools`),
+        fetch(`${API}/api/openclaw/fs-allowlist`),
       ])
       const dSt = await rSt.json()
       const dCaps = await rCaps.json()
       const dTools = await rTools.json()
+      const dFs = await rFs.json()
       if (dSt?.ok && dSt.state) setSidecar(dSt.state)
       if (dCaps?.ok && Array.isArray(dCaps.capabilities)) setCaps(dCaps.capabilities)
       if (dTools?.ok && Array.isArray(dTools.tools)) setTools(dTools.tools)
+      if (dFs?.ok && Array.isArray(dFs.entries)) setFsAllow(dFs.entries)
     } catch {/* noop */}
   }, [])
+
+  const fsAdd = async () => {
+    if (!fsAddPath.trim()) return
+    setFsBusy(true)
+    try {
+      await fetch(`${API}/api/openclaw/fs-allowlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: fsAddPath.trim(), mode: fsAddMode }),
+      })
+      setFsAddPath('')
+      await loadSidecar()
+    } finally { setFsBusy(false) }
+  }
+  const fsRemove = async (path: string) => {
+    if (!confirm(`¿Quitar "${path}" del FS allowlist?`)) return
+    setFsBusy(true)
+    try {
+      await fetch(`${API}/api/openclaw/fs-allowlist?path=${encodeURIComponent(path)}`, { method: 'DELETE' })
+      await loadSidecar()
+    } finally { setFsBusy(false) }
+  }
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -344,6 +379,61 @@ export default function OpenClawCatalogView() {
                 )}
               </div>
             )}
+
+            {/* FS Allowlist (Phase 1.4 — defense-in-depth) */}
+            <div className="mt-3 pt-3 border-t border-violet-200">
+              <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">
+                Filesystem allowlist (rutas que el sidecar puede leer/escribir)
+              </p>
+              {fsAllow.length === 0 ? (
+                <p className="text-[11px] text-stone-500 italic mb-2">Ninguna ruta permitida — el sidecar no puede tocar el disco.</p>
+              ) : (
+                <ul className="space-y-1 mb-2">
+                  {fsAllow.map(e => (
+                    <li key={e.path} className="flex items-center gap-2 px-2 py-1 rounded bg-white border border-stone-200 text-xs">
+                      <code className="flex-1 truncate text-slate-700">{e.path}</code>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${e.mode === 'rw' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {e.mode === 'rw' ? 'lectura+escritura' : 'solo lectura'}
+                      </span>
+                      <button
+                        onClick={() => void fsRemove(e.path)}
+                        disabled={fsBusy}
+                        className="p-1 rounded text-stone-400 hover:bg-red-50 hover:text-red-500"
+                        title="Quitar del allowlist"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex items-center gap-1.5">
+                <input
+                  value={fsAddPath}
+                  onChange={e => setFsAddPath(e.target.value)}
+                  placeholder="/home/dadito/Documentos o /tmp/seal-work"
+                  className="flex-1 px-2 py-1 rounded border border-stone-200 text-xs text-slate-700 bg-white focus:outline-none focus:border-violet-400"
+                />
+                <select
+                  value={fsAddMode}
+                  onChange={e => setFsAddMode(e.target.value as 'r' | 'rw')}
+                  className="px-2 py-1 rounded border border-stone-200 text-xs bg-white text-slate-700"
+                >
+                  <option value="r">solo lectura</option>
+                  <option value="rw">lectura+escritura</option>
+                </select>
+                <button
+                  onClick={fsAdd}
+                  disabled={!fsAddPath.trim() || fsBusy}
+                  className="px-2 py-1 rounded bg-violet-500 hover:bg-violet-600 text-white text-xs disabled:opacity-40"
+                >
+                  Agregar
+                </button>
+              </div>
+              <p className="text-[10px] text-stone-400 mt-1">
+                Defense-in-depth: aún con capability fs_read/fs_write activa, el sidecar solo puede acceder a estas rutas exactas.
+              </p>
+            </div>
 
             {/* Capabilities */}
             {caps.length > 0 && (
