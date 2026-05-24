@@ -65,7 +65,7 @@ export function HomeView({ agentName = 'SEAL', userName = '', emotion = 'calm', 
         <span className="text-violet-300/70">{model}</span>
       </div>
 
-      <div className="flex-1 flex flex-col md:flex-row items-center justify-center px-6 py-8 gap-6 md:gap-12 overflow-y-auto">
+      <div className="flex-1 flex flex-col md:flex-row items-center justify-center px-6 py-8 gap-6 md:gap-12 overflow-hidden">
         {/* Left: mascot */}
         <div className="flex-shrink-0">
           <SoulMascot
@@ -88,7 +88,7 @@ export function HomeView({ agentName = 'SEAL', userName = '', emotion = 'calm', 
               {userName ? <>Hola, <span className="text-violet-300">{userName}</span></> : <>Hola.</>}
             </p>
             <p className="mt-2 text-sm text-gray-400">
-              Tu {agentName} está despierta y lista para conversar.
+              {agentName} está despierta y lista para conversar.
             </p>
 
             <div className="mt-5 flex items-center justify-center gap-2 text-xs">
@@ -109,7 +109,7 @@ export function HomeView({ agentName = 'SEAL', userName = '', emotion = 'calm', 
               onClick={onStartChat}
               className="mt-6 w-full py-3 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 transition-colors text-white font-medium shadow-lg shadow-violet-900/50"
             >
-              💬 Hablar con {agentName}
+              💬 Empezar a conversar
             </button>
 
             <p className="mt-3 text-xs text-gray-500">

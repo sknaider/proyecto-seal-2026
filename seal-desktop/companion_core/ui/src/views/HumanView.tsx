@@ -187,8 +187,13 @@ export default function HumanView() {
             ? '🎙 Escuchando…'
             : thinking
             ? '💭 Pensando…'
-            : 'Tocá el mic y hablale a tu SEAL.'}
+            : 'Tocá el mic y hablale.'}
         </p>
+        {!listening && !thinking && localVoice.stt && (
+          <p className="mt-1 text-[10px] text-emerald-600/80 text-center">
+            🔒 Tu voz se procesa en tu equipo. No sale a internet.
+          </p>
+        )}
         {transcript && (
           <p className="mt-3 text-xs text-violet-600 italic max-w-md text-center px-4">"{transcript}"</p>
         )}
@@ -199,18 +204,21 @@ export default function HumanView() {
         <div className="px-4 py-3 border-b border-stone-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold text-slate-800">Voz</h2>
-            <span className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${localVoice.stt ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+            <span
+              className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${localVoice.stt ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
+              title={localVoice.stt ? 'Tu voz se procesa 100% en tu equipo' : 'STT del navegador (puede requerir cloud)'}
+            >
               {localVoice.stt ? <WifiOff className="w-3 h-3" /> : <Wifi className="w-3 h-3" />}
-              {localVoice.stt ? 'offline' : 'navegador'}
+              {localVoice.stt ? '100% local' : 'navegador'}
             </span>
           </div>
           <button
             onClick={() => setSpeakReplies(v => !v)}
             className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-            title="Speak replies"
+            title={speakReplies ? 'SEAL leerá las respuestas en voz alta' : 'SEAL responderá solo por texto'}
           >
             {speakReplies ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            {speakReplies ? 'TTS on' : 'TTS off'}
+            {speakReplies ? 'Voz activada' : 'Solo texto'}
           </button>
         </div>
 

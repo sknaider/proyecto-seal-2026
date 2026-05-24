@@ -13,7 +13,11 @@ const ES_MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep'
 
 function fmtThreadDate(iso?: string): string {
   if (!iso) return ''
-  const d = new Date(iso)
+  // Backend devuelve timestamps sin tz marker → interpretarlos como UTC
+  // y luego formatearlos en hora local (es-PE / Lima por default).
+  const looksTzNaive = typeof iso === 'string' && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso)
+  const normalized = looksTzNaive ? iso.replace(' ', 'T') + 'Z' : iso
+  const d = new Date(normalized)
   if (isNaN(d.getTime())) return ''
   const day = d.getDate()
   const mon = ES_MONTHS[d.getMonth()] || ''
