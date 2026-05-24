@@ -72,12 +72,23 @@ interface Capability {
   last_used_at?: string | null
   notes?: string | null
 }
+interface OpenClawTool {
+  name: string
+  description: string
+  capability_required: string
+  input_keys: string[]
+  max_payload_bytes: number
+  sidecar_method: string
+}
 
 export default function OpenClawCatalogView() {
   const [data, setData] = useState<CatalogResponse | null>(null)
   const [smoke, setSmoke] = useState<SmokeResponse | null>(null)
   const [sidecar, setSidecar] = useState<SidecarState | null>(null)
   const [caps, setCaps] = useState<Capability[]>([])
+  const [tools, setTools] = useState<OpenClawTool[]>([])
+  const [toolBusy, setToolBusy] = useState<string | null>(null)
+  const [toolResult, setToolResult] = useState<{ tool: string; result: string } | null>(null)
   const [sidecarBusy, setSidecarBusy] = useState(false)
   const [capBusy, setCapBusy] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -89,14 +100,17 @@ export default function OpenClawCatalogView() {
 
   const loadSidecar = useCallback(async () => {
     try {
-      const [rSt, rCaps] = await Promise.all([
+      const [rSt, rCaps, rTools] = await Promise.all([
         fetch(`${API}/api/openclaw/sidecar/status`),
         fetch(`${API}/api/openclaw/capabilities`),
+        fetch(`${API}/api/openclaw/tools`),
       ])
       const dSt = await rSt.json()
       const dCaps = await rCaps.json()
+      const dTools = await rTools.json()
       if (dSt?.ok && dSt.state) setSidecar(dSt.state)
       if (dCaps?.ok && Array.isArray(dCaps.capabilities)) setCaps(dCaps.capabilities)
+      if (dTools?.ok && Array.isArray(dTools.tools)) setTools(dTools.tools)
     } catch {/* noop */}
   }, [])
 
@@ -148,6 +162,28 @@ export default function OpenClawCatalogView() {
       await loadSidecar()
     } finally { setSidecarBusy(false) }
   }
+  const invokeTool = async (toolName: string) => {
+    setToolBusy(toolName); setToolResult(null)
+    try {
+      const tool = tools.find(t => t.name === toolName)
+      const input: Record<string, unknown> = {}
+      for (const k of tool?.input_keys || []) {
+        const v = prompt(`${toolName} — valor para '${k}':`, k === 'root' ? '/home/dadito/IA/openclaw/extensions' : '')
+        if (v === null) { setToolBusy(null); return }
+        input[k] = v
+      }
+      const r = await fetch(`${API}/api/openclaw/tool-call`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: toolName, input }),
+      })
+      const d = await r.json()
+      setToolResult({ tool: toolName, result: JSON.stringify(d, null, 2) })
+    } catch (e) {
+      setToolResult({ tool: toolName, result: `Error: ${e instanceof Error ? e.message : 'unknown'}` })
+    } finally { setToolBusy(null) }
+  }
+
   const toggleCap = async (name: string, enabled: boolean) => {
     setCapBusy(name)
     try {
@@ -261,6 +297,52 @@ export default function OpenClawCatalogView() {
             )}
             {sidecar.last_error && (
               <p className="text-[11px] text-red-600 mt-1">⚠️ {sidecar.last_error}</p>
+            )}
+
+            {/* Tools (Phase 1.3) */}
+            {tools.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-violet-200">
+                <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">
+                  Tools disponibles (sidecar mock — Phase 1.3)
+                </p>
+                <div className="space-y-1">
+                  {tools.map(t => {
+                    const capEnabled = caps.find(c => c.name === t.capability_required)?.enabled || false
+                    const sidecarUp = sidecar?.status === 'running'
+                    const canRun = sidecarUp && capEnabled
+                    return (
+                      <div key={t.name} className="flex items-center gap-2 px-2 py-1.5 rounded bg-white border border-stone-200 text-xs">
+                        <Wrench className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <code className="text-slate-800 font-semibold">{t.name}</code>
+                            <span className="text-[10px] text-stone-500">cap: <code className="bg-stone-100 px-1 rounded">{t.capability_required}</code></span>
+                            {t.input_keys.length > 0 && <span className="text-[10px] text-stone-500">→ pide: {t.input_keys.join(', ')}</span>}
+                          </div>
+                          <p className="text-[11px] text-slate-600 truncate">{t.description}</p>
+                        </div>
+                        <button
+                          onClick={() => void invokeTool(t.name)}
+                          disabled={!canRun || toolBusy === t.name}
+                          className={`px-2 py-1 rounded text-[11px] ${canRun ? 'bg-violet-500 hover:bg-violet-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}`}
+                          title={!sidecarUp ? 'Sidecar detenido' : !capEnabled ? `Requiere capability ${t.capability_required}` : 'Invocar'}
+                        >
+                          {toolBusy === t.name ? '...' : 'Probar'}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+                {toolResult && (
+                  <div className="mt-2 rounded border border-violet-200 bg-violet-50/60 p-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] uppercase tracking-widest text-violet-600">Resultado · {toolResult.tool}</span>
+                      <button onClick={() => setToolResult(null)} className="text-stone-400 hover:text-stone-600 text-xs">×</button>
+                    </div>
+                    <pre className="text-[10px] text-slate-700 whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">{toolResult.result}</pre>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Capabilities */}
