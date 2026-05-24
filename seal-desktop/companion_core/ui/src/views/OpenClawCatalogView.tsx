@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { API } from '../App'
-import { Box, RefreshCw, Plug, Cpu, Wrench, Tag, ShieldAlert, ShieldCheck, ShieldQuestion, Eye, CheckCircle2, XCircle } from 'lucide-react'
+import { Box, RefreshCw, Plug, Cpu, Wrench, Tag, ShieldAlert, ShieldCheck, ShieldQuestion, Eye, CheckCircle2, XCircle, Play, Square, Activity } from 'lucide-react'
 
 interface Plugin {
   ok: boolean
@@ -55,15 +55,50 @@ const ALL_RISKS = ['all', 'critical', 'high', 'normal'] as const
 interface SmokeCheck { name: string; ok: boolean; path?: string; manifest_id?: string; categories?: string[]; risk_tier?: string; channels?: string[]; error?: string }
 interface SmokeResponse { ok: boolean; baseline: string[]; passed: number; total: number; checks: SmokeCheck[] }
 
+interface SidecarState {
+  status: 'stopped' | 'starting' | 'running' | 'error' | string
+  pid?: number | null
+  session_id?: string | null
+  server?: string | null
+  server_version?: string | null
+  last_handshake_at?: string | null
+  last_error?: string | null
+}
+interface Capability {
+  name: string
+  enabled: boolean
+  granted_at?: string | null
+  granted_by?: string | null
+  last_used_at?: string | null
+  notes?: string | null
+}
+
 export default function OpenClawCatalogView() {
   const [data, setData] = useState<CatalogResponse | null>(null)
   const [smoke, setSmoke] = useState<SmokeResponse | null>(null)
+  const [sidecar, setSidecar] = useState<SidecarState | null>(null)
+  const [caps, setCaps] = useState<Capability[]>([])
+  const [sidecarBusy, setSidecarBusy] = useState(false)
+  const [capBusy, setCapBusy] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filterCat, setFilterCat] = useState<string>('all')
   const [filterRisk, setFilterRisk] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
+
+  const loadSidecar = useCallback(async () => {
+    try {
+      const [rSt, rCaps] = await Promise.all([
+        fetch(`${API}/api/openclaw/sidecar/status`),
+        fetch(`${API}/api/openclaw/capabilities`),
+      ])
+      const dSt = await rSt.json()
+      const dCaps = await rCaps.json()
+      if (dSt?.ok && dSt.state) setSidecar(dSt.state)
+      if (dCaps?.ok && Array.isArray(dCaps.capabilities)) setCaps(dCaps.capabilities)
+    } catch {/* noop */}
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -87,9 +122,43 @@ export default function OpenClawCatalogView() {
     } finally {
       setLoading(false)
     }
-  }, [])
+    await loadSidecar()
+  }, [loadSidecar])
 
   useEffect(() => { void load() }, [load])
+
+  // Auto-refresh sidecar status while it's not stopped
+  useEffect(() => {
+    if (!sidecar || sidecar.status === 'stopped') return
+    const t = setInterval(() => { void loadSidecar() }, 5000)
+    return () => clearInterval(t)
+  }, [sidecar, loadSidecar])
+
+  const startSidecar = async () => {
+    setSidecarBusy(true)
+    try {
+      await fetch(`${API}/api/openclaw/sidecar/start`, { method: 'POST' })
+      await loadSidecar()
+    } finally { setSidecarBusy(false) }
+  }
+  const stopSidecar = async () => {
+    setSidecarBusy(true)
+    try {
+      await fetch(`${API}/api/openclaw/sidecar/stop`, { method: 'POST' })
+      await loadSidecar()
+    } finally { setSidecarBusy(false) }
+  }
+  const toggleCap = async (name: string, enabled: boolean) => {
+    setCapBusy(name)
+    try {
+      await fetch(`${API}/api/openclaw/capabilities/${encodeURIComponent(name)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      })
+      await loadSidecar()
+    } finally { setCapBusy(null) }
+  }
 
   const filtered = useMemo(() => {
     if (!data?.plugins) return []
@@ -129,6 +198,93 @@ export default function OpenClawCatalogView() {
             <strong>Fase 0 — solo lectura.</strong> SEAL escanea los <code className="bg-white/60 px-1 rounded">openclaw.plugin.json</code> sin ejecutar código de plugins. Ningún canal está conectado todavía.
           </span>
         </div>
+
+        {/* Sidecar + Capabilities (Phase 0.5 / 1 — JARVIS backend) */}
+        {sidecar && (
+          <div className="mb-4 rounded-xl border border-violet-200 bg-violet-50 p-3 shadow-sm">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <Activity className={`w-4 h-4 ${sidecar.status === 'running' ? 'text-emerald-500 animate-pulse' : sidecar.status === 'error' ? 'text-red-500' : 'text-stone-400'}`} />
+                <span className="text-sm font-semibold text-slate-800">Sidecar OpenClaw</span>
+                <span className={`text-[11px] px-1.5 py-0.5 rounded-full border ${
+                  sidecar.status === 'running' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                  sidecar.status === 'starting' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                  sidecar.status === 'error' ? 'bg-red-100 text-red-700 border-red-200' :
+                  'bg-stone-100 text-stone-600 border-stone-200'
+                }`}>
+                  {sidecar.status === 'running' ? '● UP' : sidecar.status === 'starting' ? '○ INICIANDO' : sidecar.status === 'error' ? '✗ ERROR' : '○ DETENIDO'}
+                </span>
+                {sidecar.pid && <span className="text-[10px] text-stone-500 font-mono">pid {sidecar.pid}</span>}
+                {sidecar.server && <span className="text-[10px] text-stone-500">{sidecar.server} {sidecar.server_version}</span>}
+              </div>
+              <div className="flex items-center gap-1">
+                {sidecar.status === 'running' ? (
+                  <button
+                    onClick={stopSidecar}
+                    disabled={sidecarBusy}
+                    className="flex items-center gap-1 px-2 py-1 rounded bg-red-500 hover:bg-red-600 text-white text-xs disabled:opacity-50"
+                  >
+                    <Square className="w-3 h-3" /> Detener
+                  </button>
+                ) : (
+                  <button
+                    onClick={startSidecar}
+                    disabled={sidecarBusy}
+                    className="flex items-center gap-1 px-2 py-1 rounded bg-violet-500 hover:bg-violet-600 text-white text-xs disabled:opacity-50"
+                  >
+                    <Play className="w-3 h-3" /> Iniciar
+                  </button>
+                )}
+                <button
+                  onClick={loadSidecar}
+                  disabled={sidecarBusy}
+                  className="p-1 rounded hover:bg-white text-stone-500"
+                  title="Actualizar"
+                >
+                  <RefreshCw className={`w-3 h-3 ${sidecarBusy ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+            {sidecar.last_handshake_at && (
+              <p className="text-[11px] text-slate-600">Último handshake: {sidecar.last_handshake_at} {sidecar.session_id && <code className="bg-white/60 px-1 rounded ml-1">{sidecar.session_id.slice(0,12)}…</code>}</p>
+            )}
+            {sidecar.last_error && (
+              <p className="text-[11px] text-red-600 mt-1">⚠️ {sidecar.last_error}</p>
+            )}
+
+            {/* Capabilities */}
+            {caps.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-violet-200">
+                <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">
+                  Capabilities (default OFF, opt-in granular)
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                  {caps.map(c => {
+                    const isCritical = c.name.includes('shell_exec') || c.name.includes('fs_write') || c.name.includes('network_egress')
+                    return (
+                      <label
+                        key={c.name}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded border cursor-pointer ${
+                          c.enabled ? (isCritical ? 'border-red-300 bg-red-50' : 'border-emerald-300 bg-emerald-50') : 'border-stone-200 bg-white hover:border-stone-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={c.enabled}
+                          disabled={capBusy === c.name}
+                          onChange={e => void toggleCap(c.name, e.target.checked)}
+                          className="rounded"
+                        />
+                        <code className="text-[11px] flex-1 truncate">{c.name}</code>
+                        {isCritical && <span title="capability crítica"><ShieldAlert className="w-3 h-3 text-red-500" /></span>}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Smoke baseline (ADA spec) */}
         {smoke && (
