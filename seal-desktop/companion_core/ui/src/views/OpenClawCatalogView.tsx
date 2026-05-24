@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { API } from '../App'
-import { Box, RefreshCw, Plug, Cpu, Wrench, Tag, ShieldAlert, ShieldCheck, ShieldQuestion, Eye, CheckCircle2, XCircle, Play, Square, Activity } from 'lucide-react'
+import { Box, RefreshCw, Plug, Cpu, Wrench, Tag, ShieldAlert, ShieldCheck, ShieldQuestion, Eye, CheckCircle2, XCircle, Play, Square, Activity, Download, Package } from 'lucide-react'
 
 interface Plugin {
   ok: boolean
@@ -100,6 +100,18 @@ interface FsAllowEntry {
   granted_at?: string | null
   granted_by?: string | null
 }
+interface SealPlugin {
+  id: string
+  name: string
+  version?: string
+  source?: string
+  kind?: string
+  description?: string
+  risk_tier?: string
+  installed: boolean
+  capabilities_required?: string[]
+  channels?: string[]
+}
 
 export default function OpenClawCatalogView() {
   const [data, setData] = useState<CatalogResponse | null>(null)
@@ -115,6 +127,9 @@ export default function OpenClawCatalogView() {
   const [fsBusy, setFsBusy] = useState(false)
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
   const [auditOpen, setAuditOpen] = useState(false)
+  const [sealPlugins, setSealPlugins] = useState<SealPlugin[]>([])
+  const [importing, setImporting] = useState(false)
+  const [installBusy, setInstallBusy] = useState<string | null>(null)
   const [sidecarBusy, setSidecarBusy] = useState(false)
   const [capBusy, setCapBusy] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -144,7 +159,40 @@ export default function OpenClawCatalogView() {
       if (dFs?.ok && Array.isArray(dFs.entries)) setFsAllow(dFs.entries)
       if (dAudit?.ok && Array.isArray(dAudit.entries)) setAuditEntries(dAudit.entries)
     } catch {/* noop */}
+    // Load seal_plugins registry (Phase 2.1)
+    try {
+      const r = await fetch(`${API}/api/seal/plugins`)
+      const d = await r.json()
+      if (d?.ok && Array.isArray(d.plugins)) setSealPlugins(d.plugins)
+    } catch {/* noop */}
   }, [])
+
+  const importFromOpenclaw = async () => {
+    setImporting(true)
+    try {
+      const r = await fetch(`${API}/api/seal/plugins/import-from-openclaw`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const d = await r.json()
+      if (d?.ok) alert(`✅ Importados ${d.imported || 0} plugins al registro SEAL (failed: ${d.failed || 0})`)
+      else alert(`⚠️ Error: ${d?.error || 'desconocido'}`)
+      await loadSidecar()
+    } finally { setImporting(false) }
+  }
+
+  const toggleInstall = async (pluginId: string, installed: boolean) => {
+    setInstallBusy(pluginId)
+    try {
+      await fetch(`${API}/api/seal/plugins/${encodeURIComponent(pluginId)}/install`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ installed }),
+      })
+      await loadSidecar()
+    } finally { setInstallBusy(null) }
+  }
 
   const toggleWatchdog = async () => {
     const enabled = sidecar?.watchdog_enabled
@@ -569,6 +617,46 @@ export default function OpenClawCatalogView() {
           </div>
         )}
 
+        {/* SEAL plugin registry (Phase 2.1) */}
+        <div className="mb-4 rounded-xl border border-fuchsia-200 bg-fuchsia-50 p-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Package className="w-4 h-4 text-fuchsia-600" />
+              <span className="text-sm font-semibold text-slate-800">Registro SEAL nativo</span>
+              <span className="text-[11px] text-stone-600">
+                {sealPlugins.length === 0
+                  ? 'sin plugins importados aún'
+                  : `${sealPlugins.length} importados · ${sealPlugins.filter(p => p.installed).length} instalados`}
+              </span>
+            </div>
+            <button
+              onClick={importFromOpenclaw}
+              disabled={importing}
+              className="flex items-center gap-1 px-3 py-1 rounded bg-fuchsia-500 hover:bg-fuchsia-600 text-white text-xs disabled:opacity-50"
+              title="Importa manifests OpenClaw al registro SEAL canónico (no ejecuta código)"
+            >
+              <Download className="w-3 h-3" />
+              {importing ? 'Importando…' : sealPlugins.length === 0 ? 'Importar de OpenClaw' : 'Re-importar'}
+            </button>
+          </div>
+          <p className="text-[10px] text-fuchsia-700/80 mt-1">
+            seal.plugin.json schema canónico — registro propio compatible OpenClaw. No ejecuta código.
+            Marca install/uninstall per plugin sin tocar disco del repo OpenClaw.
+          </p>
+          {sealPlugins.filter(p => p.installed).length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {sealPlugins.filter(p => p.installed).slice(0, 10).map(p => (
+                <span key={p.id} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-fuchsia-200 text-fuchsia-700">
+                  {p.name || p.id}
+                </span>
+              ))}
+              {sealPlugins.filter(p => p.installed).length > 10 && (
+                <span className="text-[10px] text-stone-500">+{sealPlugins.filter(p => p.installed).length - 10} más</span>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Counts row */}
         {data?.counts && (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-4 text-xs">
@@ -690,6 +778,26 @@ export default function OpenClawCatalogView() {
                     <Row label="Path">
                       <code className="bg-white px-1 rounded text-[10px]">{p.path}</code>
                     </Row>
+                    {(() => {
+                      const sp = sealPlugins.find(s => s.id === p.name)
+                      if (!sp) return (
+                        <Row label="Registro SEAL">
+                          <span className="text-stone-500">no importado · click "Importar de OpenClaw" arriba</span>
+                        </Row>
+                      )
+                      return (
+                        <Row label="Registro SEAL">
+                          <button
+                            onClick={() => void toggleInstall(sp.id, !sp.installed)}
+                            disabled={installBusy === sp.id}
+                            className={`text-[11px] px-2 py-0.5 rounded border ${sp.installed ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-stone-300 bg-white text-stone-600 hover:border-emerald-300'} disabled:opacity-50`}
+                          >
+                            {installBusy === sp.id ? '...' : sp.installed ? '✓ Instalado · click para desinstalar' : 'Instalar en SEAL'}
+                          </button>
+                          <span className="ml-2 text-stone-400 text-[10px]">v{sp.version || '0.0.0'} · kind={sp.kind}</span>
+                        </Row>
+                      )
+                    })()}
                   </div>
                 )}
               </div>
