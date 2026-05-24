@@ -477,22 +477,44 @@ Owner: JARVIS (importer) + ALICE (UI catalog) · Audit: NEXUS (no-exec gate)
 - **Sin** OpenClaw real todavía
 - Owner: JARVIS · Audit: NEXUS
 
-### Phase 1 — OpenClaw sidecar MVP (5-7 días)
-- Package OpenClaw como sidecar binary cross-platform
+### Phase 1 — OpenClaw compat sidecar MVP (5-7 días)
+- Package OpenClaw como sidecar binary cross-platform (Node runtime ≥22.14 EMBEBIDO — no `npm install -g` ni dependencia OS)
 - `GET /api/openclaw/status` (running/stopped/crashed)
-- `POST /api/openclaw/tool-call` con allowlist hardcoded (3-5 tools mock)
-- Audit log entries
-- Settings UI capabilities + FS allowlist + per-tool toggle
+- `POST /api/openclaw/tool-call` con plugin allowlist explícita + tools mock (3-5)
+- Workspace FS limitado a `SEAL_OPENCLAW_DIR/workspace/` por default (no FS arbitrario)
+- Audit log entries con `checkId` style ADA (findings estructurados)
+- Settings UI capabilities + FS allowlist + per-tool toggle + per-plugin trust toggle
 - First-run wizard step OpenClaw OFF default
 - Owner: JARVIS (backend) + ALICE (UI) · Audit: NEXUS · Gate: ADA
 
-### Phase 2 — Native consolidation (post-MVP)
-- Portar primitivos high-value OpenClaw a companion_core nativo Python
-- Plugins canal terceros aislados (futuro spec WhatsApp/Telegram aparte)
+### Phase 2 — Adapt contracts al core SEAL (post-MVP)
+- Portar al core SEAL los patrones que NO dependen de Node:
+  - `seal.plugin.json` schema reducido (compatible con manifest OpenClaw)
+  - pairing/access groups
+  - audit checkIds estructurados
+  - provider/channel config UI generada por configSchema
+  - event stream normalizado (run.started/assistant.delta/tool.call.started/approval.requested)
+  - approvals flow
+- Bridge SOUL DB ↔ OpenClaw memory-core (SOUL DB sigue siendo fuente de verdad — sin doble verdad)
+- Plugins canal terceros aislados (spec WhatsApp/Telegram aparte)
 - Owner: TBD post-Phase 1
 
-### Phase 3 — Public packaging
-- Windows runner builds firmados
+### Phase 3 — Canales seleccionados
+Habilitar en orden ADA (prioridad por estabilidad + bajo riesgo):
+1. Telegram
+2. Discord
+3. Matrix
+4. Slack
+5. Mattermost
+6. Nextcloud Talk
+7. Webhooks / QA channel
+
+Evaluar después (riesgo medio): Signal, Google Chat, MS Teams.
+
+**WhatsApp / iMessage / WeChat / QQ / Zalo** — solo si William prioriza explícito Y NEXUS aprueba matriz de riesgo (ToS/sesión/credenciales sensibles).
+
+### Phase 4 — Public packaging
+- Windows runner builds firmados (sin WSL en ningún flujo)
 - Linux artifacts firmados
 - Code signing decisión William
 - macOS DMG + notarization
