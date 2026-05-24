@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { API } from '../App'
-import { X, MessageCircle, Send, Hash, Bot, Mail, Video, Briefcase, ShieldAlert, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { X, MessageCircle, Send, Hash, Bot, Mail, Video, Briefcase, ShieldAlert, ArrowLeft, CheckCircle2, ExternalLink } from 'lucide-react'
 
 export interface ChannelOption {
   id: string
@@ -8,7 +8,7 @@ export interface ChannelOption {
   icon: React.ComponentType<{ className?: string }>
   color: string
   bg: string
-  auth_kind: 'oauth' | 'qr' | 'token' | 'webhook'
+  auth_kind: 'oauth' | 'qr_pair' | 'bot_token' | 'webhook_url' | 'webview_session'
   description: string
   fields?: { name: string; label: string; placeholder?: string; type?: string }[]
   risk?: 'critical' | 'high' | 'normal'
@@ -16,49 +16,66 @@ export interface ChannelOption {
 
 export const CHANNEL_CATALOG: ChannelOption[] = [
   {
+    id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200',
+    auth_kind: 'webview_session',
+    description: 'Abre web.whatsapp.com en ventana nativa. Escaneás el QR como siempre. Riesgo TOS — Meta puede banear.',
+    risk: 'critical',
+  },
+  {
     id: 'telegram', label: 'Telegram', icon: Send, color: 'text-sky-600', bg: 'bg-sky-50 border-sky-200',
-    auth_kind: 'token', description: 'Vinculá un bot Telegram con su token.',
-    fields: [{ name: 'bot_token', label: 'Bot token', placeholder: '123456:ABC-DEF-...', type: 'password' }],
+    auth_kind: 'webview_session',
+    description: 'Abre web.telegram.org en ventana nativa. Login normal.',
     risk: 'normal',
   },
   {
-    id: 'linkedin', label: 'LinkedIn', icon: Briefcase, color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200',
-    auth_kind: 'oauth', description: 'OAuth oficial — leer perfil y mensajes propios.',
-    risk: 'high',
-  },
-  {
     id: 'slack', label: 'Slack', icon: Hash, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50 border-fuchsia-200',
-    auth_kind: 'oauth', description: 'OAuth Slack workspace — DMs y canales públicos.',
+    auth_kind: 'webview_session',
+    description: 'Abre app.slack.com en ventana nativa. Iniciá sesión con tu workspace.',
     risk: 'high',
   },
   {
     id: 'discord', label: 'Discord', icon: Bot, color: 'text-indigo-600', bg: 'bg-indigo-50 border-indigo-200',
-    auth_kind: 'oauth', description: 'OAuth Discord — DMs y servidores tuyos.',
+    auth_kind: 'webview_session',
+    description: 'Abre discord.com en ventana nativa. Login normal.',
+    risk: 'high',
+  },
+  {
+    id: 'gmail', label: 'Gmail', icon: Mail, color: 'text-red-600', bg: 'bg-red-50 border-red-200',
+    auth_kind: 'webview_session',
+    description: 'Abre mail.google.com en ventana nativa. Login con tu Google account.',
     risk: 'high',
   },
   {
     id: 'google_meet', label: 'Google Meet', icon: Video, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200',
-    auth_kind: 'oauth', description: 'Parte de tu OAuth Google — meetings + transcripciones.',
+    auth_kind: 'webview_session',
+    description: 'Abre meet.google.com en ventana nativa.',
     risk: 'high',
   },
   {
     id: 'zoom', label: 'Zoom', icon: Video, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200',
-    auth_kind: 'oauth', description: 'OAuth Zoom — meetings y grabaciones.',
+    auth_kind: 'webview_session',
+    description: 'Abre zoom.us en ventana nativa.',
     risk: 'high',
   },
   {
-    id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200',
-    auth_kind: 'qr', description: 'Pareo QR via WhatsApp Web (Baileys). NO oficial — riesgo de ban de cuenta.',
-    risk: 'critical',
-  },
-  {
-    id: 'gmail', label: 'Gmail', icon: Mail, color: 'text-red-600', bg: 'bg-red-50 border-red-200',
-    auth_kind: 'oauth', description: 'OAuth Google — lectura de Gmail.',
+    id: 'linkedin', label: 'LinkedIn', icon: Briefcase, color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200',
+    auth_kind: 'webview_session',
+    description: 'Abre linkedin.com en ventana nativa.',
     risk: 'high',
   },
 ]
 
 interface Props { onClose: () => void; onConnected?: () => void }
+
+interface TauriGlobal { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> }
+function getTauri(): TauriGlobal | null {
+  const w = window as unknown as { __TAURI__?: { core?: TauriGlobal } | TauriGlobal }
+  const t = w.__TAURI__
+  if (!t) return null
+  if ('invoke' in t) return t as TauriGlobal
+  if ('core' in t && t.core && 'invoke' in t.core) return t.core
+  return null
+}
 
 export function AddAccountModal({ onClose, onConnected }: Props) {
   const [selected, setSelected] = useState<ChannelOption | null>(null)
@@ -72,6 +89,7 @@ export function AddAccountModal({ onClose, onConnected }: Props) {
     if (!selected) return
     setBusy(true); setError(null)
     try {
+      // Register the account first (server side) so audit log captures intent
       const r = await fetch(`${API}/api/seal/channel-accounts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,7 +98,7 @@ export function AddAccountModal({ onClose, onConnected }: Props) {
           label: label.trim() || selected.label,
           auth_kind: selected.auth_kind,
           credentials: creds,
-          status: selected.auth_kind === 'oauth' ? 'pending_oauth' : selected.auth_kind === 'qr' ? 'pending_pair' : 'connected',
+          status: selected.auth_kind === 'oauth' || selected.auth_kind === 'qr_pair' || selected.auth_kind === 'webview_session' ? 'pending_auth' : 'connected',
         }),
       })
       const d = await r.json()
@@ -88,8 +106,35 @@ export function AddAccountModal({ onClose, onConnected }: Props) {
         setError(d.error || `HTTP ${r.status}`)
         return
       }
+
+      // If webview_session, open the native window with the original web app
+      if (selected.auth_kind === 'webview_session') {
+        const tauri = getTauri()
+        if (tauri) {
+          try {
+            await tauri.invoke('open_channel_webview', { channel: selected.id })
+          } catch (e) {
+            setError(`No se pudo abrir ventana nativa: ${e}`)
+            return
+          }
+        } else {
+          // Dev browser fallback — open in popup
+          const url = ({
+            whatsapp: 'https://web.whatsapp.com',
+            telegram: 'https://web.telegram.org',
+            slack: 'https://app.slack.com',
+            discord: 'https://discord.com/app',
+            gmail: 'https://mail.google.com',
+            google_meet: 'https://meet.google.com',
+            zoom: 'https://zoom.us',
+            linkedin: 'https://www.linkedin.com/messaging/',
+          } as Record<string, string>)[selected.id]
+          if (url) window.open(url, `seal-${selected.id}`, 'width=1100,height=800')
+        }
+      }
+
       setSuccess(true)
-      setTimeout(() => { onConnected?.(); onClose() }, 900)
+      setTimeout(() => { onConnected?.(); onClose() }, 1200)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'fallo de red')
     } finally { setBusy(false) }
@@ -120,7 +165,7 @@ export function AddAccountModal({ onClose, onConnected }: Props) {
           {!selected && (
             <>
               <p className="text-xs text-slate-500 mb-3">
-                Elegí qué canal querés conectar. Los tokens se guardan en el vault local cifrado (AES-GCM) — nunca salen de tu equipo.
+                Cada canal se abre <strong>en su sitio original</strong> (mismo dominio, mismo login que ya usás). SEAL agrega su capa de lectura/automatización por encima — nunca te pide tu contraseña.
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {CHANNEL_CATALOG.map(c => {
@@ -135,13 +180,10 @@ export function AddAccountModal({ onClose, onConnected }: Props) {
                         <Icon className={`w-4 h-4 ${c.color}`} />
                         <span className="text-sm font-semibold text-slate-800">{c.label}</span>
                         {c.risk === 'critical' && (
-                          <span title="riesgo crítico"><ShieldAlert className="w-3 h-3 text-red-500 ml-auto" /></span>
+                          <span title="riesgo crítico" className="ml-auto"><ShieldAlert className="w-3 h-3 text-red-500" /></span>
                         )}
                       </div>
                       <p className="text-[11px] text-slate-600 leading-snug">{c.description}</p>
-                      <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">
-                        auth: {c.auth_kind}
-                      </p>
                     </button>
                   )
                 })}
@@ -169,26 +211,16 @@ export function AddAccountModal({ onClose, onConnected }: Props) {
                 className="w-full mb-3 px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg text-slate-800 focus:outline-none focus:border-violet-400"
               />
 
-              {selected.auth_kind === 'oauth' && (
-                <div className="mb-3 px-3 py-2.5 rounded-lg border border-blue-200 bg-blue-50 text-xs text-blue-700">
-                  ⚡ Click "Conectar" abajo. Se abrirá tu navegador para autenticar con {selected.label}. Una vez aprobado, los tokens se guardan local cifrados.
-                  <br />
-                  <span className="text-[10px] text-blue-600/80">
-                    (Requiere credenciales OAuth en env vars — ver guía OAuth en `/agents/ALICE/oauth_credentials_setup_guide_v1.md`)
-                  </span>
-                </div>
-              )}
-
-              {selected.auth_kind === 'qr' && (
-                <div className="mb-3 px-3 py-3 rounded-lg border border-stone-200 bg-stone-50 text-center">
-                  <div className="w-32 h-32 mx-auto mb-2 bg-white border-2 border-dashed border-stone-300 rounded flex items-center justify-center text-stone-400 text-xs">
-                    QR pendiente
+              {selected.auth_kind === 'webview_session' && (
+                <div className="mb-3 px-3 py-2.5 rounded-lg border border-violet-200 bg-violet-50 text-xs text-violet-800 flex items-start gap-2">
+                  <ExternalLink className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    Al confirmar se abre una <strong>ventana nativa</strong> con el sitio original. SEAL no ve tu password — solo inyecta lectura cuando hayas iniciado sesión.
                   </div>
-                  <p className="text-xs text-slate-600">Al confirmar se genera un QR para escanear con WhatsApp del teléfono.</p>
                 </div>
               )}
 
-              {selected.auth_kind === 'token' && selected.fields?.map(f => (
+              {selected.auth_kind === 'bot_token' && selected.fields?.map(f => (
                 <div key={f.name} className="mb-3">
                   <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">{f.label}</label>
                   <input
@@ -207,10 +239,10 @@ export function AddAccountModal({ onClose, onConnected }: Props) {
 
               <button
                 onClick={submit}
-                disabled={busy || (selected.auth_kind === 'token' && !creds[selected.fields?.[0]?.name || ''])}
+                disabled={busy}
                 className="w-full py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium disabled:opacity-50"
               >
-                {busy ? 'Guardando…' : `Conectar ${selected.label}`}
+                {busy ? 'Abriendo…' : selected.auth_kind === 'webview_session' ? `Abrir ${selected.label}` : `Conectar ${selected.label}`}
               </button>
             </>
           )}
@@ -218,12 +250,10 @@ export function AddAccountModal({ onClose, onConnected }: Props) {
           {selected && success && (
             <div className="text-center py-6">
               <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
-              <p className="text-sm text-slate-800 font-medium">{selected.label} agregado</p>
+              <p className="text-sm text-slate-800 font-medium">{selected.label} listo</p>
               <p className="text-xs text-slate-500 mt-1">
-                {selected.auth_kind === 'oauth'
-                  ? 'Pendiente: completar OAuth en navegador.'
-                  : selected.auth_kind === 'qr'
-                  ? 'Pendiente: escanear QR.'
+                {selected.auth_kind === 'webview_session'
+                  ? 'Ventana nativa abierta. Iniciá sesión y SEAL conectará automáticamente.'
                   : 'Cuenta registrada en el vault local cifrado.'}
               </p>
             </div>
