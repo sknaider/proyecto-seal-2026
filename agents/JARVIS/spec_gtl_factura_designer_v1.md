@@ -43,7 +43,9 @@ Una sola **plantilla JSON por cliente** consumida por:
 - Coordenadas en px lógicos (canvas) → mapeadas a pt (reportlab) en el generador.
 
 ## 4. Validador SUNAT (guardrail)
-- Conjunto requerido (lo confirma ALICE): emisor RUC+razón, tipo+serie+número, fecha emisión,
+**Fuente fiscal autoritativa:** `agents/ALICE/guardrails_fiscales_factura_personalizable.md` (ALICE, base sunat_ubl.py real).
+Nota fiscal clave: GTL usa **unidad ZZ=servicio** por su giro → por eso el default tiende a "servicio".
+- Conjunto requerido (lo confirma ALICE): emisor RUC+razón+dirección fiscal, tipo+serie+número, fecha emisión,
   receptor nombre+RUC/DNI, moneda, líneas (desc/cant/V.unit/importe), valor venta, IGV, importe total,
   leyenda "SON:", QR/hash; + detracción si aplica.
 - Al guardar/emitir: si falta un binding requerido → bloquear + listar lo que falta.
