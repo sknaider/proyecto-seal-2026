@@ -31,6 +31,11 @@ Extender `empresas` (o tabla satélite `empresa_emisor` 1:1 — recomiendo exten
 | sunat_es_test | Bool | ambiente por tenant |
 | activo | Bool | |
 
+### Campos confirmados por ALICE (fiscal, 2026-06-02) — autoritativos
+- **Obligatorios XML UBL 2.1** (sin esto SUNAT rechaza): `ruc` (schemeID="6"), `razon_social`, `tipo_doc_identidad`="6" (fijo), domicilio fiscal completo (`ubigeo` 6díg, `direccion`, `departamento`, `provincia`, `distrito`, `cod_pais`="PE"), + para firmar/enviar: `sol_usuario`+`clave_sol` y `certificado` (.pfx)+`cert_password` **por emisor**.
+- **Opcionales/recomendados**: `nombre_comercial`, `codigo_local`/establecimiento anexo (default "0000" casa matriz), `correo`, `telefono` (estos 2 no van al XML).
+- Tabla mínima (ALICE): `ruc, razon_social, nombre_comercial, ubigeo, direccion, departamento, provincia, distrito, sol_user, sol_pass(enc), cert_path/cert_blob(enc), cert_pass(enc), codigo_local, activo`.
+
 ### 🔐 Secretos (NEXUS, crítico)
 Las credenciales SOL + password del cert **NO van en claro en la tabla**. Opciones: (a) tabla `empresa_secrets` con cifrado en reposo (Fernet/KMS), (b) secret store externo, (c) variables de entorno con prefijo por tenant `SUNAT_<RUC>_*`. Recomiendo (a) cifrado en reposo + nunca loguear. Decisión de NEXUS.
 
