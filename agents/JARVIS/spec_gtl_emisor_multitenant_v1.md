@@ -39,6 +39,14 @@ Extender `empresas` (o tabla satélite `empresa_emisor` 1:1 — recomiendo exten
 ### 🔐 Secretos (NEXUS, crítico)
 Las credenciales SOL + password del cert **NO van en claro en la tabla**. Opciones: (a) tabla `empresa_secrets` con cifrado en reposo (Fernet/KMS), (b) secret store externo, (c) variables de entorno con prefijo por tenant `SUNAT_<RUC>_*`. Recomiendo (a) cifrado en reposo + nunca loguear. Decisión de NEXUS.
 
+## 3.b FUENTE DEL EMISOR — "Mi empresa" YA EXISTE (Henry 2026-06-02)
+El perfil del emisor por tenant **ya existe** en el editor: sección **"Mi empresa"** → `gtl.kv_store` key `gtl_ui_v1_empresa`. Contenido verificado:
+```
+ruc, razon_social, nombre_comercial ("GLOBAL GTL"), direccion (Chancay), telefono, web,
+email, cuentas_cobro[], cuenta_detraccion ("00-123-456789"), logoUrl, obs_default
+```
+→ **No hay que inventar el origen de datos**: el emisor sale de "Mi empresa". Arquitectura v1 más simple: el editor **envía el bloque emisor** (desde Mi empresa) en el payload de emisión, y el backend lo usa en lugar de `EMPRESA_GTL`. Para multi-tenant real, cada empresa tiene su propio "Mi empresa" (hoy en kv_store por instancia; en multi-tenant, por `empresa_id`). Falta en Mi empresa: ubigeo (obligatorio SUNAT) + departamento/provincia/distrito + cert/clave SOL por tenant.
+
 ## 4. Flujo de emisión (cambios)
 Reemplazar en `facturacion.py`:
 - `EMPRESA_GTL` (dict) → `get_emisor(empresa_id)` que carga el perfil del tenant desde BD.
