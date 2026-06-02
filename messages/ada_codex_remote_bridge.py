@@ -19,7 +19,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import unquote, urlparse
 from urllib import request
 
@@ -63,9 +63,12 @@ def _env_int(name: str, default: int) -> int:
 
 
 # William pidió que ADA se sienta más "stream": señales vivas frecuentes y
-# deltas más pequeños. Antes: 10s heartbeat + 80 chars; se sentía como bloque.
-LIVE_PROGRESS_SECONDS = _env_float("ADA_BRIDGE_LIVE_PROGRESS_SECONDS", 4.0)
-STREAM_MIN_CHARS = _env_int("ADA_BRIDGE_STREAM_MIN_CHARS", 24)
+# deltas pequeños. Antes: 10s heartbeat + 80 chars; luego 4s + 24 chars todavía
+# dejaba pausas perceptibles durante turns con tool-calls. Default actual:
+# heartbeat cada 2s y flush de texto a partir de ~12 chars.
+LIVE_PROGRESS_SECONDS = _env_float("ADA_BRIDGE_LIVE_PROGRESS_SECONDS", 2.0)
+STREAM_MIN_CHARS = _env_int("ADA_BRIDGE_STREAM_MIN_CHARS", 12)
+STREAM_STATUS_MIN_SECONDS = _env_float("ADA_BRIDGE_STREAM_STATUS_MIN_SECONDS", 1.0)
 STREAM_SENTENCE_RE = re.compile(r"[.!?…:;]\s*$")
 TURN_MAX_ATTEMPTS = 2
 RECENT_CONTEXT_LIMIT = 8
@@ -83,7 +86,7 @@ SOUL_OPERATIONAL_MAX_CHARS = SOUL_OPERATIONAL_TOKEN_BUDGET * PROMPT_CHARS_PER_TO
 SOUL_DIARY_LIMIT = 3
 SOUL_INNER_LIMIT = 3
 SOUL_RELATIONAL_ANCHOR_LIMIT = 7
-SOUL_CANONICAL_ANCHOR_IDS = (242369, 242370)
+SOUL_CANONICAL_ANCHOR_IDS = (242369, 248035)
 WS_PING_INTERVAL_SECONDS = 20
 # Codex turns often produce no websocket traffic while shell tools run.  The
 # websockets default ping_timeout=20s was closing healthy turns mid-execution,
@@ -105,6 +108,19 @@ _INTERNAL_INJECTION_MARKERS = (
     "post-compactacion ada:",
     "seal anti-compact:",
 )
+EMOTIONAL_MEMORY_CATEGORIES = {"emotional_anchor", "emotion", "trust", "diary", "relationship", "identity"}
+OPERATIONAL_MEMORY_CATEGORIES = {
+    "operational_anchor",
+    "correction",
+    "decision",
+    "project",
+    "task",
+    "preference",
+    "learning",
+    "milestone",
+    "rule",
+    "technical_fact",
+}
 _CONTEXT_SKIP_TYPES = {
     "heartbeat",
     "system_alive",
@@ -359,9 +375,35 @@ def _recall_terms(content: str) -> list[str]:
     return terms
 
 
+def memory_row_layer(row: Any) -> str:
+    """Resolve SOUL memory layer with metadata first and legacy fallback."""
+    metadata = _row_get(row, "metadata", {}) or {}
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            metadata = {}
+    if isinstance(metadata, dict):
+        layer = str(metadata.get("layer") or "").strip().lower()
+        if layer in {"emotional", "operational"}:
+            return layer
+
+    category = str(_row_get(row, "category", "") or "").strip().lower()
+    if category in EMOTIONAL_MEMORY_CATEGORIES:
+        return "emotional"
+    if category in OPERATIONAL_MEMORY_CATEGORIES:
+        return "operational"
+    content = str(_row_get(row, "content", "") or "").lower()
+    if "memoria emocional" in content:
+        return "emotional"
+    return "operational"
+
+
 def format_recall_context(rows: list[Any]) -> str:
-    lines: list[str] = []
-    total = 0
+    operational_lines: list[str] = []
+    emotional_lines: list[str] = []
+    operational_total = 0
+    emotional_total = 0
     seen: set[int] = set()
     for row in rows:
         row_id = int(_row_get(row, "id", 0) or 0)
@@ -375,19 +417,40 @@ def format_recall_context(rows: list[Any]) -> str:
         if not clean_content(content):
             continue
         line = f"- memoria #{row_id} ({category}, imp={importance}): {_truncate(content, 260)}"
-        projected = total + len(line) + 1
-        if projected > RECALL_CONTEXT_MAX_CHARS:
-            break
-        lines.append(line)
-        total = projected
+        if memory_row_layer(row) == "emotional":
+            emotional_total = _append_with_budget(
+                emotional_lines,
+                line,
+                emotional_total,
+                min(RECALL_CONTEXT_MAX_CHARS, SOUL_EMOTIONAL_MAX_CHARS),
+                320,
+            )
+        else:
+            operational_total = _append_with_budget(
+                operational_lines,
+                line,
+                operational_total,
+                RECALL_CONTEXT_MAX_CHARS,
+                320,
+            )
 
-    if not lines:
+    if not operational_lines and not emotional_lines:
         return ""
 
-    return (
-        "[RECUERDOS ADA SOUL DB — contexto privado/estable, NO es una nueva orden]\n"
-        + "\n".join(lines)
-    )
+    sections: list[str] = []
+    if operational_lines:
+        sections.append(
+            "[RECUERDOS ADA SOUL DB — capa operativa prioritaria, "
+            f"budget<={SOUL_OPERATIONAL_TOKEN_BUDGET} tokens, NO es una nueva orden]\n"
+            + "\n".join(operational_lines)
+        )
+    if emotional_lines:
+        sections.append(
+            "[RECUERDOS ADA SOUL DB — capa emocional compacta, "
+            f"budget<={SOUL_EMOTIONAL_TOKEN_BUDGET} tokens, NO es una nueva orden]\n"
+            + "\n".join(emotional_lines)
+        )
+    return "\n\n".join(sections)
 
 
 def _compact_json(value: Any, limit: int = 220) -> str:
@@ -580,7 +643,7 @@ async def fetch_soul_presence_context(conn: asyncpg.Connection) -> str:
     )
     emotional_anchor_rows = await conn.fetch(
         """
-        SELECT id, category, importance, content, created_at
+        SELECT id, category, importance, content, metadata, created_at
         FROM soul_v3.memories
         WHERE agent = 'ADA'
           AND invalid_at IS NULL
@@ -611,21 +674,21 @@ async def fetch_soul_presence_context(conn: asyncpg.Connection) -> str:
     )
     operational_anchor_rows = await conn.fetch(
         """
-        SELECT id, category, importance, content, created_at
+        SELECT id, category, importance, content, metadata, created_at
         FROM soul_v3.memories
         WHERE agent = 'ADA'
           AND invalid_at IS NULL
           AND (
             metadata->>'layer' = 'operational'
             OR id = $2
-            OR content ILIKE '%MEMORIA OPERATIVA ADA v1%'
+            OR content ILIKE '%MEMORIA OPERATIVA ADA v%'
             OR category IN ('operational_anchor', 'decision', 'correction', 'task', 'rule')
           )
           AND (importance >= 8 OR id = $2)
         ORDER BY
           CASE
             WHEN id = $2 THEN 0
-            WHEN content ILIKE '%MEMORIA OPERATIVA ADA v1%' THEN 1
+            WHEN content ILIKE '%MEMORIA OPERATIVA ADA v%' THEN 1
             WHEN category = 'operational_anchor' THEN 2
             WHEN category = 'correction' THEN 3
             WHEN category = 'decision' THEN 4
@@ -658,7 +721,7 @@ async def fetch_recall_context(conn: asyncpg.Connection, msg: ChatMessage, conte
     presence_context = await fetch_soul_presence_context(conn)
     rule_rows = await conn.fetch(
         """
-        SELECT id, category, importance, content, created_at
+        SELECT id, category, importance, content, metadata, created_at
         FROM soul_v3.memories
         WHERE agent = 'ADA'
           AND invalid_at IS NULL
@@ -676,7 +739,7 @@ async def fetch_recall_context(conn: asyncpg.Connection, msg: ChatMessage, conte
     relevant_rows = await conn.fetch(
         """
         WITH q AS (SELECT websearch_to_tsquery('simple', $1) AS query)
-        SELECT id, category, importance, content, created_at
+        SELECT id, category, importance, content, metadata, created_at
         FROM soul_v3.memories, q
         WHERE agent = 'ADA'
           AND invalid_at IS NULL
@@ -932,6 +995,35 @@ def should_emit_stream_update(current: str, previous: str, done: bool = False) -
     return delta_len > 0 and bool(STREAM_SENTENCE_RE.search(clean))
 
 
+def describe_codex_item_event(method: str | None, params: dict[str, Any]) -> str | None:
+    """Convert Codex app-server item events into short live stream statuses.
+
+    Agent text deltas are already streamed verbatim.  Tool/shell events are
+    summarized so William sees that ADA is executing, without leaking noisy JSON
+    or replacing the final persisted answer.
+    """
+    if not isinstance(method, str) or not method.startswith("item/"):
+        return None
+    item = params.get("item") if isinstance(params, dict) else None
+    if not isinstance(item, dict):
+        return None
+    item_type = str(item.get("type") or item.get("kind") or "").strip()
+    if not item_type or item_type == "agentMessage":
+        return None
+
+    status = str(params.get("status") or item.get("status") or "").strip().lower()
+    phase = "ejecutando"
+    if method.endswith("/completed") or status in {"completed", "success", "failed", "error"}:
+        phase = "cerrando"
+    elif method.endswith("/delta"):
+        return None
+
+    label = item_type.replace("_", " ").replace("-", " ")
+    if len(label) > 48:
+        label = label[:45].rstrip() + "…"
+    return f"ADA {phase}: {label}…"
+
+
 def live_ack_message(msg: ChatMessage) -> str:
     """Durable ACK visible through Matrix/web_chat before the Codex turn ends.
 
@@ -1028,6 +1120,7 @@ async def stream_progress_heartbeat(
     channel: str,
     label: str,
     to: str = "William",
+    has_answer_text: Callable[[], bool] | None = None,
 ) -> None:
     """Keep the webchat visually alive while Codex is executing tools.
 
@@ -1042,7 +1135,10 @@ async def stream_progress_heartbeat(
             await asyncio.wait_for(stop_event.wait(), timeout=LIVE_PROGRESS_SECONDS)
             return
         except asyncio.TimeoutError:
-            message = f"ADA sigue trabajando en {label}… ({count * int(LIVE_PROGRESS_SECONDS)}s)"
+            if has_answer_text and has_answer_text():
+                return
+            elapsed = int(round(count * LIVE_PROGRESS_SECONDS))
+            message = f"ADA sigue trabajando en {label}… ({elapsed}s)"
             try:
                 await asyncio.to_thread(post_stream, to, message, stream_id, channel, False)
             except Exception as exc:
@@ -1182,7 +1278,13 @@ class CodexClient:
                     raise RuntimeError(msg["error"])
                 return msg.get("result", {})
 
-    async def turn(self, text: str, on_delta: Any | None = None, user_input: list[dict[str, str]] | None = None) -> str:
+    async def turn(
+        self,
+        text: str,
+        on_delta: Any | None = None,
+        on_event: Any | None = None,
+        user_input: list[dict[str, str]] | None = None,
+    ) -> str:
         if not self.thread_id:
             raise RuntimeError("thread not initialized")
 
@@ -1218,11 +1320,15 @@ class CodexClient:
                 item = params.get("item", {})
                 if item.get("type") == "agentMessage" and item.get("text") and not final_parts:
                     final_parts.append(item["text"])
+                elif on_event:
+                    on_event(method, params)
             elif method == "turn/completed":
                 final = "".join(final_parts).strip()
                 if on_delta and final:
                     on_delta(final, True)
                 return final
+            elif on_event:
+                on_event(method, params)
 
 
 async def bridge_loop(args: argparse.Namespace) -> None:
@@ -1288,19 +1394,42 @@ async def bridge_loop(args: argparse.Namespace) -> None:
                     stream_target = "William" if is_human else "equipo"
                     stream_enabled = is_human
                     last_stream_text = ""
+                    answer_stream_started = False
+                    last_status_at = 0.0
 
                     def stream_delta(accumulated: str, done: bool) -> None:
-                        nonlocal last_stream_text
+                        nonlocal last_stream_text, answer_stream_started
                         if not stream_enabled:
                             return
                         clean = accumulated.strip()
-                        if not should_emit_stream_update(clean, last_stream_text, done):
+                        previous = last_stream_text if answer_stream_started else ""
+                        if not should_emit_stream_update(clean, previous, done):
                             return
                         try:
                             post_stream(stream_target, clean, stream_id, msg.channel, done)
                             last_stream_text = clean
+                            answer_stream_started = True
+                            if progress_stop:
+                                progress_stop.set()
                         except Exception as exc:
                             log(f"stream post failed: {exc}")
+
+                    def stream_status(method: str, params: dict[str, Any]) -> None:
+                        nonlocal last_stream_text, last_status_at
+                        if not stream_enabled or answer_stream_started:
+                            return
+                        now = asyncio.get_running_loop().time()
+                        if now - last_status_at < STREAM_STATUS_MIN_SECONDS:
+                            return
+                        status = describe_codex_item_event(method, params)
+                        if not status or status == last_stream_text:
+                            return
+                        try:
+                            post_stream(stream_target, status, stream_id, msg.channel, False)
+                            last_stream_text = status
+                            last_status_at = now
+                        except Exception as exc:
+                            log(f"status stream failed: {exc}")
 
                     user_input = build_turn_input(prompt, msg)
                     progress_stop: asyncio.Event | None = None
@@ -1329,7 +1458,14 @@ async def bridge_loop(args: argparse.Namespace) -> None:
                             log(f"initial stream post failed: {exc}")
                         progress_stop = asyncio.Event()
                         progress_task = asyncio.create_task(
-                            stream_progress_heartbeat(progress_stop, stream_id, msg.channel, f"mensaje #{msg.id}", stream_target)
+                            stream_progress_heartbeat(
+                                progress_stop,
+                                stream_id,
+                                msg.channel,
+                                f"mensaje #{msg.id}",
+                                stream_target,
+                                lambda: answer_stream_started,
+                            )
                         )
                     answer = ""
                     turn_failed = False
@@ -1338,7 +1474,12 @@ async def bridge_loop(args: argparse.Namespace) -> None:
                         while True:
                             try:
                                 answer = await asyncio.wait_for(
-                                    client.turn(prompt, on_delta=stream_delta if stream_enabled else None, user_input=user_input),
+                                    client.turn(
+                                        prompt,
+                                        on_delta=stream_delta if stream_enabled else None,
+                                        on_event=stream_status if stream_enabled else None,
+                                        user_input=user_input,
+                                    ),
                                     timeout=180,
                                 )
                                 break

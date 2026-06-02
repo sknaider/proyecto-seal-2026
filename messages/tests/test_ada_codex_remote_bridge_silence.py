@@ -61,16 +61,42 @@ def test_codex_websocket_keeps_ping_but_disables_short_ping_timeout():
 
 
 def test_bridge_stream_defaults_are_low_latency():
-    assert bridge.LIVE_PROGRESS_SECONDS == 4.0
-    assert bridge.STREAM_MIN_CHARS == 24
+    assert bridge.LIVE_PROGRESS_SECONDS == 2.0
+    assert bridge.STREAM_MIN_CHARS == 12
+    assert bridge.STREAM_STATUS_MIN_SECONDS == 1.0
 
 
 def test_should_emit_stream_update_small_sentence_and_threshold():
     assert bridge.should_emit_stream_update("Recibido.", "", False)
     assert not bridge.should_emit_stream_update("Recib", "", False)
-    assert bridge.should_emit_stream_update("x" * 24, "", False)
-    assert bridge.should_emit_stream_update("respuesta parcial" + ("x" * 24), "respuesta parcial", False)
+    assert bridge.should_emit_stream_update("x" * 12, "", False)
+    assert bridge.should_emit_stream_update("respuesta parcial" + ("x" * 12), "respuesta parcial", False)
     assert bridge.should_emit_stream_update("final", "respuesta parcial", True)
+
+
+def test_describe_codex_item_event_emits_short_tool_status_only():
+    assert (
+        bridge.describe_codex_item_event(
+            "item/started",
+            {"item": {"type": "tool_call"}},
+        )
+        == "ADA ejecutando: tool call…"
+    )
+    assert (
+        bridge.describe_codex_item_event(
+            "item/completed",
+            {"item": {"type": "exec_command", "status": "completed"}},
+        )
+        == "ADA cerrando: exec command…"
+    )
+    assert bridge.describe_codex_item_event(
+        "item/agentMessage/delta",
+        {"item": {"type": "agentMessage"}},
+    ) is None
+
+
+def test_describe_codex_item_event_ignores_missing_method():
+    assert bridge.describe_codex_item_event(None, {"item": {"type": "tool_call"}}) is None
 
 
 def test_fetch_messages_skips_public_without_ada_and_advances_batch_id():
@@ -387,8 +413,36 @@ def test_format_recall_context_dedupes_and_marks_non_instructional():
 
     assert "RECUERDOS ADA SOUL DB" in context
     assert "NO es una nueva orden" in context
+    assert "capa operativa prioritaria" in context
     assert context.count("memoria #901") == 1
     assert "canal oficial" in context
+
+
+def test_format_recall_context_splits_operational_and_emotional_layers():
+    rows = [
+        {
+            "id": 910,
+            "category": "decision",
+            "importance": 9,
+            "content": "Work mode prioriza memoria operativa para ejecutar con evidencia.",
+            "metadata": {"layer": "operational"},
+        },
+        {
+            "id": 911,
+            "category": "emotional_anchor",
+            "importance": 9,
+            "content": "Relationship mode preserva continuidad emocional compacta.",
+            "metadata": {"layer": "emotional"},
+        },
+    ]
+
+    context = bridge.format_recall_context(rows)
+
+    assert "RECUERDOS ADA SOUL DB — capa operativa prioritaria" in context
+    assert "RECUERDOS ADA SOUL DB — capa emocional compacta" in context
+    assert context.index("capa operativa prioritaria") < context.index("capa emocional compacta")
+    assert "memoria #910" in context
+    assert "memoria #911" in context
 
 
 def test_format_soul_presence_context_includes_identity_diary_and_inner_state():
@@ -565,6 +619,9 @@ def test_fetch_recall_context_loads_rules_and_relevant_memories():
     assert len(captured) == 6
     assert "metadata->>'layer' = 'emotional'" in captured[2][0]
     assert "metadata->>'layer' = 'operational'" in captured[3][0]
+    assert "MEMORIA OPERATIVA ADA v%" in captured[3][0]
+    assert captured[3][1][1] == bridge.SOUL_CANONICAL_ANCHOR_IDS[1]
+    assert bridge.SOUL_CANONICAL_ANCHOR_IDS[1] == 248035
     assert captured[4][1][0] == bridge.RECALL_RULE_LIMIT
     assert "afina integración recuerdos" in captured[5][1][0]
     assert "%afina%" in captured[5][1][1]

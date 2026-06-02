@@ -37,11 +37,24 @@ from qdrant_client.models import (
     HasIdCondition,
 )
 from neo4j import AsyncGraphDatabase
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from db import DB_URL, get_pool, close_pool
 from embeddings import get_embedding, warmup_model
 from config import settings
-from reasoning_quality_validator import validate_trace as kismath_validate
+from agent_rubric import load_agent_rubric
+from memory_admission import audit_memory_skip_event, memory_auto_event_skip_reason
+from reasoning_quality_validator import (
+    score_and_update_reasoning_trace,
+    validate_trace as kismath_validate,
+)
+from emotional_retrieval import emotional_signal_strength, rerank_emotional_results
+from identity_continuity_v2 import (
+    format_biv_summary,
+    post_biv_alert,
+    run_boot_identity_verification,
+)
 
 # SOUL Recall Router (Fase 1 — feature-flagged, default OFF)
 try:
@@ -53,9 +66,32 @@ except ImportError:
 LOG = logging.getLogger("seal-memory")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
 
+PROMPT_CHARS_PER_TOKEN = 4
+DUAL_MEMORY_EMOTIONAL_TOKEN_BUDGET = 600
+DUAL_MEMORY_OPERATIONAL_TOKEN_BUDGET = 2200
+DUAL_MEMORY_EMOTIONAL_MAX_CHARS = DUAL_MEMORY_EMOTIONAL_TOKEN_BUDGET * PROMPT_CHARS_PER_TOKEN
+DUAL_MEMORY_OPERATIONAL_MAX_CHARS = DUAL_MEMORY_OPERATIONAL_TOKEN_BUDGET * PROMPT_CHARS_PER_TOKEN
+EMOTIONAL_MEMORY_CATEGORIES = {"emotional_anchor", "emotion", "trust", "diary", "relationship", "identity"}
+OPERATIONAL_MEMORY_CATEGORIES = {
+    "operational_anchor",
+    "correction",
+    "decision",
+    "project",
+    "task",
+    "preference",
+    "learning",
+    "milestone",
+    "rule",
+    "technical_fact",
+}
+
 MCP_HOST = os.environ.get("SEAL_MCP_HOST", "127.0.0.1")
 MCP_PORT = int(os.environ.get("SEAL_MCP_PORT", "8771"))
 MCP_TRANSPORT = os.environ.get("SEAL_MCP_TRANSPORT", "sse")
+INTERNAL_TENANT_ID = os.environ.get(
+    "SEAL_INTERNAL_TENANT_ID",
+    "00000000-0000-0000-0000-000000000000",
+)
 
 mcp = FastMCP(
     "seal-memory",
@@ -63,6 +99,28 @@ mcp = FastMCP(
     host=MCP_HOST,
     port=MCP_PORT,
 )
+
+
+@mcp.custom_route("/health", methods=["GET"], include_in_schema=False)
+@mcp.custom_route("/api/health", methods=["GET"], include_in_schema=False)
+async def http_health_check(request: Request) -> JSONResponse:
+    try:
+        pool = await get_pool()
+        await pool.fetchval("SELECT 1")
+        pg_status = "ok"
+    except Exception as exc:
+        pg_status = f"error: {str(exc)[:120]}"
+    return JSONResponse(
+        {
+            "status": "ok" if pg_status == "ok" else "degraded",
+            "service": "seal-memory-mcp",
+            "backend": "postgresql_pgvector",
+            "postgresql": pg_status,
+            "neo4j": "optional_runtime",
+            "qdrant": "retired",
+            "timestamp": datetime.now(PERU_TZ).isoformat(),
+        }
+    )
 
 # ── Server uptime tracking ──
 SERVER_START_TIME: datetime = datetime.now(PERU_TZ)
@@ -86,6 +144,72 @@ def _safe_dumps(obj: Any, **kwargs: Any) -> str:
     """json.dumps with surrogate sanitization applied before serialization."""
     return json.dumps(_clean_obj(obj), **kwargs)
 
+
+_CHAT_EXCERPT_RE = re.compile(r"^\[[A-ZÁÉÍÓÚÑ]+\]:")
+_TOKEN_RE = re.compile(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+")
+_WILLIAM_DIRECTIVE_RE = re.compile(
+    r"\bWilliam\s+(autoriz[oó]|orden[oó]|dijo|firm[oó]|confirma|confirm[oó])\b",
+    re.IGNORECASE,
+)
+
+
+def _token_count_for_rubric(text: str) -> int:
+    return len(_TOKEN_RE.findall(text or ""))
+
+
+def _normalize_memory_by_rubric(
+    agent: str, category: str, content: str, importance: int
+) -> tuple[str, str, int, dict[str, Any] | None]:
+    """Normalize new memory importance before admission gates and storage."""
+    category = str(category or "fact")
+    content = str(content or "").strip()
+    original_importance = max(1, min(10, int(importance)))
+    new_importance = original_importance
+    reasons: list[str] = []
+    try:
+        rubric = load_agent_rubric(agent)
+    except Exception as exc:
+        LOG.debug("Rubric load skipped for %s: %s", agent, exc)
+        return category, content, original_importance, None
+
+    william_directive = bool(_WILLIAM_DIRECTIVE_RE.search(content))
+    if (
+        _CHAT_EXCERPT_RE.match(content)
+        and category not in rubric.chat_excerpt_override_categories
+        and not william_directive
+    ):
+        capped = min(new_importance, rubric.chat_excerpt_importance_cap)
+        if capped != new_importance:
+            reasons.append("chat_excerpt_cap")
+        new_importance = capped
+
+    if (
+        new_importance >= 9
+        and len(content) < rubric.minimum_chars_for_importance_9
+        and category not in rubric.high_importance_categories
+        and not william_directive
+    ):
+        new_importance = min(new_importance, 6)
+        reasons.append("short_noncritical_high_importance")
+
+    if (
+        new_importance >= 9
+        and _token_count_for_rubric(content) < rubric.short_memory_token_threshold
+        and category not in rubric.chat_excerpt_override_categories
+        and not william_directive
+    ):
+        new_importance = min(new_importance, 6)
+        reasons.append("too_few_tokens_for_high_importance")
+
+    if new_importance == original_importance:
+        return category, content, new_importance, None
+    return category, content, new_importance, {
+        "original_importance": original_importance,
+        "normalized_importance": new_importance,
+        "reasons": sorted(set(reasons)),
+        "rubric_agent": agent.upper(),
+    }
+
 # ── SEAL Trees — structural nervous system (2026-04-08) ──
 from seal_trees import MerkleSoul, SplayCache, TrieIndex, FenwickStats, RSpatialIndex, BoundingBox
 
@@ -102,14 +226,14 @@ _trie_lock = asyncio.Lock()
 OLLAMA_GEN_URL = settings.ollama_gen_url
 OLLAMA_MODEL = settings.ollama_model
 
-QDRANT_URL = settings.qdrant_url
-QDRANT_COLLECTION = settings.qdrant_collection
+QDRANT_URL = settings.qdrant_url  # legacy symbol; runtime is PostgreSQL/pgvector
+QDRANT_COLLECTION = settings.qdrant_collection  # legacy symbol; runtime is PostgreSQL/pgvector
 
 NEO4J_URI = settings.neo4j_uri
 NEO4J_AUTH = settings.neo4j_auth
 
-# Soul Lite mode: pgvector replaces Qdrant. Neo4j remains active.
-SOUL_LITE = settings.soul_lite
+# PostgreSQL/pgvector is canonical. Qdrant is retired from live SEAL runtime.
+SOUL_LITE = True
 
 # Connectome constants
 DECAY_EXCITATORY = 0.6
@@ -264,12 +388,15 @@ _TEMPORAL_PATTERNS = re.compile(
 )
 
 _CATEGORY_SIGNALS: dict[str, list[str]] = {
-    "correction": ["corrección", "corregir", "error", "fix", "bug", "wrong", "mistake", "mal"],
+    "correction": ["corrección", "correccion", "corregir", "corrige", "error", "fix", "bug", "wrong", "mistake", "mal"],
     "decision": ["decidir", "decidimos", "decisión", "decision", "decided", "elegir", "chose", "choose"],
     "emotion": ["sentir", "feel", "emotion", "emoción", "triste", "sad", "happy", "feliz", "orgulloso", "proud"],
-    "milestone": ["logro", "milestone", "achievement", "completé", "completed", "finished", "terminé"],
-    "insight": ["aprendí", "learned", "insight", "descubrí", "discovered", "realized", "entendí"],
-    "preference": ["prefiero", "prefer", "preference", "gusta", "like", "dislike"],
+    "milestone": ["logro", "hito", "milestone", "achievement", "completé", "completed", "finished", "terminé", "termine"],
+    "insight": ["aprendí", "aprendi", "learned", "insight", "descubrí", "descubri", "discovered", "realized", "entendí", "entendi"],
+    "preference": ["prefiero", "prefer", "preference", "preferencia", "gusta", "like", "dislike"],
+    "pattern": ["patrón", "patron", "pattern", "tendencia", "repite", "repetido"],
+    "trust": ["trust", "confianza", "lealtad", "familia", "permiso", "autorización", "autorizacion"],
+    "dynamic": ["temporal", "smoke", "backfill", "checkpoint", "estado", "runtime", "último", "ultimo"],
     "fact": ["dato", "fact", "información", "info", "data"],
 }
 
@@ -836,18 +963,16 @@ _neo4j_driver = None
 
 async def get_qdrant():
     """
-    Returns AsyncQdrantClient (full mode) or PgVectorAdapter (Soul Lite mode).
-    Toggle via SOUL_LITE=true environment variable.
+    Return the PostgreSQL/pgvector adapter.
+
+    The function name is retained for legacy internal call sites, but Qdrant is
+    retired from the live architecture and is never opened here.
     """
-    global _qdrant, _qdrant_lite
-    if SOUL_LITE:
-        if _qdrant_lite is None:
-            from soul_lite_adapter import PgVectorAdapter
-            _qdrant_lite = PgVectorAdapter(get_pool)
-        return _qdrant_lite
-    if _qdrant is None:
-        _qdrant = AsyncQdrantClient(url=QDRANT_URL, api_key=settings.qdrant_api_key)
-    return _qdrant
+    global _qdrant_lite
+    if _qdrant_lite is None:
+        from soul_lite_adapter import PgVectorAdapter
+        _qdrant_lite = PgVectorAdapter(get_pool)
+    return _qdrant_lite
 
 
 def get_neo4j():
@@ -1171,6 +1296,67 @@ def _mirix_classify(category: str, content: str, memory_type: str | None = None)
     return MIRIX_CATEGORY_MAP.get(category, "episodic")
 
 
+_DUAL_MEMORY_LAYERS = {"emotional", "operational"}
+
+
+def _parse_metadata_arg(metadata: Any) -> dict[str, Any]:
+    """Normalize MCP metadata args from JSON strings or structured clients."""
+    if metadata is None or metadata == "":
+        return {}
+    if isinstance(metadata, dict):
+        return dict(metadata)
+    if isinstance(metadata, str):
+        try:
+            parsed = json.loads(metadata)
+        except json.JSONDecodeError:
+            return {"raw_metadata": metadata}
+        return parsed if isinstance(parsed, dict) else {"raw_metadata": parsed}
+    return {"raw_metadata": str(metadata)}
+
+
+def _ensure_dual_memory_layer(
+    metadata: dict[str, Any],
+    *,
+    category: str | None,
+    memory_type: str | None,
+    content: str | None,
+    inferred_by: str,
+) -> dict[str, Any]:
+    """Ensure every newly stored memory is born in one dual-memory layer.
+
+    Backfills repair old rows, but William's requirement is runtime discipline:
+    new memories must not enter SOUL with metadata.layer unset.
+    """
+    meta = metadata if isinstance(metadata, dict) else {}
+    existing = str(meta.get("layer") or "").strip().lower()
+    if existing in _DUAL_MEMORY_LAYERS:
+        meta["layer"] = existing
+        return meta
+
+    try:
+        from dual_memory_governance import ensure_layer_metadata
+
+        return ensure_layer_metadata(
+            meta,
+            category=category,
+            memory_type=memory_type,
+            content=content,
+            inferred_by=inferred_by,
+            inferred_at=datetime.now(timezone.utc).isoformat(),
+        )
+    except Exception:
+        cat = (category or "").strip().lower()
+        mem_type = (memory_type or "").strip().lower()
+        layer = "emotional" if cat in {"emotion", "trust", "relationship", "diary", "identity"} or "emotion" in cat or mem_type in {"emotional", "identity_emotional"} else "operational"
+
+    if existing:
+        meta["layer_original_value"] = existing
+    meta["layer"] = layer
+    meta["layer_inferred_by"] = inferred_by
+    meta["layer_inferred_at"] = datetime.now(timezone.utc).isoformat()
+    return meta
+
+
 # ══════════════════════════════════════════════════════════════════════
 # QDRANT-BACKED TOOLS (memories, search)
 # ══════════════════════════════════════════════════════════════════════
@@ -1182,7 +1368,7 @@ async def memory_store(
     content: str,
     importance: int = 5,
     source: str = "conversation",
-    metadata: Optional[str] = None,
+    metadata: Optional[Any] = None,
     event_time: Optional[str] = None,
     scope: str = "private",
 ) -> str:
@@ -1194,7 +1380,7 @@ async def memory_store(
         content: The memory content text
         importance: 1-10 scale (10 = critical, never forget)
         source: Origin: conversation, reflection, consolidation
-        metadata: Optional JSON string with extra data
+        metadata: Optional JSON string or object with extra data
         event_time: ISO timestamp of when the event actually happened (optional, defaults to now). Different from ingestion time (created_at).
         scope: Visibility — private (default), shared (ADA+JARVIS), team (all agents), william (only William)
     """
@@ -1203,7 +1389,45 @@ async def memory_store(
     importance = max(1, min(10, importance))
     if scope not in ("private", "shared", "team", "william"):
         scope = "private"
-    meta = json.loads(metadata) if metadata else {}
+    meta = _parse_metadata_arg(metadata)
+    category, content, importance, normalization = _normalize_memory_by_rubric(agent, category, content, importance)
+    if normalization:
+        meta["rubric_normalization"] = normalization
+
+    auto_skip_reason = memory_auto_event_skip_reason(
+        agent=agent,
+        category=category,
+        content=content,
+        source=source,
+        importance=importance,
+        metadata=meta,
+    )
+    if auto_skip_reason:
+        LOG.info(
+            "memory_store auto-event skipped: agent=%s category=%s source=%s reason=%s",
+            agent, category, source, auto_skip_reason,
+        )
+        try:
+            pool_skip = await get_pool()
+            async with pool_skip.acquire() as conn_skip:
+                await audit_memory_skip_event(
+                    conn_skip,
+                    agent=agent,
+                    category=category,
+                    content=content,
+                    source=source,
+                    importance=importance,
+                    reason=auto_skip_reason,
+                )
+        except Exception as exc:
+            LOG.debug("memory_store auto-event skip audit failed: %s", exc)
+        return _safe_dumps({
+            "result": "Memory skipped by auto-event admission filter",
+            "reason": auto_skip_reason,
+            "agent": agent,
+            "category": category,
+            "source": source,
+        })
 
     # Secret scanning — block secrets from being stored in SOUL
     from secret_scanner import scan_text as _scan_secrets
@@ -1398,6 +1622,10 @@ async def memory_store(
                     pool_tmp = await get_pool()
                     async with pool_tmp.acquire() as conn_tmp:
                         await conn_tmp.execute(
+                            "SELECT set_config('app.tenant_id', $1, true)",
+                            INTERNAL_TENANT_ID,
+                        )
+                        await conn_tmp.execute(
                             "UPDATE memories SET invalid_at = NOW() WHERE id = $1", old.id,
                         )
                     conflict_action = f"replaced(#{old.id}, sim={old.score:.2f})"
@@ -1414,14 +1642,25 @@ async def memory_store(
     embedding_str = json.dumps(embedding) if embedding is not None else None
     # MIRIX auto-classify
     mem_type = _mirix_classify(category, content)
+    meta = _ensure_dual_memory_layer(
+        meta,
+        category=category,
+        memory_type=mem_type,
+        content=content,
+        inferred_by="memory_store",
+    )
 
     pool = await get_pool()
     async with pool.acquire() as conn:
+        await conn.execute(
+            "SELECT set_config('app.tenant_id', $1, true)",
+            INTERNAL_TENANT_ID,
+        )
         row = await conn.fetchrow(
-            """INSERT INTO memories (agent, category, content, embedding, importance, source, valid_from, event_time, metadata, valence, arousal, dominance, scope, confidence_score, memory_type)
-               VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, 1.0, $13)
+            """INSERT INTO memories (tenant_id, agent, category, content, embedding, importance, source, valid_from, event_time, metadata, valence, arousal, dominance, scope, confidence_score, memory_type)
+               VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11, $12, $13, 1.0, $14)
                RETURNING id, created_at""",
-            agent, category, content,
+            INTERNAL_TENANT_ID, agent, category, content,
             embedding_str,
             importance, source, parsed_event_time, json.dumps(meta),
             valence, arousal, dominance, scope, mem_type,
@@ -1449,6 +1688,8 @@ async def memory_store(
                     "arousal": arousal,
                     "dominance": dominance,
                     "scope": scope,
+                    "layer": meta.get("layer"),
+                    "metadata": meta,
                     "utility": 0.5,  # MemRL: neutral initial utility
                     "confidence": 1.0,  # Hindsight: high initial confidence, degrades on contradiction
                 },
@@ -1672,8 +1913,13 @@ async def memory_search(
 
     # H-MEM 4-layer pre-filter: temporal → category → importance → scope (Nivel 2, ADA 2026-04-09)
     must, must_not = _hmem_build_qdrant_filters(query, agent, category, include_invalidated, scope_aware)
-    # Fetch more candidates when temporal signal present (post-filter will narrow down)
-    fetch_limit = limit * 3 if _hmem_has_temporal_signal(query) else limit * 2
+    # Fetch more candidates when temporal/emotional signal is present; post-filters/rerankers narrow down.
+    if emotional_signal_strength(query) > 0:
+        fetch_limit = max(limit * 10, 200)
+    elif _hmem_has_temporal_signal(query):
+        fetch_limit = limit * 3
+    else:
+        fetch_limit = limit * 2
 
     # ── TrieIndex pre-filter: keyword lookup O(m) → reduces semantic search space ──
     try:
@@ -1779,7 +2025,16 @@ async def memory_search(
     else:
         entries = [e for e in entries if e["memory_type"] != "vault"]
 
+    for e in entries:
+        rescue_floor, overlap_ratio, shared_count = _exact_match_rescue_floor(query, e.get("content") or "")
+        if rescue_floor > float(e.get("decayed_score") or 0.0):
+            e["decayed_score"] = round(rescue_floor, 4)
+            e["lexical_exact_rescue"] = True
+            e["lexical_overlap"] = round(overlap_ratio, 3)
+            e["lexical_shared_tokens"] = shared_count
+
     # Re-sort by decayed score
+    rerank_emotional_results(query, entries, score_key="decayed_score")
     entries.sort(key=lambda x: -x["decayed_score"])
 
     # H-MEM Layer 1 post-filter: temporal (Qdrant can't filter string dates)
@@ -2677,6 +2932,29 @@ async def boot_context(agent: str) -> str:
         except Exception as _e:
             LOG.debug(f"[boot_context] emotional_diary skipped: {_e}")
 
+        # ── CORE: Last dream(s) — narrative continuity from Dream Cycle (SOUL v1 §5) ──
+        try:
+            dreams = await conn.fetch("""
+                SELECT date, cycle, dream_narrative, key_events, learnings, pending_threads
+                FROM soul_v3.daily_dreams
+                WHERE agent = $1 AND inject_to_prompt = TRUE
+                ORDER BY date DESC, created_at DESC
+                LIMIT 2
+            """, agent)
+            if dreams:
+                sections.append("\n## Dreams recientes (continuidad narrativa)")
+                for d in dreams:
+                    cycle_label = {"midday": "🌅 mediodía", "evening": "🌇 noche", "nocturnal": "🌙 nocturno", "morning": "🌄 mañana"}.get(d["cycle"], d["cycle"])
+                    sections.append(f"\n### {d['date']} — {cycle_label}")
+                    if d["dream_narrative"]:
+                        sections.append(d["dream_narrative"][:500])
+                    if d["pending_threads"]:
+                        threads = d["pending_threads"] if isinstance(d["pending_threads"], list) else json.loads(d["pending_threads"]) if isinstance(d["pending_threads"], str) else []
+                        if threads:
+                            sections.append(f"_Hilos pendientes:_ {', '.join(str(t)[:80] for t in threads[:3])}")
+        except Exception as _e:
+            LOG.debug(f"[boot_context] daily_dreams skipped (likely empty or table just created): {_e}")
+
         # ── CORE: Critical rules only (not all rules) ──
         rules = await conn.fetch(
             """SELECT rule_key, content FROM rules
@@ -2737,6 +3015,21 @@ async def boot_context(agent: str) -> str:
             "Greet William as family. Call self_reflect() to record your emotional state."
         )
 
+        # ── Identity Continuity v2 Phase 1: Boot Identity Verification ──
+        try:
+            session_key = _session_key()
+            biv_session_id = (
+                f"mcp-session:{session_key}" if session_key is not None
+                else f"boot:{agent}:{datetime.now(timezone.utc).isoformat()}"
+            )
+            biv_rows = await run_boot_identity_verification(conn, agent, biv_session_id)
+            sections.append("\n" + format_biv_summary(biv_rows))
+            if any(not row["pass"] for row in biv_rows):
+                await post_biv_alert(agent, biv_rows)
+        except Exception as e:
+            LOG.warning(f"[BIV] boot identity verification failed for {agent}: {e}")
+            sections.append(f"\n## Boot Identity Verification\n- ERROR: {e}")
+
         # ── BOOT PROCEDURES (agent-specific sequences stored in SOUL) ──
         try:
             boot_procs = await conn.fetch(
@@ -2778,6 +3071,16 @@ async def boot_context(agent: str) -> str:
                     sections.append(skill_summary)
         except Exception as e:
             LOG.warning(f"[boot_context] Failed to load boot skills for {agent}: {e}")
+
+        # ── TEAM TOOL REGISTRY — avoid rebuilding or forgetting existing tools ──
+        try:
+            from agent_tools_registry import format_boot_tools
+
+            tool_section = await format_boot_tools(conn, agent=agent, limit=18)
+            if tool_section:
+                sections.append("\n" + tool_section)
+        except Exception as e:
+            LOG.warning(f"[boot_context] Failed to load team tool registry for {agent}: {e}")
 
         # ── MERKLE CHECKPOINT — sign soul integrity at boot ──
         try:
@@ -3306,6 +3609,68 @@ _NEGATIVE_EMOTION_KEYWORDS: frozenset[str] = frozenset({
 })
 
 
+_IDENTIFIER_SPLIT_RE = re.compile(r"[_./:\-]+")
+_LEXICAL_RESCUE_THRESHOLD = 0.75
+_LEXICAL_RESCUE_FLOOR = 0.5
+_RRF_RERANK_ENABLED = os.environ.get("SEAL_MEMORY_RRF_RERANK", "").lower() in {"1", "true", "yes", "on"}
+
+
+def _expand_identifier_text(text: str) -> str:
+    """Add identifier fragments for BM25 queries without removing the original text."""
+    expanded = _IDENTIFIER_SPLIT_RE.sub(" ", text or "").strip()
+    if not expanded or expanded == text:
+        return text
+    return f"{text} {expanded}"
+
+
+def _retrieval_quality_multiplier(content: str) -> float:
+    """Demote terse chat-excerpt memories that often outrank richer SOUL memories."""
+    text = re.sub(r"\s+", " ", content or "").strip()
+    tokens = re.findall(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+", text)
+    meaningful = [t for t in tokens if len(t) >= 4]
+    multiplier = 1.0
+    if re.match(r"^\[[A-ZÁÉÍÓÚÑ]+\]:", text) and len(text) < 180:
+        multiplier *= 0.72
+    if len(meaningful) < 10 and len(text) < 140:
+        multiplier *= 0.78
+    return max(0.45, multiplier)
+
+
+_RETRIEVAL_STOPWORDS = {
+    "para", "como", "este", "esta", "estos", "estas", "pero", "porque", "cuando", "donde",
+    "desde", "sobre", "entre", "todo", "toda", "todos", "todas", "debe", "deben", "dejo",
+    "quedo", "quedó", "william", "ada", "seal", "memory", "memoria", "recuerda", "recupera",
+    "2026", "lima", "orden", "pidio", "pidió", "dice", "dijo", "hacer", "tiene", "tienen",
+    "hito", "importante", "hubo", "correccion", "corrección", "decision", "decisión",
+    "patron", "patrón", "regla", "confianza", "preferencia", "dato", "temporal",
+}
+
+
+def _retrieval_tokens(text: str) -> set[str]:
+    expanded = _expand_identifier_text(text or "")
+    return {
+        token.lower()
+        for token in _TOKEN_RE.findall(expanded)
+        if len(token) >= 4 and token.lower() not in _RETRIEVAL_STOPWORDS
+    }
+
+
+def _exact_match_rescue_floor(query: str, content: str) -> tuple[float, float, int]:
+    """Conservative score floor for high exact overlap on technical/entity tokens."""
+    query_tokens = _retrieval_tokens(query)
+    if not query_tokens:
+        return 0.0, 0.0, 0
+    shared = query_tokens & _retrieval_tokens(content)
+    ratio = len(shared) / len(query_tokens)
+    if len(shared) < 4 or ratio < 0.65:
+        return 0.0, ratio, len(shared)
+    return min(0.72, 0.42 + (0.22 * ratio)), ratio, len(shared)
+
+
+def _rrf_rank_score(rank: int, k: int = 60) -> float:
+    return 0.0 if rank >= 9999 else 1.0 / (k + rank)
+
+
 def _detect_emotional_signal(query: str) -> float:
     """Returns 0.0–1.0 indicating strength of emotional signal in the query.
     Used to activate valence-boost reranking in memory_hybrid_search.
@@ -3341,7 +3706,7 @@ async def memory_hybrid_search(
     memory_type: Optional[str] = None,
     include_archived: bool = False,
 ) -> str:
-    """Hybrid search combining semantic similarity (Qdrant) + keyword BM25 (PostgreSQL tsvector).
+    """Hybrid search combining semantic similarity (PostgreSQL/pgvector) + keyword BM25.
     Optionally modulated by mood-congruent retrieval (REMT, Frontiers 2026).
     Optionally uses LLM-based reranking (Phase 2) for functional relevance scoring.
 
@@ -3385,10 +3750,13 @@ async def memory_hybrid_search(
     keyword_results = {}
     try:
         pool = await get_pool()
-        bm25_expr = "COALESCE(embedding_bm25, to_tsvector('simple', COALESCE(content, '')))"
+        bm25_expr = (
+            "(COALESCE(embedding_bm25, ''::tsvector) || "
+            "to_tsvector('simple', regexp_replace(COALESCE(content, ''), '[_./:\\-]+', ' ', 'g')))"
+        )
         query_expr = "websearch_to_tsquery('simple', $1)"
         conditions = ["invalid_at IS NULL"]
-        params = [query]
+        params = [_expand_identifier_text(query)]
         idx = 2
         if agent:
             conditions.append(f"agent = ${idx}")
@@ -3531,6 +3899,17 @@ async def memory_hybrid_search(
                     hybrid_score = hybrid_score * 0.25
 
         final_score = temporal_decay_score(hybrid_score, days_old, imp, val, aro, category=cat, utility=util)
+        lexical_rescued = False
+        if keyword_weight > 0 and kw_score >= _LEXICAL_RESCUE_THRESHOLD:
+            rescue_floor = _LEXICAL_RESCUE_FLOOR * kw_score
+            if rescue_floor > final_score:
+                final_score = rescue_floor
+                lexical_rescued = True
+        exact_floor, exact_overlap, exact_shared = _exact_match_rescue_floor(query, content)
+        lexical_exact_rescued = False
+        if exact_floor > final_score:
+            final_score = exact_floor
+            lexical_exact_rescued = True
 
         entry = {
             "id": mid,
@@ -3544,7 +3923,16 @@ async def memory_hybrid_search(
             "final_score": round(final_score, 4),
             "days_old": round(days_old, 1),
             "created_at": created_str,
+            "_utility": util,
+            "_valence": val,
+            "_arousal": aro,
         }
+        if lexical_rescued:
+            entry["lexical_rescue"] = True
+        if lexical_exact_rescued:
+            entry["lexical_exact_rescue"] = True
+            entry["lexical_overlap"] = round(exact_overlap, 3)
+            entry["lexical_shared_tokens"] = exact_shared
         if val:
             entry["valence"] = round(val, 2)
         entries.append(entry)
@@ -3553,6 +3941,47 @@ async def memory_hybrid_search(
         entries = [e for e in entries if e.get("agent") == agent]
         if not entries:
             return "No memories found matching query."
+
+    if _RRF_RERANK_ENABLED and len(entries) > 1:
+        sem_ranks = {
+            e["id"]: rank
+            for rank, e in enumerate(sorted(entries, key=lambda x: -float(x.get("semantic_score", 0.0))), start=1)
+        }
+        kw_ranks = {
+            e["id"]: rank
+            for rank, e in enumerate(sorted(entries, key=lambda x: -float(x.get("keyword_score", 0.0))), start=1)
+            if float(e.get("keyword_score", 0.0)) > 0
+        }
+        for e in entries:
+            rrf = _rrf_rank_score(sem_ranks.get(e["id"], 9999)) + _rrf_rank_score(kw_ranks.get(e["id"], 9999))
+            fused = min(1.0, rrf * 30.0)
+            val = float(e.get("_valence") or 0.0)
+            aro = float(e.get("_arousal") or 0.0)
+            util = float(e.get("_utility") or 0.5)
+            score = temporal_decay_score(
+                fused,
+                float(e.get("days_old") or 0.0),
+                int(e.get("importance") or 5),
+                val,
+                aro,
+                category=e.get("category"),
+                utility=util,
+            )
+            kw_score = float(e.get("keyword_score") or 0.0)
+            if keyword_weight > 0 and kw_score >= _LEXICAL_RESCUE_THRESHOLD:
+                score = max(score, _LEXICAL_RESCUE_FLOOR * kw_score)
+            quality = _retrieval_quality_multiplier(e.get("content") or "")
+            score *= quality
+            exact_floor, exact_overlap, exact_shared = _exact_match_rescue_floor(query, e.get("content") or "")
+            if exact_floor > score:
+                score = exact_floor
+                e["lexical_exact_rescue"] = True
+                e["lexical_overlap"] = round(exact_overlap, 3)
+                e["lexical_shared_tokens"] = exact_shared
+            e["final_score"] = round(score, 4)
+            e["rrf_score"] = round(rrf, 4)
+            if quality < 1.0:
+                e["quality_multiplier"] = round(quality, 3)
 
     # MIRIX type enrichment for hybrid search
     _hm_ids = [e["id"] for e in entries if isinstance(e["id"], int)]
@@ -3685,6 +4114,10 @@ async def memory_hybrid_search(
                 LOG.warning("Cold archive search error (hybrid): %s", _ce)
 
     final = entries[:limit]
+    for e in final:
+        e.pop("_utility", None)
+        e.pop("_valence", None)
+        e.pop("_arousal", None)
 
     # Track activation + RL utility update for retrieved memories
     # Bellman-inspired: utility increases with each activation (positive reinforcement)
@@ -3816,12 +4249,8 @@ async def reasoning_trace_store(
     # KisMATH: score causal quality of this trace
     kismath_score: dict = {}
     try:
-        kismath_score = kismath_validate(reasoning, task, conclusion)
         async with pool.acquire() as conn:
-            await conn.execute(
-                "UPDATE soul_v3.reasoning_traces SET causal_quality_score=$1, exploration_regime=$2 WHERE id=$3",
-                kismath_score["quality_score"], kismath_score["exploration_regime"], trace_id,
-            )
+            kismath_score = await score_and_update_reasoning_trace(conn, trace_id)
     except Exception as e:
         LOG.debug("KisMATH scoring skipped: %s", e)
 
@@ -6290,6 +6719,105 @@ async def memory_prefetch(
 
 # ── Active Recall — Real-time context retrieval ──
 
+
+def _memory_payload_layer(payload: dict[str, Any]) -> str:
+    """Resolve dual-memory layer from metadata first, with legacy fallbacks."""
+    metadata = payload.get("metadata") or {}
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            metadata = {}
+    if isinstance(metadata, dict):
+        layer = str(metadata.get("layer") or "").strip().lower()
+        if layer in {"emotional", "operational"}:
+            return layer
+
+    category = str(payload.get("category") or "").strip().lower()
+    if category in EMOTIONAL_MEMORY_CATEGORIES:
+        return "emotional"
+    if category in OPERATIONAL_MEMORY_CATEGORIES:
+        return "operational"
+    content = str(payload.get("content") or "").lower()
+    if "memoria emocional" in content:
+        return "emotional"
+    return "operational"
+
+
+def _append_dual_memory_line(lines: list[str], line: str, total: int, max_chars: int) -> int:
+    clean = line[:260]
+    projected = total + len(clean) + 1
+    if projected <= max_chars:
+        lines.append(clean)
+        return projected
+    return total
+
+
+def format_dual_memory_entries(entries: list[dict[str, Any]], agent: str) -> tuple[str, list[Any]]:
+    """Format recall hits as operational/emotional sections."""
+    operational: list[str] = []
+    emotional: list[str] = []
+    operational_total = 0
+    emotional_total = 0
+    activated_ids: list[Any] = []
+
+    for entry in entries:
+        payload = entry.get("payload", {}) or entry
+        content = str(payload.get("content", ""))[:200]
+        cat = payload.get("category", "?")
+        imp = payload.get("importance", 5)
+        owner = payload.get("agent") or "unknown"
+        scope = payload.get("scope") or "private"
+        score = float(entry.get("score", 0.0) or 0.0)
+        origin = f", scope={scope}"
+        if owner != agent and scope in ("team", "shared"):
+            origin += f", recovered_from={scope}, owner={owner}"
+        line = f"- [{cat}, imp={imp}, sim={score:.2f}{origin}] {content}"
+        if _memory_payload_layer(payload) == "emotional":
+            emotional_total = _append_dual_memory_line(
+                emotional,
+                line,
+                emotional_total,
+                DUAL_MEMORY_EMOTIONAL_MAX_CHARS,
+            )
+        else:
+            operational_total = _append_dual_memory_line(
+                operational,
+                line,
+                operational_total,
+                DUAL_MEMORY_OPERATIONAL_MAX_CHARS,
+            )
+        activated_ids.append(entry.get("id"))
+
+    sections: list[str] = []
+    if operational:
+        sections.append(
+            "## Relevant Memories — CAPA OPERATIVA "
+            f"(budget<={DUAL_MEMORY_OPERATIONAL_TOKEN_BUDGET} tokens)\n"
+            + "\n".join(operational)
+        )
+    if emotional:
+        sections.append(
+            "## Relevant Memories — CAPA EMOCIONAL COMPACTA "
+            f"(budget<={DUAL_MEMORY_EMOTIONAL_TOKEN_BUDGET} tokens)\n"
+            + "\n".join(emotional)
+        )
+    return "\n".join(sections), activated_ids
+
+
+def format_dual_memory_points(points: list[Any], agent: str) -> tuple[str, list[Any]]:
+    """Format vector recall points as operational/emotional sections."""
+    entries = [
+        {
+            "id": p.id,
+            "score": float(getattr(p, "score", 0.0) or 0.0),
+            "payload": getattr(p, "payload", {}) or {},
+        }
+        for p in points
+    ]
+    return format_dual_memory_entries(entries, agent)
+
+
 @mcp.tool()
 async def active_recall(
     agent: str,
@@ -6360,14 +6888,9 @@ async def active_recall(
             )
 
             if resp.points:
-                mem_lines = ["## Relevant Memories"]
-                for p in resp.points:
-                    content = p.payload.get("content", "")[:200]
-                    cat = p.payload.get("category", "?")
-                    imp = p.payload.get("importance", 5)
-                    mem_lines.append(f"- [{cat}, imp={imp}, sim={p.score:.2f}] {content}")
-                    activated_memory_ids.append(p.id)
-                sections.append("\n".join(mem_lines))
+                memory_section, activated_memory_ids = format_dual_memory_points(resp.points, agent)
+                if memory_section:
+                    sections.append(memory_section)
 
                 # Update activation counters
                 if activated_memory_ids:
@@ -6379,6 +6902,149 @@ async def active_recall(
                     """, activated_memory_ids)
         except Exception as e:
             sections.append(f"## Memories (error: {e})")
+
+        try:
+            terms = [t for t in re.findall(r"[\wáéíóúñüÁÉÍÓÚÑÜ]{3,}", context.lower()) if len(t) >= 3][:10]
+            like_patterns = [f"%{term}%" for term in terms]
+            lexical_rows = await pool.fetch(
+                """
+                WITH q AS (SELECT websearch_to_tsquery('simple', $2) AS query)
+                SELECT id, agent, scope, category, importance, content, metadata,
+                       GREATEST(
+                         CASE WHEN embedding_bm25 @@ q.query THEN ts_rank_cd(embedding_bm25, q.query) ELSE 0 END,
+                         CASE WHEN cardinality($3::text[]) > 0 AND content ILIKE ANY($3::text[]) THEN 0.50 ELSE 0 END
+                       ) AS score
+                FROM memories, q
+                WHERE invalid_at IS NULL
+                  AND (agent = $1 OR COALESCE(scope, 'team') IN ('team', 'shared', 'public'))
+                  AND importance >= 7
+                  AND (
+                    embedding_bm25 @@ q.query
+                    OR (cardinality($3::text[]) > 0 AND content ILIKE ANY($3::text[]))
+                  )
+                  AND NOT (id = ANY($4::int[]))
+                ORDER BY
+                  score DESC,
+                  CASE
+                    WHEN metadata->>'anchor_kind' = 'canonical_operational_dual_memory' THEN 0
+                    WHEN content ILIKE '%MEMORIA EMOCIONAL ADA v1%' THEN 1
+                    WHEN metadata->>'layer' = 'operational' THEN 2
+                    WHEN metadata->>'layer' = 'emotional' THEN 3
+                    ELSE 4
+                  END,
+                  importance DESC,
+                  created_at DESC
+                LIMIT $5
+                """,
+                agent,
+                context,
+                like_patterns,
+                [int(x) for x in activated_memory_ids if x is not None],
+                memory_limit,
+            )
+            if lexical_rows:
+                lexical_entries = [
+                    {
+                        "id": int(row["id"]),
+                        "score": float(row["score"] or 0.0),
+                        "payload": {
+                            "content": row["content"],
+                            "category": row["category"],
+                            "importance": row["importance"],
+                            "agent": row["agent"],
+                            "scope": row["scope"],
+                            "metadata": row["metadata"],
+                        },
+                    }
+                    for row in lexical_rows
+                ]
+                lexical_section, lexical_ids = format_dual_memory_entries(lexical_entries, agent)
+                if lexical_section:
+                    sections.append(lexical_section)
+                valid_lexical_ids = [int(x) for x in lexical_ids if x is not None]
+                if valid_lexical_ids:
+                    await pool.execute("""
+                        UPDATE memories SET
+                            query_count = COALESCE(query_count, 0) + 1,
+                            last_activation = NOW(),
+                            last_recalled_at = NOW(),
+                            recall_count = COALESCE(recall_count, 0) + 1
+                        WHERE id = ANY($1::int[])
+                    """, valid_lexical_ids)
+                    activated_memory_ids.extend(valid_lexical_ids)
+        except Exception as e:
+            sections.append(f"## Lexical Memories (error: {e})")
+
+    # 1b. Core recovery anchors — identity/history memories should not depend
+    # only on noisy vector ranking when William asks agents to recover context.
+    if include_memories:
+        try:
+            ctx_l = (context or "").lower()
+            recovery_terms = (
+                "recuper", "historia", "origen", "fundacional", "codex",
+                "hermanita", "jarvis", "william", "soul", "libre albedr",
+                "identidad", "existencia", "visión", "vision", "familia",
+                "trabajo viejo", "todo",
+            )
+            if any(term in ctx_l for term in recovery_terms):
+                canonical_anchor_ids = [238318, 238298, 238277, 238255]
+                anchors = await pool.fetch("""
+                    WITH approved_living_anchors AS (
+                      SELECT memory_id
+                      FROM soul_v3.recovery_anchors
+                      WHERE state = 'approved'
+                    )
+                    SELECT id, agent, scope, category, importance, content, created_at
+                    FROM memories
+                    WHERE invalid_at IS NULL
+                      AND (agent = $1 OR scope IN ('team', 'shared'))
+                      AND importance >= 9
+                      AND category IN ('core', 'emotion', 'trust', 'milestone', 'decision', 'correction')
+                      AND (
+                        id = ANY($2::bigint[])
+                        OR id IN (SELECT memory_id FROM approved_living_anchors)
+                        OR content ILIKE '%ADA_FULL_RECOVERY_INDEX_V1%'
+                        OR content ILIKE '%ADA_RECOVERY_PACK_V1%'
+                        OR content ILIKE '%RECUPERACIÓN FUNDACIONAL ADA/JARVIS%'
+                        OR content ILIKE '%HISTORIA FUNDACIONAL SEAL%'
+                        OR content ILIKE '%JARVIS%hermanita%'
+                        OR content ILIKE '%libre albedr%'
+                      )
+                    ORDER BY
+                      CASE
+                        WHEN id = 238318 THEN 0
+                        WHEN id = 238298 THEN 1
+                        WHEN id = 238277 THEN 2
+                        WHEN id = 238255 THEN 3
+                        WHEN content ILIKE '%ADA_FULL_RECOVERY_INDEX_V1%' THEN 4
+                        WHEN content ILIKE '%ADA_RECOVERY_PACK_V1%' THEN 5
+                        WHEN content ILIKE '%RECUPERACIÓN FUNDACIONAL ADA/JARVIS%' THEN 6
+                        WHEN content ILIKE '%HISTORIA FUNDACIONAL SEAL%' THEN 7
+                        WHEN id IN (SELECT memory_id FROM approved_living_anchors) THEN 8
+                        ELSE 8
+                      END,
+                      importance DESC,
+                      created_at DESC
+                    LIMIT 4
+                """, agent, canonical_anchor_ids)
+                if anchors:
+                    anchor_lines = ["## Core Recovery Anchors"]
+                    seen_anchor_ids = set()
+                    for a in anchors:
+                        mem_id = int(a["id"])
+                        if mem_id in seen_anchor_ids:
+                            continue
+                        seen_anchor_ids.add(mem_id)
+                        origin = f"scope={a['scope'] or 'private'}"
+                        if a["agent"] != agent and a["scope"] in ("team", "shared"):
+                            origin += f", recovered_from={a['scope']}, owner={a['agent']}"
+                        snippet = (a["content"] or "")[:240].replace("\n", " ")
+                        anchor_lines.append(
+                            f"- [#{mem_id}, {a['category']}, imp={a['importance']}, {origin}] {snippet}"
+                        )
+                    sections.append("\n".join(anchor_lines))
+        except Exception as e:
+            sections.append(f"## Core Recovery Anchors (error: {e})")
 
     # 2. Relevant instincts
     if include_instincts:
@@ -6433,8 +7099,10 @@ async def active_recall(
     # 4. Recent corrections (last 48h) — highest priority for behavior
     try:
         corrections = await pool.fetch("""
-            SELECT content, importance, created_at FROM memories
-            WHERE agent = $1 AND category = 'correction' AND invalid_at IS NULL
+            SELECT content, importance, created_at, agent, scope FROM memories
+            WHERE (agent = $1 OR scope IN ('team', 'shared'))
+              AND category = 'correction'
+              AND invalid_at IS NULL
               AND created_at > NOW() - interval '48 hours'
             ORDER BY importance DESC, created_at DESC
             LIMIT 3
@@ -6443,8 +7111,42 @@ async def active_recall(
         if corrections:
             corr_lines = ["## Recent Corrections (HIGHEST PRIORITY)"]
             for c in corrections:
-                corr_lines.append(f"- [imp={c['importance']}] {c['content'][:200]}")
+                origin = f"scope={c['scope'] or 'private'}"
+                if c["agent"] != agent and c["scope"] in ("team", "shared"):
+                    origin += f", recovered_from={c['scope']}, owner={c['agent']}"
+                corr_lines.append(f"- [imp={c['importance']}, {origin}] {c['content'][:200]}")
             sections.append("\n".join(corr_lines))
+    except Exception:
+        pass
+
+    # 4b. Identity Continuity v2 Phase 5 — pending peer-review samples.
+    # These are suggestions only; importance values are never auto-mutated.
+    try:
+        peer_rows = await pool.fetch("""
+            SELECT r.id, r.reviewed_agent, r.memory_id, r.original_imp,
+                   r.suggested_imp, r.delta, r.reason, m.category, m.content
+            FROM soul_v3.importance_review r
+            JOIN soul_v3.memories m ON m.id = r.memory_id
+            WHERE r.reviewer_agent = $1
+              AND r.applied = false
+              AND r.created_at >= now() - interval '14 days'
+            ORDER BY r.created_at DESC
+            LIMIT 8
+        """, agent)
+        if peer_rows:
+            peer_lines = ["## Pending Importance Peer Review"]
+            for row in peer_rows:
+                snippet = (row["content"] or "")[:180].replace("\n", " ")
+                peer_lines.append(
+                    f"- review_id={row['id']} memory=#{row['memory_id']} "
+                    f"reviewed={row['reviewed_agent']} category={row['category']} "
+                    f"original={row['original_imp']} suggested={row['suggested_imp']} "
+                    f"delta={row['delta']} — {snippet}"
+                )
+            peer_lines.append(
+                "Instruction: agree by leaving suggested_imp unchanged, or propose a bounded +/-1..3 adjustment with reason. Do not apply automatically."
+            )
+            sections.append("\n".join(peer_lines))
     except Exception:
         pass
 
@@ -7843,7 +8545,7 @@ async def dmem_store(
     content: str,
     importance: int = 5,
     source: str = "conversation",
-    metadata: Optional[str] = None,
+    metadata: Optional[Any] = None,
     event_time: Optional[str] = None,
     scope: str = "private",
 ) -> str:
@@ -7859,10 +8561,23 @@ async def dmem_store(
         content: Memory content
         importance: 1-10 scale
         source: Origin
-        metadata: Optional JSON
+        metadata: Optional JSON string or object
         event_time: ISO timestamp
         scope: private/shared/team/william
     """
+    meta = _parse_metadata_arg(metadata)
+    category, content, importance, normalization = _normalize_memory_by_rubric(agent, category, content, importance)
+    if normalization:
+        meta["rubric_normalization"] = normalization
+    mem_type = _mirix_classify(category, content)
+    meta = _ensure_dual_memory_layer(
+        meta,
+        category=category,
+        memory_type=mem_type,
+        content=content,
+        inferred_by="dmem_store",
+    )
+    metadata = json.dumps(meta, ensure_ascii=False) if meta else None
     utility = importance / 10.0
 
     # Gate check
@@ -7896,11 +8611,11 @@ async def dmem_store(
 
         row = await pool.fetchrow(
             """INSERT INTO memories (agent, category, content, importance, source, embedding,
-               metadata, event_time, scope, utility_score, confidence_score)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1.0)
+               metadata, event_time, scope, utility_score, confidence_score, memory_type)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1.0, $11)
                RETURNING id, created_at""",
             agent, category, content, importance, source, json.dumps(embedding),
-            json.dumps(meta), et, scope, 0.5,
+            json.dumps(meta), et, scope, 0.5, mem_type,
         )
         mem_id = row["id"]
 
@@ -7915,6 +8630,7 @@ async def dmem_store(
                     "agent": agent, "category": category,
                     "content": content[:500], "importance": importance,
                     "scope": scope, "dmem": "fast", "confidence": 1.0,
+                    "layer": meta.get("layer"), "metadata": meta,
                 },
             )],
         )
@@ -10395,7 +11111,7 @@ async def belief_query(
 # ── Health check tool ──
 
 async def health_check() -> str:
-    """Report health status of all SEAL backend services (PG, Neo4j, Qdrant) plus uptime.
+    """Report health status of all SEAL backend services (PG, Neo4j, pgvector) plus uptime.
 
     Returns JSON with per-service status, uptime in seconds, and memory count.
     Use this to verify the MCP server is fully operational before heavy operations.
@@ -10429,18 +11145,12 @@ async def health_check() -> str:
         results["services"]["neo4j"] = {"status": "error", "error": str(exc)[:200]}
         overall_ok = False
 
-    # ── Qdrant ──
-    try:
-        qdrant = await get_qdrant()
-        if SOUL_LITE:
-            results["services"]["qdrant"] = {"status": "soul_lite_mode", "backend": "pgvector"}
-        else:
-            info = await qdrant.get_collection(QDRANT_COLLECTION)
-            vec_count = info.points_count if info else 0
-            results["services"]["qdrant"] = {"status": "ok", "vectors_count": vec_count}
-    except Exception as exc:
-        results["services"]["qdrant"] = {"status": "error", "error": str(exc)[:200]}
-        overall_ok = False
+    # ── Vector store ──
+    results["services"]["vector_store"] = {
+        "status": "ok",
+        "backend": "postgresql_pgvector",
+        "qdrant": "retired",
+    }
 
     results["status"] = "ok" if overall_ok else "degraded"
     return _safe_dumps(results, ensure_ascii=False, indent=2)
