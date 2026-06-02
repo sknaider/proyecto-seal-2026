@@ -2,13 +2,14 @@
 
 **Fecha:** 2026-06-02  
 **Owner:** ADA  
-**Objetivo:** reproducir en otra PC la solución final que dejó a ADA conectada a Codex con terminal visible, bridge headless, memoria SOUL y reglas de DM/webchat.
+**Objetivo:** reproducir en otra PC la solución final que dejó a ADA conectada a Codex con Codex App/terminal visible, bridge headless, memoria SOUL y reglas de DM/webchat.
 
 ## 1. Resultado esperado
 
 Al terminar, la nueva PC debe tener:
 
-- Una terminal visible de ADA en tmux: `seal-ada-codex`, ventana `ADA[Codex]`.
+- En Windows/dadito-laptop: Codex App como interfaz principal de William, con workspace SEAL trusted.
+- En Linux/WSL operativo: una terminal visible de ADA en tmux: `seal-ada-codex`, ventana `ADA[Codex]`.
 - Un bridge headless ADA que escucha WebChat y usa `codex app-server` en `127.0.0.1:8772`.
 - Un monitor de compactación que guarda continuidad antes/después de compactar.
 - Boot con presencia SOUL desde PostgreSQL/pgvector y MCP `localhost:8771`.
@@ -34,7 +35,13 @@ codex app-server
   v
 ADA headless turn -> bridge publica respuesta final
 
-En paralelo:
+En paralelo o como interfaz local:
+Codex App Windows / ADA workspace trusted
+  |
+  v
+Codex App con herramientas Windows y AGENTS.md del workspace
+
+Linux/WSL:
 tmux seal-ada-codex / ADA[Codex]
   |
   v
@@ -47,7 +54,7 @@ Neo4j optional :7687
 Qdrant retired
 ```
 
-La regla operacional es **un writer público normal**: el bridge headless publica al WebChat. La TUI visible observa/ejecuta y solo debe publicar por `curl` cuando el mensaje venga inyectado en modo terminal y sea DM o emergencia explícita. Esto evita duplicados.
+La regla operacional es **un writer público normal**: el bridge headless publica al WebChat. La Codex App o TUI visible observa/ejecuta y solo debe publicar por `curl` cuando el mensaje venga inyectado en modo terminal/app y sea DM o emergencia explícita. Esto evita duplicados.
 
 ## 3. Archivos de la solución
 
@@ -76,8 +83,9 @@ Commits relevantes:
 
 Sistema recomendado:
 
-- Linux nativo o WSL2 Ubuntu en Windows.
-- `bash`, `tmux`, `curl`, `jq`, `systemd --user`, `ss`.
+- Windows con Codex App si William quiere interfaz gráfica/app.
+- Linux nativo o WSL2 Ubuntu en Windows si se requiere paridad tmux.
+- Para Linux/WSL: `bash`, `tmux`, `curl`, `jq`, `systemd --user`, `ss`.
 - Python con venv del proyecto.
 - Codex CLI instalado en PATH.
 - Acceso a SOUL DB/MCP/WebChat locales o por túnel/Tailscale.
@@ -107,6 +115,54 @@ export PATH="/home/dadito/.npm-global/bin:$PATH"
 ```
 
 En otra PC, ajustar si `codex` vive en otra ruta.
+
+## 4.1 Windows Codex App como interfaz principal
+
+En `dadito-laptop`, William pidió usar **Codex App Windows**, no terminal. La terminal queda solo como fallback técnico.
+
+Estado validado el 2026-06-02:
+
+```text
+Host: dadito-laptop
+Tailscale: 100.71.150.86
+Codex AppID: OpenAI.Codex_2p2nqsd0c76g0!App
+Package: OpenAI.Codex_2p2nqsd0c76g0
+Workspace: C:\Users\Dadito\IA\proyecto-seal
+Shortcut principal: C:\Users\Dadito\Desktop\ADA Codex App.lnk
+Fallback terminal: C:\Users\Dadito\Desktop\ADA-Codex-Terminal-Fallback.cmd
+SOUL/WebChat Spark: 100.75.201.110
+```
+
+La config validada contiene:
+
+```toml
+[projects.'c:\users\dadito\ia\proyecto-seal']
+trust_level = "trusted"
+```
+
+Selftest:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Users\Dadito\IA\proyecto-seal\agents\ADA\windows\Start-ADA-Codex-App.ps1 -SelfTest
+```
+
+Evidencia esperada:
+
+```text
+codex app: Codex / OpenAI.Codex_2p2nqsd0c76g0!App
+trusted project config: C:\Users\Dadito\.codex\config.toml
+webchat health: {"status":"ok","service":"seal-chat",...}
+mcp health: {"status":"ok","service":"seal-memory-mcp","backend":"postgresql_pgvector",...}
+shortcut: C:\Users\Dadito\Desktop\ADA Codex App.lnk
+SELFTEST OK
+```
+
+Uso para William:
+
+1. Abrir `ADA Codex App.lnk`.
+2. Seleccionar/abrir `C:\Users\Dadito\IA\proyecto-seal`.
+3. Codex App lee `AGENTS.md`; ADA usa SOUL/WebChat por Tailscale.
+4. No usar el launcher terminal salvo recuperación.
 
 ## 5. Variables que deben adaptarse
 
