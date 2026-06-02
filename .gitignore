@@ -73,3 +73,53 @@ credentials.env
 # Datasets pesados que no deben estar en git
 research/flywire_results/nt_types.json
 research/flywire_results/*.json
+
+# Runtime databases / local service volumes
+matrix/pgdata/
+matrix/data/
+mattermost/install/
+mattermost/volumes/
+qdrant_storage/
+external/cocoindex_state/
+
+# Uploaded user media and generated backups
+messages/uploads/
+messages/whisper_key_backups/
+backups/postgresql/
+
+# Local runtime state and generated checkpoints
+messages/checkpoints/*_20*.json
+messages/checkpoints/*_20*.jsonl
+messages/checkpoints/*_latest.json
+messages/continuity/*_20*.json
+messages/*.pid
+messages/.ws_listener_*.pid
+messages/codex_app_bridge/
+*.bak
+*.bak*
+
+# Generated package/build artifacts
+sdk/build/
+sdk/dist/
+sdk/*.egg-info/
+*.tsbuildinfo
+*.tar.gz
+*.deb
+seal-desktop/debian/*/usr/share/*/ui/assets/
+seal-desktop/debian/*/usr/share/*/ui/index.html
+seal-desktop/debian/*/usr/share/
+seal-desktop/dist/
+seal-desktop/**/node_modules/
+seal-desktop/**/dist/
+mattermost/**/node_modules/
+mattermost/**/dist/
+
+# Generated diagnostics, screenshots, local certs
+memory/diagnostic/results/
+certs/matrix/
+awareness-dashboard/*.png
+.seal_*.png
+backups/*.sql
+memory/logs/20*/
+/*.pdf
+/*.xlsx
