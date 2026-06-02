@@ -68,6 +68,11 @@ Reemplazar en `facturacion.py`:
 ## 6. Multi-moneda (relacionado)
 Backend ya acepta `moneda` dinámica (fix de ALICE). Falta: catálogo de monedas en la UI (no solo USD/PEN — agregar EUR, etc. del Catálogo 02 SUNAT). Tarea UI menor, separable.
 
+## 6.b Campos extra confirmados en revisión (ALICE 2026-06-02)
+- **`cuenta_detraccion` (cuenta Banco de la Nación) — OBLIGATORIO por emisor.** El valor en Mi empresa ("00-123-456789") es PLACEHOLDER inválido; SUNAT exige la cuenta BN real del emisor para detracción válida. Henry debe proveer la cuenta real de GTL.
+- **`ubigeo` falta en "Mi empresa"** (+ departamento/provincia/distrito) — obligatorio SUNAT. Agregar a Mi empresa + al modelo.
+- **Bug fiscal relacionado (2071):** en factura USD, el monto de detracción en el UBL debe ir con `currencyID="PEN"` (el VALOR ya lo calcula bien `_detraccion_en_soles` en soles; el defecto está en cómo cpe_engine etiqueta la moneda del nodo detracción). Fix en :8001 (ALICE) — no es del modelo emisor pero bloquea emitir USD+detracción.
+
 ## 7. Riesgos / Gating
 - 🔴 Secretos por tenant: NO emitir multi-tenant real hasta resolver almacenamiento cifrado de cert/SOL (NEXUS).
 - 🔴 Aislamiento: test explícito de que tenant A no puede usar recursos de B.
