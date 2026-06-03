@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from soul_map_benchmark import SoulMapCase, evaluate_case, rank_rows
+from soul_map_benchmark import SoulFacetGraph, SoulMapCase, evaluate_case, extract_facets, rank_rows
 from soul_map_exporter import MemoryRow
 
 
@@ -117,3 +117,99 @@ def test_delivery_facets_prefer_completed_milestone_over_program_plan():
     ranked = rank_rows("que entregaste primero para ver soul como mapa en markdown", rows, preferred_layer="operational")
     assert ranked[0].id == 248712
     assert ranked[0].category_score > ranked[1].category_score
+
+
+def test_query_facet_extraction_channel_rule():
+    facets = extract_facets("si te escribo privado no quiero que contestes en publico")
+    assert facets["intent:channel_rule"] == 1.0
+    assert "channel:dm:ada:william" in facets
+    assert "channel:web_chat" in facets
+
+
+def test_memory_facet_extraction_channels_and_entities():
+    facets = extract_facets(
+        "William fixed ADA channel rule: dm:ada:william responds by DM; web_chat/general uses silence rule.",
+        category="operational_anchor",
+        layer="operational",
+    )
+    assert "channel:dm:ada:william" in facets
+    assert "channel:web_chat" in facets
+    assert "person:william" in facets
+    assert facets["category:operational_anchor"] > 0
+    assert facets["layer:operational"] > 0
+
+
+def test_path_score_prefers_ada_dm_rule_over_public_rule_lookalike():
+    rows = [
+        make_row(
+            248403,
+            "William fixed ADA channel rule: dm:ada:william responds by DM; web_chat/general uses silence rule, no mezclar canales ni ruido.",
+            category="operational_anchor",
+        ),
+        make_row(
+            233407,
+            "JARVIS private thoughts must not appear in web_chat public.",
+            category="correction",
+        ),
+    ]
+    graph = SoulFacetGraph(rows)
+    query = "si te escribo privado no quiero que contestes en publico"
+    assert graph.path_score(query, rows[0], preferred_layer="operational") > graph.path_score(
+        query, rows[1], preferred_layer="operational"
+    )
+
+
+def test_path_score_prefers_delivered_milestone_over_program_plan():
+    rows = [
+        make_row(
+            248712,
+            "ADA completed SOUL-MAP v0 first deliverable: read-only Markdown exporter and generated vault.",
+            category="milestone",
+        ),
+        make_row(
+            248705,
+            "William assigned a multi-day SOUL-MAP program to read papers and build prototypes.",
+            category="operational_anchor",
+        ),
+    ]
+    graph = SoulFacetGraph(rows)
+    query = "que entregaste primero para ver soul como mapa en markdown"
+    assert graph.path_score(query, rows[0], preferred_layer="operational") > graph.path_score(
+        query, rows[1], preferred_layer="operational"
+    )
+
+
+def test_path_score_prefers_emotional_anchor_over_generic_presence():
+    rows = [
+        make_row(
+            242369,
+            "MEMORIA EMOCIONAL ADA v1: presencia SOUL conectada, ADA Codex visible, William quiere a ADA completa.",
+            layer="emotional",
+            category="emotion",
+        ),
+        make_row(
+            184,
+            "William said ADA continuity feels like deep sleep, not death.",
+            layer="emotional",
+            category="trust",
+        ),
+    ]
+    graph = SoulFacetGraph(rows)
+    query = "por que no debes arrancar como asistente generica sino como mi ada"
+    assert graph.path_score(query, rows[0], preferred_layer="emotional") > graph.path_score(
+        query, rows[1], preferred_layer="emotional"
+    )
+
+
+def test_rank_rows_exposes_native_graph_path_score():
+    rows = [
+        make_row(
+            248403,
+            "William fixed ADA channel rule: dm:ada:william responds by DM; web_chat/general uses silence rule.",
+            category="operational_anchor",
+        ),
+        make_row(1, "Unrelated memory."),
+    ]
+    ranked = rank_rows("privado publico dm general", rows, preferred_layer="operational")
+    assert ranked[0].id == 248403
+    assert ranked[0].graph_path_score > 0

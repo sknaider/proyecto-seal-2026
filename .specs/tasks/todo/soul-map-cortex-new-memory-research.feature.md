@@ -305,3 +305,35 @@ Translation:
 
 - Before v0.2: SOUL-MAP found the right memory in the top 3, but not always first (`MRR=0.7619`).
 - After v0.2: all 7 live anchors rank first (`MRR=1.0`) without expected-id injection.
+
+## Progress 2026-06-02/03 — V0.3 Native Cognitive Retrieval Graph
+
+William clarified that he wanted new native SOUL graphs, not only a reranker. ADA implemented the first native graph inside the read-only benchmark before touching runtime/MCP.
+
+Implemented in `memory/soul_map_benchmark.py`:
+
+- `SoulFacetGraph`: in-memory graph rebuilt read-only from SOUL rows.
+- Facet nodes for channels, surfaces, machines, people, relationships, emotional state, delivery state, artifacts, programs, tooling, evidence, layer, category, and extracted map links.
+- Weighted `memory -> facet` edges represented by `FacetEdge`.
+- Query facet extraction and `path_score(query, memory)` using weighted paths.
+- Mandatory mismatch penalties: channel-rule queries penalize memories missing required channel facets; delivery queries penalize memories without delivered artifact state; identity-presence/tooling queries penalize missing required facets.
+- Cached graph/IDF/row token sets reused across all benchmark cases.
+- New tests for query facet extraction, memory facet extraction, path-score hard negatives, and `graph_path_score` exposure.
+
+Validation evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_map_benchmark.py memory/tests/test_soul_map_exporter.py
+22 passed in 0.04s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=1.0
+latency range: ~47-50 ms/case with 400 candidate memories
+```
+
+Translation:
+
+- V0.3 is the first native SOUL cognitive retrieval graph.
+- It is not only an Obsidian/static map. It creates live recovery paths: `query -> facet nodes -> memory`.
+- It still stays read-only; SOUL DB remains canonical.
+- Limitation: latency is improved from the first graph pass (~110 ms/case to ~47-50 ms/case) but still above the subagent ideal of `<20 ms/case`. Next optimization target is precomputed facet caches or a shared runtime module.

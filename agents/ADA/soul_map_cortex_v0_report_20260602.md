@@ -189,3 +189,29 @@ Evidence:
 ```
 
 Translated result: v0.1 could find the right memory, but sometimes only in second or third place. v0.2 ranks the correct memory first in all current live anchors without forcing expected ids into the candidate pool.
+
+## V0.3 Native Cognitive Retrieval Graph
+
+Implemented after William clarified he wanted native SOUL graphs.
+
+Change:
+
+- Added `SoulFacetGraph`, rebuilt read-only from live SOUL rows.
+- Added facet nodes for channel, surface, machine, person, relationship, emotional state, delivery state, artifact, program, tooling, evidence, layer, category, and map links.
+- Added weighted `memory -> facet` edges through `FacetEdge`.
+- Added `path_score(query, memory)` using weighted query-to-memory facet paths.
+- Added mismatch penalties for missing mandatory facets.
+- Cached graph/IDF/token sets across benchmark cases.
+
+Evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_map_benchmark.py memory/tests/test_soul_map_exporter.py
+22 passed in 0.04s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=1.0
+latency range: ~47-50 ms/case with 400 candidate memories
+```
+
+Translated result: this is the first native SOUL cognitive retrieval graph. It is no longer only a static Obsidian-style map; it builds live recovery paths from the query into SOUL memory facets. It remains laboratory/read-only until more adversarial cases and latency work are done.
