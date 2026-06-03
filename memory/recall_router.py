@@ -34,9 +34,19 @@ except Exception:  # pragma: no cover - shadow is optional and must not block re
 # ── Feature flag ──────────────────────────────────────────────────────────────
 ROUTER_ENABLED = os.environ.get("SOUL_RECALL_ROUTER_ENABLED", "false").lower() == "true"
 COGNITIVE_GRAPH_SHADOW_ENABLED = os.environ.get("SOUL_COGNITIVE_GRAPH_SHADOW", "false").lower() == "true"
+COGNITIVE_GRAPH_MODE = os.environ.get(
+    "SOUL_COGNITIVE_GRAPH_MODE",
+    "shadow" if COGNITIVE_GRAPH_SHADOW_ENABLED else "off",
+).lower()
 COGNITIVE_GRAPH_SHADOW_LOG_QUERY = os.environ.get("SOUL_COGNITIVE_GRAPH_SHADOW_LOG_QUERY", "false").lower() == "true"
 COGNITIVE_GRAPH_SHADOW_LOG = Path(__file__).parent / "diagnostic" / "soul_cognitive_graph_shadow.jsonl"
 COGNITIVE_GRAPH_QUERY_TOKEN_RE = re.compile(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+")
+COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS = int(os.environ.get("SOUL_COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS", "3"))
+COGNITIVE_GRAPH_ASSIST_MAX_HITS = int(os.environ.get("SOUL_COGNITIVE_GRAPH_ASSIST_MAX_HITS", "5"))
+COGNITIVE_GRAPH_CRITICAL_RE = re.compile(
+    r"dm:ada:william|web_chat|chat general|silencio|silent|privacidad|william|henry|codex app windows",
+    re.IGNORECASE,
+)
 
 # ── Timeouts per source (seconds) — BUG1 fix: actually used in _safe() ────────
 TIMEOUT_QDRANT   = 0.35
@@ -306,7 +316,9 @@ def _run_cognitive_graph_shadow(agent: str, query: str, ranked: list[RecallHit],
     This function uses only already-fetched memory hits. It does not query MCP,
     does not call active_recall/memory_hybrid_search, and does not write to DB.
     """
-    if not COGNITIVE_GRAPH_SHADOW_ENABLED or shadow_rank_memories is None:
+    if not (COGNITIVE_GRAPH_SHADOW_ENABLED or COGNITIVE_GRAPH_MODE in {"shadow", "assist"}):
+        return None
+    if shadow_rank_memories is None:
         return None
     t0 = time.monotonic()
     try:
@@ -336,6 +348,84 @@ def _run_cognitive_graph_shadow(agent: str, query: str, ranked: list[RecallHit],
         return payload
     except Exception:
         return None
+
+
+def _is_cognitive_graph_assist_enabled() -> bool:
+    return COGNITIVE_GRAPH_MODE == "assist"
+
+
+def _query_token_count(query: str) -> int:
+    return len(COGNITIVE_GRAPH_QUERY_TOKEN_RE.findall(query))
+
+
+def _is_critical_memory_hit(hit: RecallHit) -> bool:
+    if hit.get("source") != "memories":
+        return False
+    category = (hit.get("category") or "").lower()
+    if category not in {"rule", "correction", "operational_anchor", "decision"}:
+        return False
+    content = hit.get("content") or ""
+    return bool(COGNITIVE_GRAPH_CRITICAL_RE.search(content))
+
+
+def _assist_keeps_critical_top_memory(base_memory_hits: list[RecallHit], shadow_ids: list[str]) -> bool:
+    if not base_memory_hits or not shadow_ids:
+        return True
+    critical = [hit for hit in base_memory_hits if _is_critical_memory_hit(hit)]
+    if not critical:
+        return True
+    first_critical_id = str(critical[0]["id"])
+    first_shadow_id = shadow_ids[0]
+    first_base_memory_id = str(base_memory_hits[0]["id"])
+    if first_base_memory_id == first_critical_id and first_shadow_id != first_critical_id:
+        return False
+    return True
+
+
+def _apply_cognitive_graph_assist(query: str, ranked: list[RecallHit], *, limit: int = 5) -> list[RecallHit]:
+    """Optionally re-order memory hits inside the existing top-k.
+
+    Guardrails:
+    - disabled unless SOUL_COGNITIVE_GRAPH_MODE=assist;
+    - uses only already-ranked memory candidates;
+    - does not move rules/chat/session/distilled hits;
+    - ignores short queries;
+    - never demotes a critical top memory for channel/privacy/William/Codex.
+    """
+    if not _is_cognitive_graph_assist_enabled() or shadow_rank_memories is None:
+        return ranked
+    if _query_token_count(query) < COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS:
+        return ranked
+
+    top_limit = max(1, min(limit, COGNITIVE_GRAPH_ASSIST_MAX_HITS, len(ranked)))
+    head = ranked[:top_limit]
+    tail = ranked[top_limit:]
+    rows = _shadow_rows_from_hits(head)
+    if len(rows) < 2:
+        return ranked
+    try:
+        shadow = shadow_rank_memories(query, rows, k=len(rows))
+    except Exception:
+        return ranked
+
+    memory_by_id = {str(hit["id"]): hit for hit in head if hit.get("source") == "memories"}
+    base_memory_hits = [hit for hit in head if hit.get("source") == "memories"]
+    shadow_ids = [str(item.id) for item in shadow if str(item.id) in memory_by_id]
+    if not shadow_ids or not _assist_keeps_critical_top_memory(base_memory_hits, shadow_ids):
+        return ranked
+
+    reordered_memory_hits = [memory_by_id[memory_id] for memory_id in shadow_ids]
+    seen = set(shadow_ids)
+    reordered_memory_hits.extend(hit for hit in base_memory_hits if str(hit["id"]) not in seen)
+
+    memory_iter = iter(reordered_memory_hits)
+    assisted_head: list[RecallHit] = []
+    for hit in head:
+        if hit.get("source") == "memories":
+            assisted_head.append(next(memory_iter))
+        else:
+            assisted_head.append(hit)
+    return assisted_head + tail
 
 
 # ── recall_audit table (BUG4) ─────────────────────────────────────────────────
@@ -745,7 +835,9 @@ async def soul_recall_router(
     hits_total = len(all_hits)
     deduped = _dedup(all_hits)
     ranked = _rank(deduped, intents)
-    _run_cognitive_graph_shadow(agent, query, ranked, limit=MAX_HITS.get(mode, MAX_HITS["standard"]))
+    output_limit = MAX_HITS.get(mode, MAX_HITS["standard"])
+    _run_cognitive_graph_shadow(agent, query, ranked, limit=output_limit)
+    ranked = _apply_cognitive_graph_assist(query, ranked, limit=output_limit)
 
     budget = BUDGET.get(mode, BUDGET["standard"])
     elapsed_ms = int((time.monotonic() - t0) * 1000)

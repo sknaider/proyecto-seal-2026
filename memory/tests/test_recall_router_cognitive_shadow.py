@@ -96,3 +96,74 @@ def test_shadow_failure_does_not_raise(monkeypatch):
     )
 
     assert result is None
+
+
+def test_assist_default_shadow_mode_does_not_reorder(monkeypatch):
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_MODE", "shadow")
+    ranked = [
+        make_hit("1", "unrelated"),
+        make_hit("2", "ADA completed SOUL-MAP v0 first deliverable Markdown exporter vault.", category="milestone"),
+    ]
+
+    assisted = recall_router._apply_cognitive_graph_assist("soul map markdown", ranked, limit=2)
+
+    assert [hit["id"] for hit in assisted] == ["1", "2"]
+
+
+def test_assist_reorders_only_memory_hits_when_enabled(monkeypatch):
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_MODE", "assist")
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS", 2)
+    ranked = [
+        make_hit("rule-1", "active rule stays in place", source="rules"),
+        make_hit("1", "unrelated"),
+        make_hit("2", "ADA completed SOUL-MAP v0 first deliverable Markdown exporter vault.", category="milestone"),
+    ]
+
+    assisted = recall_router._apply_cognitive_graph_assist("soul map markdown", ranked, limit=3)
+
+    assert [hit["source"] for hit in assisted] == ["rules", "memories", "memories"]
+    assert assisted[0]["id"] == "rule-1"
+    assert [hit["id"] for hit in assisted[1:]] == ["2", "1"]
+
+
+def test_assist_ignores_short_queries(monkeypatch):
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_MODE", "assist")
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS", 2)
+    ranked = [
+        make_hit("1", "unrelated"),
+        make_hit("2", "ADA completed SOUL-MAP v0 first deliverable Markdown exporter vault.", category="milestone"),
+    ]
+
+    assisted = recall_router._apply_cognitive_graph_assist("codex", ranked, limit=2)
+
+    assert [hit["id"] for hit in assisted] == ["1", "2"]
+
+
+def test_assist_does_not_demote_critical_top_memory(monkeypatch):
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_MODE", "assist")
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS", 2)
+    ranked = [
+        make_hit("248403", "ADA critical rule: dm:ada:william and web_chat/general silence rule."),
+        make_hit("2", "unrelated dm content that graph might otherwise rank differently", category="milestone"),
+    ]
+
+    assisted = recall_router._apply_cognitive_graph_assist("dm regla general", ranked, limit=2)
+
+    assert [hit["id"] for hit in assisted] == ["248403", "2"]
+
+
+def test_assist_failure_falls_back_to_base(monkeypatch):
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("assist failed")
+
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_MODE", "assist")
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS", 2)
+    monkeypatch.setattr(recall_router, "shadow_rank_memories", boom)
+    ranked = [
+        make_hit("1", "unrelated"),
+        make_hit("2", "ADA completed SOUL-MAP v0 first deliverable Markdown exporter vault.", category="milestone"),
+    ]
+
+    assisted = recall_router._apply_cognitive_graph_assist("soul map markdown", ranked, limit=2)
+
+    assert [hit["id"] for hit in assisted] == ["1", "2"]
