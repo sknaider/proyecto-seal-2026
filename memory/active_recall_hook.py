@@ -322,7 +322,7 @@ async def semantic_recall(conn, message: str, agent: str) -> str:
               END,
               importance DESC,
               created_at DESC
-            LIMIT 12
+            LIMIT 6
         """, like_patterns, agent)
         if emotional_signal_strength(message) > 0:
             emotional_results = await conn.fetch("""
