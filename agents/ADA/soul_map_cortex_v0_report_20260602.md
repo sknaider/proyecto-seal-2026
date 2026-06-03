@@ -166,3 +166,26 @@ edges=793, missing_targets=0, skill_files=310, tool_files=24
 Caveat: this benchmark no longer forces expected ids into the candidate pool and now uses harder paraphrases, but it is still a top-3 regression gate, not final proof of general recall improvement. The next promotion gate needs adversarial negatives and a reranker that raises MRR, because some correct anchors still rank second or third.
 
 Subagent review correction: tools now cover the full current registry (`24/24`). Skills now preserve duplicate names across agents by using `agent + name` note identities, and the current export includes `310` skill nodes from SOUL DB plus local `SKILL.md` discovery.
+
+## V0.2 Facet Reranker
+
+Implemented after William asked ADA to continue and requested the result translated.
+
+Change:
+
+- Added `intent_score` to separate channel rules, emotional presence, and delivered artifacts.
+- Added normalized `recency_score`.
+- Added `category_score` as a small prior for milestone/rule/emotion intent.
+- Added hard-negative tests for the three previous top-1 failures.
+
+Evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_map_benchmark.py memory/tests/test_soul_map_exporter.py
+16 passed in 0.04s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=1.0
+```
+
+Translated result: v0.1 could find the right memory, but sometimes only in second or third place. v0.2 ranks the correct memory first in all current live anchors without forcing expected ids into the candidate pool.

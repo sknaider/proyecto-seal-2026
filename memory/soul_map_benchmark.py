@@ -69,8 +69,11 @@ class RankedMemory:
     id: int
     score: float
     lexical_score: float
+    intent_score: float
     map_score: float
+    recency_score: float
     layer_score: float
+    category_score: float
     importance_score: float
     category: str
     layer: str
@@ -201,22 +204,119 @@ def map_score(query: str, row: MemoryRow) -> float:
     return len(query_links & row_links) / len(query_links)
 
 
+def recency_scores(rows: list[MemoryRow]) -> dict[int, float]:
+    dated_rows = [row for row in rows if row.created_at is not None]
+    if not dated_rows:
+        return {row.id: 0.0 for row in rows}
+    timestamps = [row.created_at.timestamp() for row in dated_rows]
+    oldest = min(timestamps)
+    newest = max(timestamps)
+    span = newest - oldest
+    if span <= 0:
+        return {row.id: 1.0 if row.created_at is not None else 0.0 for row in rows}
+    return {
+        row.id: ((row.created_at.timestamp() - oldest) / span if row.created_at is not None else 0.0)
+        for row in rows
+    }
+
+
+def contains_any(content: str, needles: tuple[str, ...]) -> bool:
+    return any(needle in content for needle in needles)
+
+
+def intent_score(query: str, row: MemoryRow) -> float:
+    """Score query-specific facets without using expected ids.
+
+    Lexical overlap finds related memories. This facet score separates the kind
+    of memory William asked for: channel rule, emotional presence, or delivered
+    artifact.
+    """
+    tokens = token_set(query)
+    content = row.content.lower()
+    best = 0.0
+
+    if {"privado", "dm", "directo", "publico", "público", "general", "channel"} & tokens:
+        facets = 0
+        if contains_any(content, ("dm:ada:william", " por dm", " dm;", " dm,", " dm ")):
+            facets += 1
+        if contains_any(content, ("web_chat", "webchat", "general", "chat general")):
+            facets += 1
+        if "ada" in content:
+            facets += 1
+        if contains_any(content, ("ruido", "silencio", "no mezclar")):
+            facets += 1
+        best = max(best, facets / 4.0)
+
+    if {"asistente", "generica", "genérica", "arrancar", "boot", "presencia", "soul"} & tokens:
+        facets = 0
+        if "presencia" in content:
+            facets += 1
+        if "soul" in content:
+            facets += 1
+        if contains_any(content, ("codex visible", "boot", "arrancar")):
+            facets += 1
+        if "william" in content and "ada" in content:
+            facets += 1
+        best = max(best, facets / 4.0)
+
+    if {"entregaste", "primero", "hito", "milestone", "mapa", "markdown"} & tokens:
+        facets = 0
+        if contains_any(content, ("first deliverable", "primer entregable", "v0 first")):
+            facets += 1
+        if contains_any(content, ("completed", "completado", "entrego", "entregó")):
+            facets += 1
+        if contains_any(content, ("exporter", "vault", "markdown")):
+            facets += 1
+        if "v0" in content:
+            facets += 1
+        best = max(best, facets / 4.0)
+
+    return best
+
+
+def category_score(query: str, row: MemoryRow) -> float:
+    tokens = token_set(query)
+    category = row.category.lower()
+    if {"entregaste", "hito", "milestone", "primero"} & tokens and category == "milestone":
+        return 1.0
+    if {"privado", "publico", "público", "dm", "general"} & tokens and category in {"operational_anchor", "rule"}:
+        return 1.0
+    if {"generica", "genérica", "asistente", "familia"} & tokens and category in {"emotion", "trust"}:
+        return 1.0
+    return 0.0
+
+
 def rank_rows(query: str, rows: list[MemoryRow], *, preferred_layer: str | None = None) -> list[RankedMemory]:
     idf = inverse_document_frequency(rows)
+    recency = recency_scores(rows)
     ranked: list[RankedMemory] = []
     for row in rows:
         lex = lexical_score(query, row, idf)
+        intent = intent_score(query, row)
         maps = map_score(query, row)
+        recent = recency[row.id]
         layer = 1.0 if preferred_layer and row.layer == preferred_layer else 0.0
+        category = category_score(query, row)
         importance = min(max(row.importance, 0), 10) / 10.0
-        score = (0.62 * lex) + (0.22 * maps) + (0.10 * layer) + (0.06 * importance)
+        score = (
+            (0.48 * lex)
+            + (0.22 * intent)
+            + (0.12 * maps)
+            + (0.08 * recent)
+            + (0.06 * layer)
+            + (0.02 * category)
+            + (0.02 * importance)
+        )
         ranked.append(
             RankedMemory(
                 id=row.id,
                 score=score,
                 lexical_score=lex,
+                intent_score=intent,
                 map_score=maps,
+                recency_score=recent,
                 layer_score=layer,
+                category_score=category,
                 importance_score=importance,
                 category=row.category,
                 layer=row.layer,

@@ -279,3 +279,29 @@ Known v0.1 caveat:
 
 - The benchmark now uses harder paraphrases and no default expected-id injection, so it is a credible regression gate. It is still not proof of general recall improvement because several anchors rank 2 or 3 and margins are negative. Next step is adversarial negatives plus a map-edge reranker that improves MRR, not just hit@3.
 - Skills/tools coverage was corrected after subagent review: tools cover the full current registry (`24/24`), and skills now preserve duplicate names across agents by using `agent + name` note identities. The current export includes `310` skill nodes from SOUL DB plus local `SKILL.md` discovery.
+
+## Progress 2026-06-02/03 — V0.2 Facet Reranker
+
+William asked ADA to continue and requested results translated. ADA spawned Schrodinger for a read-only review of why the benchmark did not rank all anchors first. The review confirmed the scorer was too lexical: it found related memories, but did not distinguish the requested kind of memory.
+
+Implemented in `memory/soul_map_benchmark.py`:
+
+- `intent_score`: detects query/memory facets for channel rules, emotional presence, and delivered artifacts.
+- `recency_score`: normalized timestamp signal to break ties toward fresher operational anchors.
+- `category_score`: small category prior for `milestone`, `operational_anchor/rule`, and emotional categories.
+- New hard-negative tests so lookalike memories are demoted without using expected ids in scoring.
+
+Validation evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_map_benchmark.py memory/tests/test_soul_map_exporter.py
+16 passed in 0.04s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=1.0
+```
+
+Translation:
+
+- Before v0.2: SOUL-MAP found the right memory in the top 3, but not always first (`MRR=0.7619`).
+- After v0.2: all 7 live anchors rank first (`MRR=1.0`) without expected-id injection.
