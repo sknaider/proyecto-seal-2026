@@ -463,6 +463,7 @@ async def active_recall(user_message: str, boot_mode: bool = True) -> str:
                     formatted_emotional = format_layered_memory_rows(
                         emotional_anchors,
                         title_prefix="ANCLAS EMOCIONALES/IDENTIDAD",
+                        agent=agent,
                     )
                     if formatted_emotional:
                         sections.append(formatted_emotional)
