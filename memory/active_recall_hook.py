@@ -42,9 +42,19 @@ OPERATIONAL_CATEGORIES = {
 }
 
 # ── Frente 5: ruteo dual-memory por circunstancia (spec_soul_context_efficiency_v1) ──
-# Feature flag: OFF por defecto. Con SOUL_CIRCUMSTANCE_ROUTING=1 los budgets de cada
-# capa se rebalancean según el turno sea operativo, emocional o balanceado.
-CIRCUMSTANCE_ROUTING_ENABLED = os.environ.get("SOUL_CIRCUMSTANCE_ROUTING", "0") == "1"
+# Feature flag per-agente. SOUL_CIRCUMSTANCE_ROUTING=all habilita para todos;
+# SOUL_CIRCUMSTANCE_ROUTING=NEXUS,ADA habilita solo esos agentes (piloto seguro).
+# "0" o ausente = OFF (comportamiento idéntico al baseline).
+_CIRCUMSTANCE_ROUTING_RAW = os.environ.get("SOUL_CIRCUMSTANCE_ROUTING", "0")
+_CIRCUMSTANCE_ROUTING_AGENTS: set = (
+    {"JARVIS", "ADA", "ALICE", "NEXUS", "DUM"}
+    if _CIRCUMSTANCE_ROUTING_RAW in ("1", "all")
+    else {a.strip().upper() for a in _CIRCUMSTANCE_ROUTING_RAW.split(",") if a.strip().upper() in {"JARVIS", "ADA", "ALICE", "NEXUS", "DUM"}}
+)
+
+
+def _circumstance_routing_enabled_for(agent: str) -> bool:
+    return agent.upper() in _CIRCUMSTANCE_ROUTING_AGENTS
 
 _CIRCUMSTANCE_EMOTIONAL_KW = (
     "gracias", "te quiero", "te amo", "orgulloso", "orgullosa", "hijo", "hija",
