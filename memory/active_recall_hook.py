@@ -240,12 +240,16 @@ def _append_budgeted(lines: list[str], line: str, current_total: int, max_chars:
     return current_total
 
 
-def format_layered_memory_rows(rows, *, title_prefix: str = "MEMORIAS RELEVANTES") -> str:
-    """Format recall rows into operational/emotional projections with hard budgets."""
+def format_layered_memory_rows(rows, *, title_prefix: str = "MEMORIAS RELEVANTES",
+                               circumstance: str = "balanced") -> str:
+    """Format recall rows into operational/emotional projections with hard budgets.
+    circumstance ('emotional'|'operational'|'balanced') rebalancea los budgets por capa
+    cuando SOUL_CIRCUMSTANCE_ROUTING=1. Con el flag OFF el comportamiento es idéntico al previo."""
     operational: list[str] = []
     emotional: list[str] = []
     operational_total = 0
     emotional_total = 0
+    emotional_max, operational_max = _resolve_layer_budgets(circumstance)
 
     for r in rows:
         layer = _metadata_layer(r)
@@ -255,11 +259,11 @@ def format_layered_memory_rows(rows, *, title_prefix: str = "MEMORIAS RELEVANTES
         line = f"  - [{agent}·{category}·{layer}] {content[:180]}"
         if layer == "emotional":
             emotional_total = _append_budgeted(
-                emotional, line, emotional_total, ACTIVE_RECALL_EMOTIONAL_MAX_CHARS
+                emotional, line, emotional_total, emotional_max
             )
         else:
             operational_total = _append_budgeted(
-                operational, line, operational_total, ACTIVE_RECALL_OPERATIONAL_MAX_CHARS
+                operational, line, operational_total, operational_max
             )
 
     sections: list[str] = []
