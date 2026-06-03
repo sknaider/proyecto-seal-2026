@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import heapq
 import json
 import math
 import re
@@ -554,6 +555,118 @@ def rank_rows(
     return sorted(ranked, key=lambda item: (item.score, item.importance_score, item.id), reverse=True)
 
 
+class CompiledSoulFacetGraph:
+    """Hot-path scorer for live benchmark/runtime experiments.
+
+    This keeps the readable rank_rows path intact, but avoids per-candidate
+    RankedMemory allocation and full sorting when only top-k/rank metrics are
+    needed.
+    """
+
+    def __init__(self, rows: list[MemoryRow]) -> None:
+        self.rows = rows
+        self.ids = [row.id for row in rows]
+        self.categories = [row.category for row in rows]
+        self.layers = [row.layer for row in rows]
+        self.importance_scores = [min(max(row.importance, 0), 10) / 10.0 for row in rows]
+        self.graph = SoulFacetGraph(rows)
+        self.row_tokens_by_id = build_row_token_sets(rows)
+        self.row_tokens = [self.row_tokens_by_id[row.id] for row in rows]
+        self.idf = inverse_document_frequency(rows, self.row_tokens_by_id)
+        self.recency_by_id = recency_scores(rows)
+        self.recency = [self.recency_by_id[row.id] for row in rows]
+        self.memory_facets = [self.graph.memory_facets.get(row.id, {}) for row in rows]
+        self.memory_links = [self.graph.memory_links.get(row.id, set()) for row in rows]
+
+    def score_components(
+        self,
+        index: int,
+        *,
+        query_tokens: set[str],
+        query_token_denom: float,
+        query_facets: dict[str, float],
+        query_facet_denom: float,
+        query_links: set[str],
+        preferred_layer: str | None,
+    ) -> tuple[float, float, float, float, float, float, float, float]:
+        row_tokens = self.row_tokens[index]
+        if query_token_denom > 0:
+            lexical = sum(self.idf.get(token, 1.0) for token in query_tokens if token in row_tokens) / query_token_denom
+        else:
+            lexical = 0.0
+
+        memory_facets = self.memory_facets[index]
+        if query_facet_denom > 0:
+            numerator = 0.0
+            for facet, query_weight in query_facets.items():
+                numerator += query_weight * memory_facets.get(facet, 0.0)
+            graph_path = max(0.0, (numerator / query_facet_denom) - SoulFacetGraph.mismatch_penalty(query_facets, memory_facets))
+        else:
+            graph_path = 0.0
+
+        intent = intent_score_from_facets(query_facets, memory_facets)
+        maps = map_score_from_links(query_links, self.memory_links[index])
+        recent = self.recency[index]
+        layer = 1.0 if preferred_layer and self.layers[index] == preferred_layer else 0.0
+        category = category_score_from_facets(query_facets, memory_facets)
+        importance = self.importance_scores[index]
+        score = (
+            (0.38 * lexical)
+            + (0.24 * graph_path)
+            + (0.14 * intent)
+            + (0.08 * maps)
+            + (0.08 * recent)
+            + (0.06 * layer)
+            + (0.02 * category)
+        )
+        return score, lexical, intent, graph_path, maps, recent, layer, category
+
+    def rank_top(self, query: str, *, preferred_layer: str | None = None, k: int = 3) -> list[RankedMemory]:
+        query_tokens = token_set(query)
+        query_token_denom = sum(self.idf.get(token, 1.0) for token in query_tokens)
+        query_facets = self.graph.query_facets(query, preferred_layer=preferred_layer)
+        query_facet_denom = sum(query_facets.values())
+        query_links = set(extract_links(query))
+        heap: list[tuple[tuple[float, float, int], int, tuple[float, float, float, float, float, float, float, float]]] = []
+        for idx, memory_id in enumerate(self.ids):
+            components = self.score_components(
+                idx,
+                query_tokens=query_tokens,
+                query_token_denom=query_token_denom,
+                query_facets=query_facets,
+                query_facet_denom=query_facet_denom,
+                query_links=query_links,
+                preferred_layer=preferred_layer,
+            )
+            key = (components[0], self.importance_scores[idx], memory_id)
+            item = (key, idx, components)
+            if len(heap) < k:
+                heapq.heappush(heap, item)
+            elif key > heap[0][0]:
+                heapq.heapreplace(heap, item)
+
+        ranked: list[RankedMemory] = []
+        for _key, idx, components in sorted(heap, key=lambda item: item[0], reverse=True):
+            score, lexical, intent, graph_path, maps, recent, layer, category = components
+            ranked.append(
+                RankedMemory(
+                    id=self.ids[idx],
+                    score=score,
+                    lexical_score=lexical,
+                    intent_score=intent,
+                    graph_path_score=graph_path,
+                    map_score=maps,
+                    recency_score=recent,
+                    layer_score=layer,
+                    category_score=category,
+                    importance_score=self.importance_scores[idx],
+                    category=self.categories[idx],
+                    layer=self.layers[idx],
+                )
+            )
+        return ranked
+
+
 def evaluate_case(
     case: SoulMapCase,
     rows: list[MemoryRow],
@@ -591,6 +704,92 @@ def evaluate_case(
         margin = expected_score - runner_up
     else:
         margin = 0.0
+    return CaseResult(
+        name=case.name,
+        query=case.query,
+        expected_ids=list(case.expected_ids),
+        top_ids=top_ids,
+        candidate_present=candidate_present,
+        expected_rank=expected_rank,
+        margin_to_runner_up=round(margin, 6),
+        hit_at_k=hit,
+        mrr=reciprocal,
+        latency_ms=round(latency_ms, 3),
+        passed=hit,
+    )
+
+
+def evaluate_case_compiled(case: SoulMapCase, compiled: CompiledSoulFacetGraph) -> CaseResult:
+    start = time.perf_counter()
+    query_tokens = token_set(case.query)
+    query_token_denom = sum(compiled.idf.get(token, 1.0) for token in query_tokens)
+    query_facets = compiled.graph.query_facets(case.query, preferred_layer=case.preferred_layer)
+    query_facet_denom = sum(query_facets.values())
+    query_links = set(extract_links(case.query))
+    expected = set(case.expected_ids)
+
+    heap: list[tuple[tuple[float, float, int], int]] = []
+    expected_key: tuple[float, float, int] | None = None
+    expected_score = 0.0
+    runner_up_score = 0.0
+    candidate_present = False
+
+    for idx, memory_id in enumerate(compiled.ids):
+        components = compiled.score_components(
+            idx,
+            query_tokens=query_tokens,
+            query_token_denom=query_token_denom,
+            query_facets=query_facets,
+            query_facet_denom=query_facet_denom,
+            query_links=query_links,
+            preferred_layer=case.preferred_layer,
+        )
+        score = components[0]
+        key = (score, compiled.importance_scores[idx], memory_id)
+        if memory_id in expected:
+            candidate_present = True
+            if expected_key is None or key > expected_key:
+                expected_key = key
+                expected_score = score
+        elif score > runner_up_score:
+            runner_up_score = score
+
+        item = (key, idx)
+        if len(heap) < case.k:
+            heapq.heappush(heap, item)
+        elif key > heap[0][0]:
+            heapq.heapreplace(heap, item)
+
+    top_ids = [compiled.ids[idx] for _key, idx in sorted(heap, key=lambda item: item[0], reverse=True)]
+    hit = bool(expected & set(top_ids))
+    expected_rank: int | None = None
+    reciprocal = 0.0
+    if expected_key is not None:
+        for idx, memory_id in enumerate(top_ids, start=1):
+            if memory_id in expected:
+                expected_rank = idx
+                break
+        if expected_rank is None:
+            # Slow path only for diagnostics where the expected memory is present
+            # but outside top-k.
+            higher = 0
+            for idx, memory_id in enumerate(compiled.ids):
+                components = compiled.score_components(
+                    idx,
+                    query_tokens=query_tokens,
+                    query_token_denom=query_token_denom,
+                    query_facets=query_facets,
+                    query_facet_denom=query_facet_denom,
+                    query_links=query_links,
+                    preferred_layer=case.preferred_layer,
+                )
+                key = (components[0], compiled.importance_scores[idx], memory_id)
+                if key > expected_key:
+                    higher += 1
+            expected_rank = higher + 1
+        reciprocal = 1.0 / expected_rank
+    margin = expected_score - runner_up_score
+    latency_ms = (time.perf_counter() - start) * 1000.0
     return CaseResult(
         name=case.name,
         query=case.query,
@@ -658,11 +857,8 @@ async def run_benchmark(args: argparse.Namespace) -> BenchmarkResult:
         )
     finally:
         await conn.close()
-    graph = SoulFacetGraph(rows)
-    row_tokens = build_row_token_sets(rows)
-    idf = inverse_document_frequency(rows, row_tokens)
-    recency = recency_scores(rows)
-    results = [evaluate_case(case, rows, graph=graph, idf=idf, recency=recency, row_tokens=row_tokens) for case in cases]
+    compiled = CompiledSoulFacetGraph(rows)
+    results = [evaluate_case_compiled(case, compiled) for case in cases]
     passed = sum(1 for result in results if result.passed)
     return BenchmarkResult(
         ok=passed == len(results),

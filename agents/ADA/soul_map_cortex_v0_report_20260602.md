@@ -240,3 +240,33 @@ latency range: ~1.5-2.1 ms/case with 400 candidate memories
 ```
 
 Translated result: target was `<20 ms/case`; v0.4 reached roughly `2 ms/case` while keeping the correct memory ranked first in all current live anchors.
+
+## V0.5 Compiled Graph Hot Path
+
+Implemented after William asked whether ADA needed help to reach `~1 ms`.
+
+Change:
+
+- Added `CompiledSoulFacetGraph`.
+- Precompiled ids, layers, categories, importance, recency, row tokens, memory facets, memory links, IDF, and base graph.
+- Added `rank_top` with top-k heap, no per-candidate `RankedMemory` allocation.
+- Added `evaluate_case_compiled` with one-pass scoring and exact-rank fallback only when expected is outside top-k.
+- Benchmark now uses compiled path by default.
+
+Evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_map_benchmark.py memory/tests/test_soul_map_exporter.py
+27 passed in 0.04s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=1.0
+single run latency range: ~0.69-1.03 ms/case
+
+5-run hot benchmark:
+max per run: 0.979, 1.005, 0.981, 0.967, 0.998 ms
+avg per run: 0.832, 0.842, 0.831, 0.828, 0.833 ms
+summary: max_of_max=1.005 ms, avg_of_avg=0.833 ms
+```
+
+Translated result: SOUL graph hot ranking reached the `~1 ms` target while preserving `MRR=1.0`.

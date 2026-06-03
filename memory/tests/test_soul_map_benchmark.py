@@ -4,8 +4,10 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from soul_map_benchmark import (
+    CompiledSoulFacetGraph,
     SoulFacetGraph,
     SoulMapCase,
+    evaluate_case_compiled,
     evaluate_case,
     extract_facets,
     intent_score_from_facets,
@@ -234,3 +236,43 @@ def test_cached_map_score_uses_precomputed_link_sets():
     query_links = {"People/William", "Systems/Codex App Windows"}
     row_links = {"People/William", "Systems/Codex App Windows", "Machines/dadito-laptop"}
     assert map_score_from_links(query_links, row_links) == 1.0
+
+
+def test_compiled_rank_top_matches_readable_rank_rows():
+    rows = [
+        make_row(
+            248403,
+            "William fixed ADA channel rule: dm:ada:william responds by DM; web_chat/general uses silence rule.",
+            category="operational_anchor",
+        ),
+        make_row(233407, "JARVIS private thoughts must not appear in web_chat public.", category="correction"),
+        make_row(1, "Unrelated memory."),
+    ]
+    query = "si te escribo privado no quiero que contestes en publico"
+    readable = rank_rows(query, rows, preferred_layer="operational")[:3]
+    compiled = CompiledSoulFacetGraph(rows).rank_top(query, preferred_layer="operational", k=3)
+    assert [item.id for item in compiled] == [item.id for item in readable]
+
+
+def test_compiled_evaluate_case_reports_expected_rank_outside_top_k():
+    rows = [
+        make_row(10, "alpha beta gamma", importance=10),
+        make_row(9, "alpha beta", importance=10),
+        make_row(8, "alpha", importance=10),
+        make_row(1, "weak expected", importance=1),
+    ]
+    case = SoulMapCase(name="rank_outside_top_k", query="alpha beta gamma", expected_ids=(1,), preferred_layer="operational", k=2)
+    result = evaluate_case_compiled(case, CompiledSoulFacetGraph(rows))
+    assert result.hit_at_k is False
+    assert result.candidate_present is True
+    assert result.expected_rank and result.expected_rank > 2
+
+
+def test_compiled_rank_top_preserves_tie_break_by_importance_and_id():
+    rows = [
+        make_row(1, "same", importance=10),
+        make_row(2, "same", importance=9),
+        make_row(3, "same", importance=10),
+    ]
+    ranked = CompiledSoulFacetGraph(rows).rank_top("same", preferred_layer="operational", k=3)
+    assert [item.id for item in ranked] == [3, 1, 2]

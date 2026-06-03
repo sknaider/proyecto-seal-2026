@@ -367,3 +367,38 @@ Translation:
 - Target was `<20 ms/case`.
 - V0.4 reached roughly `2 ms/case`, about 10x under target.
 - The key optimization was: text is converted to SOUL facets once, then ranking walks cached graph paths instead of rescanning memory content.
+
+## Progress 2026-06-02/03 — V0.5 Compiled Graph Hot Path
+
+William asked whether ADA needed help to reach `~1 ms`. ADA spawned Faraday for a read-only risk review and implemented a compiled ranking path while preserving the readable path.
+
+Implemented:
+
+- `CompiledSoulFacetGraph`: precompiles ids, layers, categories, importance, recency, row tokens, memory facets, memory links, IDF, and the base `SoulFacetGraph`.
+- `rank_top`: hot path that keeps only top-k with a heap and creates `RankedMemory` only for final top results.
+- `evaluate_case_compiled`: one-pass scoring for top-k, margin and expected detection; exact rank fallback only when expected is outside top-k.
+- Benchmark now uses compiled path by default.
+- Added tests for compiled/readable top equivalence, expected outside top-k, and tie-break by `(score, importance, id)`.
+
+Validation evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_map_benchmark.py memory/tests/test_soul_map_exporter.py
+27 passed in 0.04s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=1.0
+single run latency range: ~0.69-1.03 ms/case
+
+5-run hot benchmark:
+max per run: 0.979, 1.005, 0.981, 0.967, 0.998 ms
+avg per run: 0.832, 0.842, 0.831, 0.828, 0.833 ms
+summary: max_of_max=1.005 ms, avg_of_avg=0.833 ms
+```
+
+Translation:
+
+- V0.5 reached the `~1 ms` target for hot ranking.
+- Average hot ranking is now under 1 ms.
+- Worst observed sample was `1.005 ms`, effectively at the boundary.
+- Quality stayed unchanged: `MRR=1.0`.
