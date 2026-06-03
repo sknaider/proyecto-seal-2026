@@ -107,6 +107,19 @@ def overlap_rate(base: list[str], shadow: list[str]) -> float | None:
     return len(set(base) & set(shadow)) / len(union)
 
 
+def assist_effective_ids(base: list[str], shadow: list[str], *, preserve_top1: bool) -> list[str]:
+    if not preserve_top1:
+        return shadow
+    if not base:
+        return []
+    fixed = base[:1]
+    fixed_set = set(fixed)
+    ordered = fixed + [memory_id for memory_id in shadow if memory_id in base and memory_id not in fixed_set]
+    seen = set(ordered)
+    ordered.extend(memory_id for memory_id in base if memory_id not in seen)
+    return ordered
+
+
 def analyze_rows(
     rows: list[dict[str, Any]],
     *,
@@ -116,6 +129,7 @@ def analyze_rows(
     min_shadow_top1_in_base_topk: float = 0.95,
     max_p95_ms: float = 20.0,
     include_queries: bool = False,
+    preserve_top1: bool = False,
 ) -> dict[str, Any]:
     latencies = [float(row["rank_ms"]) for row in rows if isinstance(row.get("rank_ms"), int | float)]
     candidate_counts = [
@@ -135,26 +149,27 @@ def analyze_rows(
         shadow = list_ids(row.get("shadow_top_ids"))
         if not base or not shadow:
             continue
+        eval_ids = assist_effective_ids(base, shadow, preserve_top1=preserve_top1)
         comparable += 1
-        if base[0] == shadow[0]:
+        if base[0] == eval_ids[0]:
             top1_agree += 1
         else:
             item = {
                 "ts": row.get("ts"),
                 "agent": row.get("agent"),
                 "base_top1": base[0],
-                "shadow_top1": shadow[0],
+                "shadow_top1": eval_ids[0],
                 "base_top_ids": base,
-                "shadow_top_ids": shadow,
+                "shadow_top_ids": eval_ids,
             }
             if include_queries:
                 item["query_preview"] = row.get("query_preview")
             changed_top1.append(item)
-        if shadow[0] in base:
+        if eval_ids[0] in base:
             shadow_top1_in_base_topk += 1
-        if base == shadow:
+        if base == eval_ids:
             topk_identical += 1
-        overlap = overlap_rate(base, shadow)
+        overlap = overlap_rate(base, eval_ids)
         if overlap is not None:
             overlaps.append(overlap)
 
@@ -218,6 +233,7 @@ def analyze_rows(
             "min_top1_agreement": min_top1_agreement,
             "min_shadow_top1_in_base_topk": min_shadow_top1_in_base_topk,
             "max_p95_ms": max_p95_ms,
+            "preserve_top1": preserve_top1,
         },
         "decision": asdict(decision),
     }
@@ -242,6 +258,7 @@ def render_text(report: dict[str, Any], path: Path, since_ts: str | None) -> str
     lines = [
         "SOUL Cognitive Graph Shadow Analysis",
         f"source: {path}",
+        f"evaluation: {'assist_preserve_top1' if report['thresholds'].get('preserve_top1') else 'raw_shadow'}",
     ]
     if since_ts:
         lines.append(f"since: {since_ts}")
@@ -293,6 +310,11 @@ def main() -> int:
         help="exclude rows with fewer query_preview tokens from the promotion decision",
     )
     parser.add_argument("--include-queries", action="store_true")
+    parser.add_argument(
+        "--raw-shadow",
+        action="store_true",
+        help="evaluate raw shadow top ids instead of guarded assist behavior",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -307,6 +329,7 @@ def main() -> int:
         min_shadow_top1_in_base_topk=args.min_shadow_top1_in_base_topk,
         max_p95_ms=args.max_p95_ms,
         include_queries=args.include_queries,
+        preserve_top1=not args.raw_shadow,
     )
     report["source_rows"] = len(source_rows)
     report["filtered_out_rows"] = len(source_rows) - len(rows)

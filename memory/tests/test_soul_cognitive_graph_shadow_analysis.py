@@ -51,6 +51,21 @@ def test_shadow_analysis_blocks_small_sample_and_degrading_top1():
     assert "query_preview" not in report["changed_top1"][0]
 
 
+def test_shadow_analysis_preserve_top1_models_guarded_assist():
+    rows = [
+        row(base=["248478", "233139"], shadow=["246643", "248478"]),
+        row(base=["248403", "230586"], shadow=["230586", "248403"]),
+    ]
+
+    report = analyze_rows(rows, min_rows=2, preserve_top1=True)
+
+    assert report["decision"]["ready_for_assist"] is True
+    assert report["thresholds"]["preserve_top1"] is True
+    assert report["agreement"]["top1_rate"] == 1.0
+    assert report["agreement"]["shadow_top1_in_base_topk_rate"] == 1.0
+    assert report["changed_top1"] == []
+
+
 def test_shadow_analysis_blocks_latency_p95_over_threshold():
     rows = [row(rank_ms=5.0) for _ in range(28)] + [row(rank_ms=55.0), row(rank_ms=60.0)]
 

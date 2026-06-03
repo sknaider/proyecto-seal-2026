@@ -126,6 +126,22 @@ def test_assist_reorders_only_memory_hits_when_enabled(monkeypatch):
     assert [hit["id"] for hit in assisted[1:]] == ["2", "1"]
 
 
+def test_assist_preserves_base_top1_by_default(monkeypatch):
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_MODE", "assist")
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS", 2)
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_ASSIST_PRESERVE_TOP1", True)
+    ranked = [
+        make_hit("1", "unrelated"),
+        make_hit("2", "ADA completed SOUL-MAP v0 first deliverable Markdown exporter vault.", category="milestone"),
+        make_hit("3", "another unrelated memory"),
+    ]
+
+    assisted = recall_router._apply_cognitive_graph_assist("soul map markdown", ranked, limit=3)
+
+    assert assisted[0]["id"] == "1"
+    assert [hit["id"] for hit in assisted[1:]] == ["2", "3"]
+
+
 def test_assist_ignores_short_queries(monkeypatch):
     monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_MODE", "assist")
     monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS", 2)

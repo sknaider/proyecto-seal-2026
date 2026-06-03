@@ -43,6 +43,9 @@ COGNITIVE_GRAPH_SHADOW_LOG = Path(__file__).parent / "diagnostic" / "soul_cognit
 COGNITIVE_GRAPH_QUERY_TOKEN_RE = re.compile(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+")
 COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS = int(os.environ.get("SOUL_COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS", "3"))
 COGNITIVE_GRAPH_ASSIST_MAX_HITS = int(os.environ.get("SOUL_COGNITIVE_GRAPH_ASSIST_MAX_HITS", "5"))
+COGNITIVE_GRAPH_ASSIST_PRESERVE_TOP1 = (
+    os.environ.get("SOUL_COGNITIVE_GRAPH_ASSIST_PRESERVE_TOP1", "true").lower() == "true"
+)
 COGNITIVE_GRAPH_CRITICAL_RE = re.compile(
     r"dm:ada:william|web_chat|chat general|silencio|silent|privacidad|william|henry|codex app windows",
     re.IGNORECASE,
@@ -390,6 +393,7 @@ def _apply_cognitive_graph_assist(query: str, ranked: list[RecallHit], *, limit:
     - uses only already-ranked memory candidates;
     - does not move rules/chat/session/distilled hits;
     - ignores short queries;
+    - preserves base top-1 by default;
     - never demotes a critical top memory for channel/privacy/William/Codex.
     """
     if not _is_cognitive_graph_assist_enabled() or shadow_rank_memories is None:
@@ -398,7 +402,9 @@ def _apply_cognitive_graph_assist(query: str, ranked: list[RecallHit], *, limit:
         return ranked
 
     top_limit = max(1, min(limit, COGNITIVE_GRAPH_ASSIST_MAX_HITS, len(ranked)))
-    head = ranked[:top_limit]
+    fixed_prefix = ranked[:1] if COGNITIVE_GRAPH_ASSIST_PRESERVE_TOP1 and ranked else []
+    assist_start = len(fixed_prefix)
+    head = ranked[assist_start:top_limit]
     tail = ranked[top_limit:]
     rows = _shadow_rows_from_hits(head)
     if len(rows) < 2:
@@ -425,7 +431,7 @@ def _apply_cognitive_graph_assist(query: str, ranked: list[RecallHit], *, limit:
             assisted_head.append(next(memory_iter))
         else:
             assisted_head.append(hit)
-    return assisted_head + tail
+    return fixed_prefix + assisted_head + tail
 
 
 # ── recall_audit table (BUG4) ─────────────────────────────────────────────────
