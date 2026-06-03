@@ -128,3 +128,41 @@ The benchmark result also shows a concrete optimization signal: lexical rescue f
 2. Add read-only entity/edge extraction from exported notes.
 3. Compare vector/BM25/map-edge expansion in a scoring simulator.
 4. Ask NEXUS to audit benchmark validity before promotion.
+
+## V0.1 Update
+
+Implemented immediately after v0:
+
+- `Graph/edges.json` and `Graph/edges.md` generation.
+- `Skills/` notes from `soul_v3.skills` plus local `SKILL.md` discovery.
+- `Tools/` notes from `soul_v3.agent_tools_registry`.
+- Placeholder nodes for every graph edge target, including categories and tool categories.
+- `memory/soul_map_benchmark.py`.
+- `memory/tests/test_soul_map_benchmark.py`.
+- Extended exporter tests for edge generation, link boundaries, skills, tools, and skill merge priority.
+
+Evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_map_exporter.py memory/tests/test_soul_map_benchmark.py
+13 passed in 0.04s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=0.7619
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 memory/soul_map_exporter.py --out memory/diagnostic/results/soul_memory_map_ADA_v0 --agent ADA --limit 75 --min-importance 10 --tool-limit 80 --allow-overwrite
+status=ok, memory_count=75, skill_count=310, tool_count=24, edge_count=793, file_count=453
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/test_retrieval_eval.py memory/test_dual_memory_governance.py memory/test_mcp_dual_memory_format.py memory/tests/test_soul_map_exporter.py memory/tests/test_soul_map_benchmark.py
+30 passed in 3.45s
+
+python3 scripts/seal_core_guard.py --health
+status=GREEN; MCP 8771 ok; WebChat 8765 ok; Codex app server 8772 ok; bridge/monitor/MCP services active; Qdrant retired.
+
+Generated graph integrity check:
+edges=793, missing_targets=0, skill_files=310, tool_files=24
+```
+
+Caveat: this benchmark no longer forces expected ids into the candidate pool and now uses harder paraphrases, but it is still a top-3 regression gate, not final proof of general recall improvement. The next promotion gate needs adversarial negatives and a reranker that raises MRR, because some correct anchors still rank second or third.
+
+Subagent review correction: tools now cover the full current registry (`24/24`). Skills now preserve duplicate names across agents by using `agent + name` note identities, and the current export includes `310` skill nodes from SOUL DB plus local `SKILL.md` discovery.

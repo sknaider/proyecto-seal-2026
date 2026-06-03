@@ -11,6 +11,7 @@ import argparse
 import asyncio
 import json
 import re
+import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,26 +19,29 @@ from typing import Any, Iterable
 
 import asyncpg
 
-from seal_secrets import pg_dsn
+try:
+    from .seal_secrets import pg_dsn
+except ImportError:  # CLI execution: python memory/soul_map_exporter.py
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from seal_secrets import pg_dsn
 
 
-KNOWN_LINKS: tuple[tuple[str, str], ...] = (
-    ("dadito-laptop", "Machines/dadito-laptop"),
-    ("daditogamer", "Machines/daditogamer"),
-    ("dgx spark", "Machines/DGX Spark"),
-    ("spark", "Machines/DGX Spark"),
-    ("codex app", "Systems/Codex App Windows"),
-    ("codex", "Systems/Codex"),
-    ("mcp", "Systems/SOUL MCP"),
-    ("bridge", "Systems/ADA Codex Bridge"),
-    ("webchat", "Systems/WebChat"),
-    ("william", "People/William"),
-    ("henry", "People/Henry"),
-    ("ada", "Agents/ADA"),
-    ("jarvis", "Agents/JARVIS"),
-    ("alice", "Agents/ALICE"),
-    ("nexus", "Agents/NEXUS"),
-    ("dum", "Agents/DUM"),
+LINK_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Machines/dadito-laptop", ("dadito-laptop", "dadito laptop")),
+    ("Machines/daditogamer", ("daditogamer", "dadito gamer")),
+    ("Machines/DGX Spark", ("dgx spark", "spark")),
+    ("Systems/Codex App Windows", ("codex app", "codex windows app", "codex app windows")),
+    ("Systems/Codex", ("codex",)),
+    ("Systems/SOUL MCP", ("soul mcp", "mcp")),
+    ("Systems/ADA Codex Bridge", ("ada codex bridge", "bridge headless", "remote bridge")),
+    ("Systems/WebChat", ("webchat", "web_chat", "web chat")),
+    ("People/William", ("william", "dadito")),
+    ("People/Henry", ("henry", "kinger")),
+    ("Agents/JARVIS", ("jarvis",)),
+    ("Agents/ALICE", ("alice",)),
+    ("Agents/NEXUS", ("nexus",)),
+    ("Agents/DUM", ("dum",)),
+    ("Agents/ADA", ("ada",)),
 )
 
 LAYER_ORDER = {"operational": 0, "emotional": 1, "<none>": 2}
@@ -55,6 +59,39 @@ class MemoryRow:
     source: str | None
     metadata: dict[str, Any]
     content: str
+
+
+@dataclass(frozen=True)
+class MapEdge:
+    source: str
+    target: str
+    relation: str
+    soul_id: int | None = None
+    agent: str | None = None
+    layer: str | None = None
+
+
+@dataclass(frozen=True)
+class SkillRow:
+    name: str
+    description: str
+    path: str
+    agent: str
+    source: str
+    metric_score: float | None = None
+    boot_load: bool | None = None
+
+
+@dataclass(frozen=True)
+class ToolRow:
+    key: str
+    display_name: str
+    category: str
+    purpose: str
+    endpoint: str
+    owner_agent: str
+    status: str
+    source: str
 
 
 def slugify(value: str, *, fallback: str = "item", max_len: int = 72) -> str:
@@ -91,14 +128,193 @@ def frontmatter(fields: dict[str, Any]) -> str:
 
 
 def extract_links(content: str) -> list[str]:
-    lower = content.lower()
+    lower = content.lower().replace("_", " ")
     seen: set[str] = set()
     links: list[str] = []
-    for needle, target in KNOWN_LINKS:
-        if needle in lower and target not in seen:
-            seen.add(target)
-            links.append(target)
+    for target, aliases in LINK_RULES:
+        for alias in aliases:
+            pattern = r"(?<![a-z0-9])" + re.escape(alias.lower()).replace(r"\ ", r"\s+") + r"(?![a-z0-9])"
+            if re.search(pattern, lower):
+                if target not in seen:
+                    seen.add(target)
+                    links.append(target)
+                break
+    if "Systems/Codex App Windows" in seen and "Systems/Codex" in seen:
+        seen.remove("Systems/Codex")
+        links = [link for link in links if link != "Systems/Codex"]
     return links
+
+
+def read_skill_description(path: Path) -> str:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    lines = [line.strip() for line in text.splitlines()]
+    for line in lines:
+        if line and not line.startswith("#"):
+            return line[:240]
+    for line in lines:
+        if line.startswith("#"):
+            return line.lstrip("#").strip()[:240]
+    return ""
+
+
+def discover_local_skills(root: Path, *, limit: int) -> list[SkillRow]:
+    skill_paths: list[Path] = []
+    for base in (root / ".agents" / "skills", root / "skills", root / "tools" / "skills"):
+        if base.exists():
+            skill_paths.extend(sorted(base.rglob("SKILL.md")))
+    rows: list[SkillRow] = []
+    for path in skill_paths[:limit]:
+        try:
+            rel = path.relative_to(root)
+        except ValueError:
+            rel = path
+        rows.append(
+            SkillRow(
+                name=path.parent.name,
+                description=read_skill_description(path),
+                path=rel.as_posix(),
+                agent="TEAM",
+                source="filesystem",
+            )
+        )
+    return rows
+
+
+def merge_skills(db_skills: list[SkillRow], local_skills: list[SkillRow], *, limit: int) -> list[SkillRow]:
+    merged: dict[str, SkillRow] = {}
+    for skill in local_skills + db_skills:
+        key = f"{skill.agent.upper()}:{skill.name.lower()}"
+        if key not in merged or skill.source == "soul_v3.skills":
+            merged[key] = skill
+    return sorted(merged.values(), key=lambda skill: (skill.agent, skill.name.lower()))[:limit]
+
+
+def skill_note_ref(skill: SkillRow) -> str:
+    return f"Skills/{slugify(skill.agent)}-{slugify(skill.name)}"
+
+
+def skill_note_path(root: Path, skill: SkillRow) -> Path:
+    return root / f"{skill_note_ref(skill)}.md"
+
+
+def tool_note_ref(tool: ToolRow) -> str:
+    return f"Tools/{slugify(tool.key or tool.display_name)}"
+
+
+def tool_note_path(root: Path, tool: ToolRow) -> Path:
+    return root / f"{tool_note_ref(tool)}.md"
+
+
+def render_skill_note(skill: SkillRow) -> str:
+    return "\n".join(
+        [
+            frontmatter(
+                {
+                    "name": skill.name,
+                    "agent": skill.agent,
+                    "source": skill.source,
+                    "skill_path": skill.path,
+                    "metric_score": skill.metric_score if skill.metric_score is not None else "",
+                    "boot_load": skill.boot_load if skill.boot_load is not None else False,
+                    "canonical": skill.source == "soul_v3.skills",
+                }
+            ),
+            f"# Skill {skill.name}",
+            "",
+            skill.description or "No description available.",
+            "",
+            f"Path: `{skill.path}`",
+            "",
+        ]
+    )
+
+
+def render_tool_note(tool: ToolRow) -> str:
+    return "\n".join(
+        [
+            frontmatter(
+                {
+                    "tool_key": tool.key,
+                    "display_name": tool.display_name,
+                    "category": tool.category,
+                    "owner_agent": tool.owner_agent,
+                    "status": tool.status,
+                    "endpoint": tool.endpoint,
+                    "source": tool.source,
+                    "canonical": tool.source == "soul_v3.agent_tools_registry",
+                }
+            ),
+            f"# Tool {tool.display_name}",
+            "",
+            tool.purpose or "No purpose available.",
+            "",
+            f"Endpoint: `{tool.endpoint}`",
+            "",
+            f"Owner: [[Agents/{tool.owner_agent}]]",
+            "",
+        ]
+    )
+
+
+def render_skills_index(skills: list[SkillRow]) -> str:
+    lines = [
+        frontmatter({"generated_by": "memory/soul_map_exporter.py", "skill_count": len(skills)}),
+        "# Skills",
+        "",
+    ]
+    for skill in skills:
+        lines.append(f"- [[{skill_note_ref(skill)}|{skill.name}]] `{skill.agent}` `{skill.source}`")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_tools_index(tools: list[ToolRow]) -> str:
+    lines = [
+        frontmatter({"generated_by": "memory/soul_map_exporter.py", "tool_count": len(tools)}),
+        "# Tools",
+        "",
+    ]
+    for tool in tools:
+        lines.append(f"- [[{tool_note_ref(tool)}|{tool.display_name}]] `{tool.category}` `{tool.status}`")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def missing_edge_targets(root: Path, edges: list[MapEdge]) -> list[str]:
+    missing: list[str] = []
+    for target in sorted({edge.target for edge in edges}):
+        if not (root / f"{target}.md").exists():
+            missing.append(target)
+    return missing
+
+
+def render_placeholder_node(target: str) -> str:
+    title = target.rsplit("/", 1)[-1]
+    return "\n".join(
+        [
+            frontmatter({"generated_by": "memory/soul_map_exporter.py", "canonical": False, "placeholder": True}),
+            f"# {title}",
+            "",
+            f"Generated placeholder for `[[{target}]]`.",
+            "",
+        ]
+    )
+
+
+def referenced_nodes_from_tools_and_skills(skills: list[SkillRow], tools: list[ToolRow]) -> list[MapEdge]:
+    edges: list[MapEdge] = []
+    for skill in skills:
+        source = skill_note_ref(skill)
+        edges.append(MapEdge(source=source, target=f"Agents/{skill.agent}", relation="skill_agent", agent=skill.agent))
+    for tool in tools:
+        source = tool_note_ref(tool)
+        edges.append(MapEdge(source=source, target=f"Agents/{tool.owner_agent}", relation="tool_owner", agent=tool.owner_agent))
+        if tool.category:
+            edges.append(MapEdge(source=source, target=f"ToolCategories/{slugify(tool.category)}", relation="tool_category", agent=tool.owner_agent))
+    return edges
 
 
 def wikilinks(targets: Iterable[str]) -> str:
@@ -137,6 +353,10 @@ def memory_note_path(root: Path, row: MemoryRow) -> Path:
     return root / "Memories" / row.agent / row.layer / prefix
 
 
+def memory_note_ref(row: MemoryRow) -> str:
+    return memory_note_path(Path("."), row).with_suffix("").as_posix()
+
+
 def render_memory_note(row: MemoryRow) -> str:
     created = row.created_at.isoformat() if row.created_at else ""
     links = extract_links(row.content)
@@ -167,6 +387,95 @@ def render_memory_note(row: MemoryRow) -> str:
         body.extend(["**Linked Map Nodes:**", "", wikilinks(links), ""])
     body.extend(["## Content", "", row.content.strip(), ""])
     return "\n".join(body)
+
+
+def build_edges(rows: list[MemoryRow]) -> list[MapEdge]:
+    edges: list[MapEdge] = []
+    for row in rows:
+        source = memory_note_ref(row)
+        edges.append(
+            MapEdge(
+                source=source,
+                target=f"Agents/{row.agent}",
+                relation="agent",
+                soul_id=row.id,
+                agent=row.agent,
+                layer=row.layer,
+            )
+        )
+        edges.append(
+            MapEdge(
+                source=source,
+                target=f"Layers/{row.layer}",
+                relation="layer",
+                soul_id=row.id,
+                agent=row.agent,
+                layer=row.layer,
+            )
+        )
+        if row.category:
+            edges.append(
+                MapEdge(
+                    source=source,
+                    target=f"Categories/{slugify(row.category)}",
+                    relation="category",
+                    soul_id=row.id,
+                    agent=row.agent,
+                    layer=row.layer,
+                )
+            )
+        for target in extract_links(row.content):
+            edges.append(
+                MapEdge(
+                    source=source,
+                    target=target,
+                    relation="mentions",
+                    soul_id=row.id,
+                    agent=row.agent,
+                    layer=row.layer,
+                )
+            )
+    return edges
+
+
+def render_edges_json(edges: list[MapEdge]) -> str:
+    payload = [
+        {
+            "source": edge.source,
+            "target": edge.target,
+            "relation": edge.relation,
+            "soul_id": edge.soul_id,
+            "agent": edge.agent,
+            "layer": edge.layer,
+        }
+        for edge in edges
+    ]
+    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
+
+
+def render_edges_md(edges: list[MapEdge]) -> str:
+    lines = [
+        frontmatter(
+            {
+                "generated_by": "memory/soul_map_exporter.py",
+                "edge_count": len(edges),
+                "canonical": False,
+            }
+        ),
+        "# SOUL Memory Map Edges",
+        "",
+        "Generated edges for Obsidian/Markdown navigation. SOUL DB remains canonical.",
+        "",
+        "| Source | Relation | Target | Soul ID |",
+        "|---|---|---|---|",
+    ]
+    for edge in edges:
+        source = f"[[{edge.source}]]"
+        target = f"[[{edge.target}]]"
+        soul_id = f"#{edge.soul_id}" if edge.soul_id is not None else ""
+        lines.append(f"| {source} | `{edge.relation}` | {target} | {soul_id} |")
+    lines.append("")
+    return "\n".join(lines)
 
 
 def render_index(rows: list[MemoryRow], generated_at: datetime) -> str:
@@ -268,6 +577,57 @@ async def fetch_memories(conn: asyncpg.Connection, *, agents: list[str], limit: 
     return [row_from_record(record) for record in records]
 
 
+async def fetch_db_skills(conn: asyncpg.Connection, *, limit: int) -> list[SkillRow]:
+    query = """
+        SELECT agent, name, description, skill_path, metric_score, boot_load
+        FROM soul_v3.skills
+        WHERE invalid_at IS NULL
+        ORDER BY boot_load DESC, metric_score DESC NULLS LAST, importance_count DESC, name
+        LIMIT $1
+    """
+    async with conn.transaction(readonly=True):
+        records = await conn.fetch(query, limit)
+    return [
+        SkillRow(
+            name=str(record["name"]),
+            description=str(record.get("description") or ""),
+            path=str(record.get("skill_path") or ""),
+            agent=str(record.get("agent") or "TEAM"),
+            source="soul_v3.skills",
+            metric_score=float(record["metric_score"]) if record.get("metric_score") is not None else None,
+            boot_load=bool(record.get("boot_load")),
+        )
+        for record in records
+    ]
+
+
+async def fetch_tools(conn: asyncpg.Connection, *, limit: int) -> list[ToolRow]:
+    query = """
+        SELECT tool_key, display_name, category, purpose, endpoint, owner_agent, status, source
+        FROM soul_v3.agent_tools_registry
+        ORDER BY
+            CASE status WHEN 'up' THEN 0 WHEN 'unknown' THEN 1 WHEN 'stale' THEN 2 ELSE 3 END,
+            category,
+            display_name
+        LIMIT $1
+    """
+    async with conn.transaction(readonly=True):
+        records = await conn.fetch(query, limit)
+    return [
+        ToolRow(
+            key=str(record.get("tool_key") or ""),
+            display_name=str(record.get("display_name") or record.get("tool_key") or ""),
+            category=str(record.get("category") or ""),
+            purpose=str(record.get("purpose") or ""),
+            endpoint=str(record.get("endpoint") or ""),
+            owner_agent=str(record.get("owner_agent") or "TEAM"),
+            status=str(record.get("status") or "unknown"),
+            source="soul_v3.agent_tools_registry",
+        )
+        for record in records
+    ]
+
+
 async def export_vault(args: argparse.Namespace) -> dict[str, Any]:
     generated_at = datetime.now(UTC)
     root = args.out.resolve()
@@ -279,14 +639,20 @@ async def export_vault(args: argparse.Namespace) -> dict[str, Any]:
             limit=args.limit,
             min_importance=args.min_importance,
         )
+        db_skills = await fetch_db_skills(conn, limit=args.skill_limit)
+        tools = await fetch_tools(conn, limit=args.tool_limit)
     finally:
         await conn.close()
+    local_skills = discover_local_skills(Path.cwd(), limit=args.skill_limit)
+    skills = merge_skills(db_skills, local_skills, limit=args.skill_limit)
 
     if args.dry_run:
         return {
             "status": "dry-run",
             "out": str(root),
             "memory_count": len(rows),
+            "skill_count": len(skills),
+            "tool_count": len(tools),
             "agents": sorted({row.agent for row in rows}),
             "layers": sorted({row.layer for row in rows}, key=lambda layer: LAYER_ORDER.get(layer, 99)),
         }
@@ -295,6 +661,18 @@ async def export_vault(args: argparse.Namespace) -> dict[str, Any]:
     write_text(root / "README.md", render_index(rows, generated_at), allow_overwrite=args.allow_overwrite)
     for row in rows:
         write_text(memory_note_path(root, row), render_memory_note(row), allow_overwrite=args.allow_overwrite)
+
+    for skill in skills:
+        write_text(skill_note_path(root, skill), render_skill_note(skill), allow_overwrite=args.allow_overwrite)
+    write_text(root / "Skills" / "README.md", render_skills_index(skills), allow_overwrite=args.allow_overwrite)
+
+    for tool in tools:
+        write_text(tool_note_path(root, tool), render_tool_note(tool), allow_overwrite=args.allow_overwrite)
+    write_text(root / "Tools" / "README.md", render_tools_index(tools), allow_overwrite=args.allow_overwrite)
+
+    edges = build_edges(rows) + referenced_nodes_from_tools_and_skills(skills, tools)
+    write_text(root / "Graph" / "edges.json", render_edges_json(edges), allow_overwrite=args.allow_overwrite)
+    write_text(root / "Graph" / "edges.md", render_edges_md(edges), allow_overwrite=args.allow_overwrite)
 
     for agent in sorted({row.agent for row in rows}):
         agent_rows = [row for row in rows if row.agent == agent]
@@ -310,17 +688,25 @@ async def export_vault(args: argparse.Namespace) -> dict[str, Any]:
         "Machines/dadito-laptop.md": "# dadito-laptop\n\nWindows Codex App client for ADA.\n",
         "Machines/DGX Spark.md": "# DGX Spark\n\nCanonical SOUL/Spark runtime host.\n",
         "Systems/Codex App Windows.md": "# Codex App Windows\n\nPrimary ADA interface on dadito-laptop.\n",
+        "Systems/Codex.md": "# Codex\n\nCodex CLI/App runtime family.\n",
         "Systems/SOUL MCP.md": "# SOUL MCP\n\nCanonical memory MCP service.\n",
         "Systems/ADA Codex Bridge.md": "# ADA Codex Bridge\n\nHeadless WebChat to Codex runtime bridge.\n",
         "Systems/WebChat.md": "# WebChat\n\nSEAL chat transport and channel source.\n",
+        "Machines/daditogamer.md": "# daditogamer\n\nWindows machine previously used for Codex workflow validation.\n",
     }
     for rel, content in static_nodes.items():
         write_text(root / rel, content, allow_overwrite=args.allow_overwrite)
+
+    for target in missing_edge_targets(root, edges):
+        write_text(root / f"{target}.md", render_placeholder_node(target), allow_overwrite=args.allow_overwrite)
 
     return {
         "status": "ok",
         "out": str(root),
         "memory_count": len(rows),
+        "skill_count": len(skills),
+        "tool_count": len(tools),
+        "edge_count": len(edges),
         "file_count": sum(1 for path in root.rglob("*") if path.is_file()),
         "agents": sorted({row.agent for row in rows}),
         "layers": sorted({row.layer for row in rows}, key=lambda layer: LAYER_ORDER.get(layer, 99)),
@@ -333,6 +719,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--agent", action="append", default=[], help="Agent filter; can be repeated.")
     parser.add_argument("--limit", type=int, default=250, help="Maximum memories to export.")
     parser.add_argument("--min-importance", type=int, default=8, help="Minimum memory importance.")
+    parser.add_argument("--skill-limit", type=int, default=500, help="Maximum skills to export.")
+    parser.add_argument("--tool-limit", type=int, default=80, help="Maximum tools to export.")
     parser.add_argument("--allow-overwrite", action="store_true", help="Allow overwriting generated files.")
     parser.add_argument("--dry-run", action="store_true", help="Only print summary; do not write files.")
     return parser

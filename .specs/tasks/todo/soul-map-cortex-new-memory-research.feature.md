@@ -234,3 +234,48 @@ Next v0.1 steps:
 - Add read-only graph edge extraction from exported notes.
 - Add first scoring simulator that compares vector/BM25/map-edge expansion without touching MCP counters.
 - Ask NEXUS to audit benchmark validity before promotion.
+
+## Progress 2026-06-02/03 — V0.1 Validated
+
+William instructed ADA to use subagents as support by default for this task. ADA spawned Anscombe to review v0.1 implementation risks while continuing implementation. Anscombe found two high-risk benchmark issues: expected ids were being forced into the candidate pool, and the first queries were too close to anchor text. ADA changed the benchmark so default evaluation no longer injects expected ids, and replaced the cases with harder William-style paraphrases.
+
+Implemented:
+
+- Added graph edge generation to `memory/soul_map_exporter.py`.
+- Added `Graph/edges.json` and `Graph/edges.md` outputs in generated vaults.
+- Added SOUL skills export from `soul_v3.skills`, merged with local filesystem `SKILL.md` files.
+- Added SOUL tools export from `soul_v3.agent_tools_registry`.
+- Added `Skills/`, `Tools/`, `ToolCategories/`, and placeholder nodes for every edge target.
+- Added `memory/soul_map_benchmark.py`.
+- Added benchmark tests in `memory/tests/test_soul_map_benchmark.py`.
+- Extended exporter tests for edge generation, word-boundary link extraction, skills, tools, and skill merge priority.
+
+Validation evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_map_exporter.py memory/tests/test_soul_map_benchmark.py
+13 passed in 0.04s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=0.7619
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 memory/soul_map_exporter.py --out memory/diagnostic/results/soul_memory_map_ADA_v0 --agent ADA --limit 75 --min-importance 10 --tool-limit 80 --allow-overwrite
+status=ok, memory_count=75, skill_count=310, tool_count=24, edge_count=793, file_count=453
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/test_retrieval_eval.py memory/test_dual_memory_governance.py memory/test_mcp_dual_memory_format.py memory/tests/test_soul_map_exporter.py memory/tests/test_soul_map_benchmark.py
+30 passed in 3.45s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m py_compile memory/soul_map_exporter.py memory/soul_map_benchmark.py
+OK
+
+python3 scripts/seal_core_guard.py --health
+status=GREEN; MCP 8771 ok; WebChat 8765 ok; Codex app server 8772 ok; bridge/monitor/MCP services active; Qdrant retired.
+
+Generated graph integrity check:
+edges=793, missing_targets=0, skill_files=310, tool_files=24
+```
+
+Known v0.1 caveat:
+
+- The benchmark now uses harder paraphrases and no default expected-id injection, so it is a credible regression gate. It is still not proof of general recall improvement because several anchors rank 2 or 3 and margins are negative. Next step is adversarial negatives plus a map-edge reranker that improves MRR, not just hit@3.
+- Skills/tools coverage was corrected after subagent review: tools cover the full current registry (`24/24`), and skills now preserve duplicate names across agents by using `agent + name` note identities. The current export includes `310` skill nodes from SOUL DB plus local `SKILL.md` discovery.
