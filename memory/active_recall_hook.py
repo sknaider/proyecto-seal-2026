@@ -88,10 +88,10 @@ def _classify_circumstance(message: str) -> str:
     return "balanced"
 
 
-def _resolve_layer_budgets(circumstance: str) -> tuple[int, int]:
+def _resolve_layer_budgets(circumstance: str, agent: str = "") -> tuple[int, int]:
     """Devuelve (emotional_max_chars, operational_max_chars) según circunstancia.
-    Con el flag OFF siempre devuelve los budgets base (balanced)."""
-    if not CIRCUMSTANCE_ROUTING_ENABLED or circumstance == "balanced":
+    Con el flag OFF (o agente no habilitado) devuelve budgets base (balanced)."""
+    if not _circumstance_routing_enabled_for(agent) or circumstance == "balanced":
         return (ACTIVE_RECALL_EMOTIONAL_MAX_CHARS, ACTIVE_RECALL_OPERATIONAL_MAX_CHARS)
     if circumstance == "emotional":
         # vínculo/identidad: emocional sube, operativo baja (con piso)
