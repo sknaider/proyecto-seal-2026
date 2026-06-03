@@ -359,6 +359,7 @@ async def semantic_recall(conn, message: str, agent: str) -> str:
             results,
             title_prefix="MEMORIAS RELEVANTES AL MENSAJE ACTUAL",
             circumstance=circumstance,
+            agent=agent,
         )
     except Exception:
         return ""
