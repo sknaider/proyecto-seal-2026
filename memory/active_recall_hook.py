@@ -343,7 +343,12 @@ async def semantic_recall(conn, message: str, agent: str) -> str:
         if not results:
             return ""
         await mark_memory_recalled(conn, results)
-        return format_layered_memory_rows(results, title_prefix="MEMORIAS RELEVANTES AL MENSAJE ACTUAL")
+        circumstance = _classify_circumstance(message)
+        return format_layered_memory_rows(
+            results,
+            title_prefix="MEMORIAS RELEVANTES AL MENSAJE ACTUAL",
+            circumstance=circumstance,
+        )
     except Exception:
         return ""
 
