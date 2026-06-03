@@ -494,6 +494,7 @@ async def active_recall(user_message: str, boot_mode: bool = True) -> str:
                     formatted_recent = format_layered_memory_rows(
                         recent,
                         title_prefix="PROYECTOS/DECISIONES RECIENTES (14 días)",
+                        agent=agent,
                     )
                     if formatted_recent:
                         sections.append(formatted_recent)
