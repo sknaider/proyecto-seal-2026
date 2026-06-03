@@ -1,0 +1,473 @@
+{
+  "generated_at": "2026-06-03T03:21:27.195341+00:00",
+  "telemetry_path": "/home/dadito/IA/proyecto-seal/memory/diagnostic/soul_cognitive_graph_shadow.jsonl",
+  "source_rows": 774,
+  "eligible_rows": 341,
+  "min_rows": 300,
+  "min_query_tokens": 3,
+  "assist_preserve_top1": {
+    "generated_at": "2026-06-03T03:21:23.188546+00:00",
+    "rows": 341,
+    "invalid_lines": 0,
+    "comparable_rows": 341,
+    "latency_ms": {
+      "min": 0.193,
+      "avg": 1.7945395894428153,
+      "p50": 0.953,
+      "p95": 5.614,
+      "max": 6.594
+    },
+    "candidate_count": {
+      "min": 1,
+      "p50": 3.0,
+      "max": 10
+    },
+    "agreement": {
+      "top1_hits": 341,
+      "top1_rate": 1.0,
+      "shadow_top1_in_base_topk_hits": 341,
+      "shadow_top1_in_base_topk_rate": 1.0,
+      "topk_identical_hits": 212,
+      "topk_identical_rate": 0.6217008797653959,
+      "avg_topk_overlap": 1.0
+    },
+    "changed_top1": [],
+    "thresholds": {
+      "min_rows": 300,
+      "min_top1_agreement": 0.85,
+      "min_shadow_top1_in_base_topk": 0.95,
+      "max_p95_ms": 20.0,
+      "preserve_top1": true
+    },
+    "decision": {
+      "status": "ready_for_assist",
+      "reason": "all thresholds passed",
+      "ready_for_assist": true
+    }
+  },
+  "raw_shadow_reference": {
+    "generated_at": "2026-06-03T03:21:23.189142+00:00",
+    "rows": 341,
+    "invalid_lines": 0,
+    "comparable_rows": 341,
+    "latency_ms": {
+      "min": 0.193,
+      "avg": 1.7945395894428153,
+      "p50": 0.953,
+      "p95": 5.614,
+      "max": 6.594
+    },
+    "candidate_count": {
+      "min": 1,
+      "p50": 3.0,
+      "max": 10
+    },
+    "agreement": {
+      "top1_hits": 198,
+      "top1_rate": 0.5806451612903226,
+      "shadow_top1_in_base_topk_hits": 309,
+      "shadow_top1_in_base_topk_rate": 0.906158357771261,
+      "topk_identical_hits": 162,
+      "topk_identical_rate": 0.4750733137829912,
+      "avg_topk_overlap": 0.8944281524926686
+    },
+    "changed_top1": [
+      {
+        "ts": "2026-06-03T02:58:43.323574+00:00",
+        "agent": "ADA",
+        "base_top1": "30952",
+        "shadow_top1": "6785",
+        "base_top_ids": [
+          "30952",
+          "6784",
+          "6785",
+          "7246"
+        ],
+        "shadow_top_ids": [
+          "6785",
+          "6784",
+          "30952",
+          "7246"
+        ]
+      },
+      {
+        "ts": "2026-06-03T02:58:43.329772+00:00",
+        "agent": "ADA",
+        "base_top1": "230555",
+        "shadow_top1": "230556",
+        "base_top_ids": [
+          "230555",
+          "230556",
+          "230554"
+        ],
+        "shadow_top_ids": [
+          "230556",
+          "230555",
+          "230554"
+        ]
+      },
+      {
+        "ts": "2026-06-03T02:58:43.371702+00:00",
+        "agent": "ADA",
+        "base_top1": "242369",
+        "shadow_top1": "248035",
+        "base_top_ids": [
+          "242369",
+          "248035",
+          "238390"
+        ],
+        "shadow_top_ids": [
+          "248035",
+          "242369",
+          "238390"
+        ]
+      },
+      {
+        "ts": "2026-06-03T02:58:43.455289+00:00",
+        "agent": "ADA",
+        "base_top1": "229986",
+        "shadow_top1": "233341",
+        "base_top_ids": [
+          "229986",
+          "5306",
+          "233341"
+        ],
+        "shadow_top_ids": [
+          "233341",
+          "229986",
+          "5306"
+        ]
+      },
+      {
+        "ts": "2026-06-03T02:58:43.491958+00:00",
+        "agent": "ADA",
+        "base_top1": "233505",
+        "shadow_top1": "248386",
+        "base_top_ids": [
+          "233505",
+          "233503",
+          "248386"
+        ],
+        "shadow_top_ids": [
+          "248386",
+          "233505",
+          "233503"
+        ]
+      },
+      {
+        "ts": "2026-06-03T02:58:43.498174+00:00",
+        "agent": "ADA",
+        "base_top1": "235547",
+        "shadow_top1": "242387",
+        "base_top_ids": [
+          "235547",
+          "238667",
+          "242387"
+        ],
+        "shadow_top_ids": [
+          "242387",
+          "238667",
+          "235547"
+        ]
+      },
+      {
+        "ts": "2026-06-03T02:58:43.521638+00:00",
+        "agent": "ADA",
+        "base_top1": "230555",
+        "shadow_top1": "230556",
+        "base_top_ids": [
+          "230555",
+          "230556"
+        ],
+        "shadow_top_ids": [
+          "230556",
+          "230555"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:11:57.696611+00:00",
+        "agent": "ADA",
+        "base_top1": "225142",
+        "shadow_top1": "248705",
+        "base_top_ids": [
+          "225142",
+          "242369",
+          "233341",
+          "238827",
+          "238296"
+        ],
+        "shadow_top_ids": [
+          "248705",
+          "242369",
+          "241603",
+          "239532",
+          "238827"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:11:57.873040+00:00",
+        "agent": "ADA",
+        "base_top1": "225142",
+        "shadow_top1": "248705",
+        "base_top_ids": [
+          "225142",
+          "242369",
+          "233341",
+          "238827",
+          "238296"
+        ],
+        "shadow_top_ids": [
+          "248705",
+          "242369",
+          "241603",
+          "239532",
+          "238827"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:11:58.072987+00:00",
+        "agent": "ADA",
+        "base_top1": "225142",
+        "shadow_top1": "248705",
+        "base_top_ids": [
+          "225142",
+          "242369",
+          "233341",
+          "238827",
+          "238296"
+        ],
+        "shadow_top_ids": [
+          "248705",
+          "242369",
+          "241603",
+          "239532",
+          "238827"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:11:58.254869+00:00",
+        "agent": "ADA",
+        "base_top1": "225142",
+        "shadow_top1": "248705",
+        "base_top_ids": [
+          "225142",
+          "242369",
+          "233341",
+          "238827",
+          "238296"
+        ],
+        "shadow_top_ids": [
+          "248705",
+          "242369",
+          "241603",
+          "239532",
+          "238827"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:11:58.439783+00:00",
+        "agent": "ADA",
+        "base_top1": "225142",
+        "shadow_top1": "248705",
+        "base_top_ids": [
+          "225142",
+          "242369",
+          "233341",
+          "238827",
+          "238296"
+        ],
+        "shadow_top_ids": [
+          "248705",
+          "242369",
+          "241603",
+          "239532",
+          "238827"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:11:58.620849+00:00",
+        "agent": "ADA",
+        "base_top1": "225142",
+        "shadow_top1": "248705",
+        "base_top_ids": [
+          "225142",
+          "242369",
+          "233341",
+          "238827",
+          "238296"
+        ],
+        "shadow_top_ids": [
+          "248705",
+          "242369",
+          "241603",
+          "239532",
+          "238827"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:11:58.804732+00:00",
+        "agent": "ADA",
+        "base_top1": "225142",
+        "shadow_top1": "248705",
+        "base_top_ids": [
+          "225142",
+          "242369",
+          "233341",
+          "238827",
+          "238296"
+        ],
+        "shadow_top_ids": [
+          "248705",
+          "242369",
+          "241603",
+          "239532",
+          "238827"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:11:58.968943+00:00",
+        "agent": "ADA",
+        "base_top1": "225142",
+        "shadow_top1": "248705",
+        "base_top_ids": [
+          "225142",
+          "242369",
+          "233341",
+          "238827",
+          "238296"
+        ],
+        "shadow_top_ids": [
+          "248705",
+          "242369",
+          "241603",
+          "239532",
+          "238827"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:11:59.147777+00:00",
+        "agent": "ADA",
+        "base_top1": "225142",
+        "shadow_top1": "248705",
+        "base_top_ids": [
+          "225142",
+          "242369",
+          "233341",
+          "238827",
+          "238296"
+        ],
+        "shadow_top_ids": [
+          "248705",
+          "242369",
+          "241603",
+          "239532",
+          "238827"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:14:52.294587+00:00",
+        "agent": "ADA",
+        "base_top1": "242369",
+        "shadow_top1": "248035",
+        "base_top_ids": [
+          "242369",
+          "248035",
+          "238390"
+        ],
+        "shadow_top_ids": [
+          "248035",
+          "242369",
+          "238390"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:14:52.306275+00:00",
+        "agent": "ADA",
+        "base_top1": "245429",
+        "shadow_top1": "246849",
+        "base_top_ids": [
+          "245429",
+          "246832",
+          "246849",
+          "226672",
+          "4894"
+        ],
+        "shadow_top_ids": [
+          "246849",
+          "246832",
+          "245429",
+          "227987",
+          "226672"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:14:52.309071+00:00",
+        "agent": "ADA",
+        "base_top1": "225142",
+        "shadow_top1": "246832",
+        "base_top_ids": [
+          "225142",
+          "226876",
+          "246832"
+        ],
+        "shadow_top_ids": [
+          "246832",
+          "226876",
+          "225142"
+        ]
+      },
+      {
+        "ts": "2026-06-03T03:14:52.315374+00:00",
+        "agent": "ADA",
+        "base_top1": "247699",
+        "shadow_top1": "248478",
+        "base_top_ids": [
+          "247699",
+          "248035",
+          "247264",
+          "242369",
+          "242365"
+        ],
+        "shadow_top_ids": [
+          "248478",
+          "248035",
+          "247264",
+          "247699",
+          "242369"
+        ]
+      }
+    ],
+    "thresholds": {
+      "min_rows": 300,
+      "min_top1_agreement": 0.85,
+      "min_shadow_top1_in_base_topk": 0.95,
+      "max_p95_ms": 20.0,
+      "preserve_top1": false
+    },
+    "decision": {
+      "status": "collect_more_shadow",
+      "reason": "top1_agreement 0.581 < 0.850; shadow_top1_in_base_topk 0.906 < 0.950",
+      "ready_for_assist": false
+    }
+  },
+  "systemd": {
+    "command_ok": true,
+    "stderr": "",
+    "active_state": "active",
+    "main_pid": "2929303",
+    "environment": "PYTHONPATH=/home/dadito/IA/proyecto-seal/memory SEAL_MCP_HOST=0.0.0.0 SEAL_MCP_PORT=8771 SEAL_MCP_TRANSPORT=streamable-http SOUL_CIRCUMSTANCE_ROUTING=all SOUL_COGNITIVE_GRAPH_MODE=assist SOUL_COGNITIVE_GRAPH_ASSIST_PRESERVE_TOP1=true SOUL_COGNITIVE_GRAPH_ASSIST_MIN_QUERY_TOKENS=3 SOUL_COGNITIVE_GRAPH_SHADOW=true SOUL_RECALL_ROUTER_ENABLED=true SEAL_MEMORY_RRF_RERANK=true",
+    "assist": true,
+    "preserve_top1": true,
+    "min_tokens_3": true,
+    "shadow": true,
+    "ok": true
+  },
+  "seal_core_health": {
+    "ok": true,
+    "status": "GREEN",
+    "failed": [],
+    "stderr": "2026-06-02 22:21:26,352 [INFO] seal-memory — [shutdown] Starting graceful cleanup…\n2026-06-02 22:21:26,352 [INFO] seal-memory — [shutdown] PostgreSQL pool closed."
+  },
+  "culminated": true,
+  "decision": "CULMINATED"
+}
