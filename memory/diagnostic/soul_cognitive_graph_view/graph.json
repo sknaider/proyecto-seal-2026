@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-06-03T03:29:23.908283+00:00",
+  "generated_at": "2026-06-03T04:27:34.689505+00:00",
   "schema": "soul_cognitive_graph_view.v1",
   "memory_count": 350,
   "node_count": 423,
-  "edge_count": 3134,
+  "edge_count": 3138,
   "nodes_by_type": {
     "agent": 1,
     "category": 16,
@@ -2761,18 +2761,6 @@
       "facet_kind": null
     },
     {
-      "id": "memory:241917",
-      "label": "#241917",
-      "type": "memory",
-      "weight": 9,
-      "soul_id": 241917,
-      "agent": "ADA",
-      "layer": "operational",
-      "category": "milestone",
-      "preview": "Ronda 2 lanzada con 187,284 items (76,426 ES 40.8% + 110,858 EN 59.2%). PID 725750. Continúa desde adapter v1. LR 1e-4, max 700 steps.",
-      "facet_kind": null
-    },
-    {
       "id": "memory:241921",
       "label": "#241921",
       "type": "memory",
@@ -3130,6 +3118,18 @@
       "layer": "operational",
       "category": "decision",
       "preview": "2026-06-02 ADA avanzo SOUL Cognitive Graph canary a fase de telemetria gate. Creo memory/analyze_soul_cognitive_graph_shadow.py con decision thresholds y tests. Soak controlado: 48 filas globales, p50 5.042ms, p95 10.35...",
+      "facet_kind": null
+    },
+    {
+      "id": "memory:249020",
+      "label": "#249020",
+      "type": "memory",
+      "weight": 9,
+      "soul_id": 249020,
+      "agent": "ADA",
+      "layer": "operational",
+      "category": "milestone",
+      "preview": "SOUL Cognitive Graph visualization completed: implemented static Cytoscape.js viewer + graph.json + Obsidian-compatible Markdown vault at memory/diagnostic/soul_cognitive_graph_view. Export stats: 350 memories, 423 node...",
       "facet_kind": null
     },
     {
@@ -16803,46 +16803,6 @@
       "soul_id": 241603
     },
     {
-      "id": "memory-241917--agent--agent-ada",
-      "source": "memory:241917",
-      "target": "agent:ADA",
-      "relation": "agent",
-      "weight": 1.0,
-      "soul_id": 241917
-    },
-    {
-      "id": "memory-241917--category--category-milestone",
-      "source": "memory:241917",
-      "target": "category:milestone",
-      "relation": "category",
-      "weight": 1.0,
-      "soul_id": 241917
-    },
-    {
-      "id": "memory-241917--facet--facet-category-milestone",
-      "source": "memory:241917",
-      "target": "facet:category-milestone",
-      "relation": "facet",
-      "weight": 0.76,
-      "soul_id": 241917
-    },
-    {
-      "id": "memory-241917--facet--facet-layer-operational",
-      "source": "memory:241917",
-      "target": "facet:layer-operational",
-      "relation": "facet",
-      "weight": 0.72,
-      "soul_id": 241917
-    },
-    {
-      "id": "memory-241917--layer--layer-operational",
-      "source": "memory:241917",
-      "target": "layer:operational",
-      "relation": "layer",
-      "weight": 1.0,
-      "soul_id": 241917
-    },
-    {
       "id": "memory-241921--agent--agent-ada",
       "source": "memory:241921",
       "target": "agent:ADA",
@@ -19641,6 +19601,78 @@
       "relation": "layer",
       "weight": 1.0,
       "soul_id": 248943
+    },
+    {
+      "id": "memory-249020--agent--agent-ada",
+      "source": "memory:249020",
+      "target": "agent:ADA",
+      "relation": "agent",
+      "weight": 1.0,
+      "soul_id": 249020
+    },
+    {
+      "id": "memory-249020--category--category-milestone",
+      "source": "memory:249020",
+      "target": "category:milestone",
+      "relation": "category",
+      "weight": 1.0,
+      "soul_id": 249020
+    },
+    {
+      "id": "memory-249020--facet--facet-artifact-memory-map",
+      "source": "memory:249020",
+      "target": "facet:artifact-memory-map",
+      "relation": "facet",
+      "weight": 0.92,
+      "soul_id": 249020
+    },
+    {
+      "id": "memory-249020--facet--facet-category-milestone",
+      "source": "memory:249020",
+      "target": "facet:category-milestone",
+      "relation": "facet",
+      "weight": 0.76,
+      "soul_id": 249020
+    },
+    {
+      "id": "memory-249020--facet--facet-delivery-completed",
+      "source": "memory:249020",
+      "target": "facet:delivery-completed",
+      "relation": "facet",
+      "weight": 0.96,
+      "soul_id": 249020
+    },
+    {
+      "id": "memory-249020--facet--facet-evidence-validation",
+      "source": "memory:249020",
+      "target": "facet:evidence-validation",
+      "relation": "facet",
+      "weight": 0.82,
+      "soul_id": 249020
+    },
+    {
+      "id": "memory-249020--facet--facet-layer-operational",
+      "source": "memory:249020",
+      "target": "facet:layer-operational",
+      "relation": "facet",
+      "weight": 0.72,
+      "soul_id": 249020
+    },
+    {
+      "id": "memory-249020--facet--facet-system-soul",
+      "source": "memory:249020",
+      "target": "facet:system-soul",
+      "relation": "facet",
+      "weight": 0.8,
+      "soul_id": 249020
+    },
+    {
+      "id": "memory-249020--layer--layer-operational",
+      "source": "memory:249020",
+      "target": "layer:operational",
+      "relation": "layer",
+      "weight": 1.0,
+      "soul_id": 249020
     },
     {
       "id": "memory-261--agent--agent-ada",

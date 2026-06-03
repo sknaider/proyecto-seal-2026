@@ -2,7 +2,7 @@
 generated_by: "memory/soul_cognitive_graph_viewer.py"
 node_id: "facet:delivery-completed"
 facet_kind: "delivery"
-memory_links: 14
+memory_links: 15
 ---
 
 # completed
@@ -22,6 +22,7 @@ Facet kind: `delivery`
 - [[Memories/Memory-242365]]
 - [[Memories/Memory-246700]]
 - [[Memories/Memory-248712]]
+- [[Memories/Memory-249020]]
 - [[Memories/Memory-5440]]
 - [[Memories/Memory-6785]]
 - [[Memories/Memory-72]]

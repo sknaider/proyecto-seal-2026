@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from soul_cognitive_graph_viewer import (
     build_cognitive_graph_payload,
     cytoscape_elements,
+    render_3d_viewer_html,
     render_viewer_html,
     write_markdown_subset,
 )
@@ -63,6 +64,21 @@ def test_render_viewer_html_embeds_graph_and_controls():
     assert "cytoscape" in html
     assert "memory:1" in html
     assert "typeFilter" in html
+
+
+def test_render_3d_viewer_html_embeds_three_scene_and_controls():
+    payload = build_cognitive_graph_payload([make_row(1, "William and Codex App Windows.")])
+
+    html = render_3d_viewer_html(payload)
+
+    assert "SOUL Cognitive Graph 3D" in html
+    assert "three.module.js" in html
+    assert "OrbitControls" in html
+    assert "memory:1" in html
+    assert "__SOUL3D_READY" in html
+    assert "event.ctrlKey" in html
+    assert "moveCamera" in html
+    assert "rotateCamera" in html
 
 
 def test_write_markdown_subset_writes_obsidian_files(tmp_path):

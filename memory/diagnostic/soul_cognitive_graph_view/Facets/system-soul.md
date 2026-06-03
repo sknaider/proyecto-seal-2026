@@ -2,7 +2,7 @@
 generated_by: "memory/soul_cognitive_graph_viewer.py"
 node_id: "facet:system-soul"
 facet_kind: "system"
-memory_links: 77
+memory_links: 78
 ---
 
 # soul

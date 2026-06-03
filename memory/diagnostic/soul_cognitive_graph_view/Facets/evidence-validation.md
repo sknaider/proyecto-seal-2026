@@ -2,7 +2,7 @@
 generated_by: "memory/soul_cognitive_graph_viewer.py"
 node_id: "facet:evidence-validation"
 facet_kind: "evidence"
-memory_links: 29
+memory_links: 30
 ---
 
 # validation
@@ -37,6 +37,7 @@ Facet kind: `evidence`
 - [[Memories/Memory-248706]]
 - [[Memories/Memory-248712]]
 - [[Memories/Memory-248943]]
+- [[Memories/Memory-249020]]
 - [[Memories/Memory-37027]]
 - [[Memories/Memory-5222]]
 - [[Memories/Memory-5622]]
