@@ -14,8 +14,10 @@ Fixes applied (NEXUS audit 2026-05-17):
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
+import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -32,7 +34,9 @@ except Exception:  # pragma: no cover - shadow is optional and must not block re
 # ── Feature flag ──────────────────────────────────────────────────────────────
 ROUTER_ENABLED = os.environ.get("SOUL_RECALL_ROUTER_ENABLED", "false").lower() == "true"
 COGNITIVE_GRAPH_SHADOW_ENABLED = os.environ.get("SOUL_COGNITIVE_GRAPH_SHADOW", "false").lower() == "true"
+COGNITIVE_GRAPH_SHADOW_LOG_QUERY = os.environ.get("SOUL_COGNITIVE_GRAPH_SHADOW_LOG_QUERY", "false").lower() == "true"
 COGNITIVE_GRAPH_SHADOW_LOG = Path(__file__).parent / "diagnostic" / "soul_cognitive_graph_shadow.jsonl"
+COGNITIVE_GRAPH_QUERY_TOKEN_RE = re.compile(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+")
 
 # ── Timeouts per source (seconds) — BUG1 fix: actually used in _safe() ────────
 TIMEOUT_QDRANT   = 0.35
@@ -314,12 +318,15 @@ def _run_cognitive_graph_shadow(agent: str, query: str, ranked: list[RecallHit],
         payload = {
             "ts": datetime.now(UTC).isoformat(),
             "agent": agent,
-            "query_preview": query[:160],
+            "query_hash": hashlib.sha256(query.encode("utf-8")).hexdigest()[:16],
+            "query_token_count": len(COGNITIVE_GRAPH_QUERY_TOKEN_RE.findall(query)),
             "rank_ms": elapsed_ms,
             "base_top_ids": [hit["id"] for hit in ranked[:limit]],
             "shadow_top_ids": [str(item.id) for item in shadow],
             "candidate_count": len(rows),
         }
+        if COGNITIVE_GRAPH_SHADOW_LOG_QUERY:
+            payload["query_preview"] = query[:160]
         try:
             COGNITIVE_GRAPH_SHADOW_LOG.parent.mkdir(parents=True, exist_ok=True)
             with COGNITIVE_GRAPH_SHADOW_LOG.open("a", encoding="utf-8") as fh:

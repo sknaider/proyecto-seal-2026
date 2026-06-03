@@ -37,6 +37,7 @@ def test_shadow_flag_off_does_nothing(monkeypatch):
 
 def test_shadow_flag_on_returns_payload_without_changing_ranked(monkeypatch, tmp_path):
     monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_SHADOW_ENABLED", True)
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_SHADOW_LOG_QUERY", False)
     monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_SHADOW_LOG", tmp_path / "shadow.jsonl")
     ranked = [
         make_hit("233407", "JARVIS private thoughts must not appear in web_chat public.", category="correction"),
@@ -50,7 +51,25 @@ def test_shadow_flag_on_returns_payload_without_changing_ranked(monkeypatch, tmp
     assert result is not None
     assert result["base_top_ids"][:2] == before
     assert result["shadow_top_ids"][0] == "248403"
+    assert result["query_token_count"] > 0
+    assert result["query_hash"]
+    assert "query_preview" not in result
     assert (tmp_path / "shadow.jsonl").exists()
+
+
+def test_shadow_query_preview_requires_explicit_debug_flag(monkeypatch, tmp_path):
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_SHADOW_ENABLED", True)
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_SHADOW_LOG_QUERY", True)
+    monkeypatch.setattr(recall_router, "COGNITIVE_GRAPH_SHADOW_LOG", tmp_path / "shadow.jsonl")
+
+    result = recall_router._run_cognitive_graph_shadow(
+        "ADA",
+        "debug visible query",
+        [make_hit("248403", "ADA rule: dm:ada:william and web_chat/general silence rule.")],
+    )
+
+    assert result is not None
+    assert result["query_preview"] == "debug visible query"
 
 
 def test_shadow_ignores_non_memory_hits(monkeypatch, tmp_path):
