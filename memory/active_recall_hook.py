@@ -251,15 +251,16 @@ def _append_budgeted(lines: list[str], line: str, current_total: int, max_chars:
 
 
 def format_layered_memory_rows(rows, *, title_prefix: str = "MEMORIAS RELEVANTES",
-                               circumstance: str = "balanced") -> str:
+                               circumstance: str = "balanced",
+                               agent: str = "") -> str:
     """Format recall rows into operational/emotional projections with hard budgets.
     circumstance ('emotional'|'operational'|'balanced') rebalancea los budgets por capa
-    cuando SOUL_CIRCUMSTANCE_ROUTING=1. Con el flag OFF el comportamiento es idéntico al previo."""
+    cuando el agente tiene SOUL_CIRCUMSTANCE_ROUTING habilitado. OFF = idéntico al previo."""
     operational: list[str] = []
     emotional: list[str] = []
     operational_total = 0
     emotional_total = 0
-    emotional_max, operational_max = _resolve_layer_budgets(circumstance)
+    emotional_max, operational_max = _resolve_layer_budgets(circumstance, agent)
 
     for r in rows:
         layer = _metadata_layer(r)
