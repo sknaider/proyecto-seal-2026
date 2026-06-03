@@ -215,3 +215,28 @@ latency range: ~47-50 ms/case with 400 candidate memories
 ```
 
 Translated result: this is the first native SOUL cognitive retrieval graph. It is no longer only a static Obsidian-style map; it builds live recovery paths from the query into SOUL memory facets. It remains laboratory/read-only until more adversarial cases and latency work are done.
+
+## V0.4 Sub-20ms Graph Ranking
+
+Implemented after William set the target at `20 ms`.
+
+Change:
+
+- Cached memory link sets in `SoulFacetGraph`.
+- Added `map_score_from_links`.
+- Added `intent_score_from_facets`.
+- Added `category_score_from_facets`.
+- Ranking now reuses query facets, query links, query tokens, memory facets, memory links, row tokens, IDF, and recency caches.
+
+Evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_map_benchmark.py memory/tests/test_soul_map_exporter.py
+24 passed in 0.04s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=1.0
+latency range: ~1.5-2.1 ms/case with 400 candidate memories
+```
+
+Translated result: target was `<20 ms/case`; v0.4 reached roughly `2 ms/case` while keeping the correct memory ranked first in all current live anchors.

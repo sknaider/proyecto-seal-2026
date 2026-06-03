@@ -3,7 +3,15 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from soul_map_benchmark import SoulFacetGraph, SoulMapCase, evaluate_case, extract_facets, rank_rows
+from soul_map_benchmark import (
+    SoulFacetGraph,
+    SoulMapCase,
+    evaluate_case,
+    extract_facets,
+    intent_score_from_facets,
+    map_score_from_links,
+    rank_rows,
+)
 from soul_map_exporter import MemoryRow
 
 
@@ -213,3 +221,16 @@ def test_rank_rows_exposes_native_graph_path_score():
     ranked = rank_rows("privado publico dm general", rows, preferred_layer="operational")
     assert ranked[0].id == 248403
     assert ranked[0].graph_path_score > 0
+
+
+def test_cached_intent_score_uses_facets_not_raw_text_scan():
+    query_facets = extract_facets("privado publico dm general")
+    good = extract_facets("dm:ada:william and web_chat/general with silence rule")
+    lookalike = extract_facets("private note should not appear in web_chat public")
+    assert intent_score_from_facets(query_facets, good) > intent_score_from_facets(query_facets, lookalike)
+
+
+def test_cached_map_score_uses_precomputed_link_sets():
+    query_links = {"People/William", "Systems/Codex App Windows"}
+    row_links = {"People/William", "Systems/Codex App Windows", "Machines/dadito-laptop"}
+    assert map_score_from_links(query_links, row_links) == 1.0

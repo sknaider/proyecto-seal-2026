@@ -337,3 +337,33 @@ Translation:
 - It is not only an Obsidian/static map. It creates live recovery paths: `query -> facet nodes -> memory`.
 - It still stays read-only; SOUL DB remains canonical.
 - Limitation: latency is improved from the first graph pass (~110 ms/case to ~47-50 ms/case) but still above the subagent ideal of `<20 ms/case`. Next optimization target is precomputed facet caches or a shared runtime module.
+
+## Progress 2026-06-02/03 — V0.4 Sub-20ms Graph Ranking
+
+William set the next target: reach `20 ms`. ADA optimized the native graph path without changing the SOUL DB contract.
+
+Implemented:
+
+- Cached `memory_links` inside `SoulFacetGraph`.
+- Added `map_score_from_links` so map scoring uses precomputed link sets.
+- Added `intent_score_from_facets` so intent scoring uses graph facets instead of scanning raw memory text for every row.
+- Added `category_score_from_facets`.
+- Reused query facets/query links/query tokens once per ranking call.
+- Added tests proving cached facet/link scoring is used.
+
+Validation evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_map_benchmark.py memory/tests/test_soul_map_exporter.py
+24 passed in 0.04s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=1.0
+latency range: ~1.5-2.1 ms/case with 400 candidate memories
+```
+
+Translation:
+
+- Target was `<20 ms/case`.
+- V0.4 reached roughly `2 ms/case`, about 10x under target.
+- The key optimization was: text is converted to SOUL facets once, then ranking walks cached graph paths instead of rescanning memory content.

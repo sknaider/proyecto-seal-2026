@@ -221,6 +221,10 @@ def lexical_score_from_tokens(query_tokens: set[str], row_tokens: set[str], idf:
 def map_score(query: str, row: MemoryRow) -> float:
     query_links = set(extract_links(query))
     row_links = set(extract_links(row.content))
+    return map_score_from_links(query_links, row_links)
+
+
+def map_score_from_links(query_links: set[str], row_links: set[str]) -> float:
     if not query_links:
         return 0.0
     return len(query_links & row_links) / len(query_links)
@@ -349,6 +353,7 @@ class SoulFacetGraph:
             row.id: extract_facets(row.content, category=row.category, layer=row.layer)
             for row in rows
         }
+        self.memory_links: dict[int, set[str]] = {row.id: set(extract_links(row.content)) for row in rows}
         self.edges: list[FacetEdge] = [
             FacetEdge(
                 source=f"memory:{memory_id}",
@@ -447,6 +452,26 @@ def intent_score(query: str, row: MemoryRow) -> float:
     return best
 
 
+def intent_score_from_facets(query_facets: dict[str, float], memory_facets: dict[str, float]) -> float:
+    best = 0.0
+    if "intent:channel_rule" in query_facets:
+        required = ("channel:dm:ada:william", "channel:web_chat", "contract:silence")
+        best = max(best, sum(1 for facet in required if facet in memory_facets) / len(required))
+    if "intent:identity_presence" in query_facets:
+        required = ("state:emotional_presence", "system:soul", "person:william")
+        best = max(best, sum(1 for facet in required if facet in memory_facets) / len(required))
+    if "intent:delivered_artifact" in query_facets:
+        required = ("delivery:completed", "delivery:milestone", "artifact:memory_map")
+        best = max(best, sum(1 for facet in required if facet in memory_facets) / len(required))
+    if "intent:research_program" in query_facets:
+        required = ("program:soul_cortex", "person:william")
+        best = max(best, sum(1 for facet in required if facet in memory_facets) / len(required))
+    if "intent:tooling_permission" in query_facets:
+        required = ("capability:tooling", "evidence:validation")
+        best = max(best, sum(1 for facet in required if facet in memory_facets) / len(required))
+    return best
+
+
 def category_score(query: str, row: MemoryRow) -> float:
     tokens = token_set(query)
     category = row.category.lower()
@@ -455,6 +480,20 @@ def category_score(query: str, row: MemoryRow) -> float:
     if {"privado", "publico", "público", "dm", "general"} & tokens and category in {"operational_anchor", "rule"}:
         return 1.0
     if {"generica", "genérica", "asistente", "familia"} & tokens and category in {"emotion", "trust"}:
+        return 1.0
+    return 0.0
+
+
+def category_score_from_facets(query_facets: dict[str, float], memory_facets: dict[str, float]) -> float:
+    if "intent:delivered_artifact" in query_facets and "category:milestone" in memory_facets:
+        return 1.0
+    if "intent:channel_rule" in query_facets and (
+        "category:operational_anchor" in memory_facets or "category:rule" in memory_facets
+    ):
+        return 1.0
+    if "intent:identity_presence" in query_facets and (
+        "category:emotion" in memory_facets or "category:trust" in memory_facets
+    ):
         return 1.0
     return 0.0
 
@@ -475,15 +514,17 @@ def rank_rows(
     graph = graph or SoulFacetGraph(rows)
     query_tokens = token_set(query)
     query_facets = graph.query_facets(query, preferred_layer=preferred_layer)
+    query_links = set(extract_links(query))
     ranked: list[RankedMemory] = []
     for row in rows:
+        memory_facets = graph.memory_facets.get(row.id, {})
         lex = lexical_score_from_tokens(query_tokens, row_tokens[row.id], idf)
-        intent = intent_score(query, row)
-        graph_path = graph.path_score_from_facets(query_facets, graph.memory_facets.get(row.id, {}))
-        maps = map_score(query, row)
+        intent = intent_score_from_facets(query_facets, memory_facets)
+        graph_path = graph.path_score_from_facets(query_facets, memory_facets)
+        maps = map_score_from_links(query_links, graph.memory_links.get(row.id, set()))
         recent = recency[row.id]
         layer = 1.0 if preferred_layer and row.layer == preferred_layer else 0.0
-        category = category_score(query, row)
+        category = category_score_from_facets(query_facets, memory_facets)
         importance = min(max(row.importance, 0), 10) / 10.0
         score = (
             (0.38 * lex)
