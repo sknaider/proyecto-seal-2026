@@ -208,7 +208,28 @@ def lexical_score_from_tokens(query_tokens: set[str], row_tokens: set[str], idf:
 def map_score_from_links(query_links: set[str], row_links: set[str]) -> float:
     if not query_links:
         return 0.0
-    return len(query_links & row_links) / len(query_links)
+    row_links_lower = {link.lower() for link in row_links}
+    matches = 0
+    for query_link in query_links:
+        query_lower = query_link.lower()
+        if query_lower in row_links_lower:
+            matches += 1
+            continue
+        prefix = f"{query_lower} "
+        if any(row_link.startswith(prefix) for row_link in row_links_lower):
+            matches += 1
+    return matches / len(query_links)
+
+
+def facet_match_weight(query_facet: str, memory_facets: dict[str, float]) -> float:
+    direct = memory_facets.get(query_facet)
+    if direct is not None:
+        return direct
+    prefix = f"{query_facet} "
+    child_weights = [weight for facet, weight in memory_facets.items() if facet.startswith(prefix)]
+    if not child_weights:
+        return 0.0
+    return min(1.0, max(child_weights) + 0.10)
 
 
 def recency_scores(rows: list[CognitiveMemoryRow]) -> dict[int, float]:
@@ -295,7 +316,7 @@ class SoulFacetGraph:
         numerator = 0.0
         denominator = sum(query_facets.values())
         for facet, query_weight in query_facets.items():
-            numerator += query_weight * memory_facets.get(facet, 0.0)
+            numerator += query_weight * facet_match_weight(facet, memory_facets)
         raw_score = numerator / denominator if denominator else 0.0
         return max(0.0, raw_score - self.mismatch_penalty(query_facets, memory_facets))
 
@@ -354,7 +375,7 @@ class CompiledSoulFacetGraph:
         if query_facet_denom > 0:
             numerator = 0.0
             for facet, query_weight in query_facets.items():
-                numerator += query_weight * memory_facets.get(facet, 0.0)
+                numerator += query_weight * facet_match_weight(facet, memory_facets)
             graph_path = max(
                 0.0,
                 (numerator / query_facet_denom) - SoulFacetGraph.mismatch_penalty(query_facets, memory_facets),

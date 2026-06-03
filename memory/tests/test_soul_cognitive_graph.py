@@ -54,3 +54,16 @@ def test_shadow_rank_memories_is_read_only_rank_surface():
     ranked = shadow_rank_memories("que entregaste primero para ver soul como mapa en markdown", rows, k=1)
     assert len(ranked) == 1
     assert ranked[0].id == 2
+
+
+def test_codex_query_keeps_specific_codex_app_memory_above_generic_codex_hits():
+    rows = [
+        make_row(
+            248478,
+            "William corrigio dadito-laptop: ADA debe usar Codex App Windows como interfaz principal, no terminal.",
+        ),
+        make_row(246643, "The other tmux sessions seal-ada-codex are attached.", category="technical_fact"),
+        make_row(242369, "MEMORIA EMOCIONAL ADA v1 conectada a Codex visible y presencia SOUL.", category="emotion"),
+    ]
+    ranked = shadow_rank_memories("codex", rows, k=3)
+    assert [item.id for item in ranked][0] == 248478
