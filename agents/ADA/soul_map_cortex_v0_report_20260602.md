@@ -270,3 +270,39 @@ summary: max_of_max=1.005 ms, avg_of_avg=0.833 ms
 ```
 
 Translated result: SOUL graph hot ranking reached the `~1 ms` target while preserving `MRR=1.0`.
+
+## V0.6 Runtime Shadow Module
+
+Implemented after William approved promotion toward runtime.
+
+Change:
+
+- Added `memory/soul_cognitive_graph.py` as the reusable graph module.
+- Exposed `extract_facets`, `SoulFacetGraph`, `CompiledSoulFacetGraph`, and `shadow_rank_memories`.
+- Updated benchmark compiled path to use the module.
+- Added optional shadow hook in `memory/recall_router.py`.
+- Flag: `SOUL_COGNITIVE_GRAPH_SHADOW=false` by default.
+- Shadow uses already-fetched memory hits and writes only local JSONL telemetry when enabled.
+- No changes to `memory/mcp_server_v4.py`.
+
+Evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m py_compile memory/soul_cognitive_graph.py memory/soul_map_benchmark.py memory/recall_router.py
+OK
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_cognitive_graph.py memory/tests/test_soul_map_benchmark.py memory/tests/test_recall_router_cognitive_shadow.py
+23 passed in 2.59s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=1.0
+latency range: ~0.70-1.02 ms/case
+
+cd memory && /home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q test_privacy_enforcement.py
+22 passed, 22 subtests passed in 0.12s
+
+python3 scripts/seal_core_guard.py --health
+status=GREEN; MCP 8771 ok; WebChat 8765 ok; Codex app server 8772 ok; bridge/monitor/MCP services active; Qdrant retired.
+```
+
+Translated result: SOUL Cognitive Graph is no longer only a benchmark prototype. It is now a reusable module with a disabled-by-default runtime shadow hook that can compare rankings without changing live recall output.

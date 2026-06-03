@@ -402,3 +402,48 @@ Translation:
 - Average hot ranking is now under 1 ms.
 - Worst observed sample was `1.005 ms`, effectively at the boundary.
 - Quality stayed unchanged: `MRR=1.0`.
+
+## Progress 2026-06-02/03 — V0.6 Runtime Shadow Module
+
+William approved the next step: promote the graph out of the benchmark toward SOUL runtime. ADA implemented this as a shadow-only integration first.
+
+Implemented:
+
+- Added `memory/soul_cognitive_graph.py`.
+- Exposed reusable read-only APIs:
+  - `extract_facets`
+  - `SoulFacetGraph`
+  - `CompiledSoulFacetGraph`
+  - `shadow_rank_memories`
+- Updated `memory/soul_map_benchmark.py` so the compiled benchmark path uses the module.
+- Added `SOUL_COGNITIVE_GRAPH_SHADOW=false` default flag in `memory/recall_router.py`.
+- Added `_run_cognitive_graph_shadow` after base router ranking and before formatting output.
+- Shadow uses only already-fetched memory hits. It does not call `active_recall`, `memory_hybrid_search`, MCP tools, or DB writes.
+- Shadow output goes only to local JSONL `memory/diagnostic/soul_cognitive_graph_shadow.jsonl` when enabled.
+- Did not edit `memory/mcp_server_v4.py`.
+
+Validation evidence:
+
+```text
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m py_compile memory/soul_cognitive_graph.py memory/soul_map_benchmark.py memory/recall_router.py
+OK
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q memory/tests/test_soul_cognitive_graph.py memory/tests/test_soul_map_benchmark.py memory/tests/test_recall_router_cognitive_shadow.py
+23 passed in 2.59s
+
+/home/dadito/IA/seal-spark/.venv/bin/python3 -m memory.soul_map_benchmark --json
+7/7, hit@3=1.0, MRR=1.0
+latency range: ~0.70-1.02 ms/case
+
+cd memory && /home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q test_privacy_enforcement.py
+22 passed, 22 subtests passed in 0.12s
+
+python3 scripts/seal_core_guard.py --health
+status=GREEN; MCP 8771 ok; WebChat 8765 ok; Codex app server 8772 ok; bridge/monitor/MCP services active; Qdrant retired.
+```
+
+Translation:
+
+- The graph now exists as a reusable SOUL module.
+- The runtime router can run it in shadow mode without changing recall answers.
+- This is the safe promotion step before replacing or blending live recall ranking.

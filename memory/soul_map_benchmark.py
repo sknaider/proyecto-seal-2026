@@ -26,10 +26,12 @@ import asyncpg
 try:
     from .seal_secrets import pg_dsn
     from .soul_map_exporter import MemoryRow, extract_links, row_from_record
+    from . import soul_cognitive_graph as cognitive_graph
 except ImportError:  # CLI execution: python memory/soul_map_benchmark.py
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from seal_secrets import pg_dsn
     from soul_map_exporter import MemoryRow, extract_links, row_from_record
+    import soul_cognitive_graph as cognitive_graph
 
 
 TOKEN_RE = re.compile(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+")
@@ -857,7 +859,7 @@ async def run_benchmark(args: argparse.Namespace) -> BenchmarkResult:
         )
     finally:
         await conn.close()
-    compiled = CompiledSoulFacetGraph(rows)
+    compiled = cognitive_graph.CompiledSoulFacetGraph(rows)
     results = [evaluate_case_compiled(case, compiled) for case in cases]
     passed = sum(1 for result in results if result.passed)
     return BenchmarkResult(
