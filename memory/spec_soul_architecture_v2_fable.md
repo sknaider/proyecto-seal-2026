@@ -4,7 +4,9 @@
 **Estado:** PROPUESTA — para revisión del equipo SEAL e implementación por ADA
 **Base:** `fable_spec_v2_architecture_request_soul.md` (instrucción principal), `roadmap_soul_agent_architecture_v1.md`, `spec_soul_cognitive_core_v1.md`, revisión neutral previa de Fable (2026-06-11).
 
-**Convenciones de este documento:** rutas relativas a la raíz del repo. Migraciones siguen la numeración existente de `memory/migrations/` (última: `021`). Tests siguen el patrón existente `memory/test_*.py`. Nada de lo propuesto requiere rewrite: son ALTERs, módulos nuevos pequeños y chokepoints sobre piezas que ya existen (`pre_tool_hook.py`, `mcp_server_v4.py`, `task_lifecycle`, `evaluation_spine.py`).
+**Convenciones de este documento:** rutas relativas a la raíz del repo. Tests siguen el patrón existente `memory/test_*.py`.
+
+> ⚠️ **ADDENDUM 1 (2026-06-11):** la numeración de migraciones de este spec (`022`-`027`) quedó obsoleta — el repo real va por `030`. Ver `spec_soul_architecture_v2_addendum1_fable.md` para la renumeración (F-01..F-06 → `031`-`036`), las tablas existentes a revisar antes de crear, y la secuencia de compatibilidad sin romper producción. En conflicto, manda el addendum. Nada de lo propuesto requiere rewrite: son ALTERs, módulos nuevos pequeños y chokepoints sobre piezas que ya existen (`pre_tool_hook.py`, `mcp_server_v4.py`, `task_lifecycle`, `evaluation_spine.py`).
 
 ---
 

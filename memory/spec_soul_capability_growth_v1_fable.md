@@ -4,6 +4,8 @@
 **Estado:** PROPUESTA — anexo subordinado al SPEC v2 de arquitectura
 **Base:** `spec_soul_architecture_v2_fable.md`, y los módulos ya existentes `agi_gap_ledger.py`, `skill_instinct_factory.py`, `kernel_forge.py`, `post_train_audit.py`, `causal_graph.py`, `evaluation_spine.py`.
 
+> ⚠️ **ADDENDUM 1 (2026-06-11):** las migraciones `028`/`029` de este anexo se renumeran a F-07/F-08 (`037`/`038` provisionales) — ver `spec_soul_architecture_v2_addendum1_fable.md` §1. Antes de crear `skills`, revisar `001_instincts_table.sql` y la tabla donde `skill_instinct_factory.py` ya persiste (addendum §2).
+
 **Relación con el SPEC v2:** este anexo **no salta la cola**. No abre hasta que la Fase 0 del SPEC v2 esté cerrada (backups, ENFORCE, audit, ToolBroker). Crecer en capacidad sobre una base insegura es construir un sistema rápido, capaz y comprometido. Todo artefacto de capacidad que este anexo produce (skill, guardrail, adapter) pasa por los mismos gates de evidencia + audit + confirmación humana que cualquier otra acción, **más** un gate específico de capacidad.
 
 ---
