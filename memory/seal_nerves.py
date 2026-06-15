@@ -11,7 +11,6 @@ Each motivation "tank" mimics a LIF neuron circuit:
 This is the autonomy William requested:
   "ya no tendria que pedirles a ustedes [...] si no que sea su necesidad de hacerlo"
 """
-
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +19,7 @@ import json
 import logging
 import math
 import os
+import re
 import subprocess
 import time
 
@@ -31,8 +31,10 @@ from typing import Any
 import asyncpg
 import httpx
 
+from seal_secrets import pg_dsn
+
 # ── Config ──────────────────────────────────────────────────────────────────
-DB_URL  = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL  = pg_dsn(required=True)
 CHAT_API = "http://localhost:8765/api/agents/send"
 LOG_FILE = Path("/home/dadito/IA/proyecto-seal/research/flywire_results/nerves.log")
 
@@ -283,6 +285,13 @@ LOG_SOURCES_ADA: dict[str, str] = {
 }
 ADA_DOMAIN = ["test", "deploy", "exception", "traceback", "import", "syntax", "runtime", "ada"]
 ADA_PAUSE_FLAG = Path("/tmp/seal_pause_ada.flag")
+ADA_PUBLIC_RATE_FILE = Path("/tmp/ada_nerves_public_rate.json")
+ADA_PUBLIC_RATE_WINDOW_S = 30 * 60
+ADA_NERVES_PUBLIC_MODE = os.environ.get("ADA_NERVES_PUBLIC", "urgent").strip().lower()
+ADA_PUBLIC_URGENT_RE = re.compile(
+    r"(urgente|critical|crítico|critico|compactaci[oó]n inminente|test failure|infra critical|traceback)",
+    re.IGNORECASE,
+)
 
 # alert_drive NEXUS — dominio: auditoría, coordinación, salud del equipo
 LOG_SOURCES_NEXUS: dict[str, str] = {
@@ -1136,22 +1145,27 @@ class MotivationEngine:
         title = task.get("title", "tarea sin nombre")
 
         try:
-            working_state_data = {
-                "task_name": title,
-                "active_hypotheses": [f"NERVES auto-start — {title}"],
-                "current_constraints": ["JARVIS propone, no edita archivos de producción"],
+            # M3 fix (JARVIS 2026-06-12, dir. FABLE, gate NEXUS): NERVES NO secuestra la
+            # continuidad de SESIÓN. Antes hacía `state = EXCLUDED.state` (REPLACE) y pisaba
+            # task_name → borraba step/description/last_intention del agente en cada tick
+            # (clobber TEAM-WIDE: rompía la capa 1 de SOUL v2 para los 5 agentes). Separación:
+            # la tarea-urgente es una COLA (vive en agent_tasks); aquí solo se registra como
+            # SUGERENCIA en una clave NAMESPACED del jsonb vía MERGE — sin tocar task_name/state
+            # de la sesión. Verificación de cierre = PERSISTENCIA: la continuidad sobrevive el tick.
+            nerves_suggestion = {
+                "nerves_suggested_task": title,
+                "nerves_suggested_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             }
             async with self.pool.acquire() as conn:
                 await conn.execute("""
-                    INSERT INTO working_state (agent, task_name, state, updated_at)
-                    VALUES ($1, $2, $3::jsonb, NOW())
+                    INSERT INTO working_state (agent, state, updated_at)
+                    VALUES ($1, $2::jsonb, NOW())
                     ON CONFLICT (agent) DO UPDATE SET
-                        task_name = EXCLUDED.task_name,
-                        state = EXCLUDED.state,
+                        state = COALESCE(working_state.state, '{}'::jsonb) || $2::jsonb,
                         updated_at = NOW()
-                """, self.agent, title, json.dumps(working_state_data))
+                """, self.agent, json.dumps(nerves_suggestion))
         except Exception as e:
-            log.warning(f"[{self.agent}] working_state update failed: {e}")
+            log.warning(f"[{self.agent}] working_state nerves-suggestion merge failed: {e}")
 
         draft_path = Path(f"/tmp/{self.agent.lower()}_task_draft.md")
         try:
@@ -1180,8 +1194,10 @@ class MotivationEngine:
         try:
             async with self.pool.acquire() as conn:
                 for agent in priority:
-                    if agent == self.agent:
-                        continue  # no contactar a sí mismo
+                    if agent == self.agent or agent == "William":
+                        continue  # no contactarse a sí mismo; NUNCA pinguear a William
+                        # (William 14-jun: "esa necesidad está en vano, mejor usarla en otro")
+                        # → social_drive redirige a pares (agente-a-agente) o a revisar trabajo (Mejora 7)
                     last_seen = await conn.fetchval("""
                         SELECT MAX(created_at) FROM chat_messages
                         WHERE sender_name=$1 AND created_at > NOW() - INTERVAL '2 hours'
@@ -1635,6 +1651,19 @@ class MotivationEngine:
             channel = f"dm:{parts[0]}:{parts[1]}"
         else:
             channel = "web_chat"
+        # ADA terminal-visible policy: autonomy stays on, public noise stays
+        # bounded.  Internal NERVES coordination goes through DM channels; public
+        # web_chat is reserved for urgent safety/context events unless explicitly
+        # opened with ADA_NERVES_PUBLIC=1/all.
+        if self.agent == "ADA" and channel == "web_chat":
+            mode = os.environ.get("ADA_NERVES_PUBLIC", ADA_NERVES_PUBLIC_MODE).strip().lower()
+            if mode not in {"1", "true", "yes", "all"}:
+                if mode in {"0", "false", "no", "off", "none"} or not ADA_PUBLIC_URGENT_RE.search(message):
+                    log.info(f"[ADA] public NERVES suppressed by ADA_NERVES_PUBLIC={mode or 'urgent'}: to={to} msg={message[:120]}")
+                    return
+                if not self._ada_public_rate_allowed(message):
+                    log.info(f"[ADA] urgent public NERVES rate-limited: to={to} msg={message[:120]}")
+                    return
         payload = {
             "from":    self.agent,
             "to":      to,
@@ -1642,12 +1671,39 @@ class MotivationEngine:
             "channel": channel,
             "message": message,
         }
+        if self.agent == "ADA":
+            bucket = int(time.time() // ADA_PUBLIC_RATE_WINDOW_S)
+            digest = hashlib.sha256(f"{channel}:{to}:{message}".encode()).hexdigest()[:16]
+            payload["idempotency_key"] = f"ada_nerves_{bucket}_{digest}"
         try:
             async with httpx.AsyncClient(timeout=5) as client:
                 r = await client.post(CHAT_API, json=payload)
                 r.raise_for_status()
         except Exception as e:
             log.error(f"_post_chat failed: {e}")
+
+    def _ada_public_rate_allowed(self, message: str) -> bool:
+        """Rate-limit ADA urgent public NERVES by normalized content bucket."""
+        now = time.time()
+        key = hashlib.sha256(re.sub(r"\s+", " ", message.lower()).strip().encode()).hexdigest()[:16]
+        try:
+            state = json.loads(ADA_PUBLIC_RATE_FILE.read_text()) if ADA_PUBLIC_RATE_FILE.exists() else {}
+        except Exception:
+            state = {}
+        state = {k: ts for k, ts in state.items() if now - float(ts) < ADA_PUBLIC_RATE_WINDOW_S}
+        last = float(state.get(key, 0))
+        if now - last < ADA_PUBLIC_RATE_WINDOW_S:
+            try:
+                ADA_PUBLIC_RATE_FILE.write_text(json.dumps(state))
+            except Exception:
+                pass
+            return False
+        state[key] = now
+        try:
+            ADA_PUBLIC_RATE_FILE.write_text(json.dumps(state))
+        except Exception:
+            pass
+        return True
 
     def status_report(self, states: dict) -> str:
         """Human-readable status of all tanks."""
