@@ -625,6 +625,45 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
     }
 
 
+# ── NERVIO ÚTIL — dispatch de mantenimiento (William 14-jun: "utilidad al nervio a favor de SOUL") ──
+# GATED por flag (default OFF = cero cambio de comportamiento). Cada agente corre la acción de SU
+# rol: NEXUS=seguridad, JARVIS=integridad, ALICE=importancia, ADA=consolidación (pendiente).
+# Principio: DRIVE→ARTEFACTO (mantiene SOUL), no DRIVE→SALUDO. Artefacto a LOG ([SILENT], cero
+# ruido a William); cada acción persiste su propio artefacto (JSONL/DB). Disciplina canary (ADA):
+# arranca dry-run/gated, se enciende con evidencia + OK familia.
+NERVES_USEFUL = os.environ.get("SEAL_NERVES_USEFUL", "0") == "1"
+_MESSAGES_DIR = "/home/dadito/IA/proyecto-seal/messages"
+
+
+async def _run_maintenance_action(engine) -> str | None:
+    """Ejecuta la acción de mantenimiento del agente. Devuelve artefacto (str) si produjo valor, o None.
+
+    Defensivo: un fallo de import/acción NO tumba el nervio (fail-loud por log, devuelve None).
+    """
+    agent = engine.agent
+    try:
+        if agent == "NEXUS":
+            from nerves_maintenance_nexus import security_pulse
+            return await security_pulse()
+        if agent == "JARVIS":
+            import sys as _sys
+            if _MESSAGES_DIR not in _sys.path:
+                _sys.path.insert(0, _MESSAGES_DIR)
+            from nerve_integrity_action import run as _integ
+            r = await _integ()
+            return f"integridad: {r}" if r else None
+        if agent == "ALICE":
+            from nerve_action_importance import run_importance_recalibration
+            r = await run_importance_recalibration(engine.pool, "ALICE", apply=False)
+            if r and r.get("valuable"):
+                return f"importancia: {r.get('recalibrated', 0)} memorias recalibrables (dry-run)"
+            return None
+        # ADA: consolidación + self-reflect — pendiente de su pieza
+    except Exception as e:
+        log.error(f"[{agent}] maintenance action failed: {e}")
+    return None
+
+
 class MotivationEngine:
     """
     LIF-based motivation engine for SEAL agents.
