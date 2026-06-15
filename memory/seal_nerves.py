@@ -1322,6 +1322,16 @@ class MotivationEngine:
             log.info(f"[{self.agent}] social_drive NIGHT WINDOW — diferido hasta 6am Lima")
             return "[SOCIAL NIGHT WINDOW] diferido hasta 6am Lima"
 
+        # NERVIO ÚTIL (gated): redirige la energía social a MANTENIMIENTO de SOUL en vez de saludar
+        # (William 14-jun: "úsala en otro / utilidad al nervio a favor de SOUL"). Artefacto→LOG
+        # ([SILENT], cero ruido); cada acción persiste su propio artefacto. Default OFF.
+        if NERVES_USEFUL:
+            artifact = await _run_maintenance_action(self)
+            if artifact:
+                await self._post_chat(f"[SILENT][NERVES/{self.agent}] mantenimiento útil → {artifact}")
+                return f"maintenance_fired:value:{self.agent}"
+            return f"maintenance_fired:clean_silent:{self.agent}"
+
         # Mejora 2: destinatario dinámico
         target = await self._choose_social_target()
         if target is None:
