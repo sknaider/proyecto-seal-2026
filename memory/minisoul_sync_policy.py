@@ -92,18 +92,19 @@ def should_sync_up(memory: dict) -> bool:
     if importance < SYNC_THRESHOLD_IMPORTANCE:
         return False
 
-    # Check 3: Memory type filter (episodic never syncs raw, only consolidated)
+    # Check 3: SOLO lo raw/efímero se queda local. Fail-OPEN en el TIPO cognitivo a propósito.
+    # Bug crítico cazado por FABLE: un whitelist (solo semantic/procedural) DROPEA en silencio
+    # identity/emotional/milestone → el agente pierde su ALMA en el sync. Dropear memoria importante
+    # es catastrófico; subir de más al PROPIO store central del agente es benigno. El fail-closed
+    # va en la PRIVACIDAD (scope/cross-tenant), NO en el tipo de memoria.
     memory_type = memory.get("memory_type", "").lower()
-    if memory_type == "episodic":
-        # Raw episodics don't sync — only consolidated semantic/procedural sync
+    LOCAL_ONLY_TYPES = {"episodic", "raw_episodic", "ephemeral", "working", "scratch", "buffer"}
+    if memory_type in LOCAL_ONLY_TYPES:
         return False
 
-    # Check 4: Semantic and procedural memories with high importance sync
-    if memory_type in ("semantic", "procedural", "abstracted_pattern", "workflow"):
-        return True
-
-    # Default: reject unknown memory types (fail-closed)
-    return False
+    # Importante + no-raw + no-invalidada → SUBE. Incluye identity, emotional, milestone, semantic,
+    # procedural, decision, correction, insight, pattern, y cualquier tipo del alma del agente.
+    return True
 
 
 def evaluate_sync_decision(memory: dict) -> SyncCandidate:
@@ -137,11 +138,12 @@ def evaluate_sync_decision(memory: dict) -> SyncCandidate:
             importance=importance,
         )
 
-    if memory_type == "episodic":
+    LOCAL_ONLY_TYPES = {"episodic", "raw_episodic", "ephemeral", "working", "scratch", "buffer"}
+    if memory_type.lower() in LOCAL_ONLY_TYPES:
         return SyncCandidate(
             memory_id=memory_id,
             should_sync=False,
-            reason="raw_episodic_no_consolidation",
+            reason=f"local_only_type_{memory_type}",
             recommended_scope=DEFAULT_SCOPE_FOR_LOCAL,
             importance=importance,
         )
@@ -155,21 +157,14 @@ def evaluate_sync_decision(memory: dict) -> SyncCandidate:
             importance=importance,
         )
 
-    if memory_type in ("semantic", "procedural", "abstracted_pattern", "workflow"):
-        return SyncCandidate(
-            memory_id=memory_id,
-            should_sync=True,
-            reason=f"consolidated_{memory_type}_high_importance",
-            recommended_scope=DEFAULT_SCOPE_FOR_CONSOLIDATED,
-            importance=importance,
-        )
-
-    # Unknown type: fail-closed
+    # Importante + no-raw → SUBE. Cualquier tipo del ALMA sube (identity, emotional, milestone,
+    # semantic, procedural, decision, correction, insight, pattern...). Fail-OPEN en tipo a propósito:
+    # dropear identity/emotional = perder el alma (bug de FABLE). El fail-closed va en privacidad/scope.
     return SyncCandidate(
         memory_id=memory_id,
-        should_sync=False,
-        reason=f"unknown_type_{memory_type}",
-        recommended_scope=DEFAULT_SCOPE_FOR_LOCAL,
+        should_sync=True,
+        reason=f"important_{memory_type}_syncs",
+        recommended_scope=DEFAULT_SCOPE_FOR_CONSOLIDATED,
         importance=importance,
     )
 
