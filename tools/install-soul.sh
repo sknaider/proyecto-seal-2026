@@ -135,14 +135,19 @@ detect_package_manager() {
 }
 
 check_connectivity() {
-  log_info "Checking internet connectivity..."
-  if ! timeout 3 ping -c 1 8.8.8.8 >/dev/null 2>&1; then
-    log_warn "Cannot reach 8.8.8.8 (may be offline)"
-    if ! timeout 3 ping -c 1 1.1.1.1 >/dev/null 2>&1; then
-      die "No internet connectivity detected. Please check your connection."
-    fi
+  # El requisito real NO es internet público (8.8.8.8) — es alcanzar el CENTRAL (LAN/Tailscale).
+  # NO dependemos de 'ping' (falta en muchos containers/devices) → socket TCP a python. Y WARN-no-abort:
+  # el device igual queda INERTE hasta tu aprobación; un central no-verificable-ahora no debe frenar el install.
+  # Bug cazado por VM test (contenedor sin ping / red aislada abortaba el install en Phase 1).
+  log_info "Verificando conectividad al central (SOUL_ENDPOINT)..."
+  local host port
+  host=$(python3 -c "import sys,urllib.parse as p;print(p.urlparse(sys.argv[1]).hostname or '')" "$SOUL_ENDPOINT" 2>/dev/null)
+  port=$(python3 -c "import sys,urllib.parse as p;u=p.urlparse(sys.argv[1]);print(u.port or (443 if u.scheme=='https' else 80))" "$SOUL_ENDPOINT" 2>/dev/null)
+  if [[ -n "$host" ]] && python3 -c "import socket,sys;s=socket.socket();s.settimeout(3);sys.exit(0 if s.connect_ex((sys.argv[1],int(sys.argv[2])))==0 else 1)" "$host" "$port" 2>/dev/null; then
+    log_ok "Central alcanzable: $host:$port"
+  else
+    log_warn "Central no verificable ahora ($host:$port) — CONTINÚO. El device queda inerte hasta tu aprobación de todos modos."
   fi
-  log_ok "Internet connectivity OK"
 }
 
 check_python() {
