@@ -513,6 +513,12 @@ deploy_artifacts() {
   [[ "$missing" -eq 0 ]] && log_ok "Libs desplegadas en $SEAL_PREFIX/lib/" || log_warn "$missing libs faltaron"
   cp "$WORK_DIR/.env" "$SEAL_PREFIX/.env" 2>/dev/null && log_ok "Config .env → $SEAL_PREFIX/" || true
   cp "$WORK_DIR/agent.yml" "$SEAL_PREFIX/agent.yml" 2>/dev/null || true
+  # Hardening de permisos (FABLE, defensa en profundidad): cuando el registro out-of-band popule
+  # .env con el token firmado/mTLS real, NO debe quedar world-readable (umask default lo dejaría 644).
+  chmod 700 "$SEAL_PREFIX" 2>/dev/null || true
+  chmod 600 "$SEAL_PREFIX/.env" 2>/dev/null || true
+  [[ -d "$SEAL_PREFIX/certs" ]] && chmod 700 "$SEAL_PREFIX/certs" 2>/dev/null || true
+  log_ok "Permisos endurecidos (700 prefix, 600 .env)"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
