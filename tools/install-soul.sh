@@ -29,6 +29,8 @@ set -euo pipefail
 # ─────────────────────────────────────────────────────────────────────────────
 
 SEAL_PREFIX="${SEAL_PREFIX:-$HOME/.seal}"
+# Fuente de los .py/.sql del mini-SOUL (repo/payload). Default: raíz del repo (padre de tools/).
+SEAL_SOURCE="${SEAL_SOURCE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)}"
 DEVICE_NAME="${DEVICE_NAME:-$(hostname)}"
 SOUL_ENDPOINT="${SOUL_ENDPOINT:-}"
 AGENT_NAME="${AGENT_NAME:-}"
@@ -242,7 +244,7 @@ install_dependencies() {
 create_schema() {
   log_section "Phase 6: Database Schema Initialization"
 
-  local db_path="$WORK_DIR/mini-soul.db"
+  local db_path="$SEAL_PREFIX/mini-soul.db"
 
   if [[ "$DRY_RUN" == "true" ]]; then
     log_info "[DRY RUN] Would create database at: $SEAL_PREFIX/mini-soul.db"
@@ -250,8 +252,8 @@ create_schema() {
   else
     mkdir -p "$(dirname "$db_path")"
 
-    # Create database with schema (Python inline)
-    python3 "$db_path" << 'PYTHON_EOF'
+    # Create database with schema (Python inline). '-' = leer el script del stdin, argv[1]=db_path.
+    python3 - "$db_path" << 'PYTHON_EOF'
 import sqlite3, sys
 db = sqlite3.connect(sys.argv[1])
 db.execute('PRAGMA foreign_keys = ON')
@@ -328,7 +330,7 @@ populate_metadata() {
   if [[ "$DRY_RUN" == "true" ]]; then
     log_info "[DRY RUN] Would update metadata: device_id=$DEVICE_ID, agent=$AGENT_NAME, soul_endpoint=$SOUL_ENDPOINT"
   else
-    python3 "$WORK_DIR/mini-soul.db" "$DEVICE_ID" "$AGENT_NAME" "$SOUL_ENDPOINT" "$DB_VERSION" "$COMPAT_VERSION" << 'PYTHON_EOF'
+    python3 - "$SEAL_PREFIX/mini-soul.db" "$DEVICE_ID" "$AGENT_NAME" "$SOUL_ENDPOINT" "$DB_VERSION" "$COMPAT_VERSION" << 'PYTHON_EOF'
 import sqlite3, sys
 db = sqlite3.connect(sys.argv[1])
 db.execute('PRAGMA foreign_keys = ON')
@@ -486,6 +488,34 @@ LAUNCHD_EOF
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PHASE 9b: DEPLOY ARTIFACTS + CONFIG (bug cazado por e2e: faltaba copiar libs/config al prefijo)
+# ─────────────────────────────────────────────────────────────────────────────
+
+deploy_artifacts() {
+  log_section "Phase 9b: Deploy libs + config to prefix"
+  if [[ "$DRY_RUN" == "true" ]]; then
+    log_info "[DRY RUN] Would copy mini-SOUL libs to $SEAL_PREFIX/lib/ and config to $SEAL_PREFIX/"
+    return
+  fi
+  mkdir -p "$SEAL_PREFIX/lib" "$SEAL_PREFIX/certs"
+  local missing=0
+  for f in memory/minisoul_sync_daemon.py memory/minisoul_sync_central.py memory/minisoul_sync_policy.py \
+           memory/minisoul_local_schema.sql \
+           tools/seal_token.py tools/seal_token_store.py tools/seal_sync_auth.py \
+           tools/seal_csr.py tools/seal_revocation_client.py tools/seal_mtls.py; do
+    if [[ -f "$SEAL_SOURCE/$f" ]]; then
+      cp "$SEAL_SOURCE/$f" "$SEAL_PREFIX/lib/"
+    else
+      log_warn "artefacto no encontrado en source: $f (bundle incompleto)"
+      missing=$((missing + 1))
+    fi
+  done
+  [[ "$missing" -eq 0 ]] && log_ok "Libs desplegadas en $SEAL_PREFIX/lib/" || log_warn "$missing libs faltaron"
+  cp "$WORK_DIR/.env" "$SEAL_PREFIX/.env" 2>/dev/null && log_ok "Config .env → $SEAL_PREFIX/" || true
+  cp "$WORK_DIR/agent.yml" "$SEAL_PREFIX/agent.yml" 2>/dev/null || true
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # PHASE 10: SUMMARY
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -547,6 +577,7 @@ main() {
   generate_env_file
   generate_agent_yml
   [[ "$OS" == "linux" ]] && generate_systemd_service || generate_launchd_plist
+  deploy_artifacts
   print_summary
 }
 
