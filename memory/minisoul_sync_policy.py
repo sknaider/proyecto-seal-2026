@@ -39,6 +39,40 @@ DEFAULT_SCOPE_FOR_LOCAL = "private"    # Local memories default to private
 DEFAULT_SCOPE_FOR_CONSOLIDATED = "shared"  # Consolidated memories become shared
 
 
+def _coerce_importance(value):
+    """FABLE #4: acepta int o float (7.9 guardado como float → 8). int en [0,10] o None si inválido."""
+    try:
+        iv = int(round(float(value)))
+    except (TypeError, ValueError):
+        return None
+    return iv if 0 <= iv <= 10 else None
+
+
+def _is_invalidated_now(invalid_at):
+    """FABLE #3: invalidada SOLO si invalid_at es timestamp PASADO parseable. invalid_at FUTURO = aún
+    válida → sube. Malformado → conservador: tratar como VÁLIDA (no dropear el alma por un timestamp roto)."""
+    if not invalid_at:
+        return False
+    try:
+        ts = datetime.fromisoformat(str(invalid_at).replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return False
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts <= datetime.now(timezone.utc)
+
+
+def _is_local_only(memory):
+    """Defensa en profundidad (security review 'sanctum exposure'): una memoria puede marcarse EXPLÍCITA
+    como que nunca sale del device (metadata.local_only/do_not_sync o scope device_only/local). El
+    fail-open en TIPO cognitivo NO sube algo marcado local. La privacidad cross-tenant la enforcea el
+    server (RLS/scope) — esto es la capa cliente."""
+    md = memory.get("metadata") or {}
+    if isinstance(md, dict) and (md.get("local_only") or md.get("do_not_sync")):
+        return True
+    return str(memory.get("scope", "")).lower() in ("device_only", "local_only", "local")
+
+
 class MemoryRecord(TypedDict, total=False):
     """Minimal memory record structure for sync decision."""
     id: str
@@ -79,17 +113,17 @@ def should_sync_up(memory: dict) -> bool:
     Deterministic: no randomness, no heuristics, no LLM judgment.
     All decisions are based on explicit importance value.
     """
-    # Check 1: Memory must not be invalidated
-    if memory.get("invalid_at") is not None:
+    # Check 1: no invalidada (FABLE #3: inválida solo si invalid_at es un timestamp PASADO parseable).
+    if _is_invalidated_now(memory.get("invalid_at")):
         return False
 
-    # Check 2: Memory must have sufficient importance
-    importance = memory.get("importance", 0)
-    if not isinstance(importance, int) or importance < 0 or importance > 10:
-        # Guard: invalid importance score
+    # Defensa en profundidad (security review): marcada local-only → nunca sube.
+    if _is_local_only(memory):
         return False
 
-    if importance < SYNC_THRESHOLD_IMPORTANCE:
+    # Check 2: importancia suficiente (FABLE #4: coerción de float, 7.9 → 8).
+    importance = _coerce_importance(memory.get("importance", 0))
+    if importance is None or importance < SYNC_THRESHOLD_IMPORTANCE:
         return False
 
     # Check 3: SOLO lo raw/efímero se queda local. Fail-OPEN en el TIPO cognitivo a propósito.
@@ -119,24 +153,26 @@ def evaluate_sync_decision(memory: dict) -> SyncCandidate:
     memory_type = memory.get("memory_type", "unknown")
     invalid_at = memory.get("invalid_at")
 
-    # Decision tree
-    if invalid_at is not None:
+    # Decision tree (mismos helpers que should_sync_up → cero divergencia, FABLE)
+    if _is_invalidated_now(invalid_at):
         return SyncCandidate(
-            memory_id=memory_id,
-            should_sync=False,
-            reason="invalidated",
-            recommended_scope=scope or DEFAULT_SCOPE_FOR_LOCAL,
-            importance=importance,
+            memory_id=memory_id, should_sync=False, reason="invalidated",
+            recommended_scope=scope or DEFAULT_SCOPE_FOR_LOCAL, importance=importance,
         )
 
-    if not isinstance(importance, int) or importance < 0 or importance > 10:
+    if _is_local_only(memory):
         return SyncCandidate(
-            memory_id=memory_id,
-            should_sync=False,
-            reason="invalid_importance_score",
-            recommended_scope=scope or DEFAULT_SCOPE_FOR_LOCAL,
-            importance=importance,
+            memory_id=memory_id, should_sync=False, reason="local_only",
+            recommended_scope=DEFAULT_SCOPE_FOR_LOCAL, importance=importance,
         )
+
+    _imp = _coerce_importance(importance)
+    if _imp is None:
+        return SyncCandidate(
+            memory_id=memory_id, should_sync=False, reason="invalid_importance_score",
+            recommended_scope=scope or DEFAULT_SCOPE_FOR_LOCAL, importance=importance,
+        )
+    importance = _imp
 
     LOCAL_ONLY_TYPES = {"episodic", "raw_episodic", "ephemeral", "working", "scratch", "buffer"}
     if memory_type.lower() in LOCAL_ONLY_TYPES:
@@ -169,7 +205,7 @@ def evaluate_sync_decision(memory: dict) -> SyncCandidate:
     )
 
 
-def select_sync_batch(memories: list, max_n: int = 100) -> list:
+def select_sync_batch(memories: list, max_n: int = None) -> list:
     """
     Select and prioritize a batch of memories for sync.
 
@@ -202,7 +238,9 @@ def select_sync_batch(memories: list, max_n: int = 100) -> list:
         try:
             created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
         except (ValueError, AttributeError):
-            created_at = datetime.now(timezone.utc)
+            # FABLE #2: created_at malformado NO debe asumir hoy (empujaría memorias reales fuera
+            # del top-N). Se trata como el MÁS VIEJO → ordena al final, no salta la cola.
+            created_at = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
         # Sort by: (-importance, -created_at)
         # Negative because we want descending order
@@ -210,7 +248,11 @@ def select_sync_batch(memories: list, max_n: int = 100) -> list:
 
     sorted_batch = sorted(eligible, key=sort_key)
 
-    # Return top max_n
+    # FABLE #1/#5: max_n None o <=0 → devolver TODO lo elegible (NO dropear por volumen — mismo riesgo
+    # de "perder el alma" pero por cantidad). max_n>0 = página EXPLÍCITA; el daemon DEBE iterar hasta
+    # vaciar el outbox (no asumir que una sola llamada sincroniza todo).
+    if max_n is None or max_n <= 0:
+        return sorted_batch
     return sorted_batch[:max_n]
 
 
