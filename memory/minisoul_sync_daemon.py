@@ -57,9 +57,10 @@ except ImportError:
     raise ImportError("Missing minisoul_sync_policy.py in the same directory")
 
 try:
-    from seal_token import issue_token, device_fingerprint, Ed25519PrivateKey
+    from seal_token import device_fingerprint, Ed25519PrivateKey
+    from seal_sync_auth import load_device_token   # el device CARGA el token firmado por central (no auto-emite)
 except ImportError:
-    raise ImportError("Missing seal_token.py in the same directory")
+    raise ImportError("Missing seal_token.py / seal_sync_auth.py in the same directory")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -497,14 +498,15 @@ class MiniSOULSyncDaemon:
                 
                 logger.info(f"Processing batch of {len(batch)} eligible memories")
                 
-                # Step 3: Generate device-bound token
-                token = issue_token(
-                    agent=self.config.agent,
-                    device_id=self.config.device_id,
-                    fingerprint=self.device_fp,
-                    private_key=self.config.private_key,
-                    ttl_s=self.config.token_ttl_s
-                )
+                # Step 3: CARGAR el token que central FIRMÓ para este device (tras aprobación HUMANA).
+                # El device NO auto-emite su token — eso rompería la cadena de confianza (fix NEXUS):
+                # install inerte → humano aprueba → central firma → el device solo LO CARGA y lo usa.
+                token = load_device_token(self.config.agent)
+                if not token:
+                    logger.error("No hay token firmado para %s — el device no está autorizado aún "
+                                 "(falta el registro out-of-band aprobado por un humano). Abortando sync.",
+                                 self.config.agent)
+                    break
                 
                 # Step 4: Assemble payload
                 payload = assemble_sync_payload(
