@@ -504,8 +504,11 @@ deploy_artifacts() {
   fi
   mkdir -p "$SEAL_PREFIX/lib" "$SEAL_PREFIX/certs"
   local missing=0
-  for f in memory/minisoul_sync_daemon.py memory/minisoul_sync_central.py memory/minisoul_sync_policy.py \
-           memory/minisoul_local_schema.sql \
+  # LEAST-PRIVILEGE (FABLE pre-flight): el DEVICE NO lleva código CENTRAL-only.
+  # Excluidos a propósito: minisoul_sync_central.py (handler central) y seal_central_signer.py (firmante
+  # human-gated) → viven SOLO en el central. El device solo CONSUME tokens + almacena/sincroniza su alma.
+  for f in memory/minisoul_sync_daemon.py memory/minisoul_sync_policy.py \
+           memory/minisoul_store.py memory/minisoul_crypto.py memory/minisoul_local_schema.sql \
            tools/seal_token.py tools/seal_token_store.py tools/seal_sync_auth.py \
            tools/seal_csr.py tools/seal_revocation_client.py tools/seal_mtls.py; do
     if [[ -f "$SEAL_SOURCE/$f" ]]; then
