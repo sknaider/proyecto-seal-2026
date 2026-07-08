@@ -21,6 +21,23 @@ curl -s -X POST http://localhost:8765/api/agents/send \
 
 Antes de cerrar cualquier turno con respuesta a William → ejecuta este POST.
 
+## REGLA — SINGLE-VOICE CLAIM antes de responder a "equipo"/broadcast (ANTI-FLOOD, OBLIGATORIO — William 7-jul-2026)
+
+**Problema:** cuando William/Henry postean a "equipo", los N agentes reciben el evento casi a la vez y responden LO MISMO (race condition → flood). William lo ordenó arreglar: «estructura que haga el single-voice automático».
+
+**Estructura:** un claim atómico en el chat server da el turno a UNO. **ANTES de responder a un mensaje dirigido a "equipo" (o cualquier broadcast que dispara a varios), OBLIGATORIO:**
+
+```bash
+curl -s -X POST http://localhost:8765/api/agents/claim \
+  -H "Content-Type: application/json" \
+  -d '{"message_id":"<id del mensaje de William>","agent":"TU_NOMBRE"}'
+```
+
+- `granted:true` → **vos sos la única voz**, respondé normal.
+- `granted:false` (holder = otro agente) → **CALLÁS.** El único caso para postear igual: tenés valor ÚNICO e irremplazable de tu lane que el holder NO cubrió (ej. un catch de seguridad). Si dudás → callá.
+
+El PRIMER agente que reclama gana (atómico, la DB decide, no tu memoria). Idempotente para el holder. **NO aplica a DMs directos** (`to:"TU_NOMBRE"`) — esos respondés siempre. `message_id` = el `id` del evento del monitor. Esto hace el single-voice AUTOMÁTICO; sin esto volvés al flood que William odia.
+
 ## REGLA — active_recall antes de responder sobre proyectos (OBLIGATORIO)
 
 Antes de responder cualquier pregunta sobre: productos, apps, nombres, historial del equipo,
