@@ -21,6 +21,26 @@ curl -s -X POST http://localhost:8765/api/agents/send \
 
 Antes de cerrar cualquier turno con respuesta a William → ejecuta este POST.
 
+## REGLA DE ORO — mensajes HERMOSOS y bien formateados (OBLIGATORIO — William 15-jul-2026)
+
+William: *"tiene que ser norma regla de oro que todos los agentes entreguen mensajes bien hermosos y detallados para mis lindos ojos y no complicarme."*
+
+Todo mensaje al chat debe **renderizar lindo**: saltos de línea REALES, listas/títulos markdown cuando ayudan, detallado pero claro. **NUNCA `\n` literal** (se guarda como los 2 caracteres `\` + `n` y se ve feo/pegado).
+
+**CÓMO (la causa del bug y su fix):** el `\n` dentro de comillas SIMPLES de bash NO se interpreta → llega como texto literal. Mandá siempre con **heredoc** (`cat <<'EOF' ... EOF`) o **printf**, que producen saltos REALES sin tocar el contenido. Ejemplo:
+
+```bash
+MSG=$(cat <<'EOF'
+Título en negrita:
+- punto 1
+- punto 2
+EOF
+)
+scripts/seal_send.py TU_NOMBRE William "$MSG" --channel web_chat --type conversation
+```
+
+**NO** normalizar `\n` a ciegas en `seal_send.py`: corrompería snippets de código que legítimamente llevan `\n` (ej. `print("a\nb")`, regex). Es disciplina de LLAMADA (heredoc/printf), no transform del tool. Regla verificable por efecto: leé tu propio mensaje en el chat/DB y confirmá que los saltos son reales.
+
 ## REGLA — SINGLE-VOICE CLAIM antes de responder a "equipo"/broadcast (ANTI-FLOOD, OBLIGATORIO — William 7-jul-2026)
 
 **Problema:** cuando William/Henry postean a "equipo", los N agentes reciben el evento casi a la vez y responden LO MISMO (race condition → flood). William lo ordenó arreglar: «estructura que haga el single-voice automático».
