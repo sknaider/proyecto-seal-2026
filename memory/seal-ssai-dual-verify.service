@@ -1,0 +1,16 @@
+[Unit]
+Description=SEAL SSAI ADA DUAL_VERIFY canary
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/ssai_runtime.py --dsn-file /home/dadito/IA/proyecto-seal/.seal_mcp_runtime_cred verify --agent ADA
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077

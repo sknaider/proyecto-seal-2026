@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from datetime import datetime, timedelta, timezone
 import json
 
 import pytest
@@ -175,13 +176,21 @@ def test_stale_witness_requires_explicit_semantic_promotion_and_blocks_rollback(
     original = ledger.read_records()[0].event["manifest"]
     previous_hash = manifest_digest(original)
     evolved = copy.deepcopy(original)
+    # The evolution must be monotonic relative to the generated genesis.  A fixed
+    # wall-clock instant made this test expire once real time passed that date.
+    genesis_instant = datetime.fromisoformat(
+        original["issued_at"].removesuffix("Z") + "+00:00"
+    ).astimezone(timezone.utc)
+    evolved_instant = (genesis_instant + timedelta(seconds=1)).isoformat(
+        timespec="seconds"
+    ).replace("+00:00", "Z")
     evolved.update(
         sequence=2,
         previous_manifest_hash=previous_hash,
         genesis_manifest_hash=previous_hash,
         reason_code="PERSONALITY_EVOLUTION",
-        issued_at="2026-07-17T01:00:00Z",
-        effective_at="2026-07-17T01:00:00Z",
+        issued_at=evolved_instant,
+        effective_at=evolved_instant,
     )
     evolved["identity_state"]["ocean_baseline_hash"] = "sha256:" + "8" * 64
     agent = next(
