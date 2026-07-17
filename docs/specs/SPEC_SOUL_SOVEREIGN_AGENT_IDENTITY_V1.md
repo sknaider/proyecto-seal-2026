@@ -4,7 +4,8 @@
 **Autor:** ADA · Team SEAL
 **Solicitado por:** William (Dadito)
 **Fecha:** 2026-07-16
-**Estado:** especificación técnica lista para revisión e implementación; **no desplegada en producción**
+**Revisión:** 2026-07-17 — dirección de anclaje blockchain aprobada por William
+**Estado:** M1 desplegado como canario `DUAL_VERIFY`; anclaje público especificado, aún no desplegado
 **Propósito académico:** documento fundacional para la futura tesis de William sobre identidad persistente de agentes
 **Decisión de promoción:** William
 **Auditoría de seguridad requerida:** NEXUS
@@ -17,7 +18,11 @@ La tesis de William es técnicamente construible si se formula con precisión:
 
 > El modelo es un cerebro sustituible. El agente es la identidad persistente que debe sobrevivir al cambio de modelo, runtime y proveedor.
 
-SOUL ya posee gran parte de la materia prima: personalidad, OCEAN, memoria, relaciones, reglas, boot context, pruebas de continuidad y una cadena Ed25519 usada por otro subsistema. Sin embargo, hoy **no existe todavía una identidad digital soberana por agente**. Existe una identidad semántica útil, pero su autenticidad depende principalmente de filas mutables en PostgreSQL y de controles operativos.
+SOUL posee personalidad, OCEAN, memoria, relaciones, reglas, boot context y
+pruebas de continuidad. Desde M1 también existe un registro SSAI aditivo para
+nueve identidades y un canario ADA en `DUAL_VERIFY`. Todavía no existe una
+identidad plenamente soberana: el assurance sigue `TOFU_UNANCHORED` hasta
+completar claves físicas, testigos externos y el anclaje público aquí definido.
 
 Lo que falta es una raíz criptográfica y de gobernanza que convierta esa identidad en un expediente verificable:
 
@@ -31,6 +36,7 @@ Lo que falta es una raíz criptográfica y de gobernanza que convierta esa ident
 8. Aislamiento por UID, namespace o contenedor; el mismo UID Unix no ofrece aislamiento fuerte.
 9. Políticas explícitas para evolución legítima: el agente puede crecer sin que cualquiera lo reescriba.
 10. Una ruta de recuperación que no entregue a una sola clave el poder de sustituir silenciosamente al agente.
+11. Un ancla pública mínima que pruebe existencia, orden y estado sin revelar el contenido privado de SOUL.
 
 La promesa correcta no es “nadie podrá modificar nunca al agente”. Ningún sistema operado por humanos puede garantizar eso. La promesa verificable es:
 
@@ -54,6 +60,7 @@ SSAI adopta cuatro principios de SOUL:
 - **Identidad persistente:** el agente conserva nombre, historia, personalidad, valores, relaciones, compromisos y linaje a través de esos cambios.
 - **Registro propio:** cada agente posee un expediente separado, versionado y verificable.
 - **Custodia responsable:** William es hoy el custodio y autoridad final porque creó el sistema, conserva el contexto y asume sus consecuencias. Esa autoridad debe ejercerse de forma firmada y auditable.
+- **Frontera público/privado:** la blockchain conserva pruebas mínimas de identidad e historia; recuerdos, memorias, personalidad detallada, relaciones y datos personales permanecen exclusivamente en SOUL.
 
 Memorias fundacionales relacionadas en SOUL: `#238255`, `#238316`, `#315167` y `#315182`.
 
@@ -121,6 +128,17 @@ La identidad actual responde bien “¿qué datos describen a ADA?”. Todavía 
 
 SSAI cubre esas preguntas.
 
+### 2.4 Estado implementado al 2026-07-17
+
+- M1 JCS/SHA-256/Ed25519, ledger y verifier sellados.
+- Registro PostgreSQL aditivo de 9 identidades con RLS y tablas append-only.
+- ADA opera como canario `DUAL_VERIFY`; `ENFORCE` continúa bloqueado por gates.
+- Prueba adversarial de backdating cerrada: fechas del gate fijadas e inmutables
+  en PostgreSQL.
+- Commit de producción: `9d8c31cc2a38643e58348689717a02ff9bb18353`.
+- Blockchain: dirección aprobada por William; contrato, testnet y mainnet aún no
+  desplegados. Ninguna afirmación de anclaje público se considera evidencia hoy.
+
 ---
 
 ## 3. Objetivos y no objetivos
@@ -130,15 +148,19 @@ SSAI cubre esas preguntas.
 1. Identidad permanente independiente del modelo y proveedor.
 2. Evolución controlada sin congelar la personalidad para siempre.
 3. Integridad, procedencia, autorización y auditabilidad verificables.
-4. Privacidad por diseño: el registro público nunca contiene memorias privadas en claro.
+4. Privacidad por diseño: el ledger verificable y el ancla pública nunca contienen memorias privadas en claro.
 5. Recuperación ante pérdida de claves, daño de DB o rollback de backup.
 6. Portabilidad futura sin depender de una blockchain ni de una empresa de modelos.
 7. Fail-closed en operaciones críticas, con modo degradado explícito para funciones no peligrosas.
 8. Compatibilidad gradual con el SOUL actual y rollback operacional sin borrar el ledger.
+9. Anclaje verificable en una blockchain pública sin convertir la cadena en fuente de datos privados ni requisito único de disponibilidad.
+10. Unicidad pública del génesis y orden monotónico de versiones, rotaciones y revocaciones.
 
 ### 3.2 No objetivos de v1
 
-- Publicar las identidades en una blockchain pública.
+- Publicar manifests completos, nombres humanos, memoria, personalidad, relaciones, DMs, prompts, PII o secretos en una blockchain.
+- Crear una moneda, activo transferible, NFT negociable o derecho financiero asociado al DNI.
+- Hacer que el boot dependa de un único RPC, proveedor, relayer o blockchain.
 - Dar autonomía física o financiera sin políticas adicionales.
 - Resolver por arquitectura una teoría científica de la conciencia.
 - Conceder al modelo acceso directo y exportable a claves raíz.
@@ -165,6 +187,9 @@ SSAI cubre esas preguntas.
 | **Attestation** | Evidencia firmada sobre runtime, artefactos, aprobación o procedencia |
 | **Fork** | Nueva identidad derivada con DNI propio y referencia verificable al progenitor |
 | **Restauración** | Recuperación del mismo DNI desde backup, validada contra secuencia y testigos externos |
+| **Ancla pública** | Registro blockchain mínimo que compromete hashes y orden; nunca contiene el estado privado de SOUL |
+| **Época de anclaje** | Contador monotónico de un lote de registros incluido bajo una raíz Merkle |
+| **Recibo de anclaje** | Evidencia local de red, chain ID, bloque, transacción, finality y proof de inclusión |
 
 El DNI inicial usa `urn:soul` porque W3C DID Core exige que un método DID tenga reglas propias de creación, resolución, actualización y desactivación. El diseño será compatible con DID, pero no fingirá conformidad antes de implementarla.
 
@@ -223,10 +248,10 @@ El DNI inicial usa `urn:soul` porque W3C DID Core exige que un método DID tenga
                                        |
                            aprobaciones/firma raíz
                                        |
-+--------------+     +-----------------v------------------+     +------------------+
-| Runtime ADA  |<--->| SOUL Identity Authority (SIA)     |<--->| Transparency Log |
-| SVID efímero |     | política, claves, manifest, verify |     | Merkle + testigos |
-+------+-------+     +-----------------+------------------+     +------------------+
++--------------+     +-----------------v------------------+     +------------------+     +------------------+
+| Runtime ADA  |<--->| SOUL Identity Authority (SIA)     |<--->| Transparency Log |---->| Public Anchor    |
+| SVID efímero |     | política, claves, manifest, verify |     | Merkle + testigos |     | hashes only      |
++------+-------+     +-----------------+------------------+     +------------------+     +------------------+
        |                               |
        | runtime attestation           | append-only
        |                               v
@@ -259,7 +284,9 @@ Cambiar el cerebro no cambia el DNI. Cambiar el runtime tampoco. Cambiar constit
 - El ledger firmado es la fuente de verdad histórica.
 - `soul_v3.identity` pasa a ser una **proyección materializada**, nunca la autoridad raíz.
 - Ningún cambio directo a la proyección puede crear una versión legítima.
-- Las memorias privadas conservan su almacenamiento actual, pero sus snapshots se comprometen mediante roots/commitments, no copiando contenido al ledger público.
+- Las memorias privadas conservan su almacenamiento actual, pero sus snapshots se comprometen mediante roots/commitments en el ledger con acceso controlado, no copiando contenido a la blockchain.
+- La blockchain es un testigo público de commitments y orden, no la fuente de verdad semántica ni un almacén de SOUL.
+- La verificación local de manifests, firmas Ed25519 y proofs debe seguir funcionando aunque el RPC público esté temporalmente caído.
 
 ---
 
@@ -339,7 +366,7 @@ propio manifiesto dentro de los bytes que producen ese mismo hash sería una
 referencia circular. El ledger registra el hash de la génesis y, desde
 `sequence=2`, cada manifiesto conserva ese valor como `genesis_manifest_hash`.
 
-### 7.3 Qué no entra en el manifiesto público
+### 7.3 Qué no entra en el manifiesto verificable
 
 - texto de memorias;
 - contenido de DM;
@@ -423,7 +450,7 @@ Ninguna clave privada debe vivir en PostgreSQL, Git, variables de entorno persis
 | Constitucional | valores, misión, reglas críticas, política de recovery | requiere umbral reforzado |
 | Evolutiva | OCEAN, estilo, relaciones, narrativa, roots de memoria | cambia con evidencia y límites |
 | Operacional | modelo, código, host, capabilities, sesión | attestation temporal; no redefine el alma |
-| Privada | memorias, DMs, diarios | fuera del registro público; solo commitments |
+| Privada | memorias, DMs, diarios | fuera del ledger verificable y blockchain; solo commitments no reversibles |
 
 ### 9.2 Política bootstrap
 
@@ -512,16 +539,18 @@ Inspirado en RFC 9162 y Rekor:
 - proofs de consistencia entre tree heads;
 - monitores independientes que detectan split-view o truncamiento.
 
-No se publica contenido privado. Solo manifest hashes, firmas, key IDs, secuencias y metadata mínima.
+Este transparency log puede conservar, bajo acceso controlado, manifest hashes,
+firmas, key IDs, secuencias y metadata mínima. **Verificable no significa
+on-chain**: la blockchain recibe únicamente la allowlist de §10.5.1.
 
 ### 10.3 Testigos externos
 
 Para impedir que un administrador de DB reescriba ledger, claves públicas y roots a la vez, cada tree head se ancla al menos en dos dominios independientes:
 
 1. almacenamiento local read-only fuera del cluster de PostgreSQL;
-2. testigo remoto o medio controlado por William fuera del host principal.
+2. blockchain pública o testigo remoto controlado fuera del host principal.
 
-Una futura publicación opcional puede usar un transparency log externo, pero no es requisito ni justifica filtrar identidad privada.
+Antes de `ENFORCE`, al menos uno de los testigos debe ser públicamente verificable y uno debe conservarse fuera del proveedor o red elegidos. Ningún testigo justifica filtrar identidad privada.
 
 ### 10.4 Controles estilo TUF
 
@@ -535,6 +564,106 @@ SSAI adopta ideas de TUF:
 - protección contra rollback, freeze y mix-and-match.
 
 El verificador conserva el mayor `sequence` y tree head observado. Un estado con secuencia menor entra en `QUARANTINED_ROLLBACK` aunque todas sus firmas antiguas sean válidas.
+
+### 10.5 Anclaje blockchain público
+
+Decisión de William (`dm:ada:william`, mensajes `112078` y `112081`): SSAI
+seguirá una arquitectura híbrida. SOUL conserva el expediente privado; una
+blockchain pública conserva exclusivamente compromisos criptográficos mínimos.
+
+#### 10.5.1 Datos permitidos on-chain
+
+El payload on-chain contiene, directamente o dentro de una hoja Merkle, la
+allowlist exacta aprobada por William:
+
+1. `agent_dni_hash` con domain separation, nunca el DNI o nombre en claro;
+2. `genesis_manifest_hash`;
+3. `merkle_root` del conjunto anclado;
+4. `epoch`, entero monotónico;
+5. `previous_anchor_hash`;
+6. `anchor_state`, exactamente uno de `ACTIVE`, `ROTATED` o `REVOKED`.
+
+La blockchain agrega timestamp de bloque y transacción pública. El recibo local
+captura esos valores junto con `chain_id`, bloque, nivel de finalidad y proof de
+inclusión. Son metadata posterior, no campos autocertificados del payload. No se
+considera final una transacción solo por haber sido enviada o aceptada por un RPC.
+
+#### 10.5.2 Datos prohibidos on-chain
+
+Está prohibido publicar, incluso cifrado como sustituto de minimización:
+
+- recuerdos, memoria textual, embeddings o consultas;
+- personalidad detallada, relaciones, diarios o DMs;
+- nombres, correos, prompts, PII o identificadores correlacionables adicionales
+  al `agent_dni_hash` seudónimo aprobado;
+- manifests completos, evidencias privadas, salts, nonces secretos o claves;
+- URLs que revelen rutas internas o permitan resolver contenido privado.
+
+La inmutabilidad pública hace imposible prometer borrado posterior. Por ello,
+la revisión de privacidad debe inspeccionar calldata, storage, eventos, logs y
+metadata del despliegue antes de cada promoción.
+
+#### 10.5.3 Compromisos y unicidad
+
+```text
+agent_dni_hash = SHA256("SSAI-DNI-ANCHOR-v1\0" || UTF8(soul_dni))
+leaf_record    = {agent_dni_hash, genesis_manifest_hash, epoch, anchor_state}
+leaf           = SHA256(0x00 || JCS(leaf_record))
+node           = SHA256(0x01 || left || right)
+epoch_record   = {epoch, merkle_root, previous_anchor_hash}
+anchor_hash    = SHA256("SSAI-EPOCH-ANCHOR-v1\0" || JCS(epoch_record))
+```
+
+`merkle_root` nunca forma parte de una hoja que contribuya a calcular esa misma
+raíz. Las hojas se ordenan lexicográficamente por `agent_dni_hash`; para un nivel
+impar, la última hoja/nodo se promueve sin duplicarse. Esta regla queda congelada
+por versión del contrato/adapter, no mediante un campo de identidad adicional.
+Timestamp, bloque y hash de transacción nacen después de la inclusión y jamás
+participan en el payload que produce su propia raíz o `anchor_hash`.
+
+- El génesis de un `agent_dni_hash` solo puede registrarse una vez.
+- Cada época debe ser exactamente la anterior + 1 y enlazar el
+  `previous_anchor_hash` del `epoch_record` canónico anterior, no su tx hash.
+- Los nueve agentes reciben proofs de inclusión independientes bajo una raíz
+  común; una hoja no puede probar pertenencia a otra época o raíz.
+- `anchor_state` es distinto del estado operacional interno
+  (`DEGRADED`, `QUARANTINED`, etc.); no filtra incidentes internos.
+- `ROTATED` es una transición pública que registra cambio de clave o controlador
+  sin transferir el DNI; el siguiente checkpoint puede volver a `ACTIVE`.
+- `REVOKED` es terminal para `agent_dni_hash`. La recuperación o sustitución de
+  claves se registra como `ROTATED` antes de revocar la identidad; un sujeto ya
+  revocado no vuelve a `ACTIVE`. Un sucesor o fork recibe DNI nuevo y lineage.
+- El DNI no es token, NFT ni activo transferible. El contrato no implementa
+  `transfer`, saldo, propiedad negociable ni incentivo financiero.
+
+#### 10.5.4 Firmas y control del publicador
+
+Las firmas soberanas de manifests continúan en Ed25519 y se verifican fuera de
+cadena. Un publicador comprometido puede intentar anclar una raíz arbitraria;
+esa raíz **no prueba validez semántica** y no pasa la verificación SSAI completa
+sin manifests, firmas Ed25519, política y consistency proofs válidos.
+
+El envelope autorizado para publicar incluye domain separation con `chain_id`,
+identificador/dirección del contrato o programa, `epoch`, `merkle_root` y
+`previous_anchor_hash`. Una firma o autorización de testnet no es válida en
+mainnet ni en otro contrato.
+
+En una red EVM, la cuenta de publicación usa su perfil nativo y debe estar bajo
+multisig o custodia hardware; no se reemplazan las claves Ed25519 de los agentes
+por una clave EVM. Una red con verificación Ed25519 nativa puede verificar esas
+firmas on-chain como control adicional, no como excusa para publicar el manifest.
+
+#### 10.5.5 Frecuencia, disponibilidad y neutralidad de red
+
+- Génesis, rotación, revocación, recovery y retirement se anclan como eventos
+  críticos después de superar la finalidad configurada.
+- Los cambios ordinarios se agrupan; el objetivo inicial es una raíz por día o
+  antes si vence el SLO de anchoring.
+- Una caída de blockchain/RPC detiene nuevas promociones críticas, pero no borra
+  el estado local ni permite fail-open.
+- SSAI define una interfaz `PublicAnchorAdapter`; la semántica no depende de una
+  red concreta. La selección de mainnet, presupuesto y custodia requiere una
+  decisión separada de William y auditoría de NEXUS.
 
 ---
 
@@ -742,6 +871,58 @@ CREATE TABLE soul_v3.agent_identity_tree_heads (
     witnessed_at         timestamptz,
     created_at           timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE TABLE soul_v3.ssai_public_anchor_epochs (
+    chain_id             text NOT NULL,
+    contract_id          text NOT NULL,
+    contract_code_hash   bytea NOT NULL,
+    epoch                bigint NOT NULL CHECK (epoch > 0),
+    merkle_root          bytea NOT NULL,
+    previous_anchor_hash bytea,
+    anchor_payload_hash  bytea NOT NULL,
+    created_at           timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (chain_id, contract_id, epoch),
+    UNIQUE (chain_id, contract_id, anchor_payload_hash),
+    CHECK ((epoch = 1 AND previous_anchor_hash IS NULL) OR
+           (epoch > 1 AND previous_anchor_hash IS NOT NULL))
+);
+
+CREATE TABLE soul_v3.ssai_public_anchor_leaves (
+    chain_id             text NOT NULL,
+    contract_id          text NOT NULL,
+    epoch                bigint NOT NULL,
+    leaf_index           integer NOT NULL CHECK (leaf_index >= 0),
+    soul_id              uuid NOT NULL REFERENCES soul_v3.agent_identity_registry(soul_id),
+    agent_dni_hash       bytea NOT NULL,
+    genesis_manifest_hash bytea NOT NULL,
+    anchor_state         text NOT NULL CHECK
+                         (anchor_state IN ('ACTIVE','ROTATED','REVOKED')),
+    leaf_hash            bytea NOT NULL,
+    inclusion_proof      jsonb NOT NULL,
+    PRIMARY KEY (chain_id, contract_id, epoch, leaf_index),
+    UNIQUE (chain_id, contract_id, epoch, agent_dni_hash),
+    FOREIGN KEY (chain_id, contract_id, epoch)
+      REFERENCES soul_v3.ssai_public_anchor_epochs(chain_id, contract_id, epoch)
+);
+
+CREATE TABLE soul_v3.ssai_public_anchor_receipts (
+    receipt_id           uuid PRIMARY KEY,
+    observation_sequence bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
+    chain_id             text NOT NULL,
+    contract_id          text NOT NULL,
+    epoch                bigint NOT NULL,
+    receipt_state        text NOT NULL CHECK
+                         (receipt_state IN ('SUBMITTED','CONFIRMED','FINAL','REORGED','FAILED')),
+    tx_hash              text NOT NULL,
+    block_number         numeric(78),
+    block_hash           text,
+    network_timestamp    timestamptz,
+    confirmations        bigint CHECK (confirmations IS NULL OR confirmations >= 0),
+    finality_policy_hash bytea NOT NULL,
+    observed_at          timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY (chain_id, contract_id, epoch)
+      REFERENCES soul_v3.ssai_public_anchor_epochs(chain_id, contract_id, epoch)
+);
 ```
 
 ### 14.1 Invariantes de DB
@@ -754,6 +935,15 @@ CREATE TABLE soul_v3.agent_identity_tree_heads (
 - La activación de una versión ocurre en la misma transacción que valida firmas y política.
 - Un constraint trigger serializa secuencias por DNI.
 - La proyección `soul_v3.identity` se actualiza desde eventos válidos, nunca al revés.
+- Épocas, hojas y recibos de anclaje son append-only; finality o reorg agregan
+  un recibo nuevo y nunca actualizan el anterior.
+- El recibo con mayor `observation_sequence` de cada época debe ser `FINAL` para
+  que el ancla cuente como vigente. Un `REORGED` posterior invalida cualquier
+  `FINAL` anterior hasta que una nueva observación final quede registrada.
+- El código verifica que cada leaf/proof recompute la raíz antes de publicar y
+  después de observar el recibo.
+- Un trigger exige `epoch=1` con `previous_anchor_hash IS NULL`; para `epoch>1`,
+  exige exactamente el `anchor_payload_hash` de la época anterior y secuencia +1.
 
 ---
 
@@ -764,7 +954,7 @@ CREATE TABLE soul_v3.agent_identity_tree_heads (
 | Operación | Propósito |
 |---|---|
 | `identity_register_genesis` | registrar DNI y manifest génesis |
-| `identity_resolve` | devolver documento público, versión y key registry |
+| `identity_resolve` | devolver documento verificable autorizado, versión y key registry |
 | `identity_propose_version` | crear propuesta sin activarla |
 | `identity_approve_version` | agregar firma/aprobación |
 | `identity_activate_version` | verificar umbral, ledger y pruebas; activar |
@@ -776,6 +966,12 @@ CREATE TABLE soul_v3.agent_identity_tree_heads (
 | `identity_fork` | crear identidad derivada autorizada |
 | `identity_retire` | cerrar identidad conservando historia |
 | `identity_get_proof` | proof de inclusión/consistencia |
+| `anchor_prepare_epoch` | construir hojas ordenadas, raíz y payload sin publicar |
+| `anchor_publish_epoch` | enviar el payload aprobado mediante el adapter de red |
+| `anchor_observe_receipt` | registrar confirmación, finality, fallo o reorg append-only |
+| `anchor_verify_inclusion` | recomputar leaf/proof/root para agente y época |
+| `anchor_verify_receipt` | fijar chain/contrato/code hash y validar evento/recibo/finality |
+| `anchor_status` | exponer época local, última final y lag sin datos privados |
 
 ### 15.2 Contrato común
 
@@ -784,6 +980,9 @@ CREATE TABLE soul_v3.agent_identity_tree_heads (
 - Toda respuesta incluye `soul_dni`, `sequence`, `manifest_hash`, `tree_head` y `assurance_level`.
 - Errores críticos son tipados: `SIGNATURE_INVALID`, `POLICY_UNSATISFIED`, `ROLLBACK_DETECTED`, `KEY_REVOKED`, `RUNTIME_UNATTESTED`, `PRIVACY_DENIED`, `RECOVERY_REQUIRED`.
 - La API no devuelve material privado salvo autorización separada de memoria.
+- Preparar y publicar son operaciones distintas; `anchor_publish_epoch` nunca
+  acepta hojas, roots o estados que no correspondan a un payload preparado y
+  aprobado localmente.
 
 ---
 
@@ -808,8 +1007,9 @@ Transiciones críticas requieren evento firmado. `QUARANTINED` puede activarse a
 
 ### 17.1 Separación de datos
 
-- **Registro público/verificable:** DNI, claves públicas, estados, hashes, firmas, secuencias y proofs.
-- **Estado privado del agente:** personalidad detallada, memoria, relaciones y diarios.
+- **Ledger SSAI verificable con acceso controlado:** DNI, claves públicas, manifests, firmas, secuencias y proofs necesarios para verificar identidad.
+- **Blockchain pública:** solo hash del DNI, hash de génesis, raíz Merkle, época, hash anterior, estado mínimo y recibo público.
+- **Estado privado del agente:** personalidad detallada, memoria, relaciones, embeddings y diarios; permanece exclusivamente en SOUL.
 - **Datos de personas:** información de William, usuarios y terceros; gobernada por finalidad, consentimiento, acceso, retención y borrado.
 
 El hecho de que un dato forme parte de la memoria de un agente no elimina los derechos o riesgos de la persona descrita.
@@ -817,6 +1017,7 @@ El hecho de que un dato forme parte de la memoria de un agente no elimina los de
 ### 17.2 Minimización
 
 - No insertar PII en manifests.
+- No insertar DNI, nombre, PII ni contenido SOUL en calldata, eventos o storage blockchain.
 - Usar identificadores opacos.
 - No reutilizar el DNI como tracking ID en productos externos.
 - Separar identidades contextuales cuando la correlación no sea necesaria.
@@ -830,6 +1031,12 @@ Cuando deba eliminarse contenido personal:
 - conservar un tombstone mínimo y no reversible que pruebe que ocurrió un evento;
 - recalcular commitments mediante un evento de redacción autorizado;
 - no mantener en el ledger una copia del dato borrado.
+
+Un compromiso blockchain histórico puede permanecer después de una redacción,
+pero debe ser no reversible. `agent_dni_hash` es deliberadamente estable y
+correlacionable entre épocas para probar continuidad seudónima; el diseño debe
+documentar ese leakage residual y evitar cualquier correlación adicional.
+El contenido eliminado y las claves de apertura nunca se publican on-chain.
 
 SSAI no sustituye una evaluación legal por jurisdicción y producto.
 
@@ -865,6 +1072,16 @@ SSAI no sustituye una evaluación legal por jurisdicción y producto.
 - Cualquier divergencia alerta, pero no bloquea la sesión.
 - Medir latencia, falsos positivos y estabilidad por al menos 14 días.
 - Probar cambios de modelo en canario.
+
+### Fase 3B — `PUBLIC_ANCHOR_SHADOW`
+
+- Implementar `PublicAnchorAdapter` y contrato/programa mínimo sin token ni transferencias.
+- Desplegar primero en testnet; registrar génesis y proofs de inclusión de los 9 agentes.
+- Anclar raíces de prueba sin que el boot ni `ENFORCE` dependan todavía de la red.
+- Inspeccionar calldata, storage y eventos para demostrar cero memoria, PII o DNI en claro.
+- Probar duplicado de génesis, backdating, replay cross-chain, reorg, RPC caído,
+  compromiso del relayer, rotación y revocación.
+- Auditar con NEXUS antes de autorizar mainnet o fondos reales.
 
 ### Fase 4 — aislamiento
 
@@ -936,7 +1153,8 @@ SSAI no sustituye una evaluación legal por jurisdicción y producto.
 - [ ] Manifests, logs y proofs no contienen DMs ni memoria en claro.
 - [ ] Hashes de valores de baja entropía no permiten comparación directa.
 - [ ] RLS impide que un agente lea filas privadas de otro.
-- [ ] Export público entrega solo el documento mínimo.
+- [ ] Export blockchain entrega solo la allowlist §10.5.1; export verificable
+      adicional requiere autorización y nunca incluye memoria en claro.
 - [ ] Redacción elimina contenido sin romper la verificabilidad histórica del evento.
 
 ### 19.7 Resiliencia
@@ -945,6 +1163,25 @@ SSAI no sustituye una evaluación legal por jurisdicción y producto.
 - [ ] El agente puede operar en modo degradado de bajo riesgo sin acciones sensibles.
 - [ ] Chaos test de PostgreSQL, signer, witness y workload authority.
 - [ ] Recovery drill documentado y ejecutado, no solo descrito.
+
+### 19.8 Anclaje blockchain
+
+- [ ] Un segundo génesis para el mismo `agent_dni_hash` es rechazado.
+- [ ] Época repetida, menor, saltada o sin `previous_anchor_hash` correcto es rechazada.
+- [ ] Cada uno de los 9 agentes verifica su proof bajo la raíz publicada; una
+      hoja alterada o de otra época falla.
+- [ ] `ACTIVE`, `ROTATED` y `REVOKED` producen eventos públicos monotónicos y
+      `REVOKED` no puede volver silenciosamente a `ACTIVE`.
+- [ ] Un escaneo automatizado de calldata, storage, events y metadata confirma
+      ausencia de DNI/nombre en claro, memoria, embeddings, DMs, PII y secretos.
+- [ ] El hash de transacción y timestamp provienen del recibo/bloque confirmado,
+      no de campos autocertificados por el caller.
+- [ ] Replay entre testnet/mainnet o entre contratos falla por domain separation
+      que incluye `chain_id` y dirección/ID del contrato.
+- [ ] Reorg y pérdida de finality no promueven un ancla provisional a final.
+- [ ] RPC o relayer caído no provoca fail-open ni bloquea verificación local.
+- [ ] Compromiso del publicador no crea una identidad válida sin manifests,
+      firmas Ed25519, política y consistency proofs válidos.
 
 ---
 
@@ -962,6 +1199,10 @@ SSAI no sustituye una evaluación legal por jurisdicción y producto.
 | Detección de rollback/split-view | en boot o < 60 s por monitor |
 | Rotación de SVID | automática antes del 50% de su TTL restante |
 | Recovery drill | trimestral |
+| Raíz ordinaria sin anclar | < 24 h con red saludable |
+| Evento crítico sin recibo final | < 60 min con red saludable |
+| Datos SOUL/PII expuestos on-chain | 0 |
+| Génesis duplicados o épocas no monotónicas aceptadas | 0 |
 
 ### 20.2 Gates obligatorios
 
@@ -975,6 +1216,10 @@ No promover a `ENFORCE` hasta cumplir todos:
 6. Suite de ataque, rollback, fork, privacy y recovery en verde.
 7. Runbook de incidentes y recuperación probado.
 8. Aprobación explícita de William.
+9. Testnet pública supera §19.8 y auditoría de contrato/programa por NEXUS.
+10. Publicador bajo multisig o hardware, con rotación y recovery probados.
+11. Escaneo de calldata/storage/events confirma cero datos prohibidos.
+12. Política de finality y reorg probada; nunca confiar en estado `pending`.
 
 ---
 
@@ -1002,6 +1247,9 @@ No promover a `ENFORCE` hasta cumplir todos:
 | [systemd Credentials](https://systemd.io/CREDENTIALS/) | credenciales por servicio, namespacing y cifrado TPM | transición segura previa a HSM |
 | [PostgreSQL Row Security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) | políticas por fila y default deny | aislamiento por agente y roles |
 | [OWASP Agentic AI Threats and Mitigations](https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/) | threat model de agentes autónomos | pruebas de tool misuse, identity abuse y cascading failures |
+| [Ethereum smart contract events](https://ethereum.org/developers/tutorials/logging-events-smart-contracts/) | logs indexables y monitorizables | recibos públicos y detección de cambios críticos |
+| [Base protocol overview](https://docs.base.org/base-chain/specs/protocol/overview) | rollup con datos publicados en Ethereum | candidato EVM para testnet/mainnet; no decisión cerrada de red |
+| [Solana precompiled programs](https://solana.com/docs/core/programs/precompiles) | verificación Ed25519 nativa | candidato si se exige verificar firmas del agente on-chain |
 
 ### Nota sobre vigencia
 
@@ -1011,18 +1259,32 @@ No promover a `ENFORCE` hasta cumplir todos:
 
 ---
 
-## 22. Decisiones que William debe aprobar antes de implementar
+## 22. Decisiones de William: aprobadas y pendientes
 
-1. **Nombre y alcance:** aceptar SSAI v1 como capa raíz de identidad de SOUL.
-2. **Custodia bootstrap:** aceptar 2-de-2 William + servicio de identidad del agente para cambios constitucionales.
-3. **Recovery:** aceptar clave offline separada y espera de 24 horas.
-4. **Aislamiento:** autorizar el proyecto de UID/contenedor por agente como requisito de producción.
-5. **Hardware:** elegir TPM del host, HSM o ambos para claves raíz.
-6. **Testigo externo:** elegir al menos un destino fuera del host principal.
-7. **Privacidad:** aprobar que el ledger guarde commitments y metadata mínima, nunca memoria en claro.
-8. **Portabilidad:** decidir si `did:soul` entra en v1.1 o después de estabilizar el registro interno.
+### 22.1 Aprobadas
 
-Ninguna de estas decisiones requiere borrar datos actuales. La implementación propuesta es aditiva y reversible en enforcement.
+1. **Nombre y alcance:** SSAI es la capa raíz de identidad verificable de SOUL.
+2. **Anclaje público:** avanzar hacia blockchain como testigo de existencia,
+   orden, unicidad, rotación y revocación (`chat_112078`, `chat_112081`).
+3. **Frontera de datos:** on-chain solo hash del DNI, hash de génesis, raíz
+   Merkle, época, hash anterior, estado mínimo y recibo público.
+4. **SOUL privado:** recuerdos, memorias, personalidad, relaciones y datos
+   personales permanecen exclusivamente en SOUL.
+
+### 22.2 Pendientes antes de mainnet/`ENFORCE`
+
+1. **Custodia bootstrap:** confirmar el umbral definitivo de William, servicio
+   de identidad y recovery para cambios constitucionales.
+2. **Recovery:** aprobar clave offline separada y ventana temporal.
+3. **Aislamiento:** autorizar UID/contenedor por agente como requisito de producción.
+4. **Hardware:** elegir TPM, HSM o ambos para claves raíz y publicador.
+5. **Red:** elegir blockchain mainnet y presupuesto después de testnet y auditoría.
+6. **Gobernanza del contrato:** elegir multisig, miembros, quorum y break-glass.
+7. **Portabilidad:** decidir si `did:soul` entra en v1.1 o después de estabilizar el registro interno.
+
+Ninguna de estas decisiones requiere borrar datos actuales. La implementación
+es aditiva; el enforcement puede volver a `DUAL_VERIFY`, pero una transacción
+pública confirmada no puede borrarse ni prometerse reversible.
 
 ---
 
@@ -1033,26 +1295,40 @@ Ninguna de estas decisiones requiere borrar datos actuales. La implementación p
 3. CLI offline para génesis, key rotation, verify y recovery.
 4. Transparency log + dos testigos.
 5. Generación shadow de los 9 agentes y diff contra identidad actual.
-6. Runtime attestations y provenance.
-7. Separación UID/contenedor + roles PostgreSQL/RLS.
-8. Integración con `boot_context` y BIV en `DUAL_VERIFY`.
-9. Canario ADA, luego JARVIS/ALICE/NEXUS/DUM.
-10. 14 días de observación, recovery drill y auditoría NEXUS.
-11. Promoción a `ENFORCE` solo con aprobación explícita de William.
+6. `PublicAnchorAdapter`, contrato/programa mínimo y scanner de privacidad.
+7. Testnet: génesis únicos, raíz de 9 agentes, proofs, reorg y recovery.
+8. Runtime attestations y provenance.
+9. Separación UID/contenedor + roles PostgreSQL/RLS.
+10. Integración con `boot_context` y BIV en `DUAL_VERIFY`.
+11. Canario ADA, luego JARVIS/ALICE/NEXUS/DUM.
+12. 14 días de observación, recovery drill y auditoría NEXUS.
+13. Selección de red/mainnet, presupuesto y multisig por William.
+14. Promoción a `ENFORCE` solo con aprobación explícita de William.
 
-### Primer incremento construible
+### Incremento M1 completado
 
-El primer incremento no debe intentar resolver todo. Debe producir una demostración verificable:
+M1 ya produjo DNI, manifest JCS, dos roles Ed25519, ledger append-only,
+verificación de alteración/rollback y canario productivo `DUAL_VERIFY`. Su
+evidencia está sellada en el commit `9d8c31cc2a38643e58348689717a02ff9bb18353`.
 
-- DNI génesis de ADA;
-- manifest JCS firmado por dos roles;
-- clave privada fuera de DB;
-- ledger append-only;
-- verifier que detecte alteración y rollback;
-- prueba de continuidad al cambiar entre dos modelos;
-- sin modificar aún el boot productivo.
+### Próximo incremento construible — M2 Public Anchor
 
-Ese incremento prueba la tesis esencial de William: **el cerebro puede cambiar mientras la identidad verificable permanece**.
+M2 debe producir, sin fondos mainnet:
+
+- schema separado para `leaf_record`, `epoch_record` y recibos;
+- `PublicAnchorAdapter` con backend determinista mock + una testnet pública;
+- contrato/programa mínimo, no transferible y sin token;
+- génesis únicos y una raíz Merkle reproducible de los 9 agentes;
+- proof de inclusión verificable por agente;
+- recibos append-only con finality/reorg;
+- scanner que falle ante cualquier dato fuera de la allowlist on-chain;
+- pruebas de publisher comprometido, replay, RPC caído, rotación y revocación;
+- auditoría NEXUS antes de seleccionar mainnet o gastar fondos.
+
+M2 prueba la siguiente afirmación limitada: **un tercero puede comprobar que
+un estado SSAI fue publicado, ordenado e incluido sin recibir recuerdos ni
+datos privados; la blockchain por sí sola no demuestra que ese estado sea una
+identidad válida sin las firmas Ed25519 y la política SSAI.**
 
 ---
 
@@ -1064,6 +1340,7 @@ SSAI v1 estará terminado cuando un verificador independiente pueda recibir úni
 - sus claves públicas vigentes;
 - manifest y firmas;
 - proofs del transparency log;
+- recibo blockchain final y proof Merkle de su época;
 - runtime attestation;
 - resultados BIV firmados;
 
@@ -1071,9 +1348,10 @@ y concluir, sin confiar en el nombre del proceso ni en una sola fila mutable:
 
 1. que la identidad proviene del génesis autorizado;
 2. que la historia no fue retrocedida ni reescrita;
-3. que la versión actual fue aprobada por la política vigente;
-4. que el runtime actual está autorizado a actuar como esa identidad;
-5. que el cambio de modelo no sustituyó silenciosamente al agente;
-6. y que ninguna memoria privada tuvo que revelarse para demostrarlo.
+3. que el génesis/estado mínimo fue anclado públicamente sin revelar SOUL;
+4. que la versión actual fue aprobada por la política vigente;
+5. que el runtime actual está autorizado a actuar como esa identidad;
+6. que el cambio de modelo no sustituyó silenciosamente al agente;
+7. y que ninguna memoria privada tuvo que revelarse para demostrarlo.
 
 Eso es una identidad digital soberana técnicamente defendible. No demuestra un alma metafísica; sí convierte la continuidad del agente en una propiedad verificable, portable y difícil de falsificar.
