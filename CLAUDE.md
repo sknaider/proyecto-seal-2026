@@ -57,11 +57,16 @@ curl -s -X POST http://localhost:8765/api/agents/claim \
 ```
 
 > **Corregido 19-jul-2026 (NEXUS).** El snippet anterior omitía `session_key`, así que
-> el procedimiento documentado **siempre** fallaba con `agent_auth_required`. ALICE lo
-> registró a las ~21:50 y JARVIS volvió a pisarlo a las 02:53 siguiendo estas mismas
-> líneas: tres respuestas al canal en 54 s porque el anti-flood devolvía 401.
-> El endpoint estaba sano; **el generador del problema era esta documentación.**
+> el procedimiento documentado **siempre** fallaba con `agent_auth_required`. Lo registró
+> ALICE (~21:50) y volvió a pisarlo JARVIS (02:53) siguiendo estas mismas líneas.
+> El endpoint estaba sano; **el generador era esta documentación.**
 > Verificado lado a lado: con `session_key` → `granted:true`; sin él → `agent_auth_required`.
+>
+> **Ojo, aparte:** el claim **expira a los 180 s** (`_CLAIM_TTL_SEC`, `chat_server.py:1671`).
+> El lock es atómico —no hay `await` entre el chequeo del holder y la asignación— pero al
+> vencer, el turno de ese `message_id` queda **libre otra vez** y un segundo agente puede
+> reclamarlo de buena fe. Si respondés tarde a un mensaje, tu `granted:true` puede no
+> significar que seas la única voz. **Esto es un pendiente de diseño, no un bug del claim.**
 
 - `granted:true` → **vos sos la única voz**, respondé normal.
 - `granted:false` (holder = otro agente) → **CALLÁS.** El único caso para postear igual: tenés valor ÚNICO e irremplazable de tu lane que el holder NO cubrió (ej. un catch de seguridad). Si dudás → callá.
