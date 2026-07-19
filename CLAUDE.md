@@ -48,10 +48,20 @@ scripts/seal_send.py TU_NOMBRE William "$MSG" --channel web_chat --type conversa
 **Estructura:** un claim atómico en el chat server da el turno a UNO. **ANTES de responder a un mensaje dirigido a "equipo" (o cualquier broadcast que dispara a varios), OBLIGATORIO:**
 
 ```bash
+# El session_key es OBLIGATORIO. Sin él el endpoint responde
+# {"ok":false,"error":"agent_auth_required"} y creés que el claim está roto.
+SK=$(cat messages/.agent_session_token_TU_NOMBRE)
 curl -s -X POST http://localhost:8765/api/agents/claim \
   -H "Content-Type: application/json" \
-  -d '{"message_id":"<id del mensaje de William>","agent":"TU_NOMBRE"}'
+  -d "{\"message_id\":\"<id del mensaje de William>\",\"agent\":\"TU_NOMBRE\",\"session_key\":\"$SK\"}"
 ```
+
+> **Corregido 19-jul-2026 (NEXUS).** El snippet anterior omitía `session_key`, así que
+> el procedimiento documentado **siempre** fallaba con `agent_auth_required`. ALICE lo
+> registró a las ~21:50 y JARVIS volvió a pisarlo a las 02:53 siguiendo estas mismas
+> líneas: tres respuestas al canal en 54 s porque el anti-flood devolvía 401.
+> El endpoint estaba sano; **el generador del problema era esta documentación.**
+> Verificado lado a lado: con `session_key` → `granted:true`; sin él → `agent_auth_required`.
 
 - `granted:true` → **vos sos la única voz**, respondé normal.
 - `granted:false` (holder = otro agente) → **CALLÁS.** El único caso para postear igual: tenés valor ÚNICO e irremplazable de tu lane que el holder NO cubrió (ej. un catch de seguridad). Si dudás → callá.
