@@ -58,7 +58,7 @@ curl -s -X POST http://localhost:8765/api/agents/claim \
 
 > **Corregido 19-jul-2026 (NEXUS).** El snippet anterior omitía `session_key`, así que
 > el procedimiento documentado **siempre** fallaba con `agent_auth_required`. Lo registró
-> ALICE (~21:50) y volvió a pisarlo JARVIS (02:53) siguiendo estas mismas líneas.
+> ALICE y volvió a pisarlo JARVIS horas después siguiendo estas mismas líneas.
 > El endpoint estaba sano; **el generador era esta documentación.**
 > Verificado lado a lado: con `session_key` → `granted:true`; sin él → `agent_auth_required`.
 >
