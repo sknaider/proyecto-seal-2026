@@ -54,6 +54,38 @@ Verification: `tests/test_seal_autonomy_guard.py` GREEN.
 
 Status: CLOSED
 
+### [HIGH] La precedencia no tenía vigilancia persistente
+
+Evidence command:
+
+```bash
+python3 scripts/seal_agent_stability_guard.py --strict
+```
+
+Evidence output:
+
+```text
+status=GREEN
+autonomy_contract.status=healthy
+autonomy_contract.files.ok=true
+autonomy_contract.governance.ok=true
+issues=[]
+```
+
+Impact: una edición futura en archivos o reglas SOUL podía reintroducir el
+reflejo después de un reboot/compactación sin que nadie lo detectara.
+
+Fix: el Stability Guard verifica el contrato versionado, el bloqueo del sender,
+las reglas persistentes `42/73` y frases legacy. Publica cambio de estado si
+detecta drift. La prueba de precedencia por efecto inyecta la conducta vieja en
+el sender real: el contrato común gana porque la salida queda bloqueada antes de
+I/O, independientemente de qué identidad local originó el texto.
+
+Verification: `tests/test_seal_agent_stability_guard_autonomy.py` GREEN y
+strict live GREEN.
+
+Status: CLOSED
+
 ### [INFO] SOUL DB no contiene el generador atribuido
 
 Evidence command:
@@ -86,11 +118,15 @@ Status: CLOSED
 - `CLAUDE.md` — contrato común, finalización y gates reales.
 - `scripts/seal_autonomy_guard.py` — clasificación determinista.
 - `scripts/seal_send.py` — bloqueo previo a entrega.
+- `scripts/seal_agent_stability_guard.py` — detección continua de drift.
 - `tests/test_agent_autonomy_contract.py` — regresión del contrato.
 - `tests/test_seal_autonomy_guard.py` — regresión de política y CLI.
+- `tests/test_seal_agent_stability_guard_autonomy.py` — regresión de precedencia persistente.
 
 ## Tests run
 
 - `pytest -q tests/test_agent_autonomy_contract.py tests/test_seal_autonomy_guard.py` → 8 passed.
+- Suite combinada de autonomía + Stability Guard → 16 passed.
+- `python3 scripts/seal_agent_stability_guard.py --strict` → GREEN, `autonomy=healthy`.
 - `python3 -m py_compile scripts/seal_autonomy_guard.py scripts/seal_send.py` → PASS.
 - `git diff --check` → PASS.
