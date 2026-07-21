@@ -11,7 +11,7 @@ def _read(relative: str) -> str:
 
 
 def _normalized(relative: str) -> str:
-    return " ".join(_read(relative).split())
+    return " ".join(_read(relative).replace("`", "").split())
 
 
 def test_common_boot_contract_requires_execution_without_second_green() -> None:
@@ -23,6 +23,10 @@ def test_common_boot_contract_requires_execution_without_second_green() -> None:
         "el owner integra y decide el cierre",
         "operación destructiva o difícil de recuperar",
         "cambio material del objetivo pedido por William",
+        "RECEIVED -> EXECUTING -> TESTING -> VERIFIED -> COMPLETED",
+        "no cerrar en propuesta",
+        "BLOCKED solo es válido con un impedimento real",
+        "código + restart + healthcheck",
     )
     assert all(clause in contract for clause in required)
 
@@ -39,3 +43,9 @@ def test_autonomy_contract_preserves_real_escalation_gates() -> None:
         assert gate in contract
     assert "el silencio de William nunca" in contract
     assert "confirmación explícita del scope exacto" in contract
+
+
+def test_permission_reflex_is_blocked_by_outbound_guard() -> None:
+    contract = _normalized("CLAUDE.md")
+    assert "scripts/seal_send.py bloquea" in contract
+    assert "--approval-gate destructive|external_commitment|scope_change|human_only" in contract

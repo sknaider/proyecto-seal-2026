@@ -43,7 +43,8 @@ if not args.from_agent:
 
 warning = autonomy_warning(args.to_agent, args.message, args.approval_gate)
 if warning:
-    sys.stderr.write(f"[seal_send][AUTONOMY WARNING] {warning}\n")
+    sys.stderr.write(f"[seal_send][AUTONOMY BLOCKED] {warning}\n")
+    raise SystemExit(2)
 
 token_path = pathlib.Path(__file__).resolve().parents[1] / "messages" / f".agent_session_token_{args.from_agent.upper()}"
 token = token_path.read_text(encoding="utf-8").strip()

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 
 MODULE_PATH = (
@@ -47,3 +50,24 @@ def test_explicit_real_gate_suppresses_warning() -> None:
         )
         is None
     )
+
+
+def test_cli_blocks_permission_reflex_before_delivery() -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = os.environ.copy()
+    env["SEAL_AGENT"] = "ADA"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts" / "seal_send.py"),
+            "William",
+            "SUIE queda esperando tu OK.",
+        ],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 2
+    assert "[seal_send][AUTONOMY BLOCKED]" in completed.stderr

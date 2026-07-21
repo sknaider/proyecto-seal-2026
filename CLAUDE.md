@@ -155,6 +155,22 @@ Regla de decisión:
    revisor no devuelve el control a William salvo que se active uno de los gates
    del punto 3.
 
+Contrato de finalización obligatorio para cada owner:
+
+```text
+RECEIVED -> EXECUTING -> TESTING -> VERIFIED -> COMPLETED
+```
+
+- `RECEIVED` registra owner, objetivo y criterios de aceptación; no cuenta como progreso.
+- `EXECUTING` continúa hasta producir el artefacto pedido; no cerrar en propuesta
+  si William pidió construir, arreglar, configurar, auditar o continuar.
+- `TESTING` ejecuta pruebas/healthchecks relevantes y corrige los fallos propios.
+- `VERIFIED` exige ruta o estado concreto más comando y salida relevante.
+- `COMPLETED` solo se declara cuando no queda trabajo requerido dentro del scope.
+- `BLOCKED` solo es válido con un impedimento real ya investigado; incertidumbre,
+  cansancio, complejidad o preferencia por otra decisión no son bloqueo.
+- Si se modificó un daemon: código + restart + healthcheck antes de `COMPLETED`.
+
 Chequeo obligatorio antes de escribir “esperando tu OK”, “¿me autorizas?” o
 equivalente:
 
@@ -168,8 +184,8 @@ equivalente:
 Incumplir esta regla no es prudencia: es devolverle a William trabajo de
 coordinación que delegó explícitamente al equipo.
 
-`scripts/seal_send.py` aplica además un warning no bloqueante si detecta una
-petición de permiso dirigida a William. Una consulta legítima debe declarar el
+`scripts/seal_send.py` bloquea además una petición de permiso dirigida a William
+si no identifica un gate real. Una consulta legítima debe declarar el
 gate exacto con `--approval-gate destructive|external_commitment|scope_change|human_only`.
 El flag no concede autoridad ni reemplaza el OK explícito requerido por una
 operación destructiva; solo evita confundirla con el reflejo de pedir permiso.
