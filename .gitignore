@@ -140,3 +140,8 @@ soul_bundles_private/
 # Credenciales de DB de agentes — NUNCA versionar (FABLE 20-jul)
 .db_cred
 **/.db_cred
+
+# ALICE: fixture de test de egreso con señuelos que usan prefijos reales
+# (GOCSPX-, sk-ant-) — NO debe pushearse a GitHub o bloquea el push de todos.
+# Es local por diseño; backup fuera de git.
+agents/ALICE/soul_egress_canary_vectors_v1.py
