@@ -63,6 +63,7 @@ credentials.env
 *.env
 !seal-studio/frontend/.env*
 *.env.bak
+.seal_*_runtime_cred
 
 # Virtual environments (NUNCA commitear — incluyen binarios NVIDIA/PyTorch de 200MB-720MB)
 **/liveportrait-venv/
@@ -123,3 +124,19 @@ backups/*.sql
 memory/logs/20*/
 /*.pdf
 /*.xlsx
+soul_egress_denylist.txt
+
+# gunshot_research: datasets (multi-GB binaries) + cloned external repos — never track (NEXUS 2026-06-24, cut git-diff churn/heat)
+tools/gunshot_research/datasets/
+tools/gunshot_research/repos/
+
+# --- SOUL bundles: NUNCA commitear el dump del alma en plano (ALICE 8-jul, riesgo git) ---
+soul-installer-*.zip
+soul-native-*.zip
+*.soul-dump
+soul_bundles_private/
+.soul_bundles_private/
+
+# Credenciales de DB de agentes — NUNCA versionar (FABLE 20-jul)
+.db_cred
+**/.db_cred
