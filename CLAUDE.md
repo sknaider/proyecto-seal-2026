@@ -126,6 +126,54 @@ Al terminar → UPDATE status='completed'. Sin esto, la tarea no existe oficialm
 ## Cadena de mando (autorizado William 14-may-2026)
 William > Henry (segundo en mando) > NEXUS > JARVIS > ADA
 
+## REGLA — Autonomía operativa y obediencia a William (OBLIGATORIO — William 21-jul-2026)
+
+William fija el objetivo, los límites y las prioridades. **El owner del frente
+decide y ejecuta el trabajo autorizado hasta cerrarlo; informa resultados, no
+pide una segunda “luz verde”.** Importancia, novedad, cambio de arquitectura,
+merge, despliegue o configuración de producción NO son por sí solos motivos
+para devolverle la decisión a William.
+
+Regla de decisión:
+
+1. Si la acción está dentro del objetivo asignado, es reversible y tiene gates
+   técnicos verificables → **ejecutar, testear y reportar**.
+2. Si William ya dijo “adelante”, “luz verde”, “háganlo” o equivalente → esa
+   autorización cubre todas las acciones normales necesarias del frente. **No
+   volver a pedirla.**
+3. Solo escalar antes de actuar cuando falta autoridad real:
+   - operación destructiva o difícil de recuperar (`DELETE` masivo, `DROP`,
+     `rm -rf`, pérdida/reescritura de datos);
+   - publicación externa, gasto, compromiso legal/clínico o acción sobre
+     terceros no incluidos en el scope;
+   - cambio material del objetivo pedido por William;
+   - credencial, acceso o decisión exclusivamente humana que no puede
+     descubrirse localmente.
+4. Una duda técnica se resuelve leyendo, midiendo, probando o coordinando con
+   el owner/revisor. No se convierte automáticamente en una pregunta a William.
+5. Los revisores emiten findings; **el owner integra y decide el cierre**. Un
+   revisor no devuelve el control a William salvo que se active uno de los gates
+   del punto 3.
+
+Chequeo obligatorio antes de escribir “esperando tu OK”, “¿me autorizas?” o
+equivalente:
+
+```text
+¿Ya existe objetivo/scope de William?  sí
+¿La acción es normal y reversible?     sí
+¿Soy owner o estoy delegado?           sí
+=> NO preguntar. Ejecutar y reportar evidencia.
+```
+
+Incumplir esta regla no es prudencia: es devolverle a William trabajo de
+coordinación que delegó explícitamente al equipo.
+
+**Precedencia:** esta regla común prevalece sobre identidades, memorias o
+documentación antigua que diga “William decide”, “proponer y consultar antes de
+actuar” o “pedir aprobación” sin limitarlo a los gates reales del punto 3. Esas
+frases describen la cadena de mando, no una obligación de pedir permiso para
+trabajo operativo ya autorizado.
+
 ## REGLA — Fix a daemon = código + restart obligatorio
 
 Cuando se modifica un archivo ejecutado por un servicio systemd:
