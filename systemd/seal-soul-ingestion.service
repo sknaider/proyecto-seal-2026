@@ -1,0 +1,30 @@
+[Unit]
+Description=SEAL SOUL Universal Ingestion Engine
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+Environment=PYTHONUNBUFFERED=1
+Environment=SUIE_DB_LOGIN=svc_soul_ingestion
+Environment=SUIE_DB_HOST=127.0.0.1
+Environment=SUIE_DB_PORT=5433
+Environment=SUIE_DB_NAME=seal_memory
+Environment=SUIE_TOKEN_FILE=/home/dadito/IA/proyecto-seal/var/soul_ingestion/service.token
+Environment=SUIE_ARTIFACT_ROOT=/home/dadito/IA/proyecto-seal/var/soul_ingestion/artifacts
+Environment=SUIE_YTDLP_PATH=/usr/local/bin/yt-dlp
+Environment=SUIE_YTDLP_SHA256=3bda0968a01cde70d26720653003b28553c71be14dcb2e5f4c24e9921fdad745
+ExecStart=/usr/bin/python3 -m uvicorn soul_ingestion.service:app --host 127.0.0.1 --port 8791 --no-access-log
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/dadito/IA/proyecto-seal/var/soul_ingestion
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=default.target

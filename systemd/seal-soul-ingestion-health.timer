@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the SUIE capacity healthcheck every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=20s
+AccuracySec=10s
+Persistent=true
+Unit=seal-soul-ingestion-health.service
+
+[Install]
+WantedBy=timers.target
