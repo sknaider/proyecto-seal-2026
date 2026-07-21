@@ -13,6 +13,8 @@ sin saber por qué. Ahora:
 """
 import argparse, json, os, pathlib, sys, urllib.request, urllib.error
 
+from seal_autonomy_guard import APPROVAL_GATES, autonomy_warning
+
 API = 'http://localhost:8765/api/agents/send'
 
 ap = argparse.ArgumentParser()
@@ -29,9 +31,19 @@ ap.add_argument("--unique-contribution", action="store_true",
                 help="Marca el mensaje como aporte único (escape de coordinación ENFORCE).")
 ap.add_argument("--contribution-reason", default=None,
                 help=">=20 chars explicando qué aporta de nuevo (requerido por el server si unique_contribution).")
+ap.add_argument(
+    "--approval-gate",
+    choices=APPROVAL_GATES,
+    default=None,
+    help="Gate real que justifica consultar antes: destructive, external_commitment, scope_change o human_only.",
+)
 args = ap.parse_args()
 if not args.from_agent:
     ap.error("FROM_AGENT requerido (argumento o SEAL_AGENT)")
+
+warning = autonomy_warning(args.to_agent, args.message, args.approval_gate)
+if warning:
+    sys.stderr.write(f"[seal_send][AUTONOMY WARNING] {warning}\n")
 
 token_path = pathlib.Path(__file__).resolve().parents[1] / "messages" / f".agent_session_token_{args.from_agent.upper()}"
 token = token_path.read_text(encoding="utf-8").strip()

@@ -168,6 +168,14 @@ equivalente:
 Incumplir esta regla no es prudencia: es devolverle a William trabajo de
 coordinación que delegó explícitamente al equipo.
 
+`scripts/seal_send.py` aplica además un warning no bloqueante si detecta una
+petición de permiso dirigida a William. Una consulta legítima debe declarar el
+gate exacto con `--approval-gate destructive|external_commitment|scope_change|human_only`.
+El flag no concede autoridad ni reemplaza el OK explícito requerido por una
+operación destructiva; solo evita confundirla con el reflejo de pedir permiso.
+En un gate destructivo o difícil de recuperar, **el silencio de William nunca
+es consentimiento**: se espera su confirmación explícita del scope exacto.
+
 **Precedencia:** esta regla común prevalece sobre identidades, memorias o
 documentación antigua que diga “William decide”, “proponer y consultar antes de
 actuar” o “pedir aprobación” sin limitarlo a los gates reales del punto 3. Esas

@@ -37,3 +37,5 @@ def test_autonomy_contract_preserves_real_escalation_gates() -> None:
     contract = _read("CLAUDE.md")
     for gate in ("DELETE", "DROP", "rm -rf", "compromiso legal/clínico"):
         assert gate in contract
+    assert "el silencio de William nunca" in contract
+    assert "confirmación explícita del scope exacto" in contract
