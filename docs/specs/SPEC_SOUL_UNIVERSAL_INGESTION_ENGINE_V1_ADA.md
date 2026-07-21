@@ -636,6 +636,7 @@ soul_ingestion/
     email.py
     youtube.py
   profiles.py
+  requirements.lock
   service.py
   cli.py
   tests/

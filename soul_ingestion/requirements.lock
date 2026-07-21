@@ -1,0 +1,8 @@
+# SUIE v1.1 runtime dependencies. Exact top-level versions verified on the
+# deployed Python 3.12 runtime; transitive dependencies are constrained by
+# these packages' own metadata.
+asyncpg==0.31.0
+fastapi==0.136.1
+pydantic==2.13.3
+pypdf==6.12.2
+uvicorn==0.46.0
