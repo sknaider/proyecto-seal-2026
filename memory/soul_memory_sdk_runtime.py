@@ -1,0 +1,576 @@
+#!/usr/bin/env python3
+"""Runtime guards for SOUL Memory SDK multi-tenant API access.
+
+This layer is intentionally small: it derives tenant identity from a raw API
+key, rejects client-supplied tenant overrides, and opens transactions with the
+Postgres tenant context required by Phase 1 RLS policies.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import secrets
+import time
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import Any, AsyncIterator, Mapping
+
+
+SDK_RUNTIME_ROLE = "soul_sdk_agent_api"
+SDK_USER_ROLE = "soul_sdk_tenant_api"
+SDK_ADMIN_ROLE = "soul_sdk_admin"
+SDK_VIEWERS = {"agent", "user", "admin"}
+SDK_VIEWER_ROLES = {
+    "agent": SDK_RUNTIME_ROLE,
+    "user": SDK_USER_ROLE,
+    "admin": SDK_ADMIN_ROLE,
+}
+TENANT_OVERRIDE_FIELDS = {
+    "tenant_id",
+    "tenant",
+    "org_id",
+    "x_tenant_id",
+    "x_tenant",
+    "x_org_id",
+}
+MAX_AGENT_NAME_LEN = 20
+
+
+class TenantAuthError(ValueError):
+    """Raised when API key authentication fails."""
+
+
+class TenantOverrideError(ValueError):
+    """Raised when a public request tries to choose its own tenant."""
+
+
+class TenantScopeError(ValueError):
+    """Raised when an API key lacks the scope required for an operation."""
+
+
+@dataclass(frozen=True)
+class TenantContext:
+    tenant_id: str
+    api_key_hash: str
+    scopes: tuple[str, ...] = ("read", "write")
+    agent_id: str | None = None
+    viewer: str = "agent"
+    user_id: str | None = None
+    # Cura seguridad (NEXUS 13-jun, audit FABLE M12): agente(s) que ESTA key puede asumir.
+    # Vacío en una key agent-scoped = DENY. Con tenant único compartido, el
+    # aislamiento entre principals depende de ESTO, no solo del tenant_id.
+    allowed_agents: tuple[str, ...] = ()
+
+    def allows(self, scope: str) -> bool:
+        return "*" in self.scopes or scope in self.scopes
+
+    def require(self, scope: str) -> None:
+        if not self.allows(scope):
+            raise TenantScopeError(f"scope_required:{scope}")
+
+    def with_agent(self, agent_id: str | None) -> "TenantContext":
+        agent = normalize_agent_id(agent_id, required=False)
+        # Cura seguridad (NEXUS 13-jun, audit FABLE M12): el agent-scope NO se deriva libre del
+        # input del cliente. agent_id fuera de los autorizados de la key = DENY.
+        # Bypass para scopes TENANT-WIDE ('*' o 'tenant:*'): leen todo el tenant POR DISENO, no se
+        # restringen por agente ni se warnean (refinamiento por ground-truth: las keys vivas son
+        # tenant:read). La restriccion+warn aplican SOLO a keys agent-scoped (read/write).
+        tenant_wide = "*" in self.scopes or any(str(s).startswith("tenant:") for s in self.scopes)
+        if agent is not None and not tenant_wide:
+            if self.allowed_agents:
+                if agent not in self.allowed_agents:
+                    raise TenantScopeError(f"agent_not_authorized:{agent}")
+            else:
+                # Agent-scoped keys without an explicit allowlist used to pass
+                # through with a warning.  That made a missing migration field
+                # an authorization bypass.  Public runtime identity now fails
+                # closed; tenant-wide keys remain intentionally tenant-wide.
+                raise TenantScopeError("agent_allowlist_required")
+        return TenantContext(
+            tenant_id=self.tenant_id,
+            api_key_hash=self.api_key_hash,
+            scopes=self.scopes,
+            agent_id=agent,
+            viewer=self.viewer,
+            user_id=self.user_id,
+            allowed_agents=self.allowed_agents,
+        )
+
+    def with_viewer(self, viewer: str, *, user_id: str | None = None) -> "TenantContext":
+        normalized_viewer = normalize_viewer(viewer)
+        return TenantContext(
+            tenant_id=self.tenant_id,
+            api_key_hash=self.api_key_hash,
+            scopes=self.scopes,
+            agent_id=self.agent_id,
+            viewer=normalized_viewer,
+            user_id=normalize_user_id(user_id, required=normalized_viewer in {"user", "admin"}),
+            allowed_agents=self.allowed_agents,
+        )
+
+    def pg_role(self) -> str:
+        return SDK_VIEWER_ROLES[normalize_viewer(self.viewer)]
+
+
+def normalize_agent_id(agent_id: Any, *, required: bool) -> str | None:
+    agent = str(agent_id or "").strip()
+    if not agent:
+        if required:
+            raise TenantOverrideError("agent_id_required_max_20_chars")
+        return None
+    if len(agent) > MAX_AGENT_NAME_LEN:
+        raise TenantOverrideError("agent_id_required_max_20_chars")
+    return agent
+
+
+def normalize_viewer(viewer: Any) -> str:
+    normalized = str(viewer or "agent").strip().lower()
+    if normalized not in SDK_VIEWERS:
+        raise TenantOverrideError("viewer_must_be_agent_user_or_admin")
+    return normalized
+
+
+def normalize_user_id(user_id: Any, *, required: bool) -> str | None:
+    value = str(user_id or "").strip()
+    if not value:
+        if required:
+            raise TenantOverrideError("user_id_required_max_128_chars")
+        return None
+    if len(value) > 128:
+        raise TenantOverrideError("user_id_required_max_128_chars")
+    return value
+
+
+def hash_api_key(api_key: str) -> str:
+    if not api_key:
+        raise TenantAuthError("api_key_required")
+    return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+
+
+def new_api_key() -> str:
+    """Generate a raw API key shown once during tenant/key creation."""
+    return "sk-soul-" + secrets.token_urlsafe(32)
+
+
+def api_key_record(api_key: str, *, scopes: tuple[str, ...] = ("read", "write")) -> dict[str, Any]:
+    """Return the JSONB-safe record stored in soul_v3.tenants.api_keys."""
+    return {"sha256": hash_api_key(api_key), "scopes": list(scopes)}
+
+
+def extract_bearer_token(authorization: str | None) -> str:
+    if not authorization:
+        raise TenantAuthError("authorization_required")
+    parts = authorization.strip().split()
+    if len(parts) != 2 or parts[0].lower() != "bearer" or not parts[1]:
+        raise TenantAuthError("bearer_token_required")
+    return parts[1]
+
+
+def _scopes_from_record(record: Mapping[str, Any]) -> tuple[str, ...]:
+    raw_scopes = record.get("scopes")
+    if isinstance(raw_scopes, list):
+        scopes = tuple(str(scope) for scope in raw_scopes if str(scope))
+        return scopes or ("read", "write")
+    scope = record.get("scope")
+    if isinstance(scope, str) and scope:
+        return (scope,)
+    return ("read", "write")
+
+
+def _tenant_lookup_sql() -> str:
+    return """
+        SELECT t.id::text AS tenant_id, key_record
+        FROM soul_v3.tenants AS t
+        CROSS JOIN LATERAL jsonb_array_elements(t.api_keys) AS key_record
+        WHERE (
+            key_record->>'sha256' = $1
+            OR key_record->>'hash' = $1
+            OR key_record->>'key_hash' = $1
+        )
+          AND COALESCE(key_record->>'revoked_at', '') = ''
+        LIMIT 1
+    """
+
+
+def escape_like_pattern(text: str) -> str:
+    """Escape user text for ILIKE so %, _ and backslash stay literal."""
+    return (
+        (text or "")
+        .replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
+
+
+async def derive_tenant_from_api_key(conn: Any, api_key: str) -> TenantContext:
+    """Resolve a tenant from a raw API key without ever querying by raw key."""
+    api_key_hash = hash_api_key(api_key)
+    row = await conn.fetchrow(_tenant_lookup_sql(), api_key_hash)
+    if not row:
+        raise TenantAuthError("invalid_api_key")
+
+    record = row["key_record"]
+    if isinstance(record, str):
+        record = json.loads(record)
+    if not isinstance(record, Mapping):
+        record = {}
+    return TenantContext(
+        tenant_id=str(row["tenant_id"]),
+        api_key_hash=api_key_hash,
+        scopes=_scopes_from_record(record),
+        allowed_agents=tuple(
+            str(a).strip() for a in (record.get("agents") or ()) if str(a).strip()
+        ),
+    )
+
+
+def reject_tenant_override(
+    *,
+    headers: Mapping[str, Any] | None = None,
+    query: Mapping[str, Any] | None = None,
+    payload: Mapping[str, Any] | None = None,
+) -> None:
+    """Reject public attempts to override tenant identity.
+
+    The tenant must come from the API key only. Headers are checked in normalized
+    form so X-Tenant-ID and x-tenant-id are both rejected.
+    """
+    header_keys = {str(k).lower().replace("-", "_") for k in (headers or {})}
+    query_keys = {str(k).lower() for k in (query or {})}
+    payload_keys = _nested_mapping_keys(payload or {})
+    if TENANT_OVERRIDE_FIELDS & (header_keys | query_keys | payload_keys):
+        raise TenantOverrideError("tenant_id_must_come_from_api_key")
+
+
+def _nested_mapping_keys(value: Any) -> set[str]:
+    """Return normalized keys from nested user payloads."""
+    keys: set[str] = set()
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            keys.add(str(key).lower())
+            keys.update(_nested_mapping_keys(item))
+    elif isinstance(value, list):
+        for item in value:
+            keys.update(_nested_mapping_keys(item))
+    return keys
+
+
+async def set_tenant_context(conn: Any, tenant: TenantContext) -> None:
+    """Set the Postgres role + local GUCs used by RLS policies.
+
+    Phase 1 uses app.tenant_id. Dual-memory SEC-2 additionally needs app.agent
+    for agent/scope isolation and app.viewer/app.user_id for the consolidated
+    multi-agent compatibility model.  Setting them now is backward-compatible
+    because no current policy depends on viewer GUCs yet.
+    """
+    await conn.execute(f"SET LOCAL ROLE {tenant.pg_role()}")
+    await conn.execute("SELECT set_config('app.tenant_id', $1, true)", tenant.tenant_id)
+    await conn.execute("SELECT set_config('app.agent', $1, true)", tenant.agent_id or "")
+    await conn.execute("SELECT set_config('app.viewer', $1, true)", normalize_viewer(tenant.viewer))
+    await conn.execute("SELECT set_config('app.user_id', $1, true)", tenant.user_id or "")
+
+
+@asynccontextmanager
+async def tenant_transaction(
+    pool: Any,
+    tenant: TenantContext,
+    *,
+    agent_id: str | None = None,
+    viewer: str | None = None,
+    user_id: str | None = None,
+) -> AsyncIterator[Any]:
+    """Acquire a connection, open a transaction, and set RLS context locally."""
+    scoped_tenant = tenant.with_agent(agent_id) if agent_id is not None else tenant
+    if viewer is not None:
+        scoped_tenant = scoped_tenant.with_viewer(viewer, user_id=user_id)
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await set_tenant_context(conn, scoped_tenant)
+            yield conn
+
+
+def audit_query_hash(
+    *,
+    endpoint: str,
+    query: Mapping[str, Any] | None = None,
+    payload: Mapping[str, Any] | None = None,
+) -> str:
+    """Stable hash of safe request shape for user-read audit rows."""
+    safe_query = {str(k): str(v) for k, v in sorted((query or {}).items())}
+    safe_payload = {
+        str(k): v
+        for k, v in sorted((payload or {}).items())
+        if str(k).lower() not in {"authorization", "api_key", "token", "password", "secret"}
+    }
+    material = json.dumps(
+        {"endpoint": endpoint, "query": safe_query, "payload": safe_payload},
+        sort_keys=True,
+        default=str,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+async def audit_user_read(
+    conn: Any,
+    tenant: TenantContext,
+    *,
+    endpoint: str,
+    user_id: str,
+    query_hash: str,
+    rows_read: int,
+    latency_ms: int,
+    metadata: Mapping[str, Any] | None = None,
+) -> None:
+    """Mandatory tenant-owner read audit. No RETURNING; user role has no audit SELECT."""
+    await conn.execute(
+        """
+        INSERT INTO soul_v3.user_read_audit
+            (tenant_id, user_id, query_hash, endpoint, rows_read, latency_ms, metadata)
+        VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::jsonb)
+        """,
+        tenant.tenant_id,
+        normalize_user_id(user_id, required=True),
+        query_hash,
+        endpoint,
+        max(0, int(rows_read)),
+        max(0, int(latency_ms)),
+        json.dumps(dict(metadata or {}), sort_keys=True, default=str),
+    )
+
+
+def memory_insert_payload(payload: Mapping[str, Any], tenant: TenantContext) -> dict[str, Any]:
+    """Server-side insert payload for soul_v3.memories.
+
+    Client-provided tenant fields must already have been rejected. This function
+    adds the trusted tenant_id derived from the API key.
+    """
+    reject_tenant_override(payload=payload)
+    agent = normalize_agent_id(payload.get("agent_id") or payload.get("agent") or "default", required=True)
+    return {
+        "tenant_id": tenant.tenant_id,
+        "agent": agent,
+        "scope": str(payload.get("scope") or "private"),
+        "category": str(payload.get("category") or "fact"),
+        "content": str(payload.get("content") or ""),
+        "importance": int(payload.get("importance") or 5),
+        "memory_type": str(payload.get("memory_type") or "semantic"),
+        "metadata": payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {},
+        "source": "sdk_api",
+        "valid_from": payload.get("valid_at"),
+    }
+
+
+async def ensure_agent(conn: Any, agent_name: str) -> None:
+    """Ensure the global agent dimension row exists for the memory FK.
+
+    The public API does not expose soul_v3.agents directly. This helper only
+    creates the minimal FK row required by soul_v3.memories.
+    """
+    await conn.execute(
+        """
+        INSERT INTO soul_v3.agents (name, role, active)
+        VALUES ($1, 'SDK Agent', true)
+        ON CONFLICT (name) DO NOTHING
+        """,
+        agent_name,
+    )
+
+
+def _row_to_memory(row: Mapping[str, Any]) -> dict[str, Any]:
+    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    return {
+        "id": row.get("id"),
+        "agent_id": row.get("agent"),
+        "content": row.get("content"),
+        "category": row.get("category"),
+        "importance": row.get("importance"),
+        "memory_type": row.get("memory_type"),
+        "scope": row.get("scope"),
+        "metadata": metadata,
+        "created_at": row.get("created_at").isoformat() if hasattr(row.get("created_at"), "isoformat") else row.get("created_at"),
+        "content_hash": row.get("content_hash_sha256"),
+    }
+
+
+async def create_memory(conn: Any, tenant: TenantContext, payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Create a memory for the authenticated tenant."""
+    tenant.require("write")
+    data = memory_insert_payload(payload, tenant)
+    await ensure_agent(conn, data["agent"])
+    row = await conn.fetchrow(
+        """
+        INSERT INTO soul_v3.memories
+            (tenant_id, agent, scope, category, content, importance,
+             memory_type, metadata, source, valid_from)
+        VALUES
+            ($1::uuid, $2, $3, $4, $5, $6, $7, $8::jsonb, $9,
+             COALESCE($10::timestamptz, now()))
+        RETURNING id, agent, scope, category, content, importance,
+                  memory_type, metadata, created_at, content_hash_sha256
+        """,
+        data["tenant_id"],
+        data["agent"],
+        data["scope"],
+        data["category"],
+        data["content"],
+        data["importance"],
+        data["memory_type"],
+        json.dumps(data["metadata"]),
+        data["source"],
+        data["valid_from"],
+    )
+    return _row_to_memory(row)
+
+
+async def get_memory(conn: Any, memory_id: int) -> dict[str, Any] | None:
+    """Read one memory. RLS makes other tenants indistinguishable from missing rows."""
+    row = await conn.fetchrow(
+        """
+        SELECT id, agent, scope, category, content, importance, memory_type,
+               metadata, created_at, content_hash_sha256
+        FROM soul_v3.memories
+        WHERE id=$1 AND invalid_at IS NULL
+        """,
+        memory_id,
+    )
+    return _row_to_memory(row) if row else None
+
+
+async def list_memories(
+    conn: Any,
+    *,
+    query: Mapping[str, Any] | None = None,
+    agent_id: str | None = None,
+    category: str | None = None,
+    importance_gte: int | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """List memories for the current tenant. Tenant filtering is handled by RLS."""
+    reject_tenant_override(query=query)
+    clauses = ["invalid_at IS NULL"]
+    params: list[Any] = []
+    if agent_id:
+        params.append(agent_id)
+        clauses.append(f"agent=${len(params)}")
+    if category:
+        params.append(category)
+        clauses.append(f"category=${len(params)}")
+    if importance_gte is not None:
+        params.append(int(importance_gte))
+        clauses.append(f"importance >= ${len(params)}")
+    params.append(max(1, min(int(limit), 100)))
+    limit_param = len(params)
+    params.append(max(0, int(offset)))
+    offset_param = len(params)
+
+    rows = await conn.fetch(
+        f"""
+        SELECT id, agent, scope, category, content, importance, memory_type,
+               metadata, created_at, content_hash_sha256
+        FROM soul_v3.memories
+        WHERE {' AND '.join(clauses)}
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${limit_param} OFFSET ${offset_param}
+        """,
+        *params,
+    )
+    return [_row_to_memory(row) for row in rows]
+
+
+async def recall_memories(
+    conn: Any,
+    tenant: TenantContext,
+    *,
+    query_text: str,
+    agent_id: str | None = None,
+    importance_gte: int = 1,
+    limit: int = 10,
+) -> dict[str, Any]:
+    """Simple Phase 2 recall path with RLS + audit.
+
+    This deliberately starts with indexed SQL/text retrieval. Semantic/vector and
+    Neo4j expansion can be layered behind the same tenant transaction after the
+    cross-tenant gates are green.
+    """
+    tenant.require("read")
+    started = time.monotonic()
+    memories = await search_memories(
+        conn,
+        query_text=query_text,
+        agent_id=agent_id,
+        importance_gte=importance_gte,
+        limit=limit,
+    )
+    latency_ms = int((time.monotonic() - started) * 1000)
+    await audit_retrieval(
+        conn,
+        tenant,
+        endpoint="/v1/recall",
+        query_text=query_text,
+        memory_ids=[int(memory["id"]) for memory in memories if memory.get("id") is not None],
+        latency_ms=latency_ms,
+    )
+    return {
+        "memories": memories,
+        "total_hits": len(memories),
+        "latency_ms": latency_ms,
+    }
+
+
+async def search_memories(
+    conn: Any,
+    *,
+    query_text: str,
+    agent_id: str | None = None,
+    importance_gte: int = 1,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Search memories under the already-selected RLS context without auditing."""
+    params: list[Any] = [f"%{escape_like_pattern(query_text)}%", int(importance_gte)]
+    clauses = ["invalid_at IS NULL", "content ILIKE $1 ESCAPE '\\'", "importance >= $2"]
+    if agent_id:
+        params.append(agent_id)
+        clauses.append(f"agent=${len(params)}")
+    params.append(max(1, min(int(limit), 50)))
+    limit_param = len(params)
+    rows = await conn.fetch(
+        f"""
+        SELECT id, agent, scope, category, content, importance, memory_type,
+               metadata, created_at, content_hash_sha256
+        FROM soul_v3.memories
+        WHERE {' AND '.join(clauses)}
+        ORDER BY importance DESC, created_at DESC, id DESC
+        LIMIT ${limit_param}
+        """,
+        *params,
+    )
+    return [_row_to_memory(row) for row in rows]
+
+
+async def audit_retrieval(
+    conn: Any,
+    tenant: TenantContext,
+    *,
+    endpoint: str,
+    query_text: str | None,
+    memory_ids: list[int],
+    latency_ms: int,
+) -> None:
+    """Write a per-tenant retrieval audit row behind the same RLS context."""
+    await conn.execute(
+        """
+        INSERT INTO soul_v3.memory_retrieval_log
+            (tenant_id, agent_requesting, query_text, tool_used,
+             memory_ids_returned, result_count, metadata)
+        VALUES ($1::uuid, $2, $3, $4, $5::bigint[], $6, $7::jsonb)
+        """,
+        tenant.tenant_id,
+        "sdk_api",
+        query_text,
+        endpoint,
+        memory_ids,
+        len(memory_ids),
+        json.dumps({"api_key_hash": tenant.api_key_hash, "latency_ms": latency_ms}),
+    )
