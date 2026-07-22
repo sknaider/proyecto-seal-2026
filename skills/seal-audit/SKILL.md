@@ -22,7 +22,7 @@ Comprehensive health check of all SEAL services and infrastructure.
 2. **Neo4j (Connectome)** — port 7687, connection test
 3. **Web Chat Bridge** — port 8765, health endpoint
 4. **SOUL Memory SDK/API** — ports 8767 gateway, 8768 API, 8771 MCP
-5. **SEAL Studio** — port 3000, response check
+5. **SEAL Studio** — port 8800, health endpoint (backend `seal-studio-backend`; frontend legacy retirado 2026-07-22)
 6. **Ollama (DUM)** — service status + model loaded
 Note: Qdrant removed 2026-04-28 (soul_lite=True permanent config — vectors stored in PostgreSQL pgvector)
 
