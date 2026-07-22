@@ -24,6 +24,8 @@ CREATE_CONFIRMATION = "CREATE_TENANT_KEY"
 REVOKE_CONFIRMATION = "REVOKE_TENANT_KEY"
 ROTATE_CONFIRMATION = "ROTATE_TENANT_KEY"
 ALLOWED_SCOPES = {"read", "write", "tenant:read", "*"}
+AGENT_SCOPES = {"read", "write"}
+MAX_AGENT_NAME_LEN = 20
 
 
 class KeyProvisioningError(ValueError):
@@ -40,6 +42,38 @@ def normalize_scopes(scopes: Iterable[str]) -> tuple[str, ...]:
     if "*" in normalized and len(normalized) > 1:
         raise KeyProvisioningError("wildcard_scope_must_stand_alone")
     return normalized
+
+
+def normalize_agents(agents: Iterable[str] | None, *, scopes: Iterable[str]) -> tuple[str, ...]:
+    """Validate the server-side agent allowlist stored with a key.
+
+    ``read`` and ``write`` are agent-scoped permissions and therefore fail
+    closed without an explicit allowlist. ``tenant:read`` and ``*`` are
+    intentionally tenant-wide and preserve compatibility with records that
+    predate per-agent key metadata. The runtime does not implement an agent
+    wildcard, so accepting ``*`` here would create a misleading allowlist.
+    """
+    normalized_scopes = normalize_scopes(scopes)
+    values: list[str] = []
+    seen: set[str] = set()
+    for raw_agent in agents or ():
+        if not isinstance(raw_agent, str):
+            raise KeyProvisioningError("agent_name_must_be_string")
+        agent = raw_agent.strip()
+        if not agent:
+            raise KeyProvisioningError("agent_name_required")
+        if len(agent) > MAX_AGENT_NAME_LEN:
+            raise KeyProvisioningError("agent_name_max_20_chars")
+        if agent == "*":
+            raise KeyProvisioningError("agent_wildcard_not_supported")
+        identity = agent.casefold()
+        if identity in seen:
+            raise KeyProvisioningError(f"duplicate_agent:{agent}")
+        seen.add(identity)
+        values.append(agent)
+    if AGENT_SCOPES.intersection(normalized_scopes) and not values:
+        raise KeyProvisioningError("agent_allowlist_required_for_read_write")
+    return tuple(values)
 
 
 def normalize_expiry(
@@ -87,6 +121,7 @@ def key_record(
     raw_key: str,
     *,
     scopes: Iterable[str],
+    agents: Iterable[str] | None = None,
     label: str,
     created_by: str = "ADA",
     expires_at: str | datetime | None = None,
@@ -98,9 +133,12 @@ def key_record(
         raise KeyProvisioningError("label_required")
     if len(clean_label) > 120:
         raise KeyProvisioningError("label_max_120_chars")
+    normalized_scopes = normalize_scopes(scopes)
+    normalized_agents = normalize_agents(agents, scopes=normalized_scopes)
     record = {
         "sha256": hash_api_key(raw_key),
-        "scopes": list(normalize_scopes(scopes)),
+        "scopes": list(normalized_scopes),
+        "agents": list(normalized_agents),
         "label": clean_label,
         "created_at": (now or datetime.now(UTC)).astimezone(UTC).isoformat(),
         "created_by": created_by.strip() or "ADA",
@@ -123,6 +161,9 @@ def key_preview(record: Mapping[str, Any] | str) -> dict[str, Any]:
         "label": record.get("label") or "",
         "hash_prefix": digest[:12],
         "scopes": record.get("scopes") or record.get("scope") or [],
+        # Missing ``agents`` is a valid legacy representation for tenant-wide
+        # keys. Agent-scoped legacy keys are denied by the runtime.
+        "agents": record.get("agents") or [],
         "created_at": record.get("created_at") or "",
         "expires_at": record.get("expires_at") or "",
         "revoked_at": record.get("revoked_at") or "",
@@ -158,6 +199,7 @@ async def create_tenant_key(
     *,
     tenant_id: str,
     scopes: Iterable[str],
+    agents: Iterable[str] | None = None,
     label: str,
     created_by: str = "ADA",
     allow_duplicate_label: bool = False,
@@ -171,6 +213,7 @@ async def create_tenant_key(
     record = key_record(
         raw_key,
         scopes=scopes,
+        agents=agents,
         label=clean_label,
         created_by=created_by,
         expires_at=expires_at,
@@ -251,6 +294,7 @@ async def rotate_tenant_key(
     current_label: str | None,
     current_hash_prefix: str | None,
     scopes: Iterable[str],
+    agents: Iterable[str] | None = None,
     new_label: str,
     created_by: str = "ADA",
     expires_at: str | datetime | None = None,
@@ -266,6 +310,7 @@ async def rotate_tenant_key(
     record = key_record(
         raw_key,
         scopes=scopes,
+        agents=agents,
         label=new_label,
         created_by=created_by,
         expires_at=expires_at,
@@ -376,6 +421,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     create = sub.add_parser("create", help="Create a new tenant API key and print raw key once.")
     create.add_argument("--scope", action="append", required=True)
+    create.add_argument(
+        "--agent",
+        action="append",
+        default=[],
+        help="Allowed agent name; repeat for multiple agents (required for read/write scopes).",
+    )
     create.add_argument("--label", required=True)
     create.add_argument("--created-by", default="ADA")
     create.add_argument("--allow-duplicate-label", action="store_true")
@@ -396,6 +447,12 @@ def build_parser() -> argparse.ArgumentParser:
     rotate.add_argument("--current-label")
     rotate.add_argument("--current-hash-prefix")
     rotate.add_argument("--scope", action="append", required=True)
+    rotate.add_argument(
+        "--agent",
+        action="append",
+        default=[],
+        help="Allowed agent name; repeat for multiple agents (required for read/write scopes).",
+    )
     rotate.add_argument("--new-label", required=True)
     rotate.add_argument("--created-by", default="ADA")
     rotate_expiry = rotate.add_mutually_exclusive_group()
@@ -415,6 +472,7 @@ async def async_main(args: argparse.Namespace) -> dict[str, Any]:
                 conn,
                 tenant_id=args.tenant_id,
                 scopes=args.scope,
+                agents=args.agent,
                 label=args.label,
                 created_by=args.created_by,
                 allow_duplicate_label=args.allow_duplicate_label,
@@ -443,6 +501,7 @@ async def async_main(args: argparse.Namespace) -> dict[str, Any]:
                 current_label=args.current_label,
                 current_hash_prefix=args.current_hash_prefix,
                 scopes=args.scope,
+                agents=args.agent,
                 new_label=args.new_label,
                 created_by=args.created_by,
                 expires_at=args.expires_at,

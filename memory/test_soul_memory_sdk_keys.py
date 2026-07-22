@@ -14,14 +14,16 @@ from soul_memory_sdk_keys import (  # noqa: E402
     CREATE_CONFIRMATION,
     ROTATE_CONFIRMATION,
     KeyProvisioningError,
+    build_parser,
     key_preview,
     key_record,
+    normalize_agents,
     normalize_expiry,
     normalize_scopes,
     revoke_tenant_key,
     rotate_tenant_key,
 )
-from soul_memory_sdk_runtime import hash_api_key  # noqa: E402
+from soul_memory_sdk_runtime import TenantContext, TenantScopeError, hash_api_key  # noqa: E402
 
 
 class FakeConn:
@@ -48,16 +50,36 @@ def test_normalize_scopes_rejects_unknown_and_wildcard_mix() -> None:
         normalize_scopes(["*", "read"])
 
 
+def test_normalize_agents_is_strict_and_scoped() -> None:
+    assert normalize_agents(["ADA", "JARVIS"], scopes=["read", "write"]) == ("ADA", "JARVIS")
+    assert normalize_agents([], scopes=["tenant:read"]) == ()
+    assert normalize_agents(None, scopes=["*"]) == ()
+    with pytest.raises(KeyProvisioningError, match="agent_allowlist_required_for_read_write"):
+        normalize_agents([], scopes=["read"])
+    with pytest.raises(KeyProvisioningError, match="agent_name_required"):
+        normalize_agents(["  "], scopes=["read"])
+    with pytest.raises(KeyProvisioningError, match="agent_name_must_be_string"):
+        normalize_agents([None], scopes=["read"])  # type: ignore[list-item]
+    with pytest.raises(KeyProvisioningError, match="agent_name_max_20_chars"):
+        normalize_agents(["A" * 21], scopes=["read"])
+    with pytest.raises(KeyProvisioningError, match="agent_wildcard_not_supported"):
+        normalize_agents(["*"], scopes=["read"])
+    with pytest.raises(KeyProvisioningError, match="duplicate_agent"):
+        normalize_agents(["ADA", "ada"], scopes=["read"])
+
+
 def test_key_record_stores_only_hash_and_metadata() -> None:
     record = key_record(
         "sk-soul-secret",
         scopes=["tenant:read"],
+        agents=[],
         label="william-prod",
         created_by="ADA",
     )
 
     assert record["sha256"] == hash_api_key("sk-soul-secret")
     assert record["scopes"] == ["tenant:read"]
+    assert record["agents"] == []
     assert record["label"] == "william-prod"
     assert record["created_by"] == "ADA"
     assert "sk-soul-secret" not in repr(record)
@@ -68,12 +90,14 @@ def test_key_record_supports_canonical_future_expiry() -> None:
     record = key_record(
         "sk-soul-secret",
         scopes=["read"],
+        agents=["ADA"],
         label="short-lived",
         ttl_seconds=300,
         now=now,
     )
 
     assert record["created_at"] == now.isoformat()
+    assert record["agents"] == ["ADA"]
     assert record["expires_at"] == (now + timedelta(seconds=300)).isoformat()
 
 
@@ -94,18 +118,20 @@ def test_normalize_expiry_rejects_unsafe_values() -> None:
 
 def test_key_preview_never_exposes_full_hash() -> None:
     digest = "a" * 64
-    preview = key_preview({"sha256": digest, "label": "x", "scopes": ["read"]})
+    preview = key_preview({"sha256": digest, "label": "x", "scopes": ["read"], "agents": ["ADA"]})
 
     assert preview == {
         "label": "x",
         "hash_prefix": "a" * 12,
         "scopes": ["read"],
+        "agents": ["ADA"],
         "created_at": "",
         "expires_at": "",
         "revoked_at": "",
         "rotated_to_hash_prefix": "",
     }
     assert digest not in repr(preview)
+    assert "sk-soul-" not in repr(preview)
 
 
 def test_key_preview_accepts_jsonb_returned_as_string() -> None:
@@ -114,6 +140,20 @@ def test_key_preview_accepts_jsonb_returned_as_string() -> None:
     assert preview["hash_prefix"] == "bbbbbbbbbbbb"
     assert preview["label"] == "x"
     assert preview["scopes"] == ["tenant:read"]
+    assert preview["agents"] == []
+
+
+def test_legacy_compatibility_is_explicit_and_fail_closed_for_agent_scopes() -> None:
+    tenant_wide = key_preview({"sha256": "c" * 64, "scopes": ["tenant:read"]})
+    agent_scoped = key_preview({"sha256": "d" * 64, "scopes": ["read"]})
+
+    assert tenant_wide["agents"] == []  # accepted by runtime as tenant-wide
+    assert agent_scoped["agents"] == []  # runtime rejects use without allowlist
+    TenantContext("tenant", "hash", scopes=("tenant:read",)).with_agent("ADA")
+    with pytest.raises(TenantScopeError, match="agent_allowlist_required"):
+        TenantContext("tenant", "hash", scopes=("read",)).with_agent("ADA")
+    with pytest.raises(KeyProvisioningError, match="agent_allowlist_required_for_read_write"):
+        key_record("sk-soul-new", scopes=["read"], label="new-agent-key")
 
 
 @pytest.mark.asyncio
@@ -152,6 +192,7 @@ async def test_rotate_tenant_key_is_one_atomic_update_and_never_stores_raw_key()
         current_label="william-prod",
         current_hash_prefix="a" * 12,
         scopes=["tenant:read"],
+        agents=[],
         new_label="william-prod",
         ttl_seconds=3600,
     )
@@ -189,6 +230,7 @@ async def test_rotate_tenant_key_fails_closed_without_exactly_one_source(row: di
             current_label="duplicate",
             current_hash_prefix=None,
             scopes=["read"],
+            agents=["ADA"],
             new_label="replacement",
         )
 
@@ -203,6 +245,7 @@ async def test_rotate_tenant_key_rejects_ambiguous_selector_input_before_sql() -
             current_label=None,
             current_hash_prefix=None,
             scopes=["read"],
+            agents=["ADA"],
             new_label="replacement",
         )
     assert conn.fetchrow_calls == []
@@ -211,3 +254,44 @@ async def test_rotate_tenant_key_rejects_ambiguous_selector_input_before_sql() -
 def test_cli_confirmation_constant_is_explicit() -> None:
     assert CREATE_CONFIRMATION == "CREATE_TENANT_KEY"
     assert ROTATE_CONFIRMATION == "ROTATE_TENANT_KEY"
+
+
+def test_cli_accepts_repeated_agents_for_create_and_rotate() -> None:
+    parser = build_parser()
+    create = parser.parse_args(
+        [
+            "--dsn",
+            "postgresql://example.invalid/db",
+            "create",
+            "--scope",
+            "read",
+            "--agent",
+            "ADA",
+            "--agent",
+            "JARVIS",
+            "--label",
+            "external",
+            "--confirm",
+            CREATE_CONFIRMATION,
+        ]
+    )
+    rotate = parser.parse_args(
+        [
+            "--dsn",
+            "postgresql://example.invalid/db",
+            "rotate",
+            "--current-label",
+            "external",
+            "--scope",
+            "write",
+            "--agent",
+            "ADA",
+            "--new-label",
+            "external-v2",
+            "--confirm",
+            ROTATE_CONFIRMATION,
+        ]
+    )
+
+    assert create.agent == ["ADA", "JARVIS"]
+    assert rotate.agent == ["ADA"]
