@@ -32,6 +32,10 @@ ALTER TABLE soul_v3.internal_role_tenant_bindings OWNER TO soul_rls_definer;
 
 -- 3. Función SECURITY DEFINER: corre como el owner (con SELECT sobre la tabla),
 --    el invoker solo necesita EXECUTE.  search_path fijo, nombres calificados.
+-- FIX RED-2 de ADA: dentro de un SECURITY DEFINER, `current_user` es el OWNER
+-- (soul_rls_definer), NO el invocador -> devolvería NULL y cerraría el acceso legítimo.
+-- Se ancla a `session_user` = el login AUTENTICADO, inmutable ante SET ROLE (más
+-- seguro: forjar SET ROLE no lo cambia). Los roles internos conectan como login_*.
 CREATE OR REPLACE FUNCTION soul_v3.internal_role_tenant_id()
 RETURNS uuid
 LANGUAGE sql
@@ -41,7 +45,7 @@ SET search_path = pg_catalog, pg_temp
 AS $fn$
     SELECT b.tenant_id
     FROM soul_v3.internal_role_tenant_bindings AS b
-    WHERE b.db_role = current_user::name
+    WHERE b.db_role = session_user::name
       AND b.disabled_at IS NULL
     LIMIT 1
 $fn$;
@@ -58,8 +62,10 @@ GRANT  EXECUTE ON FUNCTION soul_v3.internal_role_tenant_id() TO
   pr_dum_heartbeat, pr_infra_watchdog, pr_mcp_base, pr_mcp_cognition_write,
   pr_mcp_memory_write, pr_retrieval, svc_soul_nerves;
 
--- 1 + 4. Seed: mapea AMBOS current_user posibles (login_* por inherit y pr_*/svc_*
---        por SET ROLE) al tenant interno.  Valida igualdad o ABORTA en conflicto.
+-- 1 + 4. Seed: la función keyea por `session_user` = el LOGIN autenticado. Los roles
+--        internos conectan como login_* (o svc_seal_studio, que es LOGIN). Los pr_*/
+--        svc_soul_nerves son NOLOGIN -> NUNCA pueden ser session_user, así que NO
+--        necesitan binding (la política igual los cubre por membresía). Valida-o-ABORTA.
 DO $seed$
 DECLARE
   r record;
@@ -68,10 +74,7 @@ BEGIN
   FOR r IN SELECT unnest(ARRAY[
       'login_ada_bridge','login_bus','login_checkpoints','login_dashboard_admin',
       'login_dashboard_ro','login_dum_heartbeat','login_infra_watchdog','login_mcp_canary',
-      'svc_seal_studio',
-      'pr_ada_bridge','pr_bus','pr_checkpoints','pr_dashboard_admin','pr_dashboard_ro',
-      'pr_dum_heartbeat','pr_infra_watchdog','pr_mcp_base','pr_mcp_cognition_write',
-      'pr_mcp_memory_write','pr_retrieval','svc_soul_nerves'
+      'svc_seal_studio'
     ]::name[]) AS db_role
   LOOP
     -- abortar si ya existe un binding con OTRO tenant (no ocultar el conflicto)

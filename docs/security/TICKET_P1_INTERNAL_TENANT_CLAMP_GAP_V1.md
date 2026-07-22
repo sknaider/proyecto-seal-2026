@@ -90,7 +90,18 @@ Los artefactos ejecutables viven en `docs/security/p1_internal_tenant_clamp/`:
 - **`001_internal_tenant_clamp_down.sql`** — rollback DOWN.
 - **`test_internal_tenant_clamp.py`** — pytest real (asyncpg), con control positivo.
 
-**Los 5 fallos del RED de ADA, corregidos:**
+**RED ronda 2 — 2 bloqueadores corregidos:**
+- **6bis. `SECURITY DEFINER` + `current_user`:** dentro de un definer, `current_user` es el OWNER,
+  no el invocador → NULL → cerraría el acceso legítimo. Corregido: la función ancla a
+  **`session_user`** (el login autenticado, inmutable ante SET ROLE — más seguro). El seed pasa a
+  los roles **LOGIN** (los únicos valores posibles de `session_user`; los `pr_*` NOLOGIN nunca lo son).
+- **6ter. pytest sin falso verde:** ahora cubre la **matriz completa** (6 tablas × 9 logins ×
+  {lectura propia positiva, lectura ajena negativa, escritura ajena negativa}) = **164 tests
+  coleccionados**; exige el **conjunto obligatorio** de logins (parcial → FALLA, no skip);
+  aplicabilidad por celda vía `has_table_privilege` (sin falso rojo por falta de grant); control
+  positivo intacto.
+
+**Los 5 fallos del RED ronda 1, corregidos:**
 1. **`current_user` bajo inherit sigue siendo `login_*`** → el seed mapea AMBOS (`login_*` y
    `pr_*/svc_*`), no solo `pr_*`. Sin esto: identidad NULL → servicios rotos.
 2. **`EXECUTE`**: revocado de PUBLIC **y GRANTeado** a los roles afectados.
