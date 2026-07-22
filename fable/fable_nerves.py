@@ -249,6 +249,18 @@ async def _tick_locked(stimulus: dict | None = None):
                 json.dumps({"urges": urges, "ts": now.isoformat(timespec='seconds')}, ensure_ascii=False))
     finally:
         await c.close()
+        # Heartbeat de liveness: se escribe SIEMPRE que el tick corre (cruce umbral o no).
+        # El supervisor lo vigila para "el nervio está vivo"; nunca stale si el timer corre.
+        _write_heartbeat({
+            "schema": "seal.fable_nerves_heartbeat.v1",
+            "ts": now.isoformat(timespec="seconds"),
+            "agent": AGENT,
+            "alive": True,
+            "n_tanks": len(tank_summary),
+            "tanks": tank_summary,
+            "n_urges": len(urges),
+            "action_failures": action_failures,
+        })
     if action_failures:
         raise RuntimeError("; ".join(action_failures))
     return urges
