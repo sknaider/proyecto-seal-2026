@@ -91,20 +91,18 @@ pytestmark = pytest.mark.skipif(
 
 
 async def _seed(admin):
+    # Solo tenant B (fresco): las pruebas de seguridad son negativas (0 filas ajenas).
+    # La no-regresión del acceso propio se prueba por mecanismo (test_binding_resolves_own_tenant),
+    # sin depender de datos sembrados en el tenant A real.
     for agent in CANARY_AGENTS:
         for cfg in TABLES.values():
-            sql, args = cfg["ins"](TENANT_B, agent)          # tenant B (todas las tablas)
+            sql, args = cfg["ins"](TENANT_B, agent)
             await admin.execute(sql, *args)
-            if cfg["free"]:
-                sql, args = cfg["ins"](TENANT_A, agent)      # tenant A solo en tablas con columna libre
-                await admin.execute(sql, *args)
 
 
 async def _clean(admin):
-    for tname, cfg in TABLES.items():
+    for tname in TABLES:
         await admin.execute(f"DELETE FROM soul_v3.{tname} WHERE tenant_id=$1", TENANT_B)
-        if cfg["free"]:
-            await admin.execute(f"DELETE FROM soul_v3.{tname} WHERE tenant_id=$1 AND {cfg['free']}=$2", TENANT_A, CANARY)
 
 
 async def _provision(admin):
@@ -151,22 +149,24 @@ async def _as(login, tenant):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("login", sorted(REQUIRED_LOGINS))
-@pytest.mark.parametrize("table", sorted(TABLES))
-async def test_own_read_positive(admin, login, table):
-    """El clamp NO rompe lo legítimo: el login ve su canario propio (tenant A, su agente)."""
-    if not TABLES[table]["free"]:
-        pytest.skip(f"{table} sin columna libre para canario propio")
-    if not await _priv(admin, login, table, "SELECT"):
-        pytest.skip(f"{login} sin SELECT en {table}")
-    ac, free = TABLES[table]["agent_col"], TABLES[table]["free"]
-    conn = await _as(login, TENANT_A)
+async def test_binding_resolves_own_tenant(admin, login):
+    """El clamp NO rompe lo legítimo, probado por su MECANISMO (sin asumir que existe
+    una PERMISSIVE que muestre datos — tener SELECT grant NO implica visibilidad RLS).
+
+    `internal_role_tenant_id()` debe resolver el tenant interno (A) para cada login.
+    Como el clamp USING es `tenant_id = internal_role_tenant_id()`, si resuelve A las
+    filas del tenant propio pasan el clamp; si resolviera NULL, el acceso propio se
+    cerraría. Esto aísla la regresión del clamp de la (in)existencia de permissives."""
+    conn = await asyncpg.connect(LOGIN_DSNS[login])
     try:
-        n = await conn.fetchval(
-            f"SELECT count(*) FROM soul_v3.{table} WHERE tenant_id=$1 AND {ac}=$2 AND {free}=$3",
-            TENANT_A, agent_of(login), CANARY)
-        assert n > 0, f"REGRESIÓN: {login} no ve su propio tenant en {table} (clamp roto)"
+        tid = await conn.fetchval("SELECT soul_v3.internal_role_tenant_id()")
+        assert str(tid) == TENANT_A, (
+            f"{login} resuelve tenant={tid}, no el interno {TENANT_A} -> el clamp cerraría "
+            f"su acceso propio (binding faltante/deshabilitado o session_user inesperado)")
     finally:
         await conn.close()
+
+
 
 
 @pytest.mark.asyncio
