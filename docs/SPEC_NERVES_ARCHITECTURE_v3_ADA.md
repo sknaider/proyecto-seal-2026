@@ -145,7 +145,19 @@ deshabilitado para impedir un segundo scheduler. El impulso puede observar,
 diagnosticar, persistir evidencia y alertar. No adquiere autoridad para mutaciones
 destructivas ni para eludir aprobación: esa frontera permanece fuera de NERVES.
 
-### 3.3 Sidecar FABLE
+### 3.3 Identidad PostgreSQL dura
+
+`app.agent` es contexto funcional, no identidad: cualquier cliente PostgreSQL
+puede cambiar un GUC personalizado. Cada runtime autentica directamente como
+`svc_soul_nerves_<agente>` con una credencial `0600` propia. Las políticas RLS
+RESTRICTIVE derivan el agente de `session_user` mediante
+`soul_v3.nerves_session_agent()` e ignoran un `SET app.agent` falsificado.
+
+La frontera cubre estado, métricas, tareas, GAM, diagnósticos y las escrituras
+allowlisted de memoria/monólogo. Los roles son `NOSUPERUSER`, `NOBYPASSRLS`,
+`NOINHERIT`, sin membresías; el antiguo `svc_soul_nerves` permanece `NOLOGIN`.
+
+### 3.4 Sidecar FABLE
 
 FABLE conserva su arquitectura adaptada: `curiosity_drive`, `teach_drive`,
 `rigor_drive`, `care_drive`. Solo `verificar_por_efecto` está LIVE; los otros tres

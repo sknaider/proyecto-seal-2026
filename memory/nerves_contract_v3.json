@@ -154,11 +154,31 @@
   "database": {
     "state_table": "soul_v3.motivation_states",
     "metrics_table": "soul_v3.nerves_metrics_log",
-    "runtime_role": "svc_soul_nerves",
+    "runtime_roles": {
+      "ADA": "svc_soul_nerves_ada",
+      "ALICE": "svc_soul_nerves_alice",
+      "DUM": "svc_soul_nerves_dum",
+      "JARVIS": "svc_soul_nerves_jarvis",
+      "NEXUS": "svc_soul_nerves_nexus"
+    },
+    "retired_shared_role": "svc_soul_nerves",
+    "identity_function": "soul_v3.nerves_session_agent()",
+    "hard_identity_tables": [
+      "motivation_states",
+      "working_state",
+      "reflective_diagnoses",
+      "inner_monologue",
+      "memories",
+      "agent_tasks",
+      "gam_event_graph",
+      "gam_topics",
+      "nerves_metrics_log"
+    ],
     "required_policies": [
       "nerves_agent_isolation_insert",
       "nerves_agent_isolation_select",
-      "nerves_agent_isolation_update"
+      "nerves_agent_isolation_update",
+      "nerves_hard_session_identity"
     ]
   },
   "executive_layer": {

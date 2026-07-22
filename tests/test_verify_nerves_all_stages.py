@@ -21,6 +21,20 @@ def test_test_count_fails_closed_without_summary():
     assert gate._test_count("collection failed") == 0
 
 
+def test_global_contract_env_removes_runtime_identity_without_mutating_source():
+    source = {
+        "PATH": "/bin",
+        "SEAL_AGENT": "ADA",
+        "SEAL_DB_DSN": "postgresql://runtime:secret@localhost/db",
+        "SEAL_DB_URL": "postgresql://alias:secret@localhost/db",
+        "SEAL_PG_DSN": "postgresql://alias2:secret@localhost/db",
+    }
+    result = gate._global_contract_env(source)
+    assert result == {"PATH": "/bin"}
+    assert source["SEAL_AGENT"] == "ADA"
+    assert "SEAL_DB_DSN" in source
+
+
 def test_runtime_report_covers_every_live_agent_and_fable(monkeypatch, tmp_path):
     contract = gate._read_json(gate.CONTRACT)
     monkeypatch.setattr(gate, "ROOT", tmp_path)

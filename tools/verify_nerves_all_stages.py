@@ -31,6 +31,7 @@ TEST_FILES = (
     "fable/test_fable_nerves_live.py",
     "tests/test_verify_nerves_spec_contract.py",
     "tests/test_verify_nerves_all_stages.py",
+    "tests/test_nerves_e2e_hard_identity.py",
 )
 
 
@@ -68,6 +69,14 @@ def _read_json(path: Path) -> dict:
 def _test_count(output: str) -> int:
     match = re.search(r"(\d+) passed", output)
     return int(match.group(1)) if match else 0
+
+
+def _global_contract_env(source: dict[str, str]) -> dict[str, str]:
+    """Drop the caller identity so the contract can audit every agent row."""
+    env = source.copy()
+    for name in ("SEAL_DB_DSN", "SEAL_DB_URL", "SEAL_PG_DSN", "SEAL_AGENT"):
+        env.pop(name, None)
+    return env
 
 
 def _show(unit: str, prop: str) -> str:
@@ -149,12 +158,17 @@ def _write_report(report: dict) -> None:
 def main() -> int:
     dsn = os.environ.get("SEAL_DB_DSN", "")
     identity = urlsplit(dsn).username if dsn else None
-    if identity != "svc_soul_nerves":
+    agent = os.environ.get("SEAL_AGENT", "").strip().upper()
+    expected_identity = f"svc_soul_nerves_{agent.lower()}" if agent else None
+    if not expected_identity or identity != expected_identity:
         report = {
             "schema": "seal.nerves_full_gate.v1",
             "ts": datetime.now(timezone.utc).isoformat(),
             "pass": False,
-            "error": "SEAL_DB_DSN must authenticate directly as svc_soul_nerves",
+            "error": (
+                "SEAL_DB_DSN must authenticate directly as the per-agent NERVES role "
+                f"(expected={expected_identity or 'SEAL_AGENT missing'})"
+            ),
         }
         _write_report(report)
         print(json.dumps(report, indent=2))
@@ -177,6 +191,7 @@ def main() -> int:
             "--output",
             str(contract_report_path),
         ],
+        env=_global_contract_env(os.environ),
     )
     contract_evidence = _read_json(contract_report_path) if contract_report_path.exists() else {}
     contract_stage["passed_checks"] = contract_evidence.get("passed", 0)

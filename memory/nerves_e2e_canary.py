@@ -7,7 +7,9 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import stat
 import time
+from urllib.parse import urlsplit
 import uuid
 
 import seal_nerves as nerves
@@ -16,6 +18,7 @@ import seal_nerves as nerves
 ROOT = Path("/home/dadito/IA/proyecto-seal")
 REPORT = ROOT / "research/flywire_results/nerves_e2e_canary.json"
 CONTRACT = ROOT / "memory/nerves_contract_v3.json"
+RUNTIME_ENV_DIR = Path.home() / ".config/seal"
 ARTIFACTS = {
     "ADA": ROOT / "research/flywire_results/nerves_ada_maintenance.jsonl",
     "JARVIS": ROOT / "research/flywire_results/nerves_jarvis_maintenance.jsonl",
@@ -23,6 +26,35 @@ ARTIFACTS = {
     "NEXUS": ROOT / "research/flywire_results/nerves_nexus_maintenance.jsonl",
     "DUM": ROOT / "research/flywire_results/nerves_dum_maintenance.jsonl",
 }
+
+
+def _runtime_dsn(agent: str) -> str:
+    """Load one agent's direct-login DSN without sourcing or exposing it."""
+    normalized = agent.strip().upper()
+    if normalized not in ARTIFACTS:
+        raise RuntimeError(f"unsupported NERVES agent: {normalized}")
+    path = RUNTIME_ENV_DIR / f"soul_nerves_{normalized.lower()}_db.env"
+    info = path.stat()
+    if not stat.S_ISREG(info.st_mode):
+        raise RuntimeError(f"runtime env is not a regular file: {path}")
+    if stat.S_IMODE(info.st_mode) != 0o600 or info.st_uid != os.getuid():
+        raise RuntimeError(f"runtime env must be owner-only 0600: {path}")
+
+    values = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key.strip() == "SEAL_DB_DSN":
+            values.append(value.strip().strip('"').strip("'"))
+    if len(values) != 1 or not values[0]:
+        raise RuntimeError(f"runtime env must contain exactly one SEAL_DB_DSN: {path}")
+
+    expected = f"svc_soul_nerves_{normalized.lower()}"
+    if urlsplit(values[0]).username != expected:
+        raise RuntimeError(f"runtime env identity mismatch: expected {expected}")
+    return values[0]
 
 def _artifact_update_required(agent: str) -> bool:
     """Follow the canonical contract instead of hard-coding agent identity."""
@@ -33,11 +65,8 @@ def _artifact_update_required(agent: str) -> bool:
 
 async def _one(agent: str) -> dict:
     run_id = f"canary-{agent.lower()}-{uuid.uuid4()}"
-    engine = nerves.MotivationEngine(
-        agent,
-        trigger_source="controlled_e2e_canary",
-        run_id=run_id,
-    )
+    previous_db_url = nerves.DB_URL
+    engine = None
     artifact = ARTIFACTS[agent]
     before_mtime = artifact.stat().st_mtime_ns if artifact.exists() else None
     started = time.monotonic()
@@ -51,6 +80,12 @@ async def _one(agent: str) -> dict:
         return None
 
     try:
+        nerves.DB_URL = _runtime_dsn(agent)
+        engine = nerves.MotivationEngine(
+            agent,
+            trigger_source="controlled_e2e_canary",
+            run_id=run_id,
+        )
         await engine.connect()
         engine._should_suppress = never_suppress
         engine._flush_queue_if_idle = no_flush
@@ -121,6 +156,7 @@ async def _one(agent: str) -> dict:
         )
         return {
             "agent": agent,
+            "db_identity": urlsplit(nerves.DB_URL).username,
             "status": "pass" if passed else "fail",
             "fired": fired,
             "artifact_updated": artifact_updated,
@@ -143,16 +179,22 @@ async def _one(agent: str) -> dict:
             "elapsed_ms": int((time.monotonic() - started) * 1000),
         }
     finally:
-        if engine.pool and snapshot:
-            async with engine.pool.acquire() as conn:
-                for row in snapshot:
-                    await conn.execute(
-                        "UPDATE motivation_states SET value=$1,last_update=$2,last_fired=$3,"
-                        "fire_count=$4,metadata=$5 WHERE agent=$6 AND tank=$7",
-                        row["value"], row["last_update"], row["last_fired"],
-                        row["fire_count"], row["metadata"], agent, row["tank"],
-                    )
-        await engine.close()
+        try:
+            if engine is not None and engine.pool and snapshot:
+                async with engine.pool.acquire() as conn:
+                    for row in snapshot:
+                        await conn.execute(
+                            "UPDATE motivation_states SET value=$1,last_update=$2,last_fired=$3,"
+                            "fire_count=$4,metadata=$5 WHERE agent=$6 AND tank=$7",
+                            row["value"], row["last_update"], row["last_fired"],
+                            row["fire_count"], row["metadata"], agent, row["tank"],
+                        )
+        finally:
+            try:
+                if engine is not None:
+                    await engine.close()
+            finally:
+                nerves.DB_URL = previous_db_url
 
 
 async def main() -> int:

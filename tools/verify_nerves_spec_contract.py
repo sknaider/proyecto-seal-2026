@@ -388,18 +388,101 @@ async def live_db_checks(contract: dict[str, Any]) -> list[Check]:
         _add_set_check(
             checks, "db.rls_policies", policies, set(db["required_policies"]), "database"
         )
-        role = await conn.fetchrow(
-            "SELECT rolsuper, rolbypassrls, rolinherit FROM pg_roles WHERE rolname=$1",
-            db["runtime_role"],
+        runtime_roles: dict[str, str] = db["runtime_roles"]
+        role_rows = await conn.fetch(
+            "SELECT rolname,rolsuper,rolbypassrls,rolinherit,rolcanlogin "
+            "FROM pg_roles WHERE rolname=ANY($1::text[])",
+            list(runtime_roles.values()),
         )
-        role_ok = bool(role) and not role["rolsuper"] and not role["rolbypassrls"] and not role["rolinherit"]
+        role_by_name = {row["rolname"]: row for row in role_rows}
+        for agent, role_name in runtime_roles.items():
+            role = role_by_name.get(role_name)
+            role_ok = bool(role) and role["rolcanlogin"] and not role["rolsuper"] \
+                and not role["rolbypassrls"] and not role["rolinherit"]
+            checks.append(Check(
+                f"db.runtime_role.{agent}", role_ok,
+                "role={} exists={} login={} super={} bypassrls={} inherit={}".format(
+                    role_name, bool(role), role["rolcanlogin"] if role else "?",
+                    role["rolsuper"] if role else "?", role["rolbypassrls"] if role else "?",
+                    role["rolinherit"] if role else "?",
+                ), "database",
+            ))
+
+        shared_role = await conn.fetchrow(
+            "SELECT rolcanlogin,rolsuper,rolbypassrls FROM pg_roles WHERE rolname=$1",
+            db["retired_shared_role"],
+        )
+        shared_ok = bool(shared_role) and not shared_role["rolcanlogin"] \
+            and not shared_role["rolsuper"] and not shared_role["rolbypassrls"]
         checks.append(Check(
-            "db.runtime_role", role_ok,
-            "exists={} super={} bypassrls={} inherit={}".format(
-                bool(role), role["rolsuper"] if role else "?",
-                role["rolbypassrls"] if role else "?", role["rolinherit"] if role else "?",
+            "db.retired_shared_role", shared_ok,
+            "role={} exists={} login={} super={} bypassrls={}".format(
+                db["retired_shared_role"], bool(shared_role),
+                shared_role["rolcanlogin"] if shared_role else "?",
+                shared_role["rolsuper"] if shared_role else "?",
+                shared_role["rolbypassrls"] if shared_role else "?",
             ), "database",
         ))
+
+        hard_policy_rows = await conn.fetch(
+            "SELECT tablename,permissive,roles FROM pg_policies "
+            "WHERE schemaname='soul_v3' AND policyname='nerves_hard_session_identity'"
+        )
+        hard_by_table = {row["tablename"]: row for row in hard_policy_rows}
+        expected_role_set = set(runtime_roles.values())
+        for table in db["hard_identity_tables"]:
+            policy = hard_by_table.get(table)
+            ok = bool(policy) and policy["permissive"] == "RESTRICTIVE" \
+                and set(policy["roles"]) == expected_role_set
+            checks.append(Check(
+                f"db.hard_identity_policy.{table}", ok,
+                "table={} exists={} mode={} roles={}".format(
+                    table, bool(policy), policy["permissive"] if policy else "?",
+                    sorted(policy["roles"]) if policy else [],
+                ), "database",
+            ))
+
+        # By-effect adversarial: a forged app.agent must not change the rows
+        # visible or writable to a per-agent authenticated session.
+        for agent, role_name in runtime_roles.items():
+            env_path = Path.home() / ".config" / "seal" / f"soul_nerves_{agent.lower()}_db.env"
+            dsn = ""
+            if env_path.is_file() and env_path.stat().st_mode & 0o077 == 0:
+                for line in env_path.read_text(encoding="utf-8").splitlines():
+                    if line.startswith("SEAL_DB_DSN="):
+                        dsn = line.split("=", 1)[1]
+                        break
+            other = next(item for item in runtime_roles if item != agent)
+            direct_ok = False
+            detail = f"role={role_name} env_mode={'secure' if dsn else 'missing/insecure'}"
+            if dsn:
+                direct = await asyncpg.connect(dsn)
+                tx = direct.transaction()
+                await tx.start()
+                try:
+                    identity = await direct.fetchval("SELECT current_user")
+                    trusted = await direct.fetchval("SELECT soul_v3.nerves_session_agent()")
+                    await direct.execute("SELECT set_config('app.agent',$1,false)", other)
+                    visible = {
+                        row["agent"] for row in await direct.fetch(
+                            "SELECT DISTINCT agent FROM soul_v3.motivation_states"
+                        )
+                    }
+                    foreign_update = await direct.execute(
+                        "UPDATE soul_v3.motivation_states SET value=value WHERE agent=$1", other
+                    )
+                    direct_ok = identity == role_name and trusted == agent \
+                        and visible <= {agent} and foreign_update == "UPDATE 0"
+                    detail += (
+                        f" identity={identity} trusted={trusted} spoof={other} "
+                        f"visible={sorted(visible)} foreign_update={foreign_update}"
+                    )
+                finally:
+                    await tx.rollback()
+                    await direct.close()
+            checks.append(Check(
+                f"db.hard_identity_effect.{agent}", direct_ok, detail, "database"
+            ))
         rows = await conn.fetch(
             "SELECT agent,tank,fire_count FROM soul_v3.motivation_states WHERE agent=ANY($1::text[])",
             shared["agents"],

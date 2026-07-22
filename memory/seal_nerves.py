@@ -1071,8 +1071,8 @@ class MotivationEngine:
 
     async def connect(self):
         async def _init_connection(conn: asyncpg.Connection) -> None:
-            # RLS identity is part of the connection contract.  A shared,
-            # restricted login may only see/write the current agent's rows.
+            # ``session_user`` is the hard RLS identity. These GUCs provide
+            # request context only; changing app.agent cannot cross agents.
             await conn.execute(
                 "SELECT set_config('app.agent', $1, false), "
                 "set_config('app.tenant_id', $2, false)",
