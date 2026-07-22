@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 import importlib.util
 from pathlib import Path
 import sys
@@ -32,3 +33,17 @@ def test_static_contract_matches_repository():
     checks = module.static_checks(contract)
     failed = [check for check in checks if not check.ok]
     assert not failed, [(check.name, check.detail) for check in failed]
+
+
+def test_architecture_fails_closed_if_open_executive_is_marked_live():
+    contract = copy.deepcopy(module._load_json(ROOT / "memory/nerves_contract_v3.json"))
+    contract["architecture_model"]["autonomy_levels"]["L4_OPEN_EXECUTIVE"] = "live"
+    checks = {check.name: check for check in module.static_checks(contract)}
+    assert checks["architecture.autonomy_levels"].ok is False
+
+
+def test_architecture_requires_every_causal_invariant():
+    contract = copy.deepcopy(module._load_json(ROOT / "memory/nerves_contract_v3.json"))
+    contract["architecture_model"]["invariants"].remove("reset_after_effect")
+    checks = {check.name: check for check in module.static_checks(contract)}
+    assert checks["architecture.invariants"].ok is False

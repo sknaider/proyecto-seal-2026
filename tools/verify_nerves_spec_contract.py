@@ -107,6 +107,46 @@ def static_checks(contract: dict[str, Any]) -> list[Check]:
     fable = contract["fable_sidecar"]
     fable_path = ROOT / fable["source"]
 
+    architecture = contract.get("architecture_model", {})
+    expected_invariants = {
+        "causal_provenance_required",
+        "full_pipeline_single_flight",
+        "sensor_fail_closed",
+        "atomic_stimulus_update",
+        "reset_after_effect",
+        "least_authority",
+        "no_theatrical_fire",
+        "no_synthetic_signal",
+    }
+    _add_set_check(
+        checks,
+        "architecture.invariants",
+        set(architecture.get("invariants", [])),
+        expected_invariants,
+    )
+    expected_levels = {
+        "L0_OBSERVE": "live",
+        "L1_REFLEX": "live",
+        "L2_BOUNDED_JOB": "per_target_pilot",
+        "L3_AGENT_WAKE": "shadow",
+        "L4_OPEN_EXECUTIVE": "prohibited",
+    }
+    levels = architecture.get("autonomy_levels", {})
+    checks.append(Check(
+        "architecture.autonomy_levels",
+        levels == expected_levels,
+        f"observed={levels}",
+    ))
+    spec_path = ROOT / contract.get("canonical_spec", "")
+    spec_source = spec_path.read_text(encoding="utf-8") if spec_path.is_file() else ""
+    checks.append(Check(
+        "architecture.canonical_spec",
+        spec_path.is_file()
+        and "SOUL Nervous System \u2260 daemon NERVES" in spec_source
+        and contract.get("version") == "3.1.0",
+        f"spec={contract.get('canonical_spec')} version={contract.get('version')}",
+    ))
+
     try:
         tree, source = _parse(shared_path)
         _add_set_check(
@@ -128,6 +168,14 @@ def static_checks(contract: dict[str, Any]) -> list[Check]:
             "shared.delivery_fail_loud": "raise NervesDeliveryError",
             "shared.fired_metric_fail_loud": "raise NervesPersistenceError",
             "shared.authoritative_context_only": "no authoritative runtime event",
+            "shared.sensor_fail_closed": "raise NervesSensorError",
+            "shared.action_fail_closed": "raise NervesActionError",
+            "shared.action_ledger": "nerves_action_ledger.jsonl",
+            "shared.causal_run_id": "self.run_id",
+            "shared.causal_action_id": '"action_id": action_id',
+            "shared.failed_effect_preserves_pressure": '"preserved_for_retry"',
+            "shared.atomic_stimulus": "UPDATE motivation_states",
+            "shared.full_pipeline_lock": "with _agent_tick_lock(agent) as acquired",
         }
         for name, snippet in required_snippets.items():
             checks.append(Check(name, snippet in source, f"snippet={snippet!r}"))
@@ -169,7 +217,7 @@ def static_checks(contract: dict[str, Any]) -> list[Check]:
         checks.append(Check("shared.parse", False, f"{type(exc).__name__}: {exc}"))
 
     try:
-        fable_tree, _ = _parse(fable_path)
+        fable_tree, fable_source = _parse(fable_path)
         _add_set_check(
             checks, "fable.drives",
             _string_keys(_assignment(fable_tree, "DRIVES")), set(fable["drives"]),
@@ -178,6 +226,16 @@ def static_checks(contract: dict[str, Any]) -> list[Check]:
             checks, "fable.live_targets",
             _string_set(_assignment(fable_tree, "FIRE_LIVE")), set(fable["live_targets"]),
         )
+        checks.append(Check(
+            "fable.single_flight",
+            "def _tick_lock" in fable_source and "LOCK_NB" in fable_source,
+            "full tick lease present",
+        ))
+        checks.append(Check(
+            "fable.cooldown",
+            '"cooldown_s"' in fable_source and "in_cooldown" in fable_source,
+            "per-drive cooldown present",
+        ))
     except Exception as exc:
         checks.append(Check("fable.parse", False, f"{type(exc).__name__}: {exc}"))
 
@@ -204,10 +262,24 @@ def static_checks(contract: dict[str, Any]) -> list[Check]:
         result = _systemctl_value(service, "Result")
         status = _run(["systemctl", "--user", "is-enabled", timer])
         env = _systemctl_value(service, "Environment")
+        no_new_privileges = _systemctl_value(service, "NoNewPrivileges")
+        umask = _systemctl_value(service, "UMask")
         checks.append(Check(
             f"systemd.{agent}.service",
             load == "loaded" and result == "success",
             f"unit={service} load={load or '?'} result={result or '?'}",
+            "runtime",
+        ))
+        checks.append(Check(
+            f"systemd.{agent}.identity",
+            f"SEAL_AGENT={agent}" in env,
+            f"unit={service} explicit_agent={'yes' if f'SEAL_AGENT={agent}' in env else 'no'}",
+            "runtime",
+        ))
+        checks.append(Check(
+            f"systemd.{agent}.hardening",
+            no_new_privileges == "yes" and umask == "0077",
+            f"unit={service} NoNewPrivileges={no_new_privileges or '?'} UMask={umask or '?'}",
             "runtime",
         ))
         checks.append(Check(
@@ -257,6 +329,31 @@ def static_checks(contract: dict[str, Any]) -> list[Check]:
             ok = load == "loaded" and result == "success"
             detail = f"unit={unit} load={load or '?'} result={result or '?'}"
         checks.append(Check(f"systemd.FABLE.{kind}", ok, detail, "runtime"))
+
+    e2e_path = ROOT / contract["evidence"]["shared_e2e_report"]
+    e2e_source_path = ROOT / "memory/nerves_e2e_canary.py"
+    e2e_source = e2e_source_path.read_text(encoding="utf-8") if e2e_source_path.is_file() else ""
+    checks.append(Check(
+        "acceptance.real_stimulus_path",
+        "engine.stimulate(" in e2e_source and "ledger_statuses" in e2e_source,
+        f"source={e2e_source_path.relative_to(ROOT)}",
+    ))
+    mass_test = ROOT / "memory/test_nerves_mass_acceptance.py"
+    mass_source = mass_test.read_text(encoding="utf-8") if mass_test.is_file() else ""
+    checks.append(Check(
+        "acceptance.unique_1000_matrix",
+        "assert len(CASES) == 1000" in mass_source
+        and "assert len(signatures) == 1000" in mass_source,
+        f"source={mass_test.relative_to(ROOT)}",
+    ))
+    ledger_path = ROOT / shared.get("action_ledger", "")
+    ledger_mode = ledger_path.stat().st_mode & 0o777 if ledger_path.exists() else None
+    checks.append(Check(
+        "runtime.action_ledger",
+        ledger_path.is_file() and ledger_mode == 0o600,
+        f"path={shared.get('action_ledger')} mode={oct(ledger_mode) if ledger_mode is not None else '?'}",
+        "runtime",
+    ))
     return checks
 
 
@@ -360,6 +457,20 @@ def evidence_checks(contract: dict[str, Any]) -> list[Check]:
             observed = {row.get("agent") for row in report.get("results", [])}
             secure = (path.stat().st_mode & 0o077) == 0
             ok = report.get("pass") is True and observed == expected_agents and secure
+            if name == "shared_e2e_report":
+                required_ledger = set(
+                    contract.get("acceptance", {}).get(
+                        "required_e2e_ledger_states", []
+                    )
+                )
+                ok = ok and all(
+                    row.get("stimulus_path")
+                        == "MotivationEngine.stimulate(topic_interesting)"
+                    and row.get("state_reset") is True
+                    and row.get("fire_count_incremented") is True
+                    and set(row.get("ledger_provenance", [])) == required_ledger
+                    for row in report.get("results", [])
+                )
             checks.append(Check(
                 f"evidence.{name}", ok,
                 f"pass={report.get('pass')} agents={sorted(observed)} mode={oct(path.stat().st_mode & 0o777)}",
@@ -384,6 +495,41 @@ def evidence_checks(contract: dict[str, Any]) -> list[Check]:
         ))
     except Exception as exc:
         checks.append(Check("evidence.fable", False, f"{type(exc).__name__}: {exc}", "evidence"))
+
+    full_gate_path = ROOT / contract["evidence"]["full_gate_report"]
+    try:
+        report = _load_json(full_gate_path)
+        stages = {stage.get("name"): stage for stage in report.get("stages", [])}
+        minimum = int(
+            contract.get("acceptance", {}).get(
+                "minimum_unique_behavioral_scenarios", 1000
+            )
+        )
+        required_stages = {
+            "deterministic_tests",
+            "contract_and_runtime_spec",
+            "useful_actions",
+            "threshold_to_effect_and_restore",
+            "supervised_automatic_runtime",
+        }
+        secure = (full_gate_path.stat().st_mode & 0o077) == 0
+        ok = (
+            report.get("pass") is True
+            and required_stages <= set(stages)
+            and all(stages[name].get("ok") is True for name in required_stages)
+            and int(stages["deterministic_tests"].get("passed_tests", 0)) >= minimum
+            and secure
+        )
+        checks.append(Check(
+            "evidence.full_gate",
+            ok,
+            f"pass={report.get('pass')} tests={stages.get('deterministic_tests', {}).get('passed_tests')} mode={oct(full_gate_path.stat().st_mode & 0o777)}",
+            "evidence",
+        ))
+    except Exception as exc:
+        checks.append(Check(
+            "evidence.full_gate", False, f"{type(exc).__name__}: {exc}", "evidence"
+        ))
     return checks
 
 
