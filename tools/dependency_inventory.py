@@ -196,6 +196,113 @@ def _healthy(lifecycle, up):
     return (not up) if lifecycle == "retired" else up
 
 
+# ── Resolver de IDENTIDAD (tarea de ADA): PID→cgroup→unidad/contenedor ────────
+# Verifica que quien REALMENTE respalda un puerto/servicio == lo declarado.
+# Gotchas manejados (cazados por efecto):
+#  1. docker-proxy NO es el contenedor → para puertos docker, se consulta
+#     `docker ps` por el contenedor que publica el puerto (no el cgroup del proxy).
+#  2. cgroup: tomar la unidad MÁS ESPECÍFICA (última .service), no la slice.
+#  3. AUTOEXCLUSIÓN (req. FABLE): el propio PID + ancestría se excluyen del set.
+def _self_lineage():
+    import os
+    pids, pid = set(), os.getpid()
+    for _ in range(12):
+        if pid <= 1 or pid in pids:
+            break
+        pids.add(pid)
+        try:
+            with open(f"/proc/{pid}/stat") as f:
+                pid = int(f.read().split(") ", 1)[1].split()[1])  # PPid
+        except Exception:
+            break
+    return pids
+
+
+def _docker_publisher(port):
+    """Contenedor que publica host:port (evita la trampa docker-proxy)."""
+    try:
+        r = subprocess.run(["docker", "ps", "--format", "{{.Names}}\t{{.Ports}}"],
+                           capture_output=True, text=True, timeout=6)
+        for line in r.stdout.splitlines():
+            if f":{port}->" in line:
+                name = line.split("\t", 1)[0]
+                d = subprocess.run(["docker", "inspect", name, "--format",
+                                    "{{.Id}}\t{{.Config.Image}}\t{{.State.Running}}"],
+                                   capture_output=True, text=True, timeout=6)
+                cid, image, run = (d.stdout.strip().split("\t") + ["", "", ""])[:3]
+                return {"kind": "docker", "name": name, "id": cid[:12], "image": image,
+                        "running": run == "true"}
+    except Exception:
+        pass
+    return None
+
+
+def _listener_pid(port, exclude):
+    try:
+        for base in (["sudo", "ss"], ["ss"]):
+            r = subprocess.run(base + ["-lntpH", f"sport = :{port}"],
+                               capture_output=True, text=True, timeout=6)
+            for m in r.stdout.split("pid=")[1:]:
+                pid = int(m.split(",")[0].split(")")[0])
+                if pid not in exclude:
+                    return pid
+            if r.stdout.strip():
+                break
+    except Exception:
+        pass
+    return None
+
+
+def _cgroup_unit(pid):
+    """Unidad systemd MÁS ESPECÍFICA del cgroup (última .service), no la slice."""
+    try:
+        cg = open(f"/proc/{pid}/cgroup").read()
+        units = [tok for tok in cg.replace("/", " ").split()
+                 if tok.endswith(".service") or tok.endswith(".scope")]
+        # descartar slices genéricas; preferir la última .service específica
+        svcs = [u for u in units if u.endswith(".service") and u not in
+                ("docker.service", "user@1000.service", "init.scope")]
+        return svcs[-1] if svcs else (units[-1] if units else None)
+    except Exception:
+        return None
+
+
+def _identity_observed(port, expect_kind, expect_name, exclude):
+    """Resuelve la identidad REAL detrás de un puerto. Fail-closed si ambiguo."""
+    if expect_kind == "docker":
+        pub = _docker_publisher(port)
+        if pub is None:
+            # host-network: no hay port-map en `docker ps` → resolver por el
+            # cgroup del listener (docker-<id>.scope). Gotcha cazado por efecto.
+            pid = _listener_pid(port, exclude)
+            cid = None
+            if pid is not None:
+                try:
+                    cg = open(f"/proc/{pid}/cgroup").read()
+                    m = [t for t in cg.replace("/", " ").split() if t.startswith("docker-")]
+                    if m:
+                        cid = m[0].replace("docker-", "").replace(".scope", "")[:64]
+                except Exception:
+                    pass
+            if cid:
+                d = subprocess.run(["docker", "inspect", cid, "--format",
+                                    "{{.Name}}\t{{.Id}}\t{{.Config.Image}}\t{{.State.Running}}"],
+                                   capture_output=True, text=True, timeout=6)
+                nm, iid, image, run = (d.stdout.strip().split("\t") + ["", "", "", ""])[:4]
+                pub = {"kind": "docker", "name": nm.lstrip("/"), "id": iid[:12],
+                       "image": image, "running": run == "true", "net": "host"}
+                return pub, f"docker {pub['name']} id={pub['id']} image={pub['image']} (host-net)"
+            return None, "sin contenedor que publique el puerto"
+        return pub, f"docker {pub['name']} id={pub['id']} image={pub['image']}"
+    # systemd / proceso
+    pid = _listener_pid(port, exclude)
+    if pid is None:
+        return None, "sin PID dueño (huérfano o no observable)"
+    unit = _cgroup_unit(pid)
+    return ({"kind": "systemd", "unit": unit, "pid": pid},
+            f"pid={pid} unit={unit or 'sin-unidad'}")
+
+
 def _wiring_probe():
     """Delega la salud MCP en el probador AUTORITATIVO (mística: reusar, no duplicar).
     scripts/verify_soul_mcp_wiring.py hace el chain funcional completo por servidor:
@@ -242,9 +349,14 @@ def _mcp_rows():
             gated = (not up) and "TOOL_BROKER" in wd and (
                 "capability" in wd or "no capability_scope" in wd)
             if gated:
+                # TERCER ESTADO (modelo de 3 de ADA: salud / authz-denied / error).
+                # El deny prueba que la capa broker vive y ruteó a authz, pero NO
+                # verifica el backend. NO es outage (no cuenta como regresión) PERO
+                # tampoco es verde pleno: backend NO verificado por este canario.
                 up = True
-                detail = f"canario {w.get('probe', '?')} GATEADO por capability (control OK, MCP procesó) · {w.get('tools', '?')} tools"
-                probe = "wiring-canary (gated-tool)"
+                gate = True
+                detail = f"canario {w.get('probe', '?')} AUTHZ-GATED (broker vivo; backend NO verificado) · {w.get('tools', '?')} tools"
+                probe = "wiring-canary (authz-gated)"
             else:
                 detail = f"canario {w.get('probe', '?')} · {w.get('tools', '?')} tools · {'OK' if up else 'FALLA'}"
         elif url:
@@ -326,12 +438,56 @@ def _diff(results):
     return 1 if regress else 0
 
 
+def _identity_report():
+    """Verifica identidad REAL vs declarada por puerto (tarea de ADA). Fail-closed.
+    Compara identity_expected (supervisor declarado en STATIC) contra
+    identity_observed (resuelto por efecto), excluyendo el propio lineage (FABLE)."""
+    exclude = _self_lineage()
+    # filas con puerto verificable + supervisor esperado
+    checks = []
+    for name, typ, lifecycle, repl, (pk, pa), (sk, sa) in STATIC:
+        if pk != "port" or lifecycle == "retired":
+            continue
+        expect_kind = "docker" if sk == "docker" else "systemd"
+        checks.append((name, pa, expect_kind, sa))
+    # puertos docker-publicados cuyo probe no es "port" (DB/gateway) — cobertura completa
+    checks.append(("postgres-engine", 5433, "docker", "seal-memory-db"))
+    checks.append(("soul-api-v1-legacy", 8766, "docker", "soul-api-server-legacy-8766"))
+    print(f"{'DEP':<28} {'PUERTO':<7} {'VEREDICTO':<10} EXPECTED → OBSERVED")
+    print("-" * 92)
+    fails = 0
+    for name, port, ekind, ename in checks:
+        obs, detail = _identity_observed(port, ekind, ename, exclude)
+        if obs is None:
+            verdict = "FAIL-ORPHAN"  # fail-closed: sin dueño/ambiguo
+            fails += 1
+        else:
+            if ekind == "docker":
+                got = obs.get("name", "")
+                match = got == ename and obs.get("running")
+            else:
+                got = (obs.get("unit") or "").removesuffix(".service")
+                match = got == ename.removesuffix(".service")
+            verdict = "MATCH" if match else "FAIL-MISMATCH"
+            if not match:
+                fails += 1
+        print(f"{name:<28} :{port:<6} {verdict:<10} {ekind}:{ename} → {detail}")
+    print(f"\nidentidad: {len(checks)-fails}/{len(checks)} MATCH"
+          + (f"  ⚠{fails} fail-closed" if fails else "  — todo atribuido")
+          + f"  · autoexcluidos {len(exclude)} PIDs propios")
+    return 1 if fails else 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--diff", action="store_true", help="gate de regresión (fail-closed) vs baseline durable")
     ap.add_argument("--save-baseline", action="store_true", help="regenera tools/dependency_baseline.json (git-tracked)")
+    ap.add_argument("--identity", action="store_true", help="verifica identidad real vs declarada por puerto (fail-closed)")
     args = ap.parse_args()
+
+    if args.identity:
+        return _identity_report()
 
     results = build()
 
