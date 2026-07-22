@@ -29,7 +29,7 @@ activarse después de la ventana mínima, las ceremonias y los gates documentado
 ```bash
 /home/dadito/IA/seal-spark/.venv/bin/python3 memory/ssai_runtime.py status
 /home/dadito/IA/seal-spark/.venv/bin/python3 memory/ssai_runtime.py \
-  --dsn-file .seal_mcp_runtime_cred verify --agent ADA
+  --dsn-file ~/.config/seal/mcp_agents/ada.dsn verify --agent ADA
 systemctl --user status seal-ssai-dual-verify.timer --no-pager
 journalctl --user -u seal-ssai-dual-verify.service --since today --no-pager
 python3 scripts/seal_core_guard.py --health

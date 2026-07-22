@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "memory"))
 
 from seal_secrets import pg_dsn  # noqa: E402
 
-RUNTIME_CRED = ROOT / ".seal_mcp_runtime_cred"
+RUNTIME_CRED = Path.home() / ".config/seal/mcp_agents/ada.dsn"
 
 
 async def must_reject(conn: asyncpg.Connection, statement: str, label: str) -> None:
