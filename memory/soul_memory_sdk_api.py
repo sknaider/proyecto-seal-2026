@@ -538,6 +538,7 @@ if os.environ.get("SOUL_API_V1_COMPAT_ENABLED") == "1":
     @app.api_route(
         "/v1/admin/{path:path}",
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+        include_in_schema=False,
     )
     async def block_legacy_admin(path: str) -> JSONResponse:
         return JSONResponse(

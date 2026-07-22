@@ -53,6 +53,7 @@ def test_sdk_api_openapi_has_bearer_dependency_surface() -> None:
 
     assert "/v1/memory" not in schema["paths"]
     assert "/v1/memory/search" not in schema["paths"]
+    assert "/v1/admin/{path}" not in schema["paths"]
     recall_schema = schema["components"]["schemas"]["RecallResponse"]
     assert "retrieval_mode" in recall_schema["required"]
 
