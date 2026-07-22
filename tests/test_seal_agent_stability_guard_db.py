@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -66,3 +67,42 @@ def test_stable_hash_tracks_sdk_boundary_without_breaking_legacy_reports() -> No
     legacy = guard.stable_hash(report)
     report["sdk_db_boundary"] = {"status": "drift", "issues": ["escape"]}
     assert guard.stable_hash(report) != legacy
+
+
+def test_oneshot_failure_is_not_masked_by_a_green_timer(monkeypatch) -> None:
+    def fake_run(_argv, timeout=5):
+        return SimpleNamespace(
+            returncode=0,
+            stdout="LoadState=loaded\nResult=exit-code\nExecMainStatus=1\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(guard, "run", fake_run)
+    result = guard.check_oneshot_results(("failing.service",))
+    assert result["ok"] is False
+    assert "result=exit-code" in result["issues"][0]
+
+
+def test_oneshot_success_is_healthy(monkeypatch) -> None:
+    def fake_run(_argv, timeout=5):
+        return SimpleNamespace(
+            returncode=0,
+            stdout="LoadState=loaded\nResult=success\nExecMainStatus=0\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(guard, "run", fake_run)
+    result = guard.check_oneshot_results(("healthy.service",))
+    assert result == {
+        "ok": True,
+        "units": [
+            {
+                "unit": "healthy.service",
+                "ok": True,
+                "load_state": "loaded",
+                "result": "success",
+                "exec_status": "0",
+            }
+        ],
+        "issues": [],
+    }

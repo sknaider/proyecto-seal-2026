@@ -127,7 +127,10 @@ CRITICAL_UNITS = (
     "seal-jarvis-heartbeat.timer",
     "seal-nexus-heartbeat.timer",
     "seal-claude-auth-guard.timer",
+    "seal-ssai-dual-verify.timer",
 )
+
+CRITICAL_ONESHOTS = ("seal-ssai-dual-verify.service",)
 
 LAST_REPORT = MESSAGES / "seal_agent_stability_guard_last.json"
 STATE_PATH = MESSAGES / "seal_agent_stability_guard_state.json"
@@ -537,6 +540,54 @@ def ensure_units() -> dict[str, Any]:
     return {"states": states, "fixes": fixes, "issues": issues, "skipped": skipped}
 
 
+def check_oneshot_results(
+    units: tuple[str, ...] = CRITICAL_ONESHOTS,
+) -> dict[str, Any]:
+    """Catch timers whose oneshot target exits non-zero while the timer stays green."""
+    rows: list[dict[str, Any]] = []
+    issues: list[str] = []
+    for unit in units:
+        result = run(
+            [
+                "systemctl",
+                "--user",
+                "show",
+                unit,
+                "-p",
+                "LoadState",
+                "-p",
+                "Result",
+                "-p",
+                "ExecMainStatus",
+            ],
+            timeout=5,
+        )
+        props = {}
+        if result.returncode == 0:
+            props = dict(
+                line.split("=", 1)
+                for line in result.stdout.splitlines()
+                if "=" in line
+            )
+        load = props.get("LoadState", "unknown")
+        service_result = props.get("Result", "unknown")
+        exec_status = props.get("ExecMainStatus", "unknown")
+        ok = load == "loaded" and service_result == "success" and exec_status == "0"
+        row = {
+            "unit": unit,
+            "ok": ok,
+            "load_state": load,
+            "result": service_result,
+            "exec_status": exec_status,
+        }
+        rows.append(row)
+        if not ok:
+            issues.append(
+                f"{unit}: load={load} result={service_result} exec_status={exec_status}"
+            )
+    return {"ok": not issues, "units": rows, "issues": issues}
+
+
 def check_auth_guard_status(path: Path = AUTH_GUARD_STATE, *, now: float | None = None) -> dict[str, Any]:
     """Consume the auth guard result so liveness can never mask OAuth failure."""
     now = time.time() if now is None else now
@@ -936,6 +987,7 @@ def stable_hash(report: dict[str, Any]) -> str:
     # crash the guard before it can publish the actual health report.
     studio_boundary = report.get("studio_db_boundary", {})
     sdk_boundary = report.get("sdk_db_boundary", {})
+    oneshots = report.get("oneshot_results", {})
     relevant = {
         "status": report["status"],
         "issues": report["issues"],
@@ -960,6 +1012,10 @@ def stable_hash(report: dict[str, Any]) -> str:
         "sdk_db_boundary": {
             "status": sdk_boundary.get("status"),
             "issues": sdk_boundary.get("issues", []),
+        },
+        "oneshot_results": {
+            "ok": oneshots.get("ok"),
+            "issues": oneshots.get("issues", []),
         },
     }
     blob = json.dumps(relevant, sort_keys=True, ensure_ascii=False)
@@ -1009,6 +1065,7 @@ async def build_report() -> dict[str, Any]:
 
     heartbeat_results = [check_heartbeat(agent, rows_after) for agent in HEARTBEAT_AGENTS]
     unit_results = ensure_units()
+    oneshot_results = check_oneshot_results()
     auth_guard = check_auth_guard_status()
     memory_identity = await check_ada_memory_identity()
     autonomy_contract = await check_autonomy_contract()
@@ -1030,6 +1087,7 @@ async def build_report() -> dict[str, Any]:
         issues.extend(item.get("issues", []))
     fixes.extend(unit_results["fixes"])
     issues.extend(unit_results["issues"])
+    issues.extend(oneshot_results.get("issues", []))
     issues.extend(auth_guard.get("issues", []))
     issues.extend(memory_identity.get("issues", []))
     issues.extend(autonomy_contract.get("issues", []))
@@ -1058,6 +1116,7 @@ async def build_report() -> dict[str, Any]:
         "monitors": monitor_results,
         "heartbeats": heartbeat_results,
         "units": unit_results,
+        "oneshot_results": oneshot_results,
         "auth_guard": auth_guard,
         "ada_memory_identity": memory_identity,
         "autonomy_contract": autonomy_contract,
