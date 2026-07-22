@@ -147,6 +147,17 @@ def test_capability_policies_do_not_use_tenant_guc() -> None:
     assert "current_setting('app.viewer'" in capability_fragment
 
 
+def test_retrieval_audit_actor_matches_agent_or_server_context() -> None:
+    sql = migration_sql()
+    policy = sql[
+        sql.index("CREATE POLICY sdk_tenant_role_retrieval_log_insert"):
+        sql.index("COMMIT;", sql.index("CREATE POLICY sdk_tenant_role_retrieval_log_insert"))
+    ]
+    assert "agent_requesting = COALESCE(" in policy
+    assert "NULLIF(current_setting('app.agent', true), '')" in policy
+    assert "'sdk_api'" in policy
+
+
 def test_rollback_is_scope_gated_before_destructive_statements() -> None:
     sql = rollback_sql()
     gate = sql.index("rollback blocked:")

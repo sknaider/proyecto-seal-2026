@@ -674,10 +674,10 @@ async def recall_memories(
 ) -> dict[str, Any]:
     """Tenant-safe hybrid recall with a privacy-preserving retrieval audit."""
     tenant.require("read")
-    if agent_id is not None:
-        # Defense in depth for direct runtime callers. The API transaction also
-        # validates this allowlist before selecting the tenant-bound DB role.
-        tenant.with_agent(agent_id)
+    # Keep the actor used by the retrieval audit identical to the agent placed
+    # in the transaction-local RLS context.  A fixed ``sdk_api`` actor makes a
+    # legitimate agent-scoped request fail its INSERT policy after retrieval.
+    scoped_tenant = tenant.with_agent(agent_id)
     started = time.monotonic()
     retrieval = await retrieve_memories(
         conn,
@@ -689,7 +689,7 @@ async def recall_memories(
     latency_ms = int((time.monotonic() - started) * 1000)
     await audit_retrieval(
         conn,
-        tenant,
+        scoped_tenant,
         endpoint="/v1/recall",
         query_text=query_text,
         memory_ids=[
@@ -928,7 +928,7 @@ async def audit_retrieval(
         VALUES ($1::uuid, $2, $3, $4, $5::bigint[], $6, $7::jsonb)
         """,
         tenant.tenant_id,
-        "sdk_api",
+        tenant.agent_id or "sdk_api",
         query_reference,
         endpoint,
         memory_ids,

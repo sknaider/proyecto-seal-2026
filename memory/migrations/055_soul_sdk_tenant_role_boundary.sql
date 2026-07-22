@@ -487,7 +487,10 @@ ON soul_v3.memory_retrieval_log
 FOR INSERT
 TO soul_sdk_agent_api
 WITH CHECK (
-  agent_requesting = NULLIF(current_setting('app.agent', true), '')
+  agent_requesting = COALESCE(
+    NULLIF(current_setting('app.agent', true), ''),
+    'sdk_api'
+  )
 );
 
 COMMIT;

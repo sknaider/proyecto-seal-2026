@@ -658,6 +658,7 @@ async def test_recall_memories_audits_same_tenant_context() -> None:
     assert result["retrieval_mode"] == "lexical_fallback"
     assert "INSERT INTO soul_v3.memory_retrieval_log" in audit_sql
     assert audit_args[0] == tenant.tenant_id
+    assert audit_args[1] == "sdk_api"
     assert audit_args[4] == [7]
     assert audit_args[2] == f"sha256:{hashlib.sha256(b'short').hexdigest()}"
     metadata = json.loads(audit_args[6])
@@ -781,6 +782,28 @@ async def test_recall_rejects_agent_outside_api_key_allowlist_before_query() -> 
     assert conn.fetchval_calls == []
     assert conn.fetch_calls == []
     assert conn.execute_calls == []
+
+
+@pytest.mark.asyncio
+async def test_recall_audit_actor_matches_agent_rls_context() -> None:
+    tenant = TenantContext(
+        tenant_id=TENANT_A,
+        api_key_hash=API_HASH,
+        scopes=("read",),
+        allowed_agents=("ADA",),
+    )
+    conn = FakeConn(rows=[])
+
+    result = await recall_memories(
+        conn,
+        tenant,
+        query_text="private",
+        agent_id="ADA",
+    )
+
+    assert result["retrieval_mode"] == "lexical_fallback"
+    _, audit_args = conn.execute_calls[0]
+    assert audit_args[1] == "ADA"
 
 
 def test_audit_query_hash_is_stable_and_redacts_secrets() -> None:
