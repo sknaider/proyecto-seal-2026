@@ -20,6 +20,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import signal
 import subprocess
 import time
@@ -27,6 +28,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 try:
     import asyncpg
@@ -38,12 +40,41 @@ ROOT = Path("/home/dadito/IA/proyecto-seal")
 MESSAGES = ROOT / "messages"
 PYTHON = Path("/home/dadito/IA/seal-spark/.venv/bin/python3")
 WS_LISTENER = MESSAGES / "ws_listener.py"
-SOUL_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+STABILITY_DB_SECRET = Path.home() / ".config/seal/stability_guard.dsn"
+SDK_DB_SECRET = Path.home() / ".config/seal/soul_memory_sdk.env"
 AUTH_GUARD_STATE = Path.home() / ".local/state/seal/claude-auth-guard/state.json"
 AUTH_GUARD_MAX_AGE_SECONDS = 15 * 60
 PROJECT_MCP_CONFIG = ROOT / ".mcp.json"
 GLOBAL_MCP_CONFIG = Path.home() / ".claude/.mcp.json"
 POSTGRES_MCP_SECRET = Path.home() / ".config/seal/mcp_postgres_observer.env"
+STUDIO_DB_SECRET = Path.home() / ".config/seal/seal_studio_db.env"
+STUDIO_DB_SOURCES = (
+    ROOT / "seal-studio/backend/main.py",
+    ROOT / "seal-studio/backend/mcp_gateway.py",
+    ROOT / "seal-studio/backend/studio_db.py",
+)
+
+
+def read_private_dsn(
+    path: Path,
+    expected_user: str,
+    *,
+    env_key: str | None = None,
+) -> str:
+    """Read a 0600 DSN and fail closed on principal drift."""
+    mode = path.stat().st_mode & 0o777
+    if mode != 0o600:
+        raise RuntimeError(f"{path} mode={mode:o}, esperado=600")
+    raw = path.read_text(encoding="utf-8").strip()
+    if env_key is not None:
+        prefix = env_key + "="
+        matches = [line[len(prefix):].strip().strip('"').strip("'") for line in raw.splitlines() if line.startswith(prefix)]
+        if len(matches) != 1:
+            raise RuntimeError(f"{path} no contiene exactamente una entrada {env_key}")
+        raw = matches[0]
+    if (urlsplit(raw).username or "").lower() != expected_user.lower():
+        raise RuntimeError(f"{path} principal inesperado")
+    return raw
 
 AUTONOMY_REQUIRED_CLAUSES = (
     "RECEIVED -> EXECUTING -> TESTING -> VERIFIED -> COMPLETED",
@@ -65,6 +96,7 @@ MONITOR_REARM_COOLDOWN_SECONDS = 10 * 60
 CRITICAL_UNITS = (
     "seal-chat.service",
     "seal-mcp-server.service",
+    "seal-studio-backend.service",
     "ada-codex-remote-bridge.service",
     "ada-codex-compact-monitor.service",
     "seal-codex-app-bridge.service",
@@ -213,6 +245,18 @@ def runtime_processes(agent: str, rows: list[Proc]) -> list[Proc]:
     matches: list[Proc] = []
     for proc in rows:
         if proc.comm != "claude":
+            continue
+        # Programmatic Claude workers inherit SEAL_AGENT from their launcher,
+        # but they are not interactive sibling runtimes.  Counting short-lived
+        # stream-json reviewers as principals produced recurring false duplicate
+        # alarms and could tempt an unsafe kill of the real agent session.
+        if "--output-format stream-json" in proc.args:
+            continue
+        if not re.search(
+            rf"(?:^|\s)--name(?:=|\s+)[\"']?{re.escape(agent)}(?:\s|—|-|$)",
+            proc.args,
+            flags=re.IGNORECASE,
+        ):
             continue
         try:
             env_raw = Path(f"/proc/{proc.pid}/environ").read_bytes().decode(
@@ -532,20 +576,24 @@ def check_auth_guard_status(path: Path = AUTH_GUARD_STATE, *, now: float | None 
 async def check_ada_memory_identity() -> dict[str, Any]:
     if asyncpg is None:
         return {"ok": False, "issues": ["asyncpg no disponible; no pude verificar audit_log memory_store"]}
+    conn = None
     try:
-        conn = await asyncpg.connect(SOUL_DSN)
+        dsn = read_private_dsn(STABILITY_DB_SECRET, "svc_soul_stability_guard")
+        conn = await asyncpg.connect(dsn, timeout=5)
         row = await conn.fetchrow(
             """
             SELECT at, actor, action, decision
-            FROM soul_v3.audit_log
-            WHERE actor='ADA' AND action='memory_store' AND decision='allow'
+            FROM soul_v3.stability_guard_ada_memory_audit_v
+            WHERE decision='allow'
             ORDER BY at DESC
             LIMIT 1
             """
         )
-        await conn.close()
     except Exception as exc:
         return {"ok": False, "issues": [f"ADA memory_store audit no verificable: {exc}"]}
+    finally:
+        if conn is not None:
+            await conn.close()
     if not row:
         return {"ok": False, "issues": ["ADA memory_store sin allow reciente en audit_log"]}
     created_at = row["at"]
@@ -596,26 +644,30 @@ async def check_autonomy_governance() -> dict[str, Any]:
     """Verify persistent rules/identity so reboot and compact cannot restore passivity."""
     if asyncpg is None:
         return {"ok": False, "status": "unverifiable", "issues": ["autonomía: asyncpg no disponible"]}
+    conn = None
     try:
-        conn = await asyncpg.connect(SOUL_DSN)
+        dsn = read_private_dsn(STABILITY_DB_SECRET, "svc_soul_stability_guard")
+        conn = await asyncpg.connect(dsn, timeout=5)
         rows = await conn.fetch(
             """
             SELECT id, content
-            FROM soul_v3.rules
+            FROM soul_v3.stability_guard_autonomy_rules_v
             WHERE id = ANY($1::bigint[]) AND active IS TRUE
             """,
             list(AUTONOMY_RULE_IDS),
         )
         identity = await conn.fetchval(
-            "SELECT boot_context FROM soul_v3.identity WHERE agent='JARVIS'"
+            "SELECT boot_context FROM soul_v3.stability_guard_jarvis_identity_v"
         )
-        await conn.close()
     except Exception as exc:
         return {
             "ok": False,
             "status": "unverifiable",
             "issues": [f"autonomía: gobierno SOUL DB no verificable: {exc}"],
         }
+    finally:
+        if conn is not None:
+            await conn.close()
 
     by_id = {int(row["id"]): str(row["content"] or "") for row in rows}
     issues: list[str] = []
@@ -648,24 +700,46 @@ async def check_autonomy_contract(root: Path = ROOT) -> dict[str, Any]:
 
 
 def check_mcp_postgres_boundary(
-    configs: tuple[Path, ...] = (PROJECT_MCP_CONFIG, GLOBAL_MCP_CONFIG),
+    configs: tuple[Path, ...] = (PROJECT_MCP_CONFIG,),
     secret_path: Path = POSTGRES_MCP_SECRET,
+    scan_configs: tuple[Path, ...] = (GLOBAL_MCP_CONFIG,),
 ) -> dict[str, Any]:
-    """Detect config drift back to an embedded/superuser PostgreSQL MCP DSN."""
+    """Detect drift in the active PostgreSQL MCP and legacy config shadows.
+
+    ``configs`` are authoritative manifests and must expose ``postgres``.
+    ``scan_configs`` are optional compatibility manifests: they may omit the
+    server entirely, but if they define it the same credential rules apply.
+    """
     issues: list[str] = []
     expected_source = "mcp_postgres_observer.env"
-    for path in configs:
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            entry = payload["mcpServers"]["postgres"]
-            blob = json.dumps(entry, ensure_ascii=False)
-        except Exception as exc:
-            issues.append(f"postgres MCP: config {path} ausente o inválida: {exc}")
-            continue
+
+    def inspect_entry(path: Path, entry: Any) -> None:
+        blob = json.dumps(entry, ensure_ascii=False)
         if "postgresql://" in blob:
             issues.append(f"postgres MCP: {path} volvió a embeber una DSN")
         if expected_source not in blob:
             issues.append(f"postgres MCP: {path} no carga la credencial observer segura")
+
+    for path in configs:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            entry = payload["mcpServers"]["postgres"]
+        except Exception as exc:
+            issues.append(f"postgres MCP: config {path} ausente o inválida: {exc}")
+            continue
+        inspect_entry(path, entry)
+
+    for path in scan_configs:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            continue
+        except Exception as exc:
+            issues.append(f"postgres MCP: config auxiliar {path} inválida: {exc}")
+            continue
+        entry = payload.get("mcpServers", {}).get("postgres")
+        if entry is not None:
+            inspect_entry(path, entry)
 
     try:
         mode = secret_path.stat().st_mode & 0o777
@@ -677,6 +751,158 @@ def check_mcp_postgres_boundary(
             issues.append(f"postgres MCP: credencial observer mode={mode:o}, esperado=600")
         if "postgresql://mcp_observer:" not in raw:
             issues.append("postgres MCP: credencial no autentica como mcp_observer")
+    return {"ok": not issues, "status": "healthy" if not issues else "drift", "issues": issues}
+
+
+async def check_studio_db_boundary(
+    secret_path: Path = STUDIO_DB_SECRET,
+    sources: tuple[Path, ...] = STUDIO_DB_SOURCES,
+) -> dict[str, Any]:
+    """Detect privilege/config drift in the live SEAL Studio database login."""
+    issues: list[str] = []
+    dsn = ""
+    try:
+        mode = secret_path.stat().st_mode & 0o777
+        for raw in secret_path.read_text(encoding="utf-8").splitlines():
+            if raw.startswith("SEAL_STUDIO_DB_DSN="):
+                dsn = raw.split("=", 1)[1].strip().strip('"').strip("'")
+                break
+    except Exception as exc:
+        issues.append(f"studio DB: credencial ausente o ilegible: {exc}")
+    else:
+        if mode != 0o600:
+            issues.append(f"studio DB: credencial mode={mode:o}, esperado=600")
+        if not dsn.startswith("postgresql://svc_seal_studio:"):
+            issues.append("studio DB: DSN no autentica como svc_seal_studio")
+
+    for path in sources:
+        try:
+            source = path.read_text(encoding="utf-8")
+        except Exception as exc:
+            issues.append(f"studio DB: fuente {path} ausente o ilegible: {exc}")
+            continue
+        if "postgresql://seal:" in source or "seal_memory_2026" in source:
+            issues.append(f"studio DB: fuente {path} reintrodujo fallback superusuario")
+
+    if asyncpg is None:
+        issues.append("studio DB: asyncpg no disponible")
+    elif dsn:
+        try:
+            conn = await asyncpg.connect(dsn, timeout=5)
+            try:
+                identity = await conn.fetchrow(
+                    "SELECT current_user,session_user,current_setting('application_name') app"
+                )
+                attrs = await conn.fetchrow(
+                    "SELECT rolsuper,rolbypassrls,rolinherit FROM pg_roles WHERE rolname=current_user"
+                )
+                private_chat = await conn.fetchval(
+                    "SELECT 1 FROM soul_v3.chat_messages "
+                    "WHERE lower(channel) LIKE 'dm:%' OR lower(channel) LIKE 'user:%' LIMIT 1"
+                )
+                private_memory = await conn.fetchval(
+                    "SELECT 1 FROM soul_v3.memories "
+                    "WHERE COALESCE(scope,'private') NOT IN ('team','shared','public') LIMIT 1"
+                )
+                unlisted = await conn.fetchval(
+                    "SELECT has_table_privilege(current_user,'soul_v3.chat_sessions','SELECT')"
+                )
+                delete_allowed = await conn.fetchval(
+                    "SELECT has_table_privilege(current_user,'soul_v3.llm_routing','DELETE')"
+                )
+            finally:
+                await conn.close()
+            if identity["current_user"] != "svc_seal_studio" or identity["session_user"] != "svc_seal_studio":
+                issues.append("studio DB: identidad viva distinta de svc_seal_studio")
+            if identity["app"] != "seal_studio_backend":
+                issues.append("studio DB: application_name vivo incorrecto")
+            if attrs is None or attrs["rolsuper"] or attrs["rolbypassrls"] or attrs["rolinherit"]:
+                issues.append("studio DB: atributos de rol dejaron de ser mínimos")
+            if private_chat is not None or private_memory is not None:
+                issues.append("studio DB: RLS expone filas privadas")
+            if unlisted or delete_allowed:
+                issues.append("studio DB: privilegio efectivo fuera de allowlist")
+        except Exception as exc:
+            issues.append(f"studio DB: canario de identidad falló: {type(exc).__name__}: {exc}")
+
+    return {"ok": not issues, "status": "healthy" if not issues else "drift", "issues": issues}
+
+
+async def check_sdk_db_boundary(
+    sdk_secret: Path = SDK_DB_SECRET,
+    guard_secret: Path = STABILITY_DB_SECRET,
+) -> dict[str, Any]:
+    """Verify the Memory SDK stays least-privilege and tenant scoped."""
+    issues: list[str] = []
+    if asyncpg is None:
+        return {"ok": False, "status": "unverifiable", "issues": ["SDK DB: asyncpg no disponible"]}
+
+    sdk_conn = None
+    guard_conn = None
+    try:
+        sdk_dsn = read_private_dsn(
+            sdk_secret,
+            "svc_soul_memory_sdk",
+            env_key="SEAL_DB_URL",
+        )
+        guard_dsn = read_private_dsn(guard_secret, "svc_soul_stability_guard")
+        sdk_conn = await asyncpg.connect(sdk_dsn, timeout=5)
+        guard_conn = await asyncpg.connect(guard_dsn, timeout=5)
+
+        identity = await sdk_conn.fetchrow("SELECT session_user,current_user")
+        attrs = await sdk_conn.fetchrow(
+            "SELECT rolsuper,rolbypassrls,rolinherit "
+            "FROM pg_roles WHERE rolname=session_user"
+        )
+        if identity is None or identity["session_user"] != "svc_soul_memory_sdk":
+            issues.append("SDK DB: session_user vivo distinto de svc_soul_memory_sdk")
+        if identity is None or identity["current_user"] != "svc_soul_memory_sdk":
+            issues.append("SDK DB: current_user inicial inesperado")
+        if attrs is None or attrs["rolsuper"] or attrs["rolbypassrls"] or attrs["rolinherit"]:
+            issues.append("SDK DB: atributos del login dejaron de ser mínimos")
+
+        async with sdk_conn.transaction():
+            await sdk_conn.execute("SET LOCAL ROLE soul_sdk_agent_api")
+            await sdk_conn.execute("SELECT set_config('app.agent','ADA',true)")
+            await sdk_conn.execute("SELECT set_config('app.tenant','default',true)")
+            foreign_private = await sdk_conn.fetchval(
+                "SELECT count(*) FROM soul_v3.memories "
+                "WHERE agent <> 'ADA' AND COALESCE(scope,'private')='private'"
+            )
+            if int(foreign_private or 0) != 0:
+                issues.append("SDK DB: el rol agent_api expone memorias privadas ajenas")
+
+            unrelated_denied = False
+            try:
+                await sdk_conn.fetchval("SELECT count(*) FROM soul_v3.agent_tasks")
+            except asyncpg.InsufficientPrivilegeError:
+                unrelated_denied = True
+            if not unrelated_denied:
+                issues.append("SDK DB: agent_api conserva SELECT fuera de su allowlist")
+
+        role_escape_denied = False
+        try:
+            await sdk_conn.execute("SET ROLE soul_sdk_runtime")
+        except asyncpg.InsufficientPrivilegeError:
+            role_escape_denied = True
+        finally:
+            await sdk_conn.execute("RESET ROLE")
+        if not role_escape_denied:
+            issues.append("SDK DB: SET ROLE soul_sdk_runtime no fue denegado")
+
+        superuser_clients = await guard_conn.fetchval(
+            "SELECT client_count FROM soul_v3.stability_guard_superuser_clients_v"
+        )
+        if int(superuser_clients or 0) != 0:
+            issues.append(f"SDK DB: clientes de aplicación superusuario vivos={superuser_clients}")
+    except Exception as exc:
+        issues.append(f"SDK DB: canario de frontera falló: {type(exc).__name__}: {exc}")
+    finally:
+        if sdk_conn is not None:
+            await sdk_conn.close()
+        if guard_conn is not None:
+            await guard_conn.close()
+
     return {"ok": not issues, "status": "healthy" if not issues else "drift", "issues": issues}
 
 
@@ -705,6 +931,11 @@ def post_webchat(message: str, idempotency_key: str) -> bool:
 
 
 def stable_hash(report: dict[str, Any]) -> str:
+    # Historical/minimal reports used by tests and recovery tooling predate the
+    # Studio boundary.  Missing optional sections must hash as "unknown", not
+    # crash the guard before it can publish the actual health report.
+    studio_boundary = report.get("studio_db_boundary", {})
+    sdk_boundary = report.get("sdk_db_boundary", {})
     relevant = {
         "status": report["status"],
         "issues": report["issues"],
@@ -721,6 +952,14 @@ def stable_hash(report: dict[str, Any]) -> str:
         "mcp_postgres_boundary": {
             "status": report["mcp_postgres_boundary"].get("status"),
             "issues": report["mcp_postgres_boundary"].get("issues", []),
+        },
+        "studio_db_boundary": {
+            "status": studio_boundary.get("status"),
+            "issues": studio_boundary.get("issues", []),
+        },
+        "sdk_db_boundary": {
+            "status": sdk_boundary.get("status"),
+            "issues": sdk_boundary.get("issues", []),
         },
     }
     blob = json.dumps(relevant, sort_keys=True, ensure_ascii=False)
@@ -743,7 +982,7 @@ def maybe_post(report: dict[str, Any], *, post_always: bool, post_on_change: boo
 
     lines = [
         f"ADA Stability Guard — {report['status']}",
-        f"ws={report['ws_ok']}/4 monitors={report.get('monitor_ok', 0)}/4 hb={report['heartbeat_ok']}/5 auth={report['auth_guard']['status']} autonomy={report['autonomy_contract']['status']} postgres_mcp={report['mcp_postgres_boundary']['status']} units_ok={report['units_ok']} fixes={len(report['fixes'])} issues={len(report['issues'])}",
+        f"ws={report['ws_ok']}/4 monitors={report.get('monitor_ok', 0)}/4 hb={report['heartbeat_ok']}/5 auth={report['auth_guard']['status']} autonomy={report['autonomy_contract']['status']} postgres_mcp={report['mcp_postgres_boundary']['status']} studio_db={report['studio_db_boundary']['status']} sdk_db={report['sdk_db_boundary']['status']} units_ok={report['units_ok']} fixes={len(report['fixes'])} issues={len(report['issues'])}",
     ]
     if report["fixes"]:
         lines.append("Fixes: " + "; ".join(report["fixes"][:6]))
@@ -774,6 +1013,8 @@ async def build_report() -> dict[str, Any]:
     memory_identity = await check_ada_memory_identity()
     autonomy_contract = await check_autonomy_contract()
     mcp_postgres_boundary = check_mcp_postgres_boundary()
+    studio_db_boundary = await check_studio_db_boundary()
+    sdk_db_boundary = await check_sdk_db_boundary()
 
     fixes: list[str] = []
     issues: list[str] = []
@@ -793,6 +1034,8 @@ async def build_report() -> dict[str, Any]:
     issues.extend(memory_identity.get("issues", []))
     issues.extend(autonomy_contract.get("issues", []))
     issues.extend(mcp_postgres_boundary.get("issues", []))
+    issues.extend(studio_db_boundary.get("issues", []))
+    issues.extend(sdk_db_boundary.get("issues", []))
 
     ws_ok = sum(1 for item in ws_results if item.get("live_count_after") == 1 and not item.get("issues"))
     heartbeat_ok = sum(1 for item in heartbeat_results if item.get("ok"))
@@ -819,6 +1062,8 @@ async def build_report() -> dict[str, Any]:
         "ada_memory_identity": memory_identity,
         "autonomy_contract": autonomy_contract,
         "mcp_postgres_boundary": mcp_postgres_boundary,
+        "studio_db_boundary": studio_db_boundary,
+        "sdk_db_boundary": sdk_db_boundary,
         "fixes": fixes,
         "issues": issues,
     }
