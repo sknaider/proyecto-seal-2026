@@ -133,6 +133,18 @@ class TenantContext:
         return SDK_VIEWER_ROLES[normalize_viewer(self.viewer)]
 
 
+@dataclass(frozen=True)
+class MemoryRetrievalResult:
+    """Memories plus the retrieval implementation exercised for observability."""
+
+    memories: list[dict[str, Any]]
+    mode: str
+
+
+RETRIEVAL_MODE_HYBRID = "hybrid_pgvector_fts"
+RETRIEVAL_MODE_LEXICAL_FALLBACK = "lexical_fallback"
+
+
 def normalize_agent_id(agent_id: Any, *, required: bool) -> str | None:
     agent = str(agent_id or "").strip()
     if not agent:
@@ -660,15 +672,14 @@ async def recall_memories(
     importance_gte: int = 1,
     limit: int = 10,
 ) -> dict[str, Any]:
-    """Simple Phase 2 recall path with RLS + audit.
-
-    This deliberately starts with indexed SQL/text retrieval. Semantic/vector and
-    Neo4j expansion can be layered behind the same tenant transaction after the
-    cross-tenant gates are green.
-    """
+    """Tenant-safe hybrid recall with a privacy-preserving retrieval audit."""
     tenant.require("read")
+    if agent_id is not None:
+        # Defense in depth for direct runtime callers. The API transaction also
+        # validates this allowlist before selecting the tenant-bound DB role.
+        tenant.with_agent(agent_id)
     started = time.monotonic()
-    memories = await search_memories(
+    retrieval = await retrieve_memories(
         conn,
         query_text=query_text,
         agent_id=agent_id,
@@ -681,13 +692,19 @@ async def recall_memories(
         tenant,
         endpoint="/v1/recall",
         query_text=query_text,
-        memory_ids=[int(memory["id"]) for memory in memories if memory.get("id") is not None],
+        memory_ids=[
+            int(memory["id"])
+            for memory in retrieval.memories
+            if memory.get("id") is not None
+        ],
         latency_ms=latency_ms,
+        retrieval_mode=retrieval.mode,
     )
     return {
-        "memories": memories,
-        "total_hits": len(memories),
+        "memories": retrieval.memories,
+        "total_hits": len(retrieval.memories),
         "latency_ms": latency_ms,
+        "retrieval_mode": retrieval.mode,
     }
 
 
@@ -699,7 +716,171 @@ async def search_memories(
     importance_gte: int = 1,
     limit: int = 10,
 ) -> list[dict[str, Any]]:
-    """Search memories under the already-selected RLS context without auditing."""
+    """Backward-compatible search wrapper; prefer ``retrieve_memories``."""
+    result = await retrieve_memories(
+        conn,
+        query_text=query_text,
+        agent_id=agent_id,
+        importance_gte=importance_gte,
+        limit=limit,
+    )
+    return result.memories
+
+
+async def _vector_retrieval_available(conn: Any) -> bool:
+    """Return false only when the required pgvector/FTS schema is absent.
+
+    Probe errors are deliberately not swallowed: an authorization or database
+    failure must not be mislabeled as a healthy lexical fallback.
+    """
+    available = await conn.fetchval(
+        """
+        SELECT to_regtype('vector') IS NOT NULL
+          AND EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_attribute AS a
+                JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
+                JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'soul_v3'
+                  AND c.relname = 'memories'
+                  AND a.attname = 'embedding'
+                  AND a.attnum > 0
+                  AND NOT a.attisdropped
+          )
+          AND EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_attribute AS a
+                JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
+                JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'soul_v3'
+                  AND c.relname = 'memories'
+                  AND a.attname = 'embedding_bm25'
+                  AND a.attnum > 0
+                  AND NOT a.attisdropped
+          )
+        """
+    )
+    return bool(available)
+
+
+async def _query_embedding(query_text: str) -> list[float]:
+    """Use SOUL's local, CPU-only embedding implementation (no remote API)."""
+    from embeddings import get_query_embedding
+
+    return await get_query_embedding(query_text)
+
+
+async def retrieve_memories(
+    conn: Any,
+    *,
+    query_text: str,
+    agent_id: str | None = None,
+    importance_gte: int = 1,
+    limit: int = 10,
+) -> MemoryRetrievalResult:
+    """Use pgvector+FTS when present; lexical fallback only if infra is absent.
+
+    The query intentionally contains no tenant predicate. Tenant isolation is
+    enforced by the already-selected ``current_user`` and RLS policy. Optional
+    ``agent_id`` remains an additional, never broader filter.
+    """
+    bounded_limit = max(1, min(int(limit), 50))
+    if not await _vector_retrieval_available(conn):
+        rows = await _search_memories_lexical(
+            conn,
+            query_text=query_text,
+            agent_id=agent_id,
+            importance_gte=importance_gte,
+            limit=bounded_limit,
+        )
+        return MemoryRetrievalResult(rows, RETRIEVAL_MODE_LEXICAL_FALLBACK)
+
+    embedding = await _query_embedding(query_text)
+    if not embedding:
+        raise RuntimeError("sdk_query_embedding_empty")
+
+    params: list[Any] = [json.dumps(embedding), query_text, int(importance_gte)]
+    agent_clause = ""
+    if agent_id:
+        params.append(agent_id)
+        agent_clause = f" AND agent = ${len(params)}"
+    candidate_limit = min(200, max(bounded_limit * 4, 20))
+    params.extend([candidate_limit, bounded_limit])
+    candidate_param = len(params) - 1
+    limit_param = len(params)
+
+    rows = await conn.fetch(
+        f"""
+        WITH semantic AS (
+            SELECT id,
+                   row_number() OVER (ORDER BY embedding <=> $1::vector) AS rank
+            FROM soul_v3.memories
+            WHERE invalid_at IS NULL
+              AND embedding IS NOT NULL
+              AND importance >= $3
+              {agent_clause}
+            ORDER BY embedding <=> $1::vector
+            LIMIT ${candidate_param}
+        ),
+        lexical AS (
+            SELECT id,
+                   row_number() OVER (
+                       ORDER BY ts_rank_cd(
+                           COALESCE(embedding_bm25, ''::tsvector) ||
+                           to_tsvector(
+                               'simple',
+                               regexp_replace(COALESCE(content, ''), '[_./:\\-]+', ' ', 'g')
+                           ),
+                           websearch_to_tsquery('simple', $2)
+                       ) DESC
+                   ) AS rank
+            FROM soul_v3.memories
+            WHERE invalid_at IS NULL
+              AND importance >= $3
+              {agent_clause}
+              AND (
+                  COALESCE(embedding_bm25, ''::tsvector) ||
+                  to_tsvector(
+                      'simple',
+                      regexp_replace(COALESCE(content, ''), '[_./:\\-]+', ' ', 'g')
+                  )
+              ) @@ websearch_to_tsquery('simple', $2)
+            ORDER BY rank
+            LIMIT ${candidate_param}
+        ),
+        fused AS (
+            SELECT COALESCE(semantic.id, lexical.id) AS id,
+                   COALESCE(1.0 / (60 + semantic.rank), 0.0) +
+                   COALESCE(1.0 / (60 + lexical.rank), 0.0) AS score
+            FROM semantic
+            FULL OUTER JOIN lexical ON lexical.id = semantic.id
+        )
+        SELECT m.id, m.agent, m.scope, m.category, m.content, m.importance,
+               m.memory_type, m.metadata, m.created_at,
+               m.content_hash_sha256, fused.score AS retrieval_score
+        FROM fused
+        JOIN soul_v3.memories AS m ON m.id = fused.id
+        WHERE m.invalid_at IS NULL
+        ORDER BY fused.score DESC, m.importance DESC, m.created_at DESC, m.id DESC
+        LIMIT ${limit_param}
+        """,
+        *params,
+    )
+    return MemoryRetrievalResult(
+        [_row_to_memory(row) for row in rows],
+        RETRIEVAL_MODE_HYBRID,
+    )
+
+
+async def _search_memories_lexical(
+    conn: Any,
+    *,
+    query_text: str,
+    agent_id: str | None = None,
+    importance_gte: int = 1,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Literal lexical fallback for deployments without vector infrastructure."""
     params: list[Any] = [f"%{escape_like_pattern(query_text)}%", int(importance_gte)]
     clauses = ["invalid_at IS NULL", "content ILIKE $1 ESCAPE '\\'", "importance >= $2"]
     if agent_id:
@@ -729,8 +910,16 @@ async def audit_retrieval(
     query_text: str | None,
     memory_ids: list[int],
     latency_ms: int,
+    retrieval_mode: str,
 ) -> None:
-    """Write a per-tenant retrieval audit row behind the same RLS context."""
+    """Write non-reversible query telemetry behind the same RLS context."""
+    query_length = len(query_text) if query_text is not None else 0
+    query_sha256 = (
+        hashlib.sha256(query_text.encode("utf-8")).hexdigest()
+        if query_text is not None
+        else None
+    )
+    query_reference = f"sha256:{query_sha256}" if query_sha256 is not None else None
     await conn.execute(
         """
         INSERT INTO soul_v3.memory_retrieval_log
@@ -740,9 +929,18 @@ async def audit_retrieval(
         """,
         tenant.tenant_id,
         "sdk_api",
-        query_text,
+        query_reference,
         endpoint,
         memory_ids,
         len(memory_ids),
-        json.dumps({"api_key_hash": tenant.api_key_hash, "latency_ms": latency_ms}),
+        json.dumps(
+            {
+                "api_key_hash": tenant.api_key_hash,
+                "latency_ms": latency_ms,
+                "query_length": query_length,
+                "query_sha256": query_sha256,
+                "retrieval_mode": retrieval_mode,
+            },
+            sort_keys=True,
+        ),
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import soul_memory_sdk_runtime as sdk_runtime
 from soul_memory_sdk_runtime import (
     INTERNAL_TENANT_ID,
     SDK_RUNTIME_ROLE,
@@ -33,6 +35,7 @@ from soul_memory_sdk_runtime import (
     normalize_viewer,
     recall_memories,
     reject_tenant_override,
+    retrieve_memories,
     resolve_tenant_db_identity,
     search_memories,
     set_tenant_context,
@@ -652,9 +655,15 @@ async def test_recall_memories_audits_same_tenant_context() -> None:
     assert "ESCAPE" in search_sql
     assert search_args[0] == "%short%"
     assert result["total_hits"] == 1
+    assert result["retrieval_mode"] == "lexical_fallback"
     assert "INSERT INTO soul_v3.memory_retrieval_log" in audit_sql
     assert audit_args[0] == tenant.tenant_id
     assert audit_args[4] == [7]
+    assert audit_args[2] == f"sha256:{hashlib.sha256(b'short').hexdigest()}"
+    metadata = json.loads(audit_args[6])
+    assert metadata["query_length"] == len("short")
+    assert metadata["retrieval_mode"] == "lexical_fallback"
+    assert "short" not in repr(audit_args)
 
 
 @pytest.mark.asyncio
@@ -675,6 +684,102 @@ async def test_search_memories_does_not_write_audit_by_itself() -> None:
     await search_memories(conn, query_text="short", limit=5)
 
     assert len(conn.fetch_calls) == 1
+    assert conn.execute_calls == []
+
+
+@pytest.mark.asyncio
+async def test_retrieve_memories_uses_tenant_safe_pgvector_hybrid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = FakeConn(
+        rows=[
+            {
+                "id": 7,
+                "agent": "support_bot",
+                "scope": "private",
+                "category": "fact",
+                "content": "semantic match",
+                "importance": 8,
+                "memory_type": "semantic",
+                "metadata": {},
+                "created_at": "2026-07-22T00:00:00Z",
+                "content_hash_sha256": "abc",
+            }
+        ],
+        fetchval_value=True,
+    )
+
+    async def local_embedding(text: str) -> list[float]:
+        assert text == "meaningful query"
+        return [0.1, 0.2, 0.3]
+
+    monkeypatch.setattr(sdk_runtime, "_query_embedding", local_embedding)
+    result = await retrieve_memories(
+        conn,
+        query_text="meaningful query",
+        agent_id="support_bot",
+        importance_gte=4,
+        limit=5,
+    )
+
+    assert result.mode == "hybrid_pgvector_fts"
+    assert [memory["id"] for memory in result.memories] == [7]
+    sql, args = conn.fetch_calls[0]
+    assert "embedding <=> $1::vector" in sql
+    assert "websearch_to_tsquery('simple', $2)" in sql
+    assert "FULL OUTER JOIN lexical" in sql
+    assert "tenant_id" not in sql  # current_user + RLS is the tenant boundary
+    assert "agent = $4" in sql
+    assert args[:4] == ("[0.1, 0.2, 0.3]", "meaningful query", 4, "support_bot")
+
+
+@pytest.mark.asyncio
+async def test_retrieve_memories_falls_back_only_when_vector_infra_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = FakeConn(rows=[], fetchval_value=False)
+
+    async def embedding_must_not_run(text: str) -> list[float]:
+        raise AssertionError(f"embedding unexpectedly called for {text}")
+
+    monkeypatch.setattr(sdk_runtime, "_query_embedding", embedding_must_not_run)
+    result = await retrieve_memories(conn, query_text="literal", limit=3)
+
+    assert result.mode == "lexical_fallback"
+    sql, args = conn.fetch_calls[0]
+    assert "ILIKE $1" in sql
+    assert args[0] == "%literal%"
+
+
+@pytest.mark.asyncio
+async def test_retrieve_memories_does_not_mask_hybrid_failures_as_lexical(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = FakeConn(rows=[], fetchval_value=True)
+
+    async def unavailable_embedding(text: str) -> list[float]:
+        raise RuntimeError("embedding_model_unavailable")
+
+    monkeypatch.setattr(sdk_runtime, "_query_embedding", unavailable_embedding)
+    with pytest.raises(RuntimeError, match="embedding_model_unavailable"):
+        await retrieve_memories(conn, query_text="must fail closed", limit=3)
+    assert conn.fetch_calls == []
+
+
+@pytest.mark.asyncio
+async def test_recall_rejects_agent_outside_api_key_allowlist_before_query() -> None:
+    tenant = TenantContext(
+        tenant_id=TENANT_A,
+        api_key_hash=API_HASH,
+        scopes=("read",),
+        allowed_agents=("ADA",),
+    )
+    conn = FakeConn(rows=[], fetchval_value=True)
+
+    with pytest.raises(TenantScopeError, match="agent_not_authorized:JARVIS"):
+        await recall_memories(conn, tenant, query_text="private", agent_id="JARVIS")
+    assert conn.fetchval_calls == []
+    assert conn.fetch_calls == []
     assert conn.execute_calls == []
 
 

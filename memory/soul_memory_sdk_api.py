@@ -34,7 +34,7 @@ from soul_memory_sdk_runtime import (
     normalize_user_id,
     recall_memories,
     reject_tenant_override,
-    search_memories,
+    retrieve_memories,
     tenant_transaction,
 )
 from soul_memory_sdk_controls import SlidingWindowRateLimiter, credential_fingerprint, meter
@@ -105,6 +105,7 @@ class RecallResponse(BaseModel):
     memories: list[MemoryModel]
     total_hits: int
     latency_ms: int
+    retrieval_mode: str
 
 
 class HealthResponse(BaseModel):
@@ -493,13 +494,14 @@ async def post_tenant_recall(
         started = time.monotonic()
         query_hash = audit_query_hash(endpoint=endpoint, payload=payload_data)
         async with tenant_transaction(pool, tenant, viewer="user", user_id=user_id) as conn:
-            memories = await search_memories(
+            retrieval = await retrieve_memories(
                 conn,
                 query_text=query,
                 agent_id=agent_id,
                 importance_gte=importance_gte,
                 limit=limit,
             )
+            memories = retrieval.memories
             latency_ms = int((time.monotonic() - started) * 1000)
             await audit_user_read(
                 conn,
@@ -514,12 +516,14 @@ async def post_tenant_recall(
                     "importance_gte": importance_gte,
                     "limit": limit,
                     "query_len": len(query),
+                    "retrieval_mode": retrieval.mode,
                 },
             )
         return RecallResponse(
             memories=[MemoryModel.model_validate(item) for item in memories],
             total_hits=len(memories),
             latency_ms=latency_ms,
+            retrieval_mode=retrieval.mode,
         )
     except (TenantAuthError, TenantOverrideError, TenantScopeError) as exc:
         raise _http_error(exc) from exc
