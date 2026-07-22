@@ -91,9 +91,14 @@ BEGIN
                WHERE b.db_role = r.db_role AND b.tenant_id <> internal_tenant) THEN
       RAISE EXCEPTION 'binding conflict for %: existing tenant differs from seed', r.db_role;
     END IF;
-    INSERT INTO soul_v3.internal_role_tenant_bindings (db_role, tenant_id)
-    VALUES (r.db_role, internal_tenant)
-    ON CONFLICT (db_role) DO NOTHING;  -- idempotente SOLO cuando ya es igual (validado arriba)
+    -- insertar o REACTIVAR: un binding con tenant correcto pero disabled_at != NULL
+    -- haría que el resolver (filtra disabled_at IS NULL) devuelva NULL -> acceso cerrado.
+    -- Por eso se fuerza disabled_at = NULL cuando el tenant coincide (nunca DO NOTHING).
+    INSERT INTO soul_v3.internal_role_tenant_bindings (db_role, tenant_id, disabled_at)
+    VALUES (r.db_role, internal_tenant, NULL)
+    ON CONFLICT (db_role) DO UPDATE
+      SET disabled_at = NULL
+      WHERE internal_role_tenant_bindings.tenant_id = EXCLUDED.tenant_id;
   END LOOP;
 END $seed$;
 -- NOTA soul_admin: excluido a propósito. Rol admin de propósito amplio -> decisión

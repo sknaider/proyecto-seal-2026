@@ -31,6 +31,7 @@ import uuid
 
 import asyncpg
 import pytest
+import pytest_asyncio
 
 HERE = pathlib.Path(__file__).parent
 UP_SQL = (HERE / "001_internal_tenant_clamp_up.sql").read_text()
@@ -72,10 +73,10 @@ TABLES = {
                        "ins": lambda tid, ag: ("INSERT INTO soul_v3.session_memory (tenant_id,agent,session_id) VALUES ($1,$2,$3)", (tid, ag, CANARY))},
     "inner_monologue": {"agent_col": "agent", "free": "thought",
                         "ins": lambda tid, ag: ("INSERT INTO soul_v3.inner_monologue (tenant_id,agent,thought) VALUES ($1,$2,$3)", (tid, ag, CANARY))},
-    "distilled_exchanges": {"agent_col": "agent", "free": None,
-                            "ins": lambda tid, ag: ("INSERT INTO soul_v3.distilled_exchanges (tenant_id,agent) VALUES ($1,$2)", (tid, ag))},
-    "memory_retrieval_log": {"agent_col": "agent_requesting", "free": None,
-                             "ins": lambda tid, ag: ("INSERT INTO soul_v3.memory_retrieval_log (tenant_id,agent_requesting) VALUES ($1,$2)", (tid, ag))},
+    "distilled_exchanges": {"agent_col": "agent", "free": "summary",
+                            "ins": lambda tid, ag: ("INSERT INTO soul_v3.distilled_exchanges (tenant_id,agent,summary) VALUES ($1,$2,$3)", (tid, ag, CANARY))},
+    "memory_retrieval_log": {"agent_col": "agent_requesting", "free": "query_text",
+                             "ins": lambda tid, ag: ("INSERT INTO soul_v3.memory_retrieval_log (tenant_id,agent_requesting,query_text) VALUES ($1,$2,$3)", (tid, ag, CANARY))},
     "memories_archive": {"agent_col": "agent", "free": "content",
                          "ins": lambda tid, ag: ("INSERT INTO soul_v3.memories_archive (tenant_id,id,agent,content) VALUES ($1,$2,$3,$4)", (tid, next(_archive_ids), ag, CANARY))},
 }
@@ -122,7 +123,7 @@ def test_required_logins_present():
     assert not missing, f"faltan logins obligatorios (frontera de 19) en P1_LOGIN_DSNS: {sorted(missing)}"
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def admin():
     a = await asyncpg.connect(ADMIN_DSN)
     try:
