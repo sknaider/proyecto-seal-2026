@@ -13,8 +13,9 @@ QUÉ VERIFICA, y por qué así (todos cazados por ADA):
    adivinado/retirado.
 3. `reboot_safe` **MEDIDO** por el supervisor REAL de cada componente
    (docker restart-policy / systemd is-enabled), no declarado.
-4. `identity` real por fila: el :8766 es el contenedor SOUL API v1 legacy, NO
-   seal-smg (gateway retirado en 8770). Un `retired` DOWN es SANO.
+4. `identity` real por fila: el SDK nativo :8768 y su gateway :8767 se
+   atribuyen a sus unidades reales; el backend de compatibilidad se atribuye al
+   contenedor DB local :5435. No se conserva un listener de aplicación :8766.
 5. `--diff` **fail-CLOSED**: una dependencia del baseline que DESAPARECE del
    catálogo se marca como regresión (un rename/removal ya no pasa como verde).
 6. Baseline **git-tracked** en `tools/dependency_baseline.json` (durable), no en
@@ -44,7 +45,7 @@ import urllib.request
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BASELINE = ROOT / "tools" / "dependency_baseline.json"
 
-# ── Motores / servicios / legacy. supervisor = cómo se MIDE reboot_safe. ─────
+# ── Motores / servicios. supervisor = cómo se MIDE reboot_safe. ──────────────
 # (name, type, lifecycle, replaced_by, (probe_kind, arg), (sup_kind, sup_arg))
 #   sup_kind: docker=restart-policy · unit-user/unit-sys=is-enabled · none
 STATIC = [
@@ -58,13 +59,12 @@ STATIC = [
     ("orion-exam",              "service", "active", "", ("unit", "orion-exam.service"), ("unit-user", "orion-exam.service")),
     ("jarvis-awareness",        "service", "active", "", ("unit", "jarvis-awareness.service"), ("unit-user", "jarvis-awareness.service")),
     ("ada-codex-remote-bridge", "service", "active", "", ("unit", "ada-codex-remote-bridge.service"), ("unit-user", "ada-codex-remote-bridge.service")),
-    # legacy VIVO: SOUL API v1 en contenedor docker (NO es seal-smg)
-    ("soul-api-v1-legacy (8766)", "gateway", "legacy",
-     "parcial: 8771 seal-memory + 8768 memoria tenant-safe (sin equivalencia total)",
-     ("docker-run", "soul-api-server-legacy-8766"), ("docker", "soul-api-server-legacy-8766")),
-    # RETIRADO: gateway SMG (8770/9091). DOWN es su estado CORRECTO.
-    ("seal-smg (gw 8770)", "gateway", "retired", "8771 seal-memory MCP",
-     ("unit", "seal-smg.service"), ("none", None)),
+    ("soul-memory-sdk-api (8768)", "service", "active", "",
+     ("port", 8768), ("unit-user", "seal-memory-sdk-api.service")),
+    ("soul-memory-sdk-gateway (8767)", "gateway", "active", "",
+     ("http", "http://172.22.0.1:8767/health"), ("unit-user", "seal-memory-sdk-gateway-prod.service")),
+    ("soul-api-compat-db (5435)", "engine", "active", "",
+     ("port", 5435), ("docker", "soul-api-db")),
 ]
 
 _INIT = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
@@ -437,9 +437,9 @@ def _identity_report():
             continue
         expect_kind = "docker" if sk == "docker" else "systemd"
         checks.append((name, pa, expect_kind, sa))
-    # puertos docker-publicados cuyo probe no es "port" (DB/gateway) — cobertura completa
+    # puerto docker-publicado cuyo probe no es "port" — cobertura completa
     checks.append(("postgres-engine", 5433, "docker", "seal-memory-db"))
-    checks.append(("soul-api-v1-legacy", 8766, "docker", "soul-api-server-legacy-8766"))
+    checks.append(("soul-memory-sdk-gateway", 8767, "systemd", "seal-memory-sdk-gateway-prod.service"))
     print(f"{'DEP':<28} {'PUERTO':<7} {'VEREDICTO':<10} EXPECTED → OBSERVED")
     print("-" * 92)
     fails = 0
