@@ -98,6 +98,11 @@ def _probe(kind: str, arg) -> tuple[bool, str]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--diff", metavar="BASELINE", nargs="?",
+                    const="logs/dependency_baseline_latest.json",
+                    help="compara el estado actual contra un baseline JSON y marca "
+                         "REGRESIONES (conservada que se cayó o perdió reboot-safety). "
+                         "Sin valor usa logs/dependency_baseline_latest.json.")
     args = ap.parse_args()
 
     for name, typ, origin, (pkind, parg), reboot in INVENTORY:
@@ -130,6 +135,40 @@ def main() -> int:
     if args.json:
         print(json.dumps(results, indent=2))
         return 0 if all(r["up"] for r in results) else 1
+
+    if args.diff:
+        # Gate de regresión: ¿algo que CONSERVAMOS se rompió tras un corte quirúrgico?
+        import pathlib as _pl
+        bpath = _pl.Path(args.diff)
+        if not bpath.is_absolute():
+            bpath = _pl.Path(__file__).resolve().parents[1] / bpath
+        if not bpath.exists():
+            print(f"baseline no encontrado: {bpath}")
+            return 2
+        base = {r["name"]: r for r in json.loads(bpath.read_text())}
+        now = {r["name"]: r for r in results}
+        regress, expected = [], []
+        for name, b in base.items():
+            n = now.get(name)
+            if n is None:
+                continue  # ya no está en el catálogo (retiro intencional del código)
+            if b["up"] and not n["up"]:
+                regress.append(f"CAÍDA: {name} — baseline UP → ahora DOWN ({n['detail']})")
+            elif b["reboot_safe"] is True and n["reboot_safe"] in (False, "?"):
+                regress.append(f"REBOOT: {name} — perdió reboot-safety ({n['detail']})")
+        # dep del baseline ausente del catálogo actual = retiro declarado (esperado, no regresión)
+        for name in base.keys() - now.keys():
+            expected.append(name)
+        print(f"DIFF contra {bpath.name} — {len(base)} deps en baseline")
+        if regress:
+            print("\n⚠ REGRESIONES (algo conservado se rompió — NO era el objetivo del corte):")
+            for r in regress:
+                print(f"  {r}")
+        else:
+            print("✅ 0 regresiones: todo lo conservado sigue UP + reboot-safe.")
+        if expected:
+            print(f"\nRetiros declarados (ausentes del catálogo, esperado): {', '.join(expected)}")
+        return 1 if regress else 0
 
     print(f"{'DEP':<26} {'TIPO':<8} {'ORIGEN':<7} {'ESTADO':<6} DETALLE")
     print("-" * 72)
