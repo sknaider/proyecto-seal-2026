@@ -51,3 +51,24 @@ def test_fable_full_tick_lock_is_single_flight(monkeypatch, tmp_path):
 def test_every_drive_has_positive_cooldown():
     assert fable_nerves.DRIVES
     assert all(cfg.get("cooldown_s", 0) > 0 for cfg in fable_nerves.DRIVES.values())
+
+
+def test_every_drive_can_cross_from_intrinsic_pressure():
+    crossings = {
+        name: fable_nerves._intrinsic_crossing_seconds(config)
+        for name, config in fable_nerves.DRIVES.items()
+    }
+    assert all(value is not None for value in crossings.values()), crossings
+
+
+def test_live_action_crosses_before_freshness_gate():
+    live = {
+        name: fable_nerves._intrinsic_crossing_seconds(config)
+        for name, config in fable_nerves.DRIVES.items()
+        if config["fire"] in fable_nerves.FIRE_LIVE
+    }
+    assert live
+    assert all(
+        value is not None and value <= fable_nerves.ACTION_FRESHNESS_SECONDS
+        for value in live.values()
+    ), live

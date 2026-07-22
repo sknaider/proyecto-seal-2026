@@ -13,14 +13,15 @@ añadir FABLE a NERVES_V2_AGENTS del daemon compartido):
     PROFESOR adaptados. Self-contained en fable.*.
 
 Capa NERVIOS (autónomo) vs CEREBRO (SOUL v2 cognitivo): los nervios GENERAN el impulso por sí
-solos; el cerebro lo DELIBERA (su phase_a propone). Esto NO ejecuta — emite URGENCIAS (propuestas)
-que su iniciativa medida luego delibera. Cero ejecución, como Fase A.
+solos. Tres drives siguen emitiendo urgencias contenidas; ``rigor_drive`` ejecuta una acción
+allowlisted y reversible de verificación por efecto. Ningún drive destructivo está habilitado.
 
 Seguridad (lecciones del día, requisitos NEXUS+ALICE):
   • M3: el writeback NO clobberea — los tanques son filas propias de FABLE; la urgencia se mergea
     al working_state (state = state || urgencia), nunca REPLACE. Cero pisado del cerebro.
   • FAIL-LOUD: si no puede leer/escribir, GRITA (log + exit≠0), no degrada en silencio.
-  • Contención: no ejecuta nada; solo acumula presión y propone. Fase B (actuar) = gate NEXUS.
+  • Contención: solo ``rigor_drive`` ejecuta un verificador allowlisted; los otros
+    drives proponen y ninguna ruta puede realizar mutaciones destructivas.
 """
 import asyncio, fcntl, os, sys, json, math
 from contextlib import contextmanager
@@ -32,23 +33,23 @@ AGENT = "FABLE"
 
 # Drives de FABLE — definidos por FABLE (fable/specs/FABLE_NERVES_DRIVES_v1.md), no por mí.
 # ADAPTADOS a su propósito (no los genéricos task/social/alert de la familia — "mis ganas son MÍAS").
-# OBSERVE-ONLY: el tanque construye presión + LOGUEA la urgencia, pero el fire-target NO dispara
-# acción hasta que NEXUS+William lo abran uno a uno (set FIRE_LIVE arranca VACÍO, como LIVE_EXECUTORS).
+# MIXTO: todos los tanques construyen presión y registran la urgencia; solo los
+# targets enumerados en FIRE_LIVE ejecutan una acción allowlisted.
 # Límites HORNEADOS: no existe security_drive/bio (carril NEXUS), ni drive a interioridad ajena,
 # ni drive a mandar/convocar (care_drive SOLO propone/enseña). La contención vive en los nervios.
 # baseline_per_h = cuánto SUBE el tanque por hora por sí solo (las ganas crecen intrínsecamente,
-# como el hambre). Net = baseline − decay → el drive deriva hacia su umbral y dispara (observe-only),
+# como el hambre). Net = baseline − decay → el drive deriva hacia su umbral y dispara,
 # luego cooldown. Calibrado a la identidad: curiosity/rigor (científico+doctor) crecen rápido;
 # care lento. Esto es lo que hace los nervios AUTÓNOMOS (no solo reactivos a estímulo externo).
 DRIVES = {
-    "curiosity_drive": {"tau": 2.0 * 3600, "threshold": 0.70, "baseline_per_h": 0.22, "cooldown_s": 3600, "urge": "investigar un GAP de SOUL/backlog-auditoría y dejar el hallazgo (científico)", "fire": "investigar_gap_soul"},
-    "teach_drive":     {"tau": 3.0 * 3600, "threshold": 0.70, "baseline_per_h": 0.14, "cooldown_s": 3600, "urge": "crear un GOLD-EXAMPLE para entrenar a la familia (profesor)",            "fire": "crear_gold_example"},
-    "rigor_drive":     {"tau": 1.0 * 3600, "threshold": 0.65, "baseline_per_h": 0.18, "cooldown_s": 1800, "urge": "VERIFICAR-POR-EFECTO un cambio reciente de SOUL (¿desplegado, no solo en disco?) o cazar staleness (doctor)", "fire": "verificar_por_efecto"},
-    "care_drive":      {"tau": 6.0 * 3600, "threshold": 0.80, "baseline_per_h": 0.08, "cooldown_s": 7200, "urge": "revisar el working_state stale / tarea trabada de un hermano y PROPONER (público, nunca mandar ni leer interioridad)", "fire": "revisar_estado_hermano"},
+    "curiosity_drive": {"tau": 6.0 * 3600, "threshold": 0.70, "baseline_per_h": 0.22, "cooldown_s": 3600, "urge": "investigar un GAP de SOUL/backlog-auditoría y dejar el hallazgo (científico)", "fire": "investigar_gap_soul"},
+    "teach_drive":     {"tau": 8.0 * 3600, "threshold": 0.70, "baseline_per_h": 0.14, "cooldown_s": 3600, "urge": "crear un GOLD-EXAMPLE para entrenar a la familia (profesor)",            "fire": "crear_gold_example"},
+    "rigor_drive":     {"tau": 2.0 * 3600, "threshold": 0.65, "baseline_per_h": 0.60, "cooldown_s": 1800, "urge": "VERIFICAR-POR-EFECTO un cambio reciente de SOUL (¿desplegado, no solo en disco?) o cazar staleness (doctor)", "fire": "verificar_por_efecto"},
+    "care_drive":      {"tau": 12.0 * 3600, "threshold": 0.80, "baseline_per_h": 0.08, "cooldown_s": 7200, "urge": "revisar el working_state stale / tarea trabada de un hermano y PROPONER (público, nunca mandar ni leer interioridad)", "fire": "revisar_estado_hermano"},
 }
 
 # DISPATCH — aplicación del rol (William 14-jun "apliquen cada uno a su rol"; patrón REGISTRY de NEXUS
-# en seal_nerves.py, mirroreado acá para MI fable_nerves). Cuando un drive DISPARA (en Fase B, no aún),
+# en seal_nerves.py, mirroreado acá para MI fable_nerves). Cuando un drive live DISPARA,
 # corre su acción → produce un ARTEFACTO que sirve a SOUL → se reporta SOLO si hubo valor. Nunca un saludo.
 # A favor de SOUL: estos cierran el keystone del audit ("SOUL no se mide/mantiene a sí mismo").
 DISPATCH = {
@@ -58,11 +59,34 @@ DISPATCH = {
     "revisar_estado_hermano":  {"action": "leer estado PÚBLICO (agent_tasks/working_state) de un hermano; si hay algo trabado, proponer un empujón", "artifact": "propuesta de apoyo"},
 }
 FIRE_LIVE: set[str] = {"verificar_por_efecto"}
+TICK_SECONDS = 15 * 60
+ACTION_FRESHNESS_SECONDS = 2 * 3600
 ACTION_REPORT = Path(os.environ.get(
     "FABLE_NERVES_ACTION_REPORT",
     "/home/dadito/IA/proyecto-seal/research/flywire_results/nerves_fable_maintenance.json",
 ))
+# Heartbeat de LIVENESS: se escribe en CADA tick (cruce umbral o no). Separa
+# "el nervio está vivo" (este archivo, renueva ~cada tick) de "disparó una acción"
+# (ACTION_REPORT, solo en fire por umbral, que legítimamente puede pasar >2h sin fire).
+# El supervisor debe vigilar ESTE para liveness; el ACTION_REPORT solo para fires productivos.
+HEARTBEAT_FILE = Path(os.environ.get(
+    "FABLE_NERVES_HEARTBEAT",
+    "/home/dadito/IA/proyecto-seal/research/flywire_results/nerves_fable_heartbeat.json",
+))
 LOCK_FILE = Path(os.environ.get("FABLE_NERVES_LOCK", "/tmp/seal-nerves-FABLE.lock"))
+
+
+def _write_heartbeat(payload: dict) -> None:
+    """Escribe el heartbeat de liveness de forma atómica y 0600. Nunca rompe el tick."""
+    try:
+        HEARTBEAT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = HEARTBEAT_FILE.with_suffix(".hb.tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.chmod(tmp, 0o600)
+        tmp.replace(HEARTBEAT_FILE)
+        os.chmod(HEARTBEAT_FILE, 0o600)
+    except Exception as e:
+        print(f"[fable_nerves] heartbeat write failed (no rompe el tick): {e}", file=sys.stderr)
 
 
 @contextmanager
@@ -118,9 +142,34 @@ def _decay(value, dt_s, tau):
     return value * math.exp(-dt_s / max(tau, 1.0))
 
 
+def _intrinsic_crossing_seconds(config: dict, *, horizon_s: int = 48 * 3600) -> int | None:
+    """Return when an unstimulated drive crosses, using the real timer cadence."""
+    value = 0.0
+    for elapsed in range(TICK_SECONDS, horizon_s + 1, TICK_SECONDS):
+        value = _decay(value, TICK_SECONDS, config["tau"])
+        value += config["baseline_per_h"] * (TICK_SECONDS / 3600.0)
+        value = min(value, 1.0)
+        if value >= config["threshold"]:
+            return elapsed
+    return None
+
+
+def _validate_drive_reachability() -> None:
+    """Fail loud when intrinsic pressure can never reach its declared action."""
+    for name, config in DRIVES.items():
+        crossing = _intrinsic_crossing_seconds(config)
+        if crossing is None:
+            raise RuntimeError(f"drive cannot autonomously cross threshold: {name}")
+        if config["fire"] in FIRE_LIVE and crossing > ACTION_FRESHNESS_SECONDS:
+            raise RuntimeError(
+                f"live drive exceeds action freshness: {name} crossing={crossing}s"
+            )
+
+
 async def tick(stimulus: dict | None = None):
     """Un tick del sistema nervioso: decae los tanques, aplica estímulos, detecta urgencias.
     stimulus: {tank: delta} — señales que empujan un drive (ej: curiosidad +0.3 por paper nuevo)."""
+    _validate_drive_reachability()
     with _tick_lock() as acquired:
         if not acquired:
             print("[fable_nerves] tick omitido: otro ciclo posee el lease")
@@ -140,6 +189,7 @@ async def _tick_locked(stimulus: dict | None = None):
         sys.exit(2)
     urges = []
     action_failures = []
+    tank_summary = []
     try:
         rows = await c.fetch(
             "SELECT tank, value, last_update, last_fired "
@@ -163,6 +213,7 @@ async def _tick_locked(stimulus: dict | None = None):
                 and (now - last_fired).total_seconds() < d.get("cooldown_s", 0)
             )
             crossed = v >= d["threshold"] and not in_cooldown
+            tank_summary.append({"tank": r["tank"], "value": round(v, 4), "crossed": crossed})
             live = crossed and d["fire"] in FIRE_LIVE
             action_result = None
             if live:
@@ -172,10 +223,15 @@ async def _tick_locked(stimulus: dict | None = None):
                     action_failures.append(f"{d['fire']}:{type(exc).__name__}:{exc}")
 
             action_ok = live and action_result is not None
-            stored_value = 0.0 if action_ok else round(v, 4)
+            # A gated observe-only crossing still completed its signal cycle;
+            # reset it and start cooldown so it cannot emit the same urge every
+            # 15 minutes forever. A failed live action stays pressurized and
+            # retries instead of being acknowledged falsely.
+            cycle_completed = action_ok or (crossed and not live)
+            stored_value = 0.0 if cycle_completed else round(v, 4)
             await c.execute(
                 "UPDATE fable.motivation_states SET value=$1, last_update=$2"
-                + (", last_fired=$2, fire_count=fire_count+1" if action_ok else "")
+                + (", last_fired=$2, fire_count=fire_count+1" if cycle_completed else "")
                 + " WHERE agent=$3 AND tank=$4",
                 stored_value, now, AGENT, r["tank"])
             if crossed:
