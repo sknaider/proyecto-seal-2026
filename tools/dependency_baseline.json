@@ -6,9 +6,9 @@
     "identity": "http://127.0.0.1:8771/mcp",
     "lifecycle": "active",
     "replaced_by": "",
-    "probe": "wiring-canary (gated-tool)",
+    "probe": "wiring-canary",
     "up": true,
-    "detail": "canario system_gateway.health GATEADO por capability (control OK, MCP proces\u00f3) \u00b7 30 tools",
+    "detail": "canario boot_context.JARVIS \u00b7 30 tools \u00b7 OK",
     "reboot_safe": "session",
     "reboot_detail": "nace con la sesi\u00f3n del agente",
     "healthy": true

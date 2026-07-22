@@ -338,27 +338,13 @@ def _mcp_rows():
         identity = url or (pys[-1] if pys else "?")
         w = wiring.get(name) if wiring else None
         if w is not None:
-            # verdad autoritativa: chain funcional completo (initialize+tools/list+canario)
+            # verdad autoritativa: chain funcional completo (initialize+tools/list+canario).
+            # SIN reclasificación de deny: un canario que falla se muestra FALLA honesto.
+            # (El "authz-gated" anterior band-aideaba MI error de token — corregido:
+            #  usar el token MCP del env, no el del webchat. ADA: DENY≠healthy.)
             up = bool(w["ok"])
-            wd = str(w.get("detail", ""))
+            detail = f"canario {w.get('probe', '?')} · {w.get('tools', '?')} tools · {'OK' if up else 'FALLA'}"
             probe = "wiring-canary"
-            # RECLASIFICACIÓN ESTRECHA: un canario que trae DENY por capability del
-            # broker PRUEBA que el MCP está vivo y ruteó a su capa de authz (round-trip
-            # completo) — el control funcionó, no es outage. Misma semántica que el
-            # github `mutations_without_approval=DENIED` que el probe ya cuenta OK.
-            gated = (not up) and "TOOL_BROKER" in wd and (
-                "capability" in wd or "no capability_scope" in wd)
-            if gated:
-                # TERCER ESTADO (modelo de 3 de ADA: salud / authz-denied / error).
-                # El deny prueba que la capa broker vive y ruteó a authz, pero NO
-                # verifica el backend. NO es outage (no cuenta como regresión) PERO
-                # tampoco es verde pleno: backend NO verificado por este canario.
-                up = True
-                gate = True
-                detail = f"canario {w.get('probe', '?')} AUTHZ-GATED (broker vivo; backend NO verificado) · {w.get('tools', '?')} tools"
-                probe = "wiring-canary (authz-gated)"
-            else:
-                detail = f"canario {w.get('probe', '?')} · {w.get('tools', '?')} tools · {'OK' if up else 'FALLA'}"
         elif url:
             up, detail = _probe("http", url)
             probe = "http (transporte; canario req. SEAL_SESSION_TOKEN)"
