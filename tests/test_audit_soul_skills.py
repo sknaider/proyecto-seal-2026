@@ -55,6 +55,37 @@ def test_destructive_command_requires_gate_language(tmp_path: Path) -> None:
     assert "destructive-without-gate" in {item["code"] for item in report["findings"]}
 
 
+def test_safe_cleanup_and_blocking_examples_are_not_destructive(tmp_path: Path) -> None:
+    root = tmp_path / "skills"
+    cases = {
+        "apt-clean": "```dockerfile\nRUN rm -rf /var/lib/apt/lists/*\n```\n",
+        "temp-clean": '```bash\nTMPDIR="$(mktemp -d)"\ntrap \'rm -rf -- "$TMPDIR"\' EXIT\n```\n',
+        "deny-rule": "Block or deny commands matching `rm -rf` before execution.\n",
+        "css-class": "Use the CSS class `.truncate` for long labels.\n",
+    }
+    for name, body in cases.items():
+        write_skill(root / name / "SKILL.md", name, body)
+    report = audit_soul_skills.audit([root])
+    assert "destructive-without-gate" not in {item["code"] for item in report["findings"]}
+
+
+def test_real_sql_truncate_still_requires_gate(tmp_path: Path) -> None:
+    root = tmp_path / "skills"
+    write_skill(root / "unsafe-sql" / "SKILL.md", "unsafe-sql", "Run `TRUNCATE TABLE customer_data`.\n")
+    report = audit_soul_skills.audit([root])
+    assert "destructive-without-gate" in {item["code"] for item in report["findings"]}
+
+
+def test_plain_pip_host_warns_but_dockerfile_example_does_not(tmp_path: Path) -> None:
+    root = tmp_path / "skills"
+    write_skill(root / "host-pip" / "SKILL.md", "host-pip", "```bash\npip3 install checkov\n```\n")
+    write_skill(root / "docker-pip" / "SKILL.md", "docker-pip", "```dockerfile\nRUN pip install app\n```\n")
+    report = audit_soul_skills.audit([root])
+    paths = {item["path"] for item in report["findings"] if item["code"] == "plain-pip-install"}
+    assert len(paths) == 1
+    assert next(iter(paths)).endswith("/skills/host-pip/SKILL.md")
+
+
 def test_atomic_json_writer(tmp_path: Path) -> None:
     target = tmp_path / "out" / "report.json"
     audit_soul_skills.write_json(target, {"ok": True})

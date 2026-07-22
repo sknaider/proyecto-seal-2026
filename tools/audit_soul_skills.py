@@ -28,12 +28,14 @@ NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 DESTRUCTIVE_RE = re.compile(
     r"(?:\brm\s+-rf\b|\bDROP\s+(?:TABLE|SCHEMA|DATABASE|ROLE)\b|"
-    r"\bTRUNCATE\b|\bDELETE\s+FROM\b)",
-    re.IGNORECASE,
+    r"\bTRUNCATE\s+(?:TABLE\s+)?(?:[\"`][^\"`\n]+[\"`]|[A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)?)"
+    r"\s*(?:;|`|CASCADE\b|RESTRICT\b|$)|\bDELETE\s+FROM\b)",
+    re.IGNORECASE | re.MULTILINE,
 )
 GATE_RE = re.compile(
     r"confirm|approval|aprobaci[oó]n|scope|alcance|count|conteo|rollback|"
-    r"William|destructive|destructiv[ao]",
+    r"William|destructive|destructiv[ao]|mktemp\s+-d|/var/lib/apt/lists/\*|"
+    r"deny(?:list)?|block(?:ed|ing)?|forbid|prevent|prohibit",
     re.IGNORECASE,
 )
 STALE_PATTERNS = {
@@ -116,6 +118,26 @@ def prose_without_code(text: str) -> str:
     return re.sub(r"`[^`]*`", "", without_fences)
 
 
+def text_without_dockerfile_fences(text: str) -> str:
+    """Drop Dockerfile examples before applying host-only installation rules."""
+    out: list[str] = []
+    fence_language: str | None = None
+    for line in text.splitlines(keepends=True):
+        match = re.match(r"^\s*(```|~~~)\s*([^\s`]*)", line)
+        if match:
+            if fence_language is None:
+                fence_language = match.group(2).strip().lower()
+            else:
+                fence_language = None
+            out.append("\n")
+            continue
+        if fence_language in {"dockerfile", "docker"}:
+            out.append("\n")
+        else:
+            out.append(line)
+    return "".join(out)
+
+
 def allowed_keys(root: Path) -> set[str]:
     if rel(root).startswith("tools/skills"):
         return {"name", "description", "version", "author", "license", "metadata"}
@@ -186,7 +208,7 @@ def audit_skill(root: Path, path: Path) -> tuple[SkillRecord, list[Finding]]:
 
     if PRIVILEGED_DSN_RE.search(text):
         findings.append(finding("ERROR", "embedded-privileged-dsn", path, "embedded seal credential is forbidden; use a protected least-privilege DSN"))
-    if PLAIN_PIP_RE.search(text):
+    if PLAIN_PIP_RE.search(text_without_dockerfile_fences(text)):
         findings.append(finding("WARNING", "plain-pip-install", path, "use python -m venv and python -m pip under PEP 668"))
     unsafe_pipe_lines = [
         line for line in text.splitlines()

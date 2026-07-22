@@ -1,5 +1,4 @@
 ---
-auto_invoke: true
 name: dockerfile-generator
 description: Comprehensive toolkit for generating production-ready Dockerfiles following current standards and best practices. Use this skill when creating new Dockerfiles, implementing containerization for applications, or optimizing existing Docker builds.
 ---
@@ -235,7 +234,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN python -m pip install --no-cache-dir --user -r requirements.txt
 
 # Production stage
 FROM python:3.12-slim AS production
@@ -752,7 +751,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends gcc && \
     rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN python -m pip install --no-cache-dir --user -r requirements.txt
 
 FROM python:3.12-slim
 WORKDIR /app
@@ -896,7 +895,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # Pip cache
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
+    python -m pip install -r requirements.txt
 ```
 
 ## Error Handling
