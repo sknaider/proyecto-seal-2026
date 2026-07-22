@@ -9,6 +9,37 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import soul_memory_sdk_gateway as gateway  # noqa: E402
+from soul_memory_sdk_controls import SlidingWindowRateLimiter, meter  # noqa: E402
+
+
+def _request(
+    path: str,
+    *,
+    method: str = "GET",
+    headers: list[tuple[bytes, bytes]] | None = None,
+    body: bytes = b"",
+    client: tuple[str, int] = ("127.0.0.1", 1),
+) -> gateway.Request:
+    delivered = False
+
+    async def receive() -> dict[str, object]:
+        nonlocal delivered
+        if delivered:
+            return {"type": "http.request", "body": b"", "more_body": False}
+        delivered = True
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    return gateway.Request(
+        {
+            "type": "http",
+            "method": method,
+            "path": path,
+            "query_string": b"",
+            "headers": headers or [],
+            "client": client,
+        },
+        receive=receive,
+    )
 
 
 def test_gateway_routes_only_memory_surface_to_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -167,3 +198,162 @@ async def test_gateway_never_proxies_legacy_admin() -> None:
     response = await gateway.gateway("v1/admin/agents/ADA", request)
     assert response.status_code == 403
     assert b"legacy_admin_disabled" in response.body
+
+
+@pytest.mark.asyncio
+async def test_public_openapi_proxies_native_schema() -> None:
+    native = {
+        "openapi": "3.1.0",
+        "info": {"title": "SOUL Memory SDK API", "version": "0.2.0"},
+        "paths": {"/v1/memories": {}},
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/openapi.json"
+        return httpx.Response(200, json=native)
+
+    async def receive() -> dict[str, object]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    request = gateway.Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/openapi.json",
+            "query_string": b"",
+            "headers": [],
+            "client": ("127.0.0.1", 1),
+        },
+        receive=receive,
+    )
+    original_client = gateway.httpx.AsyncClient
+    gateway.httpx.AsyncClient = lambda *args, **kwargs: original_client(transport=httpx.MockTransport(handler))  # type: ignore[assignment]
+    try:
+        response = await gateway.public_openapi(request)
+    finally:
+        gateway.httpx.AsyncClient = original_client
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.body == httpx.Response(200, json=native).content
+
+
+def test_gateway_has_explicit_schema_route_without_generic_openapi() -> None:
+    paths = [route.path for route in gateway.app.routes]
+    assert paths.count("/openapi.json") == 1
+    assert gateway.app.openapi_url is None
+
+
+@pytest.mark.asyncio
+async def test_body_limit_rejects_declared_size_before_reading_or_proxying() -> None:
+    request = _request(
+        "/v1/memories",
+        method="POST",
+        headers=[(b"content-length", str(gateway.MAX_BODY_BYTES + 1).encode())],
+        body=b"this body must not be loaded",
+    )
+    response = await gateway.proxy_request(request, "http://sdk.local", "/v1/memories")
+    assert response.status_code == 413
+    assert b"request_body_too_large" in response.body
+
+
+@pytest.mark.asyncio
+async def test_body_limit_rejects_chunked_body_without_content_length() -> None:
+    request = _request("/v1/memories", method="POST", body=b"12345")
+    with pytest.raises(ValueError, match="request_body_too_large"):
+        await gateway._read_limited_body(request, max_bytes=4)
+
+
+@pytest.mark.asyncio
+async def test_gateway_overwrites_untrusted_forwarding_headers() -> None:
+    observed: dict[str, str] = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        observed.update(dict(request.headers))
+        return httpx.Response(200, json={"ok": True})
+
+    request = _request(
+        "/v1/memories",
+        headers=[
+            (b"x-forwarded-for", b"203.0.113.7"),
+            (b"x-real-ip", b"203.0.113.8"),
+            (b"forwarded", b"for=203.0.113.9"),
+        ],
+        client=("10.0.0.7", 42),
+    )
+    original_client = gateway.httpx.AsyncClient
+    gateway.httpx.AsyncClient = lambda *args, **kwargs: original_client(transport=httpx.MockTransport(handler))  # type: ignore[assignment]
+    try:
+        response = await gateway.proxy_request(request, "http://sdk.local", "/v1/memories")
+    finally:
+        gateway.httpx.AsyncClient = original_client
+
+    assert response.status_code == 200
+    assert observed["x-forwarded-for"] == "10.0.0.7"
+    assert "x-real-ip" not in observed
+    assert "forwarded" not in observed
+
+
+@pytest.mark.asyncio
+async def test_gateway_rate_limit_returns_429_retry_after_without_raw_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    limiter = SlidingWindowRateLimiter(1, 30)
+    monkeypatch.setattr(gateway, "_gateway_limiter", limiter)
+    monkeypatch.setattr(gateway, "_gateway_peer_limiter", SlidingWindowRateLimiter(10, 30))
+    meter.clear()
+    token = "soul_live_raw_secret_must_never_be_metered"
+    headers = [(b"authorization", f"Bearer {token}".encode())]
+    first = _request("/v1/memories", headers=headers)
+    limiter.check(gateway._rate_limit_key(first))
+
+    response = await gateway.gateway("v1/memories", _request("/v1/memories", headers=headers))
+    assert response.status_code == 429
+    assert int(response.headers["retry-after"]) >= 1
+    assert response.headers["ratelimit-remaining"] == "0"
+    serialized = str(meter.snapshot())
+    assert token not in serialized
+    assert gateway._bearer_fingerprint(first) in serialized
+
+
+@pytest.mark.asyncio
+async def test_gateway_rate_limiter_failure_is_fail_safe(monkeypatch: pytest.MonkeyPatch) -> None:
+    class BrokenLimiter:
+        def check(self, key: str) -> None:
+            raise RuntimeError("broken")
+
+    monkeypatch.setattr(gateway, "_gateway_limiter", BrokenLimiter())
+    monkeypatch.setattr(gateway, "_gateway_peer_limiter", SlidingWindowRateLimiter(10, 30))
+    response = await gateway.gateway(
+        "v1/memories",
+        _request("/v1/memories", headers=[(b"authorization", b"Bearer test")]),
+    )
+    assert response.status_code == 503
+    assert b"rate_limiter_unavailable" in response.body
+
+
+@pytest.mark.asyncio
+async def test_peer_quota_cannot_be_bypassed_by_rotating_keys_or_xff(monkeypatch: pytest.MonkeyPatch) -> None:
+    peer_limiter = SlidingWindowRateLimiter(1, 30)
+    monkeypatch.setattr(gateway, "_gateway_peer_limiter", peer_limiter)
+    monkeypatch.setattr(gateway, "_gateway_limiter", SlidingWindowRateLimiter(10, 30))
+    first = _request(
+        "/v1/memories",
+        headers=[(b"authorization", b"Bearer first"), (b"x-forwarded-for", b"198.51.100.1")],
+    )
+    peer_limiter.check(gateway._peer_rate_limit_key(first))
+
+    second = _request(
+        "/v1/memories",
+        headers=[(b"authorization", b"Bearer rotated"), (b"x-forwarded-for", b"203.0.113.2")],
+    )
+    response = await gateway.gateway("v1/memories", second)
+    assert response.status_code == 429
+    assert gateway._peer_rate_limit_key(first) == gateway._peer_rate_limit_key(second)
+
+
+def test_response_headers_drop_gateway_duplicates() -> None:
+    upstream = httpx.Response(
+        200,
+        headers={"content-length": "2", "server": "upstream", "date": "yesterday", "x-safe": "yes"},
+        content=b"{}",
+    )
+    assert gateway._copy_response_headers(upstream) == {"x-safe": "yes"}

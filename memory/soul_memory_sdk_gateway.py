@@ -15,6 +15,8 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
+from soul_memory_sdk_controls import SlidingWindowRateLimiter, credential_fingerprint, meter
+
 
 SDK_DEFAULT = "http://127.0.0.1:8768"
 # The v1 contract is absorbed by the canonical SDK API.  Keep the historical
@@ -22,6 +24,10 @@ SDK_DEFAULT = "http://127.0.0.1:8768"
 # to the retired :8766 container.
 LEGACY_DEFAULT = "http://127.0.0.1:8768"
 REQUEST_TIMEOUT_SECONDS = 30.0
+MAX_BODY_BYTES = int(os.environ.get("SOUL_SDK_MAX_BODY_BYTES", "1100000"))
+RATE_LIMIT_REQUESTS = int(os.environ.get("SOUL_SDK_RATE_LIMIT_REQUESTS", "120"))
+RATE_LIMIT_WINDOW_SECONDS = float(os.environ.get("SOUL_SDK_RATE_LIMIT_WINDOW_SECONDS", "60"))
+PEER_RATE_LIMIT_REQUESTS = int(os.environ.get("SOUL_SDK_PEER_RATE_LIMIT_REQUESTS", "300"))
 _ALLOWED_UPSTREAM_HOSTS = {"127.0.0.1", "localhost"}
 
 HOP_BY_HOP_HEADERS = {
@@ -35,8 +41,19 @@ HOP_BY_HOP_HEADERS = {
     "upgrade",
 }
 
-RESPONSE_DROP_HEADERS = HOP_BY_HOP_HEADERS | {"content-length"}
-REQUEST_DROP_HEADERS = HOP_BY_HOP_HEADERS | {"host", "content-length"}
+RESPONSE_DROP_HEADERS = HOP_BY_HOP_HEADERS | {"content-length", "server", "date"}
+REQUEST_DROP_HEADERS = HOP_BY_HOP_HEADERS | {
+    "host",
+    "content-length",
+    "forwarded",
+    "x-forwarded-for",
+    "x-forwarded-host",
+    "x-forwarded-proto",
+    "x-real-ip",
+}
+
+_gateway_limiter = SlidingWindowRateLimiter(RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW_SECONDS)
+_gateway_peer_limiter = SlidingWindowRateLimiter(PEER_RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW_SECONDS)
 
 
 
@@ -48,7 +65,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="SOUL Memory SDK Gateway", version="0.1.0-phase2", lifespan=_lifespan)
+app = FastAPI(
+    title="SOUL Memory SDK Gateway",
+    version="0.2.0",
+    lifespan=_lifespan,
+    openapi_url=None,
+    docs_url=None,
+    redoc_url=None,
+)
 
 
 def _validate_upstream_url(url: str, name: str) -> None:
@@ -124,6 +148,49 @@ def _copy_response_headers(response: httpx.Response) -> dict[str, str]:
     }
 
 
+def _bearer_fingerprint(request: Request) -> str:
+    authorization = request.headers.get("authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    return credential_fingerprint(token if scheme.lower() == "bearer" else None)
+
+
+def _rate_limit_key(request: Request) -> str:
+    fingerprint = _bearer_fingerprint(request)
+    if fingerprint != "missing":
+        return f"key:{fingerprint}"
+    return _peer_rate_limit_key(request)
+
+
+def _peer_rate_limit_key(request: Request) -> str:
+    # Do not retain a network address in state or logs. Forwarding headers are
+    # attacker-controlled and intentionally never participate in this key.
+    peer = request.client.host if request.client else "unknown"
+    return f"peer:{credential_fingerprint(peer)}"
+
+
+async def _read_limited_body(request: Request, max_bytes: int = MAX_BODY_BYTES) -> bytes:
+    declared = request.headers.get("content-length")
+    if declared is not None:
+        try:
+            declared_size = int(declared)
+            if declared_size < 0:
+                raise ValueError("invalid_content_length")
+            if declared_size > max_bytes:
+                raise ValueError("request_body_too_large")
+        except ValueError as exc:
+            if str(exc) == "request_body_too_large":
+                raise
+            raise ValueError("invalid_content_length") from exc
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > max_bytes:
+            raise ValueError("request_body_too_large")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def upstream_url(base_url: str, path: str, query: str = "") -> str:
     url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
     if query:
@@ -182,6 +249,17 @@ async def health() -> dict[str, Any]:
     }
 
 
+@app.get("/openapi.json", include_in_schema=False)
+async def public_openapi(request: Request) -> Response:
+    """Publish the native typed contract instead of the gateway catch-all schema."""
+    return await proxy_request(
+        request,
+        sdk_base_url(),
+        "/openapi.json",
+        require_json=True,
+    )
+
+
 async def proxy_request(
     request: Request,
     base_url: str,
@@ -189,12 +267,18 @@ async def proxy_request(
     *,
     require_json: bool = False,
 ) -> Response:
-    body = await request.body()
+    try:
+        body = await _read_limited_body(request)
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = 413 if detail == "request_body_too_large" else 400
+        return JSONResponse(status_code=status_code, content={"ok": False, "error": detail})
     target_url = upstream_url(base_url, path, request.url.query)
     headers = _copy_request_headers(request)
     client_ip = request.client.host if request.client else "unknown"
-    existing_xff = request.headers.get("x-forwarded-for", "")
-    headers["x-forwarded-for"] = f"{existing_xff}, {client_ip}".lstrip(", ")
+    # Replace, never append, client-supplied forwarding headers.  The immediate
+    # socket peer is the only address this gateway can attest.
+    headers["x-forwarded-for"] = client_ip
     try:
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS, follow_redirects=False) as client:
             upstream = await client.request(
@@ -260,9 +344,40 @@ async def gateway(path: str, request: Request) -> Response:
             },
         )
     sdk_route = is_sdk_memory_endpoint(full_path)
-    return await proxy_request(
+    if sdk_route:
+        try:
+            decisions = [_gateway_peer_limiter.check(_peer_rate_limit_key(request))]
+            if _bearer_fingerprint(request) != "missing":
+                decisions.append(_gateway_limiter.check(_rate_limit_key(request)))
+            decision = next((item for item in decisions if not item.allowed), decisions[-1])
+        except Exception:
+            return JSONResponse(
+                status_code=503,
+                content={"ok": False, "error": "rate_limiter_unavailable"},
+            )
+        if not decision.allowed:
+            meter.emit(
+                event="rate_limit",
+                operation="gateway",
+                status="denied",
+                status_code=429,
+                api_key_hash=_bearer_fingerprint(request),
+                reason="quota_exceeded",
+            )
+            return JSONResponse(
+                status_code=429,
+                headers=decision.headers(),
+                content={"ok": False, "error": "rate_limit_exceeded"},
+            )
+    response = await proxy_request(
         request,
         select_upstream(full_path),
         full_path,
         require_json=sdk_route,
     )
+    if sdk_route:
+        # Canonicalize the gateway quota headers, replacing any same-name
+        # upstream values instead of emitting ambiguous duplicates.
+        for header, value in decision.headers().items():
+            response.headers[header] = value
+    return response
