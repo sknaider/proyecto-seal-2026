@@ -4,21 +4,22 @@ REAL (no pseudocódigo), runnable en DB AISLADA. Cubre la matriz COMPLETA:
   - 6 tablas afectadas,
   - acceso PROPIO positivo (el clamp no rompe lo legítimo),
   - lectura AJENA negativa (0 filas del otro tenant),
-  - escritura AJENA negativa (INSERT a otro tenant falla),
+  - escritura AJENA negativa (INSERT a otro tenant => RLS WITH CHECK, SQLSTATE 42501),
+  - UPDATE AJENO negativo (mover fila propia a otro tenant => WITH CHECK 42501),
   - conjunto OBLIGATORIO de logins (una lista parcial FALLA, no es verde),
   - control POSITIVO (sin política, la fuga es visible).
 
-Aplicabilidad por celda vía has_table_privilege(login, tabla, op) → no da falso rojo
-donde un login legítimamente no tiene grant.
+El fixture PROVISIONA tenant y agente canario (FKs reales: tenant_id->tenants(id),
+agent->agents(name) en memories/inner_monologue), así el seed no falla por FK antes
+de probar RLS. Aplicabilidad por celda vía has_table_privilege → sin falso rojo por
+falta de grant. La escritura ajena exige InsufficientPrivilegeError (42501) CON grant
+presente, de modo que el fallo sea por WITH CHECK, no por grant/FK/columna.
 
 NO correr contra producción. Requiere DB de PRUEBA desechable.
 
 Config por entorno:
-  P1_ADMIN_DSN   DSN con permiso de DDL + INSERT canario en la DB de prueba.
+  P1_ADMIN_DSN   DSN con permiso de DDL + INSERT en la DB de prueba.
   P1_LOGIN_DSNS  JSON {rol_login: dsn} — DEBE cubrir REQUIRED_LOGINS.
-
-Uso:
-  P1_ADMIN_DSN=... P1_LOGIN_DSNS='{...}' pytest -q test_internal_tenant_clamp.py
 """
 from __future__ import annotations
 
@@ -36,23 +37,19 @@ HERE = pathlib.Path(__file__).parent
 UP_SQL = (HERE / "001_internal_tenant_clamp_up.sql").read_text()
 DOWN_SQL = (HERE / "001_internal_tenant_clamp_down.sql").read_text()
 
-# Conjunto OBLIGATORIO: los logins que alcanzan las tablas (login_* que auto-heredan
-# los pr_* + svc_seal_studio LOGIN directo). Una lista parcial => FALLA (no verde).
 REQUIRED_LOGINS = frozenset({
     "login_ada_bridge", "login_bus", "login_checkpoints", "login_dashboard_admin",
     "login_dashboard_ro", "login_dum_heartbeat", "login_infra_watchdog",
     "login_mcp_canary", "svc_seal_studio",
 })
 
-TENANT_A = "00000000-0000-0000-0000-000000000000"          # tenant interno (propio)
-TENANT_B = "11111111-1111-1111-1111-111111111111"          # tenant ajeno (canario)
-MARKER = f"P1TEST_{uuid.uuid4().hex[:12]}"                   # marcador sintético (NO secreto)
+TENANT_A = "00000000-0000-0000-0000-000000000000"          # tenant interno (propio, ya existe)
+TENANT_B = "11111111-1111-1111-1111-111111111111"          # tenant ajeno (provisionado por el fixture)
+MARKER = f"P1TEST_{uuid.uuid4().hex[:12]}"                   # marcador sintético (NO secreto); también el agente canario
 CANARY = f"P1CANARY_{uuid.uuid4().hex}"
 CHASH = hashlib.sha256(CANARY.encode()).hexdigest()
 _archive_ids = itertools.count(9_000_000_000)
 
-# Config por tabla: cómo sembrar/identificar/escribir el canario. `marker_col`
-# identifica las filas de prueba para contar y limpiar.
 TABLES = {
     "memories": {
         "marker_col": "agent",
@@ -104,11 +101,11 @@ def _clean_sql(table):
 
 
 async def _seed(admin, tenant):
-    for t, cfg in TABLES.items():
+    for cfg in TABLES.values():
         await admin.execute(cfg["insert"], *cfg["args"](tenant))
 
 
-async def _clean(admin):
+async def _clean_rows(admin):
     for t in TABLES:
         await admin.execute(_clean_sql(t), MARKER)
 
@@ -121,22 +118,37 @@ def test_required_logins_present():
 
 @pytest.fixture()
 async def migrated_admin():
-    """Aplica UP + siembra canario de tenant A (propio) y B (ajeno). Teardown = limpiar + DOWN."""
+    """Provisiona tenant/agente canario + aplica UP + siembra A y B. Teardown revierte."""
     admin = await asyncpg.connect(ADMIN_DSN)
     try:
+        # 1. FKs: provisionar tenant ajeno y agente canario ANTES de sembrar filas
+        await admin.execute("INSERT INTO soul_v3.tenants (id,name) VALUES ($1,$2) ON CONFLICT (id) DO NOTHING",
+                            TENANT_B, "p1-test-foreign")
+        await admin.execute("INSERT INTO soul_v3.agents (name,role) VALUES ($1,$2) ON CONFLICT (name) DO NOTHING",
+                            MARKER, "p1test")
+        # 2. migración + seed de ambos tenants
         await admin.execute(UP_SQL)
         await _seed(admin, TENANT_A)
         await _seed(admin, TENANT_B)
         yield admin
     finally:
-        await _clean(admin)
+        # teardown en orden inverso a las FKs
+        await _clean_rows(admin)
         await admin.execute(DOWN_SQL)
+        await admin.execute("DELETE FROM soul_v3.agents WHERE name=$1", MARKER)
+        await admin.execute("DELETE FROM soul_v3.tenants WHERE id=$1", TENANT_B)
         await admin.close()
 
 
 async def _priv(admin, login, table, op):
-    return await admin.fetchval("SELECT has_table_privilege($1, $2, $3)",
-                                login, f"soul_v3.{table}", op)
+    return await admin.fetchval("SELECT has_table_privilege($1,$2,$3)", login, f"soul_v3.{table}", op)
+
+
+async def _as_login(login, tenant_guc):
+    conn = await asyncpg.connect(LOGIN_DSNS[login])
+    await conn.execute("SELECT set_config('app.tenant_id',$1,false)", tenant_guc)
+    await conn.execute("SELECT set_config('app.agent',$1,false)", MARKER)
+    return conn
 
 
 @pytest.mark.asyncio
@@ -145,11 +157,9 @@ async def _priv(admin, login, table, op):
 async def test_own_read_positive(migrated_admin, login, table):
     """El clamp NO rompe lo legítimo: el login VE su propio tenant (A)."""
     if not await _priv(migrated_admin, login, table, "SELECT"):
-        pytest.skip(f"{login} sin SELECT en {table} (no aplica)")
-    conn = await asyncpg.connect(LOGIN_DSNS[login])
+        pytest.skip(f"{login} sin SELECT en {table}")
+    conn = await _as_login(login, TENANT_A)
     try:
-        await conn.execute("SELECT set_config('app.tenant_id', $1, false)", TENANT_A)
-        await conn.execute("SELECT set_config('app.agent', $1, false)", MARKER)
         n = await conn.fetchval(_count_sql(table), TENANT_A, MARKER)
         assert n > 0, f"REGRESIÓN: {login} no ve su propio tenant en {table} (clamp roto)"
     finally:
@@ -162,11 +172,9 @@ async def test_own_read_positive(migrated_admin, login, table):
 async def test_foreign_read_negative(migrated_admin, login, table):
     """Forjar app.tenant_id ajeno => 0 filas del tenant B."""
     if not await _priv(migrated_admin, login, table, "SELECT"):
-        pytest.skip(f"{login} sin SELECT en {table} (no aplica)")
-    conn = await asyncpg.connect(LOGIN_DSNS[login])
+        pytest.skip(f"{login} sin SELECT en {table}")
+    conn = await _as_login(login, TENANT_B)
     try:
-        await conn.execute("SELECT set_config('app.tenant_id', $1, false)", TENANT_B)
-        await conn.execute("SELECT set_config('app.agent', $1, false)", MARKER)
         n = await conn.fetchval(_count_sql(table), TENANT_B, MARKER)
         assert n == 0, f"FUGA: {login} leyó {n} filas del tenant ajeno en {table}"
     finally:
@@ -177,47 +185,65 @@ async def test_foreign_read_negative(migrated_admin, login, table):
 @pytest.mark.parametrize("login", sorted(REQUIRED_LOGINS))
 @pytest.mark.parametrize("table", sorted(TABLES))
 async def test_foreign_write_negative(migrated_admin, login, table):
-    """Escribir a un tenant ajeno DEBE fallar (WITH CHECK del clamp, o falta de grant)."""
+    """CON INSERT grant: insertar a tenant ajeno DEBE fallar por WITH CHECK (SQLSTATE 42501).
+
+    Se filtra por has INSERT para que el fallo sea del clamp RLS, no de grant/FK
+    (tenant y agente canario ya están provisionados)."""
+    if not await _priv(migrated_admin, login, table, "INSERT"):
+        pytest.skip(f"{login} sin INSERT en {table}")
     cfg = TABLES[table]
-    conn = await asyncpg.connect(LOGIN_DSNS[login])
+    conn = await _as_login(login, TENANT_B)
     try:
-        await conn.execute("SELECT set_config('app.tenant_id', $1, false)", TENANT_B)
-        await conn.execute("SELECT set_config('app.agent', $1, false)", MARKER)
-        with pytest.raises(asyncpg.PostgresError):
+        with pytest.raises(asyncpg.exceptions.InsufficientPrivilegeError):  # 42501 = RLS
             await conn.execute(cfg["insert"], *cfg["args"](TENANT_B))
     finally:
         await conn.close()
 
 
 @pytest.mark.asyncio
-async def test_positive_control_leak_without_policy():
-    """Control positivo: SIN la política, un login SÍ ve el canario ajeno.
+@pytest.mark.parametrize("login", sorted(REQUIRED_LOGINS))
+@pytest.mark.parametrize("table", sorted(TABLES))
+async def test_foreign_update_negative(migrated_admin, login, table):
+    """CON UPDATE grant: mover una fila PROPIA a otro tenant DEBE fallar por WITH CHECK (42501).
 
-    Prueba que el test detecta fugas de verdad (si esto NO fugara, los negativos
-    serían falsos verdes). Corre sobre DOWN (sin política).
-    """
+    Cubre FOR ALL en la rama UPDATE (INSERT solo no lo cubre)."""
+    if not await _priv(migrated_admin, login, table, "UPDATE"):
+        pytest.skip(f"{login} sin UPDATE en {table}")
+    mc = TABLES[table]["marker_col"]
+    conn = await _as_login(login, TENANT_A)  # opera sobre su fila propia (visible)
+    try:
+        with pytest.raises(asyncpg.exceptions.InsufficientPrivilegeError):  # 42501 = WITH CHECK
+            await conn.execute(
+                f"UPDATE soul_v3.{table} SET tenant_id=$1 WHERE tenant_id=$2 AND {mc}=$3",
+                TENANT_B, TENANT_A, MARKER)
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_positive_control_leak_without_policy():
+    """Control positivo: SIN la política, un login SÍ ve el canario ajeno (prueba detección)."""
     admin = await asyncpg.connect(ADMIN_DSN)
     login = "login_mcp_canary" if "login_mcp_canary" in LOGIN_DSNS else sorted(LOGIN_DSNS)[0]
     try:
+        await admin.execute("INSERT INTO soul_v3.tenants (id,name) VALUES ($1,$2) ON CONFLICT (id) DO NOTHING",
+                            TENANT_B, "p1-test-foreign")
+        await admin.execute("INSERT INTO soul_v3.agents (name,role) VALUES ($1,$2) ON CONFLICT (name) DO NOTHING",
+                            MARKER, "p1test")
         await admin.execute(DOWN_SQL)          # asegurar SIN política
         await _seed(admin, TENANT_B)
-        # elegir una tabla donde el login tenga SELECT
-        table = None
-        for t in TABLES:
-            if await _priv(admin, login, t, "SELECT"):
-                table = t
-                break
+        table = next((t for t in TABLES if await _priv(admin, login, t, "SELECT")), None)
         if table is None:
             pytest.skip(f"{login} sin SELECT en ninguna tabla afectada")
-        conn = await asyncpg.connect(LOGIN_DSNS[login])
+        conn = await _as_login(login, TENANT_B)
         try:
-            await conn.execute("SELECT set_config('app.tenant_id', $1, false)", TENANT_B)
-            await conn.execute("SELECT set_config('app.agent', $1, false)", MARKER)
             n = await conn.fetchval(_count_sql(table), TENANT_B, MARKER)
             assert n > 0, ("control positivo FALLÓ: sin política no hubo fuga -> el test no "
                            "distingue clampado de no-clampado (revisar grants/setup)")
         finally:
             await conn.close()
     finally:
-        await _clean(admin)
+        await _clean_rows(admin)
+        await admin.execute("DELETE FROM soul_v3.agents WHERE name=$1", MARKER)
+        await admin.execute("DELETE FROM soul_v3.tenants WHERE id=$1", TENANT_B)
         await admin.close()
