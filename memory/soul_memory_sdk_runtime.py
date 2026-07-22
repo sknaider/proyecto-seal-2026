@@ -391,7 +391,7 @@ async def resolve_tenant_db_identity(
         row = await conn.fetchrow(
             """
             SELECT tenant_id::text AS tenant_id, db_role::text AS db_role
-            FROM soul_v3.sdk_resolve_tenant_role_for_key_hash($1, $2)
+            FROM soul_v3.sdk_resolve_tenant_role_for_key_hash($1::text, $2::text)
             """,
             tenant.api_key_hash,
             viewer,

@@ -114,11 +114,12 @@ CREATE OR REPLACE FUNCTION soul_v3.provision_sdk_tenant_roles(
   p_tenant_id uuid,
   p_login_role name DEFAULT 'svc_soul_memory_sdk'::name
 )
-RETURNS TABLE(viewer text, db_role name)
+RETURNS TABLE(resolved_viewer text, resolved_db_role name)
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = ''
 AS $function$
+#variable_conflict error
 DECLARE
   v_viewer text;
   v_parent_role name;
@@ -200,7 +201,7 @@ BEGIN
       db_role, tenant_id, viewer, binding_kind, disabled_at
     )
     VALUES (v_role_name, p_tenant_id, v_viewer, 'tenant', NULL)
-    ON CONFLICT (db_role) DO UPDATE
+    ON CONFLICT ON CONSTRAINT sdk_tenant_role_bindings_pkey DO UPDATE
       SET disabled_at = NULL
       WHERE sdk_tenant_role_bindings.tenant_id = EXCLUDED.tenant_id
         AND sdk_tenant_role_bindings.viewer = EXCLUDED.viewer
@@ -227,10 +228,24 @@ BEGIN
     END IF;
 
     EXECUTE format('GRANT %I TO %I', v_role_name, p_login_role);
-    viewer := v_viewer;
-    db_role := v_role_name;
+    resolved_viewer := v_viewer;
+    resolved_db_role := v_role_name;
     RETURN NEXT;
   END LOOP;
+
+  -- The authenticated login needs only enough namespace/function privilege to
+  -- invoke the SECURITY DEFINER resolver. It does not receive table access or
+  -- schema CREATE; data privileges remain behind the resolved tenant roles.
+  EXECUTE format('GRANT USAGE ON SCHEMA soul_v3 TO %I', p_login_role);
+  IF pg_catalog.to_regprocedure(
+    'soul_v3.sdk_resolve_tenant_role_for_key_hash(text,text)'
+  ) IS NOT NULL THEN
+    EXECUTE format(
+      'GRANT EXECUTE ON FUNCTION '
+      'soul_v3.sdk_resolve_tenant_role_for_key_hash(text, text) TO %I',
+      p_login_role
+    );
+  END IF;
 END
 $function$;
 
@@ -299,6 +314,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $function$
+#variable_conflict error
 BEGIN
   IF p_key_hash IS NULL OR p_key_hash !~ '^[0-9a-f]{64}$' THEN
     RETURN;
@@ -392,6 +408,7 @@ ALTER FUNCTION soul_v3.sdk_resolve_tenant_role_for_key_hash(text, text)
   OWNER TO soul_sdk_tenant_resolver;
 REVOKE ALL ON FUNCTION soul_v3.sdk_resolve_tenant_role_for_key_hash(text, text)
   FROM PUBLIC;
+GRANT USAGE ON SCHEMA soul_v3 TO svc_soul_memory_sdk;
 GRANT EXECUTE ON FUNCTION soul_v3.sdk_resolve_tenant_role_for_key_hash(text, text)
   TO svc_soul_memory_sdk;
 

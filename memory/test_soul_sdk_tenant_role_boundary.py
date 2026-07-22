@@ -66,6 +66,14 @@ def test_missing_or_disabled_role_mapping_fails_closed() -> None:
 
 def test_provisioner_creates_deterministic_least_privilege_roles_per_viewer() -> None:
     sql = migration_sql()
+    provisioner = sql[
+        sql.index("CREATE OR REPLACE FUNCTION soul_v3.provision_sdk_tenant_roles"):
+        sql.index("REVOKE ALL ON FUNCTION soul_v3.provision_sdk_tenant_roles")
+    ]
+    assert "RETURNS TABLE(resolved_viewer text, resolved_db_role name)" in sql
+    assert "ON CONFLICT ON CONSTRAINT sdk_tenant_role_bindings_pkey" in sql
+    assert "ON CONFLICT (db_role) DO UPDATE" not in sql
+    assert sql.count("#variable_conflict error") >= 2
     assert "soul_sdk_t_%s_%s" in sql
     assert "replace(p_tenant_id::text, '-', '')" in sql
     assert "('agent'::text, 'soul_sdk_agent_api'::text)" in sql
@@ -75,6 +83,13 @@ def test_provisioner_creates_deterministic_least_privilege_roles_per_viewer() ->
     assert "tenant role name collision" in sql
     assert "tenant role has unexpected parent membership" in sql
     assert "GRANT %I TO %I" in sql
+    assert "GRANT USAGE ON SCHEMA soul_v3 TO %I" in provisioner
+    assert (
+        "soul_v3.sdk_resolve_tenant_role_for_key_hash(text, text) TO %I"
+        in provisioner
+    )
+    assert "GRANT SELECT" not in provisioner
+    assert "GRANT ALL" not in provisioner
 
 
 def test_hash_resolver_is_server_side_unique_and_checks_role_assumption() -> None:
@@ -97,6 +112,21 @@ def test_hash_resolver_is_server_side_unique_and_checks_role_assumption() -> Non
     assert "login_membership.set_option IS TRUE" in resolver
     assert "HAVING count(*) = 1" in resolver
     assert "raw" not in resolver.lower()
+    sdk_login_grants = sql[
+        sql.index(
+            "REVOKE ALL ON FUNCTION "
+            "soul_v3.sdk_resolve_tenant_role_for_key_hash(text, text)"
+        ):
+        sql.index("-- Restrictive policies")
+    ]
+    assert "GRANT USAGE ON SCHEMA soul_v3 TO svc_soul_memory_sdk" in sdk_login_grants
+    assert (
+        "GRANT EXECUTE ON FUNCTION "
+        "soul_v3.sdk_resolve_tenant_role_for_key_hash(text, text)"
+        in sdk_login_grants
+    )
+    assert "GRANT SELECT" not in sdk_login_grants
+    assert "GRANT ALL" not in sdk_login_grants
 
 
 def test_live_internal_tenant_has_canonical_and_legacy_compatibility_bindings() -> None:
@@ -128,11 +158,12 @@ def test_rollback_is_scope_gated_before_destructive_statements() -> None:
 
 @pytest.mark.asyncio
 async def test_adversarial_guc_forgery_role_mismatch_and_unmapped_role() -> None:
-    """Transactional integration gate; requires an explicit admin test DSN.
+    """Apply migration 055, attack it, then remove it from an explicit test DB.
 
-    The migration must already be installed in the target test database. Every
-    fixture row and role created here is rolled back with the outer transaction.
-    This test is intentionally not run against the live database by default.
+    The DSN must point to a disposable clone with the pre-055 SDK schema and an
+    admin login. The test refuses a database where 055 is already present. It
+    runs the migration twice (syntax + idempotence), rolls adversarial fixtures
+    back transactionally, and executes the scope-gated rollback in ``finally``.
     """
 
     dsn = os.environ.get("SEAL_SDK_TENANT_BOUNDARY_TEST_DSN", "").strip()
@@ -141,9 +172,47 @@ async def test_adversarial_guc_forgery_role_mismatch_and_unmapped_role() -> None
 
     asyncpg = pytest.importorskip("asyncpg")
     conn = await asyncpg.connect(dsn)
-    tx = conn.transaction()
-    await tx.start()
+    tx = None
+    migration_applied = False
     try:
+        preflight = await conn.fetchrow(
+            """
+            SELECT
+              to_regclass('soul_v3.sdk_tenant_role_bindings') IS NOT NULL AS has_table,
+              to_regprocedure('soul_v3.sdk_current_tenant_id()') IS NOT NULL AS has_identity_fn,
+              EXISTS (
+                SELECT 1 FROM pg_roles WHERE rolname = 'soul_sdk_tenant_bound'
+              ) AS has_boundary_role,
+              (SELECT rolsuper FROM pg_roles WHERE rolname = session_user) AS is_superuser
+            """
+        )
+        assert preflight is not None
+        if preflight["has_table"] or preflight["has_identity_fn"] or preflight["has_boundary_role"]:
+            pytest.fail("test DB must be a disposable pre-055 clone; refusing existing 055 objects")
+        if not preflight["is_superuser"]:
+            pytest.fail("test DB login must be an admin able to create transactional roles")
+
+        try:
+            await conn.execute(migration_sql())
+        except Exception:
+            if conn.is_in_transaction():
+                await conn.execute("ROLLBACK")
+            raise
+        migration_applied = True
+
+        # A second real apply is the idempotence gate, not a string assertion.
+        await conn.execute(migration_sql())
+        assert await conn.fetchval(
+            """
+            SELECT count(*)
+            FROM soul_v3.sdk_tenant_role_bindings
+            WHERE tenant_id = $1::uuid AND disabled_at IS NULL
+            """,
+            INTERNAL_TENANT,
+        ) == 5
+
+        tx = conn.transaction()
+        await tx.start()
         tenant_a = uuid4()
         tenant_b = uuid4()
         raw_a = "sk-soul-boundary-a-" + uuid4().hex
@@ -173,24 +242,55 @@ async def test_adversarial_guc_forgery_role_mismatch_and_unmapped_role() -> None
 
         role_a = await conn.fetchval(
             """
-            SELECT db_role::text
-            FROM soul_v3.provision_sdk_tenant_roles($1, $2::name)
-            WHERE viewer = 'agent'
+            SELECT resolved_db_role::text
+            FROM soul_v3.provision_sdk_tenant_roles($1::uuid, $2::name)
+            WHERE resolved_viewer = 'agent'
             """,
             tenant_a,
             login_role,
         )
         role_b = await conn.fetchval(
             """
-            SELECT db_role::text
-            FROM soul_v3.provision_sdk_tenant_roles($1, $2::name)
-            WHERE viewer = 'agent'
+            SELECT resolved_db_role::text
+            FROM soul_v3.provision_sdk_tenant_roles($1::uuid, $2::name)
+            WHERE resolved_viewer = 'agent'
             """,
             tenant_b,
             login_role,
         )
         assert re.fullmatch(r"soul_sdk_t_[0-9a-f]{32}_agent", role_a)
         assert re.fullmatch(r"soul_sdk_t_[0-9a-f]{32}_agent", role_b)
+
+        login_privileges = await conn.fetchrow(
+            """
+            SELECT
+              has_schema_privilege($1::name, 'soul_v3', 'USAGE') AS schema_usage,
+              has_schema_privilege($1::name, 'soul_v3', 'CREATE') AS schema_create,
+              has_function_privilege(
+                $1::name,
+                'soul_v3.sdk_resolve_tenant_role_for_key_hash(text,text)',
+                'EXECUTE'
+              ) AS resolver_execute,
+              has_function_privilege(
+                $1::name,
+                'soul_v3.provision_sdk_tenant_roles(uuid,name)',
+                'EXECUTE'
+              ) AS provisioner_execute,
+              has_table_privilege(
+                $1::name, 'soul_v3.tenants', 'SELECT'
+              ) AS tenants_select,
+              has_table_privilege(
+                $1::name, 'soul_v3.sdk_tenant_role_bindings', 'SELECT'
+              ) AS bindings_select
+            """,
+            login_role,
+        )
+        assert login_privileges["schema_usage"]
+        assert login_privileges["resolver_execute"]
+        assert not login_privileges["schema_create"]
+        assert not login_privileges["provisioner_execute"]
+        assert not login_privileges["tenants_select"]
+        assert not login_privileges["bindings_select"]
 
         await conn.executemany(
             """
@@ -203,7 +303,6 @@ async def test_adversarial_guc_forgery_role_mismatch_and_unmapped_role() -> None
             ),
         )
 
-        await conn.execute(f'GRANT EXECUTE ON FUNCTION soul_v3.sdk_resolve_tenant_role_for_key_hash(text, text) TO "{login_role}"')
         await conn.execute(
             f'CREATE ROLE "{unmapped_role}" NOLOGIN NOSUPERUSER NOCREATEDB '
             "NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT"
@@ -213,7 +312,7 @@ async def test_adversarial_guc_forgery_role_mismatch_and_unmapped_role() -> None
         await conn.execute(f'SET LOCAL SESSION AUTHORIZATION "{login_role}"')
 
         resolved_a = await conn.fetchrow(
-            "SELECT * FROM soul_v3.sdk_resolve_tenant_role_for_key_hash($1, 'agent')",
+            "SELECT * FROM soul_v3.sdk_resolve_tenant_role_for_key_hash($1::text, 'agent'::text)",
             hash_a,
         )
         assert resolved_a and resolved_a["tenant_id"] == tenant_a
@@ -250,5 +349,24 @@ async def test_adversarial_guc_forgery_role_mismatch_and_unmapped_role() -> None
             marker + "-row-%",
         ) == 0
     finally:
-        await tx.rollback()
+        if tx is not None and conn.is_in_transaction():
+            await tx.rollback()
+        if conn.is_in_transaction():
+            await conn.execute("ROLLBACK")
+        if migration_applied:
+            await conn.execute(rollback_sql())
+            cleanup = await conn.fetchrow(
+                """
+                SELECT
+                  to_regclass('soul_v3.sdk_tenant_role_bindings') IS NULL AS table_removed,
+                  to_regprocedure('soul_v3.sdk_current_tenant_id()') IS NULL AS function_removed,
+                  NOT EXISTS (
+                    SELECT 1 FROM pg_roles WHERE rolname = 'soul_sdk_tenant_bound'
+                  ) AS role_removed
+                """
+            )
+            assert cleanup
+            assert cleanup["table_removed"]
+            assert cleanup["function_removed"]
+            assert cleanup["role_removed"]
         await conn.close()

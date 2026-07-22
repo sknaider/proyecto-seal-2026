@@ -304,7 +304,7 @@ async def test_set_tenant_context_uses_hash_resolved_role_not_tenant_guc() -> No
 
     resolver_sql, resolver_args = conn.fetchrow_calls[0]
     assert resolver_args == (API_HASH, "agent")
-    assert "sdk_resolve_tenant_role_for_key_hash($1, $2)" in resolver_sql
+    assert "sdk_resolve_tenant_role_for_key_hash($1::text, $2::text)" in resolver_sql
     assert TENANT_A not in resolver_sql
     assert identity.db_role == canonical_role(TENANT_A)
     assert not identity.legacy_internal_fallback
