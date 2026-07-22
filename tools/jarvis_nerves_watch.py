@@ -37,7 +37,17 @@ def _run(args):
 
 
 def check():
-    """Corre los instrumentos reales. Devuelve (estado, findings, detalle)."""
+    """Corre los instrumentos reales. Devuelve (estado, findings, detalle).
+
+    Tres ejes (los 2 primeros RELATIVOS al baseline, el 3º ABSOLUTO):
+      1. --diff   : regresión (algo sano que se rompió vs baseline). Unidireccional
+                    a propósito: roto→sano NO es regresión (no es ruido).
+      2. --identity: atribución (huérfano/mismatch de proceso).
+      3. salud ABSOLUTA: ¿algún servicio active/legacy está BAD AHORA? — independiente
+                    del baseline. Cierra el punto ciego que cazó el red-team: un baseline
+                    stale/corrupto podría eximir un servicio genuinamente caído del --diff;
+                    el chequeo absoluto lo caza igual. NO rompe la semántica de --diff.
+    """
     findings = []
     # 1) gate de regresión (fail-closed)
     d = _run(["--diff"])
@@ -51,6 +61,17 @@ def check():
     if i.returncode == 1:
         findings.append("IDENTIDAD: " +
                         " · ".join(l.strip() for l in i.stdout.splitlines() if "FAIL" in l))
+    # 3) salud ABSOLUTA por efecto (defensa contra baseline stale/corrupto — red-team)
+    a = _run(["--json"])
+    try:
+        rows = json.loads(a.stdout)
+        bad = [r["name"] for r in rows
+               if r.get("lifecycle") in ("active", "legacy") and not r.get("healthy")]
+        if bad:
+            findings.append("SALUD ABSOLUTA: servicio(s) BAD ahora (indep. del baseline): "
+                            + ", ".join(bad))
+    except Exception as e:
+        findings.append(f"SALUD ABSOLUTA: no se pudo evaluar (fail-closed): {str(e)[:40]}")
     detalle = (d.stdout.strip().splitlines()[-1] if d.stdout.strip() else "") + \
               " | " + (i.stdout.strip().splitlines()[-1] if i.stdout.strip() else "")
     return ("FINDING" if findings else "GREEN"), findings, detalle
