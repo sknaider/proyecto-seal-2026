@@ -54,6 +54,7 @@ STATIC = [
     ("ollama-engine", "engine",  "active", "", ("port", 11434), ("unit-sys", "ollama")),
     ("prometheus-engine (9090)", "engine", "active", "", ("port", 9090), ("docker", "seal-prometheus")),
     ("chat-server (8765)", "service", "active", "", ("port", 8765), ("unit-user", "seal-chat.service")),
+    ("seal-studio-backend (8800)", "service", "active", "", ("port", 8800), ("unit-user", "seal-studio-backend.service")),
     ("orion-exam",              "service", "active", "", ("unit", "orion-exam.service"), ("unit-user", "orion-exam.service")),
     ("jarvis-awareness",        "service", "active", "", ("unit", "jarvis-awareness.service"), ("unit-user", "jarvis-awareness.service")),
     ("ada-codex-remote-bridge", "service", "active", "", ("unit", "ada-codex-remote-bridge.service"), ("unit-user", "ada-codex-remote-bridge.service")),
