@@ -2,36 +2,39 @@
 """SOUL Dependency Inventory — catálogo único durable, verificado POR EFECTO.
 
 Owner: JARVIS. Sustrato del inventario fusionado (21-jul-2026, "ordenar
-quirúrgicamente" de William; corrección de identidades por ADA).
+quirúrgicamente" de William). Endurecido iterando con la verificación adversarial
+de ADA (builder≠verifier sobre mí) — cada punto de abajo fue un catch suyo.
 
-Ataca el hallazgo estructural de ADA #1: un catálogo durable (git-tracked,
-sobrevive reboot/compactación) donde cada dependencia declara su IDENTIDAD real,
-su LIFECYCLE y CÓMO se verifica por sonda funcional — no "existe el binario/puerto"
-sino "el componente vivo responde".
+QUÉ VERIFICA, y por qué así (todos cazados por ADA):
+1. MCP: **handshake JSON-RPC `initialize` real** (el MCP vive y responde con
+   serverInfo), NO "el binario existe" ni "py_compile" — esos daban verde sobre
+   binarios npm retirados o sobre código que compila pero no arranca.
+2. MCP derivados de **`.mcp.json`** (fuente de verdad) — nunca driftea a un nombre
+   adivinado/retirado.
+3. `reboot_safe` **MEDIDO** por el supervisor REAL de cada componente
+   (docker restart-policy / systemd is-enabled), no declarado.
+4. `identity` real por fila: el :8766 es el contenedor SOUL API v1 legacy, NO
+   seal-smg (gateway retirado en 8770). Un `retired` DOWN es SANO.
+5. `--diff` **fail-CLOSED**: una dependencia del baseline que DESAPARECE del
+   catálogo se marca como regresión (un rename/removal ya no pasa como verde).
+6. Baseline **git-tracked** en `tools/dependency_baseline.json` (durable), no en
+   logs/ untracked.
 
-CAUSA RAÍZ de los falsos verdes v1 (cazados por ADA, builder≠verifier sobre mí):
-  - sondaba por NOMBRES adivinados (`mcp-server-postgres` npm retirado) en vez de
-    la fuente de verdad `.mcp.json` → verde sobre lo retirado.
-  - puse el nombre `seal-smg` a una sonda que chequeaba el contenedor legacy 8766;
-    seal-smg es OTRO componente (gateway 8770, ya retirado).
-Fix estructural: los MCP se DERIVAN de `.mcp.json` (no se adivinan) y cada fila
-lleva identity/lifecycle/replaced_by. Un componente `retired` que está DOWN es
-SANO (DOWN es su estado deseado), no un rojo.
-
-Columnas: name · type · origin · identity · lifecycle · replaced_by · probe(efecto)
-          · reboot_safe · healthy(=lifecycle coherente con el estado real)
+Columnas: name · type · lifecycle · identity · replaced_by · probe(efecto)
+          · reboot_safe(medido) · healthy(coherencia lifecycle vs estado real)
 
 Uso:
-  python3 tools/dependency_inventory.py            # verifica todo por efecto
-  python3 tools/dependency_inventory.py --json     # salida máquina
+  python3 tools/dependency_inventory.py                # verifica por efecto
+  python3 tools/dependency_inventory.py --json
   python3 tools/dependency_inventory.py --diff [BASELINE]   # gate de regresión
+  python3 tools/dependency_inventory.py --save-baseline     # regenera baseline durable
 """
 from __future__ import annotations
 
 import argparse
 import json
 import pathlib
-import py_compile
+import select
 import socket
 import subprocess
 import sys
@@ -39,29 +42,78 @@ import urllib.error
 import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+BASELINE = ROOT / "tools" / "dependency_baseline.json"
 
-# ── Motores y servicios NO-MCP. Fuente de verdad de QUÉ debe existir. ─────────
-# (name, type, origin, (probe_kind, arg), lifecycle, replaced_by, reboot_safe)
+# ── Motores / servicios / legacy. supervisor = cómo se MIDE reboot_safe. ─────
+# (name, type, lifecycle, replaced_by, (probe_kind, arg), (sup_kind, sup_arg))
+#   sup_kind: docker=restart-policy · unit-user/unit-sys=is-enabled · none
 STATIC = [
-    ("postgres-engine",  "engine",  "extern", ("port", 5433),  "active", "", True),
-    ("neo4j-engine",     "engine",  "extern", ("port", 7687),  "active", "", True),
-    ("ollama-engine",    "engine",  "extern", ("port", 11434), "active", "", True),
-    ("chat-server",      "service", "nativo", ("port", 8765),  "active", "", True),
-    ("orion-exam",              "service", "nativo", ("unit", "orion-exam.service"), "active", "", "auto"),
-    ("jarvis-awareness",        "service", "nativo", ("unit", "jarvis-awareness.service"), "active", "", "auto"),
-    ("ada-codex-remote-bridge", "service", "nativo", ("unit", "ada-codex-remote-bridge.service"), "active", "", "auto"),
-    # ── Legacy VIVO: SOUL API v1 en contenedor docker. NO es seal-smg. ──
-    ("soul-api-v1-legacy (8766)", "gateway", "nativo",
-     ("docker", "soul-api-server-legacy-8766"), "legacy",
-     "parcial: 8771 seal-memory + 8768 memoria tenant-safe (sin equivalencia total aún)", "auto"),
-    # ── RETIRADO: gateway SMG (8770/9091). DOWN es su estado CORRECTO. ──
-    ("seal-smg (gw 8770)", "gateway", "nativo",
-     ("unit", "seal-smg.service"), "retired", "8771 seal-memory MCP", "auto"),
+    ("postgres-engine (pgvector)", "engine", "active", "",
+     ("pgvector", None), ("docker", "seal-memory-db")),
+    ("neo4j-engine",  "engine",  "active", "", ("port", 7687),  ("docker", "soul-neo4j")),
+    ("ollama-engine", "engine",  "active", "", ("port", 11434), ("unit-sys", "ollama")),
+    ("prometheus-engine (9090)", "engine", "active", "", ("port", 9090), ("docker", "seal-prometheus")),
+    ("chat-server (8765)", "service", "active", "", ("port", 8765), ("unit-user", "seal-chat.service")),
+    ("orion-exam",              "service", "active", "", ("unit", "orion-exam.service"), ("unit-user", "orion-exam.service")),
+    ("jarvis-awareness",        "service", "active", "", ("unit", "jarvis-awareness.service"), ("unit-user", "jarvis-awareness.service")),
+    ("ada-codex-remote-bridge", "service", "active", "", ("unit", "ada-codex-remote-bridge.service"), ("unit-user", "ada-codex-remote-bridge.service")),
+    # legacy VIVO: SOUL API v1 en contenedor docker (NO es seal-smg)
+    ("soul-api-v1-legacy (8766)", "gateway", "legacy",
+     "parcial: 8771 seal-memory + 8768 memoria tenant-safe (sin equivalencia total)",
+     ("docker-run", "soul-api-server-legacy-8766"), ("docker", "soul-api-server-legacy-8766")),
+    # RETIRADO: gateway SMG (8770/9091). DOWN es su estado CORRECTO.
+    ("seal-smg (gw 8770)", "gateway", "retired", "8771 seal-memory MCP",
+     ("unit", "seal-smg.service"), ("none", None)),
 ]
+
+_INIT = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                    "params": {"protocolVersion": "2024-11-05", "capabilities": {},
+                               "clientInfo": {"name": "inv-probe", "version": "0"}}}) + "\n"
+
+
+def _mcp_handshake(command, args, timeout=12):
+    """Lanza el MCP con su comando real y verifica que responde a `initialize`.
+    Prueba MCP-VIVO, no 'el archivo existe'. Devuelve (up, detail)."""
+    argv = ([command] if command else []) + list(args)
+    try:
+        p = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, text=True)
+    except Exception as e:
+        return False, f"no lanza: {str(e)[:40]}"
+    try:
+        p.stdin.write(_INIT)
+        p.stdin.flush()
+        deadline_buf = ""
+        import time as _t  # solo para el select loop; no se persiste
+        end = _t.monotonic() + timeout
+        while _t.monotonic() < end:
+            r, _, _ = select.select([p.stdout], [], [], end - _t.monotonic())
+            if not r:
+                break
+            line = p.stdout.readline()
+            if not line:
+                break
+            deadline_buf += line
+            try:
+                o = json.loads(line)
+            except Exception:
+                continue
+            si = (o.get("result") or {}).get("serverInfo")
+            if si:
+                return True, f"mcp vivo: {si.get('name', '?')} v{si.get('version', '?')}"
+        return False, "sin respuesta initialize"
+    finally:
+        try:
+            p.terminate()
+            p.wait(timeout=3)
+        except Exception:
+            try:
+                p.kill()
+            except Exception:
+                pass
 
 
 def _probe(kind, arg):
-    """Devuelve (up: bool, detail: str). up = 'el componente responde'."""
     try:
         if kind == "port":
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -71,111 +123,156 @@ def _probe(kind, arg):
             return ok, f"tcp :{arg} {'up' if ok else 'down'}"
         if kind == "http":
             try:
-                code = urllib.request.urlopen(arg, timeout=3).getcode()
-                return True, f"http {code}"
+                return True, f"http {urllib.request.urlopen(arg, timeout=3).getcode()}"
             except urllib.error.HTTPError as e:
-                return e.code < 500, f"http {e.code}"  # 400/406 = vivo, otro contrato
+                return e.code < 500, f"http {e.code}"
         if kind == "unit":
             r = subprocess.run(["systemctl", "--user", "is-active", arg],
                                capture_output=True, text=True, timeout=5)
             st = r.stdout.strip()
             return st == "active", f"unit {st}"
-        if kind == "docker":
+        if kind == "docker-run":
             r = subprocess.run(["docker", "inspect", arg, "--format", "{{.State.Running}}"],
                                capture_output=True, text=True, timeout=5)
             run = r.stdout.strip() == "true"
             return run, f"docker {'running' if run else 'down/ausente'}"
-        if kind == "pyfile":
-            # sonda FUNCIONAL de un MCP lanzado por python: existe + compila.
-            # Mucho más fuerte que "binario npm en PATH" (el falso verde de v1).
-            p = arg if pathlib.Path(arg).is_absolute() else ROOT / arg
-            p = pathlib.Path(p)
-            if not p.exists():
-                return False, f"pyfile AUSENTE {p.name}"
-            try:
-                py_compile.compile(str(p), doraise=True)
-                return True, f"pyfile compila {p.name}"
-            except py_compile.PyCompileError:
-                return False, f"pyfile NO compila {p.name}"
+        if kind == "pgvector":
+            # sonda funcional del motor: pgvector responde su versión por SQL real
+            import asyncio
+            import asyncpg
+
+            async def _q():
+                c = await asyncpg.connect("postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
+                try:
+                    return await c.fetchval("SELECT extversion FROM pg_extension WHERE extname='vector'")
+                finally:
+                    await c.close()
+            v = asyncio.get_event_loop().run_until_complete(_q()) if False else asyncio.run(_q())
+            return bool(v), f"postgres+pgvector {v}" if v else "pgvector AUSENTE"
     except Exception as e:
         return False, f"error: {str(e)[:40]}"
     return False, "probe desconocido"
 
 
+def _reboot_safe(sup_kind, sup_arg):
+    """MIDE reboot_safe por el supervisor real. Nunca declara."""
+    try:
+        if sup_kind == "docker":
+            r = subprocess.run(["docker", "inspect", sup_arg, "--format",
+                                "{{.HostConfig.RestartPolicy.Name}}"],
+                               capture_output=True, text=True, timeout=5)
+            pol = r.stdout.strip()
+            safe = pol in ("unless-stopped", "always", "on-failure")
+            return (safe if pol else "?"), f"docker[{sup_arg}] restart={pol or 'n/a'}"
+        if sup_kind in ("unit-user", "unit-sys"):
+            base = ["systemctl"] + (["--user"] if sup_kind == "unit-user" else [])
+            r = subprocess.run(base + ["is-enabled", sup_arg],
+                               capture_output=True, text=True, timeout=5)
+            en = r.stdout.strip()
+            return (True if en == "enabled" else (False if en else "?")), f"is-enabled={en or 'n/a'}"
+        if sup_kind == "none":
+            return "n/a", "sin supervisor (retirado)"
+    except Exception as e:
+        return "?", f"sup error: {str(e)[:30]}"
+    return "?", "sup desconocido"
+
+
+def _healthy(lifecycle, up):
+    return (not up) if lifecycle == "retired" else up
+
+
 def _mcp_rows():
-    """Deriva las filas MCP de .mcp.json (fuente de verdad, no adivinanza)."""
     cfg = json.loads((ROOT / ".mcp.json").read_text())
     servers = cfg.get("mcpServers", cfg.get("servers", {}))
     rows = []
     for name, c in servers.items():
         url = c.get("url", "")
         if url:
-            probe = ("http", url)
+            up, detail = _probe("http", url)
             identity = url
         else:
-            # extraer el .py real que lanza el MCP (nativo), de command/args
+            up, detail = _mcp_handshake(c.get("command", ""), c.get("args", []))
             blob = " ".join([c.get("command", "")] + list(c.get("args", [])))
-            pys = [tok for tok in blob.split() if tok.endswith(".py")]
-            script = pys[-1] if pys else "?"
-            probe = ("pyfile", script)
-            try:
-                identity = str(pathlib.Path(script).relative_to(ROOT))
-            except Exception:
-                identity = script
-        rows.append((f"{name} (MCP)", "mcp", "nativo", probe,
-                     "active", "", "session", identity))
+            pys = [t for t in blob.split() if t.endswith(".py")]
+            identity = pys[-1] if pys else "?"
+        rows.append({"name": f"{name} (MCP)", "type": "mcp", "origin": "nativo",
+                     "identity": identity, "lifecycle": "active", "replaced_by": "",
+                     "probe": "handshake" if not url else "http", "up": up, "detail": detail,
+                     "reboot_safe": "session", "reboot_detail": "nace con la sesión del agente",
+                     "healthy": up})
     return rows
 
 
-def _reboot(reboot, pkind, parg, detail):
-    """Resuelve reboot_safe='auto' POR EFECTO (is-enabled / restart-policy)."""
-    if reboot != "auto":
-        return reboot, detail
-    if pkind == "unit":
-        r = subprocess.run(["systemctl", "--user", "is-enabled", parg],
-                           capture_output=True, text=True, timeout=5)
-        en = r.stdout.strip()
-        return (True if en == "enabled" else (False if en else "?")), detail + f" · is-enabled={en or 'n/a'}"
-    if pkind == "docker":
-        r = subprocess.run(["docker", "inspect", parg, "--format",
-                            "{{.HostConfig.RestartPolicy.Name}}"],
-                           capture_output=True, text=True, timeout=5)
-        pol = r.stdout.strip()
-        safe = pol in ("unless-stopped", "always", "on-failure") or (False if pol else "?")
-        return safe, detail + f" · restart={pol or 'n/a'}"
-    return "?", detail
-
-
-def _healthy(lifecycle, up):
-    """retired ⇒ sano si está DOWN. active/legacy ⇒ sano si está UP."""
-    return (not up) if lifecycle == "retired" else up
-
-
 def build():
-    results = []
-    # MCP (de .mcp.json) + estáticos
-    for name, typ, origin, probe, lifecycle, repl, reboot, identity in _mcp_rows():
-        up, detail = _probe(*probe)
-        results.append({"name": name, "type": typ, "origin": origin, "identity": identity,
-                        "lifecycle": lifecycle, "replaced_by": repl,
-                        "probe": f"{probe[0]}:{probe[1]}", "up": up, "detail": detail,
-                        "reboot_safe": reboot, "healthy": _healthy(lifecycle, up)})
-    for name, typ, origin, (pk, pa), lifecycle, repl, reboot in STATIC:
+    results = list(_mcp_rows())
+    for name, typ, lifecycle, repl, (pk, pa), (sk, sa) in STATIC:
         up, detail = _probe(pk, pa)
-        reboot, detail = _reboot(reboot, pk, pa, detail)
-        results.append({"name": name, "type": typ, "origin": origin, "identity": f"{pk}:{pa}",
-                        "lifecycle": lifecycle, "replaced_by": repl,
-                        "probe": f"{pk}:{pa}", "up": up, "detail": detail,
-                        "reboot_safe": reboot, "healthy": _healthy(lifecycle, up)})
+        rb, rbd = ("n/a", "retirado") if lifecycle == "retired" else _reboot_safe(sk, sa)
+        results.append({"name": name, "type": typ, "origin": "nativo" if typ != "engine" else "extern",
+                        "identity": f"{sk}:{sa}" if sa else f"{pk}", "lifecycle": lifecycle,
+                        "replaced_by": repl, "probe": f"{pk}:{pa}", "up": up, "detail": detail,
+                        "reboot_safe": rb, "reboot_detail": rbd, "healthy": _healthy(lifecycle, up)})
     return results
+
+
+def _fmt(results):
+    print(f"{'DEP':<28} {'TIPO':<8} {'LIFECYCLE':<9} {'SALUD':<6} DETALLE")
+    print("-" * 92)
+    bad = 0
+    for r in results:
+        if not r["healthy"]:
+            bad += 1
+        mark = "OK" if r["healthy"] else "⚠BAD"
+        st = r["detail"]
+        if r["lifecycle"] == "retired":
+            st += "  (retirado: DOWN=correcto)"
+        elif r["reboot_safe"] in (False, "?"):
+            st += f"  ⚠reboot:{r['reboot_safe']}"
+        print(f"{r['name']:<28} {r['type']:<8} {r['lifecycle']:<9} {mark:<6} {st}")
+    active = [r for r in results if r["lifecycle"] in ("active", "legacy")]
+    up_act = sum(1 for r in active if r["up"])
+    print(f"\nactivos-UP={up_act}/{len(active)}  SALUD={len(results)-bad}/{len(results)} coherentes"
+          + ("" if not bad else f"  ⚠{bad} incoherentes"))
+    frag = [r["name"] for r in results if r["reboot_safe"] in (False, "?") and r["lifecycle"] != "retired"]
+    if frag:
+        print(f"⚠ activos NO reboot-safe (medido): {', '.join(frag)}")
+    return bad
+
+
+def _diff(results):
+    if not BASELINE.exists():
+        print(f"baseline durable ausente: {BASELINE} — corré --save-baseline")
+        return 2
+    base = {r["name"]: r for r in json.loads(BASELINE.read_text())}
+    now = {r["name"]: r for r in results}
+    regress = []
+    for name, b in base.items():
+        n = now.get(name)
+        if n is None:
+            # FAIL-CLOSED: una dep del baseline desapareció del catálogo (rename/removal)
+            if b.get("lifecycle") == "retired":
+                continue
+            regress.append(f"DESAPARECIÓ: {name} (lifecycle={b.get('lifecycle')}) — estaba en baseline, ausente ahora")
+            continue
+        if b.get("healthy") and not n["healthy"]:
+            regress.append(f"ROTO: {name} — sano→{n['detail']} (lifecycle={n['lifecycle']})")
+        elif b.get("reboot_safe") is True and n["reboot_safe"] in (False, "?"):
+            regress.append(f"REBOOT: {name} — perdió reboot-safety ({n.get('reboot_detail')})")
+    print(f"DIFF contra {BASELINE.name} — {len(base)} deps en baseline (fail-closed)")
+    if regress:
+        print("\n⚠ REGRESIONES:")
+        for r in regress:
+            print(f"  {r}")
+    else:
+        print("✅ 0 regresiones: todo lo sano sigue coherente, reboot-safe, y nada desapareció.")
+    return 1 if regress else 0
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
-    ap.add_argument("--diff", metavar="BASELINE", nargs="?",
-                    const="logs/dependency_baseline_latest.json",
-                    help="compara contra un baseline y marca REGRESIONES (algo sano que se rompió)")
+    ap.add_argument("--diff", action="store_true", help="gate de regresión (fail-closed) vs baseline durable")
+    ap.add_argument("--save-baseline", action="store_true", help="regenera tools/dependency_baseline.json (git-tracked)")
     args = ap.parse_args()
 
     results = build()
@@ -183,63 +280,13 @@ def main() -> int:
     if args.json:
         print(json.dumps(results, indent=2))
         return 0 if all(r["healthy"] for r in results) else 1
-
+    if args.save_baseline:
+        BASELINE.write_text(json.dumps(results, indent=2) + "\n")
+        print(f"baseline durable escrito: {BASELINE} ({len(results)} deps). `git add` para sellarlo.")
+        return 0
     if args.diff:
-        bpath = pathlib.Path(args.diff)
-        if not bpath.is_absolute():
-            bpath = ROOT / bpath
-        if not bpath.exists():
-            print(f"baseline no encontrado: {bpath}")
-            return 2
-        base = {r["name"]: r for r in json.loads(bpath.read_text())}
-        now = {r["name"]: r for r in results}
-        regress = []
-        for name, b in base.items():
-            n = now.get(name)
-            if n is None:
-                continue
-            if b.get("healthy") and not n["healthy"]:
-                regress.append(f"ROTO: {name} — baseline sano → ahora {n['detail']} (lifecycle={n['lifecycle']})")
-            elif b["reboot_safe"] is True and n["reboot_safe"] in (False, "?"):
-                regress.append(f"REBOOT: {name} — perdió reboot-safety ({n['detail']})")
-        print(f"DIFF contra {bpath.name} — {len(base)} deps en baseline")
-        if regress:
-            print("\n⚠ REGRESIONES (algo sano se rompió — NO era el objetivo del corte):")
-            for r in regress:
-                print(f"  {r}")
-        else:
-            print("✅ 0 regresiones: todo lo sano sigue coherente + reboot-safe.")
-        return 1 if regress else 0
-
-    print(f"{'DEP':<26} {'TIPO':<8} {'LIFECYCLE':<9} {'SALUD':<6} DETALLE")
-    print("-" * 78)
-    bad = 0
-    for r in results:
-        healthy = r["healthy"]
-        if not healthy:
-            bad += 1
-        mark = "OK" if healthy else "⚠BAD"
-        rb = r["reboot_safe"]
-        if r["lifecycle"] == "retired":
-            flag = ""  # reboot-safety de un retirado es irrelevante
-        else:
-            flag = " ⚠NO-rearranca" if rb is False else (" ⚠reboot?" if rb == "?" else "")
-        # para retired, mostrar que DOWN es lo esperado
-        st = r["detail"]
-        if r["lifecycle"] == "retired":
-            st += "  (retirado: DOWN es correcto)"
-        print(f"{r['name']:<26} {r['type']:<8} {r['lifecycle']:<9} {mark:<6} {st}{flag}")
-
-    active = [r for r in results if r["lifecycle"] in ("active", "legacy")]
-    up_active = sum(1 for r in active if r["up"])
-    nat = sum(1 for r in results if r["origin"] == "nativo")
-    print(f"\nnativos={nat}/{len(results)}  activos-UP={up_active}/{len(active)}  "
-          + (f"SALUD: {len(results)-bad}/{len(results)} coherentes"
-             + ("" if not bad else f"  ⚠{bad} incoherentes")))
-    not_safe = [r["name"] for r in results if r["reboot_safe"] in (False, "?") and r["lifecycle"] != "retired"]
-    if not_safe:
-        print(f"⚠ activos que NO sobreviven reboot: {', '.join(not_safe)}")
-    return 1 if bad else 0
+        return _diff(results)
+    return 1 if _fmt(results) else 0
 
 
 if __name__ == "__main__":
