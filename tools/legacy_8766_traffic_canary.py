@@ -61,10 +61,15 @@ def _now_utc() -> float:
     return datetime.datetime.now(datetime.timezone.utc).timestamp()
 
 
-def collect(window_min: int, tail: int = 5000):
-    r = subprocess.run(["docker", "logs", "--timestamps", "--tail", str(tail), CONTAINER],
+def collect(window_min: int, tail: int = 5000, container: str = CONTAINER):
+    r = subprocess.run(["docker", "logs", "--timestamps", "--tail", str(tail), container],
                        capture_output=True, text=True, timeout=20)
-    lines = (r.stdout + r.stderr).splitlines()
+    # FAIL-CLOSED: si el contenedor no existe/renombrado (cuarentena), docker logs
+    # devuelve returncode≠0 → NO pudimos leer. "0 tráfico" por lectura fallida NO es
+    # "limpio" (lección: 0 resultados puede ser pipeline roto, no un cero real).
+    read_ok = r.returncode == 0
+    read_err = "" if read_ok else (r.stderr.strip()[:120] or "docker logs falló")
+    lines = (r.stdout + r.stderr).splitlines() if read_ok else []
     cutoff = _now_utc() - window_min * 60
     infra, consumer, parsed, newest = [], [], 0, 0.0
     for ln in lines:
@@ -84,16 +89,31 @@ def collect(window_min: int, tail: int = 5000):
         base = rec["path"].split("?")[0]
         (infra if base in INFRA else consumer).append(rec)
     return {"parsed": parsed, "window_min": window_min, "newest_epoch": newest,
-            "infra": infra, "consumer": consumer}
+            "infra": infra, "consumer": consumer,
+            "read_ok": read_ok, "read_err": read_err, "raw_lines": len(lines)}
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--window-min", type=int, default=15)
+    ap.add_argument("--container", default=CONTAINER,
+                    help="nombre del contenedor (usar el de cuarentena si fue renombrado)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    d = collect(args.window_min)
+    d = collect(args.window_min, container=args.container)
+    # FAIL-CLOSED: si no se pudieron LEER los logs (contenedor ausente/renombrado a
+    # cuarentena), NO se puede concluir "limpio". 0 tráfico por lectura fallida ≠ 0 real.
+    if not d["read_ok"]:
+        msg = (f"no se pudieron leer los logs del contenedor '{args.container}' "
+               f"({d['read_err']}). Si fue renombrado a cuarentena, pasá --container <nombre>. "
+               f"NO se puede afirmar 'sin tráfico legado' sin leer los logs.")
+        if args.json:
+            print(json.dumps({"window_min": args.window_min, "clean": None,
+                              "read_ok": False, "error": d["read_err"], "hint": msg}, indent=2))
+        else:
+            print(f"⚠ INDETERMINADO (fail-closed): {msg}")
+        return 2
     cons = d["consumer"]
     # agregación de tráfico de consumidor por (método, path, status)
     agg = {}
