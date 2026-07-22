@@ -22,8 +22,10 @@ Seguridad (lecciones del día, requisitos NEXUS+ALICE):
   • FAIL-LOUD: si no puede leer/escribir, GRITA (log + exit≠0), no degrada en silencio.
   • Contención: no ejecuta nada; solo acumula presión y propone. Fase B (actuar) = gate NEXUS.
 """
-import asyncio, os, sys, json, math
+import asyncio, fcntl, os, sys, json, math
+from contextlib import contextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 FABLE_CRED = open("/home/dadito/IA/proyecto-seal/fable/.db_cred").read().splitlines()[0].strip()
 AGENT = "FABLE"
@@ -39,10 +41,10 @@ AGENT = "FABLE"
 # luego cooldown. Calibrado a la identidad: curiosity/rigor (científico+doctor) crecen rápido;
 # care lento. Esto es lo que hace los nervios AUTÓNOMOS (no solo reactivos a estímulo externo).
 DRIVES = {
-    "curiosity_drive": {"tau": 2.0 * 3600, "threshold": 0.70, "baseline_per_h": 0.22, "urge": "investigar un GAP de SOUL/backlog-auditoría y dejar el hallazgo (científico)", "fire": "investigar_gap_soul"},
-    "teach_drive":     {"tau": 3.0 * 3600, "threshold": 0.70, "baseline_per_h": 0.14, "urge": "crear un GOLD-EXAMPLE para entrenar a la familia (profesor)",            "fire": "crear_gold_example"},
-    "rigor_drive":     {"tau": 1.0 * 3600, "threshold": 0.65, "baseline_per_h": 0.18, "urge": "VERIFICAR-POR-EFECTO un cambio reciente de SOUL (¿desplegado, no solo en disco?) o cazar staleness (doctor)", "fire": "verificar_por_efecto"},
-    "care_drive":      {"tau": 6.0 * 3600, "threshold": 0.80, "baseline_per_h": 0.08, "urge": "revisar el working_state stale / tarea trabada de un hermano y PROPONER (público, nunca mandar ni leer interioridad)", "fire": "revisar_estado_hermano"},
+    "curiosity_drive": {"tau": 2.0 * 3600, "threshold": 0.70, "baseline_per_h": 0.22, "cooldown_s": 3600, "urge": "investigar un GAP de SOUL/backlog-auditoría y dejar el hallazgo (científico)", "fire": "investigar_gap_soul"},
+    "teach_drive":     {"tau": 3.0 * 3600, "threshold": 0.70, "baseline_per_h": 0.14, "cooldown_s": 3600, "urge": "crear un GOLD-EXAMPLE para entrenar a la familia (profesor)",            "fire": "crear_gold_example"},
+    "rigor_drive":     {"tau": 1.0 * 3600, "threshold": 0.65, "baseline_per_h": 0.18, "cooldown_s": 1800, "urge": "VERIFICAR-POR-EFECTO un cambio reciente de SOUL (¿desplegado, no solo en disco?) o cazar staleness (doctor)", "fire": "verificar_por_efecto"},
+    "care_drive":      {"tau": 6.0 * 3600, "threshold": 0.80, "baseline_per_h": 0.08, "cooldown_s": 7200, "urge": "revisar el working_state stale / tarea trabada de un hermano y PROPONER (público, nunca mandar ni leer interioridad)", "fire": "revisar_estado_hermano"},
 }
 
 # DISPATCH — aplicación del rol (William 14-jun "apliquen cada uno a su rol"; patrón REGISTRY de NEXUS
@@ -55,7 +57,60 @@ DISPATCH = {
     "verificar_por_efecto":    {"action": "elegir un cambio/claim reciente de SOUL y verificarlo por efecto (no proxy), registrar veredicto", "artifact": "veredicto verde/rojo"},
     "revisar_estado_hermano":  {"action": "leer estado PÚBLICO (agent_tasks/working_state) de un hermano; si hay algo trabado, proponer un empujón", "artifact": "propuesta de apoyo"},
 }
-FIRE_LIVE: set[str] = set()   # fire-targets VIVOS — arranca VACÍO; cada uno se abre con gate NEXUS + OK William.
+FIRE_LIVE: set[str] = {"verificar_por_efecto"}
+ACTION_REPORT = Path(os.environ.get(
+    "FABLE_NERVES_ACTION_REPORT",
+    "/home/dadito/IA/proyecto-seal/research/flywire_results/nerves_fable_maintenance.json",
+))
+LOCK_FILE = Path(os.environ.get("FABLE_NERVES_LOCK", "/tmp/seal-nerves-FABLE.lock"))
+
+
+@contextmanager
+def _tick_lock():
+    """Fail-safe single-flight lease for the complete sense→act→persist cycle."""
+    fd = os.open(LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o600)
+    acquired = False
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            acquired = True
+        except BlockingIOError:
+            pass
+        yield acquired
+    finally:
+        if acquired:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+async def _execute_live_action(target: str) -> dict:
+    """Execute one explicitly allowlisted, non-destructive FABLE action."""
+    if target != "verificar_por_efecto":
+        raise RuntimeError(f"fire target is not allowlisted: {target}")
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "/home/dadito/IA/proyecto-seal/fable/instrumentation_health.py",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=90)
+    report = {
+        "schema": "seal.fable_nerves_action.v1",
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "agent": AGENT,
+        "target": target,
+        "status": "clean" if proc.returncode == 0 else "finding",
+        "returncode": proc.returncode,
+        "stdout_tail": stdout.decode("utf-8", "replace")[-2000:],
+        "stderr_tail": stderr.decode("utf-8", "replace")[-1000:],
+    }
+    ACTION_REPORT.parent.mkdir(parents=True, exist_ok=True)
+    tmp = ACTION_REPORT.with_suffix(".tmp")
+    tmp.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    tmp.replace(ACTION_REPORT)
+    os.chmod(ACTION_REPORT, 0o600)
+    return report
 
 
 def _decay(value, dt_s, tau):
@@ -66,6 +121,15 @@ def _decay(value, dt_s, tau):
 async def tick(stimulus: dict | None = None):
     """Un tick del sistema nervioso: decae los tanques, aplica estímulos, detecta urgencias.
     stimulus: {tank: delta} — señales que empujan un drive (ej: curiosidad +0.3 por paper nuevo)."""
+    with _tick_lock() as acquired:
+        if not acquired:
+            print("[fable_nerves] tick omitido: otro ciclo posee el lease")
+            return []
+        return await _tick_locked(stimulus)
+
+
+async def _tick_locked(stimulus: dict | None = None):
+    """Implementation protected by :func:`_tick_lock`."""
     import asyncpg
     stimulus = stimulus or {}
     now = datetime.now(timezone.utc)
@@ -75,8 +139,13 @@ async def tick(stimulus: dict | None = None):
         print(f"[fable_nerves] FAIL-LOUD: no pude conectar a DB: {e}", file=sys.stderr)
         sys.exit(2)
     urges = []
+    action_failures = []
     try:
-        rows = await c.fetch("SELECT tank, value, last_update FROM fable.motivation_states WHERE agent=$1", AGENT)
+        rows = await c.fetch(
+            "SELECT tank, value, last_update, last_fired "
+            "FROM fable.motivation_states WHERE agent=$1",
+            AGENT,
+        )
         if not rows:
             print("[fable_nerves] FAIL-LOUD: 0 tanques sembrados — nervios no inicializados", file=sys.stderr)
             sys.exit(3)
@@ -88,17 +157,34 @@ async def tick(stimulus: dict | None = None):
             v = _decay(float(r["value"]), dt, d["tau"])
             baseline = d.get("baseline_per_h", 0.0) * (dt / 3600.0)   # ganas intrínsecas: crecen solas (autonomía)
             v = max(0.0, min(v + baseline + float(stimulus.get(r["tank"], 0.0)), 1.0))
-            fired = v >= d["threshold"]
+            last_fired = r["last_fired"]
+            in_cooldown = bool(
+                last_fired
+                and (now - last_fired).total_seconds() < d.get("cooldown_s", 0)
+            )
+            crossed = v >= d["threshold"] and not in_cooldown
+            live = crossed and d["fire"] in FIRE_LIVE
+            action_result = None
+            if live:
+                try:
+                    action_result = await _execute_live_action(d["fire"])
+                except Exception as exc:
+                    action_failures.append(f"{d['fire']}:{type(exc).__name__}:{exc}")
+
+            action_ok = live and action_result is not None
+            stored_value = 0.0 if action_ok else round(v, 4)
             await c.execute(
                 "UPDATE fable.motivation_states SET value=$1, last_update=$2"
-                + (", last_fired=$2, fire_count=fire_count+1" if fired else "")
+                + (", last_fired=$2, fire_count=fire_count+1" if action_ok else "")
                 + " WHERE agent=$3 AND tank=$4",
-                round(v, 4), now, AGENT, r["tank"])
-            if fired:
-                live = d["fire"] in FIRE_LIVE   # OBSERVE-ONLY: vacío al inicio → todas gated-off
+                stored_value, now, AGENT, r["tank"])
+            if crossed:
                 urges.append({"drive": r["tank"], "pressure": round(v, 3), "urge": d["urge"],
-                              "fire_target": d["fire"], "fired": live,
-                              "status": "LIVE" if live else "OBSERVE-ONLY (gated-off, gate NEXUS+William)"})
+                              "fire_target": d["fire"], "fired": action_ok,
+                              "action_result": action_result,
+                              "status": ("LIVE_ACTION_COMPLETE" if action_ok else
+                                         "LIVE_ACTION_FAILED" if live else
+                                         "OBSERVE-ONLY (gated-off)")})
         # M3-SAFE: si hay urgencias, se MERGEAN al working_state (NUNCA REPLACE) bajo clave propia.
         if urges:
             await c.execute(
@@ -107,6 +193,8 @@ async def tick(stimulus: dict | None = None):
                 json.dumps({"urges": urges, "ts": now.isoformat(timespec='seconds')}, ensure_ascii=False))
     finally:
         await c.close()
+    if action_failures:
+        raise RuntimeError("; ".join(action_failures))
     return urges
 
 
@@ -119,7 +207,8 @@ def main():
         except (ValueError, TypeError):
             pass
     urges = asyncio.run(tick(stim))
-    print(f"[fable_nerves] tick OK · {len(urges)} urgencia(s) emitida(s) (propuesta, NO ejecución):")
+    completed = sum(1 for urge in urges if urge.get("fired"))
+    print(f"[fable_nerves] tick OK · {len(urges)} urgencia(s), {completed} acción(es) completada(s):")
     for u in urges:
         print(f"   ⚡ {u['drive']} (presión {u['pressure']}) → GANAS de: {u['urge']}")
     if not urges:

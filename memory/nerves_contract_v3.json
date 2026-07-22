@@ -1,0 +1,140 @@
+{
+  "schema": "seal.nerves.contract.v3",
+  "version": "3.0.0",
+  "updated_at": "2026-07-22",
+  "owner": "ADA",
+  "canonical_spec": "docs/SPEC_NERVES_ARCHITECTURE_v3_ADA.md",
+  "shared_runtime": {
+    "source": "memory/seal_nerves.py",
+    "agents": ["ADA", "ALICE", "DUM", "JARVIS", "NEXUS"],
+    "live_tanks": [
+      "alert_drive",
+      "context_pressure",
+      "curiosity",
+      "social_drive",
+      "task_drive"
+    ],
+    "historical_tanks": [
+      "boredom",
+      "energy_drive",
+      "learning_drive",
+      "vigilance"
+    ],
+    "mode": "reflex_allowlist",
+    "useful_actions_required": true,
+    "single_flight_required": true,
+    "reset_after_effect_required": true,
+    "rls_identity_required": true,
+    "services": {
+      "ADA": {
+        "service": "seal-ada-nerves.service",
+        "timer": "seal-ada-nerves.timer"
+      },
+      "ALICE": {
+        "service": "seal-alice-nerves.service",
+        "timer": "seal-alice-nerves.timer"
+      },
+      "DUM": {
+        "service": "seal-dum-nerves.service",
+        "timer": "seal-dum-nerves.timer"
+      },
+      "JARVIS": {
+        "service": "seal-nerves-daemon.service",
+        "timer": "seal-nerves-daemon.timer"
+      },
+      "NEXUS": {
+        "service": "seal-nexus-nerves.service",
+        "timer": "seal-nexus-nerves.timer"
+      }
+    },
+    "maintenance": {
+      "ADA": {
+        "module": "memory/nerves_maintenance_ada.py",
+        "callable": "engineering_pulse",
+        "artifact": "research/flywire_results/nerves_ada_maintenance.jsonl"
+      },
+      "ALICE": {
+        "module": "memory/nerves_maintenance_alice.py",
+        "callable": "delivery_pulse",
+        "artifact": "agents/ALICE/orion/orion_nerve_status.log",
+        "artifact_producer": "agents/ALICE/orion/orion_nerve.py",
+        "artifact_scheduler": "alice-orion-nerve.timer",
+        "central_mode": "verify_artifact_only"
+      },
+      "DUM": {
+        "module": "memory/nerves_maintenance_dum.py",
+        "callable": "infrastructure_pulse",
+        "artifact": "research/flywire_results/nerves_dum_maintenance.jsonl"
+      },
+      "JARVIS": {
+        "module": "memory/nerves_maintenance_jarvis.py",
+        "callable": "integrity_pulse",
+        "artifact": "research/flywire_results/nerves_jarvis_maintenance.jsonl",
+        "action_source": "tools/jarvis_nerves_watch.py",
+        "retired_scheduler": "jarvis-nerves-watch.timer"
+      },
+      "NEXUS": {
+        "module": "memory/nerves_maintenance_nexus.py",
+        "callable": "security_pulse",
+        "artifact": "research/flywire_results/nerves_nexus_maintenance.jsonl"
+      }
+    }
+  },
+  "fable_sidecar": {
+    "source": "fable/fable_nerves.py",
+    "service": "fable-nerves.service",
+    "timer": "fable-nerves.timer",
+    "drives": [
+      "care_drive",
+      "curiosity_drive",
+      "rigor_drive",
+      "teach_drive"
+    ],
+    "live_targets": ["verificar_por_efecto"],
+    "mode": "mixed_one_live_three_observe",
+    "artifact": "research/flywire_results/nerves_fable_maintenance.json"
+  },
+  "database": {
+    "state_table": "soul_v3.motivation_states",
+    "metrics_table": "soul_v3.nerves_metrics_log",
+    "runtime_role": "svc_soul_nerves",
+    "required_policies": [
+      "nerves_agent_isolation_insert",
+      "nerves_agent_isolation_select",
+      "nerves_agent_isolation_update"
+    ]
+  },
+  "executive_layer": {
+    "status": "shadow",
+    "governor": "scripts/seal_proactivity_governor.py",
+    "router": "memory/executive_event_router.py",
+    "gates_enforced": false,
+    "nerves_fire_wakes_llm": false,
+    "required_filter_files": [
+      "messages/ada_codex_remote_bridge.py",
+      "messages/ada_monitor.py",
+      "messages/seal_monitor_filter.py",
+      "memory/executive_event_router.py",
+      "memory/jarvis_local_agent.py"
+    ],
+    "required_before_live": [
+      "durable_action_ledger",
+      "per_agent_lease",
+      "idempotency_key",
+      "attention_gate",
+      "budget_gate",
+      "safety_gate",
+      "egress_gate",
+      "tool_scope",
+      "result_evidence",
+      "dead_letter_recovery",
+      "independent_soak"
+    ]
+  },
+  "evidence": {
+    "contract_report": "research/flywire_results/nerves_contract_verification.json",
+    "shared_e2e_report": "research/flywire_results/nerves_e2e_canary.json",
+    "shared_activation_report": "research/flywire_results/nerves_activation_canary.json",
+    "fable_report": "research/flywire_results/nerves_fable_maintenance.json"
+  }
+}

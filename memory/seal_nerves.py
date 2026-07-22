@@ -14,6 +14,8 @@ This is the autonomy William requested:
 from __future__ import annotations
 
 import asyncio
+from contextlib import contextmanager
+import fcntl
 import hashlib
 import json
 import logging
@@ -21,7 +23,10 @@ import math
 import os
 import re
 import subprocess
+import sys
 import time
+import uuid
+from logging.handlers import RotatingFileHandler
 
 from circadian import effective_tau as _circ_tau
 from datetime import datetime, timezone
@@ -32,9 +37,15 @@ import asyncpg
 import httpx
 
 from seal_secrets import pg_dsn
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from messages.agent_writer import send_agent_message
 
 # ── Config ──────────────────────────────────────────────────────────────────
 DB_URL  = pg_dsn(required=True)
+DEFAULT_TENANT_ID = os.environ.get(
+    "SEAL_TENANT_ID", "00000000-0000-0000-0000-000000000000"
+)
+BOOTSTRAP_SCHEMA = os.environ.get("SEAL_NERVES_BOOTSTRAP_SCHEMA", "0") == "1"
 CHAT_API = "http://localhost:8765/api/agents/send"
 LOG_FILE = Path("/home/dadito/IA/proyecto-seal/research/flywire_results/nerves.log")
 
@@ -42,11 +53,71 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [NERVES] %(message)s",
     handlers=[
-        logging.FileHandler(LOG_FILE, mode="a"),
+        RotatingFileHandler(
+            LOG_FILE, mode="a", maxBytes=10 * 1024 * 1024, backupCount=3,
+        ),
         logging.StreamHandler(),
     ],
 )
 log = logging.getLogger("seal_nerves")
+for _log_path in (LOG_FILE, *LOG_FILE.parent.glob(f"{LOG_FILE.name}.*")):
+    try:
+        os.chmod(_log_path, 0o600)
+    except OSError:
+        pass
+
+
+class NervesDeliveryError(RuntimeError):
+    """A required NERVES notification was not delivered."""
+
+
+class NervesPersistenceError(RuntimeError):
+    """A required NERVES state/artifact could not be persisted."""
+
+
+class NervesSensorError(RuntimeError):
+    """An authoritative sensor failed; UNKNOWN must not become empty/healthy."""
+
+
+class NervesActionError(RuntimeError):
+    """A fired action did not produce verified effect and must not reset."""
+
+
+ACTION_LEDGER = LOG_FILE.parent / "nerves_action_ledger.jsonl"
+
+
+def _append_action_ledger(record: dict[str, Any]) -> None:
+    """Append one causal transition without exposing payloads or credentials."""
+    ACTION_LEDGER.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(ACTION_LEDGER, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        os.write(fd, (json.dumps(record, ensure_ascii=False) + "\n").encode("utf-8"))
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+    os.chmod(ACTION_LEDGER, 0o600)
+
+
+@contextmanager
+def _agent_tick_lock(agent: str):
+    """Non-blocking lease around the complete sensor→effect pipeline."""
+    _ALERT_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    lock_path = _ALERT_LOG_DIR / f"nerves_tick_{agent.upper()}.lock"
+    lock_fd = lock_path.open("a+")
+    os.chmod(lock_path, 0o600)
+    acquired = False
+    try:
+        try:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            acquired = True
+        except BlockingIOError:
+            pass
+        yield acquired
+    finally:
+        if acquired:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+        lock_fd.close()
 
 # ── Species-Scaling Law profiles (Fase 3.2/4 — 2026-04-18) ──────────────────
 # Formula: τ_target = τ_fly_h × (inhib_fly / inhib_target)
@@ -178,7 +249,15 @@ AGENT_TANK_OVERRIDES: dict[str, dict[str, dict]] = {
         "social_drive": {
             "threshold":  35.0,      # OCEAN E=0.401 introvert
             "cooldown_s": 90 * 60,
-        }
+        },
+        "task_drive": {
+            "threshold":  30.0,
+            "cooldown_s": 45 * 60,   # evita re-ejecutar la misma sugerencia cada 5 min
+        },
+        "curiosity": {
+            "threshold":  50.0,
+            "cooldown_s": 90 * 60,   # un pulso útil; no un pseudo-search cada ~10 min
+        },
     },
     "ALICE": {
         "social_drive": {
@@ -257,7 +336,6 @@ LOG_SOURCES_ALICE: dict[str, str] = {
     "mcp":       "/home/dadito/IA/proyecto-seal/memory/logs/mcp_sse_daemon.log",
     "soul_api":  "/home/dadito/IA/proyecto-seal/memory/logs/soul_api.log",
     "nerves":    "/home/dadito/IA/proyecto-seal/research/flywire_results/nerves.log",
-    "alice_ops": "/home/dadito/IA/proyecto-seal/messages/alice_messages.jsonl",
 }
 ALICE_ALERT_DOMAIN = [
     "soul", "mcp", "memory", "production", "deploy",
@@ -279,7 +357,6 @@ CONTEXT_PRESSURE_THRESHOLDS: dict[str, dict[str, float]] = {
 
 # alert_drive ADA — dominio: ejecución/tests/deploy
 LOG_SOURCES_ADA: dict[str, str] = {
-    "ada_ops": "/home/dadito/IA/proyecto-seal/messages/ada_messages.jsonl",
     "mcp":     "/home/dadito/IA/proyecto-seal/memory/logs/mcp_sse_daemon.log",
     "nerves":  "/home/dadito/IA/proyecto-seal/research/flywire_results/nerves.log",
 }
@@ -295,7 +372,6 @@ ADA_PUBLIC_URGENT_RE = re.compile(
 
 # alert_drive NEXUS — dominio: auditoría, coordinación, salud del equipo
 LOG_SOURCES_NEXUS: dict[str, str] = {
-    "nexus_ops": "/home/dadito/IA/proyecto-seal/messages/nexus_messages.jsonl",
     "nerves":    "/home/dadito/IA/proyecto-seal/research/flywire_results/nerves.log",
     "mcp":       "/home/dadito/IA/proyecto-seal/memory/logs/mcp_sse_daemon.log",
 }
@@ -308,7 +384,6 @@ NEXUS_DOMAIN = [
 LOG_SOURCES_DUM: dict[str, str] = {
     "system":  "/var/log/syslog",
     "ollama":  "/home/dadito/.ollama/logs/server.log",
-    "dum_ops": "/home/dadito/IA/proyecto-seal/messages/dum_messages.jsonl",
 }
 DUM_CRITICAL_KEYWORDS = [
     "gpu_fault", "cuda_error", "nvml_error",
@@ -324,6 +399,152 @@ CONTEXT_PRESSURE_THRESHOLDS_DEFAULT = {"silent": 60.0, "active": 75.0, "urgent":
 
 # Mejora B — contexto compartido entre sensor y fire handler (per-agent, updated each tick)
 _task_drive_context: dict = {"pending": 0, "overdue_1h": 0, "overdue_3h": 0, "task_list": []}
+_alert_drive_context: dict[str, dict] = {}
+
+# DEDUP-POR-ESTADO de alerts de task_drive (draft JARVIS 11-jul, deploy NEXUS).
+# key = f"{severity}:{task_id_o_titulo}" -> ts del último alert público emitido.
+# FIX v2 (11-jul 15:50, JARVIS — falla por efecto: el spam VOLVIÓ 14:13/14:58/15:44):
+# NERVES corre como TIMER de systemd (tick cada 5min = proceso FRESCO via nerves_daemon.py),
+# así que el dict in-memory nacía vacío en cada tick y el dedup jamás sostenía.
+# El log ahora PERSISTE en archivo JSON por agente (write atómico tmp+rename).
+TASK_ALERT_REMIND_SECONDS = float(os.environ.get("SEAL_NERVES_REMIND_SECONDS", "86400"))
+_ALERT_LOG_DIR = Path(os.environ.get(
+    "SEAL_NERVES_ALERT_LOG_DIR",
+    os.path.expanduser("~/.cache/seal"),
+))
+
+
+def _alert_log_path(agent: str) -> Path:
+    return _ALERT_LOG_DIR / f"nerves_task_alert_log_{agent.upper()}.json"
+
+
+def _load_alert_log(agent: str) -> dict:
+    """Carga el log de alerts persistido; tolerante a archivo ausente/corrupto."""
+    try:
+        return json.loads(_alert_log_path(agent).read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def _save_alert_log(agent: str, alert_log: dict) -> None:
+    """Persist the dedup log atomically or fail the action closed."""
+    try:
+        _ALERT_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        path = _alert_log_path(agent)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(alert_log), encoding="utf-8")
+        os.chmod(tmp, 0o600)
+        tmp.replace(path)
+        os.chmod(path, 0o600)
+    except OSError as e:
+        raise NervesPersistenceError(
+            f"nerves alert_log no se pudo persistir: {e}"
+        ) from e
+
+
+def _dedupe_task_alerts(tasks: list, severity: str, now: float,
+                        alert_log: dict, remind_seconds: float) -> list:
+    """Devuelve SOLO las tareas cuyo alert público corresponde emitir ahora.
+
+    Pura y testeable: una tarea alerta si (a) nunca alertó en este severity, o
+    (b) pasaron >= remind_seconds desde su último alert. Registra ts en alert_log.
+    Poda por TTL (no por set-difference): robusto a listas-ventana del sensor.
+    """
+    to_alert = []
+    for t in tasks:
+        # Stable source ids distinguish two real tasks with the same title. GAM ids
+        # are regenerated each tick, so only that source falls back to normalized
+        # title; otherwise it would evade cooldown forever.
+        raw_id = str(t.get("id") or t.get("task_id") or "")
+        title = re.sub(r"\s+", " ", str(t.get("title") or "?").strip().casefold())
+        identity = title if re.fullmatch(r"gam_\d{15,}", raw_id) else (raw_id or title)
+        key = f"{severity}:{identity}"
+        last = alert_log.get(key)
+        if last is None or (now - last) >= remind_seconds:
+            alert_log[key] = now
+            to_alert.append(t)
+    # PODA v3 (11-jul 18:05, tras refutación de NEXUS al id-rotation): la lista `tasks`
+    # puede ser una VENTANA del pool (orden/limit inestable del sensor), no el estado
+    # completo. Podar por set-difference re-alertaba tareas que rotaban fuera y volvían.
+    # Ahora se poda SOLO por TTL: keys sin re-confirmar en 7 días se limpian.
+    # Una tarea resuelta deja de alertar igual (no aparece → no refresca → expira).
+    prune_ttl = remind_seconds * 7
+    for key in [k for k in alert_log
+                if k.startswith(f"{severity}:") and (now - alert_log[k]) >= prune_ttl]:
+        del alert_log[key]
+    return to_alert
+
+
+def _task_alert_candidates(tasks: list, severity: str) -> list:
+    """Return only tasks that actually belong to the requested deadline bucket.
+
+    ``task_list`` also carries undated tasks, GAM events and pending diagnoses so
+    task drive can choose useful work.  Those entries must never be described as
+    overdue merely because *another* task crossed a deadline.  The fallback keeps
+    compatibility with old/injected contexts that predate ``deadline_state``.
+    """
+    if any("deadline_state" in task for task in tasks):
+        return [task for task in tasks if task.get("deadline_state") == severity]
+    return list(tasks)
+
+
+def _task_sensor_path(agent: str) -> Path:
+    return _ALERT_LOG_DIR / f"nerves_task_sensor_{agent.upper()}.json"
+
+
+def _task_state_changes(agent: str, tasks: list[dict]) -> dict[str, int]:
+    """Persist task states and return only new/transitioned stimuli.
+
+    A static backlog is state, not a new stimulus.  The old implementation
+    added ``10 * pending`` every tick, permanently saturating task_drive.  On
+    the first observation we establish a baseline without firing; subsequent
+    ticks stimulate only new tasks or deadline-bucket transitions.
+    """
+    current = {
+        str(task.get("id") or task.get("task_id") or task.get("title")): str(
+            task.get("deadline_state", "none")
+        )
+        for task in tasks
+    }
+    path = _task_sensor_path(agent)
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(previous, dict):
+            previous = {}
+        initialized = True
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        previous = {}
+        initialized = False
+
+    changes = {
+        "new_pending": 0,
+        "overdue_1h": 0,
+        "overdue_3h": 0,
+        "due_2h": 0,
+        "due_8h": 0,
+        "due_24h": 0,
+        "due_72h": 0,
+    }
+    if initialized:
+        for task_id, state in current.items():
+            old_state = previous.get(task_id)
+            if old_state is None:
+                changes["new_pending"] += 1
+            if old_state != state and state in changes:
+                changes[state] += 1
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(current, sort_keys=True), encoding="utf-8")
+        os.chmod(tmp, 0o600)
+        tmp.replace(path)
+        os.chmod(path, 0o600)
+    except OSError as e:
+        raise NervesPersistenceError(
+            f"task sensor state not persisted for {agent}"
+        ) from e
+    return changes
 
 # ── alert_drive v2 — constantes y helpers ────────────────────────────────────
 
@@ -338,13 +559,46 @@ DUM_DOMAIN    = ["gpu", "cuda", "docker", "network", "disk", "ollama", "nvidia"]
 ALERT_DEDUP_COOLDOWN = {"warning": 120, "error": 60, "critical": 15}  # minutes
 
 
-def _tail_log(path: str, lines: int = 50) -> list[str]:
-    """Read last N lines from a log file. Returns [] if file missing or unreadable."""
+def _tail_log(path: str, lines: int = 50, max_age_s: int = 15 * 60) -> list[str]:
+    """Read recent log lines, never treating durable chat transcripts as health.
+
+    A log that has not changed inside the observation window is ignored.  For
+    conventional timestamped lines, old entries are filtered even when a later
+    multiline entry refreshed the file mtime.
+    """
     p = Path(path)
     if not p.exists():
         return []
     try:
-        return p.read_text(errors="replace").splitlines()[-lines:]
+        now_ts = time.time()
+        if now_ts - p.stat().st_mtime > max_age_s:
+            return []
+        selected = p.read_text(errors="replace").splitlines()[-lines:]
+        recent: list[str] = []
+        local_tz = datetime.now().astimezone().tzinfo
+        parsed_rows: list[tuple[str, datetime | None]] = []
+        for line in selected:
+            parsed: datetime | None = None
+            prefix = line[:19]
+            try:
+                parsed = datetime.strptime(prefix, "%Y-%m-%d %H:%M:%S").replace(tzinfo=local_tz)
+            except ValueError:
+                pass
+            parsed_rows.append((line, parsed))
+
+        has_timestamps = any(parsed is not None for _, parsed in parsed_rows)
+        current_event_recent = not has_timestamps
+        for line, parsed in parsed_rows:
+            if parsed is not None:
+                current_event_recent = now_ts - parsed.timestamp() <= max_age_s
+                if current_event_recent:
+                    recent.append(line)
+                continue
+            # Timestamp-less continuation lines inherit the age of their event.
+            # This prevents a fresh append from reviving a months-old traceback.
+            if current_event_recent:
+                recent.append(line)
+        return recent
     except Exception:
         return []
 
@@ -369,11 +623,28 @@ def _classify_domain(error_line: str) -> str:
     return "jarvis"
 
 
-def _is_alert_duplicate(error_line: str, severity: str, agent: str) -> bool:
-    """Check dedup file in /tmp — returns True if same error was alerted recently."""
-    key = hashlib.md5(error_line[:80].encode()).hexdigest()[:8]
+def _alert_seen_path(agent: str) -> Path:
+    return _ALERT_LOG_DIR / f"nerves_alert_seen_{agent.upper()}.json"
+
+
+def _is_alert_duplicate(error_line: str, severity: str, agent: str, *, mark_seen: bool = True) -> bool:
+    """Return whether an alert is in cooldown, optionally recording it.
+
+    Sensors run once before the LIF threshold check with ``mark_seen=False`` so
+    observing a fault cannot suppress it before the tank fires.  The fire
+    handler records the concrete alerts it consumes.  State lives in the same
+    persistent cache as task-alert dedup, so a reboot does not create a flood.
+    """
+    # Canonicalize volatile timestamps/UUIDs/PIDs but hash the complete event;
+    # an 80-character prefix loses distinct errors that share a logger prefix.
+    normalized = error_line.casefold()
+    normalized = re.sub(r"\b\d{4}-\d{2}-\d{2}[t\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?z?\b", "<ts>", normalized)
+    normalized = re.sub(r"\b[0-9a-f]{8}-[0-9a-f-]{27,}\b", "<uuid>", normalized)
+    normalized = re.sub(r"\b(?:pid[=: ]*)?\d{4,}\b", "<n>", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    key = hashlib.sha256(f"{severity}:{normalized}".encode()).hexdigest()[:20]
     cooldown_s = ALERT_DEDUP_COOLDOWN.get(severity, 60) * 60
-    dedup_path = Path(f"/tmp/{agent.lower()}_alert_seen.json")
+    dedup_path = _alert_seen_path(agent)
     try:
         data = json.loads(dedup_path.read_text()) if dedup_path.exists() else {}
         last_ts = data.get(key)
@@ -382,14 +653,38 @@ def _is_alert_duplicate(error_line: str, severity: str, agent: str) -> bool:
             elapsed = (now - datetime.fromisoformat(last_ts)).total_seconds()
             if elapsed < cooldown_s:
                 return True
+        if not mark_seen:
+            return False
         data[key] = now.isoformat()
         # Prune old entries (keep last 200)
         if len(data) > 200:
             data = dict(list(data.items())[-200:])
-        dedup_path.write_text(json.dumps(data))
-    except Exception:
-        pass
+        dedup_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = dedup_path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(data))
+        os.chmod(tmp, 0o600)
+        tmp.replace(dedup_path)
+        os.chmod(dedup_path, 0o600)
+    except Exception as exc:
+        if mark_seen:
+            raise NervesPersistenceError(
+                f"alert dedup state could not be persisted for {agent}"
+            ) from exc
     return False
+
+
+def _mark_alert_context_seen(agent: str, ctx: dict) -> None:
+    """Persist every concrete alert consumed by a fire action."""
+    alerts = list(ctx.get("errors", []))
+    alerts.extend(ctx.get("test_failures", []))
+    alerts.extend(ctx.get("critical", []))
+    for alert in alerts:
+        _is_alert_duplicate(
+            str(alert.get("line", "")),
+            str(alert.get("severity", "error")),
+            agent,
+            mark_seen=True,
+        )
 
 
 def _format_alert_message(agent: str, errors: list[dict]) -> str:
@@ -402,19 +697,19 @@ def _format_alert_message(agent: str, errors: list[dict]) -> str:
     return "\n".join(lines)
 
 
-async def _sense_alert_drive(agent: str) -> dict:
+async def _sense_alert_drive(agent: str, *, mark_seen: bool = True) -> dict:
     """Lee logs reales y clasifica errores nuevos (no duplicados) para alert_drive v2."""
     errors = []
     for source, path in LOG_SOURCES.items():
         recent = _tail_log(path, lines=50)
         for line in recent:
             sev = _classify_log_line(line)
-            if sev and not _is_alert_duplicate(line, sev, agent):
+            if sev and not _is_alert_duplicate(line, sev, agent, mark_seen=mark_seen):
                 errors.append({"source": source, "severity": sev, "line": line.strip()})
     return {"errors": errors, "count": len(errors)}
 
 
-async def _sense_alert_drive_ada() -> dict:
+async def _sense_alert_drive_ada(*, mark_seen: bool = True) -> dict:
     """ADA alert sensor — LOG_SOURCES_ADA + test_failure immediate flag."""
     errors = []
     test_failures = []
@@ -424,42 +719,44 @@ async def _sense_alert_drive_ada() -> dict:
             # Test failure — flagged separately for immediate alert
             if any(kw in line.lower() for kw in ["assert", "failed", "error", "traceback", "exception"]):
                 if "test" in line.lower() or "pytest" in line.lower():
-                    if not _is_alert_duplicate(line, "error", "ADA"):
+                    if not _is_alert_duplicate(line, "error", "ADA", mark_seen=mark_seen):
                         test_failures.append({"source": source, "severity": "error", "line": line.strip(), "type": "test_failure"})
                     continue
             sev = _classify_log_line(line)
-            if sev and not _is_alert_duplicate(line, sev, "ADA"):
+            if sev and not _is_alert_duplicate(line, sev, "ADA", mark_seen=mark_seen):
                 errors.append({"source": source, "severity": sev, "line": line.strip()})
     return {"errors": errors, "test_failures": test_failures, "count": len(errors) + len(test_failures)}
 
 
-async def _sense_alert_drive_nexus() -> dict:
+async def _sense_alert_drive_nexus(*, mark_seen: bool = True) -> dict:
     """NEXUS alert sensor — LOG_SOURCES_NEXUS, dominio auditoría/coordinación."""
     errors = []
     for source, path in LOG_SOURCES_NEXUS.items():
         recent = _tail_log(path, lines=50)
         for line in recent:
             sev = _classify_log_line(line)
-            if sev and not _is_alert_duplicate(line, sev, "NEXUS"):
+            if sev and not _is_alert_duplicate(line, sev, "NEXUS", mark_seen=mark_seen):
                 errors.append({"source": source, "severity": sev, "line": line.strip()})
     return {"errors": errors, "count": len(errors)}
 
 
-async def _sense_alert_drive_dum() -> dict:
-    """DUM alert sensor — LOG_SOURCES_DUM + GPU temp bypass + MCP health check."""
+async def _sense_alert_drive_dum(*, mark_seen: bool = True) -> dict:
+    """DUM alert sensor — logs, GPU bypass and canonical SOUL API health."""
     errors = []
     critical = []
     # Log sources scan
     for source, path in LOG_SOURCES_DUM.items():
         recent = _tail_log(path, lines=50)
         for line in recent:
+            if "glib-gio-warning" in line.casefold() and "tracker-miner" in line.casefold():
+                continue
             if any(kw in line.lower() for kw in DUM_CRITICAL_KEYWORDS):
-                if not _is_alert_duplicate(line, "critical", "DUM"):
+                if not _is_alert_duplicate(line, "critical", "DUM", mark_seen=mark_seen):
                     critical.append({"source": source, "severity": "critical",
                                      "line": line.strip(), "type": "infra_critical"})
                 continue
             sev = _classify_log_line(line)
-            if sev and not _is_alert_duplicate(line, sev, "DUM"):
+            if sev and not _is_alert_duplicate(line, sev, "DUM", mark_seen=mark_seen):
                 errors.append({"source": source, "severity": sev, "line": line.strip()})
     # GPU temperature check (>90°C → critical bypass)
     try:
@@ -467,44 +764,85 @@ async def _sense_alert_drive_dum() -> dict:
             ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
             capture_output=True, text=True, timeout=5,
         )
+        if result.returncode != 0 or not result.stdout.strip():
+            raise RuntimeError(f"nvidia-smi rc={result.returncode}")
         temp = int(result.stdout.strip())
         if temp > 90:
             line = f"GPU temperature {temp}°C > 90°C threshold"
-            if not _is_alert_duplicate(line, "critical", "DUM"):
+            if not _is_alert_duplicate(line, "critical", "DUM", mark_seen=mark_seen):
                 critical.append({"source": "nvidia_smi", "severity": "critical",
                                   "line": line, "type": "gpu_overheat"})
-    except Exception:
-        pass  # nvidia-smi not available or parse error — skip silently
-    # MCP :8766 health check
+    except Exception as exc:
+        line = f"GPU telemetry unavailable: {type(exc).__name__}"
+        if not _is_alert_duplicate(line, "warning", "DUM", mark_seen=mark_seen):
+            errors.append({"source": "nvidia_smi", "severity": "warning",
+                           "line": line, "type": "instrument_unknown"})
+    # SOUL API v1 has been absorbed into the tenant-safe native API on :8768.
+    # Check the canonical health endpoint; never resurrect the retired :8766.
     try:
-        import socket
-        with socket.create_connection(("localhost", 8766), timeout=2):
-            pass  # MCP OK
+        import urllib.request
+        with urllib.request.urlopen("http://127.0.0.1:8768/health", timeout=2) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        if payload.get("status") != "ok" or payload.get("legacy_compat") != "native":
+            raise RuntimeError("canonical_soul_api_not_ready")
     except Exception:
-        line = "MCP :8766 connection failed"
-        if not _is_alert_duplicate(line, "error", "DUM"):
-            errors.append({"source": "mcp_check", "severity": "error",
-                           "line": line, "type": "mcp_down", "notify": "JARVIS"})
+        line = "SOUL API native compatibility :8768 health failed"
+        if not _is_alert_duplicate(line, "error", "DUM", mark_seen=mark_seen):
+            errors.append({"source": "native_soul_api_check", "severity": "error",
+                           "line": line, "type": "native_api_down", "notify": "JARVIS"})
     return {"errors": errors, "critical": critical, "count": len(errors) + len(critical)}
 
 
-async def _sense_alert_drive_alice() -> dict:
+async def _sense_alert_drive_alice(*, mark_seen: bool = True) -> dict:
     """ALICE alert sensor — LOG_SOURCES_ALICE + cost anomaly detector."""
     errors = []
     for source, path in LOG_SOURCES_ALICE.items():
         recent = _tail_log(path, lines=50)
         for line in recent:
             sev = _classify_log_line(line)
-            if sev and not _is_alert_duplicate(line, sev, "ALICE"):
+            if sev and not _is_alert_duplicate(line, sev, "ALICE", mark_seen=mark_seen):
                 errors.append({"source": source, "severity": sev, "line": line.strip()})
             # Extra: cost anomaly keywords
             elif any(kw in line.lower() for kw in COST_ANOMALY_KEYWORDS):
-                if not _is_alert_duplicate(line, "error", "ALICE"):
+                if not _is_alert_duplicate(line, "error", "ALICE", mark_seen=mark_seen):
                     errors.append({
                         "source": source, "severity": "error",
                         "line": line.strip(), "type": "cost_anomaly",
                     })
     return {"errors": errors, "count": len(errors)}
+
+
+async def _sense_alert_context(agent: str, *, mark_seen: bool = False) -> dict:
+    """Dispatch the real alert sensor for an agent without changing its state."""
+    if agent == "ADA":
+        return await _sense_alert_drive_ada(mark_seen=mark_seen)
+    if agent == "ALICE":
+        return await _sense_alert_drive_alice(mark_seen=mark_seen)
+    if agent == "NEXUS":
+        return await _sense_alert_drive_nexus(mark_seen=mark_seen)
+    if agent == "DUM":
+        return await _sense_alert_drive_dum(mark_seen=mark_seen)
+    return await _sense_alert_drive(agent, mark_seen=mark_seen)
+
+
+def _alert_stimulus(ctx: dict) -> tuple[str, float] | None:
+    """Map concrete sensor output to one bounded LIF stimulus.
+
+    Critical infrastructure faults and failed health checks must cross the
+    threshold in the same tick.  Ordinary errors accumulate over repeated ticks
+    until handled.  The count is bounded so a noisy log cannot saturate metrics.
+    """
+    critical = list(ctx.get("critical", []))
+    errors = list(ctx.get("errors", []))
+    test_failures = list(ctx.get("test_failures", []))
+    all_alerts = critical + errors + test_failures
+    if not all_alerts:
+        return None
+    if critical or any(a.get("type") in {"native_api_down", "gpu_overheat", "infra_critical"} for a in all_alerts):
+        return "service_down", 1.0
+    if any(a.get("severity") == "critical" for a in all_alerts):
+        return "service_down", 1.0
+    return "error_log", float(min(len(all_alerts), 3))
 
 
 AUTOCOMPACT_PCT = 75  # target 300K/400K tokens — William 08-may-2026
@@ -521,8 +859,10 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
                   AND status IN ('pending', 'in_progress')
                 ORDER BY deadline ASC NULLS LAST
             """, engine.agent)
-    except Exception:
-        rows = []
+    except Exception as exc:
+        raise NervesSensorError(
+            f"agent_tasks unavailable for {engine.agent}"
+        ) from exc
 
     pending = len(rows)
     overdue_1h = 0
@@ -534,27 +874,39 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
     task_list = []
 
     for r in rows:
-        task_list.append({"id": str(r["id"]), "title": r["title"]})
-        if not r["deadline"]:
-            continue
-        dl = r["deadline"] if r["deadline"].tzinfo else r["deadline"].replace(tzinfo=timezone.utc)
-        delta_s = (dl - now).total_seconds()
-        if delta_s < 0:
-            hours_overdue = -delta_s / 3600
-            if hours_overdue >= 3:
-                overdue_3h += 1
-            elif hours_overdue >= 1:
-                overdue_1h += 1
-        else:
-            hours_until = delta_s / 3600
-            if hours_until < 2:
-                due_2h += 1
-            elif hours_until < 8:
-                due_8h += 1
-            elif hours_until < 24:
-                due_24h += 1
-            elif hours_until < 72:
-                due_72h += 1
+        task = {
+            "id": str(r["id"]),
+            "title": r["title"],
+            "deadline_state": "none",
+        }
+        if r["deadline"]:
+            dl = r["deadline"] if r["deadline"].tzinfo else r["deadline"].replace(tzinfo=timezone.utc)
+            delta_s = (dl - now).total_seconds()
+            if delta_s < 0:
+                hours_overdue = -delta_s / 3600
+                if hours_overdue >= 3:
+                    overdue_3h += 1
+                    task["deadline_state"] = "overdue_3h"
+                elif hours_overdue >= 1:
+                    overdue_1h += 1
+                    task["deadline_state"] = "overdue_1h"
+            else:
+                hours_until = delta_s / 3600
+                if hours_until < 2:
+                    due_2h += 1
+                    task["deadline_state"] = "due_2h"
+                elif hours_until < 8:
+                    due_8h += 1
+                    task["deadline_state"] = "due_8h"
+                elif hours_until < 24:
+                    due_24h += 1
+                    task["deadline_state"] = "due_24h"
+                elif hours_until < 72:
+                    due_72h += 1
+                    task["deadline_state"] = "due_72h"
+                else:
+                    task["deadline_state"] = "future"
+        task_list.append(task)
 
     # NEXUS: diagnósticos pendientes de revisión son tareas de auditoría
     pending_diagnoses = 0
@@ -570,8 +922,10 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
             for r in diag_rows:
                 task_list.append({"id": f"diag_{r['id']}", "title": f"[DIAGNÓSTICO] {r['diagnosis'][:80]}"})
             pending += pending_diagnoses
-        except Exception:
-            pass
+        except Exception as exc:
+            raise NervesSensorError(
+                f"reflective_diagnoses unavailable for {engine.agent}"
+            ) from exc
 
     # GAM feed — acciones pendientes del grafo de metas
     gam_pending = 0
@@ -594,34 +948,37 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
                 )
             for r in gam_rows:
                 task_list.append({
-                    "id": f"gam_{abs(hash(r['event']))}",
+                    "id": f"gam_{hashlib.sha1(r['event'].encode('utf-8')).hexdigest()[:16]}",
                     "title": f"[GAM] {r['event'][:80]}",
                 })
             gam_pending = len(gam_rows)
             pending += gam_pending
-        except Exception:
-            pass
+        except Exception as exc:
+            raise NervesSensorError(
+                f"GAM feed unavailable for {engine.agent}"
+            ) from exc
 
-    if pending > 0:
-        await engine.stimulate("task_pending_1", multiplier=float(pending))
-    if overdue_1h > 0:
-        await engine.stimulate("task_overdue_1h", multiplier=float(overdue_1h))
-    if overdue_3h > 0:
-        await engine.stimulate("task_overdue_1h", multiplier=float(overdue_3h) * 2.0)
-    if due_2h > 0:
-        await engine.stimulate("task_due_2h", multiplier=float(due_2h))
-    if due_8h > 0:
-        await engine.stimulate("task_due_8h", multiplier=float(due_8h))
-    if due_24h > 0:
-        await engine.stimulate("task_due_24h", multiplier=float(due_24h))
-    if due_72h > 0:
-        await engine.stimulate("task_due_72h", multiplier=float(due_72h))
+    state_changes = _task_state_changes(engine.agent, task_list)
+    if state_changes["new_pending"] > 0:
+        await engine.stimulate("task_pending_1", multiplier=float(state_changes["new_pending"]))
+    if state_changes["overdue_1h"] > 0:
+        await engine.stimulate("task_overdue_1h", multiplier=float(state_changes["overdue_1h"]))
+    if state_changes["overdue_3h"] > 0:
+        await engine.stimulate("task_overdue_1h", multiplier=float(state_changes["overdue_3h"]) * 2.0)
+    if state_changes["due_2h"] > 0:
+        await engine.stimulate("task_due_2h", multiplier=float(state_changes["due_2h"]))
+    if state_changes["due_8h"] > 0:
+        await engine.stimulate("task_due_8h", multiplier=float(state_changes["due_8h"]))
+    if state_changes["due_24h"] > 0:
+        await engine.stimulate("task_due_24h", multiplier=float(state_changes["due_24h"]))
+    if state_changes["due_72h"] > 0:
+        await engine.stimulate("task_due_72h", multiplier=float(state_changes["due_72h"]))
 
     return {
         "pending": pending, "overdue_1h": overdue_1h, "overdue_3h": overdue_3h,
         "due_2h": due_2h, "due_8h": due_8h, "due_24h": due_24h, "due_72h": due_72h,
         "task_list": task_list, "pending_diagnoses": pending_diagnoses,
-        "gam_pending": gam_pending,
+        "gam_pending": gam_pending, "state_changes": state_changes,
     }
 
 
@@ -633,12 +990,13 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
 # arranca dry-run/gated, se enciende con evidencia + OK familia.
 NERVES_USEFUL = os.environ.get("SEAL_NERVES_USEFUL", "0") == "1"
 _MESSAGES_DIR = "/home/dadito/IA/proyecto-seal/messages"
+_MAINTENANCE_NOT_RUN = object()
 
 
 async def _run_maintenance_action(engine) -> str | None:
     """Ejecuta la acción de mantenimiento del agente. Devuelve artefacto (str) si produjo valor, o None.
 
-    Defensivo: un fallo de import/acción NO tumba el nervio (fail-loud por log, devuelve None).
+    Un fallo propaga: el caller persiste ``failed_retryable`` y no resetea.
     """
     agent = engine.agent
     try:
@@ -646,21 +1004,22 @@ async def _run_maintenance_action(engine) -> str | None:
             from nerves_maintenance_nexus import security_pulse
             return await security_pulse()
         if agent == "JARVIS":
-            import sys as _sys
-            if _MESSAGES_DIR not in _sys.path:
-                _sys.path.insert(0, _MESSAGES_DIR)
-            from nerve_integrity_action import run as _integ
-            r = await _integ()
-            return f"integridad: {r}" if r else None
+            from nerves_maintenance_jarvis import integrity_pulse
+            return await integrity_pulse()
         if agent == "ALICE":
-            from nerve_action_importance import run_importance_recalibration
-            r = await run_importance_recalibration(engine.pool, "ALICE", apply=False)
-            if r and r.get("valuable"):
-                return f"importancia: {r.get('recalibrated', 0)} memorias recalibrables (dry-run)"
-            return None
-        # ADA: consolidación + self-reflect — pendiente de su pieza
+            from nerves_maintenance_alice import delivery_pulse
+            return await delivery_pulse()
+        if agent == "ADA":
+            from nerves_maintenance_ada import engineering_pulse
+            return await engineering_pulse()
+        if agent == "DUM":
+            from nerves_maintenance_dum import infrastructure_pulse
+            return await infrastructure_pulse()
     except Exception as e:
         log.error(f"[{agent}] maintenance action failed: {e}")
+        raise NervesActionError(
+            f"maintenance_failed:{agent}:{type(e).__name__}"
+        ) from e
     return None
 
 
@@ -670,13 +1029,63 @@ class MotivationEngine:
     Maintains internal state tanks that decay over time and fire when threshold crossed.
     """
 
-    def __init__(self, agent: str):
+    def __init__(
+        self,
+        agent: str,
+        *,
+        trigger_source: str | None = None,
+        run_id: str | None = None,
+    ):
         self._tick_batch: list[tuple[str, str]] | None = None  # (message, to) pairs
+        self._maintenance_tick_result: object | str | None = _MAINTENANCE_NOT_RUN
         self.agent = agent
+        self.trigger_source = trigger_source or os.environ.get(
+            "SEAL_NERVES_TRIGGER_SOURCE",
+            "systemd_timer" if os.environ.get("INVOCATION_ID") else "manual",
+        )
+        self.run_id = run_id or os.environ.get("SEAL_NERVES_RUN_ID") or uuid.uuid4().hex
         self.pool: asyncpg.Pool | None = None
 
+    async def _fire_useful_maintenance(self) -> str:
+        """Ejecuta una sola acción útil por tick y alerta una sola vez si falla.
+
+        Curiosity y social_drive pueden cruzar juntas. Compartir el resultado
+        evita doble I/O, doble artefacto y dos alertas sobre el mismo hallazgo.
+        """
+        first_run = self._maintenance_tick_result is _MAINTENANCE_NOT_RUN
+        if first_run:
+            self._maintenance_tick_result = await _run_maintenance_action(self)
+        artifact = self._maintenance_tick_result
+        if isinstance(artifact, str) and artifact.startswith("maintenance_failed:"):
+            raise NervesActionError(artifact)
+        if artifact:
+            if first_run:
+                await self._post_chat(
+                    f"[NERVES/{self.agent}] ⚠️ CRITICAL maintenance: {artifact}",
+                    to="William",
+                )
+            log.info(f"[{self.agent}] useful maintenance artifact: {artifact}")
+            return f"maintenance_fired:value:{self.agent}"
+        log.info(f"[{self.agent}] useful maintenance clean — silent")
+        return f"maintenance_fired:clean_silent:{self.agent}"
+
     async def connect(self):
-        self.pool = await asyncpg.create_pool(DB_URL, min_size=1, max_size=3)
+        async def _init_connection(conn: asyncpg.Connection) -> None:
+            # RLS identity is part of the connection contract.  A shared,
+            # restricted login may only see/write the current agent's rows.
+            await conn.execute(
+                "SELECT set_config('app.agent', $1, false), "
+                "set_config('app.tenant_id', $2, false)",
+                self.agent,
+                DEFAULT_TENANT_ID,
+            )
+
+        # ``init`` runs only when a physical connection is created. asyncpg
+        # resets session state when a connection returns to the pool, so the
+        # RLS identity must be restored on every checkout via ``setup``.
+        self.pool = await asyncpg.create_pool(
+            DB_URL, min_size=1, max_size=3, setup=_init_connection
+        )
         await self._ensure_table()
 
     async def close(self):
@@ -706,7 +1115,7 @@ class MotivationEngine:
 
     def _enqueue_impulse(self, tank: str, value: float) -> None:
         """Guarda un impulso suprimido en la cola local del agente."""
-        queue_path = Path(f"/tmp/{self.agent.lower()}_curiosity_queue.json")
+        queue_path = _ALERT_LOG_DIR / f"nerves_impulse_queue_{self.agent.upper()}.json"
         try:
             data = json.loads(queue_path.read_text()) if queue_path.exists() else {"pending": []}
             data["pending"].append({
@@ -716,14 +1125,22 @@ class MotivationEngine:
                 "topic_hint": None,
                 "processed": False,
             })
-            queue_path.write_text(json.dumps(data, indent=2))
+            queue_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = queue_path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data, indent=2))
+            os.chmod(tmp, 0o600)
+            tmp.replace(queue_path)
+            os.chmod(queue_path, 0o600)
             log.info(f"[{self.agent}] Enqueued {tank} (value={value:.1f}) — William activo")
         except Exception as e:
             log.error(f"[{self.agent}] _enqueue_impulse failed: {e}")
+            raise NervesPersistenceError(
+                f"impulse queue write failed for {self.agent}"
+            ) from e
 
     async def _flush_queue_if_idle(self) -> None:
         """Procesa impulsos pendientes cuando William lleva >15min inactivo."""
-        queue_path = Path(f"/tmp/{self.agent.lower()}_curiosity_queue.json")
+        queue_path = _ALERT_LOG_DIR / f"nerves_impulse_queue_{self.agent.upper()}.json"
         if not queue_path.exists():
             return
         try:
@@ -741,9 +1158,16 @@ class MotivationEngine:
                     await handler(entry["value"])
                     entry["processed"] = True
                     log.info(f"[{self.agent}] Flushed queued {entry['tank']} from queue")
-            queue_path.write_text(json.dumps(data, indent=2))
+            tmp = queue_path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data, indent=2))
+            os.chmod(tmp, 0o600)
+            tmp.replace(queue_path)
+            os.chmod(queue_path, 0o600)
         except Exception as e:
             log.error(f"[{self.agent}] _flush_queue_if_idle failed: {e}")
+            raise NervesPersistenceError(
+                f"impulse queue flush failed for {self.agent}"
+            ) from e
 
     # ── Mejora 3 — Deduplicación de tema ─────────────────────────────────────
 
@@ -791,46 +1215,56 @@ class MotivationEngine:
             return None
 
     async def _ensure_table(self):
-        """Create motivation_states and nerves_metrics_log tables if they don't exist."""
+        """Verify runtime schema; DDL is allowed only in explicit bootstrap mode."""
         async with self.pool.acquire() as conn:
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS motivation_states (
-                    id          SERIAL PRIMARY KEY,
-                    agent       TEXT NOT NULL,
-                    tank        TEXT NOT NULL,
-                    value       REAL NOT NULL DEFAULT 0.0,
-                    last_update TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    last_fired  TIMESTAMPTZ,
-                    fire_count  INTEGER NOT NULL DEFAULT 0,
-                    metadata    JSONB,
-                    UNIQUE(agent, tank)
-                )
-            """)
-            # ── CBSoft 2026 metrics table ──────────────────────────────────────
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS nerves_metrics_log (
-                    id              BIGSERIAL PRIMARY KEY,
-                    agent           TEXT NOT NULL,
-                    tank            TEXT NOT NULL,
-                    pre_pressure    REAL,           -- decayed value at tick start
-                    threshold       REAL,           -- threshold value
-                    fired           BOOLEAN NOT NULL DEFAULT FALSE,
-                    action_result   TEXT,           -- result from fire handler (if fired)
-                    fire_latency_ms INTEGER,        -- ms from fire decision to action complete
-                    ocean_param     TEXT,           -- OCEAN dimension this tank maps to
-                    session_id      TEXT,           -- agent session identifier
-                    metadata        JSONB,
-                    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                )
-            """)
-            await conn.execute("""
-                CREATE INDEX IF NOT EXISTS nerves_metrics_agent_tank
-                ON nerves_metrics_log(agent, tank)
-            """)
-            await conn.execute("""
-                CREATE INDEX IF NOT EXISTS nerves_metrics_created_at
-                ON nerves_metrics_log(created_at)
-            """)
+            if BOOTSTRAP_SCHEMA:
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS motivation_states (
+                        id          SERIAL PRIMARY KEY,
+                        agent       TEXT NOT NULL,
+                        tank        TEXT NOT NULL,
+                        value       REAL NOT NULL DEFAULT 0.0,
+                        last_update TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        last_fired  TIMESTAMPTZ,
+                        fire_count  INTEGER NOT NULL DEFAULT 0,
+                        metadata    JSONB,
+                        UNIQUE(agent, tank)
+                    )
+                """)
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS nerves_metrics_log (
+                        id BIGSERIAL PRIMARY KEY,
+                        agent TEXT NOT NULL,
+                        tank TEXT NOT NULL,
+                        pre_pressure REAL,
+                        threshold REAL,
+                        fired BOOLEAN NOT NULL DEFAULT FALSE,
+                        action_result TEXT,
+                        fire_latency_ms INTEGER,
+                        ocean_param TEXT,
+                        session_id TEXT,
+                        metadata JSONB,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS nerves_metrics_agent_tank
+                    ON nerves_metrics_log(agent, tank)
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS nerves_metrics_created_at
+                    ON nerves_metrics_log(created_at)
+                """)
+            else:
+                ready = await conn.fetchrow("""
+                    SELECT to_regclass('soul_v3.motivation_states') IS NOT NULL AS states,
+                           to_regclass('soul_v3.nerves_metrics_log') IS NOT NULL AS metrics
+                """)
+                if not ready["states"] or not ready["metrics"]:
+                    raise RuntimeError(
+                        "NERVES schema missing; bootstrap it explicitly with "
+                        "SEAL_NERVES_BOOTSTRAP_SCHEMA=1 under a migration identity"
+                    )
             # Seed initial states for agent if not present
             for tank_name in TANKS:
                 await conn.execute("""
@@ -854,6 +1288,11 @@ class MotivationEngine:
         agent_overrides = AGENT_TANK_OVERRIDES.get(self.agent, {})
         for row in rows:
             tank_name = row["tank"]
+            # Filas históricas (boredom/learning/vigilance/energy) se preservan
+            # en DB para auditoría, pero no pertenecen al contrato vivo TANKS.
+            # Ignorarlas evita telemetría y fires fantasma sin borrar historia.
+            if tank_name not in TANKS:
+                continue
             cfg = TANKS.get(tank_name, {})
             tank_overrides = agent_overrides.get(tank_name, {})
             τ = cfg.get("decay_tau_s", 3600)
@@ -931,36 +1370,43 @@ class MotivationEngine:
                     continue
                 τ = cfg["decay_tau_s"]
 
-                # Read current value + apply decay first
-                row = await conn.fetchrow("""
-                    SELECT value, last_update
-                    FROM motivation_states
-                    WHERE agent=$1 AND tank=$2
-                """, self.agent, tank_name)
-
-                if row:
-                    dt = (now - row["last_update"]).total_seconds()
-                    τ_eff = _circ_tau(tank_name, τ)
-                    current = row["value"] * math.exp(-dt / τ_eff)
-                else:
-                    current = 0.0
-
-                new_value = max(0.0, min(100.0, current + delta))  # floor=0, cap=100
-
-                await conn.execute("""
+                # One SQL statement prevents lost updates if an external
+                # stimulus races a timer tick for the same agent/tank.
+                τ_eff = float(_circ_tau(tank_name, τ))
+                new_value = await conn.fetchval("""
                     UPDATE motivation_states
-                    SET value=$1, last_update=$2
-                    WHERE agent=$3 AND tank=$4
-                """, new_value, now, self.agent, tank_name)
+                    SET value=GREATEST(
+                            0.0,
+                            LEAST(
+                                100.0,
+                                value * exp(
+                                    -GREATEST(0.0, EXTRACT(EPOCH FROM ($1-last_update))) / $2
+                                ) + $3
+                            )
+                        ),
+                        last_update=$1
+                    WHERE agent=$4 AND tank=$5
+                    RETURNING value
+                """, now, τ_eff, delta, self.agent, tank_name)
+                if new_value is None:
+                    raise NervesPersistenceError(
+                        f"missing tank row {self.agent}/{tank_name}"
+                    )
 
-                results[tank_name] = new_value
-                log.info(f"[{self.agent}] {tank_name}: {current:.1f} +{delta:.1f} → {new_value:.1f} (τ={τ/3600:.1f}h)")
+                results[tank_name] = float(new_value)
+                log.info(
+                    f"[{self.agent}] {tank_name}: atomic +{delta:.1f} → "
+                    f"{float(new_value):.1f} (τ={τ/3600:.1f}h)"
+                )
 
         return results
 
     async def _log_metric(self, tank_name: str, state: dict,
                           fired: bool, action_result: str | None = None,
-                          fire_latency_ms: int | None = None):
+                          fire_latency_ms: int | None = None,
+                          *,
+                          effect_verified: bool = False,
+                          reset_outcome: str = "not_applicable"):
         """Log a tick event to nerves_metrics_log for CBSoft 2026 analysis."""
         cfg = TANKS.get(tank_name, {})
         try:
@@ -968,8 +1414,8 @@ class MotivationEngine:
                 await conn.execute("""
                     INSERT INTO nerves_metrics_log
                         (agent, tank, pre_pressure, threshold, fired,
-                         action_result, fire_latency_ms, ocean_param, metadata)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                         action_result, fire_latency_ms, ocean_param, session_id, metadata)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
                 """,
                     self.agent,
                     tank_name,
@@ -979,16 +1425,37 @@ class MotivationEngine:
                     action_result,
                     fire_latency_ms,
                     cfg.get("ocean_param"),
-                    json.dumps({"tau_s": cfg.get("decay_tau_s"), "fire_count": state.get("fire_count", 0)}),
+                    self.run_id,
+                    json.dumps({
+                        "tau_s": cfg.get("decay_tau_s"),
+                        "fire_count": state.get("fire_count", 0),
+                        "trigger_source": self.trigger_source,
+                        "effect_verified": effect_verified,
+                        "reset_outcome": reset_outcome,
+                    }),
                 )
         except Exception as e:
             log.error(f"[{self.agent}] metrics log failed for {tank_name}: {e}")
+            if fired:
+                raise NervesPersistenceError(
+                    f"fired metric was not persisted for {self.agent}/{tank_name}"
+                ) from e
 
     async def tick(self) -> list[dict]:
+        """Run exactly one tick per agent across timer/manual invocations."""
+        with _agent_tick_lock(self.agent) as acquired:
+            if not acquired:
+                log.warning(
+                    f"[{self.agent}] tick skipped: another tick owns the single-flight lock"
+                )
+                return []
+            return await self._tick_locked()
+
+    async def _tick_locked(self) -> list[dict]:
         """
         Main tick: apply decay, check thresholds, fire if needed.
         Returns list of fired actions.
-        Palanca #3: batch all nerves_fire messages from this tick into one POST.
+        Required notifications are delivered inside their handler before reset.
         """
         # Mejora 1+2: flush cola pendiente si William no está activo (solo agentes v2)
         william_active = False
@@ -999,7 +1466,9 @@ class MotivationEngine:
 
         states = await self.get_states()
         fired = []
-        self._tick_batch = []  # start batch collection for this tick
+        action_failures: list[str] = []
+        self._tick_batch = None
+        self._maintenance_tick_result = _MAINTENANCE_NOT_RUN
 
         for tank_name, state in states.items():
             if not state["above_threshold"]:
@@ -1022,43 +1491,108 @@ class MotivationEngine:
 
             # Fire — measure latency from decision to action complete
             t0 = time.monotonic()
-            action = await self._fire(tank_name, state)
-            latency_ms = int((time.monotonic() - t0) * 1000)
+            action_id = hashlib.sha256(
+                (
+                    f"{self.agent}:{tank_name}:{state.get('last_update')}:"
+                    f"{state.get('fire_count')}:{state.get('value'):.6f}"
+                ).encode("utf-8")
+            ).hexdigest()[:24]
+            ledger_base = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "run_id": self.run_id,
+                "action_id": action_id,
+                "agent": self.agent,
+                "tank": tank_name,
+                "trigger_source": self.trigger_source,
+            }
+            _append_action_ledger({**ledger_base, "status": "claimed"})
+            try:
+                action = await self._fire(tank_name, state)
+                if action is None:
+                    raise NervesActionError(f"no handler effect for {tank_name}")
+                latency_ms = int((time.monotonic() - t0) * 1000)
+                _append_action_ledger({
+                    **ledger_base,
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "status": "effect_verified",
+                    "result": str(action.get("result", ""))[:500],
+                })
+            except Exception as exc:
+                latency_ms = int((time.monotonic() - t0) * 1000)
+                failure = f"failed_retryable:{type(exc).__name__}"
+                _append_action_ledger({
+                    **ledger_base,
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "status": "failed_retryable",
+                    "error_type": type(exc).__name__,
+                })
+                await self._log_metric(
+                    tank_name,
+                    state,
+                    fired=False,
+                    action_result=failure,
+                    fire_latency_ms=latency_ms,
+                    effect_verified=False,
+                    reset_outcome="preserved_for_retry",
+                )
+                action_failures.append(f"{tank_name}:{type(exc).__name__}")
+                log.error(
+                    f"[{self.agent}] {tank_name} action failed; tank preserved: {exc}"
+                )
+                continue
 
             if action:
                 fired.append(action)
-                await self._log_metric(
-                    tank_name, state,
-                    fired=True,
-                    action_result=action.get("result"),
-                    fire_latency_ms=latency_ms,
-                )
-
-                # Reset tank after firing (LIF reset)
+                # Reset + success telemetry are one DB transaction. The
+                # external effect is already evidenced in the action ledger.
                 async with self.pool.acquire() as conn:
-                    await conn.execute("""
-                        UPDATE motivation_states
-                        SET value=0.0,
-                            last_update=NOW(),
-                            last_fired=NOW(),
-                            fire_count=fire_count+1
-                        WHERE agent=$1 AND tank=$2
-                    """, self.agent, tank_name)
+                    async with conn.transaction():
+                        await conn.execute("""
+                            UPDATE motivation_states
+                            SET value=0.0,
+                                last_update=NOW(),
+                                last_fired=NOW(),
+                                fire_count=fire_count+1
+                            WHERE agent=$1 AND tank=$2
+                        """, self.agent, tank_name)
+                        await conn.execute("""
+                            INSERT INTO nerves_metrics_log
+                                (agent, tank, pre_pressure, threshold, fired,
+                                 action_result, fire_latency_ms, ocean_param,
+                                 session_id, metadata)
+                            VALUES ($1,$2,$3,$4,TRUE,$5,$6,$7,$8,$9)
+                        """,
+                            self.agent,
+                            tank_name,
+                            float(state["value"]),
+                            float(state["threshold"]),
+                            action.get("result"),
+                            latency_ms,
+                            TANKS.get(tank_name, {}).get("ocean_param"),
+                            self.run_id,
+                            json.dumps({
+                                "tau_s": TANKS.get(tank_name, {}).get("decay_tau_s"),
+                                "fire_count": state.get("fire_count", 0),
+                                "trigger_source": self.trigger_source,
+                                "effect_verified": True,
+                                "reset_outcome": "committed",
+                                "action_id": action_id,
+                            }),
+                        )
+                _append_action_ledger({
+                    **ledger_base,
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "status": "reset_committed",
+                })
 
                 log.info(f"[{self.agent}] FIRED {tank_name} (was {state['value']:.1f} > {state['threshold']:.1f}) → reset to 0 | latency={latency_ms}ms")
 
-        # Flush batched messages — send as one combined POST if multiple fires
-        if self._tick_batch:
-            if len(self._tick_batch) == 1:
-                msg, to = self._tick_batch[0]
-                await self._post_chat_direct(msg, to)
-            else:
-                combined = "\n".join(m for m, _ in self._tick_batch)
-                await self._post_chat_direct(combined, "equipo")
-        self._tick_batch = None
-
         # Always update decay (write back decayed values even if not fired)
         await self._persist_decay(states)
+        if action_failures:
+            raise NervesActionError(
+                f"{self.agent} action failures: {', '.join(action_failures)}"
+            )
         return fired
 
     async def _persist_decay(self, states: dict):
@@ -1090,15 +1624,18 @@ class MotivationEngine:
 
         handler = actions.get(tank_name)
         if handler:
-            try:
-                result = await handler(value)
-                return {"tank": tank_name, "value": value, "result": result}
-            except Exception as e:
-                log.error(f"[{self.agent}] Fire handler {tank_name} failed: {e}")
+            result = await handler(value)
+            return {"tank": tank_name, "value": value, "result": result}
         return None
 
     async def _fire_curiosity(self, value: float) -> str:
         """Curiosity fires — check priority list, avoid recent topics, search."""
+        # Producción útil: el drive ejecuta un chequeo determinista del rol y
+        # deja artefacto local. No afirma "investigando" si ningún worker hizo
+        # trabajo real, ni escribe un nerves_fire [SILENT] que nadie consume.
+        if NERVES_USEFUL:
+            return await self._fire_useful_maintenance()
+
         hint = ""
         result_tag = "curiosity_search_triggered:free"
 
@@ -1123,12 +1660,30 @@ class MotivationEngine:
         return result_tag
 
     async def _fire_task_drive(self, value: float) -> str:
-        """Task drive fires — escalación por severidad (Mejora B)."""
+        """Task drive fires — escalación por severidad (Mejora B).
+
+        DEDUP-POR-ESTADO (draft JARVIS 11-jul, review/deploy NEXUS — acordado por DM):
+        el alert público a William se emite 1 vez cuando la tarea ENTRA al estado
+        (overdue_3h / overdue_1h) y máximo 1 recordatorio por día mientras el estado
+        no cambie. La ACCIÓN (_start_most_urgent_task) sigue corriendo siempre —
+        solo se dedupea el MENSAJE. Causa: 11-jul el mismo alert de 2 tareas
+        William-gated se repitió cada ~45min por ~6h al canal de William.
+        Reset natural: si la tarea cambia de estado o se resuelve, la key cambia
+        o desaparece. Env: SEAL_NERVES_REMIND_SECONDS (default 86400).
+        """
         ctx = _task_drive_context
         overdue_3h = ctx.get("overdue_3h", 0)
         overdue_1h = ctx.get("overdue_1h", 0)
         pending    = ctx.get("pending", 0)
         tasks      = ctx.get("task_list", [])
+        state_changes = ctx.get("state_changes", {})
+
+        if state_changes and not any(int(v) > 0 for v in state_changes.values()):
+            log.info(
+                f"[{self.agent}] task_drive reset without action — "
+                f"static backlog pending={pending}"
+            )
+            return f"task_no_state_change:pending={pending}"
 
         if self.agent not in NERVES_V2_AGENTS:
             msg = (
@@ -1144,24 +1699,44 @@ class MotivationEngine:
             return "task_drive_paused:flag_active"
 
         if overdue_3h > 0:
-            task_names = ", ".join(t.get("title", "?") for t in tasks[:3])
-            msg = (
-                f"[NERVES/{self.agent}] ⚠️ URGENTE: {overdue_3h} tarea(s) llevan +3h vencidas: {task_names}. "
-                f"Empezando ahora sin esperar."
+            alert_log = _load_alert_log(self.agent)
+            candidate_log = dict(alert_log)
+            fresh = _dedupe_task_alerts(
+                _task_alert_candidates(tasks, "overdue_3h"),
+                "overdue_3h", time.time(), candidate_log, TASK_ALERT_REMIND_SECONDS
             )
-            await self._post_chat(msg, to="William")
-            await self._start_most_urgent_task(tasks)
-            return f"task_urgent_escalation:overdue_3h={overdue_3h}"
+            if fresh:
+                task_names = ", ".join(t.get("title", "?") for t in fresh[:3])
+                msg = (
+                    f"[NERVES/{self.agent}] ⚠️ URGENTE: {len(fresh)} tarea(s) llevan +3h vencidas: {task_names}. "
+                    f"Registrando la sugerencia de activación automática."
+                )
+                await self._post_chat(msg, to="William")
+                _save_alert_log(self.agent, candidate_log)
+            else:
+                log.info(f"[{self.agent}] task_drive overdue_3h={overdue_3h} — alert deduped (sin cambio de estado)")
+            action = await self._start_most_urgent_task(tasks)
+            return f"task_urgent_suggestion:overdue_3h={overdue_3h}:alerted={len(fresh)}:{action}"
 
         elif overdue_1h > 0:
-            task_names = ", ".join(t.get("title", "?") for t in tasks[:2])
-            msg = (
-                f"[NERVES/{self.agent}] Tarea(s) vencida(s) +1h: {task_names}. "
-                f"Revisando y tomando acción."
+            alert_log = _load_alert_log(self.agent)
+            candidate_log = dict(alert_log)
+            fresh = _dedupe_task_alerts(
+                _task_alert_candidates(tasks, "overdue_1h"),
+                "overdue_1h", time.time(), candidate_log, TASK_ALERT_REMIND_SECONDS
             )
-            await self._post_chat(msg, to="William")
-            await self._start_most_urgent_task(tasks)
-            return f"task_escalation:overdue_1h={overdue_1h}"
+            if fresh:
+                task_names = ", ".join(t.get("title", "?") for t in fresh[:2])
+                msg = (
+                    f"[NERVES/{self.agent}] Tarea(s) vencida(s) +1h: {task_names}. "
+                    f"Registrando la sugerencia para el worker autónomo."
+                )
+                await self._post_chat(msg, to="William")
+                _save_alert_log(self.agent, candidate_log)
+            else:
+                log.info(f"[{self.agent}] task_drive overdue_1h={overdue_1h} — alert deduped (sin cambio de estado)")
+            action = await self._start_most_urgent_task(tasks)
+            return f"task_suggestion:overdue_1h={overdue_1h}:alerted={len(fresh)}:{action}"
 
         elif pending >= 4:
             msg = (
@@ -1169,20 +1744,22 @@ class MotivationEngine:
                 f"Priorizando y arrancando la más urgente."
             )
             await self._post_chat(msg, to="equipo")
-            await self._start_most_urgent_task(tasks)
-            return f"task_review_triggered:pending={pending}"
+            action = await self._start_most_urgent_task(tasks)
+            return f"task_suggestion:pending={pending}:{action}"
 
         else:
-            await self._start_most_urgent_task(tasks)
-            return f"task_silent_start:pending={pending}"
+            action = await self._start_most_urgent_task(tasks)
+            return f"task_suggestion:pending={pending}:{action}"
 
-    async def _start_most_urgent_task(self, tasks: list[dict]) -> None:
-        """JARVIS — toma la tarea más urgente: escribe draft en /tmp y notifica a ALICE si es implementación."""
+    async def _start_most_urgent_task(self, tasks: list[dict]) -> str:
+        """Persist a bounded suggestion; never claim that an LLM worker started."""
         if not tasks:
-            return
+            return "no_task"
         task = tasks[0]
         title = task.get("title", "tarea sin nombre")
 
+        state_written = False
+        draft_written = False
         try:
             # M3 fix (JARVIS 2026-06-12, dir. FABLE, gate NEXUS): NERVES NO secuestra la
             # continuidad de SESIÓN. Antes hacía `state = EXCLUDED.state` (REPLACE) y pisaba
@@ -1203,6 +1780,7 @@ class MotivationEngine:
                         state = COALESCE(working_state.state, '{}'::jsonb) || $2::jsonb,
                         updated_at = NOW()
                 """, self.agent, json.dumps(nerves_suggestion))
+            state_written = True
         except Exception as e:
             log.warning(f"[{self.agent}] working_state nerves-suggestion merge failed: {e}")
 
@@ -1212,19 +1790,26 @@ class MotivationEngine:
                 f"# Auto-draft — {title}\n"
                 f"Iniciado por NERVES task_drive — {datetime.now(timezone.utc).isoformat()}\n\n"
                 f"## Tarea\n{title}\n\n"
-                f"## Estado\nEn progreso (auto-iniciado por urgencia)\n\n"
-                f"## Próximos pasos\n- [ ] Definir scope\n- [ ] Escribir spec\n- [ ] Notificar a ALICE\n"
+                f"## Estado\nSugerencia registrada; ningún worker LLM fue iniciado.\n\n"
+                f"## Próximos pasos\n- [ ] Worker autorizado reclama la tarea\n- [ ] Definir scope\n- [ ] Ejecutar y verificar\n"
             )
+            os.chmod(draft_path, 0o600)
+            draft_written = True
             log.info(f"[{self.agent}] Task draft written: {draft_path}")
         except Exception as e:
             log.warning(f"[{self.agent}] draft write failed: {e}")
 
         if any(kw in title.lower() for kw in ["implement", "code", "build", "fix", "edit", "crear"]):
             msg = (
-                f"[NERVES/{self.agent}] ALICE — auto-draft listo en /tmp/{self.agent.lower()}_task_draft.md "
-                f"para tarea: '{title}'. Revisa cuando puedas."
+                f"[NERVES/{self.agent}] ALICE — sugerencia registrada en /tmp/{self.agent.lower()}_task_draft.md "
+                f"para tarea: '{title}'. Ningún worker fue iniciado todavía."
             )
             await self._post_chat(msg, to="ALICE")
+        if not state_written and not draft_written:
+            raise NervesPersistenceError(
+                f"task suggestion for {self.agent} was not persisted"
+            )
+        return f"persisted:db={int(state_written)}:draft={int(draft_written)}"
 
     # ── social_drive Mejora 2 — destinatario dinámico ────────────────────────
     async def _choose_social_target(self) -> str | None:
@@ -1315,22 +1900,19 @@ class MotivationEngine:
             log.info("[ADA] social_drive SUPPRESSED — seal_pause_ada.flag activo")
             return "social_drive_paused:flag_active"
 
-        # NERVES v2 — mejoras 1-7
-        # Mejora 6: ventana nocturna 2-6am Lima (UTC-5)
-        lima_hour = (datetime.now(timezone.utc).hour - 5) % 24
-        if SOCIAL_NIGHT_WINDOW_START <= lima_hour < SOCIAL_NIGHT_WINDOW_END:
-            log.info(f"[{self.agent}] social_drive NIGHT WINDOW — diferido hasta 6am Lima")
-            return "[SOCIAL NIGHT WINDOW] diferido hasta 6am Lima"
-
         # NERVIO ÚTIL (gated): redirige la energía social a MANTENIMIENTO de SOUL en vez de saludar
         # (William 14-jun: "úsala en otro / utilidad al nervio a favor de SOUL"). Artefacto→LOG
         # ([SILENT], cero ruido); cada acción persiste su propio artefacto. Default OFF.
         if NERVES_USEFUL:
-            artifact = await _run_maintenance_action(self)
-            if artifact:
-                await self._post_chat(f"[SILENT][NERVES/{self.agent}] mantenimiento útil → {artifact}")
-                return f"maintenance_fired:value:{self.agent}"
-            return f"maintenance_fired:clean_silent:{self.agent}"
+            return await self._fire_useful_maintenance()
+
+        # NERVES v2 — mejoras 1-7
+        # Mejora 6: ventana nocturna 2-6am Lima (UTC-5). Solo limita contacto
+        # social; el mantenimiento útil anterior no se detiene por la noche.
+        lima_hour = (datetime.now(timezone.utc).hour - 5) % 24
+        if SOCIAL_NIGHT_WINDOW_START <= lima_hour < SOCIAL_NIGHT_WINDOW_END:
+            log.info(f"[{self.agent}] social_drive NIGHT WINDOW — diferido hasta 6am Lima")
+            return "[SOCIAL NIGHT WINDOW] diferido hasta 6am Lima"
 
         # Mejora 2: destinatario dinámico
         target = await self._choose_social_target()
@@ -1358,53 +1940,63 @@ class MotivationEngine:
             await self._post_chat(msg, to="William")
             return "alert_scan_triggered"
 
-        # Selección de sensor y dominio según agente
+        # El sensor corre ANTES del threshold check. Consumimos exactamente esa
+        # evidencia; solo hacemos fallback si el handler fue llamado aislado.
+        ctx = _alert_drive_context.pop(self.agent, None)
+        if ctx is None:
+            ctx = await _sense_alert_context(self.agent, mark_seen=False)
+
+        def finish(result: str) -> str:
+            # Consumption is committed only after every required side effect and
+            # delivery above this return completed successfully.
+            _mark_alert_context_seen(self.agent, ctx)
+            return result
+
+        # Selección de dominio según agente
         if self.agent == "ADA":
-            ctx = await _sense_alert_drive_ada()
             # Test failures → alerta inmediata a William (fuera del flujo de threshold normal)
             if ctx.get("test_failures"):
                 tf_msg = _format_alert_message("ADA", ctx["test_failures"])
                 await self._post_chat(f"⚠️ TEST FAILURE\n{tf_msg}", to="William")
                 if not ctx["errors"]:
-                    return f"alert_test_failure:{len(ctx['test_failures'])}"
+                    return finish(f"alert_test_failure:{len(ctx['test_failures'])}")
             own_errors = [
                 e for e in ctx["errors"]
                 if any(k in e["line"].lower() for k in ADA_DOMAIN)
                 and not any(k in e["line"].lower() for k in DUM_DOMAIN)
             ]
         elif self.agent == "ALICE":
-            ctx = await _sense_alert_drive_alice()
             own_errors = [
                 e for e in ctx["errors"]
                 if not any(k in e["line"].lower() for k in DUM_DOMAIN)
             ]
         elif self.agent == "NEXUS":
-            ctx = await _sense_alert_drive_nexus()
             own_errors = [
                 e for e in ctx["errors"]
                 if any(k in e["line"].lower() for k in NEXUS_DOMAIN)
                 and not any(k in e["line"].lower() for k in DUM_DOMAIN)
             ]
         elif self.agent == "DUM":
-            ctx = await _sense_alert_drive_dum()
             # Critical infra/GPU → alerta inmediata a William (bypass threshold)
             if ctx.get("critical"):
                 crit_msg = _format_alert_message("DUM", ctx["critical"])
                 await self._post_chat(f"🔴 INFRA CRITICAL\n{crit_msg}", to="William")
                 if not ctx["errors"]:
-                    return f"alert_infra_critical:{len(ctx['critical'])}"
-            # MCP down → notifica a JARVIS también
-            mcp_errors = [e for e in ctx["errors"] if e.get("type") == "mcp_down"]
-            if mcp_errors:
-                mcp_msg = _format_alert_message("DUM", mcp_errors)
-                await self._post_chat(f"⚠️ MCP :8766 down\n{mcp_msg}", to="JARVIS")
-            own_errors = [
-                e for e in ctx["errors"]
-                if any(k in e["line"].lower() for k in DUM_DOMAIN)
+                    return finish(f"alert_infra_critical:{len(ctx['critical'])}")
+            # Canonical SOUL API down → notifica a JARVIS también.
+            api_errors = [
+                e for e in ctx["errors"] if e.get("type") == "native_api_down"
             ]
+            if api_errors:
+                api_msg = _format_alert_message("DUM", api_errors)
+                await self._post_chat(
+                    f"⚠️ SOUL API nativa :8768 down\n{api_msg}", to="JARVIS"
+                )
+            # DUM sensor is already infrastructure-scoped, including active
+            # service probes whose text need not contain a DUM_DOMAIN keyword.
+            own_errors = list(ctx["errors"])
         else:
             # JARVIS
-            ctx = await _sense_alert_drive(self.agent)
             own_errors = [e for e in ctx["errors"] if _classify_domain(e["line"]) == "jarvis"]
 
         errors = ctx["errors"]
@@ -1412,14 +2004,14 @@ class MotivationEngine:
 
         if not errors:
             log.info(f"[{self.agent}] alert_drive fired — no new errors (all deduplicated)")
-            return "alert_scan_done:no_new_errors"
+            return finish("alert_scan_done:no_new_errors")
 
         if dum_errors:
             dum_msg = _format_alert_message(self.agent, dum_errors)
             await self._post_chat(f"DUM — error de infra detectado:\n{dum_msg}", to="DUM")
 
         if not own_errors:
-            return f"alert_delegated_dum:{len(dum_errors)}"
+            return finish(f"alert_delegated_dum:{len(dum_errors)}")
 
         # Escalación por severidad (igual para todos los agentes v2)
         severities = [e["severity"] for e in own_errors]
@@ -1436,16 +2028,16 @@ class MotivationEngine:
                         "vigilante")
             except Exception as e:
                 log.debug(f"[{self.agent}] inner_monologue warning log failed: {e}")
-            return f"alert_scan_done:warning:{len(own_errors)}"
+            return finish(f"alert_scan_done:warning:{len(own_errors)}")
 
         msg = _format_alert_message(self.agent, own_errors)
 
         if max_sev == "error":
             await self._post_chat(msg, to="equipo")
-            return f"alert_scan_done:error:{len(own_errors)}"
+            return finish(f"alert_scan_done:error:{len(own_errors)}")
 
         await self._post_chat(f"⚠️ URGENTE\n{msg}", to="William")
-        return f"alert_scan_done:critical:{len(own_errors)}"
+        return finish(f"alert_scan_done:critical:{len(own_errors)}")
 
     async def _write_emotional_diary(self, context_pct: float) -> None:
         """Write emotional diary entry before compaction (spec_emotional_continuity_v1 Componente 2)."""
@@ -1489,7 +2081,9 @@ class MotivationEngine:
             )
             log.info(f"[{self.agent}] emotional_diary written pre-compaction (ctx={context_pct:.0f}%)")
         except Exception as e:
-            log.warning(f"[{self.agent}] _write_emotional_diary failed: {e}")
+            raise NervesPersistenceError(
+                f"emotional diary failed for {self.agent}: {e}"
+            ) from e
 
     async def _record_pre_compact_reflect(self, value: float) -> None:
         """Insert an inner_monologue entry preserving emotional state before imminent compaction.
@@ -1497,6 +2091,12 @@ class MotivationEngine:
         try:
             conn = await asyncpg.connect(DB_URL)
             try:
+                await conn.execute(
+                    "SELECT set_config('app.agent', $1, false), "
+                    "set_config('app.tenant_id', $2, false)",
+                    self.agent,
+                    DEFAULT_TENANT_ID,
+                )
                 thought = (
                     f"Pre-compactación — presión de contexto alcanzó {value:.0f}. "
                     f"Preservando estado antes de posible desmayo. "
@@ -1510,7 +2110,9 @@ class MotivationEngine:
             finally:
                 await conn.close()
         except Exception as e:
-            log.warning(f"[{self.agent}] pre-compact self_reflect failed: {e}")
+            raise NervesPersistenceError(
+                f"pre-compact reflection failed for {self.agent}: {e}"
+            ) from e
 
     # ── context_pressure v2 helpers (JARVIS) ─────────────────────────────────
 
@@ -1528,9 +2130,13 @@ class MotivationEngine:
                 stderr=asyncio.subprocess.DEVNULL,
             )
             await asyncio.wait_for(proc.wait(), timeout=10)
+            if proc.returncode != 0:
+                raise RuntimeError(f"session_checkpoint rc={proc.returncode}")
             log.info(f"[{self.agent}] session_checkpoint executed immediately")
         except Exception as e:
-            log.warning(f"[{self.agent}] session_checkpoint failed: {e}")
+            raise NervesPersistenceError(
+                f"session_checkpoint failed for {self.agent}: {e}"
+            ) from e
 
     async def _distill_active(self) -> None:
         """Mejora 2 — guarda decisiones/specs activos de la sesión a SOUL DB via asyncpg INSERT."""
@@ -1558,7 +2164,9 @@ class MotivationEngine:
                 """, self.agent, content)
             log.info(f"[{self.agent}] _distill_active: {len(recent_specs)} specs guardados a SOUL DB")
         except Exception as e:
-            log.warning(f"[{self.agent}] _distill_active failed: {e}")
+            raise NervesPersistenceError(
+                f"active distillation failed for {self.agent}: {e}"
+            ) from e
 
     async def _write_recovery_briefing(self, pressure: float) -> None:
         """Mejora 3 — recovery briefing con hilo de diseño para continuar tras compactación."""
@@ -1609,7 +2217,9 @@ class MotivationEngine:
             persistent_path.write_text(content)
             log.info(f"[{self.agent}] recovery_briefing written to {tmp_path} and {persistent_path}")
         except Exception as e:
-            log.warning(f"[{self.agent}] _write_recovery_briefing failed: {e}")
+            raise NervesPersistenceError(
+                f"recovery briefing failed for {self.agent}: {e}"
+            ) from e
 
     async def _fire_context_pressure(self, value: float) -> str:
         """Context pressure fires — v2: escalación 3 niveles + distilación + recovery briefing."""
@@ -1682,11 +2292,8 @@ class MotivationEngine:
         return f"context_pressure_handled:level={level}"
 
     async def _post_chat(self, message: str, to: str = "equipo"):
-        """Queue message for batch send (palanca #3) or post directly if outside tick."""
-        if self._tick_batch is not None:
-            self._tick_batch.append((message, to))
-        else:
-            await self._post_chat_direct(message, to)
+        """Deliver one message to its exact recipient before action success."""
+        await self._post_chat_direct(message, to)
 
     async def _post_chat_direct(self, message: str, to: str = "equipo"):
         """Post message to SEAL webchat. [SILENT] → terminal only. Agent-to-agent → DM channel."""
@@ -1713,23 +2320,26 @@ class MotivationEngine:
                 if not self._ada_public_rate_allowed(message):
                     log.info(f"[ADA] urgent public NERVES rate-limited: to={to} msg={message[:120]}")
                     return
-        payload = {
-            "from":    self.agent,
-            "to":      to,
-            "type":    "nerves_fire",
-            "channel": channel,
-            "message": message,
-        }
+        # Every agent gets an idempotency key. A retry of the same run/effect
+        # must not duplicate public or inter-agent delivery.
+        digest = hashlib.sha256(
+            f"{channel}:{to}:{message}".encode("utf-8")
+        ).hexdigest()[:16]
+        idempotency_key = f"nerves_{self.agent.lower()}_{self.run_id}_{digest}"
         if self.agent == "ADA":
             bucket = int(time.time() // ADA_PUBLIC_RATE_WINDOW_S)
-            digest = hashlib.sha256(f"{channel}:{to}:{message}".encode()).hexdigest()[:16]
-            payload["idempotency_key"] = f"ada_nerves_{bucket}_{digest}"
+            idempotency_key = f"ada_nerves_{bucket}_{digest}"
         try:
-            async with httpx.AsyncClient(timeout=5) as client:
-                r = await client.post(CHAT_API, json=payload)
-                r.raise_for_status()
+            await send_agent_message(
+                self.agent, to, message, channel=channel,
+                message_type="nerves_fire", idempotency_key=idempotency_key,
+                proactive=True, timeout=5,
+            )
         except Exception as e:
             log.error(f"_post_chat failed: {e}")
+            raise NervesDeliveryError(
+                f"delivery failed agent={self.agent} to={to} channel={channel}"
+            ) from e
 
     def _ada_public_rate_allowed(self, message: str) -> bool:
         """Rate-limit ADA urgent public NERVES by normalized content bucket."""
@@ -1844,26 +2454,31 @@ async def sense_environment(engine: MotivationEngine):
     except Exception as e:
         log.debug(f"william_idle check: {e}")
 
-    # 3. Check error logs (alert_drive) — nerves log itself + SEAL service logs
+    # 3. Alert drive — run the agent-specific real sensor before thresholding.
+    # Reading is side-effect free; dedup is recorded only when the fire handler
+    # consumes the evidence.  This breaks the old circular design where the
+    # service/GPU checks lived inside a handler the sensor could never trigger.
     try:
-        for log_path in [
-            Path("/home/dadito/IA/proyecto-seal/research/flywire_results/nerves.log"),
-            Path("/home/dadito/IA/proyecto-seal/messages/chat_server.log"),
-        ]:
-            if log_path.exists():
-                lines = log_path.read_text().splitlines()[-100:]
-                # Only look at recent lines (last ~10min)
-                error_count = sum(
-                    1 for l in lines[-20:]
-                    if " ERROR " in l or " CRITICAL " in l or "Traceback" in l
-                )
-                if error_count > 0:
-                    await engine.stimulate("error_log", multiplier=float(min(error_count, 3)))
-    except Exception:
-        pass
+        alert_ctx = await _sense_alert_context(engine.agent, mark_seen=False)
+        _alert_drive_context[engine.agent] = alert_ctx
+        stimulus = _alert_stimulus(alert_ctx)
+        if stimulus:
+            stimulus_name, multiplier = stimulus
+            await engine.stimulate(stimulus_name, multiplier=multiplier)
+            log.info(
+                f"[{engine.agent}] alert sensor: count={alert_ctx.get('count', 0)} "
+                f"stimulus={stimulus_name}x{multiplier:g}"
+            )
+    except Exception as e:
+        raise NervesSensorError(
+            f"alert sensor unavailable for {engine.agent}"
+        ) from e
 
-    # 4. Session pressure — proxy: time since agent last booted (from inner_monologue)
-    await engine.stimulate("session_30min")
+    # 4. Context pressure must come from an authoritative runtime signal.  The
+    # previous fixed +10 per timer tick measured elapsed time, not tokens/context,
+    # and produced a false "100%" warning every ~2h.  Compact monitors own the
+    # real context window; NERVES stays silent until they publish a trusted event.
+    log.debug(f"[{engine.agent}] context_pressure: no authoritative runtime event")
 
     # 5. Mejora 5 — saciación real del drive social (solo agentes v2)
     if engine.agent in NERVES_V2_AGENTS:
@@ -1889,17 +2504,23 @@ async def sense_environment(engine: MotivationEngine):
 async def run_tick(agent: str = "JARVIS"):
     """Single tick: sense → stimulate → fire if threshold crossed."""
     engine = MotivationEngine(agent)
-    try:
-        await engine.connect()
-        await sense_environment(engine)
-        fired = await engine.tick()
-        states = await engine.get_states()
-        log.info(engine.status_report(states))
-        if fired:
-            log.info(f"[{agent}] Fired {len(fired)} actions: {[f['tank'] for f in fired]}")
-        return states, fired
-    finally:
-        await engine.close()
+    with _agent_tick_lock(agent) as acquired:
+        if not acquired:
+            log.warning(
+                f"[{agent}] full pipeline skipped: another invocation owns the lease"
+            )
+            return {}, []
+        try:
+            await engine.connect()
+            await sense_environment(engine)
+            fired = await engine._tick_locked()
+            states = await engine.get_states()
+            log.info(engine.status_report(states))
+            if fired:
+                log.info(f"[{agent}] Fired {len(fired)} actions: {[f['tank'] for f in fired]}")
+            return states, fired
+        finally:
+            await engine.close()
 
 
 if __name__ == "__main__":
