@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
 from pathlib import Path
 
@@ -62,7 +63,57 @@ def test_stable_hash_changes_when_autonomy_drifts() -> None:
         "ws": [],
         "auth_guard": {"status": "healthy", "issues": []},
         "autonomy_contract": {"status": "healthy", "issues": []},
+        "mcp_postgres_boundary": {"status": "healthy", "issues": []},
     }
     healthy = guard.stable_hash(base)
     base["autonomy_contract"] = {"status": "drift", "issues": ["lost clause"]}
     assert guard.stable_hash(base) != healthy
+
+
+def test_postgres_mcp_boundary_accepts_observer_secret_file(tmp_path) -> None:
+    secret = tmp_path / "observer.env"
+    secret.write_text(
+        "POSTGRES_MCP_DSN='postgresql://mcp_observer:unique@localhost/db'\n",
+        encoding="utf-8",
+    )
+    secret.chmod(0o600)
+    configs = []
+    for name in ("project.json", "global.json"):
+        path = tmp_path / name
+        path.write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        "postgres": {
+                            "command": "/bin/bash",
+                            "args": ["source mcp_postgres_observer.env"],
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        configs.append(path)
+    result = guard.check_mcp_postgres_boundary(tuple(configs), secret)
+    assert result == {"ok": True, "status": "healthy", "issues": []}
+
+
+def test_postgres_mcp_boundary_rejects_embedded_superuser_dsn(tmp_path) -> None:
+    secret = tmp_path / "observer.env"
+    secret.write_text("POSTGRES_MCP_DSN='postgresql://mcp_observer:x@localhost/db'\n")
+    secret.chmod(0o600)
+    config = tmp_path / "global.json"
+    config.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "postgres": {
+                        "args": ["postgresql://seal:shared@localhost/db"]
+                    }
+                }
+            }
+        )
+    )
+    result = guard.check_mcp_postgres_boundary((config,), secret)
+    assert result["ok"] is False
+    assert any("embeber una DSN" in issue for issue in result["issues"])

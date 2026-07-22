@@ -41,6 +41,9 @@ WS_LISTENER = MESSAGES / "ws_listener.py"
 SOUL_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
 AUTH_GUARD_STATE = Path.home() / ".local/state/seal/claude-auth-guard/state.json"
 AUTH_GUARD_MAX_AGE_SECONDS = 15 * 60
+PROJECT_MCP_CONFIG = ROOT / ".mcp.json"
+GLOBAL_MCP_CONFIG = Path.home() / ".claude/.mcp.json"
+POSTGRES_MCP_SECRET = Path.home() / ".config/seal/mcp_postgres_observer.env"
 
 AUTONOMY_REQUIRED_CLAUSES = (
     "RECEIVED -> EXECUTING -> TESTING -> VERIFIED -> COMPLETED",
@@ -644,6 +647,39 @@ async def check_autonomy_contract(root: Path = ROOT) -> dict[str, Any]:
     }
 
 
+def check_mcp_postgres_boundary(
+    configs: tuple[Path, ...] = (PROJECT_MCP_CONFIG, GLOBAL_MCP_CONFIG),
+    secret_path: Path = POSTGRES_MCP_SECRET,
+) -> dict[str, Any]:
+    """Detect config drift back to an embedded/superuser PostgreSQL MCP DSN."""
+    issues: list[str] = []
+    expected_source = "mcp_postgres_observer.env"
+    for path in configs:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            entry = payload["mcpServers"]["postgres"]
+            blob = json.dumps(entry, ensure_ascii=False)
+        except Exception as exc:
+            issues.append(f"postgres MCP: config {path} ausente o inválida: {exc}")
+            continue
+        if "postgresql://" in blob:
+            issues.append(f"postgres MCP: {path} volvió a embeber una DSN")
+        if expected_source not in blob:
+            issues.append(f"postgres MCP: {path} no carga la credencial observer segura")
+
+    try:
+        mode = secret_path.stat().st_mode & 0o777
+        raw = secret_path.read_text(encoding="utf-8")
+    except Exception as exc:
+        issues.append(f"postgres MCP: credencial observer ausente o ilegible: {exc}")
+    else:
+        if mode != 0o600:
+            issues.append(f"postgres MCP: credencial observer mode={mode:o}, esperado=600")
+        if "postgresql://mcp_observer:" not in raw:
+            issues.append("postgres MCP: credencial no autentica como mcp_observer")
+    return {"ok": not issues, "status": "healthy" if not issues else "drift", "issues": issues}
+
+
 def post_webchat(message: str, idempotency_key: str) -> bool:
     completed = run(
         [
@@ -682,6 +718,10 @@ def stable_hash(report: dict[str, Any]) -> str:
             "status": report["autonomy_contract"].get("status"),
             "issues": report["autonomy_contract"].get("issues", []),
         },
+        "mcp_postgres_boundary": {
+            "status": report["mcp_postgres_boundary"].get("status"),
+            "issues": report["mcp_postgres_boundary"].get("issues", []),
+        },
     }
     blob = json.dumps(relevant, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
@@ -703,7 +743,7 @@ def maybe_post(report: dict[str, Any], *, post_always: bool, post_on_change: boo
 
     lines = [
         f"ADA Stability Guard — {report['status']}",
-        f"ws={report['ws_ok']}/4 monitors={report.get('monitor_ok', 0)}/4 hb={report['heartbeat_ok']}/5 auth={report['auth_guard']['status']} autonomy={report['autonomy_contract']['status']} units_ok={report['units_ok']} fixes={len(report['fixes'])} issues={len(report['issues'])}",
+        f"ws={report['ws_ok']}/4 monitors={report.get('monitor_ok', 0)}/4 hb={report['heartbeat_ok']}/5 auth={report['auth_guard']['status']} autonomy={report['autonomy_contract']['status']} postgres_mcp={report['mcp_postgres_boundary']['status']} units_ok={report['units_ok']} fixes={len(report['fixes'])} issues={len(report['issues'])}",
     ]
     if report["fixes"]:
         lines.append("Fixes: " + "; ".join(report["fixes"][:6]))
@@ -733,6 +773,7 @@ async def build_report() -> dict[str, Any]:
     auth_guard = check_auth_guard_status()
     memory_identity = await check_ada_memory_identity()
     autonomy_contract = await check_autonomy_contract()
+    mcp_postgres_boundary = check_mcp_postgres_boundary()
 
     fixes: list[str] = []
     issues: list[str] = []
@@ -751,6 +792,7 @@ async def build_report() -> dict[str, Any]:
     issues.extend(auth_guard.get("issues", []))
     issues.extend(memory_identity.get("issues", []))
     issues.extend(autonomy_contract.get("issues", []))
+    issues.extend(mcp_postgres_boundary.get("issues", []))
 
     ws_ok = sum(1 for item in ws_results if item.get("live_count_after") == 1 and not item.get("issues"))
     heartbeat_ok = sum(1 for item in heartbeat_results if item.get("ok"))
@@ -776,6 +818,7 @@ async def build_report() -> dict[str, Any]:
         "auth_guard": auth_guard,
         "ada_memory_identity": memory_identity,
         "autonomy_contract": autonomy_contract,
+        "mcp_postgres_boundary": mcp_postgres_boundary,
         "fixes": fixes,
         "issues": issues,
     }
