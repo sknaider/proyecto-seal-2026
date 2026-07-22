@@ -137,17 +137,32 @@ def _probe(kind, arg):
             run = r.stdout.strip() == "true"
             return run, f"docker {'running' if run else 'down/ausente'}"
         if kind == "pgvector":
-            # sonda funcional del motor: pgvector responde su versión por SQL real
+            # sonda funcional del motor: pgvector responde su versión por SQL real.
+            # DSN NUNCA hardcodeada: de env (SEAL_PG_DSN) o del env-file del observer
+            # restringido (mismo que usa el MCP postgres). Sin secreto en el fuente.
             import asyncio
             import asyncpg
+            import os
+
+            dsn = os.environ.get("SEAL_PG_DSN")
+            if not dsn:
+                envf = pathlib.Path.home() / ".config/seal/mcp_postgres_observer.env"
+                if envf.exists():
+                    for ln in envf.read_text().splitlines():
+                        ln = ln.strip()
+                        if ln.startswith(("POSTGRES_MCP_DSN=", "SEAL_PG_DSN=", "DATABASE_URL=", "PG_DSN=")):
+                            dsn = ln.split("=", 1)[1].strip().strip('"').strip("'")
+                            break
+            if not dsn:
+                return False, "pgvector: sin DSN en env (SEAL_PG_DSN/observer.env)"
 
             async def _q():
-                c = await asyncpg.connect("postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
+                c = await asyncpg.connect(dsn)
                 try:
                     return await c.fetchval("SELECT extversion FROM pg_extension WHERE extname='vector'")
                 finally:
                     await c.close()
-            v = asyncio.get_event_loop().run_until_complete(_q()) if False else asyncio.run(_q())
+            v = asyncio.run(_q())
             return bool(v), f"postgres+pgvector {v}" if v else "pgvector AUSENTE"
     except Exception as e:
         return False, f"error: {str(e)[:40]}"
