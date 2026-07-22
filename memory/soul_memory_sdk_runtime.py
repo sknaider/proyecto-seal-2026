@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import secrets
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, AsyncIterator, Mapping
+from uuid import UUID
 
 
 SDK_RUNTIME_ROLE = "soul_sdk_agent_api"
@@ -26,6 +28,10 @@ SDK_VIEWER_ROLES = {
     "user": SDK_USER_ROLE,
     "admin": SDK_ADMIN_ROLE,
 }
+INTERNAL_TENANT_ID = "00000000-0000-0000-0000-000000000000"
+TENANT_DB_VIEWERS = {"agent", "user"}
+TENANT_DB_ROLE_PREFIX = "soul_sdk_t_"
+API_KEY_HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 TENANT_OVERRIDE_FIELDS = {
     "tenant_id",
     "tenant",
@@ -47,6 +53,16 @@ class TenantOverrideError(ValueError):
 
 class TenantScopeError(ValueError):
     """Raised when an API key lacks the scope required for an operation."""
+
+
+@dataclass(frozen=True)
+class ResolvedTenantDbIdentity:
+    """Database identity revalidated from the API-key hash for one transaction."""
+
+    tenant_id: str
+    db_role: str
+    viewer: str
+    legacy_internal_fallback: bool = False
 
 
 @dataclass(frozen=True)
@@ -110,6 +126,10 @@ class TenantContext:
         )
 
     def pg_role(self) -> str:
+        """Return the rollout-only generic role for the internal tenant.
+
+        Normal transactions must use ``resolve_tenant_db_identity`` instead.
+        """
         return SDK_VIEWER_ROLES[normalize_viewer(self.viewer)]
 
 
@@ -222,6 +242,27 @@ def _tenant_lookup_sql() -> str:
     """
 
 
+def _internal_rollout_key_check_sql() -> str:
+    """Revalidate the one allowed legacy key path without trusting prior auth."""
+    return """
+        SELECT count(*) = 1 AND bool_and(t.id = $2::uuid)
+        FROM soul_v3.tenants AS t
+        CROSS JOIN LATERAL jsonb_array_elements(t.api_keys) AS key_record
+        WHERE (
+            key_record->>'sha256' = $1
+            OR key_record->>'hash' = $1
+            OR key_record->>'key_hash' = $1
+        )
+          AND COALESCE(key_record->>'revoked_at', '') = ''
+          AND CASE
+                WHEN COALESCE(key_record->>'expires_at', '') = '' THEN TRUE
+                WHEN pg_input_is_valid(key_record->>'expires_at', 'timestamp with time zone')
+                  THEN (key_record->>'expires_at')::timestamptz > CURRENT_TIMESTAMP
+                ELSE FALSE
+              END
+    """
+
+
 def escape_like_pattern(text: str) -> str:
     """Escape user text for ILIKE so %, _ and backslash stay literal."""
     return (
@@ -291,19 +332,114 @@ def _nested_mapping_keys(value: Any) -> set[str]:
     return keys
 
 
-async def set_tenant_context(conn: Any, tenant: TenantContext) -> None:
-    """Set the Postgres role + local GUCs used by RLS policies.
+async def set_tenant_context(conn: Any, tenant: TenantContext) -> ResolvedTenantDbIdentity:
+    """Revalidate and assume the tenant-bound Postgres identity.
 
-    Phase 1 uses app.tenant_id. Dual-memory SEC-2 additionally needs app.agent
-    for agent/scope isolation and app.viewer/app.user_id for the consolidated
-    multi-agent compatibility model.  Setting them now is backward-compatible
-    because no current policy depends on viewer GUCs yet.
+    Tenant authority comes from the role returned by the database resolver and
+    therefore from ``current_user`` under migration 055. ``app.tenant_id`` is
+    cleared for canonical roles so a forged/stale GUC cannot select a tenant.
+    The sole rollout fallback is the existing internal tenant when the resolver
+    function has not been installed yet; an installed-but-empty mapping always
+    fails closed.
     """
-    await conn.execute(f"SET LOCAL ROLE {tenant.pg_role()}")
-    await conn.execute("SELECT set_config('app.tenant_id', $1, true)", tenant.tenant_id)
+    identity = await resolve_tenant_db_identity(conn, tenant)
+    await conn.execute(f"SET LOCAL ROLE {identity.db_role}")
+    await conn.execute(
+        "SELECT set_config('app.tenant_id', $1, true)",
+        INTERNAL_TENANT_ID if identity.legacy_internal_fallback else "",
+    )
     await conn.execute("SELECT set_config('app.agent', $1, true)", tenant.agent_id or "")
     await conn.execute("SELECT set_config('app.viewer', $1, true)", normalize_viewer(tenant.viewer))
     await conn.execute("SELECT set_config('app.user_id', $1, true)", tenant.user_id or "")
+    return identity
+
+
+def _canonical_tenant_db_role(tenant_id: str, viewer: str) -> str:
+    try:
+        tenant_uuid = UUID(str(tenant_id))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise TenantAuthError("invalid_tenant_identity") from exc
+    normalized_viewer = normalize_viewer(viewer)
+    if normalized_viewer not in TENANT_DB_VIEWERS:
+        raise TenantAuthError("tenant_db_viewer_unmapped")
+    return f"{TENANT_DB_ROLE_PREFIX}{tenant_uuid.hex}_{normalized_viewer}"
+
+
+def _is_missing_tenant_role_resolver(exc: Exception) -> bool:
+    return (
+        getattr(exc, "sqlstate", None) == "42883"
+        or type(exc).__name__ == "UndefinedFunctionError"
+    )
+
+
+async def resolve_tenant_db_identity(
+    conn: Any,
+    tenant: TenantContext,
+) -> ResolvedTenantDbIdentity:
+    """Resolve ``api_key_hash + viewer`` to one canonical DB role.
+
+    The raw key is never passed here. The DB resolver rechecks key lifecycle,
+    the active role binding, role attributes and SET-role membership. Runtime
+    additionally verifies the returned tenant and deterministic role name.
+    """
+    viewer = normalize_viewer(tenant.viewer)
+    expected_role = _canonical_tenant_db_role(tenant.tenant_id, viewer)
+    if not API_KEY_HASH_PATTERN.fullmatch(str(tenant.api_key_hash or "")):
+        raise TenantAuthError("invalid_api_key")
+
+    try:
+        row = await conn.fetchrow(
+            """
+            SELECT tenant_id::text AS tenant_id, db_role::text AS db_role
+            FROM soul_v3.sdk_resolve_tenant_role_for_key_hash($1, $2)
+            """,
+            tenant.api_key_hash,
+            viewer,
+        )
+    except Exception as exc:
+        if (
+            _is_missing_tenant_role_resolver(exc)
+            and tenant.tenant_id == INTERNAL_TENANT_ID
+            and viewer in TENANT_DB_VIEWERS
+        ):
+            try:
+                internal_key_is_unique = bool(
+                    await conn.fetchval(
+                        _internal_rollout_key_check_sql(),
+                        tenant.api_key_hash,
+                        INTERNAL_TENANT_ID,
+                    )
+                )
+            except Exception as validation_exc:
+                raise TenantAuthError("tenant_db_role_resolution_failed") from validation_exc
+            if not internal_key_is_unique:
+                raise TenantAuthError("invalid_api_key")
+            return ResolvedTenantDbIdentity(
+                tenant_id=INTERNAL_TENANT_ID,
+                db_role=tenant.pg_role(),
+                viewer=viewer,
+                legacy_internal_fallback=True,
+            )
+        if _is_missing_tenant_role_resolver(exc):
+            raise TenantAuthError("tenant_db_role_resolver_unavailable") from exc
+        raise TenantAuthError("tenant_db_role_resolution_failed") from exc
+
+    if not row:
+        raise TenantAuthError("tenant_db_role_unmapped")
+    try:
+        resolved_tenant = str(row["tenant_id"])
+        resolved_role = str(row["db_role"])
+    except (KeyError, TypeError) as exc:
+        raise TenantAuthError("tenant_db_role_resolution_failed") from exc
+    if resolved_tenant != str(UUID(tenant.tenant_id)):
+        raise TenantAuthError("tenant_db_identity_mismatch")
+    if resolved_role != expected_role:
+        raise TenantAuthError("tenant_db_role_mismatch")
+    return ResolvedTenantDbIdentity(
+        tenant_id=resolved_tenant,
+        db_role=resolved_role,
+        viewer=viewer,
+    )
 
 
 @asynccontextmanager

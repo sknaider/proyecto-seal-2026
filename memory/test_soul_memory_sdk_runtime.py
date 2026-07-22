@@ -10,6 +10,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from soul_memory_sdk_runtime import (
+    INTERNAL_TENANT_ID,
     SDK_RUNTIME_ROLE,
     SDK_USER_ROLE,
     TenantAuthError,
@@ -32,6 +33,7 @@ from soul_memory_sdk_runtime import (
     normalize_viewer,
     recall_memories,
     reject_tenant_override,
+    resolve_tenant_db_identity,
     search_memories,
     set_tenant_context,
     tenant_transaction,
@@ -43,15 +45,26 @@ class FakeConn:
         self,
         row: dict[str, Any] | None = None,
         rows: list[dict[str, Any]] | None = None,
+        fetchrow_rows: list[dict[str, Any] | None] | None = None,
+        fetchrow_error: Exception | None = None,
+        fetchval_value: Any = None,
     ) -> None:
         self.row = row
         self.rows = rows or []
+        self.fetchrow_rows = list(fetchrow_rows or [])
+        self.fetchrow_error = fetchrow_error
+        self.fetchval_value = fetchval_value
         self.fetchrow_calls: list[tuple[str, tuple[Any, ...]]] = []
+        self.fetchval_calls: list[tuple[str, tuple[Any, ...]]] = []
         self.fetch_calls: list[tuple[str, tuple[Any, ...]]] = []
         self.execute_calls: list[tuple[str, tuple[Any, ...]]] = []
 
     async def fetchrow(self, sql: str, *args: Any) -> dict[str, Any] | None:
         self.fetchrow_calls.append((sql, args))
+        if self.fetchrow_error is not None:
+            raise self.fetchrow_error
+        if self.fetchrow_rows:
+            return self.fetchrow_rows.pop(0)
         return self.row
 
     async def execute(self, sql: str, *args: Any) -> None:
@@ -60,6 +73,10 @@ class FakeConn:
     async def fetch(self, sql: str, *args: Any) -> list[dict[str, Any]]:
         self.fetch_calls.append((sql, args))
         return self.rows
+
+    async def fetchval(self, sql: str, *args: Any) -> Any:
+        self.fetchval_calls.append((sql, args))
+        return self.fetchval_value
 
     def transaction(self) -> "FakeTransaction":
         return FakeTransaction()
@@ -90,6 +107,23 @@ class FakePool:
 
     def acquire(self) -> FakeAcquire:
         return FakeAcquire(self.conn)
+
+
+TENANT_A = "11111111-1111-1111-1111-111111111111"
+TENANT_B = "22222222-2222-2222-2222-222222222222"
+API_HASH = "a" * 64
+
+
+def canonical_role(tenant_id: str, viewer: str = "agent") -> str:
+    return f"soul_sdk_t_{tenant_id.replace('-', '')}_{viewer}"
+
+
+def role_row(tenant_id: str, viewer: str = "agent") -> dict[str, str]:
+    return {"tenant_id": tenant_id, "db_role": canonical_role(tenant_id, viewer)}
+
+
+class UndefinedFunctionError(RuntimeError):
+    sqlstate = "42883"
 
 
 def test_hash_api_key_is_sha256_and_rejects_empty() -> None:
@@ -260,18 +294,25 @@ def test_reject_tenant_override_checks_header_query_and_payload() -> None:
 
 
 @pytest.mark.asyncio
-async def test_set_tenant_context_uses_runtime_role_and_local_guc() -> None:
-    conn = FakeConn()
+async def test_set_tenant_context_uses_hash_resolved_role_not_tenant_guc() -> None:
+    conn = FakeConn(row=role_row(TENANT_A))
     tenant = TenantContext(
-        tenant_id="11111111-1111-1111-1111-111111111111",
-        api_key_hash="hash",
+        tenant_id=TENANT_A,
+        api_key_hash=API_HASH,
     )
-    await set_tenant_context(conn, tenant)
+    identity = await set_tenant_context(conn, tenant)
 
-    assert conn.execute_calls[0] == (f"SET LOCAL ROLE {SDK_RUNTIME_ROLE}", ())
+    resolver_sql, resolver_args = conn.fetchrow_calls[0]
+    assert resolver_args == (API_HASH, "agent")
+    assert "sdk_resolve_tenant_role_for_key_hash($1, $2)" in resolver_sql
+    assert TENANT_A not in resolver_sql
+    assert identity.db_role == canonical_role(TENANT_A)
+    assert not identity.legacy_internal_fallback
+
+    assert conn.execute_calls[0] == (f"SET LOCAL ROLE {canonical_role(TENANT_A)}", ())
     assert conn.execute_calls[1] == (
         "SELECT set_config('app.tenant_id', $1, true)",
-        ("11111111-1111-1111-1111-111111111111",),
+        ("",),
     )
     assert conn.execute_calls[2] == (
         "SELECT set_config('app.agent', $1, true)",
@@ -289,10 +330,10 @@ async def test_set_tenant_context_uses_runtime_role_and_local_guc() -> None:
 
 @pytest.mark.asyncio
 async def test_set_tenant_context_sets_optional_agent_guc() -> None:
-    conn = FakeConn()
+    conn = FakeConn(row=role_row(TENANT_A))
     tenant = TenantContext(
-        tenant_id="11111111-1111-1111-1111-111111111111",
-        api_key_hash="hash",
+        tenant_id=TENANT_A,
+        api_key_hash=API_HASH,
         agent_id="support_bot",
     )
     await set_tenant_context(conn, tenant)
@@ -305,10 +346,10 @@ async def test_set_tenant_context_sets_optional_agent_guc() -> None:
 
 @pytest.mark.asyncio
 async def test_set_tenant_context_sets_optional_viewer_gucs() -> None:
-    conn = FakeConn()
+    conn = FakeConn(row=role_row(TENANT_A, "user"))
     tenant = TenantContext(
-        tenant_id="11111111-1111-1111-1111-111111111111",
-        api_key_hash="hash",
+        tenant_id=TENANT_A,
+        api_key_hash=API_HASH,
         viewer="user",
         user_id="william",
     )
@@ -325,33 +366,150 @@ async def test_set_tenant_context_sets_optional_viewer_gucs() -> None:
 
 
 @pytest.mark.asyncio
-async def test_set_tenant_context_uses_user_role_for_user_viewer() -> None:
-    conn = FakeConn()
+async def test_set_tenant_context_uses_tenant_specific_user_role() -> None:
+    conn = FakeConn(row=role_row(TENANT_A, "user"))
     tenant = TenantContext(
-        tenant_id="11111111-1111-1111-1111-111111111111",
-        api_key_hash="hash",
+        tenant_id=TENANT_A,
+        api_key_hash=API_HASH,
         viewer="user",
         user_id="william",
     )
     await set_tenant_context(conn, tenant)
 
-    assert conn.execute_calls[0] == (f"SET LOCAL ROLE {SDK_USER_ROLE}", ())
+    assert conn.execute_calls[0] == (
+        f"SET LOCAL ROLE {canonical_role(TENANT_A, 'user')}",
+        (),
+    )
 
 
 @pytest.mark.asyncio
 async def test_tenant_transaction_can_scope_user_viewer() -> None:
-    conn = FakeConn()
+    conn = FakeConn(row=role_row(TENANT_A, "user"))
     tenant = TenantContext(
-        tenant_id="11111111-1111-1111-1111-111111111111",
-        api_key_hash="hash",
+        tenant_id=TENANT_A,
+        api_key_hash=API_HASH,
     )
 
     async with tenant_transaction(FakePool(conn), tenant, viewer="user", user_id="william"):
         pass
 
-    assert conn.execute_calls[0] == (f"SET LOCAL ROLE {SDK_USER_ROLE}", ())
+    assert conn.fetchrow_calls[0][1] == (API_HASH, "user")
+    assert conn.execute_calls[0] == (
+        f"SET LOCAL ROLE {canonical_role(TENANT_A, 'user')}",
+        (),
+    )
     assert conn.execute_calls[3] == ("SELECT set_config('app.viewer', $1, true)", ("user",))
     assert conn.execute_calls[4] == ("SELECT set_config('app.user_id', $1, true)", ("william",))
+
+
+@pytest.mark.asyncio
+async def test_resolver_fails_closed_for_missing_mapping() -> None:
+    conn = FakeConn(row=None)
+    tenant = TenantContext(TENANT_A, API_HASH)
+
+    with pytest.raises(TenantAuthError, match="tenant_db_role_unmapped"):
+        await set_tenant_context(conn, tenant)
+    assert conn.execute_calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("row", "error"),
+    (
+        ({"tenant_id": TENANT_B, "db_role": canonical_role(TENANT_B)}, "tenant_db_identity_mismatch"),
+        ({"tenant_id": TENANT_A, "db_role": SDK_RUNTIME_ROLE}, "tenant_db_role_mismatch"),
+    ),
+)
+async def test_resolver_rejects_tenant_or_role_mismatch(
+    row: dict[str, str],
+    error: str,
+) -> None:
+    conn = FakeConn(row=row)
+    with pytest.raises(TenantAuthError, match=error):
+        await resolve_tenant_db_identity(conn, TenantContext(TENANT_A, API_HASH))
+    assert conn.execute_calls == []
+
+
+@pytest.mark.asyncio
+async def test_resolver_rejects_non_sha256_context_hash() -> None:
+    conn = FakeConn(row=role_row(TENANT_A))
+    with pytest.raises(TenantAuthError, match="invalid_api_key"):
+        await resolve_tenant_db_identity(conn, TenantContext(TENANT_A, "not-a-hash"))
+    assert conn.fetchrow_calls == []
+
+
+@pytest.mark.asyncio
+async def test_resolver_rejects_malformed_database_result() -> None:
+    conn = FakeConn(row={"tenant_id": TENANT_A})
+    with pytest.raises(TenantAuthError, match="tenant_db_role_resolution_failed"):
+        await resolve_tenant_db_identity(conn, TenantContext(TENANT_A, API_HASH))
+    assert conn.execute_calls == []
+
+
+@pytest.mark.asyncio
+async def test_rollout_fallback_is_only_internal_and_only_when_function_missing() -> None:
+    internal_conn = FakeConn(
+        fetchrow_error=UndefinedFunctionError("missing"),
+        fetchval_value=True,
+    )
+    internal = TenantContext(INTERNAL_TENANT_ID, API_HASH)
+
+    identity = await set_tenant_context(internal_conn, internal)
+    assert identity.legacy_internal_fallback
+    assert identity.db_role == SDK_RUNTIME_ROLE
+    legacy_sql, legacy_args = internal_conn.fetchval_calls[0]
+    assert legacy_args == (API_HASH, INTERNAL_TENANT_ID)
+    assert "count(*) = 1" in legacy_sql
+    assert "revoked_at" in legacy_sql
+    assert "expires_at" in legacy_sql
+    assert internal_conn.execute_calls[0] == (f"SET LOCAL ROLE {SDK_RUNTIME_ROLE}", ())
+    assert internal_conn.execute_calls[1] == (
+        "SELECT set_config('app.tenant_id', $1, true)",
+        (INTERNAL_TENANT_ID,),
+    )
+
+    external_conn = FakeConn(fetchrow_error=UndefinedFunctionError("missing"))
+    with pytest.raises(TenantAuthError, match="tenant_db_role_resolver_unavailable"):
+        await set_tenant_context(external_conn, TenantContext(TENANT_A, API_HASH))
+    assert external_conn.execute_calls == []
+
+    internal_user_conn = FakeConn(
+        fetchrow_error=UndefinedFunctionError("missing"),
+        fetchval_value=True,
+    )
+    internal_user = TenantContext(
+        INTERNAL_TENANT_ID,
+        API_HASH,
+        viewer="user",
+        user_id="william",
+    )
+    user_identity = await set_tenant_context(internal_user_conn, internal_user)
+    assert user_identity.db_role == SDK_USER_ROLE
+    assert user_identity.legacy_internal_fallback
+
+    unsupported_conn = FakeConn(fetchrow_error=UndefinedFunctionError("missing"))
+    with pytest.raises(TenantAuthError, match="tenant_db_viewer_unmapped"):
+        await set_tenant_context(
+            unsupported_conn,
+            TenantContext(INTERNAL_TENANT_ID, API_HASH, viewer="admin", user_id="william"),
+        )
+    assert unsupported_conn.fetchrow_calls == []
+
+    revoked_conn = FakeConn(
+        fetchrow_error=UndefinedFunctionError("missing"),
+        fetchval_value=False,
+    )
+    with pytest.raises(TenantAuthError, match="invalid_api_key"):
+        await set_tenant_context(revoked_conn, internal)
+    assert revoked_conn.execute_calls == []
+
+
+@pytest.mark.asyncio
+async def test_installed_resolver_never_falls_back_for_internal_unmapped_role() -> None:
+    conn = FakeConn(row=None)
+    with pytest.raises(TenantAuthError, match="tenant_db_role_unmapped"):
+        await set_tenant_context(conn, TenantContext(INTERNAL_TENANT_ID, API_HASH))
+    assert conn.execute_calls == []
 
 
 def test_memory_insert_payload_adds_trusted_tenant_and_rejects_client_tenant() -> None:
