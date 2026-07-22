@@ -281,14 +281,36 @@ async def check_db_anchors() -> dict[str, Any]:
     sys.path.insert(0, str(MEMORY))
     try:
         import asyncpg
-        from seal_secrets import pg_dsn
+        from db import resolve_mcp_agent_db_url
     except Exception as exc:
         return {"ok": False, "error": f"import failed: {exc}"}
     try:
-        conn = await asyncpg.connect(pg_dsn(required=True))
+        # The shared ``mcp_runtime`` login was deliberately retired.  Anchor
+        # health must exercise the same hard per-agent identity used by the
+        # live MCP server; otherwise the guard either fails on the retired
+        # credential or silently validates a boundary production no longer
+        # uses.
+        agent_cred_dir = Path.home() / ".config" / "seal" / "mcp_agents"
+        runtime_url = resolve_mcp_agent_db_url(
+            "ADA",
+            {"SEAL_MCP_AGENT_CRED_DIR": str(agent_cred_dir)},
+        )
+        conn = await asyncpg.connect(
+            runtime_url,
+            server_settings={"application_name": "seal_core_guard_ada"},
+        )
     except Exception as exc:
         return {"ok": False, "error": f"connect failed: {exc}"}
     try:
+        # The guard runs through a least-privilege login.  Without explicit RLS
+        # context valid ADA anchors are invisible and health reports a false
+        # RED even though the rows exist.  The check remains read-only.
+        await conn.execute(
+            "SELECT set_config('app.tenant_id', $1, false)",
+            "00000000-0000-0000-0000-000000000000",
+        )
+        await conn.execute("SELECT set_config('app.agent', 'ADA', false)")
+        await conn.execute("SELECT set_config('app.viewer', 'agent', false)")
         rows = await conn.fetch(
             """
             SELECT id, category, metadata, invalid_at IS NULL AS valid

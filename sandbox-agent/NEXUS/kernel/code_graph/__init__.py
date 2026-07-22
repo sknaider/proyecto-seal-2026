@@ -17,7 +17,7 @@ Usage:
     results = await hybrid_search(conn, "authentication", walk_depth=1)
 """
 
-from .indexer import index_source, index_file, resolve_edges
+from .indexer import index_source, index_source_with_connection, index_file, resolve_edges
 from .hybrid_search import hybrid_search, rrf_fusion, keyword_search, vector_search
 from .two_pass import expand_anchors, hydrate_chunks, ChunkScore
 from .edge_extractor import extract_call_edges, find_chunk_for_byte, ExtractedEdge
@@ -38,6 +38,7 @@ async def apply_schema(dsn: str) -> None:
 __all__ = [
     "apply_schema",
     "index_source",
+    "index_source_with_connection",
     "index_file",
     "resolve_edges",
     "hybrid_search",

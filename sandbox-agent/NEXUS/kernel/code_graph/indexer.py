@@ -153,13 +153,18 @@ def _extract_symbols(root_node, source: bytes, language: str,
 async def index_file(conn: asyncpg.Connection, source_id: int,
                      file_path: str, root_path: str) -> int:
     """Parse one file and upsert chunks + edges. Returns chunk count."""
-    abs_path = os.path.join(root_path, file_path)
+    root = Path(root_path).expanduser().resolve(strict=True)
+    abs_path = (root / file_path).resolve(strict=True)
+    try:
+        abs_path.relative_to(root)
+    except ValueError as exc:
+        raise PermissionError(f"source file escapes repository root: {file_path}") from exc
     ext = Path(file_path).suffix.lower()
     language = SUPPORTED.get(ext)
     if language is None:
         return 0
 
-    source = Path(abs_path).read_bytes()
+    source = abs_path.read_bytes()
     content_hash = hashlib.sha256(source).hexdigest()
 
     existing = await conn.fetchrow(
@@ -236,54 +241,80 @@ async def index_file(conn: asyncpg.Connection, source_id: int,
 async def index_source(dsn: str, root_path: str, name: str,
                        extensions: Optional[set[str]] = None,
                        skip_dirs: Optional[set[str]] = None) -> dict:
-    """Walk root_path and index all supported code files."""
+    """Compatibility wrapper for trusted CLI callers with an explicit DSN."""
+    conn = await asyncpg.connect(dsn)
+    try:
+        return await index_source_with_connection(
+            conn,
+            root_path,
+            name,
+            extensions=extensions,
+            skip_dirs=skip_dirs,
+        )
+    finally:
+        await conn.close()
+
+
+async def index_source_with_connection(
+    conn: asyncpg.Connection,
+    root_path: str,
+    name: str,
+    extensions: Optional[set[str]] = None,
+    skip_dirs: Optional[set[str]] = None,
+) -> dict:
+    """Index a repository using a caller-supplied scoped DB connection.
+
+    The MCP route uses this entrypoint so credentials never enter argv, a
+    temporary file, subprocess environment, or a second unscoped connection.
+    """
     skip_dirs = skip_dirs or {"__pycache__", ".git", "node_modules", ".venv",
                               "venv", "dist", "build", ".mypy_cache"}
     extensions = extensions or set(SUPPORTED.keys())
+    root = Path(root_path).expanduser().resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError(f"repository root is not a directory: {root}")
 
-    conn = await asyncpg.connect(dsn)
-    try:
-        source_id = await conn.fetchval(
+    source_id = await conn.fetchval(
             """
             INSERT INTO cgraph_sources (root_path, name)
             VALUES ($1, $2)
             ON CONFLICT (root_path) DO UPDATE SET name=EXCLUDED.name
             RETURNING id
             """,
-            root_path, name,
+            str(root), name,
         )
 
-        files = []
-        for dirpath, dirnames, filenames in os.walk(root_path):
-            dirnames[:] = [d for d in dirnames if d not in skip_dirs]
-            for fn in filenames:
-                ext = Path(fn).suffix.lower()
-                if ext in extensions:
-                    rel = os.path.relpath(os.path.join(dirpath, fn), root_path)
-                    files.append(rel)
+    files = []
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+        for fn in filenames:
+            ext = Path(fn).suffix.lower()
+            if ext in extensions:
+                rel = os.path.relpath(os.path.join(dirpath, fn), root)
+                files.append(rel)
 
-        total_chunks = 0
-        indexed_files = 0
-        for fp in files:
-            try:
-                n = await index_file(conn, source_id, fp, root_path)
-                if n > 0:
-                    indexed_files += 1
-                    total_chunks += n
-            except Exception as e:
-                pass
+    total_chunks = 0
+    indexed_files = 0
+    skipped_files = 0
+    for fp in files:
+        try:
+            n = await index_file(conn, source_id, fp, str(root))
+            if n > 0:
+                indexed_files += 1
+                total_chunks += n
+        except (OSError, PermissionError, ValueError):
+            skipped_files += 1
 
-        edges_resolved = await resolve_edges(conn, source_id)
+    edges_resolved = await resolve_edges(conn, source_id)
 
-        return {
-            "source_id": source_id,
-            "files_scanned": len(files),
-            "files_indexed": indexed_files,
-            "chunks_created": total_chunks,
-            "edges_resolved": edges_resolved,
-        }
-    finally:
-        await conn.close()
+    return {
+        "source_id": source_id,
+        "files_scanned": len(files),
+        "files_indexed": indexed_files,
+        "files_skipped": skipped_files,
+        "chunks_created": total_chunks,
+        "edges_resolved": edges_resolved,
+    }
 
 
 async def resolve_edges(conn: asyncpg.Connection, source_id: int) -> int:
