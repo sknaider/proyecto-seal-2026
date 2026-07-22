@@ -30,11 +30,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
 
-CONTAINER = "soul-api-server-legacy-8766"
+CONTAINER = os.environ.get(
+    "SEAL_LEGACY_ROLLBACK_CONTAINER",
+    "soul-api-v1-rollback-20260722",
+)
 # rutas de infra/monitoreo — NO son tráfico de consumidor real
 INFRA = ("/health", "/openapi.json", "/metrics", "/docs", "/redoc", "/favicon.ico", "/")
 # línea uvicorn: <ts> INFO:  <ip>:<port> - "GET /path HTTP/1.1" 200 OK
@@ -96,8 +100,11 @@ def collect(window_min: int, tail: int = 5000, container: str = CONTAINER):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--window-min", type=int, default=15)
-    ap.add_argument("--container", default=CONTAINER,
-                    help="nombre del contenedor (usar el de cuarentena si fue renombrado)")
+    ap.add_argument(
+        "--container",
+        default=CONTAINER,
+        help="contenedor de cuarentena (o SEAL_LEGACY_ROLLBACK_CONTAINER)",
+    )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
