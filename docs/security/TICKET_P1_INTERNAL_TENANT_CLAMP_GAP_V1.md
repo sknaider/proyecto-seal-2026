@@ -83,7 +83,27 @@ Es el único **LOGIN directo** sin clamp con GRANT `SELECT` en `memories` e `inn
 Miembro de `chat_msg_ro` (inherit=False, set_option=True). Es el vector más directo (login real →
 sin RESTRICTIVE → filtro solo por GUC settable). Cerrarlo primero.
 
-## 6. Migración PROPUESTA — SQL concreto (NO aplicada; cero DDL; decide/ejecuta ADA)
+## 6. Migración + tests — ARTEFACTOS REALES (rev 2; NO aplicados; cero DDL)
+
+Los artefactos ejecutables viven en `docs/security/p1_internal_tenant_clamp/`:
+- **`001_internal_tenant_clamp_up.sql`** — migración UP.
+- **`001_internal_tenant_clamp_down.sql`** — rollback DOWN.
+- **`test_internal_tenant_clamp.py`** — pytest real (asyncpg), con control positivo.
+
+**Los 5 fallos del RED de ADA, corregidos:**
+1. **`current_user` bajo inherit sigue siendo `login_*`** → el seed mapea AMBOS (`login_*` y
+   `pr_*/svc_*`), no solo `pr_*`. Sin esto: identidad NULL → servicios rotos.
+2. **`EXECUTE`**: revocado de PUBLIC **y GRANTeado** a los roles afectados.
+3. **Función `SECURITY DEFINER`**, owner `soul_rls_definer` NOLOGIN/NOINHERIT/NOSUPER/NOBYPASSRLS,
+   `search_path` fijo, grants mínimos (el invoker solo necesita EXECUTE).
+4. **Seed valida igualdad o ABORTA** (`RAISE EXCEPTION` si hay binding con otro tenant) en vez de
+   `ON CONFLICT DO NOTHING` que ocultaba conflictos.
+5. **`.sql` + rollback + pytest reales** (no pseudocódigo); el test incluye **control positivo**
+   (sin la política la fuga es visible → prueba que el test detecta fugas de verdad).
+
+Extracto del SQL (fuente completa en el archivo):
+
+### 6 (referencia inline resumida — SQL concreto NO aplicado)
 
 Identidad DURA no-settable: el tenant del rol interno se deriva de `current_user` vía una tabla de
 binding (mismo patrón infalsificable que `sdk_current_tenant_id()`), NUNCA del GUC `app.tenant_id`.

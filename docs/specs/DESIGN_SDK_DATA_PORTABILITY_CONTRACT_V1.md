@@ -1,13 +1,14 @@
-# SOUL SDK — Contrato de Portabilidad de Datos (v4, DISEÑO)
+# SOUL SDK — Contrato de Portabilidad de Datos (v5, DISEÑO)
 
 **Owner arquitectura:** JARVIS · **Gate de seguridad/aislamiento:** ADA · **Fecha:** 2026-07-22
 **Scope:** DISEÑO / SPEC — **NO implementa; artefacto para re-gate read-only de ADA.**
 **Origen:** orden de William (foso = valor/identidad, no cautiverio) + contrato de primera clase
 pedido por ADA. Consistente con `export ≠ leak` y la corrección #5 del doc DNI-licensing.
 
-> **v4 = v3 + la SELECCIÓN NORMATIVA ÚNICA de cripto exigida en el re-gate de ADA** (fijar una
-> primitiva, no alternativas). v3 integró los 3 residuos técnicos; v2 las 5 precisiones. Integrado
-> por JARVIS. Estado: **borrador, re-gate ADA. Sin implementación.**
+> **v5 = v4 + 2 correcciones del re-gate "casi GREEN" de ADA:** `DOMAIN_TAG_BYTES` con NUL real
+> definido sin ambigüedad, y `signing_kid`≠`kek_kid` + `plaintext_sha256` aclarado como integridad
+> BINARIA (no semántica). v4 fijó la cripto normativa única; v3 los 3 residuos; v2 las 5
+> precisiones. Integrado por JARVIS. Estado: **borrador, re-gate ADA. Sin implementación.**
 
 ---
 
@@ -70,26 +71,32 @@ Sin alternativas: "bytes exactos" exige UNA opción fija, no un menú.
 - **Firma: Ed25519** (consistente con el DNI-licensing). `alg = "Ed25519"` fijo; rechazo de `alg`
   desconocido o `none`.
 - **Preimagen EXACTA con dominio fijo:** la firma se calcula sobre
-  `DOMAIN_TAG_BYTES || JCS(manifest_UTF8)`, donde `DOMAIN_TAG_BYTES` = los bytes UTF-8 del literal
-  fijo **`"soul-export-manifest-v1\x00"`** (separador `\x00` incluido). Nada más entra en la
-  preimagen. Firma sobre esos bytes, no sobre una re-serialización.
-- **`kid` explícito** identifica la llave. **Clave separada por propósito** (dura): la de firma de
-  manifiesto ≠ la KEK de datos ≠ la de identidad; ninguna se reutiliza entre propósitos.
+  `DOMAIN_TAG_BYTES || JCS(manifest_UTF8)`, donde
+  **`DOMAIN_TAG_BYTES = b"soul-export-manifest-v1\x00"`** — 24 bytes: los 23 bytes ASCII de
+  `soul-export-manifest-v1` seguidos de **un byte NUL real `0x00`** (no la secuencia de 4
+  caracteres `\`,`x`,`0`,`0`). Nada más entra en la preimagen. Firma sobre esos bytes, no sobre
+  una re-serialización.
+- **`signing_kid` explícito** identifica la llave de FIRMA (distinta de `kek_kid`, ver §5.2).
+  **Clave separada por propósito** (dura): firma de manifiesto ≠ KEK de datos ≠ identidad; ninguna
+  se reutiliza entre propósitos.
 
 ### 5.2 Cifrado de datos — SELECCIÓN NORMATIVA ÚNICA (residuo #1 v3, re-gate)
 
 - **AEAD: AES-256-GCM, OBLIGATORIO** (sin ChaCha como alternativa). **Nonce: 96 bits (12 bytes),
   generado por CSPRNG, ÚNICO por export** (nunca reusar un nonce con la misma clave).
 - **AAD canonicalizado:** el AAD son los bytes **JCS** de la cabecera `{export_subject_id,
-  schema_version, contract_version, kid}` — así el ciphertext queda ligado a su metadato exacto y
-  no se puede mezclar cabecera de un export con datos de otro.
+  schema_version, contract_version, kek_kid}` — así el ciphertext queda ligado a su metadato exacto
+  y no se puede mezclar cabecera de un export con datos de otro.
 - **Envoltura de la clave de datos (KEK): AES-256-KW (RFC 3394), OBLIGATORIO.** La clave de datos
-  por export se envuelve con la KEK vía key-wrap determinista RFC 3394.
+  por export se envuelve con la KEK vía key-wrap determinista RFC 3394. **`kek_kid`** identifica la
+  KEK (distinto de `signing_kid`).
 - **URL firmada ≠ cifrado** (precisión ADA): la URL controla ACCESO; el AEAD protege el CONTENIDO.
-- **Qué cubre cada checksum (residuo #1/#3):** **`plaintext_sha256`** = SHA-256 sobre los **bytes
-  PLAINTEXT canónicos exactos** del export (integridad semántica, sobrevive al descifrado),
-  declarado con ese nombre en el manifiesto. El **tag AEAD (GCM)** cubre el **CIPHERTEXT**
-  (no-manipulación en transporte). Son dos cosas distintas y el manifiesto las declara por separado.
+- **Qué cubre cada checksum (residuo #1/#3, corregido):** **`plaintext_sha256`** = SHA-256 sobre
+  los **bytes PLAINTEXT canónicos exactos** del export — es **integridad BINARIA del plaintext**
+  (que los bytes descifrados no cambiaron), **NO** equivalencia semántica. La equivalencia
+  semántica del round-trip (§7.1) es OTRA cosa y NO usa este hash (los IDs se remapean → bytes
+  distintos). El **tag AEAD (GCM)** cubre el **CIPHERTEXT** (no-manipulación en transporte). Las
+  tres cosas —`plaintext_sha256`, tag AEAD, equivalencia semántica— son distintas y separadas.
 
 ## 6. Entrega + autorización (precisión #3 de ADA)
 
@@ -134,5 +141,6 @@ modelo/versión en el manifiesto para recomputar); datos de otros tenants, DMs o
 - **FUERA de scope sin gate:** construir el endpoint, tocar datos reales, generar un export vivo.
 
 ---
-**Estado:** v4 con la selección normativa única de cripto (RFC 8785 / Ed25519 / AES-256-GCM /
-AES-256-KW / SHA-256) integrada por JARVIS. Para su re-gate read-only. No implementa nada.
+**Estado:** v5 — cripto normativa única (RFC 8785 / Ed25519 / AES-256-GCM / AES-256-KW / SHA-256)
++ `DOMAIN_TAG_BYTES` NUL-real + `signing_kid`≠`kek_kid` + `plaintext_sha256`=integridad binaria.
+Para su re-gate read-only. No implementa nada.
