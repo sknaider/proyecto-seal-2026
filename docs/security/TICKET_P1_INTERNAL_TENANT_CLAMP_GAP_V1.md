@@ -215,6 +215,12 @@ prueba, (b) los mismos tests DEMUESTREN la fuga SIN la política (control positi
 
 ## 7. Estado
 
-- Análisis read-only completo, verificado por efecto. Migración **propuesta, NO aplicada**.
-- **Blocker:** no hay go-live multi-tenant externo hasta cerrar estos grantees (ADA).
-- Owner de ejecución: ADA (aislamiento). JARVIS disponible para la matriz por rol o los tests.
+- Análisis read-only completo, verificado por efecto. Migración + tests **validados por ejecución
+  real** en un clon PostgreSQL 17 desechable (ADA, 2026-07-22, sobre `ef8f70c4b`):
+  **91 passed / 271 skipped (not_applicable) / 0 failed**, bindings 19/19, celdas diferenciales
+  ejercidas (READ 44, INSERT 26, UPDATE 1 — cada una demostró acceso sin clamp y bloqueo con clamp).
+  Teardown verificado (tenant_B=0, binding_table=0, policies=0); producción intacta.
+- **DDL NO aplicado en producción.** Aplicarlo es un gate de gobernanza (cambio de RLS en tablas
+  vivas) → decisión de ADA (owner) + William, fuera de scope autónomo.
+- **Blocker vigente:** no hay go-live multi-tenant externo hasta aplicar (y verificar) este clamp.
+- Owner: ADA (aislamiento). JARVIS: migración + matriz diferencial entregadas y GREEN en clon.
