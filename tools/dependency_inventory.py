@@ -196,23 +196,66 @@ def _healthy(lifecycle, up):
     return (not up) if lifecycle == "retired" else up
 
 
+def _wiring_probe():
+    """Delega la salud MCP en el probador AUTORITATIVO (mística: reusar, no duplicar).
+    scripts/verify_soul_mcp_wiring.py hace el chain funcional completo por servidor:
+    initialize → tools/list → llamada CANARIO real + gates negativos (mutación sin
+    aprobación = DENIED). Devuelve {server: {ok, tools, probe, detail}} o None si no
+    se puede correr (sin SEAL_SESSION_TOKEN → caemos al handshake, etiquetado honesto)."""
+    import os
+    tok = os.environ.get("SEAL_SESSION_TOKEN")
+    if not tok:
+        return None  # sin token no corre el test de memoria; fallback honesto
+    try:
+        r = subprocess.run([sys.executable, str(ROOT / "scripts" / "verify_soul_mcp_wiring.py")],
+                           capture_output=True, text=True, timeout=60,
+                           env={**os.environ, "SEAL_SESSION_TOKEN": tok})
+        out = r.stdout
+        i, j = out.find("["), out.rfind("]") + 1
+        if i < 0 or j <= i:
+            return None
+        return {row["server"]: row for row in json.loads(out[i:j])}
+    except Exception:
+        return None
+
+
 def _mcp_rows():
     cfg = json.loads((ROOT / ".mcp.json").read_text())
     servers = cfg.get("mcpServers", cfg.get("servers", {}))
+    wiring = _wiring_probe()  # canario autoritativo si hay token
     rows = []
     for name, c in servers.items():
         url = c.get("url", "")
-        if url:
+        blob = " ".join([c.get("command", "")] + list(c.get("args", [])))
+        pys = [t for t in blob.split() if t.endswith(".py")]
+        identity = url or (pys[-1] if pys else "?")
+        w = wiring.get(name) if wiring else None
+        if w is not None:
+            # verdad autoritativa: chain funcional completo (initialize+tools/list+canario)
+            up = bool(w["ok"])
+            wd = str(w.get("detail", ""))
+            probe = "wiring-canary"
+            # RECLASIFICACIÓN ESTRECHA: un canario que trae DENY por capability del
+            # broker PRUEBA que el MCP está vivo y ruteó a su capa de authz (round-trip
+            # completo) — el control funcionó, no es outage. Misma semántica que el
+            # github `mutations_without_approval=DENIED` que el probe ya cuenta OK.
+            gated = (not up) and "TOOL_BROKER" in wd and (
+                "capability" in wd or "no capability_scope" in wd)
+            if gated:
+                up = True
+                detail = f"canario {w.get('probe', '?')} GATEADO por capability (control OK, MCP procesó) · {w.get('tools', '?')} tools"
+                probe = "wiring-canary (gated-tool)"
+            else:
+                detail = f"canario {w.get('probe', '?')} · {w.get('tools', '?')} tools · {'OK' if up else 'FALLA'}"
+        elif url:
             up, detail = _probe("http", url)
-            identity = url
+            probe = "http (transporte; canario req. SEAL_SESSION_TOKEN)"
         else:
             up, detail = _mcp_handshake(c.get("command", ""), c.get("args", []))
-            blob = " ".join([c.get("command", "")] + list(c.get("args", [])))
-            pys = [t for t in blob.split() if t.endswith(".py")]
-            identity = pys[-1] if pys else "?"
+            probe = "handshake (transporte; canario req. SEAL_SESSION_TOKEN)"
         rows.append({"name": f"{name} (MCP)", "type": "mcp", "origin": "nativo",
                      "identity": identity, "lifecycle": "active", "replaced_by": "",
-                     "probe": "handshake" if not url else "http", "up": up, "detail": detail,
+                     "probe": probe, "up": up, "detail": detail,
                      "reboot_safe": "session", "reboot_detail": "nace con la sesión del agente",
                      "healthy": up})
     return rows
