@@ -65,6 +65,14 @@ STATIC = [
      ("http", "http://172.22.0.1:8767/health"), ("unit-user", "seal-memory-sdk-gateway-prod.service")),
     ("soul-api-compat-db (5435)", "engine", "active", "",
      ("port", 5435), ("docker", "soul-api-db")),
+    # RETIRADO 22-jul 01:35 (fase-2): SOUL API v1. Transición DECLARADA legacy→retired
+    # (restaurada como fila, no borrada — el borrado perdía el audit de la transición;
+    # catch de JARVIS confirmado por ADA). Contenedor en cuarentena reversible
+    # (soul-api-v1-rollback-20260722, exited, sin autorrestart) + DB :5435 preservada.
+    # DOWN (sin listener :8766) es su estado CORRECTO. Verificable: legacy_8766_traffic_canary.py.
+    ("soul-api-v1-legacy (8766)", "gateway", "retired",
+     ":8767 gateway (172.22.0.1) + :8768 API nativa tenant-safe (absorción completada)",
+     ("port", 8766), ("none", None)),
 ]
 
 _INIT = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",

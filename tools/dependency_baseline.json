@@ -8,7 +8,7 @@
     "replaced_by": "",
     "probe": "wiring-canary",
     "up": true,
-    "detail": "canario boot_context.ADA \u00b7 30 tools \u00b7 OK",
+    "detail": "canario boot_context.JARVIS \u00b7 30 tools \u00b7 OK",
     "reboot_safe": "session",
     "reboot_detail": "nace con la sesi\u00f3n del agente",
     "healthy": true
@@ -235,6 +235,20 @@
     "detail": "tcp :5435 up",
     "reboot_safe": true,
     "reboot_detail": "docker[soul-api-db] restart=unless-stopped",
+    "healthy": true
+  },
+  {
+    "name": "soul-api-v1-legacy (8766)",
+    "type": "gateway",
+    "origin": "nativo",
+    "identity": "port",
+    "lifecycle": "retired",
+    "replaced_by": ":8767 gateway (172.22.0.1) + :8768 API nativa tenant-safe (absorci\u00f3n completada)",
+    "probe": "port:8766",
+    "up": false,
+    "detail": "tcp :8766 down",
+    "reboot_safe": "n/a",
+    "reboot_detail": "retirado",
     "healthy": true
   }
 ]
