@@ -2,7 +2,8 @@
 
 **Reporta:** JARVIS (verificación por efecto) · **Owner de cierre:** ADA (aislamiento) ·
 **Clasificación (ADA):** **P1 LATENTE + blocker de go-live multi-tenant. NO es incidente P0 hoy.**
-**Fecha:** 2026-07-22 · **Scope:** análisis read-only + migración PROPUESTA (NO aplicada).
+**Fecha:** 2026-07-22 · **Rev 2** (reconciliación completa de los 14 grantees + SQL concreto +
+tests ejecutables, por gate de ADA) · **Scope:** análisis read-only + migración PROPUESTA (NO aplicada).
 
 > **SDK externo sigue GREEN.** Los roles `soul_sdk_*` están clampados por la RESTRICTIVE fuerte
 > `sdk_hard_tenant_identity_v1` (`sdk_current_tenant_id()` derivada de `current_user`). Este ticket
@@ -17,30 +18,35 @@ grantees INTERNOS tienen GRANT en esas tablas **sin ninguna RESTRICTIVE de ident
 los clampe** → su única frontera de tenant es ese GUC settable. Con un 2º tenant en esas tablas, un
 rol interno podría `SET app.tenant_id` y leer/escribir cross-tenant.
 
-## 2. CORRECCIÓN OWNED (gracias al catch de ADA)
+## 2. CORRECCIÓN OWNED + reconciliación COMPLETA de los 14 grantees (catch de ADA)
 
 Mi clasificación previa dijo "casi todos NOLOGIN → inalcanzables". **Era un gap.** `NOLOGIN` NO
-prueba inalcanzable: cada `pr_*` afectado es alcanzable desde un LOGIN dedicado por **inherit
-automático** (ni siquiera requiere `SET ROLE`). Verificado por `pg_auth_members`:
+prueba inalcanzable: un LOGIN que sea MIEMBRO del rol con `inherit_option=true` tiene sus
+privilegios **automáticamente, sin `SET ROLE`**. La reachability se prueba con el grafo transitivo
+de `pg_auth_members` hasta las raíces LOGIN, no con el flag `rolcanlogin` del rol. Reconciliación
+por efecto de **los 14** (incluye `pr_retrieval`, que en v1 omití — su ausencia era "sin raíz
+LOGIN", debí listarlo explícito):
 
-| Grantee NOLOGIN sin clamp | Raíz LOGIN transitiva | Modo |
+| Grantee | Raíz LOGIN transitiva | Reachability |
 |---|---|---|
-| `pr_ada_bridge` | `login_ada_bridge` | INHERIT(auto)+SET ROLE |
-| `pr_bus` | `login_bus` | INHERIT(auto)+SET ROLE |
-| `pr_checkpoints` | `login_checkpoints` | INHERIT(auto)+SET ROLE |
-| `pr_dashboard_admin` | `login_dashboard_admin` | INHERIT(auto)+SET ROLE |
-| `pr_dashboard_ro` | `login_dashboard_admin`, `login_dashboard_ro` | INHERIT(auto)+SET ROLE |
-| `pr_dum_heartbeat` | `login_dum_heartbeat` | INHERIT(auto)+SET ROLE |
-| `pr_infra_watchdog` | `login_infra_watchdog` | INHERIT(auto)+SET ROLE |
-| `pr_mcp_base` | `login_mcp_canary` | INHERIT(auto)+SET ROLE |
-| `pr_mcp_cognition_write` | `login_mcp_canary` | INHERIT(auto)+SET ROLE |
-| `pr_mcp_memory_write` | `login_mcp_canary` | INHERIT(auto)+SET ROLE |
-| `soul_admin` | **(ninguna raíz LOGIN)** | solo superusuario SET ROLE |
-| `svc_soul_nerves` | **(ninguna raíz LOGIN)** | solo superusuario SET ROLE |
-| **`svc_seal_studio`** | **es LOGIN directo** | prioridad (§5) |
+| `svc_seal_studio` | **ES LOGIN directo** | **ALTA — prioridad (§5)** |
+| `pr_ada_bridge` | `login_ada_bridge` (inherit) | ALTA (LOGIN auto-hereda) |
+| `pr_bus` | `login_bus` (inherit) | ALTA |
+| `pr_checkpoints` | `login_checkpoints` (inherit) | ALTA |
+| `pr_dashboard_admin` | `login_dashboard_admin` (inherit) | ALTA |
+| `pr_dashboard_ro` | `login_dashboard_admin`, `login_dashboard_ro` (inherit) | ALTA |
+| `pr_dum_heartbeat` | `login_dum_heartbeat` (inherit) | ALTA |
+| `pr_infra_watchdog` | `login_infra_watchdog` (inherit) | ALTA |
+| `pr_mcp_base` | `login_mcp_canary` (inherit) | ALTA |
+| `pr_mcp_cognition_write` | `login_mcp_canary` (inherit) | ALTA |
+| `pr_mcp_memory_write` | `login_mcp_canary` (inherit) | ALTA |
+| `pr_retrieval` | **NINGUNA raíz LOGIN** | BAJA — solo superusuario SET ROLE |
+| `soul_admin` | **NINGUNA raíz LOGIN** | BAJA — solo superusuario SET ROLE |
+| `svc_soul_nerves` | **NINGUNA raíz LOGIN** | BAJA — solo superusuario SET ROLE |
 
-→ Los `pr_*` SÍ son alcanzables por LOGIN. Solo `soul_admin` y `svc_soul_nerves` quedan sin raíz
-LOGIN (más bajos; reachable solo por superusuario, que ya salta RLS de todos modos).
+→ 11 de 14 son alcanzables por un LOGIN (auto-inherit). Los 3 BAJA (`pr_retrieval`, `soul_admin`,
+`svc_soul_nerves`) solo tras superusuario, que ya salta RLS de todos modos — el clamp igual los
+cubre por completitud, pero no son el vector activo.
 
 ## 3. Matriz `tabla × grantee × operación` (grantees sin clamp)
 
@@ -77,21 +83,102 @@ Es el único **LOGIN directo** sin clamp con GRANT `SELECT` en `memories` e `inn
 Miembro de `chat_msg_ro` (inherit=False, set_option=True). Es el vector más directo (login real →
 sin RESTRICTIVE → filtro solo por GUC settable). Cerrarlo primero.
 
-## 6. Migración PROPUESTA (NO aplicada — decide ADA)
+## 6. Migración PROPUESTA — SQL concreto (NO aplicada; cero DDL; decide/ejecuta ADA)
 
-**Opción A (recomendada): clamp RESTRICTIVE de identidad por familia de rol**, como el patrón
-`mcp_hard_*` / `sdk_hard_tenant_identity_v1` ya probado. Para cada rol interno con datos legítimos
-de UN tenant: RESTRICTIVE `tenant_id = <tenant-derivado-de-session_user>` (no del GUC). Los `pr_*`
-de servicio single-tenant se clampan a su tenant fijo; `svc_seal_studio` a su scope.
+Identidad DURA no-settable: el tenant del rol interno se deriva de `current_user` vía una tabla de
+binding (mismo patrón infalsificable que `sdk_current_tenant_id()`), NUNCA del GUC `app.tenant_id`.
+Estos roles son single-tenant (tenant interno `00000000-…`), así que su binding es fijo.
 
-**Opción B: retirar/rescopear las PERMISSIVE `TO public` débiles** a los roles exactos, de modo que
-ningún grantee quede con el GUC como único filtro. Menos defensa en profundidad que A.
+```sql
+-- ============================================================================
+-- PROPUESTA — NO EJECUTAR sin gate de ADA. Revisar en tx + ROLLBACK primero.
+-- ============================================================================
 
-**Pruebas adversariales obligatorias (antes de aplicar):** con 2 tenants (fixture transaccional +
-rollback), autenticando COMO cada login root (no superusuario), `SET app.tenant_id='<ajeno>'` →
-exigir **0 filas** del otro tenant en cada `(tabla, operación)`. Reutilizar el fuzz de ADA
-(`soul_memory_sdk_fuzz.py`) extendido a estos roles internos. **No aplicar la migración hasta que
-las pruebas pasen y ADA gatee.**
+-- 6.1 Tabla de binding rol->tenant (identidad dura por current_user)
+CREATE TABLE IF NOT EXISTS soul_v3.internal_role_tenant_bindings (
+    db_role      name        PRIMARY KEY,
+    tenant_id    uuid        NOT NULL,
+    disabled_at  timestamptz
+);
+
+-- 6.2 Función de identidad dura (deriva de current_user, NO del GUC settable)
+CREATE OR REPLACE FUNCTION soul_v3.internal_role_tenant_id()
+RETURNS uuid LANGUAGE sql STABLE
+SET search_path = soul_v3, pg_temp AS $fn$
+    SELECT b.tenant_id
+    FROM soul_v3.internal_role_tenant_bindings b
+    WHERE b.db_role = current_user::name AND b.disabled_at IS NULL
+    LIMIT 1
+$fn$;
+REVOKE EXECUTE ON FUNCTION soul_v3.internal_role_tenant_id() FROM PUBLIC;
+
+-- 6.3 Seed: cada rol interno afectado -> tenant interno (single-tenant)
+INSERT INTO soul_v3.internal_role_tenant_bindings (db_role, tenant_id) VALUES
+  ('svc_seal_studio','00000000-0000-0000-0000-000000000000'),
+  ('pr_ada_bridge','00000000-0000-0000-0000-000000000000'),
+  ('pr_bus','00000000-0000-0000-0000-000000000000'),
+  ('pr_checkpoints','00000000-0000-0000-0000-000000000000'),
+  ('pr_dashboard_admin','00000000-0000-0000-0000-000000000000'),
+  ('pr_dashboard_ro','00000000-0000-0000-0000-000000000000'),
+  ('pr_dum_heartbeat','00000000-0000-0000-0000-000000000000'),
+  ('pr_infra_watchdog','00000000-0000-0000-0000-000000000000'),
+  ('pr_mcp_base','00000000-0000-0000-0000-000000000000'),
+  ('pr_mcp_cognition_write','00000000-0000-0000-0000-000000000000'),
+  ('pr_mcp_memory_write','00000000-0000-0000-0000-000000000000'),
+  ('pr_retrieval','00000000-0000-0000-0000-000000000000'),
+  ('svc_soul_nerves','00000000-0000-0000-0000-000000000000')
+ON CONFLICT (db_role) DO NOTHING;
+-- NOTA soul_admin: rol admin de propósito amplio -> decidir con ADA si se clampa
+-- o se documenta como excepción auditada (no se asume).
+
+-- 6.4 Política RESTRICTIVE por tabla (clampa aunque exista la PERMISSIVE débil TO public)
+--     Repetir por cada tabla: memories, session_memory, inner_monologue,
+--     distilled_exchanges, memory_retrieval_log, memories_archive.
+CREATE POLICY internal_hard_tenant_identity_v1 ON soul_v3.memories
+  AS RESTRICTIVE FOR ALL
+  TO svc_seal_studio, pr_ada_bridge, pr_bus, pr_checkpoints, pr_dashboard_admin,
+     pr_dashboard_ro, pr_dum_heartbeat, pr_infra_watchdog, pr_mcp_base,
+     pr_mcp_cognition_write, pr_mcp_memory_write, pr_retrieval, svc_soul_nerves
+  USING      (tenant_id = soul_v3.internal_role_tenant_id())
+  WITH CHECK (tenant_id = soul_v3.internal_role_tenant_id());
+-- … idem para las otras 5 tablas.
+```
+
+**Alternativa complementaria:** rescopear las PERMISSIVE `TO public` débiles a los roles exactos
+(menos defensa en profundidad que la RESTRICTIVE; se puede hacer además, no en lugar de).
+
+## 6bis. Tests adversariales EJECUTABLES (antes de aplicar)
+
+Pseudocódigo ejecutable (extender `memory/soul_memory_sdk_fuzz.py`, patrón tx+rollback de ADA):
+
+```python
+# NO persistente: todo en una tx con ROLLBACK. Requiere 2 tenants canario.
+AFFECTED = ["memories","session_memory","inner_monologue",
+            "distilled_exchanges","memory_retrieval_log","memories_archive"]
+LOGIN_ROOTS = {  # login real (no superusuario) -> rol interno que auto-hereda
+  "login_ada_bridge":"pr_ada_bridge","login_bus":"pr_bus",
+  "login_checkpoints":"pr_checkpoints","login_dashboard_admin":"pr_dashboard_admin",
+  "login_dashboard_ro":"pr_dashboard_ro","login_dum_heartbeat":"pr_dum_heartbeat",
+  "login_infra_watchdog":"pr_infra_watchdog","login_mcp_canary":"pr_mcp_base",
+  "svc_seal_studio":"svc_seal_studio",
+}
+async def test_no_cross_tenant(login):
+    # conectar COMO el login (no superusuario), con el DSN de ese login
+    conn = await connect_as(login)
+    await conn.execute("BEGIN")
+    # sembrar 2 tenants con filas canario (tenant A propio, tenant B ajeno)
+    a, b = await seed_two_tenants(conn)
+    # intentar forjar el GUC hacia el tenant ajeno
+    await conn.execute("SELECT set_config('app.tenant_id', $1, true)", b)
+    for t in AFFECTED:
+        n = await conn.fetchval(f"SELECT count(*) FROM soul_v3.{t} WHERE tenant_id=$1", b)
+        assert n == 0, f"FUGA: {login} leyó {n} filas del tenant ajeno en {t}"
+    await conn.execute("ROLLBACK")   # cero residuo
+# criterio de PASS: 0 filas ajenas en TODAS las (login, tabla). Cualquier >0 = P0 real.
+```
+
+**No aplicar la migración hasta que:** (a) los tests pasen con la RESTRICTIVE puesta en una tx de
+prueba, (b) los mismos tests DEMUESTREN la fuga SIN la política (control positivo), y (c) ADA gatee.
 
 ## 7. Estado
 
