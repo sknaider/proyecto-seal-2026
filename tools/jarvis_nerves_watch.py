@@ -58,11 +58,15 @@ def check():
                         " · ".join(l.strip() for l in d.stdout.splitlines() if "ROTO" in l or "DESAPARECIÓ" in l or "REBOOT" in l))
     # 2) identidad (fail-closed ante huérfano/mismatch)
     i = _run(["--identity"])
+    if i.returncode == 2:
+        return "BROKEN", ["identity instrument unavailable"], i.stdout + i.stderr
     if i.returncode == 1:
         findings.append("IDENTIDAD: " +
                         " · ".join(l.strip() for l in i.stdout.splitlines() if "FAIL" in l))
     # 3) salud ABSOLUTA por efecto (defensa contra baseline stale/corrupto — red-team)
     a = _run(["--json"])
+    if a.returncode != 0:
+        return "BROKEN", ["absolute health instrument unavailable"], a.stdout + a.stderr
     try:
         rows = json.loads(a.stdout)
         bad = [r["name"] for r in rows
@@ -81,6 +85,7 @@ def _log(line: str):
     LOG.parent.mkdir(exist_ok=True)
     with open(LOG, "a") as f:
         f.write(line + "\n")
+    LOG.chmod(0o600)
 
 
 def main() -> int:
@@ -108,9 +113,11 @@ def main() -> int:
     if args.alert:
         try:
             subprocess.run([str(ROOT / "scripts" / "seal_send.py"), "JARVIS", "William",
-                            msg, "--channel", "web_chat", "--type", "alert"], timeout=20)
+                            msg, "--channel", "web_chat", "--type", "alert"],
+                           timeout=20, check=True)
         except Exception as e:
             print(f"  (no pudo publicar: {e})")
+            return 2
     return 1
 
 
