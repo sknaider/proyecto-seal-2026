@@ -10,7 +10,7 @@ import argparse
 import asyncio
 import json
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Iterable, Mapping
 
 import asyncpg
@@ -22,6 +22,7 @@ from soul_memory_sdk_runtime import hash_api_key, new_api_key
 DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000000"
 CREATE_CONFIRMATION = "CREATE_TENANT_KEY"
 REVOKE_CONFIRMATION = "REVOKE_TENANT_KEY"
+ROTATE_CONFIRMATION = "ROTATE_TENANT_KEY"
 ALLOWED_SCOPES = {"read", "write", "tenant:read", "*"}
 
 
@@ -41,19 +42,73 @@ def normalize_scopes(scopes: Iterable[str]) -> tuple[str, ...]:
     return normalized
 
 
-def key_record(raw_key: str, *, scopes: Iterable[str], label: str, created_by: str = "ADA") -> dict[str, Any]:
+def normalize_expiry(
+    *,
+    expires_at: str | datetime | None = None,
+    ttl_seconds: int | None = None,
+    now: datetime | None = None,
+) -> str | None:
+    """Return a canonical UTC expiry or ``None`` for legacy non-expiring keys."""
+    if expires_at is not None and ttl_seconds is not None:
+        raise KeyProvisioningError("expires_at_and_ttl_are_mutually_exclusive")
+    current = now or datetime.now(UTC)
+    if current.tzinfo is None:
+        raise KeyProvisioningError("now_must_be_timezone_aware")
+    current = current.astimezone(UTC)
+
+    if ttl_seconds is not None:
+        if isinstance(ttl_seconds, bool) or not isinstance(ttl_seconds, int) or ttl_seconds <= 0:
+            raise KeyProvisioningError("ttl_seconds_must_be_positive_integer")
+        try:
+            expiry = current + timedelta(seconds=ttl_seconds)
+        except (OverflowError, ValueError) as exc:
+            raise KeyProvisioningError("ttl_seconds_out_of_range") from exc
+    elif expires_at is None:
+        return None
+    elif isinstance(expires_at, datetime):
+        expiry = expires_at
+    elif isinstance(expires_at, str):
+        try:
+            expiry = datetime.fromisoformat(expires_at.strip().replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise KeyProvisioningError("expires_at_must_be_iso8601") from exc
+    else:
+        raise KeyProvisioningError("expires_at_must_be_iso8601")
+
+    if expiry.tzinfo is None:
+        raise KeyProvisioningError("expires_at_timezone_required")
+    expiry = expiry.astimezone(UTC)
+    if expiry <= current:
+        raise KeyProvisioningError("expires_at_must_be_future")
+    return expiry.isoformat()
+
+
+def key_record(
+    raw_key: str,
+    *,
+    scopes: Iterable[str],
+    label: str,
+    created_by: str = "ADA",
+    expires_at: str | datetime | None = None,
+    ttl_seconds: int | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
     clean_label = label.strip()
     if not clean_label:
         raise KeyProvisioningError("label_required")
     if len(clean_label) > 120:
         raise KeyProvisioningError("label_max_120_chars")
-    return {
+    record = {
         "sha256": hash_api_key(raw_key),
         "scopes": list(normalize_scopes(scopes)),
         "label": clean_label,
-        "created_at": datetime.now(UTC).isoformat(),
+        "created_at": (now or datetime.now(UTC)).astimezone(UTC).isoformat(),
         "created_by": created_by.strip() or "ADA",
     }
+    normalized_expiry = normalize_expiry(expires_at=expires_at, ttl_seconds=ttl_seconds, now=now)
+    if normalized_expiry is not None:
+        record["expires_at"] = normalized_expiry
+    return record
 
 
 def key_preview(record: Mapping[str, Any] | str) -> dict[str, Any]:
@@ -69,7 +124,9 @@ def key_preview(record: Mapping[str, Any] | str) -> dict[str, Any]:
         "hash_prefix": digest[:12],
         "scopes": record.get("scopes") or record.get("scope") or [],
         "created_at": record.get("created_at") or "",
+        "expires_at": record.get("expires_at") or "",
         "revoked_at": record.get("revoked_at") or "",
+        "rotated_to_hash_prefix": str(record.get("rotated_to_sha256") or "")[:12],
     }
 
 
@@ -82,6 +139,12 @@ async def active_label_count(conn: Any, *, tenant_id: str, label: str) -> int:
             WHERE t.id=$1::uuid
               AND key->>'label'=$2
               AND COALESCE(key->>'revoked_at', '') = ''
+              AND CASE
+                    WHEN COALESCE(key->>'expires_at', '') = '' THEN TRUE
+                    WHEN pg_input_is_valid(key->>'expires_at', 'timestamp with time zone')
+                      THEN (key->>'expires_at')::timestamptz > CURRENT_TIMESTAMP
+                    ELSE FALSE
+                  END
             """,
             tenant_id,
             label,
@@ -98,11 +161,21 @@ async def create_tenant_key(
     label: str,
     created_by: str = "ADA",
     allow_duplicate_label: bool = False,
+    expires_at: str | datetime | None = None,
+    ttl_seconds: int | None = None,
 ) -> dict[str, Any]:
-    if not allow_duplicate_label and await active_label_count(conn, tenant_id=tenant_id, label=label):
+    clean_label = label.strip()
+    if not allow_duplicate_label and await active_label_count(conn, tenant_id=tenant_id, label=clean_label):
         raise KeyProvisioningError("active_label_already_exists")
     raw_key = new_api_key()
-    record = key_record(raw_key, scopes=scopes, label=label, created_by=created_by)
+    record = key_record(
+        raw_key,
+        scopes=scopes,
+        label=clean_label,
+        created_by=created_by,
+        expires_at=expires_at,
+        ttl_seconds=ttl_seconds,
+    )
     updated = await conn.fetchval(
         """
         UPDATE soul_v3.tenants
@@ -171,6 +244,126 @@ async def revoke_tenant_key(conn: Any, *, tenant_id: str, label: str | None, has
     return int(revoked or 0)
 
 
+async def rotate_tenant_key(
+    conn: Any,
+    *,
+    tenant_id: str,
+    current_label: str | None,
+    current_hash_prefix: str | None,
+    scopes: Iterable[str],
+    new_label: str,
+    created_by: str = "ADA",
+    expires_at: str | datetime | None = None,
+    ttl_seconds: int | None = None,
+) -> dict[str, Any]:
+    """Revoke exactly one active key and append its replacement atomically."""
+    if not current_label and not current_hash_prefix:
+        raise KeyProvisioningError("current_label_or_hash_prefix_required")
+    if current_hash_prefix and len(current_hash_prefix) < 12:
+        raise KeyProvisioningError("hash_prefix_min_12_chars")
+
+    raw_key = new_api_key()
+    record = key_record(
+        raw_key,
+        scopes=scopes,
+        label=new_label,
+        created_by=created_by,
+        expires_at=expires_at,
+        ttl_seconds=ttl_seconds,
+    )
+    rotated_at = datetime.now(UTC).isoformat()
+    row = await conn.fetchrow(
+        """
+        WITH locked_tenant AS (
+            SELECT id, api_keys
+            FROM soul_v3.tenants
+            WHERE id=$1::uuid
+            FOR UPDATE
+        ), candidate AS (
+            SELECT
+                t.id,
+                count(key.ordinality) FILTER (
+                    WHERE COALESCE(key.value->>'revoked_at', '') = ''
+                      AND CASE
+                            WHEN COALESCE(key.value->>'expires_at', '') = '' THEN TRUE
+                            WHEN pg_input_is_valid(key.value->>'expires_at', 'timestamp with time zone')
+                              THEN (key.value->>'expires_at')::timestamptz > CURRENT_TIMESTAMP
+                            ELSE FALSE
+                          END
+                      AND ($2::text IS NULL OR key.value->>'label' = $2)
+                      AND ($3::text IS NULL OR left(
+                            COALESCE(key.value->>'sha256', key.value->>'hash', key.value->>'key_hash', ''),
+                            length($3)
+                          ) = $3)
+                ) AS match_count,
+                COALESCE(
+                    jsonb_agg(
+                        CASE
+                          WHEN COALESCE(key.value->>'revoked_at', '') = ''
+                           AND CASE
+                                 WHEN COALESCE(key.value->>'expires_at', '') = '' THEN TRUE
+                                 WHEN pg_input_is_valid(key.value->>'expires_at', 'timestamp with time zone')
+                                   THEN (key.value->>'expires_at')::timestamptz > CURRENT_TIMESTAMP
+                                 ELSE FALSE
+                               END
+                           AND ($2::text IS NULL OR key.value->>'label' = $2)
+                           AND ($3::text IS NULL OR left(
+                                 COALESCE(key.value->>'sha256', key.value->>'hash', key.value->>'key_hash', ''),
+                                 length($3)
+                               ) = $3)
+                          THEN jsonb_set(
+                                 jsonb_set(key.value, '{revoked_at}', to_jsonb($4::text), true),
+                                 '{rotated_to_sha256}', to_jsonb($5::text), true
+                               )
+                          ELSE key.value
+                        END
+                        ORDER BY key.ordinality
+                    ) FILTER (WHERE key.ordinality IS NOT NULL),
+                    '[]'::jsonb
+                ) AS rotated_keys
+            FROM locked_tenant AS t
+            LEFT JOIN LATERAL jsonb_array_elements(t.api_keys) WITH ORDINALITY AS key(value, ordinality)
+              ON TRUE
+            WHERE t.id=$1::uuid
+            GROUP BY t.id
+        ), updated AS (
+            UPDATE soul_v3.tenants AS t
+            SET api_keys = candidate.rotated_keys || $6::jsonb
+            FROM candidate
+            WHERE t.id=candidate.id
+              AND candidate.match_count=1
+            RETURNING jsonb_array_length(t.api_keys) AS api_keys_len
+        )
+        SELECT
+            COALESCE((SELECT match_count FROM candidate), -1)::int AS match_count,
+            (SELECT api_keys_len FROM updated) AS api_keys_len
+        """,
+        tenant_id,
+        current_label,
+        current_hash_prefix,
+        rotated_at,
+        record["sha256"],
+        json.dumps([record], sort_keys=True),
+    )
+    if not row:
+        raise KeyProvisioningError("rotation_failed")
+    match_count = int(row["match_count"])
+    if match_count == -1:
+        raise KeyProvisioningError("tenant_not_found")
+    if match_count == 0:
+        raise KeyProvisioningError("rotation_source_not_found")
+    if match_count != 1:
+        raise KeyProvisioningError("rotation_source_ambiguous")
+    if row["api_keys_len"] is None:
+        raise KeyProvisioningError("rotation_failed")
+    return {
+        "raw_key": raw_key,
+        "record": key_preview(record),
+        "api_keys_len": int(row["api_keys_len"]),
+        "rotated": 1,
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Manage SOUL Memory SDK tenant API keys.")
     parser.add_argument(
@@ -186,6 +379,9 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--label", required=True)
     create.add_argument("--created-by", default="ADA")
     create.add_argument("--allow-duplicate-label", action="store_true")
+    create_expiry = create.add_mutually_exclusive_group()
+    create_expiry.add_argument("--expires-at")
+    create_expiry.add_argument("--ttl-seconds", type=int)
     create.add_argument("--confirm", required=True)
 
     list_cmd = sub.add_parser("list", help="List non-secret key metadata.")
@@ -195,6 +391,17 @@ def build_parser() -> argparse.ArgumentParser:
     revoke.add_argument("--label")
     revoke.add_argument("--hash-prefix")
     revoke.add_argument("--confirm", required=True)
+
+    rotate = sub.add_parser("rotate", help="Atomically replace exactly one active tenant key.")
+    rotate.add_argument("--current-label")
+    rotate.add_argument("--current-hash-prefix")
+    rotate.add_argument("--scope", action="append", required=True)
+    rotate.add_argument("--new-label", required=True)
+    rotate.add_argument("--created-by", default="ADA")
+    rotate_expiry = rotate.add_mutually_exclusive_group()
+    rotate_expiry.add_argument("--expires-at")
+    rotate_expiry.add_argument("--ttl-seconds", type=int)
+    rotate.add_argument("--confirm", required=True)
     return parser
 
 
@@ -211,6 +418,8 @@ async def async_main(args: argparse.Namespace) -> dict[str, Any]:
                 label=args.label,
                 created_by=args.created_by,
                 allow_duplicate_label=args.allow_duplicate_label,
+                expires_at=args.expires_at,
+                ttl_seconds=args.ttl_seconds,
             )
         if args.command == "list":
             return {"keys": await list_tenant_keys(conn, tenant_id=args.tenant_id)}
@@ -225,6 +434,20 @@ async def async_main(args: argparse.Namespace) -> dict[str, Any]:
                     hash_prefix=args.hash_prefix,
                 )
             }
+        if args.command == "rotate":
+            if args.confirm != ROTATE_CONFIRMATION:
+                raise KeyProvisioningError(f"confirm_required:{ROTATE_CONFIRMATION}")
+            return await rotate_tenant_key(
+                conn,
+                tenant_id=args.tenant_id,
+                current_label=args.current_label,
+                current_hash_prefix=args.current_hash_prefix,
+                scopes=args.scope,
+                new_label=args.new_label,
+                created_by=args.created_by,
+                expires_at=args.expires_at,
+                ttl_seconds=args.ttl_seconds,
+            )
         raise KeyProvisioningError("unknown_command")
     finally:
         await conn.close()

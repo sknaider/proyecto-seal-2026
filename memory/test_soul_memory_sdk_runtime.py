@@ -195,6 +195,55 @@ async def test_derive_tenant_rejects_unknown_key() -> None:
         await derive_tenant_from_api_key(conn, "sk-soul-missing")
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("expires_at", ["2020-01-01T00:00:00+00:00", "not-a-date", "2026-07-22T12:00:00"])
+async def test_derive_tenant_rejects_expired_or_malformed_expiry(expires_at: str) -> None:
+    conn = FakeConn(
+        {
+            "tenant_id": "11111111-1111-1111-1111-111111111111",
+            "key_record": {
+                "sha256": hash_api_key("sk-soul-expired"),
+                "scopes": ["read"],
+                "expires_at": expires_at,
+            },
+        }
+    )
+    with pytest.raises(TenantAuthError, match="invalid_api_key"):
+        await derive_tenant_from_api_key(conn, "sk-soul-expired")
+
+    sql, _ = conn.fetchrow_calls[0]
+    assert "expires_at" in sql
+    assert "pg_input_is_valid" in sql
+
+
+@pytest.mark.asyncio
+async def test_derive_tenant_accepts_legacy_key_without_expiry() -> None:
+    conn = FakeConn(
+        {
+            "tenant_id": "11111111-1111-1111-1111-111111111111",
+            "key_record": {"sha256": hash_api_key("sk-soul-legacy"), "scopes": ["read"]},
+        }
+    )
+    tenant = await derive_tenant_from_api_key(conn, "sk-soul-legacy")
+    assert tenant.scopes == ("read",)
+
+
+@pytest.mark.asyncio
+async def test_derive_tenant_accepts_unexpired_key() -> None:
+    conn = FakeConn(
+        {
+            "tenant_id": "11111111-1111-1111-1111-111111111111",
+            "key_record": {
+                "sha256": hash_api_key("sk-soul-current"),
+                "scopes": ["read"],
+                "expires_at": "2999-01-01T00:00:00Z",
+            },
+        }
+    )
+    tenant = await derive_tenant_from_api_key(conn, "sk-soul-current")
+    assert tenant.api_key_hash == hash_api_key("sk-soul-current")
+
+
 def test_reject_tenant_override_checks_header_query_and_payload() -> None:
     with pytest.raises(TenantOverrideError):
         reject_tenant_override(headers={"X-Tenant-ID": "bad"})

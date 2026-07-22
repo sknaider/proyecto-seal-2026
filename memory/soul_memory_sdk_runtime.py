@@ -13,6 +13,7 @@ import secrets
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, AsyncIterator, Mapping
 
 
@@ -177,6 +178,29 @@ def _scopes_from_record(record: Mapping[str, Any]) -> tuple[str, ...]:
     return ("read", "write")
 
 
+def _record_is_unexpired(record: Mapping[str, Any], *, now: datetime | None = None) -> bool:
+    """Fail closed for malformed or elapsed API-key expiry metadata.
+
+    Records created before expiry support have no ``expires_at`` and remain
+    valid for backward compatibility. New records use timezone-aware ISO-8601.
+    """
+    raw_expiry = record.get("expires_at")
+    if raw_expiry in (None, ""):
+        return True
+    if not isinstance(raw_expiry, str):
+        return False
+    try:
+        expiry = datetime.fromisoformat(raw_expiry.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if expiry.tzinfo is None:
+        return False
+    current = now or datetime.now(UTC)
+    if current.tzinfo is None:
+        raise ValueError("now_must_be_timezone_aware")
+    return expiry.astimezone(UTC) > current.astimezone(UTC)
+
+
 def _tenant_lookup_sql() -> str:
     return """
         SELECT t.id::text AS tenant_id, key_record
@@ -188,6 +212,12 @@ def _tenant_lookup_sql() -> str:
             OR key_record->>'key_hash' = $1
         )
           AND COALESCE(key_record->>'revoked_at', '') = ''
+          AND CASE
+                WHEN COALESCE(key_record->>'expires_at', '') = '' THEN TRUE
+                WHEN pg_input_is_valid(key_record->>'expires_at', 'timestamp with time zone')
+                  THEN (key_record->>'expires_at')::timestamptz > CURRENT_TIMESTAMP
+                ELSE FALSE
+              END
         LIMIT 1
     """
 
@@ -211,9 +241,15 @@ async def derive_tenant_from_api_key(conn: Any, api_key: str) -> TenantContext:
 
     record = row["key_record"]
     if isinstance(record, str):
-        record = json.loads(record)
+        try:
+            record = json.loads(record)
+        except json.JSONDecodeError:
+            record = {}
     if not isinstance(record, Mapping):
         record = {}
+    if not _record_is_unexpired(record):
+        # Deliberately indistinguishable from an unknown/revoked key.
+        raise TenantAuthError("invalid_api_key")
     return TenantContext(
         tenant_id=str(row["tenant_id"]),
         api_key_hash=api_key_hash,
