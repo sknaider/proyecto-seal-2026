@@ -1,0 +1,27 @@
+FROM python@sha256:6d85378d88a19cd4d76079817532d62232be95757cb45945a99fec8e8084b9c2
+
+LABEL org.opencontainers.image.title="SOUL API v1 rollback" \
+      org.opencontainers.image.description="Immutable rollback for retired :8766 capacity" \
+      seal.rollback.source-sha256="80b6f4a06187b9b58fb221895cfa94b9f5b7ea5abd155b509fb785cfb6f84055" \
+      seal.rollback.replaced-by="soul-memory-sdk-gateway:8767,soul-memory-sdk-api:8768" \
+      seal.rollback.quarantine-expires-at="2026-08-05T23:59:59-05:00"
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+COPY requirements.rollback.txt /app/requirements.rollback.txt
+RUN python -m pip install --no-cache-dir -r /app/requirements.rollback.txt
+
+COPY main.py /app/main.py
+
+RUN useradd --create-home --uid 10001 soulapi \
+    && chown -R soulapi:soulapi /app
+USER soulapi
+
+EXPOSE 8767
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8767/health', timeout=3).read()"]
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8767", "--workers", "2"]
