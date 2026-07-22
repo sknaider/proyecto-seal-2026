@@ -473,12 +473,47 @@ def _identity_report():
     return 1 if fails else 0
 
 
+def _audit_report(results):
+    """Health audit LEGIBLE desde la fuente de verdad VIVA (no puertos hardcodeados).
+    Substrato durable para las skills de audit (seal-audit, etc.) — al consumir esto
+    en vez de hardcodear puertos, NUNCA quedan stale cuando el catálogo cambia.
+    Agrupa por tipo, marca UP/DOWN/RETIRED y "qué necesita atención"."""
+    by_type = {}
+    for r in results:
+        by_type.setdefault(r["type"], []).append(r)
+    print("═══ SOUL — Health Audit (fuente: dependency_inventory, catálogo vivo) ═══")
+    attention = []
+    for typ in ("engine", "mcp", "service", "gateway"):
+        rows = by_type.get(typ, [])
+        if not rows:
+            continue
+        print(f"\n▸ {typ.upper()}")
+        for r in rows:
+            if r["lifecycle"] == "retired":
+                mark = "RETIRED" if not r["up"] else "⚠RESUCITÓ"
+            else:
+                mark = "UP" if r["up"] else "DOWN"
+            if not r["healthy"]:
+                attention.append(r["name"])
+            print(f"    {mark:<9} {r['name']:<28} {r['detail']}")
+    total_active = [r for r in results if r["lifecycle"] in ("active", "legacy")]
+    up = sum(1 for r in total_active if r["up"])
+    print(f"\n{'─'*60}")
+    print(f"Activos: {up}/{len(total_active)} UP · Total catálogo: {len(results)}")
+    if attention:
+        print(f"⚠ NECESITA ATENCIÓN: {', '.join(attention)}")
+        return 1
+    print("✅ Todo lo activo está sano. Nada requiere atención.")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--diff", action="store_true", help="gate de regresión (fail-closed) vs baseline durable")
     ap.add_argument("--save-baseline", action="store_true", help="regenera tools/dependency_baseline.json (git-tracked)")
     ap.add_argument("--identity", action="store_true", help="verifica identidad real vs declarada por puerto (fail-closed)")
+    ap.add_argument("--audit", action="store_true", help="health audit legible desde el catálogo vivo (substrato durable para skills)")
     args = ap.parse_args()
 
     if args.identity:
@@ -495,6 +530,8 @@ def main() -> int:
         return 0
     if args.diff:
         return _diff(results)
+    if args.audit:
+        return _audit_report(results)
     return 1 if _fmt(results) else 0
 
 
