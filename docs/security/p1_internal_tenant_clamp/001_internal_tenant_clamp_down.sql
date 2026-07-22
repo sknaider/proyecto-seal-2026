@@ -23,6 +23,14 @@ DROP FUNCTION IF EXISTS soul_v3.internal_role_tenant_id();
 -- Quitar la tabla de bindings
 DROP TABLE IF EXISTS soul_v3.internal_role_tenant_bindings;
 
+-- Revertir el GRANT USAGE del schema al owner del definer (idempotente)
+DO $usage$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'soul_rls_definer') THEN
+    REVOKE USAGE ON SCHEMA soul_v3 FROM soul_rls_definer;
+  END IF;
+END $usage$;
+
 -- Quitar el owner NOLOGIN si ya no posee objetos (no forzar si algo quedó colgado)
 DO $owner$
 BEGIN

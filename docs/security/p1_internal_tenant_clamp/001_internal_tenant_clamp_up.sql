@@ -22,6 +22,12 @@ BEGIN
   END IF;
 END $owner$;
 
+-- USAGE en el schema para el owner del definer: sin esto, la función SECURITY
+-- DEFINER (que corre como soul_rls_definer) no puede resolver el objeto calificado
+-- soul_v3.* aunque POSEA la tabla -> "permission denied for schema soul_v3".
+-- (Bug encontrado por ADA ejecutando la suite real en un clon PG17.)
+GRANT USAGE ON SCHEMA soul_v3 TO soul_rls_definer;
+
 -- Tabla de binding rol->tenant (identidad dura por current_user)
 CREATE TABLE IF NOT EXISTS soul_v3.internal_role_tenant_bindings (
     db_role      name        PRIMARY KEY,
