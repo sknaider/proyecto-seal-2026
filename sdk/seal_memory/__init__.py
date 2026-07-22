@@ -8,22 +8,14 @@ Usage:
 
     client = SealMemory(api_key="soul_xxx", base_url="http://localhost:8767")
 
-    # Auto-extract facts from conversation
-    client.add("sofia", messages=[
-        {"role": "user", "content": "Me llamo María, soy ingeniera en Lima"},
-        {"role": "assistant", "content": "¡Hola María!"},
-    ])
-
-    # Search with optional LLM query expansion
-    results = client.search("sofia", query="qué estudió?", expand=True)
-
-    # Get agent soul (OCEAN, emotions, beliefs)
-    soul = client.boot("sofia")
+    client.store("sofia", "María es ingeniera en Lima")
+    results = client.recall("qué estudió?", agent_id="sofia")
 """
+
+from typing import TYPE_CHECKING, Any
 
 from .client import SealMemory
 from .async_client import AsyncSealMemory
-from .mem0_compat import MemoryClient
 from .contracts import (
     ApprovalRequest,
     MemoryRecord,
@@ -36,7 +28,11 @@ from .contracts import (
 )
 from .exceptions import SealMemoryError, AuthenticationError, RateLimitError
 
-__version__ = "0.1.1"
+if TYPE_CHECKING:
+    from .mem0_compat import MemoryClient as MemoryClient
+
+
+__version__ = "0.2.0"
 __all__ = [
     "SealMemory", "AsyncSealMemory", "MemoryClient",
     "ApprovalRequest", "MemoryRecord", "MemoryStoreRequest",
@@ -44,3 +40,12 @@ __all__ = [
     "safe_excerpt", "validate_importance",
     "SealMemoryError", "AuthenticationError", "RateLimitError",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Load optional compatibility code only when explicitly requested."""
+    if name == "MemoryClient":
+        from .mem0_compat import MemoryClient
+
+        return MemoryClient
+    raise AttributeError(name)

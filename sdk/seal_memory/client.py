@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, NoReturn
 
 import urllib.request
 import urllib.parse
@@ -14,13 +14,12 @@ from .exceptions import AuthenticationError, RateLimitError, SealMemoryError
 
 class SealMemory:
     """
-    SEAL Memory client — mirrors Mem0 API surface with OCEAN/soul extensions.
+    SEAL Memory client for the tenant-safe Contract Baseline v0.2.
 
     Example:
         client = SealMemory(api_key="soul_xxx")
-        client.add("sofia", messages=[{"role": "user", "content": "Me llamo María"}])
-        results = client.search("sofia", query="cómo se llama?")
-        soul = client.boot("sofia")
+        client.store("sofia", "María vive en Lima")
+        results = client.recall("cómo se llama?", agent_id="sofia")
     """
 
     def __init__(
@@ -40,6 +39,14 @@ class SealMemory:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
+
+    @staticmethod
+    def _unsupported(operation: str) -> NoReturn:
+        raise SealMemoryError(
+            f"unsupported_operation:{operation}; contract_v0.2 supports "
+            "store, recall/search, get_all, and get",
+            status_code=501,
+        )
 
     def _request(self, method: str, path: str, params: dict | None = None, body: dict | None = None) -> Any:
         url = f"{self.base_url}{path}"
@@ -73,17 +80,9 @@ class SealMemory:
         auto_store: bool = True,
         importance_default: int = 5,
     ) -> dict:
-        """
-        Auto-extract facts from a conversation and store them as memories.
-        Equivalent to Mem0's memory.add(messages, user_id=agent_id).
-
-        Returns: {ok, extracted: int, stored: int, memories: [...]}
-        """
-        return self._request("POST", f"/v1/agents/{agent_id}/extract", body={
-            "messages": messages,
-            "auto_store": auto_store,
-            "importance_default": importance_default,
-        })
+        """Compatibility stub; extraction is not part of the public v0.2 contract."""
+        del agent_id, messages, auto_store, importance_default
+        self._unsupported("add")
 
     def search(
         self,
@@ -94,15 +93,26 @@ class SealMemory:
     ) -> list[dict]:
         """
         Search memories for an agent (hybrid BM25 + semantic + decay).
-        Use expand=True for LLM query expansion on short/conversational queries.
-
-        Returns list of memory dicts with semantic_score when available.
+        ``expand`` is retained for source compatibility but is not implemented.
         """
-        result = self._request("GET", "/v1/memory/search", params={
-            "agent_id": agent_id,
+        if expand:
+            self._unsupported("search.expand")
+        return self.recall(query, agent_id=agent_id, limit=limit)
+
+    def recall(
+        self,
+        query: str,
+        *,
+        agent_id: str | None = None,
+        limit: int = 10,
+        importance_gte: int = 1,
+    ) -> list[dict]:
+        """Recall tenant-scoped memories through the canonical POST endpoint."""
+        result = self._request("POST", "/v1/recall", body={
             "query": query,
+            "agent_id": agent_id,
             "limit": limit,
-            "expand": str(expand).lower(),
+            "importance_gte": importance_gte,
         })
         return result.get("memories", result) if isinstance(result, dict) else result
 
@@ -131,23 +141,31 @@ class SealMemory:
             scope=scope,
             valid_at=valid_at,
         )
-        return self._request("POST", "/v1/memory", body=request.to_payload())
+        return self._request("POST", "/v1/memories", body=request.to_payload())
 
-    def get_all(self, agent_id: str, limit: int = 50) -> list[dict]:
+    def get_all(self, agent_id: str, limit: int = 50, offset: int = 0) -> list[dict]:
         """List all memories for an agent."""
-        result = self._request("GET", "/v1/memory", params={"agent_id": agent_id, "limit": limit})
+        result = self._request(
+            "GET",
+            "/v1/memories",
+            params={"agent_id": agent_id, "limit": limit, "offset": offset},
+        )
         return result.get("memories", result) if isinstance(result, dict) else result
 
+    def get(self, memory_id: int) -> dict:
+        """Get one memory; cross-tenant rows remain indistinguishable from missing."""
+        result = self._request("GET", f"/v1/memories/{int(memory_id)}")
+        return result.get("memory", result) if isinstance(result, dict) else result
+
     def update(self, agent_id: str, memory_id: int, content: str, importance: int | None = None) -> dict:
-        """Update a memory's content (and optionally importance)."""
-        return self._request("PATCH", f"/v1/memory/{memory_id}", params={"agent_id": agent_id}, body={
-            "content": content,
-            **({"importance": importance} if importance is not None else {}),
-        })
+        """Compatibility stub; public mutation is append-only in contract v0.2."""
+        del agent_id, memory_id, content, importance
+        self._unsupported("update")
 
     def delete(self, agent_id: str, memory_id: int) -> dict:
-        """Delete a memory."""
-        return self._request("DELETE", f"/v1/memory/{memory_id}", params={"agent_id": agent_id})
+        """Compatibility stub; deletion is not exposed by contract v0.2."""
+        del agent_id, memory_id
+        self._unsupported("delete")
 
     # ── Onboarding ─────────────────────────────────────────────────────────────
 
@@ -158,11 +176,8 @@ class SealMemory:
 
         Returns: {ok, org_id, api_key, tier, limits}
         """
-        return self._request("POST", "/v1/tenants/register", body={
-            "org_id": org_id,
-            "org_name": org_name or org_id,
-            "tier": tier,
-        })
+        del org_id, org_name, tier
+        self._unsupported("register")
 
     @classmethod
     def signup(cls, org_id: str, org_name: str = "", base_url: str = "http://localhost:8767", tier: str = "edu") -> "tuple[str, SealMemory]":
@@ -172,10 +187,8 @@ class SealMemory:
         Example:
             api_key, client = SealMemory.signup("acme", base_url="https://api.seal-memory.dev")
         """
-        temp = cls(api_key="", base_url=base_url)
-        result = temp.register(org_id=org_id, org_name=org_name, tier=tier)
-        api_key = result["api_key"]
-        return api_key, cls(api_key=api_key, base_url=base_url)
+        del org_id, org_name, base_url, tier
+        cls._unsupported("signup")
 
     # ── Soul / Identity API (SEAL-exclusive) ───────────────────────────────────
 
@@ -184,44 +197,36 @@ class SealMemory:
         Load or initialize the agent's soul (OCEAN, emotions, beliefs, memories).
         Returns full soul snapshot.
         """
-        body: dict = {}
-        if persona:
-            body["persona"] = persona
-        if ocean:
-            body["ocean"] = ocean
-        return self._request("POST", f"/v1/agents/{agent_id}/boot", body=body or None)
+        del agent_id, persona, ocean
+        self._unsupported("boot")
 
     def snapshot(self, agent_id: str) -> dict:
         """Get agent's current OCEAN state, emotional state, and memory count."""
-        return self._request("GET", f"/v1/agents/{agent_id}/snapshot")
+        del agent_id
+        self._unsupported("snapshot")
 
     def reflect(self, agent_id: str, thought: str, emotional_state: str = "neutral") -> dict:
         """Record an inner thought / reflection for the agent."""
-        return self._request("POST", f"/v1/agents/{agent_id}/reflect", body={
-            "thought": thought,
-            "emotional_state": emotional_state,
-        })
+        del agent_id, thought, emotional_state
+        self._unsupported("reflect")
 
     def thoughts(self, agent_id: str, limit: int = 10) -> list[dict]:
         """Retrieve the agent's inner monologue (last N reflections)."""
-        result = self._request("GET", f"/v1/agents/{agent_id}/thoughts", params={"limit": limit})
-        return result.get("thoughts", result) if isinstance(result, dict) else result
+        del agent_id, limit
+        self._unsupported("thoughts")
 
     def entities(self, agent_id: str) -> list[dict]:
         """Get entity graph: people, places, orgs, topics known to this agent."""
-        result = self._request("GET", f"/v1/agents/{agent_id}/entities")
-        return result.get("entities", result) if isinstance(result, dict) else result
+        del agent_id
+        self._unsupported("entities")
 
     def chat(self, agent_id: str, message: str, model: str = "claude-haiku-4-5-20251001") -> str:
         """
         Send a message to the agent and get a response with memory context.
         Returns the assistant's text response.
         """
-        result = self._request("POST", f"/v1/agents/{agent_id}/chat", body={
-            "message": message,
-            "model": model,
-        })
-        return result.get("response", result.get("message", "")) if isinstance(result, dict) else str(result)
+        del agent_id, message, model
+        self._unsupported("chat")
 
     # ── Convenience ────────────────────────────────────────────────────────────
 
@@ -232,7 +237,8 @@ class SealMemory:
 
         Returns: {summary: str, memory_count: int, synthesized: bool}
         """
-        return self._request("GET", f"/v1/agents/{agent_id}/summary")
+        del agent_id
+        self._unsupported("summary")
 
     def __repr__(self) -> str:
         return f"SealMemory(base_url={self.base_url!r})"

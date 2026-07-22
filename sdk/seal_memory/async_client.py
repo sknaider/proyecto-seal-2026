@@ -1,7 +1,7 @@
 """SEAL Memory async client — requires httpx (pip install seal-memory[async])."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn
 
 from .contracts import MemoryStoreRequest
 from .exceptions import AuthenticationError, RateLimitError, SealMemoryError
@@ -59,6 +59,14 @@ class AsyncSealMemory:
             )
         return self._client
 
+    @staticmethod
+    def _unsupported(operation: str) -> NoReturn:
+        raise SealMemoryError(
+            f"unsupported_operation:{operation}; contract_v0.2 supports "
+            "store, recall/search, get_all, and get",
+            status_code=501,
+        )
+
     async def _request(self, method: str, path: str, params: dict | None = None, json: dict | None = None) -> Any:
         client = self._get_client()
         try:
@@ -76,13 +84,27 @@ class AsyncSealMemory:
             raise SealMemoryError(str(e)) from e
 
     async def add(self, agent_id: str, messages: list[dict], auto_store: bool = True, importance_default: int = 5) -> dict:
-        return await self._request("POST", f"/v1/agents/{agent_id}/extract", json={
-            "messages": messages, "auto_store": auto_store, "importance_default": importance_default,
-        })
+        del agent_id, messages, auto_store, importance_default
+        self._unsupported("add")
 
     async def search(self, agent_id: str, query: str, limit: int = 10, expand: bool = False) -> list[dict]:
-        result = await self._request("GET", "/v1/memory/search", params={
-            "agent_id": agent_id, "query": query, "limit": limit, "expand": str(expand).lower(),
+        if expand:
+            self._unsupported("search.expand")
+        return await self.recall(query, agent_id=agent_id, limit=limit)
+
+    async def recall(
+        self,
+        query: str,
+        *,
+        agent_id: str | None = None,
+        limit: int = 10,
+        importance_gte: int = 1,
+    ) -> list[dict]:
+        result = await self._request("POST", "/v1/recall", json={
+            "query": query,
+            "agent_id": agent_id,
+            "limit": limit,
+            "importance_gte": importance_gte,
         })
         return result.get("memories", result) if isinstance(result, dict) else result
 
@@ -107,54 +129,53 @@ class AsyncSealMemory:
             scope=scope,
             valid_at=valid_at,
         )
-        return await self._request("POST", "/v1/memory", json=request.to_payload())
+        return await self._request("POST", "/v1/memories", json=request.to_payload())
 
-    async def get_all(self, agent_id: str, limit: int = 50) -> list[dict]:
-        result = await self._request("GET", "/v1/memory", params={"agent_id": agent_id, "limit": limit})
+    async def get_all(self, agent_id: str, limit: int = 50, offset: int = 0) -> list[dict]:
+        result = await self._request(
+            "GET",
+            "/v1/memories",
+            params={"agent_id": agent_id, "limit": limit, "offset": offset},
+        )
         return result.get("memories", result) if isinstance(result, dict) else result
 
+    async def get(self, memory_id: int) -> dict:
+        result = await self._request("GET", f"/v1/memories/{int(memory_id)}")
+        return result.get("memory", result) if isinstance(result, dict) else result
+
     async def register(self, org_id: str, org_name: str = "", tier: str = "edu") -> dict:
-        """Register a new org and receive an API key (no auth required)."""
-        return await self._request("POST", "/v1/tenants/register", json={
-            "org_id": org_id,
-            "org_name": org_name or org_id,
-            "tier": tier,
-        })
+        del org_id, org_name, tier
+        self._unsupported("register")
 
     async def boot(self, agent_id: str, persona: str = "", ocean: dict | None = None) -> dict:
-        body: dict = {}
-        if persona:
-            body["persona"] = persona
-        if ocean:
-            body["ocean"] = ocean
-        return await self._request("POST", f"/v1/agents/{agent_id}/boot", json=body or None)
+        del agent_id, persona, ocean
+        self._unsupported("boot")
 
     async def snapshot(self, agent_id: str) -> dict:
-        return await self._request("GET", f"/v1/agents/{agent_id}/snapshot")
+        del agent_id
+        self._unsupported("snapshot")
 
     async def reflect(self, agent_id: str, thought: str, emotional_state: str = "neutral") -> dict:
-        return await self._request("POST", f"/v1/agents/{agent_id}/reflect", json={
-            "thought": thought, "emotional_state": emotional_state,
-        })
+        del agent_id, thought, emotional_state
+        self._unsupported("reflect")
 
     async def thoughts(self, agent_id: str, limit: int = 10) -> list[dict]:
         """Retrieve the agent's inner monologue."""
-        result = await self._request("GET", f"/v1/agents/{agent_id}/thoughts", params={"limit": limit})
-        return result.get("thoughts", result) if isinstance(result, dict) else result
+        del agent_id, limit
+        self._unsupported("thoughts")
 
     async def entities(self, agent_id: str) -> list[dict]:
-        result = await self._request("GET", f"/v1/agents/{agent_id}/entities")
-        return result.get("entities", result) if isinstance(result, dict) else result
+        del agent_id
+        self._unsupported("entities")
 
     async def chat(self, agent_id: str, message: str, model: str = "claude-haiku-4-5-20251001") -> str:
-        result = await self._request("POST", f"/v1/agents/{agent_id}/chat", json={
-            "message": message, "model": model,
-        })
-        return result.get("response", result.get("message", "")) if isinstance(result, dict) else str(result)
+        del agent_id, message, model
+        self._unsupported("chat")
 
     async def summary(self, agent_id: str) -> dict:
         """Narrative summary of agent memories via LLM synthesis."""
-        return await self._request("GET", f"/v1/agents/{agent_id}/summary")
+        del agent_id
+        self._unsupported("summary")
 
     async def close(self) -> None:
         if self._client:

@@ -5,8 +5,6 @@ Usage:
     python -m seal_memory status
     python -m seal_memory search <agent_id> <query>
     python -m seal_memory list <agent_id>
-    python -m seal_memory boot <agent_id>
-    python -m seal_memory summary <agent_id>
     python -m seal_memory store <agent_id> <content>
 """
 
@@ -30,7 +28,7 @@ def cmd_status(args):
     c = _client(args)
     try:
         from urllib.request import urlopen
-        r = urlopen(f"{c.base_url}/v1/health", timeout=5)
+        r = urlopen(f"{c.base_url}/health", timeout=5)
         data = json.loads(r.read())
         print(f"✅ SEAL Memory is running at {c.base_url}")
         print(f"   Version: {data.get('version', 'unknown')}")
@@ -104,9 +102,9 @@ def cmd_store(args):
         result = c.store(args.agent_id, args.content,
                          memory_type=args.memory_type, importance=args.importance,
                          category=args.category)
-        mid = result.get("memory_id") or result.get("id", "?")
-        dedup = " (reinforced existing)" if result.get("deduplicated") else ""
-        print(f"✅ Stored memory #{mid}{dedup}")
+        memory = result.get("memory", result)
+        mid = memory.get("id", "?") if isinstance(memory, dict) else "?"
+        print(f"✅ Stored memory #{mid}")
     except SealMemoryError as e:
         print(f"Error: {e}")
         sys.exit(1)
@@ -138,14 +136,6 @@ def main():
     p_list.add_argument("agent_id")
     p_list.add_argument("--limit", type=int, default=50)
 
-    # boot
-    p_boot = sub.add_parser("boot", help="Show agent soul (OCEAN + emotions)")
-    p_boot.add_argument("agent_id")
-
-    # summary
-    p_summ = sub.add_parser("summary", help="Narrative summary of agent memories")
-    p_summ.add_argument("agent_id")
-
     # store
     p_store = sub.add_parser("store", help="Store a memory directly")
     p_store.add_argument("agent_id")
@@ -162,8 +152,6 @@ def main():
         "status": cmd_status,
         "search": cmd_search,
         "list": cmd_list,
-        "boot": cmd_boot,
-        "summary": cmd_summary,
         "store": cmd_store,
     }
     commands[args.command](args)
