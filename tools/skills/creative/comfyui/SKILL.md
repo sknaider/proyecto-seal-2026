@@ -371,7 +371,9 @@ pipx install comfy-cli
 # Or use uvx without installing:
 uvx --from comfy-cli comfy --help
 # Or (if pipx/uvx unavailable):
-pip install --user comfy-cli
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --user comfy-cli
 ```
 
 Disable analytics non-interactively:
@@ -411,8 +413,8 @@ For Ascend NPU, Cambricon MLU, Intel Arc, or other unsupported hardware.
 ```bash
 git clone https://github.com/comfyanonymous/ComfyUI.git
 cd ComfyUI
-pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu130
-pip install -r requirements.txt
+python -m pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu130
+python -m pip install -r requirements.txt
 python main.py
 ```
 

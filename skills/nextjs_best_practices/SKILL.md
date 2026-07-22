@@ -1,6 +1,6 @@
 ---
 auto_invoke: true
-name: nextjs_best_practices
+name: nextjs-best-practices
 description: Guía completa y mejores prácticas para el desarrollo con Next.js (App Router, Server Components, Seguridad, Rendimiento) enfocado en 2025.
 ---
 

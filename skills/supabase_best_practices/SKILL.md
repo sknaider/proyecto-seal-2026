@@ -1,6 +1,6 @@
 ---
 auto_invoke: true
-name: supabase_best_practices
+name: supabase-best-practices
 description: Mejores prácticas de seguridad, rendimiento y diseño para bases de datos Supabase (PostgreSQL).
 ---
 

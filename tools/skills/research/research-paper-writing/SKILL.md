@@ -1504,7 +1504,9 @@ This produces a PDF with deletions in red strikethrough and additions in blue â€
 Install and use for publication-quality plots:
 
 ```bash
-pip install SciencePlots
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install SciencePlots
 ```
 
 ```python
@@ -1903,7 +1905,7 @@ Posting to arXiv is standard practice in ML but has important timing and anonymi
 ```bash
 # Check if your paper's title is already taken on arXiv
 # (before choosing a title)
-pip install arxiv
+python -m pip install arxiv
 python -c "
 import arxiv
 results = list(arxiv.Search(query='ti:\"Your Exact Title\"', max_results=5).results())

@@ -45,13 +45,15 @@ Comprehensive guide to using Meta's AudioCraft for text-to-music and text-to-aud
 
 ```bash
 # From PyPI
-pip install audiocraft
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install audiocraft
 
 # From GitHub (latest)
-pip install git+https://github.com/facebookresearch/audiocraft.git
+python -m pip install git+https://github.com/facebookresearch/audiocraft.git
 
 # Or use HuggingFace Transformers
-pip install transformers torch torchaudio
+python -m pip install transformers torch torchaudio
 ```
 
 ### Basic text-to-music (AudioCraft)

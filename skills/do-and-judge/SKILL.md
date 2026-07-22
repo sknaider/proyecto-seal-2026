@@ -1,4 +1,5 @@
 ---
+name: do-and-judge
 auto_invoke: true
 description: Execute a task with sub-agent implementation and LLM-as-a-judge verification with automatic retry loop
 argument-hint: Task description (e.g., "Refactor the UserService class to use dependency injection")

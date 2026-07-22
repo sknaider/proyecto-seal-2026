@@ -6,7 +6,9 @@ tags: [seal, soul, ocean, monitoring, identity]
 
 # /seal-snapshot — SOUL Snapshot
 
-Takes a complete snapshot of an agent's soul state from PostgreSQL.
+Takes a current snapshot through the canonical `seal-memory` MCP contract. It
+does not bypass MCP authorization, depend on a host `psql` binary, or invent a
+parallel REST endpoint.
 
 ## Usage
 
@@ -17,48 +19,31 @@ Takes a complete snapshot of an agent's soul state from PostgreSQL.
 
 ## What it shows
 
-1. **OCEAN Scores** — Current O/C/E/A/N with baseline comparison
-2. **Drift** — Last 24h drift score and events
-3. **Emotional Variance** — QUIETO/ACTIVO/ESTABLE/FROZEN classification
-4. **Recent Memories** — Top 5 by importance (imp >= 7)
-5. **Inner Monologue** — Last 3 thoughts with emotional state
-6. **Identity** — Agent name, role, relationships
+The exact sections depend on data present for the selected agent. The native
+tool currently returns OCEAN, recent emotional tone when available, top
+beliefs, relationships, style fingerprint, and latest drift measurement.
 
 ## How to execute
 
-```bash
-# Query SOUL PostgreSQL directly
-AGENT="${1:-ADA}"
-DB_URL="postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+Invoke the native MCP tool directly:
 
-# OCEAN
-psql "$DB_URL" -c "SELECT ocean_scores, ocean_baseline, updated_at FROM identity WHERE agent='$AGENT'"
-
-# Drift
-psql "$DB_URL" -c "SELECT drift_score, details, measured_at FROM drift_metrics WHERE agent='$AGENT' AND measured_at > NOW() - INTERVAL '24 hours' ORDER BY measured_at DESC"
-
-# Recent memories
-psql "$DB_URL" -c "SELECT category, content, importance, valence, arousal, created_at FROM memories WHERE agent='$AGENT' AND importance >= 7 ORDER BY created_at DESC LIMIT 5"
-
-# Inner monologue
-psql "$DB_URL" -c "SELECT thought, emotional_state, created_at FROM inner_monologue WHERE agent='$AGENT' ORDER BY created_at DESC LIMIT 3"
+```text
+soul_snapshot(agent="ADA")
 ```
 
-Or via SEAL Runtime bridge:
-```bash
-curl -s http://localhost:8766/api/soul/snapshot?agent=$AGENT | python3 -m json.tool
-```
+Replace `ADA` only with the requested agent identity. If the tool is absent,
+denied, or returns no data, report that state as `INDETERMINATE`; do not fall
+back to direct SQL, an embedded DSN, a superuser, or an undocumented REST URL.
 
 ## Output format
 
 Present as a structured report:
 ```
 SOUL SNAPSHOT — {AGENT} — {timestamp}
-OCEAN: O={val} C={val} E={val} A={val} N={val}
-Drift: {total} ({events} events in 24h)
-Estado: {emotional_state}
-Memorias recientes: {count}
-  [{category}, imp={imp}] {content[:100]}
-Pensamientos:
-  [{state}] {thought[:80]}
+OCEAN: {native OCEAN payload, or unavailable}
+Emotional tone: {native recent tone, or unavailable}
+Top beliefs: {native beliefs, or unavailable}
+Relationships: {native relationships, or unavailable}
+Style: {native style fingerprint, or unavailable}
+Drift: {native latest measurement, or unavailable}
 ```

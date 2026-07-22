@@ -28,7 +28,7 @@ Captures the operational state of the current session so the next instance can c
 
 ```bash
 AGENT="${1:-JARVIS}"
-HANDOFF="~/IA/proyecto-seal/messages/session_handoff.json"
+HANDOFF="$HOME/IA/proyecto-seal/messages/session_handoff.json"
 
 python3 -c "
 import json
@@ -56,7 +56,9 @@ handoff = {
     'services': {
         'postgresql': 5433,
         'web_chat': 8765,
-        'runtime_bridge': 8766,
+        'sdk_gateway': 8767,
+        'soul_api': 8768,
+        'mcp': 8771,
         'seal_studio': 3000,
         'studio_backend': 8800,
     },

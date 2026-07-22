@@ -30,7 +30,9 @@ Use Weights & Biases (W&B) when you need to:
 
 ```bash
 # Install W&B
-pip install wandb
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install wandb
 
 # Login (creates API key)
 wandb login

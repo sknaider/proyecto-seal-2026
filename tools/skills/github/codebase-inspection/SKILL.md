@@ -27,7 +27,9 @@ Analyze repositories for lines of code, language breakdown, file counts, and cod
 ## Prerequisites
 
 ```bash
-pip install --break-system-packages pygount 2>/dev/null || pip install pygount
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --break-system-packages pygount 2>/dev/null || pip install pygount
 ```
 
 ## 1. Basic Summary (Most Common)

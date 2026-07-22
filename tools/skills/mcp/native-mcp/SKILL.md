@@ -34,7 +34,9 @@ For ad-hoc, one-off MCP tool calls from the terminal without configuring anythin
 Install the MCP SDK:
 
 ```bash
-pip install mcp
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install mcp
 # or, if using uv:
 uv pip install mcp
 ```
@@ -208,7 +210,7 @@ If an MCP tool call fails, any credential-like patterns in the error message are
 The `mcp` Python package is not installed. Install it:
 
 ```bash
-pip install mcp
+python -m pip install mcp
 ```
 
 ### "No MCP servers configured"
@@ -228,7 +230,7 @@ Common causes:
 Your `mcp` package version doesn't include HTTP client support. Upgrade:
 
 ```bash
-pip install --upgrade mcp
+python -m pip install --upgrade mcp
 ```
 
 ### Tools not appearing

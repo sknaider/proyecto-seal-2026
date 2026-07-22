@@ -1,4 +1,5 @@
 ---
+name: do-in-parallel
 auto_invoke: true
 description: Launch multiple sub-agents in parallel to execute tasks across files or targets with intelligent model selection and quality-focused prompting
 argument-hint: Task description [--files "file1.ts,file2.ts,..."] [--targets "target1,target2,..."] [--model opus|sonnet|haiku] [--output <path>]

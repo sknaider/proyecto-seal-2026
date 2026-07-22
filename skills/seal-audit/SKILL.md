@@ -21,7 +21,7 @@ Comprehensive health check of all SEAL services and infrastructure.
 1. **PostgreSQL (SOUL)** — port 5433, connection test
 2. **Neo4j (Connectome)** — port 7687, connection test
 3. **Web Chat Bridge** — port 8765, health endpoint
-4. **SEAL Runtime Bridge** — port 8766, health endpoint
+4. **SOUL Memory SDK/API** — ports 8767 gateway, 8768 API, 8771 MCP
 5. **SEAL Studio** — port 3000, response check
 6. **Ollama (DUM)** — service status + model loaded
 Note: Qdrant removed 2026-04-28 (soul_lite=True permanent config — vectors stored in PostgreSQL pgvector)
@@ -85,7 +85,10 @@ for name, path in [('ADA','ada_claude_heartbeat.json'),('JARVIS','jarvis_claude_
 # DUM — check last inner_monologue entry in PostgreSQL
 async def check_dum():
     try:
-        conn = await asyncpg.connect('postgresql://seal:seal_memory_2026@localhost:5433/seal_memory')
+        dsn = os.environ.get('SEAL_DB_DSN')
+        if not dsn:
+            raise RuntimeError('SEAL_DB_DSN missing; fail closed')
+        conn = await asyncpg.connect(dsn)
         row = await conn.fetchrow(\"\"\"SELECT created_at FROM inner_monologue WHERE agent = 'DUM' ORDER BY created_at DESC LIMIT 1\"\"\")
         await conn.close()
         if row:
@@ -101,9 +104,12 @@ asyncio.run(check_dum())
 # SOUL integrity — via asyncpg (psql not installed on DGX Spark)
 echo "--- SOUL ---"
 /home/dadito/IA/seal-spark/.venv/bin/python3 -c "
-import asyncio, asyncpg
+import asyncio, os, asyncpg
 async def check():
-    conn = await asyncpg.connect('postgresql://seal:seal_memory_2026@localhost:5433/seal_memory')
+    dsn = os.environ.get('SEAL_DB_DSN')
+    if not dsn:
+        raise RuntimeError('SEAL_DB_DSN missing; fail closed')
+    conn = await asyncpg.connect(dsn)
     rows = await conn.fetch('SELECT agent, count(*) as cnt FROM memories WHERE invalid_at IS NULL GROUP BY agent ORDER BY cnt DESC')
     for r in rows: print(f'  {r[\"agent\"]}: {r[\"cnt\"]}')
     print(f'  TOTAL: {sum(r[\"cnt\"] for r in rows)}')

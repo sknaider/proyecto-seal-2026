@@ -19,7 +19,9 @@ TRL provides post-training methods for aligning language models with human prefe
 
 **Installation**:
 ```bash
-pip install trl transformers datasets peft accelerate
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install trl transformers datasets peft accelerate
 ```
 
 **Supervised Fine-Tuning** (instruction tuning):

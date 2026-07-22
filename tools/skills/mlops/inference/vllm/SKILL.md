@@ -13,6 +13,14 @@ metadata:
 
 # vLLM - High-Performance LLM Serving
 
+## SOUL platform gate
+
+**Never use vLLM on DGX Spark.** The canonical DGX Spark inference runtime is
+`llama.cpp`; load the sibling `llama-cpp` skill there. Use this skill only on a
+separately authorized compatible host after verifying its architecture and GPU.
+Always create an isolated virtual environment (PEP 668), bind loopback by
+default, and place authentication in front of any intentionally exposed listener.
+
 ## When to use
 
 Use when deploying production LLM APIs, optimizing inference latency/throughput, or serving models with limited GPU memory. Supports OpenAI-compatible endpoints, quantization (GPTQ/AWQ/FP8), and tensor parallelism.
@@ -23,7 +31,9 @@ vLLM achieves 24x higher throughput than standard transformers through PagedAtte
 
 **Installation**:
 ```bash
-pip install vllm
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install vllm
 ```
 
 **Basic offline inference**:
@@ -92,7 +102,7 @@ vllm serve meta-llama/Llama-3-8B-Instruct \
   --enable-metrics \
   --metrics-port 9090 \
   --port 8000 \
-  --host 0.0.0.0
+  --host 127.0.0.1
 ```
 
 **Step 2: Test with limited traffic**
@@ -101,7 +111,7 @@ Run load test before production:
 
 ```bash
 # Install load testing tool
-pip install locust
+python -m pip install locust
 
 # Create test_load.py with sample requests
 # Run: locust -f test_load.py --host http://localhost:8000
@@ -316,7 +326,9 @@ vllm serve MODEL --enable-chunked-prefill
 
 **Issue: Model not found error**
 
-Use `--trust-remote-code` for custom models:
+Do not use `--trust-remote-code` by default. If a custom model requires it,
+pin and review the exact repository revision in an isolated host and record
+approval plus provenance before enabling it:
 ```bash
 vllm serve MODEL --trust-remote-code
 ```
@@ -366,6 +378,5 @@ Supported platforms: NVIDIA (primary), AMD ROCm, Intel GPUs, TPUs
 - GitHub: https://github.com/vllm-project/vllm
 - Paper: "Efficient Memory Management for Large Language Model Serving with PagedAttention" (SOSP 2023)
 - Community: https://discuss.vllm.ai
-
 
 

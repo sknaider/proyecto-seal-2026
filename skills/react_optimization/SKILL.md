@@ -1,6 +1,6 @@
 ---
 auto_invoke: true
-name: react_optimization
+name: react-optimization
 description: Colección de reglas de oro y mejores prácticas de ingeniería de Vercel para optimizar aplicaciones React y Next.js.
 ---
 

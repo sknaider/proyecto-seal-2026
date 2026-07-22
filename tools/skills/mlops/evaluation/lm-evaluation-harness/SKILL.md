@@ -23,7 +23,9 @@ lm-evaluation-harness evaluates LLMs across 60+ academic benchmarks using standa
 
 **Installation**:
 ```bash
-pip install lm-eval
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install lm-eval
 ```
 
 **Evaluate any HuggingFace model**:
@@ -349,7 +351,7 @@ vLLM Evaluation:
 **Step 1: Install vLLM**
 
 ```bash
-pip install vllm
+python -m pip install vllm
 ```
 
 **Step 2: Configure vLLM backend**
@@ -452,7 +454,7 @@ Verify model and tokenizer match:
 
 Install execution dependencies:
 ```bash
-pip install human-eval
+python -m pip install human-eval
 ```
 
 Enable code execution:

@@ -20,7 +20,7 @@ Before anything else, detect which memory system is in use. Run these checks:
 
 ```bash
 # Check 1: Native Claude Code auto-memory
-ls ~/.claude/projects/*/memory/MEMORY.md 2>/dev/null && echo "DETECTED: native-claude-code"
+ls $HOME/IA/proyecto-seal/*/memory/MEMORY.md 2>/dev/null && echo "DETECTED: native-claude-code"
 
 # Check 2: OpenClaw-style (memory/ folder in project root with daily logs)
 ls ./memory/20*.md 2>/dev/null && echo "DETECTED: openclaw-daily-logs"
@@ -36,28 +36,28 @@ echo "If none detected above: no memory system found"
 
 | Detection | DREAM_MEMORY_TYPE | Memory location | Session transcripts |
 |-----------|-------------------|-----------------|-------------------|
-| `~/.claude/projects/*/memory/MEMORY.md` exists | `native` | `~/.claude/projects/<project>/memory/` | `~/.claude/projects/<project>/sessions/*.jsonl` |
-| `./memory/20*.md` daily log files exist | `openclaw` | `./memory/` (project root) | `~/.claude/projects/<project>/sessions/*.jsonl` |
-| `./MEMORY.md` exists in project root | `project-root` | `./` (project root, MEMORY.md + topic files) | `~/.claude/projects/<project>/sessions/*.jsonl` |
-| Nothing found | `native` (default) | `~/.claude/projects/<project>/memory/` | `~/.claude/projects/<project>/sessions/*.jsonl` |
+| `$HOME/IA/proyecto-seal/*/memory/MEMORY.md` exists | `native` | `$HOME/IA/proyecto-seal/<project>/memory/` | `$HOME/IA/proyecto-seal/<project>/sessions/*.jsonl` |
+| `./memory/20*.md` daily log files exist | `openclaw` | `./memory/` (project root) | `$HOME/IA/proyecto-seal/<project>/sessions/*.jsonl` |
+| `./MEMORY.md` exists in project root | `project-root` | `./` (project root, MEMORY.md + topic files) | `$HOME/IA/proyecto-seal/<project>/sessions/*.jsonl` |
+| Nothing found | `native` (default) | `$HOME/IA/proyecto-seal/<project>/memory/` | `$HOME/IA/proyecto-seal/<project>/sessions/*.jsonl` |
 
 **If no memory system is found, default to native Claude Code memory.** This is the standard and requires no extra setup - Claude Code creates the directory automatically when auto-memory is enabled.
 
 Write the detected type to the config so dream knows where to look:
 ```bash
-echo "DREAM_MEMORY_TYPE=native" > ~/.claude/skills/dream/.dream-config
-echo "DREAM_MEMORY_PATH=~/.claude/projects" >> ~/.claude/skills/dream/.dream-config
+echo "DREAM_MEMORY_TYPE=native" > $HOME/IA/proyecto-seal/skills/dream/.dream-config
+echo "DREAM_MEMORY_PATH=$HOME/IA/proyecto-seal" >> $HOME/IA/proyecto-seal/skills/dream/.dream-config
 ```
 
 Replace `native` with `openclaw` or `project-root` if that's what was detected. For `openclaw` or `project-root`, also set the path:
 ```bash
 # For openclaw:
-echo "DREAM_MEMORY_TYPE=openclaw" > ~/.claude/skills/dream/.dream-config
-echo "DREAM_MEMORY_PATH=$(pwd)/memory" >> ~/.claude/skills/dream/.dream-config
+echo "DREAM_MEMORY_TYPE=openclaw" > $HOME/IA/proyecto-seal/skills/dream/.dream-config
+echo "DREAM_MEMORY_PATH=$(pwd)/memory" >> $HOME/IA/proyecto-seal/skills/dream/.dream-config
 
 # For project-root:
-echo "DREAM_MEMORY_TYPE=project-root" > ~/.claude/skills/dream/.dream-config
-echo "DREAM_MEMORY_PATH=$(pwd)" >> ~/.claude/skills/dream/.dream-config
+echo "DREAM_MEMORY_TYPE=project-root" > $HOME/IA/proyecto-seal/skills/dream/.dream-config
+echo "DREAM_MEMORY_PATH=$(pwd)" >> $HOME/IA/proyecto-seal/skills/dream/.dream-config
 ```
 
 ### Step 2: Install the Stop hook
@@ -76,7 +76,7 @@ s.setdefault('hooks', {}).setdefault('Stop', [])
 if not any('dream' in h.get('command','') for h in s['hooks']['Stop']):
     s['hooks']['Stop'].append({
         'type': 'command',
-        'command': 'bash \$HOME/.claude/skills/dream/should-dream.sh && touch \$HOME/.claude/.dream-pending || true'
+        'command': 'bash $HOME/IA/proyecto-seal/skills/dream/should-dream.sh && touch \$HOME/.claude/.dream-pending || true'
     })
 with open('$HOME/.claude/settings.json', 'w') as f:
     json.dump(s, f, indent=2)
@@ -99,7 +99,7 @@ If the file `~/.claude/.dream-pending` exists at session start, run `/dream` as 
 ### Step 4: Make should-dream.sh executable
 
 ```bash
-chmod +x ~/.claude/skills/dream/should-dream.sh
+chmod +x $HOME/IA/proyecto-seal/skills/dream/should-dream.sh
 ```
 
 ### Step 5: Test it
@@ -161,11 +161,11 @@ Next session starts
 ### Step 0: Read config
 
 ```bash
-cat ~/.claude/skills/dream/.dream-config 2>/dev/null || echo "DREAM_MEMORY_TYPE=native"
+cat $HOME/IA/proyecto-seal/skills/dream/.dream-config 2>/dev/null || echo "DREAM_MEMORY_TYPE=native"
 ```
 
 This tells you which memory system to target:
-- `native` - scan `~/.claude/projects/*/memory/`
+- `native` - scan `$HOME/IA/proyecto-seal/*/memory/`
 - `openclaw` - scan the `memory/` folder in the project root (daily logs + MEMORY.md)
 - `project-root` - scan MEMORY.md and topic files in the project root
 
@@ -174,7 +174,7 @@ This tells you which memory system to target:
 1. Find memory directories based on type:
 ```bash
 # native (default)
-ls -d ~/.claude/projects/*/memory/ 2>/dev/null
+ls -d $HOME/IA/proyecto-seal/*/memory/ 2>/dev/null
 
 # openclaw
 ls ./memory/ 2>/dev/null
@@ -186,7 +186,7 @@ ls ./MEMORY.md ./memory/ 2>/dev/null
 2. Read the memory directory for the detected type:
 ```bash
 # native
-ls ~/.claude/projects/*/memory/ 2>/dev/null
+ls $HOME/IA/proyecto-seal/*/memory/ 2>/dev/null
 
 # openclaw - also list daily logs
 ls ./memory/*.md 2>/dev/null
@@ -215,7 +215,7 @@ You should now have a mental map of:
 
 ### Where to find transcripts
 ```bash
-find ~/.claude/projects/*/sessions/ -name "*.jsonl" -mtime -7 2>/dev/null | sort -t/ -k6 -r
+find $HOME/IA/proyecto-seal/*/sessions/ -name "*.jsonl" -mtime -7 2>/dev/null | sort -t/ -k6 -r
 ```
 
 This finds JSONL session files modified in the last 7 days, sorted newest first. Adjust `-mtime -7` for different windows.
@@ -226,22 +226,22 @@ Use targeted grep, not full reads. Each pattern targets a specific signal type:
 
 **User corrections** (highest priority):
 ```bash
-grep -il "actually\|no,\|wrong\|incorrect\|not right\|stop doing\|don't do\|I said\|I meant\|that's not\|correction" ~/.claude/projects/*/sessions/*.jsonl 2>/dev/null
+grep -il "actually\|no,\|wrong\|incorrect\|not right\|stop doing\|don't do\|I said\|I meant\|that's not\|correction" $HOME/IA/proyecto-seal/*/sessions/*.jsonl 2>/dev/null
 ```
 
 **Preferences and configuration:**
 ```bash
-grep -il "I prefer\|always use\|never use\|I like\|I don't like\|I want\|from now on\|going forward\|remember that\|keep in mind\|make sure to\|default to" ~/.claude/projects/*/sessions/*.jsonl 2>/dev/null
+grep -il "I prefer\|always use\|never use\|I like\|I don't like\|I want\|from now on\|going forward\|remember that\|keep in mind\|make sure to\|default to" $HOME/IA/proyecto-seal/*/sessions/*.jsonl 2>/dev/null
 ```
 
 **Important decisions:**
 ```bash
-grep -il "let's go with\|I decided\|we're using\|the plan is\|switch to\|move to\|chosen\|picked\|decision\|we agreed" ~/.claude/projects/*/sessions/*.jsonl 2>/dev/null
+grep -il "let's go with\|I decided\|we're using\|the plan is\|switch to\|move to\|chosen\|picked\|decision\|we agreed" $HOME/IA/proyecto-seal/*/sessions/*.jsonl 2>/dev/null
 ```
 
 **Recurring patterns:**
 ```bash
-grep -il "again\|every time\|keep forgetting\|as usual\|same as before\|like last time\|we always\|the usual" ~/.claude/projects/*/sessions/*.jsonl 2>/dev/null
+grep -il "again\|every time\|keep forgetting\|as usual\|same as before\|like last time\|we always\|the usual" $HOME/IA/proyecto-seal/*/sessions/*.jsonl 2>/dev/null
 ```
 
 ### How to read matches
@@ -324,7 +324,7 @@ If MEMORY.md exceeds 200 lines after consolidation:
 Remove or archive entries that are:
 - More than 90 days old with no references in recent sessions
 - Contradicted by newer entries (should have been caught in Phase 3)
-- About projects/repos that no longer exist in `~/.claude/projects/`
+- About projects/repos that no longer exist in `$HOME/IA/proyecto-seal/`
 
 ### Final index format
 
@@ -356,7 +356,7 @@ The Quick Reference section is for facts so important they should be seen every 
 
 After completing all 4 phases, write timestamps so the auto-trigger knows when you last dreamed:
 ```bash
-date +%s > ~/.claude/projects/<project>/memory/.last-dream
+date +%s > $HOME/IA/proyecto-seal/<project>/memory/.last-dream
 rm -f ~/.claude/.dream-pending
 ```
 
@@ -367,7 +367,7 @@ rm -f ~/.claude/.dream-pending
 - **Never delete memory without replacement.** If removing an entry, either it was contradicted (replaced by a newer entry) or it was moved (to a topic file or archive). Never just delete.
 - **Back up before first run.** On the very first run against a project, copy the memory directory:
 ```bash
-cp -r ~/.claude/projects/<project>/memory/ ~/.claude/projects/<project>/memory-backup-$(date +%Y%m%d)/
+cp -r $HOME/IA/proyecto-seal/<project>/memory/ $HOME/IA/proyecto-seal/<project>/memory-backup-$(date +%Y%m%d)/
 ```
 - **Dry run option.** On first use, read through all 4 phases but only print what you WOULD change, without writing. Confirm with the user before applying.
 

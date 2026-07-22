@@ -29,15 +29,17 @@ Use DSPy when you need to:
 
 ```bash
 # Stable release
-pip install dspy
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install dspy
 
 # Latest development version
-pip install git+https://github.com/stanfordnlp/dspy.git
+python -m pip install git+https://github.com/stanfordnlp/dspy.git
 
 # With specific LM providers
-pip install dspy[openai]        # OpenAI
-pip install dspy[anthropic]     # Anthropic Claude
-pip install dspy[all]           # All providers
+python -m pip install dspy[openai]        # OpenAI
+python -m pip install dspy[anthropic]     # Anthropic Claude
+python -m pip install dspy[all]           # All providers
 ```
 
 ## Quick Start

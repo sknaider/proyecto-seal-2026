@@ -29,12 +29,14 @@ Use Outlines when you need to:
 
 ```bash
 # Base installation
-pip install outlines
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install outlines
 
 # With specific backends
-pip install outlines transformers  # Hugging Face models
-pip install outlines llama-cpp-python  # llama.cpp
-pip install outlines vllm  # vLLM for high-throughput
+python -m pip install outlines transformers  # Hugging Face models
+python -m pip install outlines llama-cpp-python  # llama.cpp
+python -m pip install outlines vllm  # vLLM for high-throughput
 ```
 
 ## Quick Start

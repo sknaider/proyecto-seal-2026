@@ -58,7 +58,9 @@ If the user needs marker capabilities but the system lacks ~5GB free disk:
 ## pymupdf (lightweight)
 
 ```bash
-pip install pymupdf pymupdf4llm
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install pymupdf pymupdf4llm
 ```
 
 **Via helper script**:
@@ -89,7 +91,7 @@ for page in doc:
 # Check disk space first
 python scripts/extract_marker.py --check
 
-pip install marker-pdf
+python -m pip install marker-pdf
 ```
 
 **Via helper script**:
