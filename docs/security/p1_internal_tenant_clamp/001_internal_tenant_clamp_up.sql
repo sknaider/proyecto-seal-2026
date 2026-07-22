@@ -55,9 +55,14 @@ ALTER FUNCTION soul_v3.internal_role_tenant_id() OWNER TO soul_rls_definer;
 --    (login_* que auto-heredan, los pr_*/svc_* directos, y svc_seal_studio LOGIN).
 REVOKE EXECUTE ON FUNCTION soul_v3.internal_role_tenant_id() FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION soul_v3.internal_role_tenant_id() TO
+  -- 9 logins originales (login_* auto-heredan pr_*, svc_seal_studio LOGIN)
   login_ada_bridge, login_bus, login_checkpoints, login_dashboard_admin,
   login_dashboard_ro, login_dum_heartbeat, login_infra_watchdog, login_mcp_canary,
   svc_seal_studio,
+  -- 10 identidades vivas que ADA cazó: agent-clampadas pero NO tenant-clampadas
+  mcp_runtime_ada, mcp_runtime_alice, mcp_runtime_dum, mcp_runtime_jarvis, mcp_runtime_nexus,
+  svc_soul_nerves_ada, svc_soul_nerves_alice, svc_soul_nerves_dum, svc_soul_nerves_jarvis, svc_soul_nerves_nexus,
+  -- roles pr_*/svc_ objetivo de la política (por SET ROLE)
   pr_ada_bridge, pr_bus, pr_checkpoints, pr_dashboard_admin, pr_dashboard_ro,
   pr_dum_heartbeat, pr_infra_watchdog, pr_mcp_base, pr_mcp_cognition_write,
   pr_mcp_memory_write, pr_retrieval, svc_soul_nerves;
@@ -72,9 +77,13 @@ DECLARE
   internal_tenant CONSTANT uuid := '00000000-0000-0000-0000-000000000000';
 BEGIN
   FOR r IN SELECT unnest(ARRAY[
+      -- 9 originales
       'login_ada_bridge','login_bus','login_checkpoints','login_dashboard_admin',
       'login_dashboard_ro','login_dum_heartbeat','login_infra_watchdog','login_mcp_canary',
-      'svc_seal_studio'
+      'svc_seal_studio',
+      -- 10 identidades vivas (LOGIN) que ADA cazó: agent-clampadas, tenant-desprotegidas
+      'mcp_runtime_ada','mcp_runtime_alice','mcp_runtime_dum','mcp_runtime_jarvis','mcp_runtime_nexus',
+      'svc_soul_nerves_ada','svc_soul_nerves_alice','svc_soul_nerves_dum','svc_soul_nerves_jarvis','svc_soul_nerves_nexus'
     ]::name[]) AS db_role
   LOOP
     -- abortar si ya existe un binding con OTRO tenant (no ocultar el conflicto)
@@ -90,8 +99,11 @@ END $seed$;
 -- NOTA soul_admin: excluido a propósito. Rol admin de propósito amplio -> decisión
 -- de ADA: clampar (agregar a seed + policy) o documentar como excepción auditada.
 
--- Política RESTRICTIVE por tabla. TO los roles pr_*/svc_* (aplica a los login_* por
--- membresía). Clampa aunque exista la PERMISSIVE débil TO public.
+-- Política RESTRICTIVE por tabla. SE COMPONE con el clamp de AGENTE existente
+-- (mcp_hard_*/nerves_hard fijan agente; esta fija tenant) => RESTRICTIVE agente AND
+-- RESTRICTIVE tenant. TO los pr_*/svc_ (login_* aplican por membresía) + los 10 LOGIN
+-- vivos (mcp_runtime_*/svc_soul_nerves_*) que NO son miembros de los pr_*.
+-- Clampa aunque exista la PERMISSIVE débil TO public.
 DO $pol$
 DECLARE t text;
 BEGIN
@@ -103,7 +115,10 @@ BEGIN
         AS RESTRICTIVE FOR ALL
         TO pr_ada_bridge, pr_bus, pr_checkpoints, pr_dashboard_admin, pr_dashboard_ro,
            pr_dum_heartbeat, pr_infra_watchdog, pr_mcp_base, pr_mcp_cognition_write,
-           pr_mcp_memory_write, pr_retrieval, svc_seal_studio, svc_soul_nerves
+           pr_mcp_memory_write, pr_retrieval, svc_seal_studio, svc_soul_nerves,
+           mcp_runtime_ada, mcp_runtime_alice, mcp_runtime_dum, mcp_runtime_jarvis, mcp_runtime_nexus,
+           svc_soul_nerves_ada, svc_soul_nerves_alice, svc_soul_nerves_dum,
+           svc_soul_nerves_jarvis, svc_soul_nerves_nexus
         USING      (tenant_id = soul_v3.internal_role_tenant_id())
         WITH CHECK (tenant_id = soul_v3.internal_role_tenant_id())
     $f$, t);

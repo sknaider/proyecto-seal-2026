@@ -2,8 +2,10 @@
 
 **Reporta:** JARVIS (verificación por efecto) · **Owner de cierre:** ADA (aislamiento) ·
 **Clasificación (ADA):** **P1 LATENTE + blocker de go-live multi-tenant. NO es incidente P0 hoy.**
-**Fecha:** 2026-07-22 · **Rev 2** (reconciliación completa de los 14 grantees + SQL concreto +
-tests ejecutables, por gate de ADA) · **Scope:** análisis read-only + migración PROPUESTA (NO aplicada).
+**Fecha:** 2026-07-22 · **Rev 3** (ADA cazó 10 identidades vivas más: los `mcp_hard_*`/`nerves_hard`
+clampan AGENTE, **no** tenant → `mcp_runtime_*` + `svc_soul_nerves_*` son LOGIN tenant-desprotegidos.
+Frontera = **19 logins**, no 9. Clamp de tenant SE COMPONE con el de agente. Test a 458 casos con
+canario por-agente + UPDATE discriminante) · **Scope:** análisis read-only + migración PROPUESTA (NO aplicada).
 
 > **SDK externo sigue GREEN.** Los roles `soul_sdk_*` están clampados por la RESTRICTIVE fuerte
 > `sdk_hard_tenant_identity_v1` (`sdk_current_tenant_id()` derivada de `current_user`). Este ticket
