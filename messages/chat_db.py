@@ -28,13 +28,11 @@ import asyncpg
 
 # ── Config ──────────────────────────────────────────────────────────────────
 
-PG_DSN = os.environ.get(
-    "SEAL_PG_DSN",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
-)
+PG_DSN = os.environ.get("SEAL_PG_DSN", "").strip()
 POOL_MIN = 2
 POOL_MAX = 10
 TOKEN_EXPIRY_HOURS = 72  # JWT session duration
+MAX_SESSION_AGE = timedelta(days=30)  # absolute cap on sliding renewal (ADA, 2026-07-17: bound stolen-token replay)
 
 
 # ── Password hashing (PBKDF2-SHA256, no external deps) ─────────────────────
@@ -64,18 +62,28 @@ def verify_password(password: str, password_hash: str) -> bool:
 class ChatDB:
     """Async PostgreSQL interface for SEAL Chat Pro."""
 
-    def __init__(self, dsn: str = PG_DSN):
-        self.dsn = dsn
+    def __init__(self, dsn: str | None = None):
+        self.dsn = (dsn or PG_DSN).strip()
+        if not self.dsn:
+            raise RuntimeError("SEAL_PG_DSN is required; privileged fallback is forbidden")
         self.pool: Optional[asyncpg.Pool] = None
+        self.admin_dsn = os.environ.get("SEAL_PG_ADMIN_DSN", "").strip()
+        self.admin_pool: Optional[asyncpg.Pool] = None
 
     async def init(self) -> None:
         """Initialize connection pool."""
         self.pool = await asyncpg.create_pool(
             self.dsn, min_size=POOL_MIN, max_size=POOL_MAX,
         )
+        if self.admin_dsn:
+            self.admin_pool = await asyncpg.create_pool(
+                self.admin_dsn, min_size=1, max_size=2,
+            )
 
     async def close(self) -> None:
         """Close connection pool."""
+        if self.admin_pool:
+            await self.admin_pool.close()
         if self.pool:
             await self.pool.close()
 
@@ -135,6 +143,61 @@ class ChatDB:
             "UPDATE chat_users SET last_seen = NOW() WHERE id = $1", user_id,
         )
 
+    async def list_users(self) -> list[dict]:
+        """List all users (sin password_hash). Para el panel admin (cura RBAC NEXUS 13-jun)."""
+        rows = await self.pool.fetch(
+            "SELECT id, username, display_name, role, avatar_url, created_at, last_seen "
+            "FROM chat_users ORDER BY username",
+        )
+        return [dict(r) for r in rows]
+
+    async def delete_user(self, username: str) -> bool:
+        """Delete a user and revoke every active session in one transaction."""
+        executor = self.admin_pool or self.pool
+        deleted = await executor.fetchval(
+            "SELECT soul_v3.user_delete_with_sessions($1)", username,
+        )
+        return int(deleted or 0) == 1
+
+    # ── User ↔ Agent assignment (Opción A, orden William 17-jul) ─────────────
+    async def get_user_agents(self, user_id: int) -> list[str]:
+        """Agentes que este usuario puede usar. Lista de nombres (vacía = ninguno asignado)."""
+        rows = await self.pool.fetch(
+            "SELECT agent FROM user_agents WHERE user_id = $1 ORDER BY agent", user_id,
+        )
+        return [r["agent"] for r in rows]
+
+    async def get_user_agent_policy(self, user_id: int) -> dict:
+        """Return explicit assignment state; absence means legacy/unconfigured."""
+        row = await self.pool.fetchrow(
+            "SELECT configured, granted_by, updated_at FROM user_agent_policies WHERE user_id = $1",
+            user_id,
+        )
+        return dict(row) if row else {"configured": False, "granted_by": None, "updated_at": None}
+
+    async def set_user_agents(self, user_id: int, agents: list[str], granted_by: str) -> list[str]:
+        """Reemplaza el conjunto de agentes del usuario por `agents` (transaccional).
+        Devuelve la lista final persistida. Idempotente: setear la misma lista no falla."""
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute("DELETE FROM user_agents WHERE user_id = $1", user_id)
+                for agent in dict.fromkeys(a.strip() for a in agents if a and a.strip()):
+                    await conn.execute(
+                        "INSERT INTO user_agents (user_id, agent, granted_by) VALUES ($1, $2, $3)",
+                        user_id, agent, granted_by,
+                    )
+                await conn.execute(
+                    """INSERT INTO user_agent_policies (user_id, configured, granted_by, updated_at)
+                       VALUES ($1, true, $2, NOW())
+                       ON CONFLICT (user_id) DO UPDATE SET
+                         configured=true, granted_by=EXCLUDED.granted_by, updated_at=NOW()""",
+                    user_id, granted_by,
+                )
+                rows = await conn.fetch(
+                    "SELECT agent FROM user_agents WHERE user_id = $1 ORDER BY agent", user_id,
+                )
+        return [r["agent"] for r in rows]
+
     # ── Sessions ────────────────────────────────────────────────────────────
 
     async def create_session(
@@ -152,44 +215,70 @@ class ChatDB:
         return dict(row)
 
     async def validate_session(self, token_hash: str) -> dict | None:
-        """Validate session by token hash. Returns user dict or None."""
+        """Validate session by token hash. Returns user dict or None.
+
+        Sliding renewal (William, 2026-07-17: "estas sesiones no deben vencer"):
+        an active session — one still in use within its expiry window — gets its
+        expires_at pushed out another TOKEN_EXPIRY_HOURS whenever less than a
+        quarter of its window remains, so agents/users who keep talking never
+        hit a hard cutoff. A session that goes truly idle past TOKEN_EXPIRY_HOURS
+        still expires on schedule, same as before.
+
+        Absolute cap (ADA, 2026-07-17: sliding renewal with no ceiling lets a
+        stolen token live forever if it's replayed inside every window; caught
+        again that a renewal-only cap still let a >30d session authenticate one
+        last time before dying — the cap must reject outright, not just stop
+        renewing). Once a session crosses created_at + MAX_SESSION_AGE it fails
+        validation immediately (enforced in the WHERE clause itself), forcing
+        real re-auth (human re-login / create_agent_sessions.py rotation)
+        regardless of how active the token stayed.
+        """
         row = await self.pool.fetchrow(
-            """SELECT s.id as session_id, s.user_id, s.expires_at,
+            """SELECT s.id as session_id, s.user_id, s.expires_at, s.created_at,
                       u.username, u.display_name, u.role, u.avatar_url
                FROM chat_sessions s
                JOIN chat_users u ON s.user_id = u.id
-               WHERE s.token_hash = $1 AND s.expires_at > NOW()""",
-            token_hash,
+               WHERE s.token_hash = $1 AND s.expires_at > NOW()
+                     AND s.created_at + $2::interval > NOW()""",
+            token_hash, MAX_SESSION_AGE,
         )
-        return dict(row) if row else None
+        if not row:
+            return None
+        now = datetime.now(LIMA_TZ)
+        renew_threshold = timedelta(hours=TOKEN_EXPIRY_HOURS / 4)
+        if row["expires_at"] - now < renew_threshold:
+            # The login runtime intentionally has no free-form UPDATE grant on
+            # chat_sessions.  Renewal goes through a bounded SECURITY DEFINER
+            # function: 18h threshold, 72h slide, hard 30d absolute cap.
+            # A direct UPDATE here made every near-expiry authenticated request
+            # fail closed with HTTP 503 under the real login_bus role.
+            renewed = await self.pool.fetchval(
+                "SELECT soul_v3.session_renew_by_token($1)", token_hash,
+            )
+            if renewed is not None:
+                result = dict(row)
+                result["expires_at"] = renewed
+                return result
+        return dict(row)
 
     async def delete_session(self, token_hash: str) -> None:
-        """Invalidate a session."""
+        """Invalidate one session through the least-privilege session API."""
         await self.pool.execute(
-            "DELETE FROM chat_sessions WHERE token_hash = $1", token_hash,
+            "SELECT soul_v3.session_delete_by_token($1)", token_hash,
         )
 
     async def cleanup_expired_sessions(self) -> int:
-        """Remove expired sessions. Returns count deleted."""
-        result = await self.pool.execute(
-            "DELETE FROM chat_sessions WHERE expires_at < NOW()",
-        )
-        return int(result.split()[-1])
+        """Remove expired sessions through the least-privilege session API."""
+        return int(await self.pool.fetchval(
+            "SELECT soul_v3.session_cleanup_expired()"
+        ))
 
     async def limit_user_sessions(self, user_id: int, max_sessions: int = 5) -> int:
-        """Keep only the N most recent sessions per user. Returns count deleted."""
-        result = await self.pool.execute(
-            """DELETE FROM chat_sessions
-               WHERE user_id = $1
-               AND id NOT IN (
-                   SELECT id FROM chat_sessions
-                   WHERE user_id = $1
-                   ORDER BY created_at DESC
-                   LIMIT $2
-               )""",
+        """Keep N sessions through the bounded least-privilege session API."""
+        return int(await self.pool.fetchval(
+            "SELECT soul_v3.session_limit_by_user($1, $2)",
             user_id, max_sessions,
-        )
-        return int(result.split()[-1])
+        ))
 
     # ── Messages ────────────────────────────────────────────────────────────
 
@@ -203,9 +292,14 @@ class ChatDB:
         message_type: str = "text",
         metadata: dict | None = None,
         reply_to: int | None = None,
+        conn=None,
     ) -> dict:
-        """Store a new message. Returns message dict with id and timestamp."""
-        row = await self.pool.fetchrow(
+        """Store a new message. Returns message dict with id and timestamp.
+        Si se pasa `conn`, usa esa conexión (p.ej. una con app.current_identity seteada:
+        el INSERT..RETURNING en canales dm:* exige que la fila sea VISIBLE por la política
+        SELECT de RLS — sin identidad de sesión la RLS la oculta y el INSERT falla)."""
+        ex = conn if conn is not None else self.pool
+        row = await ex.fetchrow(
             """INSERT INTO chat_messages
                (sender_type, sender_id, sender_name, channel, message_type, content, metadata, reply_to)
                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
@@ -226,24 +320,28 @@ class ChatDB:
         limit: int = 50,
         before_id: int | None = None,
         after_id: int | None = None,
+        conn=None,
     ) -> list[dict]:
-        """Fetch messages for a channel with cursor-based pagination."""
+        """Fetch messages for a channel with cursor-based pagination.
+        #19 Fase B: si se pasa `conn` (una conexión RLS-scopeada bajo chat_msg_ro), las lecturas
+        de canales privados/DM quedan aisladas por la DB. Si conn=None usa el pool (`seal`, público)."""
+        ex = conn if conn is not None else self.pool
         if before_id:
-            rows = await self.pool.fetch(
+            rows = await ex.fetch(
                 """SELECT * FROM chat_messages
                    WHERE channel = $1 AND id < $2
                    ORDER BY created_at DESC LIMIT $3""",
                 channel, before_id, limit,
             )
         elif after_id:
-            rows = await self.pool.fetch(
+            rows = await ex.fetch(
                 """SELECT * FROM chat_messages
                    WHERE channel = $1 AND id > $2
                    ORDER BY created_at ASC LIMIT $3""",
                 channel, after_id, limit,
             )
         else:
-            rows = await self.pool.fetch(
+            rows = await ex.fetch(
                 """SELECT * FROM chat_messages
                    WHERE channel = $1
                    ORDER BY created_at DESC LIMIT $2""",
@@ -253,12 +351,13 @@ class ChatDB:
 
     async def delete_message(self, message_id: int, requester_name: str, is_admin: bool = False) -> bool:
         """Delete a message. Only the sender or an admin can delete. Returns True if deleted."""
+        executor = self.admin_pool or self.pool
         if is_admin:
-            result = await self.pool.execute(
+            result = await executor.execute(
                 "DELETE FROM chat_messages WHERE id = $1", message_id
             )
         else:
-            result = await self.pool.execute(
+            result = await executor.execute(
                 "DELETE FROM chat_messages WHERE id = $1 AND sender_name = $2",
                 message_id, requester_name,
             )
@@ -274,24 +373,63 @@ class ChatDB:
         return await self.get_messages(dm_channel, limit, before_id)
 
     async def search_messages(
-        self, query: str, channel: str | None = None, limit: int = 20,
+        self,
+        query: str,
+        channel: str | None = None,
+        limit: int = 20,
+        *,
+        conn=None,
+        allowed_agents: list[str] | tuple[str, ...] | set[str] | None = None,
+        allow_all_agents: bool = False,
     ) -> list[dict]:
-        """Full-text search across messages (Spanish tsquery)."""
+        """Search only through a caller-scoped, RLS-enforced connection.
+
+        ``conn`` must be a connection whose transaction has ``SET LOCAL ROLE
+        chat_msg_ro`` plus the authenticated user's ``app.current_user_id`` and
+        ``app.current_identity``.  Refusing to fall back to the owner pool is
+        intentional: the owner bypasses RLS and would leak other users' DMs and
+        private ``user:*`` channels in a cross-channel search.
+
+        Non-privileged callers must also pass their assigned agents.  Human and
+        system messages remain searchable, while rows explicitly authored by an
+        agent are limited to that assignment.  ``allow_all_agents`` is reserved
+        for an already-authorized admin/superuser selected by the HTTP layer.
+        """
+        query = (query or "").strip()
+        if conn is None or not query:
+            return []
+
+        limit = max(1, min(int(limit), 100))
+        params: list[Any] = []
+        where: list[str] = []
+
         if channel:
-            rows = await self.pool.fetch(
-                """SELECT * FROM chat_messages
-                   WHERE channel = $1
-                     AND to_tsvector('spanish', content) @@ plainto_tsquery('spanish', $2)
-                   ORDER BY created_at DESC LIMIT $3""",
-                channel, query, limit,
+            params.append(channel)
+            where.append(f"channel = ${len(params)}")
+
+        params.append(query)
+        where.append(
+            "to_tsvector('spanish', COALESCE(content, '')) "
+            f"@@ plainto_tsquery('spanish', ${len(params)})"
+        )
+
+        if not allow_all_agents:
+            if allowed_agents is None:
+                return []
+            normalized = sorted({str(agent).strip().upper() for agent in allowed_agents if str(agent).strip()})
+            params.append(normalized)
+            where.append(
+                "(sender_type IS DISTINCT FROM 'agent' "
+                f"OR UPPER(COALESCE(sender_name, '')) = ANY(${len(params)}::text[]))"
             )
-        else:
-            rows = await self.pool.fetch(
-                """SELECT * FROM chat_messages
-                   WHERE to_tsvector('spanish', content) @@ plainto_tsquery('spanish', $1)
-                   ORDER BY created_at DESC LIMIT $2""",
-                query, limit,
-            )
+
+        params.append(limit)
+        rows = await conn.fetch(
+            f"""SELECT * FROM chat_messages
+                WHERE {' AND '.join(where)}
+                ORDER BY created_at DESC LIMIT ${len(params)}""",
+            *params,
+        )
         return [dict(r) for r in rows]
 
     async def get_message_count(self, channel: str | None = None) -> int:
@@ -351,6 +489,15 @@ class ChatDB:
 
     async def user_can_access_channel(self, user_id: int, channel: str) -> bool:
         """Check if user can read a channel."""
+        # Studio llama "General" al canal canónico ``web_chat``. La tabla
+        # histórica chat_channels solo registra ``general`` en algunos nodos,
+        # pero los mensajes vivos se persisten con channel='web_chat'. Tratar
+        # ambos nombres públicos como aliases explícitos evita que el upload
+        # autenticado dé 403 mientras el envío de texto sí funciona. Mantener
+        # la lista cerrada: canales desconocidos siguen fail-closed abajo.
+        if channel in {"general", "web_chat"}:
+            return True
+
         # DM channels — check if user is a participant (case-insensitive)
         if channel.startswith("dm:"):
             user = await self.get_user_by_id(user_id)
@@ -358,6 +505,15 @@ class ChatDB:
                 ch_lower = channel.lower()
                 return (user["display_name"].lower() in ch_lower
                         or user["username"].lower() in ch_lower)
+            return False
+
+        # Canales topic de usuario user:<uid>:<slug> — el DUEÑO (uid == user_id) accede.
+        # Fix (JARVIS 18-jul, coordinado con ADA): el path de upload usa esta función y NO
+        # cubría los user:N:* → Henry recibía "Access denied" al subir a su canal gtl-sistemas.
+        if channel.startswith("user:"):
+            parts = channel.split(":")
+            if len(parts) >= 2 and parts[1].isdigit():
+                return int(parts[1]) == user_id
             return False
 
         # Public channels are always readable
