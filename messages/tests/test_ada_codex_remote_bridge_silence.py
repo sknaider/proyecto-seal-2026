@@ -384,7 +384,9 @@ def test_stale_public_completion_409_is_suppressed_without_retry_loop(
     assert bridge.terminal_completion_receipt(117047)["status"] == "suppressed"
 
 
-def test_recent_public_completion_409_remains_fail_closed(monkeypatch, tmp_path):
+def test_recent_public_completion_409_is_backed_off_without_log_flood(
+    monkeypatch, tmp_path
+):
     msg = bridge.ChatMessage(
         id=117048,
         sender="henry",
@@ -404,14 +406,27 @@ def test_recent_public_completion_409_remains_fail_closed(monkeypatch, tmp_path)
         async def fetch(self, query, channel, in_reply_to, content):
             return []
 
+    posts = []
+
     def recent_conflict(*_args, **_kwargs):
+        posts.append(True)
         raise urlerror.HTTPError(
             bridge.WEBCHAT_SEND_URL, 409, "Conflict", hdrs=None, fp=None
         )
 
     monkeypatch.setattr(bridge, "post_message", recent_conflict)
-    with __import__("pytest").raises(urlerror.HTTPError):
-        asyncio.run(bridge.recover_headless_completion(Conn(), msg))
+    recovered = asyncio.run(bridge.recover_headless_completion(Conn(), msg))
+    assert recovered is None
+    deferred = bridge._load_terminal_response(msg.id)
+    assert deferred["status"] == "completed"
+    assert deferred["retry_count"] == 1
+    assert deferred["last_delivery_http_status"] == 409
+    assert not bridge.headless_completion_retry_due(deferred)
+
+    # A 2-second poll loop must not hammer the coordination gate or NERVES.
+    recovered = asyncio.run(bridge.recover_headless_completion(Conn(), msg))
+    assert recovered is None
+    assert len(posts) == 1
 
 
 def test_human_reply_targets_actual_sender_not_always_william(monkeypatch):

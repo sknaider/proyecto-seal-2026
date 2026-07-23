@@ -19,7 +19,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import unquote, urlparse
@@ -107,6 +107,12 @@ STREAM_SENTENCE_RE = re.compile(r"[.!?…:;]\s*$")
 TURN_MAX_ATTEMPTS = 2
 TURN_TIMEOUT_SECONDS = max(180, int(os.environ.get("ADA_BRIDGE_TURN_TIMEOUT_SECONDS", "900")))
 STALE_COMPLETION_SECONDS = _env_float("ADA_BRIDGE_STALE_COMPLETION_SECONDS", 120.0)
+COMPLETION_RETRY_BASE_SECONDS = _env_float(
+    "ADA_BRIDGE_COMPLETION_RETRY_BASE_SECONDS", 5.0
+)
+COMPLETION_RETRY_MAX_SECONDS = _env_float(
+    "ADA_BRIDGE_COMPLETION_RETRY_MAX_SECONDS", 60.0
+)
 RECENT_CONTEXT_LIMIT = 8
 RECENT_CONTEXT_LOOKBACK_IDS = 80
 RECENT_CONTEXT_MAX_CHARS = 1800
@@ -464,6 +470,54 @@ def record_headless_delivered(
     path = TERMINAL_RESPONSES_DIR / f"chat_{msg.id}.json"
     _atomic_private_json(path, response)
     _append_private_jsonl(TERMINAL_RESPONSES_JSONL, response)
+    return response
+
+
+def _parse_utc_timestamp(value: Any) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(
+            timezone.utc
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def headless_completion_retry_due(completed: dict) -> bool:
+    """Return False while a persisted delivery backoff is still active."""
+    retry_at = _parse_utc_timestamp(completed.get("next_retry_at"))
+    return retry_at is None or datetime.now(timezone.utc) >= retry_at
+
+
+def defer_headless_completion_retry(
+    msg: "ChatMessage",
+    completed: dict,
+    *,
+    http_status: int,
+    coordination_error: str | None,
+) -> dict:
+    """Persist bounded exponential backoff without treating retry as a new turn."""
+    retry_count = max(0, int(completed.get("retry_count") or 0)) + 1
+    delay = min(
+        COMPLETION_RETRY_MAX_SECONDS,
+        COMPLETION_RETRY_BASE_SECONDS * (2 ** min(retry_count - 1, 8)),
+    )
+    now = datetime.now(timezone.utc)
+    response = dict(completed)
+    response.update(
+        {
+            "retry_count": retry_count,
+            "last_delivery_http_status": int(http_status),
+            "last_coordination_error": coordination_error or "http_conflict",
+            "last_retry_at": now.isoformat(),
+            "next_retry_at": (
+                now + timedelta(seconds=max(POLL_INTERVAL, delay))
+            ).isoformat(),
+        }
+    )
+    _atomic_private_json(
+        TERMINAL_RESPONSES_DIR / f"chat_{msg.id}.json",
+        response,
+    )
     return response
 
 
@@ -1632,6 +1686,8 @@ async def recover_headless_completion(
         or completed.get("status") != "completed"
     ):
         return None
+    if not headless_completion_retry_due(completed):
+        return None
     canonical_source_id = response_source_id(msg)
     if (
         msg.channel == "web_chat"
@@ -1694,6 +1750,29 @@ async def recover_headless_completion(
                 completed,
                 "coordination_409_after_stale_completion",
             )
+        if (
+            exc.code == 409
+            and str(completed.get("channel") or msg.channel) == "web_chat"
+        ):
+            coordination_error = None
+            try:
+                payload = json.loads(exc.read().decode("utf-8"))
+                if isinstance(payload, dict):
+                    coordination_error = str(payload.get("error") or "") or None
+            except (AttributeError, UnicodeDecodeError, json.JSONDecodeError):
+                pass
+            deferred = defer_headless_completion_retry(
+                msg,
+                completed,
+                http_status=exc.code,
+                coordination_error=coordination_error,
+            )
+            log(
+                "completion conflict deferred "
+                f"chat_id={msg.id} retry={deferred['retry_count']} "
+                f"next={deferred['next_retry_at']}"
+            )
+            return None
         raise
     db_id = await confirm_chat_delivery(
         conn,
@@ -2239,10 +2318,16 @@ async def bridge_loop(args: argparse.Namespace) -> None:
                         continue
                     if terminal_task_owns_message(msg.id):
                         batch_handed_to_terminal = True
-                        log(
-                            f"accepted terminal task still owns chat id {msg.id}; "
-                            "postponing to prevent duplicate tools"
-                        )
+                        retry_artifact = _load_terminal_response(msg.id)
+                        if not (
+                            retry_artifact
+                            and retry_artifact.get("status") == "completed"
+                            and not headless_completion_retry_due(retry_artifact)
+                        ):
+                            log(
+                                f"accepted terminal task still owns chat id {msg.id}; "
+                                "postponing to prevent duplicate tools"
+                            )
                         break
                     active_dispatch_claim = acquire_dispatch_claim(msg.id)
                     if active_dispatch_claim is None:
