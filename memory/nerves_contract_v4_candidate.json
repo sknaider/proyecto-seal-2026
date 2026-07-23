@@ -1,0 +1,102 @@
+{
+  "schema": "seal.nerves.contract.v4-candidate",
+  "version": "4.0.0-candidate.1",
+  "updated_at": "2026-07-23",
+  "status": "candidate_no_runtime_authority",
+  "vision_owner": "William",
+  "architecture_owner": "JARVIS",
+  "implementation_owner": "ADA",
+  "canonical_live_contract": "memory/nerves_contract_v3.json",
+  "candidate_spec": "docs/SPEC_NERVES_ARCHITECTURE_v4_HUMAN_FUNCTIONAL_ADA.md",
+  "mission_schema": "docs/schemas/nerves_mission_envelope_v1.schema.json",
+  "principles": [
+    "principal_orchestrates_workers_execute",
+    "every_actionable_fire_creates_or_joins_durable_mission",
+    "non_actionable_fire_never_counts_as_verified_work",
+    "prediction_before_action",
+    "limited_attention_workspace",
+    "bounded_interruptible_missions",
+    "least_authority",
+    "typed_evidence_before_reset",
+    "independent_verification",
+    "calibrated_confidence",
+    "selective_verified_consolidation",
+    "functional_human_likeness_without_consciousness_claim"
+  ],
+  "loops": {
+    "reflex": "live_v3_1",
+    "cognitive_mission": "candidate",
+    "consolidation_learning": "candidate"
+  },
+  "mission_lifecycle": [
+    "observed",
+    "admitted",
+    "mission_created",
+    "leased",
+    "worker_started",
+    "running",
+    "evidence_submitted",
+    "independently_verified",
+    "effect_committed",
+    "learned",
+    "closed"
+  ],
+  "terminal_non_work_states": [
+    "inhibited",
+    "coalesced",
+    "stale",
+    "no_actionable_evidence",
+    "waiting_william",
+    "dead_letter",
+    "cancelled"
+  ],
+  "runner": {
+    "status": "not_implemented",
+    "authority_table": "soul_v3.nerves_missions",
+    "agent_tasks_role": "human_projection_only",
+    "dispatcher": "seal-nerves-mission-dispatcher.service",
+    "claim": "for_update_skip_locked",
+    "isolation": "systemd_transient_unit_per_mission",
+    "public_bridge_reuse": false,
+    "subagent_can_write_webchat": false,
+    "subagent_can_read_dm": false,
+    "recursive_subagents": false
+  },
+  "risk_classes": {
+    "A1_REFLEX": "allowlisted_live",
+    "A2_READ_ONLY": "pilot_candidate",
+    "A3_REVERSIBLE_WRITE": "shadow_until_pilot_green",
+    "A4_SERVICE_CHANGE": "coordinated_owner_integration",
+    "A5_GOVERNED": "william_approval_required",
+    "A6_DESTRUCTIVE": "count_scope_and_explicit_william_approval_required"
+  },
+  "first_pilot": {
+    "agent": "JARVIS",
+    "nerve": "integrity",
+    "finding_type": "integrity_drift",
+    "risk_class": "A2_READ_ONLY",
+    "specialty": "architecture_integrity_audit",
+    "skill": "seal-nerves-integrity-audit@v1",
+    "worker_engine": "isolated_one_shot",
+    "verifiers": ["ADA", "FABLE_OR_NEXUS"],
+    "production_writes": false,
+    "service_restart": false,
+    "required_acceptance": [
+      "exactly_one_mission_per_root_cause",
+      "principal_ack_p95_le_2s",
+      "typed_evidence_reproduced",
+      "denied_tools_blocked",
+      "reset_only_after_verdict",
+      "clean_cancel_and_restart_behavior"
+    ]
+  },
+  "promotion_order": [
+    "spec_schema_contract",
+    "shadow_ledger",
+    "jarvis_compiler_shadow",
+    "jarvis_a2_isolated_fixture",
+    "jarvis_a2_real_read_only_canary",
+    "24h_soak",
+    "target_specific_go_no_go"
+  ]
+}
