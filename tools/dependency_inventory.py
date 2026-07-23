@@ -246,20 +246,42 @@ def _docker_publisher(port):
     return None
 
 
+# Marcador: el puerto está en LISTEN (hay dueño) pero el PID no es visible sin
+# privilegio. Un socket en LISTEN SIEMPRE tiene proceso dueño; no poder verlo por
+# permisos NO es lo mismo que ser huérfano. Distinguir esto mata los falsos
+# positivos FAIL-ORPHAN (ollama/prometheus, verificado por efecto 23-jul JARVIS).
+_NO_OBSERVABLE = "__owner_present_but_unobservable__"
+
+
 def _listener_pid(port, exclude):
+    """PID dueño del socket :port. TRES estados (no dos):
+      int            → PID dueño confirmado.
+      _NO_OBSERVABLE → hay LISTEN (dueño existe) pero el PID no es visible sin privilegio.
+      None           → NADIE escucha en LISTEN → huérfano real (o servicio caído).
+    """
+    saw_listen = False
     try:
-        for base in (["sudo", "ss"], ["ss"]):
+        # `sudo -n` = no interactivo: en un timer systemd no cuelga pidiendo password;
+        # si no está disponible, degrada a `ss` sin privilegio.
+        for base in (["sudo", "-n", "ss"], ["ss"]):
             r = subprocess.run(base + ["-lntpH", f"sport = :{port}"],
                                capture_output=True, text=True, timeout=6)
-            for m in r.stdout.split("pid=")[1:]:
-                pid = int(m.split(",")[0].split(")")[0])
-                if pid not in exclude:
-                    return pid
+            if r.returncode != 0 and base[0] == "sudo":
+                continue
             if r.stdout.strip():
-                break
+                saw_listen = True
+            for m in r.stdout.split("pid=")[1:]:
+                try:
+                    pid = int(m.split(",")[0].split(")")[0])
+                    if pid not in exclude:
+                        return pid
+                except (ValueError, IndexError):
+                    pass
+            if saw_listen:
+                break  # el socket existe; si no extrajimos PID aquí, es no-observable
     except Exception:
         pass
-    return None
+    return _NO_OBSERVABLE if saw_listen else None
 
 
 def _cgroup_unit(pid):
@@ -285,7 +307,7 @@ def _identity_observed(port, expect_kind, expect_name, exclude):
             # cgroup del listener (docker-<id>.scope). Gotcha cazado por efecto.
             pid = _listener_pid(port, exclude)
             cid = None
-            if pid is not None:
+            if isinstance(pid, int):
                 try:
                     cg = open(f"/proc/{pid}/cgroup").read()
                     m = [t for t in cg.replace("/", " ").split() if t.startswith("docker-")]
@@ -301,12 +323,21 @@ def _identity_observed(port, expect_kind, expect_name, exclude):
                 pub = {"kind": "docker", "name": nm.lstrip("/"), "id": iid[:12],
                        "image": image, "running": run == "true", "net": "host"}
                 return pub, f"docker {pub['name']} id={pub['id']} image={pub['image']} (host-net)"
-            return None, "sin contenedor que publique el puerto"
+            if pid is None:
+                return None, "sin socket en LISTEN (huérfano real: nadie escucha)"
+            # LISTEN presente pero sin mapeo visible al contenedor (PID no observable sin
+            # privilegio, o publicado por docker-proxy sin exponer dueño) → dueño existe,
+            # NO es huérfano (verificado por efecto: seal-prometheus corriendo, 23-jul).
+            return ({"kind": "docker", "name": expect_name, "observable": False},
+                    "dueño no observable — puerto en LISTEN sin mapeo visible al contenedor (NO huérfano)")
         return pub, f"docker {pub['name']} id={pub['id']} image={pub['image']}"
     # systemd / proceso
     pid = _listener_pid(port, exclude)
     if pid is None:
-        return None, "sin PID dueño (huérfano o no observable)"
+        return None, "sin socket en LISTEN (huérfano real: nadie escucha)"
+    if pid == _NO_OBSERVABLE:
+        return ({"kind": "systemd", "unit": None, "pid": None, "observable": False},
+                "dueño no observable — socket en LISTEN, PID no visible sin privilegio (NO huérfano)")
     unit = _cgroup_unit(pid)
     return ({"kind": "systemd", "unit": unit, "pid": pid},
             f"pid={pid} unit={unit or 'sin-unidad'}")
@@ -454,8 +485,10 @@ def _identity_report():
     for name, port, ekind, ename in checks:
         obs, detail = _identity_observed(port, ekind, ename, exclude)
         if obs is None:
-            verdict = "FAIL-ORPHAN"  # fail-closed: sin dueño/ambiguo
+            verdict = "FAIL-ORPHAN"  # huérfano REAL: nadie escucha en LISTEN
             fails += 1
+        elif isinstance(obs, dict) and obs.get("observable") is False:
+            verdict = "NO-OBSERV"    # dueño existe (LISTEN) pero no visible sin privilegio → NO es fail
         else:
             if ekind == "docker":
                 got = obs.get("name", "")
@@ -466,7 +499,7 @@ def _identity_report():
             verdict = "MATCH" if match else "FAIL-MISMATCH"
             if not match:
                 fails += 1
-        print(f"{name:<28} :{port:<6} {verdict:<10} {ekind}:{ename} → {detail}")
+        print(f"{name:<28} :{port:<6} {verdict:<12} {ekind}:{ename} → {detail}")
     print(f"\nidentidad: {len(checks)-fails}/{len(checks)} MATCH"
           + (f"  ⚠{fails} fail-closed" if fails else "  — todo atribuido")
           + f"  · autoexcluidos {len(exclude)} PIDs propios")

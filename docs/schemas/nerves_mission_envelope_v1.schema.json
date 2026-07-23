@@ -11,6 +11,8 @@
     "agent",
     "tenant_id",
     "nerve_fire_id",
+    "nerve_layer",
+    "drive",
     "specialty",
     "objective",
     "risk_class",
@@ -37,6 +39,14 @@
     "tenant_id": {"type": "string", "format": "uuid"},
     "nerve_fire_id": {"type": "string", "minLength": 8},
     "correlation_id": {"type": ["string", "null"]},
+    "nerve_layer": {
+      "type": "string",
+      "enum": ["GLOBAL", "AGENT_ROLE", "EMERGENT"]
+    },
+    "drive": {
+      "type": "string",
+      "enum": ["reactive", "proactive"]
+    },
     "specialty": {"type": "string", "minLength": 3, "maxLength": 120},
     "objective": {"type": "string", "minLength": 10, "maxLength": 2000},
     "risk_class": {

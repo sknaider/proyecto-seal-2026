@@ -24,11 +24,13 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 LOG = ROOT / "logs" / "jarvis_nerves_watch.log"
+SOUL_UNIT_NAME = re.compile(r"^(?:seal|soul)-[A-Za-z0-9_.@:\\-]+$")
 
 
 def _run(args):
@@ -36,10 +38,53 @@ def _run(args):
                           capture_output=True, text=True, timeout=90)
 
 
+def _parse_failed_units(output: str) -> list[str]:
+    """Parsea `systemctl list-units --state=failed --plain --no-legend`.
+
+    No interpreta una salida no vacía pero inesperada como "cero": eso sería otro
+    falso verde. Devuelve únicamente unidades propias de SOUL/SEAL.
+    """
+    failed = []
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        fields = line.split()
+        if fields[0] == "●":
+            fields = fields[1:]
+        if len(fields) < 4 or fields[2] != "failed":
+            raise ValueError(f"unexpected systemctl row: {line[:120]}")
+        unit = fields[0]
+        if SOUL_UNIT_NAME.fullmatch(unit):
+            failed.append(unit)
+    return sorted(set(failed))
+
+
+def _failed_units(scope: str) -> list[str]:
+    """Lee unidades fallidas del ámbito pedido; falla cerrado si systemd no responde."""
+    if scope not in {"user", "system"}:
+        raise ValueError(f"unsupported systemd scope: {scope}")
+    command = ["systemctl"]
+    if scope == "user":
+        command.append("--user")
+    command.extend([
+        "list-units", "--state=failed", "--no-legend", "--no-pager", "--plain",
+    ])
+    process = subprocess.run(
+        command, capture_output=True, text=True, timeout=15, check=False,
+    )
+    if process.returncode != 0:
+        error = (process.stderr or process.stdout).strip().replace("\n", " ")
+        raise RuntimeError(
+            f"systemd {scope} failed-unit sweep rc={process.returncode}: {error[:160]}"
+        )
+    return _parse_failed_units(process.stdout)
+
+
 def check():
     """Corre los instrumentos reales. Devuelve (estado, findings, detalle).
 
-    Tres ejes (los 2 primeros RELATIVOS al baseline, el 3º ABSOLUTO):
+    Cuatro ejes (los 2 primeros RELATIVOS al baseline, los demás ABSOLUTOS):
       1. --diff   : regresión (algo sano que se rompió vs baseline). Unidireccional
                     a propósito: roto→sano NO es regresión (no es ruido).
       2. --identity: atribución (huérfano/mismatch de proceso).
@@ -47,6 +92,8 @@ def check():
                     del baseline. Cierra el punto ciego que cazó el red-team: un baseline
                     stale/corrupto podría eximir un servicio genuinamente caído del --diff;
                     el chequeo absoluto lo caza igual. NO rompe la semántica de --diff.
+      4. systemd user+system: cualquier unidad fallida seal-*/soul-* aunque no forme
+                    parte del catálogo curado. Fail-closed si un ámbito no puede leerse.
     """
     findings = []
     # 1) gate de regresión (fail-closed)
@@ -76,8 +123,44 @@ def check():
                             + ", ".join(bad))
     except Exception as e:
         findings.append(f"SALUD ABSOLUTA: no se pudo evaluar (fail-closed): {str(e)[:40]}")
+    # 4) sweep complementario: el catálogo curado no conoce necesariamente una unidad
+    # nueva. Revisamos ambos ámbitos y nunca traducimos "no pude leer" a GREEN.
+    systemd_findings = []
+    try:
+        for scope in ("user", "system"):
+            failed_units = _failed_units(scope)
+            if failed_units:
+                systemd_findings.append(
+                    f"SYSTEMD {scope}: unidad(es) SOUL/SEAL fallida(s): "
+                    + ", ".join(failed_units)
+                )
+    except Exception as e:
+        return (
+            "BROKEN",
+            ["systemd failed-unit sweep unavailable"],
+            f"{type(e).__name__}: {str(e)[:240]}",
+        )
+    # Escalón 2 — MEMORIA ("qué es normal", orden William 23-jul): los hallazgos ya
+    # clasificados como normal/aceptado NO rompen el silencio (se cuentan, no alertan).
+    # Solo los NUEVOS/no-clasificados alertan. Fail-open: si la memoria falla, se detecta
+    # igual (nunca bloquea la detección real).
+    conocidos = []
+    try:
+        import importlib.util as _il
+        _spec = _il.spec_from_file_location(
+            "jarvis_nerves_known_baseline", ROOT / "tools" / "jarvis_nerves_known_baseline.py")
+        _kb = _il.module_from_spec(_spec)
+        _spec.loader.exec_module(_kb)
+        findings, conocidos = _kb.filter_findings(findings)
+    except Exception:
+        pass
+    # Una unidad propia en estado failed es evidencia viva, no una anomalía histórica:
+    # la memoria de baseline no puede convertirla en GREEN.
+    findings.extend(systemd_findings)
     detalle = (d.stdout.strip().splitlines()[-1] if d.stdout.strip() else "") + \
               " | " + (i.stdout.strip().splitlines()[-1] if i.stdout.strip() else "")
+    if conocidos:
+        detalle += f" | conocidos-normales-silenciados={len(conocidos)}"
     return ("FINDING" if findings else "GREEN"), findings, detalle
 
 

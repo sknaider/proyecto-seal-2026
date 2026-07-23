@@ -989,6 +989,7 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
 # ruido a William); cada acción persiste su propio artefacto (JSONL/DB). Disciplina canary (ADA):
 # arranca dry-run/gated, se enciende con evidencia + OK familia.
 NERVES_USEFUL = os.environ.get("SEAL_NERVES_USEFUL", "0") == "1"
+NERVES_MISSION_SHADOW = os.environ.get("SEAL_NERVES_MISSION_SHADOW", "0") == "1"
 _MESSAGES_DIR = "/home/dadito/IA/proyecto-seal/messages"
 _MAINTENANCE_NOT_RUN = object()
 
@@ -1021,6 +1022,51 @@ async def _run_maintenance_action(engine) -> str | None:
             f"maintenance_failed:{agent}:{type(e).__name__}"
         ) from e
     return None
+
+
+def _open_jarvis_shadow_mission():
+    """Compile and ledger one read-only JARVIS mission without launching work.
+
+    The feature is called only behind ``SEAL_NERVES_MISSION_SHADOW=1`` and for
+    JARVIS. Any artifact/compiler/ledger failure propagates as
+    :class:`NervesActionError`, so the tank remains retryable and the finding
+    can never be reported as ``clean_silent``.
+    """
+    try:
+        from nerves_maintenance_jarvis import ARTIFACT
+        from nerves_mission_shadow import (
+            ShadowMissionLedger,
+            compile_jarvis_integrity_mission,
+            latest_actionable_episode,
+            load_artifact_records,
+            write_shadow_manifest,
+        )
+
+        episode = latest_actionable_episode(load_artifact_records(ARTIFACT))
+        if episode is None:
+            raise ValueError("jarvis_artifact_has_no_actionable_episode")
+        record, episode_anchor = episode
+        mission = compile_jarvis_integrity_mission(
+            record,
+            artifact_path=ARTIFACT,
+            episode_anchor=episode_anchor,
+        )
+        ledger = ShadowMissionLedger()
+        opened = ledger.open_or_join(mission)
+        write_shadow_manifest(opened.mission)
+        verification = ledger.verify()
+        if not verification.ok:
+            raise ValueError(
+                "shadow_ledger_verify_failed:" + ",".join(verification.errors)
+            )
+        return opened
+    except NervesActionError:
+        raise
+    except Exception as exc:
+        log.error("[JARVIS] shadow mission compiler failed: %s", exc)
+        raise NervesActionError(
+            f"mission_shadow_failed:JARVIS:{type(exc).__name__}"
+        ) from exc
 
 
 class MotivationEngine:
@@ -1060,10 +1106,30 @@ class MotivationEngine:
             raise NervesActionError(artifact)
         if artifact:
             if first_run:
-                await self._post_chat(
-                    f"[NERVES/{self.agent}] ⚠️ CRITICAL maintenance: {artifact}",
-                    to="William",
-                )
+                if NERVES_MISSION_SHADOW and self.agent == "JARVIS":
+                    try:
+                        opened = await asyncio.to_thread(
+                            _open_jarvis_shadow_mission
+                        )
+                    except NervesActionError:
+                        self._maintenance_tick_result = (
+                            "maintenance_failed:JARVIS:mission_shadow"
+                        )
+                        raise
+                    if opened.created:
+                        mission = opened.mission
+                        await self._post_chat(
+                            "[NERVES/JARVIS] SHADOW mission_created "
+                            f"mission_id={mission['mission_id']} "
+                            f"risk={mission['risk_class']} — NO ACTION: "
+                            "worker_launched=false; no repair or mutation executed.",
+                            to="William",
+                        )
+                else:
+                    await self._post_chat(
+                        f"[NERVES/{self.agent}] ⚠️ CRITICAL maintenance: {artifact}",
+                        to="William",
+                    )
             log.info(f"[{self.agent}] useful maintenance artifact: {artifact}")
             return f"maintenance_fired:value:{self.agent}"
         log.info(f"[{self.agent}] useful maintenance clean — silent")

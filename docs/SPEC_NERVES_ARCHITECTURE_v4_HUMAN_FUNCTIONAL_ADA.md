@@ -95,11 +95,41 @@ debe degradarse de forma medible.
 9. No hay calibración de confianza, utilidad ni coste por misión.
 10. Los tests v3 prueban reflejos, no
     `misión -> subagente -> herramienta -> prueba -> aprendizaje`.
+11. El catálogo curado puede dar un falso GREEN ante una unidad SOUL nueva no
+    registrada: el piloto exige además barrido global `--user` y system de
+    unidades fallidas, filtrado a `seal-*|soul-*`.
 
 ## 3. Tres escalas temporales
 
 NERVES v4 separa tres lazos para evitar que un LLM haga trabajo que una función
 determinística resuelve mejor.
+
+### 3.0 Tres capas de identidad nerviosa
+
+Las escalas temporales indican **cuándo y cuánto razonar**. Las capas siguientes
+indican **de quién nace el nervio y qué autoridad tiene**:
+
+1. `GLOBAL`: obligatorio para todos. Cubre continuidad, comunicación con
+   William/Henry, identidad, privacidad, salud del runtime, coordinación,
+   anti-false-green, no-colisión y respuesta a `STOP/HOLD`.
+2. `AGENT_ROLE`: nace de personalidad, rol y labor. Ejemplo inicial:
+   JARVIS=`integrity_pulse`; ALICE=semántica/continuidad de ORION;
+   NEXUS=seguridad; ADA=ingeniería; DUM=infraestructura; FABLE=rigor.
+3. `EMERGENT`: el agente lo construye por experiencia o necesidad. Puede quedar
+   implementado y probado en shadow por iniciativa propia, pero no se activa
+   autónomamente hasta coordinar con los hermanos, pasar verificación
+   independiente y recibir consentimiento de William.
+
+Las tres capas usan el mismo `MissionEnvelope`. Ningún nervio emergente puede
+autoampliar permisos, modificar su propio gate ni aprobarse a sí mismo.
+
+Cada misión declara además su `drive`:
+
+- `reactive`: corrige o investiga una desviación observada;
+- `proactive`: busca una mejora útil cuando no hay incidente.
+
+El drive proactivo empieza solo en `A2_READ_ONLY`; no compite con órdenes de
+William ni con incidentes y usa un presupuesto global de atención.
 
 ### Lazo R — autonómico/reflejo (milisegundos–segundos)
 
@@ -198,6 +228,8 @@ política interna acotada y condición de terminación. Su schema está en
 Campos mínimos:
 
 - identidad: `mission_id`, `idempotency_key`, `agent`, `tenant_id`;
+- origen: `nerve_layer` (`GLOBAL|AGENT_ROLE|EMERGENT`) y
+  `drive` (`reactive|proactive`);
 - causalidad: `nerve_fire_id`, `source_refs`, `correlation_id`;
 - objetivo: `specialty`, `objective`, `risk_class`;
 - inicio: `initiation_conditions`;
@@ -536,6 +568,18 @@ verificados útiles sin quitar atención a William.
   https://www.frontiersin.org/journals/human-neuroscience/articles/10.3389/fnhum.2014.00443/full
 - McClelland, McNaughton & O'Reilly, complementary learning systems:
   https://sites.socsci.uci.edu/~lpearl/courses/readings/McClellandEtAl1995.pdf
+- Keramati & Gutkin, homeostatic reinforcement learning:
+  https://doi.org/10.7554/eLife.04811
+- Yu & Dayan, expected vs unexpected uncertainty:
+  https://doi.org/10.1016/j.neuron.2005.04.026
+- Daw, Niv & Dayan, uncertainty-based arbitration:
+  https://doi.org/10.1038/nn1560
+- Gurney, Prescott & Redgrave, action selection:
+  https://doi.org/10.1007/PL00007984
+- Schultz, Dayan & Montague, prediction-error learning:
+  https://doi.org/10.1126/science.275.5306.1593
+- Brooks, layered concurrent control:
+  https://doi.org/10.1109/JRA.1986.1087032
 
 ### Sistemas agentic
 

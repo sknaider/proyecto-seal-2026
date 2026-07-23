@@ -28,6 +28,12 @@
     "cognitive_mission": "candidate",
     "consolidation_learning": "candidate"
   },
+  "nerve_layers": {
+    "GLOBAL": "mandatory_for_every_agent",
+    "AGENT_ROLE": "personality_role_and_labor_specific",
+    "EMERGENT": "built_from_experience_but_shadow_until_sibling_review_and_william_approval"
+  },
+  "mission_drives": ["reactive", "proactive"],
   "mission_lifecycle": [
     "observed",
     "admitted",
