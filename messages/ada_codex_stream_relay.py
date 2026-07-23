@@ -401,6 +401,7 @@ def _response_payload(message: str, task: dict, status: str) -> dict:
     delivery_source_id = str(chat_message_id or source_id)
     return {
         "id": task["id"],
+        "source": task.get("source") or "ada_codex_poller",
         "completed_at": task.get("completed_at") or now,
         "message": _redact_sensitive(message),
         "status": status,
@@ -415,6 +416,23 @@ def _response_payload(message: str, task: dict, status: str) -> dict:
             str(task.get("channel") or "web_chat"), delivery_source_id
         ),
     }
+
+
+def _harden_bridge_storage() -> None:
+    """Repair permissions for both new and pre-existing bridge artifacts."""
+    directories = {
+        BRIDGE_ACTIVE_TASK_FILE.parent,
+        BRIDGE_RESPONSES_DIR,
+        BRIDGE_RESPONSES_JSONL.parent,
+    }
+    for directory in directories:
+        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(directory, 0o700)
+    files = [BRIDGE_ACTIVE_TASK_FILE, BRIDGE_RESPONSES_JSONL]
+    files.extend(BRIDGE_RESPONSES_DIR.glob("*.json"))
+    for path in files:
+        if path.exists() and path.is_file():
+            os.chmod(path, 0o600)
 
 
 def _update_active_task_status(task: dict, status: str) -> None:
@@ -569,6 +587,7 @@ async def _confirm_delivery_rows(
                 row = await conn.fetchrow(
                     """SELECT id FROM soul_v3.chat_messages
                          WHERE channel=$1
+                           AND UPPER(sender_name)='ADA'
                            AND metadata->>'legacy_id'=$2
                            AND metadata->>'in_reply_to'=$3
                          ORDER BY id DESC LIMIT 1""",
@@ -588,6 +607,47 @@ async def _confirm_delivery_rows(
         await conn.close()
 
 
+async def _find_existing_delivery_rows(
+    content: str, channel: str, in_reply_to: str
+) -> list[dict] | None:
+    """Reconcile a POST that committed before either process wrote its receipt.
+
+    The chat server's client-idempotency cache is memory-only.  After both
+    processes restart, re-POSTing could create a second row.  Exact durable
+    lookup by route, sender and visible chunk content closes that window.
+    Ambiguity (zero or multiple rows for any chunk) fails closed.
+    """
+    chunks = _split_durable_message(_redact_sensitive(content))
+    visible_chunks = [
+        f"[{index}/{len(chunks)}]\n{chunk}" if len(chunks) > 1 else chunk
+        for index, chunk in enumerate(chunks, start=1)
+    ]
+    conn = await asyncpg.connect(resolve_db_dsn())
+    try:
+        rows = await conn.fetch(
+            """SELECT id, metadata->>'legacy_id' AS api_id, content
+                 FROM soul_v3.chat_messages
+                WHERE channel=$1
+                  AND UPPER(sender_name)='ADA'
+                  AND metadata->>'in_reply_to'=$2
+                ORDER BY id ASC""",
+            channel,
+            str(in_reply_to),
+        )
+        # Vector equality is deliberate: it handles two identical chunks while
+        # rejecting partial or extra delivery as ambiguous.
+        if [str(row["content"]) for row in rows] != visible_chunks:
+            return None
+        if any(not row.get("api_id") for row in rows):
+            return None
+        return [
+            {"db_id": int(row["id"]), "api_id": str(row["api_id"])}
+            for row in rows
+        ]
+    finally:
+        await conn.close()
+
+
 async def _drain_pending_once(now_ts: float | None = None) -> int:
     """Attempt durable delivery for ready items; return delivered count."""
     if not _pending_relay:
@@ -601,6 +661,26 @@ async def _drain_pending_once(now_ts: float | None = None) -> int:
     for item in ready:
         content, _, channel, source_id, recipient, task = _unpack_pending(item)
         chat_message_id = task.get("chat_message_id") if task else None
+        if task is not None:
+            existing = await _find_existing_delivery_rows(
+                content, channel, str(source_id or "")
+            )
+            if existing:
+                base_key = _final_idempotency_key(channel, chat_message_id or source_id or "")
+                idempotency_keys = [
+                    base_key if len(existing) == 1
+                    else f"{base_key}_part_{index}_of_{len(existing)}"
+                    for index in range(1, len(existing) + 1)
+                ]
+                _mark_task_delivered(
+                    task,
+                    api_ids=[row["api_id"] for row in existing],
+                    db_ids=[row["db_id"] for row in existing],
+                    idempotency_keys=idempotency_keys,
+                )
+                _pending_relay.remove(item)
+                delivered_count += 1
+                continue
         result = _post_to_webchat(
             content,
             channel=channel,
@@ -941,6 +1021,7 @@ async def main_loop():
 
 
 def main():
+    _harden_bridge_storage()
     if _pid_guard():
         print(f"[stream-relay] ya corre (PID {PID_FILE.read_text().strip()})", flush=True)
         sys.exit(0)

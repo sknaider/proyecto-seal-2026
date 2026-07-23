@@ -609,3 +609,117 @@ def test_task_complete_must_match_committed_turn_id(monkeypatch, tmp_path):
     assert active.exists()
     assert posted == []
     assert relay._pending_relay == []
+
+
+def test_identical_final_text_for_distinct_sources_delivers_both(monkeypatch, tmp_path):
+    relay._seen.clear()
+    relay._pending_relay.clear()
+    active = tmp_path / "active_task.json"
+    responses = tmp_path / "responses"
+    monkeypatch.setattr(relay, "WEBCHAT_RELAY_ENABLED", True)
+    monkeypatch.setattr(relay, "BRIDGE_ACTIVE_TASK_FILE", active)
+    monkeypatch.setattr(relay, "BRIDGE_RESPONSES_DIR", responses)
+    monkeypatch.setattr(relay, "BRIDGE_RESPONSES_JSONL", tmp_path / "responses.jsonl")
+    monkeypatch.setattr(relay, "_post_stream_to_webchat", lambda *args, **kwargs: True)
+
+    for source_id in (101, 102):
+        active.write_text(
+            relay.json.dumps({
+                "id": f"chat_{source_id}", "source": "ada_codex_poller",
+                "status": "submitted", "channel": "web_chat",
+                "chat_message_id": source_id,
+            }),
+            encoding="utf-8",
+        )
+        relay._process_line(
+            '{"type":"event_msg","payload":{"type":"task_complete",'
+            '"last_agent_message":"Mismo cierre"}}'
+        )
+
+    assert (responses / "chat_101.json").exists()
+    assert (responses / "chat_102.json").exists()
+    assert len(relay._pending_relay) == 2
+
+
+def test_completed_artifact_recovers_delivery_without_reexecuting(monkeypatch, tmp_path):
+    relay._pending_relay.clear()
+    active = tmp_path / "active_task.json"
+    responses = tmp_path / "responses"
+    task = {
+        "id": "chat_201", "source": "ada_codex_poller", "status": "completed",
+        "channel": "dm:ada:william", "chat_message_id": 201,
+        "response_source_id": "db_201", "reply_to": "William",
+    }
+    active.write_text(relay.json.dumps(task), encoding="utf-8")
+    responses.mkdir()
+    (responses / "chat_201.json").write_text(
+        relay.json.dumps({**task, "message": "cierre", "status": "completed"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(relay, "BRIDGE_ACTIVE_TASK_FILE", active)
+    monkeypatch.setattr(relay, "BRIDGE_RESPONSES_DIR", responses)
+
+    assert relay._recover_active_task_completion(tmp_path / "missing.jsonl")
+    assert len(relay._pending_relay) == 1
+    assert relay._pending_relay[0][5]["id"] == "chat_201"
+
+
+def test_drain_requires_db_row_then_writes_delivered_receipt(monkeypatch, tmp_path):
+    relay._pending_relay.clear()
+    active = tmp_path / "active_task.json"
+    task = {
+        "id": "chat_202", "source": "ada_codex_poller", "status": "submitted",
+        "channel": "dm:ada:william", "chat_message_id": 202,
+        "response_source_id": "db_202", "reply_to": "William",
+    }
+    active.write_text(relay.json.dumps(task), encoding="utf-8")
+    monkeypatch.setattr(relay, "BRIDGE_ACTIVE_TASK_FILE", active)
+    monkeypatch.setattr(relay, "BRIDGE_RESPONSES_DIR", tmp_path / "responses")
+    monkeypatch.setattr(relay, "BRIDGE_RESPONSES_JSONL", tmp_path / "responses.jsonl")
+    completion = relay._record_task_completion("respuesta", task)
+    relay._queue_completed_response(completion, immediate=True)
+    keys = []
+
+    def post(*args, **kwargs):
+        key = relay._final_idempotency_key(
+            kwargs["channel"], kwargs["idempotency_source_id"]
+        )
+        keys.append(key)
+        return {"ok": True, "api_ids": ["api_ada_202"], "idempotency_keys": [key]}
+
+    confirmations = iter([None, [9202]])
+
+    async def confirm(api_ids, channel, in_reply_to):
+        assert (api_ids, channel, in_reply_to) == (
+            ["api_ada_202"], "dm:ada:william", "db_202"
+        )
+        return next(confirmations)
+
+    monkeypatch.setattr(relay, "_post_to_webchat", post)
+    monkeypatch.setattr(relay, "_confirm_delivery_rows", confirm)
+    async def no_existing(content, channel, in_reply_to):
+        return None
+    monkeypatch.setattr(relay, "_find_existing_delivery_rows", no_existing)
+
+    assert relay.asyncio.run(relay._drain_pending_once(now_ts=100.0)) == 0
+    assert relay.json.loads((tmp_path / "responses/chat_202.json").read_text())["status"] == "completed"
+    assert relay.asyncio.run(relay._drain_pending_once(now_ts=101.0)) == 1
+    receipt = relay.json.loads((tmp_path / "responses/chat_202.json").read_text())
+    assert receipt["status"] == "delivered"
+    assert receipt["db_id"] == 9202
+    assert keys == ["ada_final_dm_ada_william_202"] * 2
+    assert not active.exists()
+
+
+def test_private_response_artifacts_force_0700_and_0600(tmp_path):
+    queue = tmp_path / "queue"
+    queue.mkdir(mode=0o755)
+    artifact = queue / "responses" / "chat_1.json"
+    journal = queue / "responses.jsonl"
+    relay._atomic_private_json(artifact, {"id": "chat_1"})
+    relay._append_private_jsonl(journal, {"id": "chat_1"})
+
+    assert queue.stat().st_mode & 0o077 == 0
+    assert artifact.parent.stat().st_mode & 0o077 == 0
+    assert artifact.stat().st_mode & 0o077 == 0
+    assert journal.stat().st_mode & 0o077 == 0

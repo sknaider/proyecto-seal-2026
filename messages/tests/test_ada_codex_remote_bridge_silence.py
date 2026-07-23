@@ -26,6 +26,88 @@ def test_dm_to_ada_routes_even_without_ada_word():
     assert bridge.should_route_to_codex("dm:ada:william", "corrige esto")
 
 
+def test_busy_terminal_durably_acks_william_without_consuming_dm(monkeypatch):
+    row = {
+        "id": 116921,
+        "sender_name": "William",
+        "content": "reparate",
+        "created_at": datetime.now(timezone.utc),
+        "channel": "dm:ada:william",
+        "message_type": "conversation",
+        "metadata": {},
+    }
+    posts = []
+
+    class FakeConn:
+        async def fetch(self, query, last_id):
+            assert last_id == 116919
+            return [row]
+
+        async def fetchval(self, query, source_id):
+            assert source_id == "116921"
+            return None
+
+    monkeypatch.setattr(bridge, "LIVE_ACK_ENABLED", True)
+    monkeypatch.setattr(bridge, "DM_LIVE_ACK_ENABLED", True)
+    monkeypatch.setattr(bridge, "read_dm_ack_id", lambda: 116919)
+    monkeypatch.setattr(
+        bridge,
+        "write_dm_ack_id",
+        lambda *_: (_ for _ in ()).throw(AssertionError("busy ACK must not consume DM")),
+    )
+    monkeypatch.setattr(
+        bridge,
+        "post_message",
+        lambda *args: posts.append(args) or {"ok": True, "id": "api_ack_116921"},
+    )
+
+    async def confirmed(conn, api_id, channel, source_id):
+        assert (api_id, channel, source_id) == (
+            "api_ack_116921", "dm:ada:william", 116921
+        )
+        return 116999
+
+    monkeypatch.setattr(bridge, "confirm_chat_delivery", confirmed)
+
+    assert asyncio.run(
+        bridge.ack_pending_william_dms_while_terminal_busy(FakeConn())
+    ) == 1
+    assert posts[0][0] == "William"
+    assert posts[0][3] == "dm:ada:william"
+    assert posts[0][4] == "ada_dm_busy_ack_116921"
+    assert posts[0][5] == 116921
+
+
+def test_busy_terminal_does_not_ack_after_any_existing_reply(monkeypatch):
+    class FakeConn:
+        async def fetch(self, query, last_id):
+            return [{
+                "id": 116921,
+                "sender_name": "William",
+                "content": "reparate",
+                "created_at": datetime.now(timezone.utc),
+                "channel": "dm:ada:william",
+                "message_type": "conversation",
+                "metadata": {},
+            }]
+
+        async def fetchval(self, query, source_id):
+            return 116999
+
+    monkeypatch.setattr(bridge, "LIVE_ACK_ENABLED", True)
+    monkeypatch.setattr(bridge, "DM_LIVE_ACK_ENABLED", True)
+    monkeypatch.setattr(bridge, "read_dm_ack_id", lambda: 116919)
+    monkeypatch.setattr(
+        bridge,
+        "post_message",
+        lambda *_: (_ for _ in ()).throw(AssertionError("must not post late ACK")),
+    )
+
+    assert asyncio.run(
+        bridge.ack_pending_william_dms_while_terminal_busy(FakeConn())
+    ) == 0
+
+
 def test_bridge_dsn_rejects_superuser_fallback(monkeypatch):
     monkeypatch.setenv(
         "SEAL_DB_DSN",
@@ -68,6 +150,121 @@ def test_bridge_defers_accepted_terminal_task_without_receipt(monkeypatch, tmp_p
     monkeypatch.setattr(bridge, "TERMINAL_RESPONSES_DIR", tmp_path / "responses")
     assert bridge.terminal_task_owns_message(78)
     assert not bridge.terminal_task_owns_message(79)
+
+
+def test_bridge_defers_ambiguous_pending_submit_with_durable_marker(monkeypatch, tmp_path):
+    active = tmp_path / "active_task.json"
+    active.write_text(
+        bridge.json.dumps({
+            "id": "chat_781",
+            "source": "ada_codex_poller",
+            "status": "pending_submit",
+            "chat_message_id": 781,
+            "turn_marker": "SEAL_TURN=chat_781",
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(bridge, "TERMINAL_ACTIVE_TASK_FILE", active)
+    monkeypatch.setattr(bridge, "TERMINAL_RESPONSES_DIR", tmp_path / "responses")
+    assert bridge.terminal_task_owns_message(781)
+
+    active.write_text(
+        bridge.json.dumps({
+            "id": "chat_782",
+            "source": "ada_codex_poller",
+            "status": "pending_submit",
+            "chat_message_id": 782,
+        }),
+        encoding="utf-8",
+    )
+    assert not bridge.terminal_task_owns_message(782)
+
+
+def test_bridge_defers_completed_artifact_even_without_active_task(monkeypatch, tmp_path):
+    responses = tmp_path / "responses"
+    responses.mkdir()
+    (responses / "chat_79.json").write_text(
+        bridge.json.dumps({"id": "chat_79", "status": "completed"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(bridge, "TERMINAL_RESPONSES_DIR", responses)
+    monkeypatch.setattr(bridge, "TERMINAL_ACTIVE_TASK_FILE", tmp_path / "missing.json")
+    assert bridge.terminal_completion_receipt(79) is None
+    assert bridge.terminal_task_owns_message(79)
+
+
+def test_headless_recovery_post_to_pre_ack_does_not_reexecute(monkeypatch, tmp_path):
+    msg = bridge.ChatMessage(
+        id=80, sender="William", content="hazlo", created_at=datetime.now(timezone.utc),
+        channel="dm:ada:william", message_type="conversation", metadata=None,
+    )
+    responses = tmp_path / "responses"
+    monkeypatch.setattr(bridge, "TERMINAL_RESPONSES_DIR", responses)
+    monkeypatch.setattr(bridge, "TERMINAL_RESPONSES_JSONL", tmp_path / "responses.jsonl")
+    completed = bridge.record_headless_completion(msg, "resultado")
+    assert completed["status"] == "completed"
+    posts = []
+    monkeypatch.setattr(
+        bridge,
+        "post_message",
+        lambda *args, **kwargs: posts.append((args, kwargs))
+        or {"ok": True, "id": "api_ada_80", "duplicate": True},
+    )
+
+    class Conn:
+        async def fetch(self, query, channel, in_reply_to, content):
+            assert (channel, in_reply_to, content) == (
+                "dm:ada:william", "80", "resultado"
+            )
+            return []
+
+        async def fetchrow(self, query, channel, api_id, in_reply_to):
+            assert (channel, api_id, in_reply_to) == (
+                "dm:ada:william", "api_ada_80", "80"
+            )
+            return {"id": 9080}
+
+    recovered = bridge.asyncio.run(bridge.recover_headless_completion(Conn(), msg))
+    assert recovered["status"] == "delivered"
+    assert recovered["db_id"] == 9080
+    assert len(posts) == 1
+    # Restart reconciliation consumes the receipt before any Codex/tool turn.
+    assert bridge.terminal_completion_receipt(80)["db_id"] == 9080
+
+
+def test_headless_reconciles_existing_exact_row_without_repost(monkeypatch, tmp_path):
+    msg = bridge.ChatMessage(
+        id=81, sender="William", content="hazlo", created_at=datetime.now(timezone.utc),
+        channel="dm:ada:william", message_type="conversation", metadata=None,
+    )
+    monkeypatch.setattr(bridge, "TERMINAL_RESPONSES_DIR", tmp_path / "responses")
+    monkeypatch.setattr(bridge, "TERMINAL_RESPONSES_JSONL", tmp_path / "responses.jsonl")
+    bridge.record_headless_completion(msg, "resultado existente")
+    monkeypatch.setattr(
+        bridge, "post_message",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not repost")),
+    )
+
+    class Conn:
+        async def fetch(self, query, channel, in_reply_to, content):
+            assert (channel, in_reply_to, content) == (
+                "dm:ada:william", "81", "resultado existente"
+            )
+            return [{"id": 9081, "api_id": "api_ada_81"}]
+
+    recovered = bridge.asyncio.run(bridge.recover_headless_completion(Conn(), msg))
+    assert recovered["status"] == "delivered"
+    assert recovered["db_id"] == 9081
+
+
+def test_headless_and_terminal_final_keys_are_equivalent():
+    msg = bridge.ChatMessage(
+        id=73343, sender="William", content="hazlo", created_at=datetime.now(timezone.utc),
+        channel="web_chat", message_type="conversation", metadata=None,
+    )
+    channel_slug = bridge.re.sub(r"[^a-z0-9]+", "_", msg.channel.lower()).strip("_")
+    terminal_key = f"ada_final_{channel_slug}_{msg.id}"
+    assert bridge.final_idempotency_key(msg) == terminal_key
 
 
 def _dm_message(content: str, *, message_type: str = "conversation", metadata=None):

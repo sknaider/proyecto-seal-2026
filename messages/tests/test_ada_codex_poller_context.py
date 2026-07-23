@@ -427,6 +427,51 @@ def test_pending_marker_is_not_a_committed_route(monkeypatch, tmp_path):
     assert active_record["turn_id"] == "turn-dm"
 
 
+def test_late_submit_confirmation_is_reconciled_without_reinjection(monkeypatch, tmp_path):
+    active = tmp_path / "active_task.json"
+    session = tmp_path / "rollout.jsonl"
+    session.write_text("", encoding="utf-8")
+    marker = "SEAL_TURN=chat_111610"
+    active.write_text(
+        poller.json.dumps({
+            "id": "chat_111610",
+            "source": "ada_codex_poller",
+            "status": "pending_submit",
+            "activated_at": "2026-07-22T00:00:00Z",
+            "turn_marker": marker,
+            "submission_session_file": str(session),
+            "submission_start_offset": 0,
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(poller, "RESPONSES_DIR", tmp_path / "responses")
+
+    with session.open("a", encoding="utf-8") as handle:
+        handle.write(poller.json.dumps({
+            "type": "event_msg",
+            "payload": {"type": "task_started", "turn_id": "turn-late"},
+        }) + "\n")
+        handle.write(poller.json.dumps({
+            "type": "event_msg",
+            "payload": {"type": "user_message", "message": f"hazlo [{marker}]"},
+        }) + "\n")
+
+    assert poller.active_task_inflight(active)
+    recovered = poller.json.loads(active.read_text(encoding="utf-8"))
+    assert recovered["status"] == "submitted"
+    assert recovered["turn_id"] == "turn-late"
+
+
+def test_public_fallback_waits_for_durable_receipt_before_ack_and_offset():
+    source = __import__("inspect").getsource(poller.poll_loop)
+    fallback = source.index("public_task_id =")
+    submit = source.index("submit_message_confirmed", fallback)
+    completion = source.index("wait_for_terminal_completion", submit)
+    ack = source.index("save_last_id_ack", completion)
+    offset = source.index("save_public_event_offset", ack)
+    assert submit < completion < ack < offset
+
+
 def test_public_fallback_dedups_against_acknowledged_db_legacy_id(monkeypatch, tmp_path):
     ack = tmp_path / "poller.ack"
     ack.write_text("110583", encoding="utf-8")
@@ -484,6 +529,34 @@ def test_mark_active_chat_turn_writes_dm_channel_marker(monkeypatch, tmp_path):
     assert data["channel"] == "dm:ada:william"
     assert data["chat_message_id"] == 96262
     assert data["response_source_id"] == "db_96262"
+    assert active.parent.stat().st_mode & 0o077 == 0
+    assert active.stat().st_mode & 0o077 == 0
+
+
+def test_submitted_task_does_not_expire_into_duplicate_execution(monkeypatch, tmp_path):
+    active = tmp_path / "active_task.json"
+    active.write_text(
+        poller.json.dumps({
+            "id": "chat_42", "source": "ada_codex_poller", "status": "submitted",
+            "activated_at": "2020-01-01T00:00:00+00:00",
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(poller, "RESPONSES_DIR", tmp_path / "responses")
+    assert poller.active_task_inflight(active)
+
+
+def test_delivered_receipt_without_db_id_fails_closed(tmp_path):
+    responses = tmp_path / "responses"
+    responses.mkdir()
+    (responses / "chat_43.json").write_text(
+        poller.json.dumps({
+            "id": "chat_43", "status": "delivered", "published": True,
+            "delivered": True,
+        }),
+        encoding="utf-8",
+    )
+    assert poller.load_completion_receipt("chat_43", responses) is None
 
 
 def test_mark_active_chat_turn_prefers_authenticated_legacy_source(monkeypatch, tmp_path):

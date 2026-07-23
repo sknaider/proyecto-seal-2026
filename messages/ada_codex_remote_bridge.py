@@ -134,7 +134,7 @@ WS_PING_TIMEOUT_SECONDS = None
 # frames arbitrariamente grandes.
 WS_MAX_MESSAGE_BYTES = 16 * 1024 * 1024
 LIVE_ACK_ENABLED = os.environ.get("ADA_BRIDGE_DURABLE_ACK", "true").lower() not in {"0", "false", "no"}
-DM_LIVE_ACK_ENABLED = os.environ.get("ADA_BRIDGE_DM_DURABLE_ACK", "false").lower() in {"1", "true", "yes"}
+DM_LIVE_ACK_ENABLED = os.environ.get("ADA_BRIDGE_DM_DURABLE_ACK", "true").lower() in {"1", "true", "yes"}
 BRIDGE_JOURNAL_ENABLED = os.environ.get("ADA_BRIDGE_WORKING_STATE_JOURNAL", "true").lower() not in {"0", "false", "no"}
 # The bridge cursor is a sequential consumer.  last_id < MAX(id) is usually a
 # normal backlog, not a public incident, so the inline oracle must not deliver a
@@ -341,7 +341,13 @@ def terminal_task_owns_message(message_id: int) -> bool:
         return False
     return (
         task.get("source") in {"ada_codex_poller", "ada_codex_poller_public_fallback"}
-        and task.get("status") in {"active", "submitted", "completed"}
+        and (
+            task.get("status") in {"active", "submitted", "completed"}
+            or (
+                task.get("status") == "pending_submit"
+                and bool(task.get("turn_marker"))
+            )
+        )
         and task_message_id == int(message_id)
         and terminal_completion_receipt(message_id) is None
     )
@@ -377,6 +383,22 @@ def _append_private_jsonl(path: Path, payload: dict[str, Any]) -> None:
         handle.flush()
         os.fsync(handle.fileno())
     os.chmod(path, 0o600)
+
+
+def harden_terminal_ledger_storage() -> None:
+    directories = {
+        TERMINAL_ACTIVE_TASK_FILE.parent,
+        TERMINAL_RESPONSES_DIR,
+        TERMINAL_RESPONSES_JSONL.parent,
+    }
+    for directory in directories:
+        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(directory, 0o700)
+    files = [TERMINAL_ACTIVE_TASK_FILE, TERMINAL_RESPONSES_JSONL]
+    files.extend(TERMINAL_RESPONSES_DIR.glob("*.json"))
+    for path in files:
+        if path.exists() and path.is_file():
+            os.chmod(path, 0o600)
 
 
 def record_headless_completion(msg: "ChatMessage", answer: str, status: str = "completed") -> dict:
@@ -1363,18 +1385,94 @@ def live_ack_message(msg: ChatMessage) -> str:
     )
 
 
-def should_post_durable_live_ack(channel: str) -> bool:
-    """Keep public responsiveness without polluting every private DM.
+def busy_dm_ack_message(msg: ChatMessage) -> str:
+    """Acknowledge William without stealing or duplicating the active turn."""
+    return (
+        f"Sí, Dadito. Te leí por DM. Estoy terminando el turno activo y tu "
+        f"mensaje #{msg.id} quedó reservado como siguiente; no se perderá ni "
+        "se ejecutará dos veces."
+    )
 
-    William explicitly rejected the mechanical per-message DM notice on
-    2026-07-16. Private turns still receive their final response and transient
-    stream progress; only the persisted chat row is suppressed by default.
-    """
+
+def should_post_durable_live_ack(channel: str) -> bool:
+    """Keep William's direct lane visibly acknowledged while work continues."""
     if not LIVE_ACK_ENABLED:
         return False
     if channel == "dm:ada:william":
         return DM_LIVE_ACK_ENABLED
     return True
+
+
+async def ack_pending_william_dms_while_terminal_busy(
+    conn: asyncpg.Connection,
+) -> int:
+    """Persist an immediate ACK without consuming the DM or running tools.
+
+    The visible TUI can legitimately own a long-running turn.  Previously the
+    headless bridge went completely silent in mirror mode, so William's next DM
+    was visible to the poller but received no response until the TUI became
+    idle.  This lane writes only a deterministic acknowledgement.  It never
+    advances ``DM_ACK_FILE`` and therefore cannot mark the substantive request
+    complete.  An exact DB lookup prevents a late/restarted bridge from adding
+    an ACK after either an ACK or a final answer already exists.
+    """
+    if not should_post_durable_live_ack("dm:ada:william"):
+        return 0
+    dm_last_id = read_dm_ack_id()
+    if dm_last_id is None:
+        return 0
+    rows = await conn.fetch(
+        """SELECT id, sender_name, content, created_at, channel, message_type, metadata
+             FROM soul_v3.chat_messages
+            WHERE id > $1
+              AND channel = 'dm:ada:william'
+              AND LOWER(sender_name) = 'william'
+            ORDER BY id ASC
+            LIMIT 8""",
+        dm_last_id,
+    )
+    posted = 0
+    for row in rows:
+        msg = ChatMessage(
+            id=int(row["id"]),
+            sender=str(row["sender_name"]),
+            content=str(row["content"]),
+            created_at=row["created_at"],
+            channel=str(row["channel"]),
+            message_type=row["message_type"],
+            metadata=row["metadata"],
+        )
+        existing = await conn.fetchval(
+            """SELECT id
+                 FROM soul_v3.chat_messages
+                WHERE channel = 'dm:ada:william'
+                  AND UPPER(sender_name) = 'ADA'
+                  AND metadata->>'in_reply_to' = $1
+                ORDER BY id DESC
+                LIMIT 1""",
+            str(msg.id),
+        )
+        if existing is not None:
+            continue
+        publication = await asyncio.to_thread(
+            post_message,
+            "William",
+            busy_dm_ack_message(msg),
+            "conversation",
+            msg.channel,
+            f"ada_dm_busy_ack_{msg.id}",
+            msg.id,
+        )
+        db_id = await confirm_chat_delivery(
+            conn, str(publication["id"]), msg.channel, msg.id
+        )
+        if db_id is None:
+            raise RuntimeError(
+                f"busy DM ACK for chat id {msg.id} lacks durable DB row"
+            )
+        posted += 1
+        log(f"durable busy DM ACK published for chat id {msg.id} db_id={db_id}")
+    return posted
 
 
 def final_idempotency_key(msg: ChatMessage) -> str:
@@ -1431,6 +1529,25 @@ async def recover_headless_completion(
         or completed.get("source") != "ada_codex_remote_bridge"
         or completed.get("status") != "completed"
     ):
+        return None
+    existing_rows = await conn.fetch(
+        """SELECT id, metadata->>'legacy_id' AS api_id
+             FROM soul_v3.chat_messages
+            WHERE channel=$1
+              AND UPPER(sender_name)='ADA'
+              AND metadata->>'in_reply_to'=$2
+              AND content=$3
+            ORDER BY id DESC""",
+        str(completed.get("channel") or msg.channel),
+        str(completed.get("response_source_id") or msg.id),
+        str(completed.get("message") or ""),
+    )
+    if len(existing_rows) == 1 and existing_rows[0].get("api_id"):
+        publication = {"ok": True, "id": str(existing_rows[0]["api_id"]), "reconciled": True}
+        return record_headless_delivered(
+            msg, completed, publication, int(existing_rows[0]["id"])
+        )
+    if len(existing_rows) > 1:
         return None
     publication = post_message(
         str(completed.get("reply_to") or "William"),
@@ -1936,6 +2053,10 @@ async def bridge_loop(args: argparse.Namespace) -> None:
             try:
                 # Mirror-mode: terminal is the active writer — bridge goes silent
                 if terminal_writer_active():
+                    # William's DM must still receive a durable acknowledgement
+                    # even though the substantive turn remains owned by the TUI.
+                    # This does not advance any cursor or execute any tool.
+                    await ack_pending_william_dms_while_terminal_busy(conn)
                     # The oracle's true id is expected to be ahead while the
                     # TUI owns delivery. Checking it every poll only emitted a
                     # false DIVERGENCIA storm; the poller's durable ACK is the
@@ -2295,6 +2416,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    harden_terminal_ledger_storage()
     if already_running():
         log(f"already running (PID {PID_FILE.read_text().strip()})")
         return 0

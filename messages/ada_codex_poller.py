@@ -259,6 +259,61 @@ async def wait_for_idle(timeout: int = BUSY_WAIT_MAX) -> bool:
     return False
 
 
+def _accepted_submission_from_ledger(task: dict) -> dict | None:
+    """Recover an accepted turn from the exact JSONL marker after a crash."""
+    marker = str(task.get("turn_marker") or "").strip()
+    session_value = str(task.get("submission_session_file") or "").strip()
+    if not marker or not session_value:
+        return None
+    session_file = Path(session_value)
+    try:
+        start_offset = max(0, int(task.get("submission_start_offset", 0)))
+        with session_file.open("rb") as handle:
+            handle.seek(start_offset)
+            lines = handle.read().decode("utf-8", errors="replace").splitlines()
+    except (OSError, TypeError, ValueError):
+        return None
+    turn_id: str | None = None
+    for line in lines:
+        try:
+            event = json.loads(line)
+        except (TypeError, ValueError):
+            continue
+        if event.get("type") != "event_msg":
+            continue
+        payload = event.get("payload") or {}
+        if payload.get("type") == "task_started":
+            turn_id = str(payload.get("turn_id") or "").strip() or None
+        elif payload.get("type") == "user_message" and marker in str(payload.get("message") or ""):
+            if turn_id:
+                return {"turn_id": turn_id, "session_file": str(session_file)}
+    return None
+
+
+def reconcile_pending_submission(path: Path = ACTIVE_TASK_FILE) -> bool:
+    """Promote a crash-window pending marker or keep it quarantined."""
+    try:
+        task = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, TypeError, ValueError):
+        return False
+    if task.get("status") != "pending_submit" or not task.get("turn_marker"):
+        return False
+    accepted = _accepted_submission_from_ledger(task)
+    if accepted:
+        task.update({
+            "status": "submitted",
+            "submitted_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "turn_id": accepted["turn_id"],
+            "session_file": accepted["session_file"],
+            "recovered_after_crash": True,
+        })
+        _write_active_task(task, path=path)
+    # An attempted submit with no JSONL proof is quarantined fail-closed.  It
+    # may still be sitting in the TUI input buffer, so blind reinjection could
+    # duplicate tools.  Never age it into a second execution.
+    return True
+
+
 def active_task_inflight(path: Path = ACTIVE_TASK_FILE) -> bool:
     """Prevent a second injection from overwriting the current reply routing.
 
@@ -277,6 +332,8 @@ def active_task_inflight(path: Path = ACTIVE_TASK_FILE) -> bool:
         return False
     if task_id and load_completion_receipt(task_id) is not None:
         return False
+    if task.get("status") == "pending_submit" and task.get("turn_marker"):
+        return reconcile_pending_submission(path)
     age = (datetime.now(timezone.utc) - activated.astimezone(timezone.utc)).total_seconds()
     if task.get("status") == "pending_submit":
         return age <= PENDING_TASK_MAX_AGE_SECONDS
@@ -431,12 +488,21 @@ async def confirm_submission(
     return None
 
 
-async def submit_message_confirmed(session: str, text: str, marker: str) -> dict | None:
+async def submit_message_confirmed(
+    session: str,
+    text: str,
+    marker: str,
+    expected_task_id: str | None = None,
+) -> dict | None:
     """Submit to tmux and commit only after Codex acknowledges the exact turn."""
     session_file = find_active_session()
     if not session_file:
         return None
     start_offset = session_file.stat().st_size
+    if expected_task_id and not bind_pending_submission_attempt(
+        expected_task_id, marker, session_file, start_offset
+    ):
+        return None
     if not inject_message(session, text):
         return None
     confirmed = await confirm_submission(session_file, start_offset, marker)
@@ -913,22 +979,47 @@ def format_public_event(row: dict) -> str:
     return f"[{sender} @ {hour} / {WEB_CHANNEL} id {row.get('id', '?')}]: {content}"
 
 
-def _write_active_task(record: dict) -> None:
-    ACTIVE_TASK_FILE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(ACTIVE_TASK_FILE.parent, 0o700)
-    temporary = ACTIVE_TASK_FILE.with_name(f".{ACTIVE_TASK_FILE.name}.{os.getpid()}.tmp")
+def _write_active_task(record: dict, path: Path | None = None) -> None:
+    target = ACTIVE_TASK_FILE if path is None else path
+    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(target.parent, 0o700)
+    temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
     temporary.write_text(
         json.dumps(record, ensure_ascii=True, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     os.chmod(temporary, 0o600)
-    os.replace(temporary, ACTIVE_TASK_FILE)
-    os.chmod(ACTIVE_TASK_FILE, 0o600)
-    directory_fd = os.open(ACTIVE_TASK_FILE.parent, os.O_RDONLY | os.O_DIRECTORY)
+    os.replace(temporary, target)
+    os.chmod(target, 0o600)
+    directory_fd = os.open(target.parent, os.O_RDONLY | os.O_DIRECTORY)
     try:
         os.fsync(directory_fd)
     finally:
         os.close(directory_fd)
+
+
+def bind_pending_submission_attempt(
+    expected_id: str,
+    marker: str,
+    session_file: Path,
+    start_offset: int,
+) -> bool:
+    """Durably record the exact injection boundary before touching tmux."""
+    try:
+        record = json.loads(ACTIVE_TASK_FILE.read_text(encoding="utf-8"))
+        if record.get("id") != expected_id or record.get("status") != "pending_submit":
+            return False
+        record.update({
+            "turn_marker": marker,
+            "submission_session_file": str(session_file),
+            "submission_start_offset": int(start_offset),
+            "submission_started_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        })
+        _write_active_task(record)
+        return True
+    except Exception as exc:
+        print(f"[ada-codex-poller] bind submit attempt failed: {exc}", flush=True)
+        return False
 
 
 def mark_active_public_event(row: dict, status: str = "pending_submit") -> None:
@@ -1018,10 +1109,18 @@ def activate_pending_turn(expected_id: str, submission: dict) -> bool:
 
 
 def discard_pending_turn(expected_id: str) -> None:
-    """Remove only the uncommitted marker created by this exact submission."""
+    """Remove only a marker for which tmux injection was never attempted.
+
+    Once ``turn_marker`` is durable, timeout is ambiguous: Codex may accept it
+    late.  Such a marker remains quarantined for JSONL reconciliation.
+    """
     try:
         record = json.loads(ACTIVE_TASK_FILE.read_text(encoding="utf-8"))
-        if record.get("id") == expected_id and record.get("status") == "pending_submit":
+        if (
+            record.get("id") == expected_id
+            and record.get("status") == "pending_submit"
+            and not record.get("turn_marker")
+        ):
             ACTIVE_TASK_FILE.unlink(missing_ok=True)
     except Exception:
         pass
@@ -1161,7 +1260,9 @@ async def poll_loop():
                     print(f"[ada-codex-poller] inyectando (ctx={len(context_rows) if context_block else 0}): {msg[:80]}", flush=True)
                 try:
                     mark_active_chat_turn(row, status="pending_submit")
-                    submission = await submit_message_confirmed(TMUX_SESSION, payload, turn_marker)
+                    submission = await submit_message_confirmed(
+                        TMUX_SESSION, payload, turn_marker, expected_task_id=task_id
+                    )
                     if not submission or not activate_pending_turn(task_id, submission):
                         discard_pending_turn(task_id)
                         quarantine_failed_submission(
@@ -1171,7 +1272,7 @@ async def poll_loop():
                         write_listener_health("degraded")
                         print(
                             f"[ada-codex-poller] NO ACK — {task_id} en cuarentena; "
-                            "cediendo al bridge headless sin reescribir payload",
+                            "sin reinyectar hasta reconciliar el marcador JSONL",
                             flush=True,
                         )
                         break
@@ -1220,20 +1321,39 @@ async def poll_loop():
                     continue
                 canonical_public_id = await public_event_db_id(conn, event)
                 event_sender = str(event.get("from") or event.get("sender") or "").lower()
+                public_task_id = f"public_{event.get('id', 'unknown')}"
+                completed_public = load_completion_receipt(public_task_id)
+                if completed_public is not None:
+                    if canonical_public_id is not None:
+                        if event_sender in HUMAN_SENDERS:
+                            human_last_id = save_last_id_ack(
+                                canonical_public_id, HUMAN_ACK_FILE
+                            )
+                        else:
+                            last_id = save_last_id_ack(canonical_public_id)
+                    public_offset = next_offset
+                    save_public_event_offset(public_offset)
+                    continue
                 public_ack = (
                     load_last_id_ack(HUMAN_ACK_FILE)
                     if event_sender in HUMAN_SENDERS
                     else load_last_id_ack()
                 )
                 if (
-                    (canonical_public_id is not None and public_ack is not None
-                     and canonical_public_id <= public_ack)
-                    or primary_session_contains_event(event)
+                    canonical_public_id is not None and public_ack is not None
+                    and canonical_public_id <= public_ack
                 ):
                     print(f"[ada-codex-poller] fallback dedup: {event.get('id')}", flush=True)
                     public_offset = next_offset
                     save_public_event_offset(public_offset)
                     continue
+                if primary_session_contains_event(event):
+                    print(
+                        f"[ada-codex-poller] fallback {public_task_id} ya fue sometido "
+                        "pero no tiene entrega durable; offset congelado",
+                        flush=True,
+                    )
+                    break
                 idle = await wait_for_idle(BUSY_WAIT_MAX)
                 if not idle:
                     print(f"[ada-codex-poller] fallback espera idle: {event.get('id')}", flush=True)
@@ -1261,15 +1381,26 @@ async def poll_loop():
                 try:
                     message = format_public_event(event)
                     print(f"[ada-codex-poller] fallback inyectando: {message[:100]}", flush=True)
-                    public_task_id = f"public_{event.get('id', 'unknown')}"
                     turn_marker = f"SEAL_TURN={public_task_id}"
                     mark_active_public_event(event, status="pending_submit")
                     submission = await submit_message_confirmed(
-                        TMUX_SESSION, f"{message} [{turn_marker}]", turn_marker
+                        TMUX_SESSION,
+                        f"{message} [{turn_marker}]",
+                        turn_marker,
+                        expected_task_id=public_task_id,
                     )
                     if not submission or not activate_pending_turn(public_task_id, submission):
                         discard_pending_turn(public_task_id)
                         print(f"[ada-codex-poller] fallback NO ACK: {public_task_id}", flush=True)
+                        break
+                    completion = await wait_for_terminal_completion(public_task_id)
+                    if completion is None:
+                        write_listener_health("degraded")
+                        print(
+                            f"[ada-codex-poller] fallback SIN RECIBO durable: {public_task_id}; "
+                            "ACK y offset congelados",
+                            flush=True,
+                        )
                         break
                     if canonical_public_id is not None:
                         if event_sender in HUMAN_SENDERS:

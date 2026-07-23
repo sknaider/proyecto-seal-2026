@@ -89,12 +89,14 @@ messages/whisper_key_backups/
 backups/postgresql/
 
 # Local runtime state and generated checkpoints
+var/mcp-web-soul/
 messages/checkpoints/*_20*.json
 messages/checkpoints/*_20*.jsonl
 messages/checkpoints/*_latest.json
 messages/continuity/*_20*.json
 messages/*.pid
 messages/.ws_listener_*.pid
+messages/.agent_session_token_*
 messages/codex_app_bridge/
 *.bak
 *.bak*
