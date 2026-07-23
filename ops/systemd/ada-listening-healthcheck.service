@@ -1,0 +1,13 @@
+[Unit]
+Description=Continuous deep health validation for William↔ADA communication
+After=seal-chat.service ada-codex-remote-bridge.service seal-ada-codex-poller.service seal-ada-codex-stream-relay.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+EnvironmentFile=%h/.config/seal/ada_bridge_db_runtime.env
+Environment=ADA_CODEX_STATE_DIR=%h/.local/state/seal
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/scripts/ada_listening_healthcheck.py --repair --alert --json
+TimeoutStartSec=45
+NoNewPrivileges=true
+UMask=0077
