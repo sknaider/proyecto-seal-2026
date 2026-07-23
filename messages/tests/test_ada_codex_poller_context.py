@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -437,7 +437,7 @@ def test_late_submit_confirmation_is_reconciled_without_reinjection(monkeypatch,
             "id": "chat_111610",
             "source": "ada_codex_poller",
             "status": "pending_submit",
-            "activated_at": "2026-07-22T00:00:00Z",
+            "activated_at": datetime.now(timezone.utc).isoformat(),
             "turn_marker": marker,
             "submission_session_file": str(session),
             "submission_start_offset": 0,
@@ -460,6 +460,51 @@ def test_late_submit_confirmation_is_reconciled_without_reinjection(monkeypatch,
     recovered = poller.json.loads(active.read_text(encoding="utf-8"))
     assert recovered["status"] == "submitted"
     assert recovered["turn_id"] == "turn-late"
+
+
+def test_ancient_marker_quoted_by_future_turn_is_abandoned_not_captured(
+    monkeypatch, tmp_path
+):
+    active = tmp_path / "active_task.json"
+    session = tmp_path / "rollout.jsonl"
+    marker = "SEAL_TURN=chat_116925"
+    submitted_at = datetime.now(timezone.utc) - timedelta(hours=19)
+    future_at = datetime.now(timezone.utc)
+    session.write_text(
+        poller.json.dumps({
+            "timestamp": future_at.isoformat(),
+            "type": "event_msg",
+            "payload": {"type": "task_started", "turn_id": "turn-current"},
+        }) + "\n"
+        + poller.json.dumps({
+            "timestamp": future_at.isoformat(),
+            "type": "event_msg",
+            "payload": {
+                "type": "user_message",
+                "message": f"contexto viejo citado [{marker}], orden actual distinta",
+            },
+        }) + "\n",
+        encoding="utf-8",
+    )
+    active.write_text(
+        poller.json.dumps({
+            "id": "chat_116925",
+            "source": "ada_codex_poller",
+            "status": "pending_submit",
+            "activated_at": submitted_at.isoformat(),
+            "submission_started_at": submitted_at.isoformat(),
+            "turn_marker": marker,
+            "submission_session_file": str(session),
+            "submission_start_offset": 0,
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(poller, "RESPONSES_DIR", tmp_path / "responses")
+
+    assert not poller.active_task_inflight(active)
+    abandoned = poller.json.loads(active.read_text(encoding="utf-8"))
+    assert abandoned["status"] == "abandoned_unaccepted"
+    assert abandoned["abandon_reason"] == "no matching lifecycle event inside submit window"
 
 
 def test_public_fallback_waits_for_durable_receipt_before_ack_and_offset():

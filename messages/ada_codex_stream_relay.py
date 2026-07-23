@@ -315,6 +315,9 @@ def _validated_active_task() -> tuple[dict, str, str] | None:
     # task_started + user_message handshake in the Codex rollout.
     if task.get("status") == "pending_submit":
         return None
+    status = task.get("status")
+    if status is not None and status not in {"active", "submitted", "completed"}:
+        return None
     channel = str(task.get("channel") or "").strip()
     source_id = str(
         task.get("response_source_id")

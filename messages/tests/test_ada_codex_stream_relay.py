@@ -582,6 +582,19 @@ def test_relay_rejects_pending_unacknowledged_route(monkeypatch, tmp_path):
     assert relay._validated_active_task() is None
 
 
+def test_relay_rejects_abandoned_unaccepted_route(monkeypatch, tmp_path):
+    active = tmp_path / "active_task.json"
+    active.write_text(
+        '{"id":"chat_abandoned","source":"ada_codex_poller",'
+        '"status":"abandoned_unaccepted","channel":"web_chat",'
+        '"chat_message_id":116925}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(relay, "BRIDGE_ACTIVE_TASK_FILE", active)
+
+    assert relay._validated_active_task() is None
+
+
 def test_task_complete_must_match_committed_turn_id(monkeypatch, tmp_path):
     posted = []
     relay._seen.clear()

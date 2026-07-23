@@ -52,6 +52,7 @@ BRIDGE_QUEUE_DIR = Path("/home/dadito/IA/proyecto-seal/messages/codex_app_bridge
 ACTIVE_TASK_FILE = BRIDGE_QUEUE_DIR / "active_task.json"
 RESPONSES_DIR = BRIDGE_QUEUE_DIR / "responses"
 PENDING_TASK_MAX_AGE_SECONDS = 15
+SUBMISSION_LEDGER_WINDOW_SECONDS = 60
 SUBMIT_CONFIRM_TIMEOUT_SECONDS = 3.0
 TERMINAL_COMPLETION_TIMEOUT_SECONDS = int(
     os.environ.get("ADA_CODEX_TERMINAL_COMPLETION_TIMEOUT_SECONDS", "21600")
@@ -273,11 +274,35 @@ def _accepted_submission_from_ledger(task: dict) -> dict | None:
             lines = handle.read().decode("utf-8", errors="replace").splitlines()
     except (OSError, TypeError, ValueError):
         return None
+    try:
+        submitted_at = datetime.fromisoformat(
+            str(task.get("submission_started_at") or task.get("activated_at"))
+            .replace("Z", "+00:00")
+        ).astimezone(timezone.utc)
+    except (TypeError, ValueError):
+        return None
+    task_age = (datetime.now(timezone.utc) - submitted_at).total_seconds()
     turn_id: str | None = None
     for line in lines:
         try:
             event = json.loads(line)
         except (TypeError, ValueError):
+            continue
+        raw_event_at = event.get("timestamp")
+        if raw_event_at:
+            try:
+                event_at = datetime.fromisoformat(
+                    str(raw_event_at).replace("Z", "+00:00")
+                ).astimezone(timezone.utc)
+            except (TypeError, ValueError):
+                continue
+            elapsed = (event_at - submitted_at).total_seconds()
+            if elapsed < -2 or elapsed > SUBMISSION_LEDGER_WINDOW_SECONDS:
+                continue
+        elif task_age > SUBMISSION_LEDGER_WINDOW_SECONDS:
+            # Legacy/test ledgers may lack event timestamps, but an ancient
+            # marker must never capture an unrelated future turn merely because
+            # that future prompt quotes the old SEAL_TURN token.
             continue
         if event.get("type") != "event_msg":
             continue
@@ -308,10 +333,26 @@ def reconcile_pending_submission(path: Path = ACTIVE_TASK_FILE) -> bool:
             "recovered_after_crash": True,
         })
         _write_active_task(task, path=path)
-    # An attempted submit with no JSONL proof is quarantined fail-closed.  It
-    # may still be sitting in the TUI input buffer, so blind reinjection could
-    # duplicate tools.  Never age it into a second execution.
-    return True
+        return True
+    try:
+        started = datetime.fromisoformat(
+            str(task.get("submission_started_at") or task.get("activated_at"))
+            .replace("Z", "+00:00")
+        ).astimezone(timezone.utc)
+        age = (datetime.now(timezone.utc) - started).total_seconds()
+    except (TypeError, ValueError):
+        age = 0
+    if age <= SUBMISSION_LEDGER_WINDOW_SECONDS:
+        # Keep the short crash ambiguity fail-closed while a delayed Enter can
+        # still be accepted by the TUI.
+        return True
+    task.update({
+        "status": "abandoned_unaccepted",
+        "abandoned_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "abandon_reason": "no matching lifecycle event inside submit window",
+    })
+    _write_active_task(task, path=path)
+    return False
 
 
 def active_task_inflight(path: Path = ACTIVE_TASK_FILE) -> bool:

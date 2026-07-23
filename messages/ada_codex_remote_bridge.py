@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import unquote, urlparse
-from urllib import request
+from urllib import error as urlerror, request
 
 import asyncpg
 import websockets
@@ -106,6 +106,7 @@ STREAM_STATUS_MIN_SECONDS = _env_float("ADA_BRIDGE_STREAM_STATUS_MIN_SECONDS", 1
 STREAM_SENTENCE_RE = re.compile(r"[.!?…:;]\s*$")
 TURN_MAX_ATTEMPTS = 2
 TURN_TIMEOUT_SECONDS = max(180, int(os.environ.get("ADA_BRIDGE_TURN_TIMEOUT_SECONDS", "900")))
+STALE_COMPLETION_SECONDS = _env_float("ADA_BRIDGE_STALE_COMPLETION_SECONDS", 120.0)
 RECENT_CONTEXT_LIMIT = 8
 RECENT_CONTEXT_LOOKBACK_IDS = 80
 RECENT_CONTEXT_MAX_CHARS = 1800
@@ -418,13 +419,31 @@ def record_headless_completion(msg: "ChatMessage", answer: str, status: str = "c
         "delivered": False,
         "channel": msg.channel,
         "chat_message_id": msg.id,
-        "response_source_id": str(msg.id),
-        "reply_to": "William" if is_human_sender(msg.sender) else "equipo",
+        "response_source_id": response_source_id(msg),
+        "reply_to": msg.sender if is_human_sender(msg.sender) else "equipo",
         "idempotency_key": final_idempotency_key(msg),
     }
     if status == "suppressed":
         response["suppressed_at"] = now
     path = TERMINAL_RESPONSES_DIR / f"{task_id}.json"
+    _atomic_private_json(path, response)
+    _append_private_jsonl(TERMINAL_RESPONSES_JSONL, response)
+    return response
+
+
+def suppress_stale_headless_completion(
+    msg: "ChatMessage", completed: dict, reason: str
+) -> dict:
+    """Retire a final that the coordination server can no longer accept."""
+    response = dict(completed)
+    response.update({
+        "status": "suppressed",
+        "published": False,
+        "delivered": False,
+        "suppressed_at": datetime.now(timezone.utc).isoformat(),
+        "suppression_reason": reason,
+    })
+    path = TERMINAL_RESPONSES_DIR / f"chat_{msg.id}.json"
     _atomic_private_json(path, response)
     _append_private_jsonl(TERMINAL_RESPONSES_JSONL, response)
     return response
@@ -1394,6 +1413,21 @@ def busy_dm_ack_message(msg: ChatMessage) -> str:
     )
 
 
+def busy_public_ack_message(msg: ChatMessage) -> str:
+    """Acknowledge William's named public call before any queued work."""
+    return (
+        f"Sí, Dadito. Te leí en webchat. Tu mensaje #{msg.id} quedó reservado "
+        "con prioridad; termino el turno activo y te respondo aquí sin perderlo "
+        "ni ejecutarlo dos veces."
+    )
+
+
+def response_source_id(msg: ChatMessage) -> str:
+    """Return the immutable API source id used by public reply threading."""
+    metadata = _metadata_dict(msg.metadata)
+    return str(metadata.get("legacy_id") or msg.id)
+
+
 def should_post_durable_live_ack(channel: str) -> bool:
     """Keep William's direct lane visibly acknowledged while work continues."""
     if not LIVE_ACK_ENABLED:
@@ -1475,6 +1509,74 @@ async def ack_pending_william_dms_while_terminal_busy(
     return posted
 
 
+async def ack_pending_william_public_calls(conn: asyncpg.Connection) -> int:
+    """Durably ACK every pending named William call without consuming it.
+
+    This lane is deliberately independent from the terminal/headless writer
+    lease.  A stale completion or a long-running TUI turn may delay substantive
+    execution, but neither may make ADA appear deaf in public webchat.
+    """
+    if not should_post_durable_live_ack("web_chat"):
+        return 0
+    human_last_id = read_human_ack_id()
+    if human_last_id is None:
+        return 0
+    rows = await conn.fetch(
+        """SELECT id, sender_name, content, created_at, channel, message_type, metadata
+             FROM soul_v3.chat_messages
+            WHERE id > $1
+              AND channel = 'web_chat'
+              AND LOWER(sender_name) = 'william'
+              AND content ~* '\\mada\\M'
+            ORDER BY id ASC
+            LIMIT 8""",
+        human_last_id,
+    )
+    posted = 0
+    for row in rows:
+        msg = ChatMessage(
+            id=int(row["id"]),
+            sender=str(row["sender_name"]),
+            content=str(row["content"]),
+            created_at=row["created_at"],
+            channel=str(row["channel"]),
+            message_type=row["message_type"],
+            metadata=row["metadata"],
+        )
+        source_id = response_source_id(msg)
+        existing = await conn.fetchval(
+            """SELECT id
+                 FROM soul_v3.chat_messages
+                WHERE channel = 'web_chat'
+                  AND UPPER(sender_name) = 'ADA'
+                  AND metadata->>'in_reply_to' = $1
+                ORDER BY id DESC
+                LIMIT 1""",
+            source_id,
+        )
+        if existing is not None:
+            continue
+        publication = await asyncio.to_thread(
+            post_message,
+            "William",
+            busy_public_ack_message(msg),
+            "conversation",
+            msg.channel,
+            f"ada_live_ack_{msg.id}",
+            source_id,
+        )
+        db_id = await confirm_chat_delivery(
+            conn, str(publication["id"]), msg.channel, source_id
+        )
+        if db_id is None:
+            raise RuntimeError(
+                f"busy public ACK for chat id {msg.id} lacks durable DB row"
+            )
+        posted += 1
+        log(f"durable public ACK published for chat id {msg.id} db_id={db_id}")
+    return posted
+
+
 def final_idempotency_key(msg: ChatMessage) -> str:
     """Stable idempotency key for the final persisted answer.
 
@@ -1530,6 +1632,21 @@ async def recover_headless_completion(
         or completed.get("status") != "completed"
     ):
         return None
+    canonical_source_id = response_source_id(msg)
+    if (
+        msg.channel == "web_chat"
+        and str(completed.get("response_source_id") or "") != canonical_source_id
+    ):
+        # Older headless completions used the local PostgreSQL sequence id as
+        # in_reply_to. Public coordination is keyed by the immutable API
+        # legacy_id, so repair the durable artifact before retrying the POST.
+        completed = dict(completed)
+        completed["response_source_id"] = canonical_source_id
+        completed["source_id_reconciled_at"] = datetime.now(timezone.utc).isoformat()
+        _atomic_private_json(
+            TERMINAL_RESPONSES_DIR / f"chat_{msg.id}.json", completed
+        )
+        _append_private_jsonl(TERMINAL_RESPONSES_JSONL, completed)
     existing_rows = await conn.fetch(
         """SELECT id, metadata->>'legacy_id' AS api_id
              FROM soul_v3.chat_messages
@@ -1549,14 +1666,35 @@ async def recover_headless_completion(
         )
     if len(existing_rows) > 1:
         return None
-    publication = post_message(
-        str(completed.get("reply_to") or "William"),
-        str(completed.get("message") or ""),
-        "conversation",
-        str(completed.get("channel") or msg.channel),
-        idempotency_key=str(completed.get("idempotency_key") or final_idempotency_key(msg)),
-        in_reply_to=str(completed.get("response_source_id") or msg.id),
-    )
+    try:
+        publication = post_message(
+            str(completed.get("reply_to") or msg.sender),
+            str(completed.get("message") or ""),
+            "conversation",
+            str(completed.get("channel") or msg.channel),
+            idempotency_key=str(completed.get("idempotency_key") or final_idempotency_key(msg)),
+            in_reply_to=str(completed.get("response_source_id") or msg.id),
+        )
+    except urlerror.HTTPError as exc:
+        raw_completed_at = completed.get("completed_at")
+        try:
+            completed_at = datetime.fromisoformat(
+                str(raw_completed_at).replace("Z", "+00:00")
+            ).astimezone(timezone.utc)
+            age = (datetime.now(timezone.utc) - completed_at).total_seconds()
+        except (TypeError, ValueError):
+            age = 0.0
+        if (
+            exc.code == 409
+            and str(completed.get("channel") or msg.channel) == "web_chat"
+            and age > STALE_COMPLETION_SECONDS
+        ):
+            return suppress_stale_headless_completion(
+                msg,
+                completed,
+                "coordination_409_after_stale_completion",
+            )
+        raise
     db_id = await confirm_chat_delivery(
         conn,
         str(publication["id"]),
@@ -1622,14 +1760,14 @@ async def record_bridge_journal_event(
 
 def publish_final_answer(msg: ChatMessage, answer: str) -> dict[str, Any]:
     """Persist ADA's final answer with restart-safe deduplication."""
-    target = "William" if is_human_sender(msg.sender) else "equipo"
+    target = msg.sender if is_human_sender(msg.sender) else "equipo"
     return post_message(
         target,
         answer,
         "conversation",
         msg.channel,
         idempotency_key=final_idempotency_key(msg),
-        in_reply_to=msg.id,
+        in_reply_to=response_source_id(msg),
     )
 
 
@@ -2051,6 +2189,10 @@ async def bridge_loop(args: argparse.Namespace) -> None:
         while True:
             active_dispatch_claim: int | None = None
             try:
+                # ACK William's named public call before examining any stale
+                # completion or writer lease.  This lane never advances the
+                # human cursor, so substantive execution remains mandatory.
+                await ack_pending_william_public_calls(conn)
                 # Mirror-mode: terminal is the active writer — bridge goes silent
                 if terminal_writer_active():
                     # William's DM must still receive a durable acknowledgement
@@ -2203,13 +2345,14 @@ async def bridge_loop(args: argparse.Namespace) -> None:
                     if stream_enabled:
                         if should_post_durable_live_ack(msg.channel):
                             try:
+                                source_id = response_source_id(msg)
                                 post_message(
-                                    "William",
+                                    msg.sender,
                                     live_ack_message(msg),
                                     "conversation",
                                     msg.channel,
                                     idempotency_key=f"ada_live_ack_{msg.id}",
-                                    in_reply_to=msg.id,
+                                    in_reply_to=source_id,
                                 )
                             except Exception as exc:
                                 log(f"durable live ack failed: {exc}")
@@ -2333,8 +2476,9 @@ async def bridge_loop(args: argparse.Namespace) -> None:
                     if answer and answer.strip() != SILENT_OUTPUT:
                         completed = record_headless_completion(msg, answer)
                         publication = publish_final_answer(msg, answer)
+                        source_id = response_source_id(msg)
                         publication_db_id = await confirm_chat_delivery(
-                            conn, str(publication["id"]), msg.channel, msg.id
+                            conn, str(publication["id"]), msg.channel, source_id
                         )
                         if publication_db_id is None:
                             raise RuntimeError(

@@ -1,6 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import asyncio
 import stat
+from urllib import error as urlerror
 
 import messages.ada_codex_remote_bridge as bridge
 from messages import ada_codex_poller as poller
@@ -106,6 +107,91 @@ def test_busy_terminal_does_not_ack_after_any_existing_reply(monkeypatch):
     assert asyncio.run(
         bridge.ack_pending_william_dms_while_terminal_busy(FakeConn())
     ) == 0
+
+
+def test_pending_named_public_call_gets_durable_ack_without_consuming_cursor(
+    monkeypatch,
+):
+    source_id = "api_william_public_117081"
+    row = {
+        "id": 117081,
+        "sender_name": "William",
+        "content": "ada y tu que novedades",
+        "created_at": datetime.now(timezone.utc),
+        "channel": "web_chat",
+        "message_type": "conversation",
+        "metadata": {"legacy_id": source_id},
+    }
+    posts = []
+
+    class FakeConn:
+        async def fetch(self, query, last_id):
+            assert last_id == 116922
+            assert "content ~*" in query
+            return [row]
+
+        async def fetchval(self, query, reply_source_id):
+            assert reply_source_id == source_id
+            return None
+
+    monkeypatch.setattr(bridge, "LIVE_ACK_ENABLED", True)
+    monkeypatch.setattr(bridge, "read_human_ack_id", lambda: 116922)
+    monkeypatch.setattr(
+        bridge,
+        "write_human_ack_id",
+        lambda *_: (_ for _ in ()).throw(
+            AssertionError("public ACK must not consume substantive request")
+        ),
+    )
+    monkeypatch.setattr(
+        bridge,
+        "post_message",
+        lambda *args: posts.append(args) or {"ok": True, "id": "api_ack_117081"},
+    )
+
+    async def confirmed(conn, api_id, channel, reply_source_id):
+        assert (api_id, channel, reply_source_id) == (
+            "api_ack_117081",
+            "web_chat",
+            source_id,
+        )
+        return 117090
+
+    monkeypatch.setattr(bridge, "confirm_chat_delivery", confirmed)
+
+    assert asyncio.run(bridge.ack_pending_william_public_calls(FakeConn())) == 1
+    assert posts[0][0] == "William"
+    assert posts[0][3] == "web_chat"
+    assert posts[0][4] == "ada_live_ack_117081"
+    assert posts[0][5] == source_id
+
+
+def test_pending_named_public_call_skips_ack_after_existing_reply(monkeypatch):
+    class FakeConn:
+        async def fetch(self, query, last_id):
+            return [{
+                "id": 117081,
+                "sender_name": "William",
+                "content": "ada y tu que novedades",
+                "created_at": datetime.now(timezone.utc),
+                "channel": "web_chat",
+                "message_type": "conversation",
+                "metadata": '{"legacy_id":"api_william_public_117081"}',
+            }]
+
+        async def fetchval(self, query, reply_source_id):
+            assert reply_source_id == "api_william_public_117081"
+            return 117090
+
+    monkeypatch.setattr(bridge, "LIVE_ACK_ENABLED", True)
+    monkeypatch.setattr(bridge, "read_human_ack_id", lambda: 116922)
+    monkeypatch.setattr(
+        bridge,
+        "post_message",
+        lambda *_: (_ for _ in ()).throw(AssertionError("must not post late ACK")),
+    )
+
+    assert asyncio.run(bridge.ack_pending_william_public_calls(FakeConn())) == 0
 
 
 def test_bridge_dsn_rejects_superuser_fallback(monkeypatch):
@@ -255,6 +341,153 @@ def test_headless_reconciles_existing_exact_row_without_repost(monkeypatch, tmp_
     recovered = bridge.asyncio.run(bridge.recover_headless_completion(Conn(), msg))
     assert recovered["status"] == "delivered"
     assert recovered["db_id"] == 9081
+
+
+def test_stale_public_completion_409_is_suppressed_without_retry_loop(
+    monkeypatch, tmp_path
+):
+    msg = bridge.ChatMessage(
+        id=117047,
+        sender="henry",
+        content="ADA",
+        created_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        channel="web_chat",
+        message_type="conversation",
+        metadata={"legacy_id": "api_henry_117047"},
+    )
+    monkeypatch.setattr(bridge, "TERMINAL_RESPONSES_DIR", tmp_path / "responses")
+    monkeypatch.setattr(
+        bridge, "TERMINAL_RESPONSES_JSONL", tmp_path / "responses.jsonl"
+    )
+    completed = bridge.record_headless_completion(msg, "Presente, Henry.")
+    completed["completed_at"] = (
+        datetime.now(timezone.utc) - timedelta(minutes=10)
+    ).isoformat()
+    bridge._atomic_private_json(
+        bridge.TERMINAL_RESPONSES_DIR / "chat_117047.json", completed
+    )
+
+    class Conn:
+        async def fetch(self, query, channel, in_reply_to, content):
+            return []
+
+    def stale_conflict(*_args, **_kwargs):
+        raise urlerror.HTTPError(
+            bridge.WEBCHAT_SEND_URL, 409, "Conflict", hdrs=None, fp=None
+        )
+
+    monkeypatch.setattr(bridge, "post_message", stale_conflict)
+    recovered = asyncio.run(bridge.recover_headless_completion(Conn(), msg))
+
+    assert recovered["status"] == "suppressed"
+    assert recovered["suppression_reason"] == "coordination_409_after_stale_completion"
+    assert bridge.terminal_completion_receipt(117047)["status"] == "suppressed"
+
+
+def test_recent_public_completion_409_remains_fail_closed(monkeypatch, tmp_path):
+    msg = bridge.ChatMessage(
+        id=117048,
+        sender="henry",
+        content="ADA",
+        created_at=datetime.now(timezone.utc),
+        channel="web_chat",
+        message_type="conversation",
+        metadata=None,
+    )
+    monkeypatch.setattr(bridge, "TERMINAL_RESPONSES_DIR", tmp_path / "responses")
+    monkeypatch.setattr(
+        bridge, "TERMINAL_RESPONSES_JSONL", tmp_path / "responses.jsonl"
+    )
+    bridge.record_headless_completion(msg, "Presente, Henry.")
+
+    class Conn:
+        async def fetch(self, query, channel, in_reply_to, content):
+            return []
+
+    def recent_conflict(*_args, **_kwargs):
+        raise urlerror.HTTPError(
+            bridge.WEBCHAT_SEND_URL, 409, "Conflict", hdrs=None, fp=None
+        )
+
+    monkeypatch.setattr(bridge, "post_message", recent_conflict)
+    with __import__("pytest").raises(urlerror.HTTPError):
+        asyncio.run(bridge.recover_headless_completion(Conn(), msg))
+
+
+def test_human_reply_targets_actual_sender_not_always_william(monkeypatch):
+    msg = bridge.ChatMessage(
+        id=117049,
+        sender="henry",
+        content="ADA",
+        created_at=datetime.now(timezone.utc),
+        channel="web_chat",
+        message_type="conversation",
+        metadata={"legacy_id": "api_henry_117049"},
+    )
+    calls = []
+    monkeypatch.setattr(
+        bridge,
+        "post_message",
+        lambda *args, **kwargs: calls.append((args, kwargs)) or {"ok": True, "id": "x"},
+    )
+
+    bridge.publish_final_answer(msg, "Presente, Henry.")
+
+    assert calls[0][0][0] == "henry"
+    assert calls[0][1]["in_reply_to"] == "api_henry_117049"
+
+
+def test_public_headless_recovery_reconciles_db_id_to_legacy_source(
+    monkeypatch, tmp_path
+):
+    msg = bridge.ChatMessage(
+        id=117081,
+        sender="William",
+        content="ada y tu que novedades",
+        created_at=datetime.now(timezone.utc),
+        channel="web_chat",
+        message_type="conversation",
+        metadata={"legacy_id": "api_william_117081"},
+    )
+    monkeypatch.setattr(bridge, "TERMINAL_RESPONSES_DIR", tmp_path / "responses")
+    monkeypatch.setattr(
+        bridge, "TERMINAL_RESPONSES_JSONL", tmp_path / "responses.jsonl"
+    )
+    completed = bridge.record_headless_completion(msg, "Novedades")
+    completed["response_source_id"] = "117081"
+    bridge._atomic_private_json(
+        bridge.TERMINAL_RESPONSES_DIR / "chat_117081.json", completed
+    )
+    posts = []
+    monkeypatch.setattr(
+        bridge,
+        "post_message",
+        lambda *args, **kwargs: posts.append((args, kwargs))
+        or {"ok": True, "id": "api_ada_117081"},
+    )
+
+    class Conn:
+        async def fetch(self, query, channel, in_reply_to, content):
+            assert (channel, in_reply_to, content) == (
+                "web_chat",
+                "api_william_117081",
+                "Novedades",
+            )
+            return []
+
+        async def fetchrow(self, query, channel, api_id, in_reply_to):
+            assert (channel, api_id, in_reply_to) == (
+                "web_chat",
+                "api_ada_117081",
+                "api_william_117081",
+            )
+            return {"id": 117099}
+
+    recovered = asyncio.run(bridge.recover_headless_completion(Conn(), msg))
+
+    assert recovered["status"] == "delivered"
+    assert recovered["response_source_id"] == "api_william_117081"
+    assert posts[0][1]["in_reply_to"] == "api_william_117081"
 
 
 def test_headless_and_terminal_final_keys_are_equivalent():
@@ -988,7 +1221,7 @@ def test_publish_final_answer_uses_stable_idempotency_for_public_webchat(monkeyp
             "msg_type": "conversation",
             "channel": "web_chat",
             "idempotency_key": "ada_final_web_chat_73343",
-            "in_reply_to": 73343,
+            "in_reply_to": "73343",
         }
     ]
 
