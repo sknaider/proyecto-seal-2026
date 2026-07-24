@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Any, Mapping
 
 
@@ -23,6 +24,23 @@ ALLOWED_RECORD_KEYS = frozenset(
     }
 )
 ACTIONABLE_STATES = frozenset({"FINDING", "BROKEN"})
+FINDING_PREFIXES = (
+    "MEMORY MONITOR ",
+    "MEMORY MONITOR:",
+    "CONTROL DE SEGURIDAD REMOVIDO:",
+    "DAEMON DE SEGURIDAD CAÍDO:",
+    "CREDENCIAL OAUTH EXPUESTA:",
+)
+BROKEN_PREFIXES = (
+    "memory anomaly monitor ",
+    "memory monitor ",
+    "no pude ",
+    "capability(es) ",
+)
+DETAIL_PATTERN = re.compile(
+    r"^controles=\d+/\d+ daemons=\d+/\d+ "
+    r"memory_monitor=[a-z_]+ cred=(?:0o[0-7]{3}|ausente|n/a)$"
+)
 
 
 class SecurityEvidenceError(ValueError):
@@ -51,6 +69,15 @@ def _bounded_strings(value: Any, *, label: str) -> list[str]:
     return list(value)
 
 
+def _admitted_strings(
+    values: list[str], *, prefixes: tuple[str, ...]
+) -> tuple[list[str], int]:
+    admitted = [
+        value for value in values if value.startswith(prefixes)
+    ]
+    return admitted, len(values) - len(admitted)
+
+
 def build_evidence(
     mission_id: str,
     record: Mapping[str, Any],
@@ -68,15 +95,27 @@ def build_evidence(
     state = record.get("state")
     if state not in ACTIONABLE_STATES or record.get("status") != "issue":
         raise SecurityEvidenceError("record_not_actionable")
-    findings = _bounded_strings(record.get("findings"), label="findings")
-    broken = _bounded_strings(record.get("broken"), label="broken")
+    raw_findings = _bounded_strings(record.get("findings"), label="findings")
+    raw_broken = _bounded_strings(record.get("broken"), label="broken")
+    findings, rejected_findings = _admitted_strings(
+        raw_findings, prefixes=FINDING_PREFIXES
+    )
+    broken, rejected_broken = _admitted_strings(
+        raw_broken, prefixes=BROKEN_PREFIXES
+    )
     detail = record.get("detail")
-    if not isinstance(detail, str) or not detail or len(detail) > 800:
+    if (
+        not isinstance(detail, str)
+        or not detail
+        or len(detail) > 800
+        or DETAIL_PATTERN.fullmatch(detail) is None
+    ):
         raise SecurityEvidenceError("detail_invalid")
-    if state == "FINDING" and not findings:
+    if state == "FINDING" and not raw_findings:
         raise SecurityEvidenceError("finding_state_without_findings")
-    if state == "BROKEN" and not broken:
+    if state == "BROKEN" and not raw_broken:
         raise SecurityEvidenceError("broken_state_without_failures")
+    rejected_count = rejected_findings + rejected_broken
 
     checks = [
         {
@@ -98,6 +137,15 @@ def build_evidence(
             "value": broken,
         },
         {
+            "evidence_id": "security:source-data-integrity",
+            "kind": "source_data_integrity",
+            "ok": rejected_count == 0,
+            "value": {
+                "rejected_findings": rejected_findings,
+                "rejected_instrument_failures": rejected_broken,
+            },
+        },
+        {
             "evidence_id": "security:integrity-summary",
             "kind": "bounded_integrity_summary",
             "ok": state not in ACTIONABLE_STATES,
@@ -114,7 +162,8 @@ def build_evidence(
         "observed_at": str(record.get("ts") or ""),
         "summary": (
             f"state={state}; findings={len(findings)}; "
-            f"instrument_failures={len(broken)}; detail={detail}"
+            f"instrument_failures={len(broken)}; "
+            f"rejected_entries={rejected_count}; detail={detail}"
         ),
         "checks": checks,
     }
