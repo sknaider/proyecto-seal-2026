@@ -235,6 +235,82 @@ def test_failed_effect_is_logged_retryable_and_tank_is_not_reset(monkeypatch):
     assert persisted and persisted[0]["curiosity"]["value"] == 99.0
 
 
+def test_clean_maintenance_is_not_effect_verified_or_reset(monkeypatch):
+    engine = nerves.MotivationEngine("ADA", run_id="clean-no-effect")
+    metrics = []
+    ledger = []
+    statements = []
+
+    class Conn:
+        async def execute(self, query, *args):
+            statements.append((query, args))
+
+    class Acquire:
+        async def __aenter__(self):
+            return Conn()
+
+        async def __aexit__(self, *_args):
+            return False
+
+    class Pool:
+        def acquire(self):
+            return Acquire()
+
+    async def no_suppress():
+        return False
+
+    async def no_flush():
+        return None
+
+    async def states():
+        return {
+            "curiosity": {
+                "value": 99.0,
+                "threshold": 25.0,
+                "last_update": datetime.now(timezone.utc),
+                "last_fired": None,
+                "fire_count": 7,
+                "above_threshold": True,
+                "in_cooldown": False,
+            }
+        }
+
+    async def clean_fire(*_args):
+        return {
+            "tank": "curiosity",
+            "value": 99.0,
+            "result": "maintenance_fired:clean_silent:ADA",
+        }
+
+    async def log_metric(*args, **kwargs):
+        metrics.append((args, kwargs))
+
+    async def no_persist(_states):
+        return None
+
+    engine.pool = Pool()
+    monkeypatch.setattr(engine, "_should_suppress", no_suppress)
+    monkeypatch.setattr(engine, "_flush_queue_if_idle", no_flush)
+    monkeypatch.setattr(engine, "get_states", states)
+    monkeypatch.setattr(engine, "_fire", clean_fire)
+    monkeypatch.setattr(engine, "_log_metric", log_metric)
+    monkeypatch.setattr(engine, "_persist_decay", no_persist)
+    monkeypatch.setattr(nerves, "_append_action_ledger", ledger.append)
+
+    result = asyncio.run(engine._tick_locked())
+
+    assert result == []
+    assert [row["status"] for row in ledger] == [
+        "claimed",
+        "observed_no_effect",
+    ]
+    assert metrics[0][1]["fired"] is False
+    assert metrics[0][1]["effect_verified"] is False
+    assert metrics[0][1]["reset_outcome"] == "preserved_no_effect"
+    assert any("SET last_fired=NOW()" in query for query, _ in statements)
+    assert not any("SET value=0.0" in query for query, _ in statements)
+
+
 def test_run_tick_singleflight_wraps_sensor_pipeline(monkeypatch, tmp_path):
     entered = asyncio.Event()
     release = asyncio.Event()

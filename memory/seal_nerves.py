@@ -997,6 +997,20 @@ _MESSAGES_DIR = "/home/dadito/IA/proyecto-seal/messages"
 _MAINTENANCE_NOT_RUN = object()
 
 
+def _action_is_observation_without_effect(action: dict | None) -> bool:
+    """Return True when a handler only observed a healthy/no-op state.
+
+    A successful function call is not automatically a verified real-world
+    effect.  In particular, the deterministic maintenance pulse may find
+    nothing to do.  That observation earns cooldown, but must not be recorded
+    as ``effect_verified`` or reset the underlying drive to zero.
+    """
+    if not isinstance(action, dict):
+        return False
+    result = str(action.get("result") or "")
+    return result.startswith("maintenance_fired:clean_silent:")
+
+
 async def _run_maintenance_action(engine) -> str | None:
     """Ejecuta la acción de mantenimiento del agente. Devuelve artefacto (str) si produjo valor, o None.
 
@@ -1649,6 +1663,37 @@ class MotivationEngine:
                 if action is None:
                     raise NervesActionError(f"no handler effect for {tank_name}")
                 latency_ms = int((time.monotonic() - t0) * 1000)
+                if _action_is_observation_without_effect(action):
+                    _append_action_ledger({
+                        **ledger_base,
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "status": "observed_no_effect",
+                        "result": str(action.get("result", ""))[:500],
+                    })
+                    await self._log_metric(
+                        tank_name,
+                        state,
+                        fired=False,
+                        action_result=str(action.get("result", "")),
+                        fire_latency_ms=latency_ms,
+                        effect_verified=False,
+                        reset_outcome="preserved_no_effect",
+                    )
+                    # Preserve pressure/value so a healthy observation cannot
+                    # masquerade as need satisfaction.  ``last_fired`` grants
+                    # the normal refractory window and prevents a hot loop.
+                    async with self.pool.acquire() as conn:
+                        await conn.execute("""
+                            UPDATE motivation_states
+                            SET last_fired=NOW(),
+                                fire_count=fire_count+1
+                            WHERE agent=$1 AND tank=$2
+                        """, self.agent, tank_name)
+                    log.info(
+                        f"[{self.agent}] {tank_name} observed clean/no effect "
+                        "— pressure preserved; cooldown started"
+                    )
+                    continue
                 _append_action_ledger({
                     **ledger_base,
                     "ts": datetime.now(timezone.utc).isoformat(),

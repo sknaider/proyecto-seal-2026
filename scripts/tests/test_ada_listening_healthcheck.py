@@ -179,6 +179,77 @@ def test_abandoned_unaccepted_route_is_terminal_not_repaired(monkeypatch, tmp_pa
     assert result["status"] == "abandoned_unaccepted"
 
 
+def test_busy_route_has_a_bounded_lease(monkeypatch, tmp_path):
+    active = tmp_path / "active_task.json"
+    active.write_text(
+        json.dumps({
+            "id": "chat_stuck",
+            "status": "submitted",
+            "activated_at": (
+                datetime.now(timezone.utc) - timedelta(hours=1)
+            ).isoformat(),
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(health.poller, "ACTIVE_TASK_FILE", active)
+    monkeypatch.setattr(health.poller, "RESPONSES_DIR", tmp_path / "responses")
+    monkeypatch.setattr(health.poller, "codex_is_busy", lambda: True)
+    monkeypatch.setattr(health, "ACTIVE_ROUTE_BUSY_MAX_AGE_SECONDS", 900)
+
+    result = health.active_route_state()
+
+    assert not result["ok"]
+    assert result["stale_busy"]
+    assert result["busy_max_age_seconds"] == 900
+
+
+def test_recent_busy_route_remains_valid(monkeypatch, tmp_path):
+    active = tmp_path / "active_task.json"
+    active.write_text(
+        json.dumps({
+            "id": "chat_current",
+            "status": "submitted",
+            "activated_at": (
+                datetime.now(timezone.utc) - timedelta(seconds=30)
+            ).isoformat(),
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(health.poller, "ACTIVE_TASK_FILE", active)
+    monkeypatch.setattr(health.poller, "RESPONSES_DIR", tmp_path / "responses")
+    monkeypatch.setattr(health.poller, "codex_is_busy", lambda: True)
+    monkeypatch.setattr(health, "ACTIVE_ROUTE_BUSY_MAX_AGE_SECONDS", 900)
+
+    result = health.active_route_state()
+
+    assert result["ok"]
+    assert not result["stale_busy"]
+
+
+def test_william_backlog_ignores_cursors_and_fails_on_unanswered(monkeypatch):
+    class FakeConn:
+        async def fetchrow(self, _query, horizon):
+            assert horizon == 24
+            return {
+                "count": 1,
+                "oldest_id": 117171,
+                "oldest_age_seconds": 45.0,
+            }
+
+        async def close(self):
+            return None
+
+    async def fake_connect(_dsn):
+        return FakeConn()
+
+    monkeypatch.setattr(health.asyncpg, "connect", fake_connect)
+    result = asyncio.run(health.william_reply_backlog("dsn", horizon_hours=24))
+
+    assert not result["ok"]
+    assert result["count"] == 1
+    assert result["oldest_id"] == 117171
+
+
 def test_failure_alert_replies_to_the_unanswered_source(monkeypatch):
     calls = []
     monkeypatch.setattr(

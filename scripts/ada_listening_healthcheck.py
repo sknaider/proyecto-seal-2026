@@ -40,6 +40,12 @@ PROGRESS_SLA_SECONDS = int(
 REPAIR_COOLDOWN_SECONDS = int(
     os.environ.get("ADA_LISTENING_REPAIR_COOLDOWN_SECONDS", "120")
 )
+ACTIVE_ROUTE_BUSY_MAX_AGE_SECONDS = int(
+    os.environ.get("ADA_LISTENING_ACTIVE_ROUTE_MAX_AGE_SECONDS", "900")
+)
+WILLIAM_BACKLOG_HOURS = int(
+    os.environ.get("ADA_LISTENING_WILLIAM_BACKLOG_HOURS", "24")
+)
 
 
 def _systemctl(*args: str) -> subprocess.CompletedProcess[str]:
@@ -117,9 +123,23 @@ def active_route_state() -> dict[str, Any]:
                 "terminal": True,
             }
         stale_pending = status == "pending_submit" and age > poller.PENDING_TASK_MAX_AGE_SECONDS
-        stale_idle = status != "pending_submit" and not busy and not response_exists and age > 30
+        stale_idle = (
+            status != "pending_submit"
+            and not busy
+            and not response_exists
+            and age > 30
+        )
+        # ``codex_is_busy`` is a lifecycle observation, not an infinite lease.
+        # A crashed/stuck turn used to remain GREEN forever as long as the
+        # latest lifecycle event lacked task_complete. Bound that ambiguity.
+        stale_busy = (
+            status != "pending_submit"
+            and busy
+            and not response_exists
+            and age > ACTIVE_ROUTE_BUSY_MAX_AGE_SECONDS
+        )
         return {
-            "ok": not (stale_pending or stale_idle),
+            "ok": not (stale_pending or stale_idle or stale_busy),
             "present": True,
             "task_id": task_id,
             "channel": task.get("channel"),
@@ -130,6 +150,8 @@ def active_route_state() -> dict[str, Any]:
             "response_exists": response_exists,
             "stale_pending": stale_pending,
             "stale_idle": stale_idle,
+            "stale_busy": stale_busy,
+            "busy_max_age_seconds": ACTIVE_ROUTE_BUSY_MAX_AGE_SECONDS,
         }
     except Exception as exc:
         return {"ok": False, "present": True, "error": str(exc)}
@@ -190,6 +212,60 @@ async def current_chat_id(dsn: str) -> int:
             )
             or 0
         )
+    finally:
+        await conn.close()
+
+
+async def william_reply_backlog(
+    dsn: str, *, horizon_hours: int = WILLIAM_BACKLOG_HOURS
+) -> dict[str, Any]:
+    """Find William messages lacking an exact durable ADA reply.
+
+    This query is intentionally independent of poller cursors and the monitor
+    watermark. A cursor may explain delivery progress; it may never erase an
+    unanswered William source from the communication health gate.
+    """
+    conn = await asyncpg.connect(dsn)
+    try:
+        row = await conn.fetchrow(
+            """
+            WITH sources AS (
+                SELECT m.id,
+                       m.channel,
+                       m.created_at,
+                       COALESCE(m.metadata->>'legacy_id', m.id::text) AS source_id
+                  FROM soul_v3.chat_messages m
+                 WHERE m.created_at > NOW() - make_interval(hours => $1)
+                   AND LOWER(m.sender_name) = 'william'
+                   AND (
+                        m.channel = 'dm:ada:william'
+                        OR (m.channel = 'web_chat' AND m.content ~* '\\mada\\M')
+                   )
+            ),
+            unanswered AS (
+                SELECT s.*
+                  FROM sources s
+                 WHERE NOT EXISTS (
+                    SELECT 1
+                      FROM soul_v3.chat_messages a
+                     WHERE UPPER(a.sender_name) = 'ADA'
+                       AND a.channel = s.channel
+                       AND a.metadata->>'in_reply_to' = s.source_id
+                 )
+            )
+            SELECT COUNT(*)::int AS count,
+                   MIN(id)::bigint AS oldest_id,
+                   EXTRACT(
+                       EPOCH FROM (NOW() - MIN(created_at))
+                   )::float AS oldest_age_seconds
+              FROM unanswered
+            """,
+            max(1, int(horizon_hours)),
+        )
+        result = dict(row)
+        result["horizon_hours"] = max(1, int(horizon_hours))
+        result["ok"] = int(result.get("count") or 0) == 0
+        return result
     finally:
         await conn.close()
 
@@ -532,6 +608,10 @@ def run(repair: bool = False, alert: bool = False) -> dict[str, Any]:
         pending = asyncio.run(pending_eligible(dsn, int(effective_cursor or 0)))
     except Exception as exc:
         pending = {"error": str(exc)}
+    try:
+        william_backlog = asyncio.run(william_reply_backlog(dsn))
+    except Exception as exc:
+        william_backlog = {"ok": False, "error": str(exc)}
     start_id = monitor_start_id(dsn)
     try:
         coverage = asyncio.run(reply_coverage(dsn, start_id))
@@ -569,10 +649,13 @@ def run(repair: bool = False, alert: bool = False) -> dict[str, Any]:
     if "error" in pending:
         failures.append(f"pending_query={pending['error']}")
     # Team backlog remains useful telemetry, but it must not obscure William's
-    # independent DM/public lanes. Reply coverage below is the canonical
-    # communication gate; it is measured per source message, not by one cursor.
+    # independent DM/public lanes. ``william_reply_backlog`` below is the
+    # cursor-independent gate; it is measured per source message, not by one
+    # shared delivery cursor.
     if not coverage.get("ok"):
         failures.append(f"reply_coverage={coverage}")
+    if not william_backlog.get("ok"):
+        failures.append(f"william_reply_backlog={william_backlog}")
     if not completions.get("ok"):
         failures.append(f"stale_completions={completions}")
 
@@ -589,6 +672,7 @@ def run(repair: bool = False, alert: bool = False) -> dict[str, Any]:
         "poller_cursor": poller_cursor,
         "effective_cursor": effective_cursor,
         "pending_eligible": pending,
+        "william_reply_backlog": william_backlog,
         "reply_coverage": coverage,
         "completion_artifacts": completions,
         "communication_repair": communication_repair,
