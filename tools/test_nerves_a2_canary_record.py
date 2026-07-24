@@ -85,6 +85,8 @@ def test_records_private_immutable_success(tmp_path: Path):
     assert value["agent"] == "ADA"
     assert value["mutations"] == 0
     assert value["worker_successes"] == 1
+    assert value["harm_avoided"] == 0
+    assert value["utility_basis"] == "controlled_route_completion"
     assert value["attestation_sha256"] == hashlib.sha256(
         arguments["receipt_path"].read_bytes()
     ).hexdigest()
@@ -167,6 +169,8 @@ def test_records_content_free_principal_ack(tmp_path: Path):
     assert value["missions_created"] == 0
     assert value["estimated_cost_units"] == 0
     assert value["mutations"] == 0
+    assert value["harm_avoided"] == 0
+    assert value["utility_basis"] == "measured_principal_ack_latency"
     assert value["attestation_sha256"] == hashlib.sha256(
         attestation.read_bytes()
     ).hexdigest()

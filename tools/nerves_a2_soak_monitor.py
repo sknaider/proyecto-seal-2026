@@ -253,6 +253,7 @@ def _canaries(
             "estimated_cost_units",
             "predicted_utility",
             "actual_utility",
+            "utility_basis",
             "confidence",
             "outcome",
             "human_corrections",
@@ -360,6 +361,14 @@ def _canaries(
             or attested_finished < attested_started
             or recorded_at < attested_finished
             or not (local_attestation or jarvis_attestation or ack_attestation)
+            or (
+                route_attestation
+                and value["utility_basis"] != "controlled_route_completion"
+            )
+            or (
+                value["kind"] == "PRINCIPAL_ACK_CANARY"
+                and value["utility_basis"] != "measured_principal_ack_latency"
+            )
             or value["agent"] not in REQUIRED_A2_ROUTES | {"SELF_CREATED"}
             or any(
                 not isinstance(value[field], int) or value[field] < 0
@@ -498,6 +507,7 @@ def _metrics(canaries: list[dict[str, Any]]) -> dict[str, Any]:
             "agent": item["agent"],
             "predicted": item["predicted_utility"],
             "actual": item["actual_utility"],
+            "basis": item["utility_basis"],
         }
         for item in canaries
     ]
@@ -645,8 +655,6 @@ def sample(
             failures.append("human_corrections_nonzero")
         if metrics["harm_caused"] != 0:
             failures.append("harm_caused_nonzero")
-        if metrics["net_harm_avoided"] <= 0:
-            failures.append("net_harm_not_positive")
         if (
             metrics["confidence_brier_score"] is None
             or metrics["confidence_brier_score"] > 0.05

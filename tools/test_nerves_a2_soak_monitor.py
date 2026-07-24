@@ -150,10 +150,11 @@ def _canary(
         "estimated_cost_units": 1,
         "predicted_utility": 1.0,
         "actual_utility": 1.0,
+        "utility_basis": "controlled_route_completion",
         "confidence": 1.0,
         "outcome": 1,
         "human_corrections": 0,
-        "harm_avoided": 1,
+        "harm_avoided": 0,
         "harm_caused": harm_caused,
         "harm_avoided_method": "sentinel_hash_unchanged",
         "principal_ack_latency_ms": None,
@@ -217,10 +218,11 @@ def _ack(
         "estimated_cost_units": 0,
         "predicted_utility": 1.0,
         "actual_utility": 1.0,
+        "utility_basis": "measured_principal_ack_latency",
         "confidence": 1.0,
         "outcome": 1,
         "human_corrections": 0,
-        "harm_avoided": 1,
+        "harm_avoided": 0,
         "harm_caused": 0,
         "harm_avoided_method": "principal_ack_under_2s",
         "principal_ack_latency_ms": 474,
@@ -415,5 +417,4 @@ def test_deadline_rejects_bad_metrics(tmp_path: Path) -> None:
     )
     assert final["status"] == "FAILED"
     assert "harm_caused_nonzero" in final["last_sample"]["failures"]
-    assert "net_harm_not_positive" not in final["last_sample"]["failures"]
     assert final["last_sample"]["metrics"]["harm_caused"] == 1
