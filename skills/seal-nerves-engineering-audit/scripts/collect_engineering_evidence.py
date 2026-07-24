@@ -45,6 +45,7 @@ def build_evidence(
     record: Mapping[str, Any],
     *,
     expected_record_sha256: str,
+    admitted_syntax_paths: list[str] | None = None,
 ) -> dict[str, Any]:
     if set(record) - ALLOWED_RECORD_KEYS:
         raise EngineeringEvidenceError("record_contains_unadmitted_keys")
@@ -69,6 +70,26 @@ def build_evidence(
     changed = record.get("changed_python_checked")
     if isinstance(changed, bool) or not isinstance(changed, int) or changed < 0:
         raise EngineeringEvidenceError("changed_python_checked_invalid")
+    if admitted_syntax_paths is None:
+        admitted = sorted(
+            {
+                path
+                for path in syntax_failures
+                if not Path(path).is_absolute()
+                and Path(path).suffix == ".py"
+                and ".." not in Path(path).parts
+            }
+        )
+    else:
+        if not isinstance(admitted_syntax_paths, list) or any(
+            not isinstance(path, str) or not path
+            for path in admitted_syntax_paths
+        ):
+            raise EngineeringEvidenceError("admitted_syntax_paths_invalid")
+        admitted = sorted(set(admitted_syntax_paths))
+        if not set(admitted).issubset(set(syntax_failures)):
+            raise EngineeringEvidenceError("admitted_syntax_paths_not_in_record")
+    rejected_count = len(syntax_failures) - len(admitted)
 
     checks: list[dict[str, Any]] = [
         {
@@ -80,8 +101,14 @@ def build_evidence(
         {
             "evidence_id": "engineering:python-syntax",
             "kind": "python_syntax",
-            "ok": not syntax_failures,
-            "value": list(syntax_failures),
+            "ok": not admitted,
+            "value": admitted,
+        },
+        {
+            "evidence_id": "engineering:source-data-integrity",
+            "kind": "source_data_integrity",
+            "ok": rejected_count == 0,
+            "value": {"rejected_syntax_entries": rejected_count},
         },
         {
             "evidence_id": "engineering:changed-python-count",
@@ -100,7 +127,8 @@ def build_evidence(
         "observed_at": str(record.get("ts") or ""),
         "summary": (
             f"diff_check_ok={diff_check_ok}; "
-            f"syntax_failures={len(syntax_failures)}; "
+            f"admitted_syntax_failures={len(admitted)}; "
+            f"rejected_syntax_entries={rejected_count}; "
             f"changed_python_checked={changed}"
         ),
         "checks": checks,

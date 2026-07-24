@@ -817,8 +817,19 @@ def compile_ada_engineering_mission(
     provenance_path = bundle_dir / f"{mission_id}.provenance.json"
     builder = _load_engineering_builder()
     record_digest = _record_sha256(record)
+    admitted_syntax_paths = sorted(
+        {
+            value
+            for value in record.get("syntax_failures", [])
+            if isinstance(value, str)
+        }
+        & set(opened.mission["scope"]["paths"])
+    )
     evidence = builder.build_evidence(
-        mission_id, record, expected_record_sha256=record_digest
+        mission_id,
+        record,
+        expected_record_sha256=record_digest,
+        admitted_syntax_paths=admitted_syntax_paths,
     )
     _validate_schema(evidence, EVIDENCE_SCHEMA, label="evidence")
     evidence_created = _write_private_json(evidence_path, evidence)
