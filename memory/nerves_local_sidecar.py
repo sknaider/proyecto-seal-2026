@@ -24,6 +24,46 @@ from memory.nerves_ollama_runtime_adapter import (
 from memory.nerves_mission_handoff import _load_state
 
 
+TERMINAL_DELIVERY_STATES = frozenset({"completed", "failed", "abstained"})
+
+
+def joined_claim_conflict(
+    mission_id: str,
+    *,
+    error: Exception,
+    route: NervesRouteConfig,
+) -> dict[str, object] | None:
+    """Classify an atomic-claim race as a successful idempotent join.
+
+    A timer and a canary may both observe the same pending delivery before
+    either claims it.  Losing that race is normal concurrency, not a worker
+    failure.  Only the exact claim-conflict error is joinable, and the durable
+    delivery must already be claimed or terminal; every other error remains
+    fail-closed.
+    """
+    if str(error) != "handoff_not_claimable":
+        return None
+    record = load_delivery(mission_id, route=route)
+    status = str(record.get("status") or "")
+    if status not in TERMINAL_DELIVERY_STATES | {"claimed"}:
+        return None
+    claim = record.get("claim")
+    if not isinstance(claim, dict) or not str(claim.get("claim_id") or ""):
+        return None
+    joined: dict[str, object] = {
+        "ok": True,
+        "mission_id": mission_id,
+        "status": "joined",
+        "delivery_status": status,
+        "claim_id": str(claim["claim_id"]),
+        "joined_existing_claim": True,
+    }
+    receipt = record.get("receipt")
+    if isinstance(receipt, dict) and receipt.get("receipt_sha256"):
+        joined["receipt_sha256"] = str(receipt["receipt_sha256"])
+    return joined
+
+
 def pending_mission_ids(route: NervesRouteConfig) -> list[str]:
     state = _load_state(route.state_path)
     records = [
@@ -82,6 +122,12 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = run_ollama_mission(mission_id, route=route)
         except (AgentMissionError, OllamaRuntimeError, ValueError) as exc:
+            joined = joined_claim_conflict(
+                mission_id, error=exc, route=route
+            )
+            if joined is not None:
+                print(json.dumps(joined, sort_keys=True))
+                return 0
             record = load_delivery(mission_id, route=route)
             if record.get("status") == "claimed":
                 result = fail_ollama_claim_validation(
@@ -173,6 +219,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = run_ollama_mission(mission_id, route=route)
     except (AgentMissionError, OllamaRuntimeError, ValueError) as exc:
+        joined = joined_claim_conflict(
+            mission_id, error=exc, route=route
+        )
+        if joined is not None:
+            print(json.dumps(joined, sort_keys=True))
+            return 0
         record = load_delivery(mission_id, route=route)
         if record.get("status") == "claimed":
             result = fail_ollama_claim_validation(

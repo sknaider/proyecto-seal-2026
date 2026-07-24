@@ -42,7 +42,10 @@ def _record(*, findings=None, state="FINDING", ts="2026-07-24T03:00:00+00:00"):
         "status": "issue",
         "findings": findings or ["security daemon inactive"],
         "broken": ["instrument unavailable"] if state == "BROKEN" else [],
-        "detail": "controles=3/3 daemons=1/2 cred=0o600",
+        "detail": (
+            "controles=3/3 daemons=1/2 "
+            "memory_monitor=healthy cred=0o600"
+        ),
     }
 
 
@@ -92,7 +95,10 @@ def test_nexus_green_is_silent_and_changed_finding_creates_transition(tmp_path):
         "status": "clean",
         "findings": [],
         "broken": [],
-        "detail": "controles=3/3 daemons=2/2 cred=0o600",
+        "detail": (
+            "controles=3/3 daemons=2/2 "
+            "memory_monitor=healthy cred=0o600"
+        ),
     }
     workspace = tmp_path / "workspace"
     workspace.mkdir()
