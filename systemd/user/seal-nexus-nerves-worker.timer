@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll NEXUS NERVES authenticated handoffs
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=1min
+AccuracySec=10s
+Persistent=true
+Unit=seal-nexus-nerves-worker.service
+
+[Install]
+WantedBy=timers.target

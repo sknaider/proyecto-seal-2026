@@ -19,16 +19,27 @@ import hashlib
 import hmac as _hmac
 import json
 import os
-import urllib.request
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from messages.agent_writer import send_agent_message_sync
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "memory"))
+from operational_db_credentials import service_pg_dsn
+
 # Config
-PG_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
-WEBCHAT_URL = "http://localhost:8765/api/agents/send"
+PG_DSN = service_pg_dsn(
+    "SEAL_MEMORY_MONITOR_PG_DSN",
+    expected_role="svc_seal_memory_monitor",
+    allow_private_transition=True,
+)
 SCAN_INTERVAL = 300  # 5 minutes
-LOG_FILE = "/home/dadito/IA/proyecto-seal/sandbox-agent/logs/memory_anomaly_monitor.log"
 ALERT_COOLDOWN = 900  # 15 min per anomaly_type
+HEALTH_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / (
+    "seal-memory-anomaly-monitor"
+)
+HEALTH_FILE = HEALTH_DIR / "health.json"
 
 # Thresholds
 BURST_INSERT_PER_MIN = 50          # idle agents
@@ -37,6 +48,51 @@ BURST_DELETE_PER_MIN = 10
 HASH_COLLISION_THRESHOLD = 5  # same content_hash from 5+ different agents in 24h
 
 _alert_cooldowns = {}
+
+# memory_audit_log may not exist (table was planned but not yet created).
+# Checked once at first scan; scans that depend on it are skipped gracefully.
+_audit_log_exists: bool | None = None  # None = unchecked
+_drift_schema_available: bool | None = None  # None = unchecked
+_DRIFT_REQUIRED_COLUMNS = frozenset({
+    "revision_count",
+    "drift_score",
+    "last_revision_at",
+})
+
+
+async def _check_audit_log_exists(conn) -> bool:
+    global _audit_log_exists
+    if _audit_log_exists is None:
+        row = await conn.fetchrow(
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema='soul_v3' "
+            "AND table_name='memory_monitor_audit_boundary' LIMIT 1"
+        )
+        _audit_log_exists = row is not None
+        if not _audit_log_exists:
+            log("WARN: tabla memory_audit_log no existe — scans burst/hash desactivados "
+                "hasta que sea creada. Resto del monitor activo.")
+    return bool(_audit_log_exists)
+
+
+async def _check_drift_schema_available(conn) -> bool:
+    """Check drift columns once without issuing intentionally failing SQL.
+
+    The drift feature was designed against a future schema.  Querying those
+    columns every five minutes made PostgreSQL emit two errors per scan and
+    inflated the container log.  Capability detection keeps the rest of the
+    monitor live while the optional migration is absent.
+    """
+    global _drift_schema_available
+    if _drift_schema_available is None:
+        _drift_schema_available = bool(await conn.fetchval(
+            "SELECT drift_schema_available "
+            "FROM soul_v3.memory_monitor_capabilities_boundary"
+        ))
+        if not _drift_schema_available:
+            log("WARN: scans de drift desactivados — schema actual no incluye: "
+                f"{', '.join(sorted(_DRIFT_REQUIRED_COLUMNS))}. Resto del monitor activo.")
+    return bool(_drift_schema_available)
 
 # HMAC key for signature integrity scanner (reads same credentials.env as mcp_server_v3)
 _CREDENTIALS_ENV = Path("/home/dadito/.config/seal/credentials.env")
@@ -63,13 +119,29 @@ def _compute_sig(agent: str, content: str, created_at_iso: str) -> str:
 def log(msg: str):
     ts = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%dT%H:%M:%S")
     line = f"[{ts}] [NEXUS-MEM-ANOMALY] {msg}"
+    # systemd owns the append target. Writing the same line here as well used
+    # to duplicate every monitor event in memory_anomaly_monitor.log.
     print(line, flush=True)
-    os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+
+
+def _write_health(payload: dict) -> None:
+    """Publish only non-secret runtime health for NEXUS coverage checks."""
+    HEALTH_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(HEALTH_DIR, 0o700)
+    tmp = HEALTH_DIR / f".health.{os.getpid()}.tmp"
+    data = json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n"
+    fd = os.open(
+        tmp,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0),
+        0o600,
+    )
     try:
-        with open(LOG_FILE, "a") as f:
-            f.write(line + "\n")
-    except Exception:
-        pass
+        os.write(fd, data.encode("utf-8"))
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.replace(tmp, HEALTH_FILE)
+    os.chmod(HEALTH_FILE, 0o600)
 
 
 def _alert(severity: str, anomaly_type: str, message: str, details: str = ""):
@@ -78,7 +150,6 @@ def _alert(severity: str, anomaly_type: str, message: str, details: str = ""):
     key = anomaly_type
     if now - _alert_cooldowns.get(key, 0) < ALERT_COOLDOWN:
         return
-    _alert_cooldowns[key] = now
 
     icons = {"CRITICAL": "🚨", "HIGH": "⚠️", "MEDIUM": "🟡"}
     icon = icons.get(severity, "⚠️")
@@ -89,27 +160,23 @@ def _alert(severity: str, anomaly_type: str, message: str, details: str = ""):
     log(full_msg)
 
     try:
-        payload = json.dumps({
-            "from": "NEXUS",
-            "to": "William",
-            "type": "alert",
-            "channel": "web_chat",
-            "message": full_msg
-        }).encode()
-        req = urllib.request.Request(
-            WEBCHAT_URL, data=payload,
-            headers={"Content-Type": "application/json"}, method="POST"
+        send_agent_message_sync(
+            "NEXUS", "William", full_msg, message_type="alert", proactive=True
         )
-        urllib.request.urlopen(req, timeout=5)
     except Exception as e:
         log(f"Alert delivery failed: {e}")
+        return
+    # Delivery failure must remain retryable; only a confirmed send starts the
+    # cooldown.
+    _alert_cooldowns[key] = now
 
 
 async def _agent_has_active_task(conn, agent: str) -> bool:
     """Return True if agent has a non-empty task_name in working_state."""
     try:
         row = await conn.fetchrow(
-            "SELECT state FROM agent_working_state WHERE agent=$1", agent
+            "SELECT state FROM soul_v3.memory_monitor_working_state_boundary WHERE agent=$1",
+            agent,
         )
         if row and row["state"]:
             state = row["state"] if isinstance(row["state"], dict) else json.loads(row["state"])
@@ -125,7 +192,7 @@ async def scan_burst_inserts(conn):
     """
     rows = await conn.fetch("""
         SELECT agent, COUNT(*) AS n
-        FROM memory_audit_log
+        FROM soul_v3.memory_monitor_audit_boundary
         WHERE operation = 'INSERT'
           AND audit_timestamp > NOW() - INTERVAL '1 minute'
         GROUP BY agent
@@ -148,7 +215,7 @@ async def scan_burst_deletes(conn):
     """Detect DELETE bursts (usually suspicious)."""
     rows = await conn.fetch("""
         SELECT agent, COUNT(*) AS n
-        FROM memory_audit_log
+        FROM soul_v3.memory_monitor_audit_boundary
         WHERE operation = 'DELETE'
           AND audit_timestamp > NOW() - INTERVAL '1 minute'
         GROUP BY agent
@@ -165,7 +232,7 @@ async def scan_hash_collisions(conn):
     rows = await conn.fetch("""
         SELECT content_hash, COUNT(DISTINCT agent) AS n_agents,
                array_agg(DISTINCT agent) AS agents
-        FROM memory_audit_log
+        FROM soul_v3.memory_monitor_audit_boundary
         WHERE audit_timestamp > NOW() - INTERVAL '24 hours'
           AND operation = 'INSERT'
           AND content_hash IS NOT NULL
@@ -180,9 +247,11 @@ async def scan_hash_collisions(conn):
 
 async def scan_drift_revisions(conn):
     """Gap #3: detect memories with >5 revisions in 24h (incremental tamper pattern)."""
+    if not await _check_drift_schema_available(conn):
+        return
     rows = await conn.fetch("""
         SELECT id, agent, revision_count, drift_score, importance, scope
-        FROM memories
+        FROM soul_v3.memory_monitor_memories_boundary
         WHERE revision_count > 5
           AND last_revision_at > NOW() - INTERVAL '24 hours'
           AND importance >= 8
@@ -198,9 +267,11 @@ async def scan_drift_revisions(conn):
 
 async def scan_drift_semantic(conn):
     """Gap #3: detect semantic drift (cos_sim < 0.6 vs original)."""
+    if not await _check_drift_schema_available(conn):
+        return
     rows = await conn.fetch("""
         SELECT id, agent, revision_count, drift_score, importance, scope
-        FROM memories
+        FROM soul_v3.memory_monitor_memories_boundary
         WHERE drift_score > 0.4
           AND importance >= 8
           AND last_revision_at > NOW() - INTERVAL '24 hours'
@@ -223,7 +294,7 @@ async def scan_signature_integrity(conn):
     rows = await conn.fetch("""
         SELECT id, agent, content, created_at, importance, scope,
                metadata->>'_sig' AS sig
-        FROM memories
+        FROM soul_v3.memory_monitor_memories_boundary
         WHERE metadata ? '_sig'
           AND metadata->>'_sig' != ''
           AND importance >= 7
@@ -256,16 +327,69 @@ async def scan_all():
     try:
         conn = await asyncpg.connect(PG_DSN)
         try:
-            await scan_burst_inserts(conn)
-            await scan_burst_deletes(conn)
-            await scan_hash_collisions(conn)
+            identity = await conn.fetchrow(
+                """SELECT current_user, session_user,
+                          rolsuper, rolbypassrls
+                   FROM pg_roles
+                   WHERE rolname=current_user"""
+            )
+            await _check_audit_log_exists(conn)
+            if _audit_log_exists:
+                await scan_burst_inserts(conn)
+                await scan_burst_deletes(conn)
+                await scan_hash_collisions(conn)
             await scan_drift_revisions(conn)
             await scan_drift_semantic(conn)
             await scan_signature_integrity(conn)
+            source_sha256 = hashlib.sha256(
+                Path(__file__).read_bytes()
+            ).hexdigest()
+            restricted_identity = bool(
+                identity
+                and identity["current_user"] == "svc_seal_memory_monitor"
+                and identity["session_user"] == "svc_seal_memory_monitor"
+                and not identity["rolsuper"]
+                and not identity["rolbypassrls"]
+            )
+            _write_health(
+                {
+                    "schema": "seal.memory-anomaly-health.v1",
+                    "observed_at": datetime.now(timezone.utc).isoformat(),
+                    "pid": os.getpid(),
+                    "source_sha256": source_sha256,
+                    "identity": {
+                        "role": str(identity["current_user"]) if identity else "",
+                        "restricted": restricted_identity,
+                    },
+                    "capabilities": {
+                        "burst_hash_audit": bool(_audit_log_exists),
+                        "revision_drift": bool(_drift_schema_available),
+                        "signature_integrity": bool(_HMAC_KEY),
+                    },
+                    "status": "healthy" if restricted_identity else "broken",
+                }
+            )
         finally:
             await conn.close()
     except Exception as e:
         log(f"Scan error: {e}")
+        try:
+            _write_health(
+                {
+                    "schema": "seal.memory-anomaly-health.v1",
+                    "observed_at": datetime.now(timezone.utc).isoformat(),
+                    "pid": os.getpid(),
+                    "source_sha256": hashlib.sha256(
+                        Path(__file__).read_bytes()
+                    ).hexdigest(),
+                    "identity": {"role": "", "restricted": False},
+                    "capabilities": {},
+                    "status": "broken",
+                    "error_type": type(e).__name__,
+                }
+            )
+        except Exception:
+            pass
 
 
 async def main():

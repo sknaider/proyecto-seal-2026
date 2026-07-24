@@ -160,7 +160,34 @@ ALICE_ROUTE = NervesRouteConfig(
     live_channel="internal:nerves:alice",
 )
 
-ROUTES = {"ADA": ADA_ROUTE, "ALICE": ALICE_ROUTE}
+NEXUS_ROUTE = NervesRouteConfig(
+    agent="NEXUS",
+    action="security_pulse",
+    specialty="security_control_integrity",
+    objective=(
+        "Classify the authenticated NEXUS security finding or instrument "
+        "failure and propose the smallest separately governed next action "
+        "without mutation."
+    ),
+    skill_id="seal-nerves-security-triage",
+    skill_dir=ROOT / "skills/seal-nerves-security-triage",
+    allowed_tools=(),
+    runtime="local_ollama_json_no_tools",
+    inbox_dir=(
+        ROOT / "research/flywire_results/nerves_orchestrator_inbox/NEXUS"
+    ),
+    runtime_artifact_dir=(
+        ROOT / "research/flywire_results/nerves_ollama_runs/NEXUS"
+    ),
+    state_path=(
+        ROOT
+        / "research/flywire_results/nerves_orchestrator_inbox/NEXUS.state.json"
+    ),
+    live_feed=Path("/tmp/seal_events_NEXUS.log"),
+    live_channel="internal:nerves:nexus",
+)
+
+ROUTES = {"ADA": ADA_ROUTE, "ALICE": ALICE_ROUTE, "NEXUS": NEXUS_ROUTE}
 
 
 @dataclass(frozen=True, slots=True)
@@ -336,6 +363,18 @@ def _load_orion_builder(route: NervesRouteConfig = ALICE_ROUTE):
     return module
 
 
+def _load_security_builder(route: NervesRouteConfig = NEXUS_ROUTE):
+    script = route.skill_dir / "scripts/collect_security_evidence.py"
+    spec = importlib.util.spec_from_file_location(
+        "seal_nerves_security_evidence", script
+    )
+    if spec is None or spec.loader is None:
+        raise AgentMissionError("security_evidence_loader_unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _record_sha256(record: Mapping[str, Any]) -> str:
     return _sha256(_canonical_bytes(dict(record)))
 
@@ -406,6 +445,70 @@ def latest_actionable_alice_episode(
             "UNVERIFIABLE",
         } and candidate is None:
             candidate = (record, last_clean)
+    return candidate
+
+
+def latest_actionable_nexus_episode(
+    artifact_path: Path,
+) -> tuple[dict[str, Any], str] | None:
+    """Return the current distinct security-finding transition.
+
+    Repeated identical snapshots join one mission.  A changed finding set
+    creates a new episode even when no GREEN record occurred between them.
+    """
+    records: list[dict[str, Any]] = []
+    for number, line in enumerate(
+        artifact_path.read_text(encoding="utf-8").splitlines(), 1
+    ):
+        if not line.strip():
+            continue
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise AgentMissionError(
+                f"nexus_artifact_invalid_json_line_{number}"
+            ) from exc
+        if not isinstance(value, dict):
+            raise AgentMissionError(
+                f"nexus_artifact_line_{number}_not_object"
+            )
+        records.append(value)
+    last_clean = "genesis"
+    candidate: tuple[dict[str, Any], str] | None = None
+    prior_issue_fingerprint: str | None = None
+    for record in records:
+        if (
+            record.get("agent") != "NEXUS"
+            or record.get("action") != "security_pulse"
+        ):
+            continue
+        state = str(record.get("state") or "")
+        if state == "GREEN" and record.get("status") == "clean":
+            last_clean = str(record.get("ts") or "clean_without_timestamp")
+            candidate = None
+            prior_issue_fingerprint = None
+        elif (
+            state in {"FINDING", "BROKEN"}
+            and record.get("status") == "issue"
+        ):
+            fingerprint = _sha256(
+                _canonical_bytes(
+                    {
+                        "state": state,
+                        "findings": sorted(record.get("findings") or []),
+                        "broken": sorted(record.get("broken") or []),
+                        "detail": record.get("detail"),
+                    }
+                )
+            )
+            if fingerprint != prior_issue_fingerprint:
+                transition_anchor = (
+                    f"{last_clean}:"
+                    f"{prior_issue_fingerprint or 'first-issue'}:"
+                    f"{record.get('ts') or 'issue-without-timestamp'}"
+                )
+                candidate = (record, transition_anchor)
+                prior_issue_fingerprint = fingerprint
     return candidate
 
 
@@ -765,6 +868,191 @@ def compile_alice_orion_mission(
         )
         if current != provenance:
             raise AgentMissionError("existing_alice_provenance_mismatch")
+    return CompiledMission(
+        opened.mission,
+        manifest_path,
+        evidence_path,
+        provenance_path,
+        opened.created,
+    )
+
+
+def _compile_nexus_envelope(
+    record: Mapping[str, Any],
+    *,
+    artifact_path: Path,
+    episode_anchor: str,
+    route: NervesRouteConfig = NEXUS_ROUTE,
+    workspace_root: Path = ROOT,
+) -> dict[str, Any]:
+    if route.agent != "NEXUS" or route.action != "security_pulse":
+        raise AgentMissionError("nexus_compiler_route_mismatch")
+    if (
+        record.get("agent") != route.agent
+        or record.get("action") != route.action
+        or record.get("state") not in {"FINDING", "BROKEN"}
+        or record.get("status") != "issue"
+    ):
+        raise AgentMissionError("nexus_source_record_not_actionable")
+    workspace = workspace_root.resolve(strict=True)
+    source = artifact_path.resolve(strict=True)
+    if not source.is_relative_to(workspace):
+        raise AgentMissionError("nexus_artifact_outside_workspace")
+    source_relative = source.relative_to(workspace).as_posix()
+    record_digest = _record_sha256(record)
+    episode_key = _sha256(
+        _canonical_bytes(
+            {
+                "agent": route.agent,
+                "action": route.action,
+                "record_sha256": record_digest,
+                "episode_anchor": episode_anchor,
+                "route_sha256": route.route_sha256,
+            }
+        )
+    )
+    mission_id = str(uuid.uuid5(MISSION_NAMESPACE, episode_key))
+    mission = {
+        "schema": "seal.nerves.mission.v1",
+        "mission_id": mission_id,
+        "idempotency_key": f"nexus-security-{episode_key}",
+        "agent": route.agent,
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "nerve_fire_id": (
+            f"nexus-security:{record.get('ts')}:{episode_key[:16]}"
+        ),
+        "correlation_id": episode_key,
+        "nerve_layer": "AGENT_ROLE",
+        "drive": "reactive",
+        "specialty": route.specialty,
+        "objective": route.objective,
+        "risk_class": route.risk_class,
+        "source_refs": [
+            f"file:{source_relative}",
+            f"record_sha256:{record_digest}",
+            f"episode_anchor:{episode_anchor}",
+        ],
+        "initiation_conditions": [
+            "security_pulse state is FINDING or BROKEN",
+            "source record is unique and hash-bound",
+        ],
+        "scope": {
+            "workspace": str(workspace),
+            "paths": sorted(
+                {
+                    "tools/nexus_nerves_watch.py",
+                    "memory/nerves_maintenance_nexus.py",
+                    source_relative,
+                }
+            ),
+            "services": [
+                "seal-security-monitor.service",
+                "seal-chat.service",
+            ],
+            "network": "none",
+        },
+        "skills": [
+            {
+                "id": route.skill_id,
+                "version": "1",
+                "sha256": skill_bundle_digest(route.skill_dir),
+            }
+        ],
+        "allowed_tools": list(route.allowed_tools),
+        "budgets": {
+            "wall_seconds": route.wall_seconds,
+            "max_attempts": 1,
+            "token_budget": route.token_budget,
+        },
+        "expected_evidence": [
+            "typed NEXUS security evidence",
+            "runtime trace hash",
+            "deterministic parent verifier",
+        ],
+        "termination_conditions": [
+            "one typed result submitted",
+            "scope invalid and worker abstains",
+            "budget exhausted and mission fails closed",
+        ],
+        "rollback": {
+            "required": False,
+            "plan": "A2 is non-mutating; retain evidence and stop the worker.",
+        },
+        "builder": "ADA@mission-core-v4",
+        "verifier": "deterministic-parent",
+        "confidence_prior": 0.5,
+    }
+    _validate_schema(mission, MISSION_SCHEMA, label="nexus_mission")
+    return mission
+
+
+def compile_nexus_security_mission(
+    artifact_path: Path,
+    *,
+    route: NervesRouteConfig = NEXUS_ROUTE,
+    ledger_path: Path = DEFAULT_LEDGER,
+    manifest_dir: Path = DEFAULT_MANIFEST_DIR,
+    bundle_dir: Path | None = None,
+    workspace_root: Path = ROOT,
+) -> CompiledMission:
+    episode = latest_actionable_nexus_episode(artifact_path)
+    if episode is None:
+        raise AgentMissionError("nexus_artifact_has_no_actionable_episode")
+    record, anchor = episode
+    mission = _compile_nexus_envelope(
+        record,
+        artifact_path=artifact_path,
+        episode_anchor=anchor,
+        route=route,
+        workspace_root=workspace_root,
+    )
+    opened = ShadowMissionLedger(ledger_path).open_or_join(mission)
+    manifest_path = write_shadow_manifest(opened.mission, manifest_dir)
+    mission_id = str(opened.mission["mission_id"])
+    bundle_dir = bundle_dir or (
+        ROOT / "research/flywire_results/nerves_evidence_bundles/NEXUS"
+    )
+    _ensure_private_directory(bundle_dir)
+    evidence_path = bundle_dir / f"{mission_id}.evidence.json"
+    provenance_path = bundle_dir / f"{mission_id}.provenance.json"
+    builder = _load_security_builder(route)
+    record_digest = _record_sha256(record)
+    evidence = builder.build_evidence(
+        mission_id, record, expected_record_sha256=record_digest
+    )
+    _validate_schema(evidence, EVIDENCE_SCHEMA, label="nexus_evidence")
+    evidence_created = _write_private_json(evidence_path, evidence)
+    evidence_raw = _canonical_bytes(evidence) + b"\n"
+    provenance = {
+        "schema": "seal.nerves.agent-provenance.v1",
+        "mission_id": mission_id,
+        "route_sha256": route.route_sha256,
+        "manifest_sha256": _sha256(manifest_path.read_bytes()),
+        "skill_bundle_sha256": skill_bundle_digest(route.skill_dir),
+        "source": {
+            "path": str(
+                artifact_path.resolve(strict=True).relative_to(
+                    workspace_root.resolve(strict=True)
+                )
+            ),
+            "record_sha256": record_digest,
+            "timestamp": str(record.get("ts") or ""),
+            "correlation_id": opened.mission["correlation_id"],
+            "nerve_fire_id": opened.mission["nerve_fire_id"],
+        },
+        "evidence_sha256": _sha256(evidence_raw),
+    }
+    provenance_created = _write_private_json(provenance_path, provenance)
+    if not evidence_created:
+        current, _ = _secure_json(evidence_path, label="nexus_evidence")
+        if current != evidence:
+            raise AgentMissionError("existing_nexus_evidence_mismatch")
+    if not provenance_created:
+        current, _ = _secure_json(
+            provenance_path, label="nexus_provenance"
+        )
+        if current != provenance:
+            raise AgentMissionError("existing_nexus_provenance_mismatch")
     return CompiledMission(
         opened.mission,
         manifest_path,

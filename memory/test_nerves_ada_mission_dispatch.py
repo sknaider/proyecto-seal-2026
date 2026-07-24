@@ -68,8 +68,8 @@ def test_ada_handoff_failure_is_fail_closed(monkeypatch):
         asyncio.run(engine._fire_useful_maintenance())
 
 
-def test_ada_flag_does_not_dispatch_other_agents(monkeypatch):
-    engine = nerves.MotivationEngine("NEXUS")
+def test_agent_handoff_does_not_dispatch_ada_adapter_for_unsupported_agent(monkeypatch):
+    engine = nerves.MotivationEngine("DUM")
     posts = []
 
     async def maintenance(_engine):
@@ -88,6 +88,6 @@ def test_ada_flag_does_not_dispatch_other_agents(monkeypatch):
 
     assert (
         asyncio.run(engine._fire_useful_maintenance())
-        == "maintenance_fired:value:NEXUS"
+        == "maintenance_fired:value:DUM"
     )
     assert len(posts) == 1

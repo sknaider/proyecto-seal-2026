@@ -1222,6 +1222,43 @@ def _dispatch_alice_read_only_mission():
         ) from exc
 
 
+def _dispatch_nexus_read_only_mission():
+    """Compile one NEXUS security finding for a tool-less A2 worker.
+
+    The worker never invokes ``nexus_nerves_watch.py --repair``.  Detection and
+    any deterministic reversible remediation remain outside this diagnostic
+    mission and retain their existing governance.
+    """
+    try:
+        from nerves_agent_mission_core import (
+            NEXUS_ROUTE,
+            compile_nexus_security_mission,
+            deliver_handoff,
+        )
+        from nerves_maintenance_nexus import ARTIFACT
+
+        compiled = compile_nexus_security_mission(ARTIFACT)
+        handoff = deliver_handoff(
+            compiled, route=NEXUS_ROUTE, notify_live=False
+        )
+        log.info(
+            "[NEXUS] mission handoff mission_id=%s mission_created=%s "
+            "handoff_created=%s status=%s",
+            compiled.mission["mission_id"],
+            compiled.created,
+            handoff.created,
+            handoff.status,
+        )
+        return compiled, handoff
+    except NervesActionError:
+        raise
+    except Exception as exc:
+        log.error("[NEXUS] mission handoff failed: %s", exc)
+        raise NervesActionError(
+            f"mission_handoff_failed:NEXUS:{type(exc).__name__}"
+        ) from exc
+
+
 class MotivationEngine:
     """
     LIF-based motivation engine for SEAL agents.
@@ -1289,6 +1326,49 @@ class MotivationEngine:
                             "maintenance_failed:ALICE:mission_handoff"
                         )
                         raise
+                elif NERVES_AGENT_HANDOFF and self.agent == "NEXUS":
+                    try:
+                        compiled, _handoff = await asyncio.to_thread(
+                            _dispatch_nexus_read_only_mission
+                        )
+                        mission_id = str(compiled.mission["mission_id"])
+                        pulse_state = str(
+                            compiled.evidence["checks"][0]["value"]
+                        )
+                        if pulse_state == "BROKEN":
+                            alert_summary = (
+                                "Instrumento de seguridad BROKEN; misión A2 "
+                                "tool-less creada o unida."
+                            )
+                        else:
+                            alert_summary = (
+                                "Hallazgo de seguridad autenticado; misión A2 "
+                                "tool-less creada o unida."
+                            )
+                        await send_agent_message(
+                            "NEXUS",
+                            "William",
+                            (
+                                f"[NERVES/NEXUS] {alert_summary} "
+                                f"mission_id={mission_id}."
+                            ),
+                            channel="web_chat",
+                            message_type="nerves_fire",
+                            idempotency_key=(
+                                f"nerves_nexus_security_{mission_id}"
+                            ),
+                            proactive=True,
+                            timeout=5,
+                        )
+                    except Exception as exc:
+                        self._maintenance_tick_result = (
+                            "maintenance_failed:NEXUS:mission_handoff"
+                        )
+                        if isinstance(exc, NervesActionError):
+                            raise
+                        raise NervesDeliveryError(
+                            "NEXUS security mission alert not delivered"
+                        ) from exc
                 elif NERVES_MISSION_SHADOW and self.agent == "JARVIS":
                     try:
                         opened = await asyncio.to_thread(
