@@ -36,11 +36,22 @@ WORKER_UNITS = (
 )
 RELEASE_FILES = (
     "memory/nerves_agent_mission_core.py",
+    "memory/nerves_ollama_runtime_adapter.py",
     "memory/nerves_global_catalog.py",
     "memory/nerves_global_catalog_v1.json",
     "memory/nerves_mission_handoff.py",
     "memory/nerves_self_created.py",
     "memory/nerves_local_sidecar.py",
+    "docs/schemas/nerves_agent_reasoning_v1.schema.json",
+    "docs/schemas/nerves_orchestrator_receipt_v3.schema.json",
+    "skills/seal-nerves-engineering-audit/SKILL.md",
+    "skills/seal-nerves-engineering-audit/scripts/collect_engineering_evidence.py",
+    "skills/seal-nerves-orion-audit/SKILL.md",
+    "skills/seal-nerves-orion-audit/scripts/collect_orion_evidence.py",
+    "skills/seal-nerves-security-triage/SKILL.md",
+    "skills/seal-nerves-security-triage/scripts/collect_security_evidence.py",
+    "skills/seal-nerves-rigor-adjudication/SKILL.md",
+    "skills/seal-nerves-rigor-adjudication/scripts/collect_rigor_evidence.py",
     "skills/seal-ada-ack-latency-triage/SKILL.md",
     "skills/seal-ada-ack-latency-triage/scripts/ack_latency_triage.py",
 )
