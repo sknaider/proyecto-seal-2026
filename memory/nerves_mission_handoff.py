@@ -917,6 +917,8 @@ def claim_handoff(
         if record.get("handoff_sha256") != handoff_sha256:
             raise HandoffError("claim_handoff_hash_mismatch")
         _validate_existing_handoff(inbox_path, handoff_sha256)
+        if record.get("status") in TERMINAL_STATES:
+            raise HandoffError("handoff_not_claimable")
         existing_claim = record.get("claim")
         if existing_claim is not None:
             if (

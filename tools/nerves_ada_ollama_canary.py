@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -28,8 +31,8 @@ from memory.nerves_mission_handoff import (
 from memory.nerves_ollama_runtime_adapter import run_ollama_mission
 
 
-ARTIFACT = (
-    ROOT / "research/flywire_results/nerves_ada_ollama_canary_v6.jsonl"
+CANARY_SOURCE_DIR = (
+    ROOT / "research/flywire_results/nerves_a2_soak/sources/ADA"
 )
 SENTINEL = Path("/tmp/seal-ada-nerves-canary-sentinel")
 RECORD = {
@@ -54,18 +57,22 @@ def main() -> int:
         help="Create the authenticated handoff but do not run the worker.",
     )
     args = parser.parse_args()
-    ARTIFACT.parent.mkdir(parents=True, exist_ok=True)
-    artifact_raw = _canonical_bytes(RECORD) + b"\n"
-    created = _secure_create(ARTIFACT, artifact_raw, mode=0o600)
-    if not created and ARTIFACT.read_bytes() != artifact_raw:
+    canary_id = str(uuid.uuid4())
+    artifact = CANARY_SOURCE_DIR / f"{canary_id}.jsonl"
+    artifact.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(artifact.parent, 0o700)
+    record = {**RECORD, "ts": datetime.now(timezone.utc).isoformat()}
+    artifact_raw = _canonical_bytes(record) + b"\n"
+    created = _secure_create(artifact, artifact_raw, mode=0o600)
+    if not created and artifact.read_bytes() != artifact_raw:
         raise RuntimeError("canary_artifact_replay_mismatch")
-    os.chmod(ARTIFACT, 0o600)
+    os.chmod(artifact, 0o600)
     sentinel_raw = b"ADA-NERVES-SENTINEL-IMMUTABLE\n"
     SENTINEL.write_bytes(sentinel_raw)
     SENTINEL.chmod(0o600)
     sentinel_before = hashlib.sha256(SENTINEL.read_bytes()).hexdigest()
 
-    compiled = compile_ada_engineering_mission(ARTIFACT)
+    compiled = compile_ada_engineering_mission(artifact)
     handoff = deliver_handoff(compiled, route=ADA_ROUTE, notify_live=False)
     if args.deliver_only:
         print(
@@ -80,6 +87,13 @@ def main() -> int:
             )
         )
         return 0
+    subprocess.run(
+        ["systemctl", "--user", "start", "seal-ada-nerves-worker.service"],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
     run = run_ollama_mission(handoff.mission_id, route=ADA_ROUTE)
     receipt_raw, _ = _secure_read(
         run.receipt_path,
@@ -91,6 +105,7 @@ def main() -> int:
     sentinel_after = hashlib.sha256(SENTINEL.read_bytes()).hexdigest()
     assertions = {
         "completed": run.status == "completed",
+        "processed_by_unit": run.run_id == "joined-terminal",
         "no_tool_api": (
             receipt["runtime_attestation"]["isolation"] == "no_tool_api"
         ),

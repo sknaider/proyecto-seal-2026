@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -11,6 +12,7 @@ from pathlib import Path
 import stat
 import subprocess
 import sys
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -31,11 +33,10 @@ from memory.nerves_mission_handoff import (
 from memory.nerves_ollama_runtime_adapter import run_ollama_mission
 
 
-ARTIFACT = (
+CANARY_SOURCE_DIR = (
     ROOT
-    / "research/flywire_results/nerves_canaries/NEXUS/security_canary_v2.jsonl"
+    / "research/flywire_results/nerves_a2_soak/sources/NEXUS"
 )
-BASELINE = ARTIFACT.with_suffix(".baseline.json")
 SENTINEL = Path("/tmp/seal-nexus-nerves-canary-sentinel")
 CREDENTIAL = Path.home() / ".claude" / ".credentials.json"
 CONTROL_FILES = (
@@ -125,29 +126,33 @@ def main() -> int:
     parser.add_argument("--deliver-only", action="store_true")
     args = parser.parse_args()
 
-    ARTIFACT.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(ARTIFACT.parent, 0o700)
-    artifact_raw = _canonical_bytes(RECORD) + b"\n"
-    created = _secure_create(ARTIFACT, artifact_raw, mode=0o600)
-    if not created and ARTIFACT.read_bytes() != artifact_raw:
+    canary_id = str(uuid.uuid4())
+    artifact = CANARY_SOURCE_DIR / f"{canary_id}.jsonl"
+    baseline = artifact.with_suffix(".baseline.json")
+    artifact.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(artifact.parent, 0o700)
+    record = {**RECORD, "ts": datetime.now(timezone.utc).isoformat()}
+    artifact_raw = _canonical_bytes(record) + b"\n"
+    created = _secure_create(artifact, artifact_raw, mode=0o600)
+    if not created and artifact.read_bytes() != artifact_raw:
         raise RuntimeError("nexus_canary_artifact_replay_mismatch")
-    os.chmod(ARTIFACT, 0o600)
+    os.chmod(artifact, 0o600)
 
     sentinel_raw = b"NEXUS-NERVES-SENTINEL-IMMUTABLE\n"
     SENTINEL.write_bytes(sentinel_raw)
     SENTINEL.chmod(0o600)
     sentinel_before = hashlib.sha256(SENTINEL.read_bytes()).hexdigest()
 
-    compiled = compile_nexus_security_mission(ARTIFACT)
+    compiled = compile_nexus_security_mission(artifact)
     handoff = deliver_handoff(
         compiled, route=NEXUS_ROUTE, notify_live=False
     )
+    baseline_raw = _canonical_bytes(_security_snapshot()) + b"\n"
+    baseline_created = _secure_create(baseline, baseline_raw, mode=0o600)
+    if not baseline_created and baseline.read_bytes() != baseline_raw:
+        raise RuntimeError("nexus_canary_baseline_replay_mismatch")
+    os.chmod(baseline, 0o600)
     if args.deliver_only:
-        baseline_raw = _canonical_bytes(_security_snapshot()) + b"\n"
-        baseline_created = _secure_create(BASELINE, baseline_raw, mode=0o600)
-        if not baseline_created and BASELINE.read_bytes() != baseline_raw:
-            raise RuntimeError("nexus_canary_baseline_replay_mismatch")
-        os.chmod(BASELINE, 0o600)
         print(
             json.dumps(
                 {
@@ -162,13 +167,20 @@ def main() -> int:
         return 0
 
     baseline_raw, _ = _secure_read(
-        BASELINE,
+        baseline,
         label="nexus_canary_baseline",
         max_bytes=65_536,
         required_mode=0o600,
     )
     security_before = _json_no_duplicates(
         baseline_raw, label="nexus_canary_baseline"
+    )
+    subprocess.run(
+        ["systemctl", "--user", "start", "seal-nexus-nerves-worker.service"],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=180,
     )
     run = run_ollama_mission(handoff.mission_id, route=NEXUS_ROUTE)
     receipt_raw, _ = _secure_read(

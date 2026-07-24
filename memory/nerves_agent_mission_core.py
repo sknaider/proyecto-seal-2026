@@ -1672,6 +1672,8 @@ def claim_handoff(
             raise AgentMissionError("claim_unknown_mission")
         if record.get("route_sha256") != route.route_sha256:
             raise AgentMissionError("claim_route_mismatch")
+        if record.get("status") in STATE_TERMINAL:
+            raise AgentMissionError("handoff_not_claimable")
         existing = record.get("claim")
         if existing is not None:
             if isinstance(existing, dict) and existing.get("worker_id") == worker_id:

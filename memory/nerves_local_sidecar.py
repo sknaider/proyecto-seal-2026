@@ -12,10 +12,12 @@ from memory.nerves_agent_mission_core import (
     AgentMissionError,
     ROUTES,
     NervesRouteConfig,
+    load_delivery,
     stale_claim_mission_ids,
 )
 from memory.nerves_ollama_runtime_adapter import (
     OllamaRuntimeError,
+    fail_ollama_claim_validation,
     fail_stale_ollama_claim,
     run_ollama_mission,
 )
@@ -80,6 +82,26 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = run_ollama_mission(mission_id, route=route)
         except (AgentMissionError, OllamaRuntimeError, ValueError) as exc:
+            record = load_delivery(mission_id, route=route)
+            if record.get("status") == "claimed":
+                result = fail_ollama_claim_validation(
+                    mission_id, reason=str(exc), route=route
+                )
+                print(
+                    json.dumps(
+                        {
+                            "ok": True,
+                            "mission_id": result.mission_id,
+                            "status": result.status,
+                            "receipt_sha256": result.receipt_sha256,
+                            "recovered_existing_claim": False,
+                            "closed_failed_after_parent_rejection": True,
+                            "error": str(exc),
+                        },
+                        sort_keys=True,
+                    )
+                )
+                return 0
             stale_after_failure = stale_claim_mission_ids(route=route)
             if mission_id in stale_after_failure:
                 result = fail_stale_ollama_claim(
@@ -151,6 +173,25 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = run_ollama_mission(mission_id, route=route)
     except (AgentMissionError, OllamaRuntimeError, ValueError) as exc:
+        record = load_delivery(mission_id, route=route)
+        if record.get("status") == "claimed":
+            result = fail_ollama_claim_validation(
+                mission_id, reason=str(exc), route=route
+            )
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "mission_id": result.mission_id,
+                        "status": result.status,
+                        "receipt_sha256": result.receipt_sha256,
+                        "closed_failed_after_parent_rejection": True,
+                        "error": str(exc),
+                    },
+                    sort_keys=True,
+                )
+            )
+            return 0
         print(
             json.dumps(
                 {

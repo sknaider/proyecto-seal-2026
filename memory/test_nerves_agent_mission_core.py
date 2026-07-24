@@ -24,6 +24,7 @@ from memory.nerves_agent_mission_core import (
 )
 from memory.nerves_ollama_runtime_adapter import (
     _validate_result,
+    fail_ollama_claim_validation,
     fail_stale_ollama_claim,
     run_ollama_mission,
 )
@@ -365,6 +366,77 @@ def test_runtime_timeout_commits_terminal_failed_receipt(
     assert receipt["runtime_attestation"]["http_status"] == 0
 
 
+def test_parent_rejection_closes_claim_once_without_requeue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    route, compiled = _fixture(tmp_path)
+    delivery = deliver_handoff(compiled, route=route, now=NOW, notify_live=False)
+    monkeypatch.setattr(ollama_adapter, "_model_digest", lambda model: "a" * 64)
+    valid_output = _receipt(
+        route,
+        delivery,
+        claim_handoff(
+            delivery.mission_id,
+            worker_id="codex-exec:seed-only",
+            route=route,
+            now=NOW,
+        ),
+        compiled,
+    )["output"]
+    state = json.loads(route.state_path.read_text(encoding="utf-8"))
+    record = state["deliveries"][delivery.mission_id]
+    record["claim"] = None
+    record["status"] = "live_notified"
+    state["deliveries"][delivery.mission_id] = record
+    state.pop("state_sha256", None)
+    mission_core._write_state_atomic(
+        route.state_path, mission_core._state_body(state["deliveries"])
+    )
+
+    monkeypatch.setattr(
+        ollama_adapter,
+        "_post_generate",
+        lambda raw, timeout: (
+            200,
+            {
+                "done": True,
+                "model": "qwen2.5:7b",
+                "response": _canonical(valid_output),
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        mission_core,
+        "_replay_local_ollama_request",
+        lambda request, timeout_seconds: {
+            "done": True,
+            "model": "qwen2.5:7b",
+            "response": _canonical(
+                {
+                    **valid_output,
+                    "verdict": "abstain",
+                    "recommended_actions": [],
+                }
+            ),
+        },
+    )
+    with pytest.raises(AgentMissionError, match="runtime_independent_replay"):
+        run_ollama_mission(delivery.mission_id, route=route)
+    assert load_delivery(delivery.mission_id, route=route)["status"] == "claimed"
+    closed = fail_ollama_claim_validation(
+        delivery.mission_id,
+        reason="runtime_independent_replay_mismatch",
+        route=route,
+    )
+    assert closed.status == "failed"
+    assert load_delivery(delivery.mission_id, route=route)["status"] == "failed"
+    with pytest.raises(AgentMissionError, match="handoff_not_claimable"):
+        claim_handoff(
+            delivery.mission_id,
+            worker_id="codex-exec:no-requeue",
+            route=route,
+            now=NOW,
+        )
 def test_expired_claim_is_closed_without_requeue(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):

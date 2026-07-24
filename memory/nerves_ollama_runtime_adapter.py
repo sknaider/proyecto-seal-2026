@@ -539,6 +539,129 @@ def fail_stale_ollama_claim(
     )
 
 
+def fail_ollama_claim_validation(
+    mission_id: str,
+    *,
+    reason: str,
+    route: NervesRouteConfig = ADA_ROUTE,
+    now: datetime | None = None,
+) -> OllamaRunResult:
+    """Close a claimed mission immediately after deterministic parent rejection.
+
+    The primary model response remains immutable incident evidence.  This
+    function writes a separate terminal failure artifact and commits exactly
+    one failed receipt, preventing the periodic worker from replaying a result
+    that the parent already proved unacceptable.
+    """
+
+    mission_id = str(uuid.UUID(mission_id))
+    record, _, _, _ = _load_bound_handoff(mission_id, route)
+    if record.get("status") != "claimed":
+        raise OllamaRuntimeError("validation_failure_requires_claimed")
+    claim = record.get("claim")
+    if not isinstance(claim, dict):
+        raise OllamaRuntimeError("validation_failure_claim_missing")
+    worker_id = str(claim["worker_id"])
+    prefix = "local-ollama:"
+    if not worker_id.startswith(prefix):
+        raise OllamaRuntimeError("validation_failure_worker_kind_mismatch")
+    run_id = str(uuid.UUID(worker_id.removeprefix(prefix)))
+    run_dir = route.runtime_artifact_dir / mission_id
+    preflight_path = run_dir / "ollama-preflight.json"
+    request_path = run_dir / "ollama-request.json"
+    response_path = run_dir / "ollama-parent-rejection.json"
+    preflight_raw, _ = _secure_read(
+        preflight_path,
+        label="validation_failure_preflight",
+        max_bytes=MAX_RUNTIME_BYTES,
+        required_mode=0o600,
+    )
+    request_raw, _ = _secure_read(
+        request_path,
+        label="validation_failure_request",
+        max_bytes=MAX_RUNTIME_BYTES,
+        required_mode=0o600,
+    )
+    preflight = _json_no_duplicates(
+        preflight_raw, label="validation_failure_preflight"
+    )
+    request = _json_no_duplicates(
+        request_raw, label="validation_failure_request"
+    )
+    primary_response = run_dir / "ollama-response.json"
+    if primary_response.is_file():
+        _secure_read(
+            primary_response,
+            label="validation_failure_primary_response",
+            max_bytes=MAX_RUNTIME_BYTES,
+            required_mode=0o600,
+        )
+    reason_code = str(reason or "parent_verification_failed")[:500]
+    response_raw = _private_json(
+        response_path,
+        {
+            "done": False,
+            "error": reason_code,
+            "error_type": "ParentVerificationFailed",
+        },
+    )
+    result = _safe_failure(f"ParentVerificationFailed:{reason_code}")
+    current = now or datetime.now(timezone.utc)
+    receipt = {
+        "schema": "seal.nerves.orchestrator-receipt.v3",
+        "mission_id": mission_id,
+        "idempotency_key": record["idempotency_key"],
+        "handoff_sha256": record["handoff_sha256"],
+        "claim_id": claim["claim_id"],
+        "worker_kind": "local_ollama_subagent",
+        "worker_id": worker_id,
+        "runtime_attestation": {
+            "platform": "ollama_generate_json",
+            "isolation": "no_tool_api",
+            "endpoint": OLLAMA_ENDPOINT,
+            "model": preflight["model"],
+            "model_digest": preflight["model_digest"],
+            "preflight_path": str(preflight_path),
+            "preflight_sha256": _sha256(preflight_raw),
+            "request_path": str(request_path),
+            "request_sha256": _sha256(request_raw),
+            "response_path": str(response_path),
+            "response_sha256": _sha256(response_raw),
+            "prompt_sha256": _sha256(str(request["prompt"]).encode("utf-8")),
+            "result_sha256": _sha256(_canonical_bytes(result)),
+            "http_status": 0,
+            "run_id": run_id,
+            "tool_events": [],
+        },
+        "status": "failed",
+        "evidence_sha256": record["evidence_sha256"],
+        "provenance_sha256": record["provenance_sha256"],
+        "started_at": str(claim["claimed_at"]),
+        "finished_at": current.isoformat(),
+        "output": result,
+        "verifier": {
+            "kind": "deterministic_parent",
+            "verdict": "accepted",
+            "checks": [
+                "parent_verification_rejected",
+                "no_requeue",
+                "preserved_primary_response",
+                "failed_closed",
+            ],
+        },
+    }
+    completion = complete_handoff(receipt, route=route, now=current)
+    return OllamaRunResult(
+        mission_id,
+        worker_id,
+        run_id,
+        "failed",
+        Path(str(record["receipt_path"])),
+        completion.receipt_sha256,
+        response_path,
+    )
+
+
 def _main() -> int:
     parser = argparse.ArgumentParser(
         description="Run one tool-less local Ollama ADA NERVES mission."
