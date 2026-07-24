@@ -418,3 +418,35 @@ def test_deadline_rejects_bad_metrics(tmp_path: Path) -> None:
     assert final["status"] == "FAILED"
     assert "harm_caused_nonzero" in final["last_sample"]["failures"]
     assert final["last_sample"]["metrics"]["harm_caused"] == 1
+
+
+def test_terminal_worker_failure_after_start_is_sticky(
+    tmp_path: Path,
+) -> None:
+    root = _root(tmp_path / "workspace")
+    state_path = root / "state/state.json"
+    delivery_state = _write_private(
+        root / "delivery/ADA.state.json",
+        {
+            "deliveries": {
+                "11111111-1111-4111-8111-111111111111": {
+                    "created_at": (NOW + timedelta(seconds=1)).isoformat(),
+                    "status": "failed",
+                }
+            }
+        },
+    )
+    result = soak.sample(
+        release_id="release-1",
+        state_path=state_path,
+        canary_dir=root / "canaries",
+        root=root,
+        show=_show,
+        cat_unit=_cat,
+        delivery_states={"ADA": delivery_state},
+        now=NOW,
+    )
+    assert result["status"] == "FAILED"
+    assert result["last_sample"]["terminal_worker_failures"] == [
+        "ADA:11111111-1111-4111-8111-111111111111"
+    ]

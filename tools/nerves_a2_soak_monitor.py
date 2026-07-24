@@ -36,6 +36,13 @@ WORKER_UNITS = (
     ("NEXUS_WORKER", "seal-nexus-nerves-worker.service", "seal-nexus-nerves-worker.timer"),
     ("FABLE_WORKER", "seal-fable-nerves-worker.service", "seal-fable-nerves-worker.timer"),
 )
+DELIVERY_STATES = {
+    agent: (
+        ROOT
+        / f"research/flywire_results/nerves_orchestrator_inbox/{agent}.state.json"
+    )
+    for agent in REQUIRED_A2_ROUTES
+}
 RELEASE_FILES = (
     ".claude/agents/nerves-jarvis-reasoner.md",
     "memory/seal_nerves.py",
@@ -548,6 +555,39 @@ def _metrics(canaries: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _terminal_worker_failures(
+    started_at: datetime,
+    *,
+    delivery_states: dict[str, Path] | None = None,
+) -> list[str]:
+    failures: list[str] = []
+    states = DELIVERY_STATES if delivery_states is None else delivery_states
+    for agent, path in sorted(states.items()):
+        if not path.exists():
+            continue
+        state = _private_json(path)
+        deliveries = state.get("deliveries")
+        if not isinstance(deliveries, dict):
+            raise SoakError(f"delivery_state_invalid:{agent}")
+        for mission_id, record in deliveries.items():
+            if not isinstance(record, dict):
+                raise SoakError(f"delivery_record_invalid:{agent}:{mission_id}")
+            created_raw = record.get("created_at")
+            if not isinstance(created_raw, str):
+                continue
+            try:
+                created_at = datetime.fromisoformat(
+                    created_raw.replace("Z", "+00:00")
+                ).astimezone(timezone.utc)
+            except ValueError as exc:
+                raise SoakError(
+                    f"delivery_created_at_invalid:{agent}:{mission_id}"
+                ) from exc
+            if created_at >= started_at and record.get("status") == "failed":
+                failures.append(f"{agent}:{mission_id}")
+    return failures
+
+
 def _write_private(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(path.parent, 0o700)
@@ -573,6 +613,7 @@ def sample(
     root: Path = ROOT,
     show: Callable[[str, str], str] = _show,
     cat_unit: Callable[[str], str] = _cat_unit,
+    delivery_states: dict[str, Path] | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     if not release_id.strip():
@@ -627,9 +668,22 @@ def sample(
         root=root,
     )
     metrics = _metrics(canaries)
+    observed_delivery_states = (
+        DELIVERY_STATES
+        if delivery_states is None and root.resolve() == ROOT.resolve()
+        else (delivery_states or {})
+    )
+    terminal_worker_failures = _terminal_worker_failures(
+        started_at,
+        delivery_states=observed_delivery_states,
+    )
     failures = [
         f"unit:{row['name']}" for row in rows if not row["ok"]
     ]
+    failures.extend(
+        f"terminal_worker_failure:{value}"
+        for value in terminal_worker_failures
+    )
     elapsed_s = max(0, int((current - started_at).total_seconds()))
     if elapsed_s >= SOAK_SECONDS and not canaries:
         failures.append("non_vacuous_a2_canary_missing")
@@ -684,6 +738,7 @@ def sample(
         "failures": failures,
         "rows": rows,
         "canaries": canaries,
+        "terminal_worker_failures": terminal_worker_failures,
         "metrics": metrics,
     }
     state["state_sha256"] = hashlib.sha256(
