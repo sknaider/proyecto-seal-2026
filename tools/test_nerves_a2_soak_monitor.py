@@ -338,6 +338,11 @@ def test_release_and_runtime_drift_fail_closed(tmp_path: Path) -> None:
             cat_unit=_cat,
             now=NOW + timedelta(minutes=5),
         )
+    failed = json.loads(state_path.read_text(encoding="utf-8"))
+    assert failed["status"] == "FAILED"
+    assert failed["first_failure"]["failures"] == [
+        "release_or_runtime_changed_start_new_soak"
+    ]
 
     state_path.unlink()
     (root / soak.RELEASE_FILES[0]).write_text(

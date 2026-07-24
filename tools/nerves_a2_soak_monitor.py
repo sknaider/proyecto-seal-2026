@@ -633,13 +633,11 @@ def sample(
         ):
             state["status"] = "FAILED"
             state["failure_count"] = int(state.get("failure_count", 0)) + 1
-            state.setdefault(
-                "first_failure",
-                {
+            if state.get("first_failure") is None:
+                state["first_failure"] = {
                     "observed_at": current.isoformat(),
                     "failures": ["release_or_runtime_changed_start_new_soak"],
-                },
-            )
+                }
             _write_private(state_path, state)
             raise SoakError("release_or_runtime_changed_start_new_soak")
         started_at = datetime.fromisoformat(
