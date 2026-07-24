@@ -86,3 +86,39 @@ def test_audit_table_probe_is_schema_scoped_and_returns_boolean():
     assert result is False
     assert len(conn.fetchrow_queries) == 1
     assert "table_schema='soul_v3'" in conn.fetchrow_queries[0][0]
+
+
+def test_capability_class_contract_is_complete_versioned_and_copy_safe():
+    monitor = _load_module()
+
+    first = monitor._capabilities_class_payload()
+    second = monitor._capabilities_class_payload()
+
+    assert monitor.CAPABILITIES_CLASS_SCHEMA == (
+        "seal.memory-anomaly-capabilities-class.v1"
+    )
+    assert first == {
+        "burst_hash_audit": "optional",
+        "revision_drift": "future",
+        "signature_integrity": "required",
+    }
+    assert set(first.values()) <= {"required", "optional", "future"}
+    assert first is not second
+    first["signature_integrity"] = "future"
+    assert second["signature_integrity"] == "required"
+
+
+def test_invalid_capability_class_fails_closed(monkeypatch):
+    monitor = _load_module()
+    monkeypatch.setattr(
+        monitor,
+        "CAPABILITIES_CLASS",
+        {"signature_integrity": "unknown"},
+    )
+
+    try:
+        monitor._capabilities_class_payload()
+    except RuntimeError as exc:
+        assert "invalid memory monitor capability classification" in str(exc)
+    else:
+        raise AssertionError("invalid capability class must fail closed")

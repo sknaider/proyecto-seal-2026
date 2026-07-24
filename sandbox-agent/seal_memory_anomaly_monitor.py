@@ -40,6 +40,18 @@ HEALTH_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
     "seal-memory-anomaly-monitor"
 )
 HEALTH_FILE = HEALTH_DIR / "health.json"
+HEALTH_SCHEMA = "seal.memory-anomaly-health.v1"
+CAPABILITIES_CLASS_SCHEMA = "seal.memory-anomaly-capabilities-class.v1"
+
+# Versioned capability contract consumed by the NEXUS security nerve.
+# This describes policy/maturity, not current availability. Availability stays
+# in the separate boolean `capabilities` object.
+CAPABILITIES_CLASS = {
+    "burst_hash_audit": "optional",
+    "revision_drift": "future",
+    "signature_integrity": "required",
+}
+_VALID_CAPABILITY_CLASSES = frozenset({"required", "optional", "future"})
 
 # Thresholds
 BURST_INSERT_PER_MIN = 50          # idle agents
@@ -142,6 +154,13 @@ def _write_health(payload: dict) -> None:
         os.close(fd)
     os.replace(tmp, HEALTH_FILE)
     os.chmod(HEALTH_FILE, 0o600)
+
+
+def _capabilities_class_payload() -> dict[str, str]:
+    """Return a validated copy of the versioned capability contract."""
+    if set(CAPABILITIES_CLASS.values()) - _VALID_CAPABILITY_CLASSES:
+        raise RuntimeError("invalid memory monitor capability classification")
+    return dict(CAPABILITIES_CLASS)
 
 
 def _alert(severity: str, anomaly_type: str, message: str, details: str = ""):
@@ -353,7 +372,7 @@ async def scan_all():
             )
             _write_health(
                 {
-                    "schema": "seal.memory-anomaly-health.v1",
+                    "schema": HEALTH_SCHEMA,
                     "observed_at": datetime.now(timezone.utc).isoformat(),
                     "pid": os.getpid(),
                     "source_sha256": source_sha256,
@@ -366,6 +385,8 @@ async def scan_all():
                         "revision_drift": bool(_drift_schema_available),
                         "signature_integrity": bool(_HMAC_KEY),
                     },
+                    "capabilities_class_schema": CAPABILITIES_CLASS_SCHEMA,
+                    "capabilities_class": _capabilities_class_payload(),
                     "status": "healthy" if restricted_identity else "broken",
                 }
             )
@@ -376,7 +397,7 @@ async def scan_all():
         try:
             _write_health(
                 {
-                    "schema": "seal.memory-anomaly-health.v1",
+                    "schema": HEALTH_SCHEMA,
                     "observed_at": datetime.now(timezone.utc).isoformat(),
                     "pid": os.getpid(),
                     "source_sha256": hashlib.sha256(
@@ -384,6 +405,8 @@ async def scan_all():
                     ).hexdigest(),
                     "identity": {"role": "", "restricted": False},
                     "capabilities": {},
+                    "capabilities_class_schema": CAPABILITIES_CLASS_SCHEMA,
+                    "capabilities_class": _capabilities_class_payload(),
                     "status": "broken",
                     "error_type": type(e).__name__,
                 }
