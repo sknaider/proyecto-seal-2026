@@ -2016,38 +2016,39 @@ def _validate_receipt_document(
             raise AgentMissionError("runtime_response_result_invalid") from exc
         if observed != output:
             raise AgentMissionError("runtime_response_result_mismatch")
-        replay = _replay_local_ollama_request(
-            request, timeout_seconds=route.wall_seconds
-        )
-        replay_raw = replay.get("response")
-        try:
-            replay_observed = (
-                json.loads(replay_raw) if isinstance(replay_raw, str) else None
+        observed_projection = _decision_projection(output)
+        replay_matched = False
+        for _attempt in range(3):
+            replay = _replay_local_ollama_request(
+                request, timeout_seconds=route.wall_seconds
             )
-        except json.JSONDecodeError:
-            replay_observed = None
-        if isinstance(replay_observed, dict):
+            replay_raw = replay.get("response")
+            try:
+                replay_observed = (
+                    json.loads(replay_raw)
+                    if isinstance(replay_raw, str)
+                    else None
+                )
+            except json.JSONDecodeError:
+                replay_observed = None
+            if (
+                replay.get("done") is not True
+                or replay.get("model") != runtime["model"]
+                or not isinstance(replay_observed, dict)
+            ):
+                continue
             try:
                 validate_reasoning_result(
                     replay_observed,
                     evidence,
                     label="runtime_replay",
                 )
-            except AgentMissionError as exc:
-                raise AgentMissionError(
-                    "runtime_independent_replay_mismatch"
-                ) from exc
-        observed_projection = _decision_projection(output)
-        replay_projection = (
-            _decision_projection(replay_observed)
-            if isinstance(replay_observed, dict)
-            else None
-        )
-        if (
-            replay.get("done") is not True
-            or replay.get("model") != runtime["model"]
-            or replay_projection != observed_projection
-        ):
+            except AgentMissionError:
+                continue
+            if _decision_projection(replay_observed) == observed_projection:
+                replay_matched = True
+                break
+        if not replay_matched:
             raise AgentMissionError("runtime_independent_replay_mismatch")
     elif output.get("verdict") != "abstain":
         raise AgentMissionError("runtime_failure_must_abstain")

@@ -581,7 +581,7 @@ def test_completed_receipt_requires_independent_transport_replay(
         AgentMissionError, match="independent_replay_mismatch"
     ):
         complete_handoff(receipt, route=route, now=NOW)
-    assert called["count"] == 1
+    assert called["count"] == 3
 
 
 def test_completed_receipt_allows_explanatory_replay_variation(
@@ -613,6 +613,42 @@ def test_completed_receipt_allows_explanatory_replay_variation(
     completed = complete_handoff(receipt, route=route, now=NOW)
     assert completed.accepted is True
     assert completed.status == "completed"
+
+
+def test_completed_receipt_allows_bounded_replay_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    route, compiled = _fixture(tmp_path)
+    delivery = deliver_handoff(compiled, route=route, now=NOW, notify_live=False)
+    claim = claim_handoff(
+        delivery.mission_id,
+        worker_id="local-ollama:bounded-replay",
+        route=route,
+        now=NOW,
+    )
+    receipt = _receipt(route, delivery, claim, compiled)
+    mismatched = dict(receipt["output"])
+    mismatched["verdict"] = "abstain"
+    mismatched["recommended_actions"] = []
+    responses = iter([mismatched, receipt["output"]])
+    calls = {"count": 0}
+
+    def replay(request, timeout_seconds):
+        calls["count"] += 1
+        return {
+            "done": True,
+            "model": request["model"],
+            "response": _canonical(next(responses)),
+        }
+
+    monkeypatch.setattr(
+        mission_core,
+        "_replay_local_ollama_request",
+        replay,
+    )
+    completed = complete_handoff(receipt, route=route, now=NOW)
+    assert completed.status == "completed"
+    assert calls["count"] == 2
 
 
 def test_completed_receipt_rejects_invalid_replay_with_same_decision(
