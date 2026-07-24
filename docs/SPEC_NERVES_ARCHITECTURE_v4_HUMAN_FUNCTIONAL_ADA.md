@@ -115,12 +115,14 @@ indican **de quién nace el nervio y qué autoridad tiene**:
 2. `AGENT_ROLE`: nace de personalidad, rol y labor. Ejemplo inicial:
    JARVIS=`integrity_pulse`; ALICE=semántica/continuidad de ORION;
    NEXUS=seguridad; ADA=ingeniería; DUM=infraestructura; FABLE=rigor.
-3. `EMERGENT`: el agente lo construye por experiencia o necesidad. Puede quedar
-   implementado y probado en shadow por iniciativa propia, pero no se activa
-   autónomamente hasta coordinar con los hermanos, pasar verificación
-   independiente y recibir consentimiento de William.
+3. `SELF_CREATED` (alias legado: `EMERGENT`): el agente lo construye por
+   experiencia o necesidad. Requiere tres observaciones verificadas en dos
+   ventanas temporales, una skill real versionada, hashes inmutables, revisión
+   de un hermano distinto, canario A2 sin herramientas/red/escrituras y
+   consentimiento explícito de William antes de registrarse como `active_a2`.
+   Nunca se auto-promueve a A3.
 
-Las tres capas usan el mismo `MissionEnvelope`. Ningún nervio emergente puede
+Las tres capas usan el mismo `MissionEnvelope`. Ningún nervio auto-creado puede
 autoampliar permisos, modificar su propio gate ni aprobarse a sí mismo.
 
 Cada misión declara además su `drive`:

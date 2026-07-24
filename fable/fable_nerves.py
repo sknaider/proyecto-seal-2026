@@ -337,6 +337,8 @@ def main():
         except (ValueError, TypeError):
             pass
     urges = asyncio.run(tick(stim))
+    from memory.nerves_global_catalog import record_global_binding_heartbeat
+    record_global_binding_heartbeat(AGENT)
     completed = sum(1 for urge in urges if urge.get("fired"))
     print(f"[fable_nerves] tick OK · {len(urges)} urgencia(s), {completed} acción(es) completada(s):")
     for u in urges:

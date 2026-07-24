@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seal.local/schemas/nerves_global_catalog_v1.schema.json",
+  "title": "SEAL NERVES Global Catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "status", "agents", "global_nerves", "bindings", "transversal_invariants"],
+  "properties": {
+    "schema": {"const": "seal.nerves.global_catalog.v1"},
+    "version": {"const": "1.0.0"},
+    "status": {"const": "canonical_contract"},
+    "agents": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {"enum": ["ADA", "ALICE", "DUM", "JARVIS", "NEXUS", "FABLE"]}
+    },
+    "global_nerves": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "purpose", "maximum_authority", "success_criterion", "evidence_refs"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]+$"},
+          "purpose": {"type": "string", "minLength": 20},
+          "maximum_authority": {"const": "A2_READ_ONLY"},
+          "success_criterion": {"type": "string", "minLength": 20},
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 3}
+          }
+        }
+      }
+    },
+    "bindings": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["agent", "service", "timer", "role_nerve", "inherits"],
+        "properties": {
+          "agent": {"enum": ["ADA", "ALICE", "DUM", "JARVIS", "NEXUS", "FABLE"]},
+          "service": {"type": "string", "pattern": "\\.service$"},
+          "timer": {"type": "string", "pattern": "\\.timer$"},
+          "role_nerve": {"type": "string", "minLength": 3},
+          "inherits": {
+            "type": "array",
+            "minItems": 12,
+            "maxItems": 12,
+            "uniqueItems": true,
+            "items": {"type": "string"}
+          }
+        }
+      }
+    },
+    "transversal_invariants": {
+      "type": "object",
+      "required": ["authority", "privacy", "verification", "states", "evidence_mode", "directory_mode"]
+    }
+  }
+}

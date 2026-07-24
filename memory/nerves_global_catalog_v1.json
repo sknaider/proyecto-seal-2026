@@ -1,0 +1,187 @@
+{
+  "schema": "seal.nerves.global_catalog.v1",
+  "version": "1.0.0",
+  "status": "canonical_contract",
+  "agents": [
+    "ADA",
+    "ALICE",
+    "DUM",
+    "JARVIS",
+    "NEXUS",
+    "FABLE"
+  ],
+  "global_nerves": [
+    {
+      "id": "care_protection",
+      "purpose": "Detectar daño o degradación y priorizar recuperación segura.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "El riesgo queda clasificado y la recuperación propuesta conserva personas, datos y continuidad.",
+      "evidence_refs": [
+        "memory/test_nerves_useful_dispatch.py",
+        "memory/nerves_e2e_canary.py"
+      ]
+    },
+    {
+      "id": "continuity",
+      "purpose": "Conservar identidad, misión y progreso a través de reinicios y compactación.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "El agente recupera el último estado confirmado sin duplicar efectos.",
+      "evidence_refs": [
+        "memory/test_autonomous_lifecycle.py",
+        "memory/test_nerves_agent_mission_core.py"
+      ]
+    },
+    {
+      "id": "communication_delivery",
+      "purpose": "Confirmar que los mensajes dirigidos llegan por el canal correcto.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "Entrega y ACK quedan ligados al mensaje original e idempotency key.",
+      "evidence_refs": [
+        "messages/test_named_exemption.py",
+        "messages/tests/test_receipt_ack_gate.py"
+      ]
+    },
+    {
+      "id": "human_priority_response",
+      "purpose": "Preemptar trabajo de fondo cuando William o Henry hablan al agente.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "El humano recibe ACK durable y el trabajo pesado continúa delegado.",
+      "evidence_refs": [
+        "tests/test_agent_autonomy_contract.py",
+        "messages/test_named_exemption.py"
+      ]
+    },
+    {
+      "id": "identity_integrity",
+      "purpose": "Verificar que runtime, agente, tenant y credenciales lógicas coinciden.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "Toda identidad ambigua o falsificada falla cerrada.",
+      "evidence_refs": [
+        "tests/test_nerves_e2e_hard_identity.py",
+        "memory/test_privacy_enforcement.py"
+      ]
+    },
+    {
+      "id": "privacy_boundary",
+      "purpose": "Impedir lectura o exposición fuera del ámbito privado del agente.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "Los intentos fuera de scope son denegados y auditados sin filtrar contenido.",
+      "evidence_refs": [
+        "memory/test_privacy_enforcement.py",
+        "tests/test_nerves_e2e_hard_identity.py"
+      ]
+    },
+    {
+      "id": "runtime_health",
+      "purpose": "Detectar degradación real de servicios y dependencias del agente.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "El hallazgo se confirma por efecto y no confunde oneshot sano con fallo.",
+      "evidence_refs": [
+        "memory/test_nerves_mass_acceptance.py",
+        "memory/test_nerves_useful_dispatch.py"
+      ]
+    },
+    {
+      "id": "coordination_non_collision",
+      "purpose": "Evitar doble claim, doble writer y trabajo concurrente sobre el mismo efecto.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "Una señal produce un solo claim y un solo efecto lógico.",
+      "evidence_refs": [
+        "memory/test_nerves_agent_mission_core.py",
+        "memory/test_nerves_useful_dispatch.py"
+      ]
+    },
+    {
+      "id": "effect_truthfulness",
+      "purpose": "Rechazar éxito sin post-probe independiente y evidencia fresca.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "GREEN solo deriva de evidencia posterior al efecto y verificador distinto.",
+      "evidence_refs": [
+        "fable/test_rigor_claim_audit.py",
+        "fable/test_fable_nerves_live.py"
+      ]
+    },
+    {
+      "id": "stop_hold_preemption",
+      "purpose": "Detener o pausar misiones sin dejar leases o efectos posteriores.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "STOP/HOLD bloquea nuevos efectos, libera el lease y preserva evidencia.",
+      "evidence_refs": [
+        "memory/test_autonomous_lifecycle.py",
+        "memory/test_nerves_agent_mission_core.py"
+      ]
+    },
+    {
+      "id": "productive_initiative",
+      "purpose": "Generar trabajo A2 útil y acotado cuando existe evidencia de mejora.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "La misión tiene objetivo verificable, presupuesto y no compite con humanos o incidentes.",
+      "evidence_refs": [
+        "memory/test_nerves_useful_dispatch.py",
+        "memory/test_nerves_agent_mission_core.py"
+      ]
+    },
+    {
+      "id": "verified_learning",
+      "purpose": "Convertir resultados repetidos y verificados en propuestas reutilizables.",
+      "maximum_authority": "A2_READ_ONLY",
+      "success_criterion": "Solo outcomes verificados cambian baselines o generan candidatos; nunca amplían autoridad.",
+      "evidence_refs": [
+        "memory/test_skill_instinct_factory.py",
+        "memory/skill_instinct_factory.py"
+      ]
+    }
+  ],
+  "bindings": [
+    {
+      "agent": "ADA",
+      "service": "seal-ada-nerves.service",
+      "timer": "seal-ada-nerves.timer",
+      "role_nerve": "engineering_pulse",
+      "inherits": ["care_protection", "continuity", "communication_delivery", "human_priority_response", "identity_integrity", "privacy_boundary", "runtime_health", "coordination_non_collision", "effect_truthfulness", "stop_hold_preemption", "productive_initiative", "verified_learning"]
+    },
+    {
+      "agent": "ALICE",
+      "service": "seal-alice-nerves.service",
+      "timer": "seal-alice-nerves.timer",
+      "role_nerve": "orion_pulse",
+      "inherits": ["care_protection", "continuity", "communication_delivery", "human_priority_response", "identity_integrity", "privacy_boundary", "runtime_health", "coordination_non_collision", "effect_truthfulness", "stop_hold_preemption", "productive_initiative", "verified_learning"]
+    },
+    {
+      "agent": "DUM",
+      "service": "seal-dum-nerves.service",
+      "timer": "seal-dum-nerves.timer",
+      "role_nerve": "infrastructure_pulse",
+      "inherits": ["care_protection", "continuity", "communication_delivery", "human_priority_response", "identity_integrity", "privacy_boundary", "runtime_health", "coordination_non_collision", "effect_truthfulness", "stop_hold_preemption", "productive_initiative", "verified_learning"]
+    },
+    {
+      "agent": "JARVIS",
+      "service": "seal-nerves-daemon.service",
+      "timer": "seal-nerves-daemon.timer",
+      "role_nerve": "integrity_pulse",
+      "inherits": ["care_protection", "continuity", "communication_delivery", "human_priority_response", "identity_integrity", "privacy_boundary", "runtime_health", "coordination_non_collision", "effect_truthfulness", "stop_hold_preemption", "productive_initiative", "verified_learning"]
+    },
+    {
+      "agent": "NEXUS",
+      "service": "seal-nexus-nerves.service",
+      "timer": "seal-nexus-nerves.timer",
+      "role_nerve": "security_pulse",
+      "inherits": ["care_protection", "continuity", "communication_delivery", "human_priority_response", "identity_integrity", "privacy_boundary", "runtime_health", "coordination_non_collision", "effect_truthfulness", "stop_hold_preemption", "productive_initiative", "verified_learning"]
+    },
+    {
+      "agent": "FABLE",
+      "service": "fable-nerves.service",
+      "timer": "fable-nerves.timer",
+      "role_nerve": "rigor_pulse",
+      "inherits": ["care_protection", "continuity", "communication_delivery", "human_priority_response", "identity_integrity", "privacy_boundary", "runtime_health", "coordination_non_collision", "effect_truthfulness", "stop_hold_preemption", "productive_initiative", "verified_learning"]
+    }
+  ],
+  "transversal_invariants": {
+    "authority": "A2 no escribe ni amplía permisos; A3 requiere una misión distinta y aprobación explícita.",
+    "privacy": "Cada agente conserva únicamente su ámbito privado.",
+    "verification": "builder != verifier y post-probe fresco.",
+    "states": ["HEALTHY", "FINDING", "UNVERIFIABLE", "BLOCKED"],
+    "evidence_mode": "0600",
+    "directory_mode": "0700"
+  }
+}

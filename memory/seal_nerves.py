@@ -2890,6 +2890,8 @@ async def run_tick(agent: str = "JARVIS"):
             await sense_environment(engine)
             fired = await engine._tick_locked()
             states = await engine.get_states()
+            from nerves_global_catalog import record_global_binding_heartbeat
+            record_global_binding_heartbeat(agent)
             log.info(engine.status_report(states))
             if fired:
                 log.info(f"[{agent}] Fired {len(fired)} actions: {[f['tank'] for f in fired]}")
