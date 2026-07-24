@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -12,6 +13,7 @@ from memory.nerves_agent_mission_core import (
     AgentMissionError,
     ROUTES,
     NervesRouteConfig,
+    _secure_json,
     load_delivery,
     stale_claim_mission_ids,
 )
@@ -45,10 +47,34 @@ def joined_claim_conflict(
         return None
     record = load_delivery(mission_id, route=route)
     status = str(record.get("status") or "")
-    if status not in TERMINAL_DELIVERY_STATES | {"claimed"}:
+    if status not in TERMINAL_DELIVERY_STATES:
         return None
     claim = record.get("claim")
     if not isinstance(claim, dict) or not str(claim.get("claim_id") or ""):
+        return None
+    receipt_meta = record.get("receipt")
+    receipt_path_raw = record.get("receipt_path")
+    if (
+        not isinstance(receipt_meta, dict)
+        or not isinstance(receipt_path_raw, str)
+        or receipt_meta.get("path") != receipt_path_raw
+        or not str(receipt_meta.get("sha256") or "")
+    ):
+        return None
+    try:
+        receipt, receipt_raw = _secure_json(
+            Path(receipt_path_raw), label="joined_terminal_receipt"
+        )
+    except (AgentMissionError, OSError, ValueError):
+        return None
+    if (
+        hashlib.sha256(receipt_raw).hexdigest()
+        != str(receipt_meta["sha256"])
+        or receipt.get("mission_id") != mission_id
+        or receipt.get("status") != status
+        or receipt.get("claim_id") != claim["claim_id"]
+        or receipt.get("worker_id") != claim.get("worker_id")
+    ):
         return None
     joined: dict[str, object] = {
         "ok": True,
@@ -58,9 +84,7 @@ def joined_claim_conflict(
         "claim_id": str(claim["claim_id"]),
         "joined_existing_claim": True,
     }
-    receipt = record.get("receipt")
-    if isinstance(receipt, dict) and receipt.get("receipt_sha256"):
-        joined["receipt_sha256"] = str(receipt["receipt_sha256"])
+    joined["receipt_sha256"] = str(receipt_meta["sha256"])
     return joined
 
 
@@ -129,6 +153,22 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(joined, sort_keys=True))
                 return 0
             record = load_delivery(mission_id, route=route)
+            if (
+                str(exc) == "handoff_not_claimable"
+                and record.get("status") == "claimed"
+            ):
+                print(
+                    json.dumps(
+                        {
+                            "ok": False,
+                            "mission_id": mission_id,
+                            "status": "claim_in_flight",
+                            "error": str(exc),
+                        },
+                        sort_keys=True,
+                    )
+                )
+                return 1
             if record.get("status") == "claimed":
                 result = fail_ollama_claim_validation(
                     mission_id, reason=str(exc), route=route
@@ -226,6 +266,22 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(joined, sort_keys=True))
             return 0
         record = load_delivery(mission_id, route=route)
+        if (
+            str(exc) == "handoff_not_claimable"
+            and record.get("status") == "claimed"
+        ):
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "mission_id": mission_id,
+                        "status": "claim_in_flight",
+                        "error": str(exc),
+                    },
+                    sort_keys=True,
+                )
+            )
+            return 1
         if record.get("status") == "claimed":
             result = fail_ollama_claim_validation(
                 mission_id, reason=str(exc), route=route
