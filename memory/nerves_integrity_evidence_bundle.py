@@ -34,7 +34,7 @@ ALLOWED_TOOLS = frozenset(
         "subprocess_allowlisted_read_only",
     }
 )
-MISSION_COMPILER_REV = "jarvis-integrity-v10-native-string-envelope"
+MISSION_COMPILER_REV = "jarvis-integrity-v11-explicit-p5-validation"
 IGNORED_SKILL_PARTS = frozenset(
     {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
 )

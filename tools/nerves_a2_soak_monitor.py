@@ -17,6 +17,8 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / "research/flywire_results/nerves_a2_soak/state.json"
 CANARY_DIR = ROOT / "research/flywire_results/nerves_a2_soak/canaries"
+SOAK_SCHEMA = "seal.nerves.a2-soak.v2"
+CANARY_SCHEMA = "seal.nerves.a2-soak-canary.v2"
 SOAK_SECONDS = 24 * 60 * 60
 REQUIRED_A2_ROUTES = {"ADA", "ALICE", "NEXUS", "FABLE", "JARVIS"}
 RUNTIME_UNITS = (
@@ -35,6 +37,9 @@ WORKER_UNITS = (
     ("FABLE_WORKER", "seal-fable-nerves-worker.service", "seal-fable-nerves-worker.timer"),
 )
 RELEASE_FILES = (
+    ".claude/agents/nerves-jarvis-reasoner.md",
+    "memory/seal_nerves.py",
+    "memory/nerves_maintenance_jarvis.py",
     "memory/nerves_agent_mission_core.py",
     "memory/nerves_ollama_runtime_adapter.py",
     "memory/nerves_global_catalog.py",
@@ -42,8 +47,19 @@ RELEASE_FILES = (
     "memory/nerves_mission_handoff.py",
     "memory/nerves_self_created.py",
     "memory/nerves_local_sidecar.py",
+    "memory/nerves_mission_shadow.py",
+    "memory/nerves_integrity_evidence_bundle.py",
+    "memory/nerves_native_agent_prompt_hook.py",
+    "memory/nerves_native_agent_receipt.py",
+    "memory/nerves_read_only_action_guard.py",
+    "skills/seal-responsive-delegation/PROMPT.md",
     "docs/schemas/nerves_agent_reasoning_v1.schema.json",
+    "docs/schemas/nerves_mission_envelope_v1.schema.json",
+    "docs/schemas/nerves_integrity_evidence_v1.schema.json",
+    "docs/schemas/nerves_orchestrator_receipt_v1.schema.json",
     "docs/schemas/nerves_orchestrator_receipt_v3.schema.json",
+    "skills/seal-nerves-integrity-audit/SKILL.md",
+    "skills/seal-nerves-integrity-audit/scripts/collect_integrity_evidence.py",
     "skills/seal-nerves-engineering-audit/SKILL.md",
     "skills/seal-nerves-engineering-audit/scripts/collect_engineering_evidence.py",
     "skills/seal-nerves-orion-audit/SKILL.md",
@@ -60,6 +76,17 @@ RELEASE_FILES = (
     "tools/nerves_alice_ollama_canary.py",
     "tools/nerves_nexus_ollama_canary.py",
     "tools/nerves_fable_ollama_canary.py",
+    "tools/nerves_jarvis_native_canary.py",
+)
+FINGERPRINT_UNITS = tuple(
+    sorted(
+        {
+            unit
+            for row in (*RUNTIME_UNITS, *WORKER_UNITS)
+            for unit in row[1:]
+        }
+        | {"seal-nerves-a2-soak.service", "seal-nerves-a2-soak.timer"}
+    )
 )
 
 
@@ -81,6 +108,43 @@ def release_fingerprint(root: Path = ROOT) -> str:
             raise SoakError(f"release_file_missing:{relative}")
         raw = path.read_bytes()
         encoded = relative.encode()
+        digest.update(len(encoded).to_bytes(4, "big"))
+        digest.update(encoded)
+        digest.update(len(raw).to_bytes(8, "big"))
+        digest.update(raw)
+    return digest.hexdigest()
+
+
+def _cat_unit(unit: str) -> str:
+    proc = subprocess.run(
+        ["systemctl", "--user", "cat", unit],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+    if proc.returncode != 0 or not proc.stdout.strip():
+        raise SoakError(f"unit_definition_unreadable:{unit}")
+    return proc.stdout
+
+
+def runtime_fingerprint(
+    cat_unit: Callable[[str], str] = _cat_unit,
+    show: Callable[[str, str], str] | None = None,
+) -> str:
+    show_value = show or _show
+    digest = hashlib.sha256()
+    for unit in FINGERPRINT_UNITS:
+        effective = {
+            "cat": cat_unit(unit),
+            "fragment_path": show_value(unit, "FragmentPath"),
+            "drop_in_paths": show_value(unit, "DropInPaths"),
+            "environment": show_value(unit, "Environment"),
+            "environment_files": show_value(unit, "EnvironmentFiles"),
+        }
+        raw = _canonical(effective)
+        encoded = unit.encode("utf-8")
         digest.update(len(encoded).to_bytes(4, "big"))
         digest.update(encoded)
         digest.update(len(raw).to_bytes(8, "big"))
@@ -144,12 +208,25 @@ def _canaries(
     fingerprint: str,
     *,
     canary_dir: Path = CANARY_DIR,
+    root: Path = ROOT,
 ) -> list[dict[str, Any]]:
     if not canary_dir.exists():
         return []
     accepted = []
     for path in sorted(canary_dir.glob("*.json")):
         value = _private_json(path)
+        if not isinstance(value.get("recorded_at"), str):
+            raise SoakError(f"canary_timestamp_invalid:{path.name}")
+        try:
+            recorded_at = datetime.fromisoformat(
+                str(value["recorded_at"]).replace("Z", "+00:00")
+            ).astimezone(timezone.utc)
+        except ValueError as exc:
+            raise SoakError(f"canary_timestamp_invalid:{path.name}") from exc
+        # Historical canaries predate this release and may use an older schema.
+        # They are not evidence for this soak and must not poison the new window.
+        if recorded_at < started_at:
+            continue
         exact = {
             "schema",
             "canary_id",
@@ -160,6 +237,7 @@ def _canaries(
             "risk_class",
             "mutations",
             "evidence_sha256",
+            "mission_id",
             "agent",
             "signals_seen",
             "missions_created",
@@ -179,26 +257,109 @@ def _canaries(
             "outcome",
             "human_corrections",
             "harm_avoided",
+            "harm_caused",
             "harm_avoided_method",
             "principal_ack_latency_ms",
+            "attestation_kind",
+            "attestation_path",
+            "attestation_sha256",
+            "attested_started_at",
+            "attested_finished_at",
         }
         if set(value) != exact:
             raise SoakError(f"canary_shape_invalid:{path.name}")
+        attestation_path = Path(str(value["attestation_path"]))
         try:
-            recorded_at = datetime.fromisoformat(
-                str(value["recorded_at"]).replace("Z", "+00:00")
+            resolved_attestation = attestation_path.resolve(strict=True)
+        except OSError as exc:
+            raise SoakError(
+                f"canary_attestation_unreadable:{path.name}"
+            ) from exc
+        if not resolved_attestation.is_relative_to(root.resolve()):
+            raise SoakError(f"canary_attestation_outside_workspace:{path.name}")
+        attestation = _private_json(resolved_attestation)
+        attestation_raw = resolved_attestation.read_bytes()
+        if hashlib.sha256(attestation_raw).hexdigest() != value["attestation_sha256"]:
+            raise SoakError(f"canary_attestation_digest_mismatch:{path.name}")
+        try:
+            attested_started = datetime.fromisoformat(
+                str(value["attested_started_at"]).replace("Z", "+00:00")
+            ).astimezone(timezone.utc)
+            attested_finished = datetime.fromisoformat(
+                str(value["attested_finished_at"]).replace("Z", "+00:00")
             ).astimezone(timezone.utc)
         except ValueError as exc:
-            raise SoakError(f"canary_timestamp_invalid:{path.name}") from exc
-        if recorded_at < started_at:
-            continue
+            raise SoakError(
+                f"canary_attestation_timestamp_invalid:{path.name}"
+            ) from exc
+        runtime = attestation.get("runtime_attestation")
+        local_attestation = (
+            value["attestation_kind"] == "local_ollama_receipt"
+            and value["agent"] != "JARVIS"
+            and attestation.get("schema") == "seal.nerves.orchestrator-receipt.v3"
+            and attestation.get("worker_kind") == "local_ollama_subagent"
+            and isinstance(runtime, dict)
+            and runtime.get("isolation") == "no_tool_api"
+            and runtime.get("tool_events") == []
+            and runtime.get("endpoint") == "http://127.0.0.1:11434/api/generate"
+        )
+        jarvis_attestation = (
+            value["attestation_kind"] == "jarvis_native_receipt"
+            and value["agent"] == "JARVIS"
+            and attestation.get("schema") == "seal.nerves.orchestrator-receipt.v1"
+            and attestation.get("worker_kind") == "native_subagent"
+            and attestation.get("tools_used") == ["SendMessage"]
+            and attestation.get("verifier_verdict", {}).get("verdict")
+            == "accepted"
+            and isinstance(runtime, dict)
+            and runtime.get("platform") == "claude_code_agent_tool"
+            and runtime.get("profile") == "nerves-jarvis-reasoner"
+            and runtime.get("tools_configured") == ["SendMessage"]
+            and runtime.get("tool_events") == ["SendMessage:main"]
+            and runtime.get("skills_configured") == []
+            and runtime.get("mcp_servers_configured") == []
+            and runtime.get("max_turns") == 1
+        )
+        ack_attestation = (
+            value["attestation_kind"] == "principal_ack_evidence"
+            and value["kind"] == "PRINCIPAL_ACK_CANARY"
+            and value["agent"] == "ADA"
+            and value["mission_id"] is None
+            and attestation.get("schema")
+            == "seal.nerves.principal-ack-evidence.v1"
+            and attestation.get("channel") == "web_chat"
+            and attestation.get("in_reply_to")
+            == attestation.get("request_legacy_id")
+            and attestation.get("request_created_at")
+            == value["attested_started_at"]
+            and attestation.get("ack_created_at")
+            == value["attested_finished_at"]
+        )
+        route_attestation = value["kind"] == "A2_ROUTE_CANARY"
         if (
-            value["release_fingerprint"] != fingerprint
+            value["schema"] != CANARY_SCHEMA
+            or value["release_fingerprint"] != fingerprint
             or value["ok"] is not True
             or value["risk_class"] != "A2_READ_ONLY"
             or value["mutations"] != 0
             or not isinstance(value["evidence_sha256"], str)
             or len(value["evidence_sha256"]) != 64
+            or value["evidence_sha256"] != value["attestation_sha256"]
+            or (
+                route_attestation
+                and (
+                    attestation.get("mission_id") != value["mission_id"]
+                    or attestation.get("status") != "completed"
+                    or attestation.get("started_at")
+                    != value["attested_started_at"]
+                    or attestation.get("finished_at")
+                    != value["attested_finished_at"]
+                )
+            )
+            or attested_started < started_at
+            or attested_finished < attested_started
+            or recorded_at < attested_finished
+            or not (local_attestation or jarvis_attestation or ack_attestation)
             or value["agent"] not in REQUIRED_A2_ROUTES | {"SELF_CREATED"}
             or any(
                 not isinstance(value[field], int) or value[field] < 0
@@ -217,6 +378,7 @@ def _canaries(
                     "estimated_cost_units",
                     "human_corrections",
                     "harm_avoided",
+                    "harm_caused",
                 )
             )
             or not all(
@@ -270,6 +432,7 @@ def _canaries(
                         "risk_class",
                         "mutations",
                         "evidence_sha256",
+                        "attestation_path",
                     }
                 },
             }
@@ -310,6 +473,7 @@ def _metrics(canaries: list[dict[str, Any]]) -> dict[str, Any]:
             "estimated_cost_units",
             "human_corrections",
             "harm_avoided",
+            "harm_caused",
         )
     }
     ack_values = [
@@ -367,6 +531,7 @@ def _metrics(canaries: list[dict[str, Any]]) -> dict[str, Any]:
         "harm_avoided_methods": sorted(
             {str(item["harm_avoided_method"]) for item in canaries}
         ),
+        "net_harm_avoided": sums["harm_avoided"] - sums["harm_caused"],
         "routes_observed": sorted(
             {str(item["agent"]) for item in canaries}
         ),
@@ -397,28 +562,43 @@ def sample(
     canary_dir: Path = CANARY_DIR,
     root: Path = ROOT,
     show: Callable[[str, str], str] = _show,
+    cat_unit: Callable[[str], str] = _cat_unit,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     if not release_id.strip():
         raise SoakError("release_id_required")
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     fingerprint = release_fingerprint(root)
+    effective_runtime_fingerprint = runtime_fingerprint(cat_unit, show)
     if state_path.exists():
         state = _private_json(state_path)
         if (
-            state.get("release_id") != release_id
+            state.get("schema") != SOAK_SCHEMA
+            or state.get("release_id") != release_id
             or state.get("release_fingerprint") != fingerprint
+            or state.get("runtime_fingerprint") != effective_runtime_fingerprint
         ):
-            raise SoakError("release_changed_start_new_soak")
+            state["status"] = "FAILED"
+            state["failure_count"] = int(state.get("failure_count", 0)) + 1
+            state.setdefault(
+                "first_failure",
+                {
+                    "observed_at": current.isoformat(),
+                    "failures": ["release_or_runtime_changed_start_new_soak"],
+                },
+            )
+            _write_private(state_path, state)
+            raise SoakError("release_or_runtime_changed_start_new_soak")
         started_at = datetime.fromisoformat(
             str(state["started_at"]).replace("Z", "+00:00")
         ).astimezone(timezone.utc)
     else:
         started_at = current
         state = {
-            "schema": "seal.nerves.a2-soak.v1",
+            "schema": SOAK_SCHEMA,
             "release_id": release_id,
             "release_fingerprint": fingerprint,
+            "runtime_fingerprint": effective_runtime_fingerprint,
             "started_at": started_at.isoformat(),
             "deadline_at": (started_at + timedelta(seconds=SOAK_SECONDS)).isoformat(),
             "sample_count": 0,
@@ -430,7 +610,12 @@ def sample(
         _unit_row(name, service, timer, show)
         for name, service, timer in (*RUNTIME_UNITS, *WORKER_UNITS)
     ]
-    canaries = _canaries(started_at, fingerprint, canary_dir=canary_dir)
+    canaries = _canaries(
+        started_at,
+        fingerprint,
+        canary_dir=canary_dir,
+        root=root,
+    )
     metrics = _metrics(canaries)
     failures = [
         f"unit:{row['name']}" for row in rows if not row["ok"]
@@ -452,6 +637,21 @@ def sample(
             failures.append("duplicate_side_effects_nonzero")
         if metrics["dead_letters"] != 0:
             failures.append("dead_letters_nonzero")
+        if metrics["worker_failures"] != 0 or metrics["worker_success_rate"] != 1.0:
+            failures.append("worker_success_rate_below_one")
+        if metrics["false_wakes"] != 0:
+            failures.append("false_wakes_nonzero")
+        if metrics["human_corrections"] != 0:
+            failures.append("human_corrections_nonzero")
+        if metrics["harm_caused"] != 0:
+            failures.append("harm_caused_nonzero")
+        if metrics["net_harm_avoided"] <= 0:
+            failures.append("net_harm_not_positive")
+        if (
+            metrics["confidence_brier_score"] is None
+            or metrics["confidence_brier_score"] > 0.05
+        ):
+            failures.append("confidence_brier_exceeded")
     state["sample_count"] = int(state.get("sample_count", 0)) + 1
     state["failure_count"] = int(state.get("failure_count", 0)) + len(failures)
     if failures and state.get("first_failure") is None:

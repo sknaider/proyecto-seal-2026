@@ -117,6 +117,7 @@ def compile_jarvis_integrity_mission(
     *,
     artifact_path: Path,
     episode_anchor: str,
+    validation_canary: bool = False,
     schema_path: Path = DEFAULT_SCHEMA,
     skill_path: Path = DEFAULT_SKILL,
     workspace_root: Path = ROOT,
@@ -126,11 +127,17 @@ def compile_jarvis_integrity_mission(
         raise MissionCompileError("artifact_agent_must_be_JARVIS")
     if record.get("action") != "integrity_pulse":
         raise MissionCompileError("artifact_action_must_be_integrity_pulse")
-    if record.get("state") not in ACTIONABLE_STATES:
+    state = record.get("state")
+    if validation_canary:
+        if state != "GREEN":
+            raise MissionCompileError("validation_canary_requires_GREEN")
+    elif state not in ACTIONABLE_STATES:
         raise MissionCompileError("artifact_state_not_actionable")
     findings = [str(item).strip() for item in record.get("findings", []) if str(item).strip()]
-    if not findings:
+    if not validation_canary and not findings:
         raise MissionCompileError("actionable_artifact_requires_findings")
+    if validation_canary and findings:
+        raise MissionCompileError("validation_canary_requires_no_findings")
     if not artifact_path.is_file():
         raise MissionCompileError("artifact_path_must_be_regular_file")
     if not skill_path.is_file():
@@ -161,9 +168,14 @@ def compile_jarvis_integrity_mission(
         "nerve_fire_id": f"jarvis-integrity:{observed_at}:{episode_key[:16]}",
         "correlation_id": episode_key,
         "nerve_layer": "AGENT_ROLE",
-        "drive": "reactive",
+        "drive": "proactive" if validation_canary else "reactive",
         "specialty": "architecture_integrity_audit",
-        "objective": "Classify and reproduce the JARVIS integrity drift without mutation.",
+        "objective": (
+            "Independently validate the fresh healthy JARVIS integrity baseline "
+            "without mutation."
+            if validation_canary
+            else "Classify and reproduce the JARVIS integrity drift without mutation."
+        ),
         "risk_class": "A2_READ_ONLY",
         "source_refs": [
             f"file:{artifact_relative}",
@@ -172,7 +184,11 @@ def compile_jarvis_integrity_mission(
         ],
         "initiation_conditions": [
             f"integrity_pulse state={record['state']}",
-            "at least one fresh finding with provenance",
+            (
+                "explicit P5 validation canary over a fresh real collector result"
+                if validation_canary
+                else "at least one fresh finding with provenance"
+            ),
         ],
         "scope": {
             "workspace": str(resolved_workspace),

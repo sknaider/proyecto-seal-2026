@@ -60,7 +60,7 @@ PINNED_SUBAGENT_POLICY = (
     / "skills/seal-responsive-delegation/PROMPT.md"
 )
 PINNED_SUBAGENT_POLICY_SHA256 = (
-    "efcb86ee4b403837f2c59e29f45fc1573e9b8aba62d8dd352698db529c1d5652"
+    "123e22a7c6092133e6e7baab359eb9de733cdc85516332a1e513251a1079b11c"
 )
 PINNED_SUBAGENT_HOOK_COMMAND = (
     "/home/dadito/IA/seal-spark/.venv/bin/python3 "

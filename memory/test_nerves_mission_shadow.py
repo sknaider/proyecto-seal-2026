@@ -77,6 +77,32 @@ def test_non_actionable_green_fails_closed(tmp_path: Path) -> None:
         _compile(path, record)
 
 
+def test_explicit_validation_canary_admits_only_clean_green(
+    tmp_path: Path,
+) -> None:
+    record = {**_finding(), "state": "GREEN", "findings": []}
+    path = _artifact(tmp_path, [record])
+    mission = compile_jarvis_integrity_mission(
+        record,
+        artifact_path=path,
+        episode_anchor="p5-validation",
+        validation_canary=True,
+        workspace_root=path.parent,
+    )
+    assert mission["drive"] == "proactive"
+    assert mission["risk_class"] == "A2_READ_ONLY"
+    assert "healthy JARVIS" in mission["objective"]
+
+    with pytest.raises(MissionCompileError, match="requires_GREEN"):
+        compile_jarvis_integrity_mission(
+            _finding(),
+            artifact_path=path,
+            episode_anchor="p5-validation",
+            validation_canary=True,
+            workspace_root=path.parent,
+        )
+
+
 def test_same_episode_coalesces_to_one_mission(tmp_path: Path) -> None:
     first = _finding("2026-07-23T10:00:00+00:00")
     repeated = _finding("2026-07-23T10:02:00+00:00")

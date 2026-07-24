@@ -219,7 +219,7 @@ def main() -> int:
             record_success(
                 agent="NEXUS",
                 mission_id=handoff.mission_id,
-                receipt_sha256=run.receipt_sha256,
+                receipt_path=run.receipt_path,
                 assertions=assertions,
             )
         )
