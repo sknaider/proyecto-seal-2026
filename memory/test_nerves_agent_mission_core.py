@@ -705,14 +705,7 @@ def test_decision_projection_covers_top_level_authority(field, value):
     assert _decision_projection(changed) != _decision_projection(base)
 
 
-@pytest.mark.parametrize(
-    ("field", "value"),
-    [
-        ("risk_class", "A4_SERVICE_CHANGE"),
-        ("requires_human_approval", True),
-    ],
-)
-def test_decision_projection_covers_action_authority(field, value):
+def test_decision_projection_treats_recommendations_as_non_executable():
     base = {
         "schema": "soul.nerves.agent-reasoning.v1",
         "verdict": "repairable",
@@ -726,8 +719,8 @@ def test_decision_projection_covers_action_authority(field, value):
         ],
     }
     changed = json.loads(json.dumps(base))
-    changed["recommended_actions"][0][field] = value
-    assert _decision_projection(changed) != _decision_projection(base)
+    changed["recommended_actions"] = []
+    assert _decision_projection(changed) == _decision_projection(base)
 
 
 def test_decision_projection_allows_non_executable_action_prose_variation():

@@ -2069,35 +2069,22 @@ def _validate_receipt_document(
 
 
 def _decision_projection(value: Mapping[str, Any]) -> dict[str, Any]:
-    """Project model output onto the fields that can change mission authority.
+    """Project model output onto the stable diagnostic decision.
 
     A seeded local model can legitimately vary explanatory prose, confidence,
     hypothesis count, evidence selection, and the wording of a recommendation
-    between transport replays. Those fields remain schema/evidence validated
-    separately. Recommendations are non-executable A2 evidence; actual
-    authority is bounded by the risk class and the mandatory approval bit.
-    Replay agreement is therefore required on the decision and those
-    mechanically enforceable action boundaries, not on prose.
+    between transport replays. It can also omit or include an informational
+    A2 recommendation without changing the decision. Recommendations are
+    non-executable evidence: ``validate_reasoning_result`` validates their
+    schema and human-approval bit separately, while actual authority is fixed
+    by the authenticated mission and runtime guard. Replay agreement is
+    therefore required on schema/verdict/severity, not on recommendation
+    presence or prose.
     """
-    actions: list[dict[str, Any]] = []
-    raw_actions = value.get("recommended_actions", [])
-    if isinstance(raw_actions, list):
-        for action in raw_actions:
-            if not isinstance(action, Mapping):
-                continue
-            actions.append(
-                {
-                    "risk_class": action.get("risk_class"),
-                    "requires_human_approval": action.get(
-                        "requires_human_approval"
-                    ),
-                }
-            )
     return {
         "schema": value.get("schema"),
         "verdict": value.get("verdict"),
         "severity": value.get("severity"),
-        "recommended_actions": actions,
     }
 
 
