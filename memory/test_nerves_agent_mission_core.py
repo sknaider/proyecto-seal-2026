@@ -18,6 +18,7 @@ from memory.nerves_agent_mission_core import (
     compile_ada_engineering_mission,
     complete_handoff,
     deliver_handoff,
+    hold_handoff,
     load_delivery,
     stale_claim_mission_ids,
 )
@@ -250,6 +251,65 @@ def test_two_workers_produce_one_claim(tmp_path: Path):
         )
     assert sum(not isinstance(result, str) for result in results) == 1
     assert sum(result == "handoff_already_claimed" for result in results) == 1
+
+
+def _hold_command(command_id: str = "hold-william-canary") -> dict:
+    return {
+        "schema": "seal.nerves.hold-command.v1",
+        "command_id": command_id,
+        "command": "HOLD",
+        "issuer": "William",
+        "source_channel": "web_chat",
+        "source_ref": "api_william_1784899999999999999",
+        "authority_adapter": "seal_chat_session_identity",
+        "authority_evidence_sha256": "a" * 64,
+    }
+
+
+def test_verified_hold_releases_claim_and_blocks_later_effect(tmp_path: Path):
+    route, compiled = _fixture(tmp_path)
+    delivery = deliver_handoff(compiled, route=route, now=NOW, notify_live=False)
+    claim = claim_handoff(
+        delivery.mission_id,
+        worker_id="codex-exec:hold-canary",
+        route=route,
+        now=NOW,
+    )
+    held = hold_handoff(
+        delivery.mission_id,
+        command=_hold_command(),
+        route=route,
+        now=NOW,
+    )
+    assert held.held
+    assert held.lease_released
+    assert held.accepted_effects_after_command == 0
+    record = load_delivery(delivery.mission_id, route=route)
+    assert record["status"] == "abstained"
+    assert record["claim"] is None
+    assert record["released_claim"]["claim_id"] == claim.claim_id
+    with pytest.raises(AgentMissionError, match="handoff_not_claimable"):
+        claim_handoff(
+            delivery.mission_id,
+            worker_id="codex-exec:after-hold",
+            route=route,
+            now=NOW,
+        )
+    with pytest.raises(AgentMissionError, match="receipt_mission_not_claimed"):
+        complete_handoff(
+            _receipt(route, delivery, claim, compiled),
+            route=route,
+            now=NOW,
+        )
+
+
+def test_hold_rejects_unverified_or_non_william_authority(tmp_path: Path):
+    route, compiled = _fixture(tmp_path)
+    delivery = deliver_handoff(compiled, route=route, now=NOW, notify_live=False)
+    command = _hold_command()
+    command["issuer"] = "ADA"
+    with pytest.raises(AgentMissionError, match="hold_issuer_invalid"):
+        hold_handoff(delivery.mission_id, command=command, route=route, now=NOW)
 
 
 def test_corrupt_evidence_blocks_delivery(tmp_path: Path):

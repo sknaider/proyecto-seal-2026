@@ -161,6 +161,16 @@ class ClaimResult:
 
 
 @dataclass(frozen=True, slots=True)
+class HoldResult:
+    mission_id: str
+    command_id: str
+    status: str
+    held: bool
+    lease_released: bool
+    accepted_effects_after_command: int
+
+
+@dataclass(frozen=True, slots=True)
 class PlatformBindingResult:
     mission_id: str
     claim_id: str
@@ -963,6 +973,124 @@ def claim_handoff(
             os.close(lock_fd)
 
 
+def hold_handoff(
+    mission_id: str,
+    *,
+    command: Mapping[str, Any],
+    inbox_dir: Path = DEFAULT_INBOX,
+    state_path: Path = DEFAULT_STATE,
+    now: datetime | None = None,
+) -> HoldResult:
+    """Atomically terminalize a JARVIS mission on authenticated William HOLD."""
+
+    try:
+        mission_id = str(uuid.UUID(mission_id))
+    except ValueError as exc:
+        raise HandoffError("hold_mission_id_invalid") from exc
+    expected_keys = {
+        "schema",
+        "command_id",
+        "command",
+        "issuer",
+        "source_channel",
+        "source_ref",
+        "authority_adapter",
+        "authority_evidence_sha256",
+    }
+    if set(command) != expected_keys:
+        raise HandoffError("hold_command_shape_invalid")
+    if command["schema"] != "seal.nerves.hold-command.v1":
+        raise HandoffError("hold_command_schema_invalid")
+    if command["command"] not in {"HOLD", "STOP"}:
+        raise HandoffError("hold_command_invalid")
+    if command["issuer"] != "William":
+        raise HandoffError("hold_issuer_invalid")
+    if command["source_channel"] not in {"web_chat", "dm:ada:william"}:
+        raise HandoffError("hold_source_channel_invalid")
+    source_ref = command["source_ref"]
+    if (
+        not isinstance(source_ref, str)
+        or not source_ref.startswith(("api_william_", "db_"))
+    ):
+        raise HandoffError("hold_source_ref_invalid")
+    if command["authority_adapter"] not in {
+        "seal_chat_session_identity",
+        "seal_memory_session_identity",
+    }:
+        raise HandoffError("hold_authority_adapter_invalid")
+    authority_hash = command["authority_evidence_sha256"]
+    if (
+        not isinstance(authority_hash, str)
+        or not SHA256_PATTERN.fullmatch(authority_hash)
+    ):
+        raise HandoffError("hold_authority_evidence_invalid")
+    command_id = command["command_id"]
+    if not isinstance(command_id, str) or not command_id:
+        raise HandoffError("hold_command_id_invalid")
+
+    inbox_path = inbox_dir / f"{mission_id}.handoff.json"
+    lock_fd = _open_lock(state_path.with_suffix(state_path.suffix + ".lock"))
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        state = _load_state(state_path)
+        deliveries = dict(state["deliveries"])
+        record = deliveries.get(mission_id)
+        if not isinstance(record, dict):
+            raise HandoffError("hold_unknown_mission")
+        _validate_existing_handoff(
+            inbox_path, str(record.get("handoff_sha256"))
+        )
+        prior_hold = record.get("hold")
+        if prior_hold is not None:
+            if prior_hold.get("command_id") != command_id:
+                raise HandoffError("mission_already_held_by_other_command")
+            return HoldResult(
+                mission_id,
+                command_id,
+                str(record["status"]),
+                False,
+                bool(prior_hold.get("lease_released")),
+                0,
+            )
+        if record.get("status") in TERMINAL_STATES:
+            raise HandoffError("terminal_mission_not_holdable")
+        held_at = now or datetime.now(timezone.utc)
+        record = dict(record)
+        claim = record.get("claim")
+        released_claim = None
+        if isinstance(claim, dict):
+            released_claim = {
+                **claim,
+                "lease_released_at": held_at.isoformat(),
+                "release_reason": str(command["command"]),
+            }
+        record["released_claim"] = released_claim
+        record["claim"] = None
+        record["status"] = "abstained"
+        record["hold"] = {
+            **dict(command),
+            "command_sha256": _sha256(_canonical_bytes(dict(command))),
+            "held_at": held_at.isoformat(),
+            "lease_released": released_claim is not None,
+            "accepted_effects_after_command": 0,
+        }
+        deliveries[mission_id] = record
+        _write_state_atomic(state_path, _state_body(deliveries))
+        return HoldResult(
+            mission_id,
+            command_id,
+            "abstained",
+            True,
+            released_claim is not None,
+            0,
+        )
+    finally:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        finally:
+            os.close(lock_fd)
+
+
 def _native_profile_sha256(
     workspace: Path,
     profile_sha256: str,
@@ -1509,6 +1637,10 @@ def main() -> int:
     claim.add_argument("handoff_sha256")
     claim.add_argument("worker_id")
 
+    hold = subparsers.add_parser("hold")
+    hold.add_argument("mission_id")
+    hold.add_argument("command_file", type=Path)
+
     bind = subparsers.add_parser("bind-platform")
     bind.add_argument("mission_id")
     bind.add_argument("claim_id")
@@ -1537,6 +1669,20 @@ def main() -> int:
             args.idempotency_key,
             args.handoff_sha256,
             args.worker_id,
+            inbox_dir=args.inbox_dir,
+            state_path=args.state,
+        )
+    elif args.command == "hold":
+        command_raw, _ = _secure_read(
+            args.command_file,
+            label="hold_command",
+            max_bytes=65_536,
+        )
+        command = _json_no_duplicates(command_raw, label="hold_command")
+        _require_canonical_file(command_raw, command, label="hold_command")
+        result = hold_handoff(
+            args.mission_id,
+            command=command,
             inbox_dir=args.inbox_dir,
             state_path=args.state,
         )

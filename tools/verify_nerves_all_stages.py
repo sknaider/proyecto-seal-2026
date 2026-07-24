@@ -22,6 +22,9 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "memory/nerves_contract_v3.json"
 REPORT = ROOT / "research/flywire_results/nerves_full_gate.json"
 TEST_FILES = (
+    "memory/test_nerves_global_catalog.py",
+    "memory/test_nerves_global_behavior.py",
+    "memory/test_nerves_self_created.py",
     "memory/test_nerves_useful_dispatch.py",
     "memory/test_seal_nerves_alert_sensor.py",
     "memory/test_seal_nerves_task_alert_scope.py",
@@ -79,6 +82,15 @@ def _global_contract_env(source: dict[str, str]) -> dict[str, str]:
     env = source.copy()
     for name in ("SEAL_DB_DSN", "SEAL_DB_URL", "SEAL_PG_DSN", "SEAL_AGENT"):
         env.pop(name, None)
+    return env
+
+
+def _python_env(source: dict[str, str]) -> dict[str, str]:
+    """Make root-level pytest collection independent of the caller shell."""
+    env = source.copy()
+    required = (str(ROOT), str(ROOT / "memory"))
+    current = [item for item in env.get("PYTHONPATH", "").split(os.pathsep) if item]
+    env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys((*required, *current)))
     return env
 
 
@@ -178,7 +190,11 @@ def main() -> int:
         return 2
 
     stages: list[dict] = []
-    tests = _run("deterministic_tests", [sys.executable, "-m", "pytest", "-q", *TEST_FILES])
+    tests = _run(
+        "deterministic_tests",
+        [sys.executable, "-m", "pytest", "-q", *TEST_FILES],
+        env=_python_env(os.environ),
+    )
     tests["passed_tests"] = _test_count(tests["output_tail"])
     tests["ok"] = tests["ok"] and tests["passed_tests"] >= 1000
     stages.append(tests)
@@ -201,6 +217,40 @@ def main() -> int:
     contract_stage["total_checks"] = contract_evidence.get("total", 0)
     contract_stage["ok"] = contract_stage["ok"] and bool(contract_evidence.get("pass"))
     stages.append(contract_stage)
+
+    global_behavior_report_path = (
+        ROOT / "research/flywire_results/nerves_global_behavior_canary.json"
+    )
+    global_behavior_report_path.unlink(missing_ok=True)
+    global_behavior_stage = _run(
+        "global_behavior_protocol_matrix",
+        [sys.executable, "tools/nerves_global_behavior_canary.py"],
+        env=_python_env(os.environ),
+    )
+    global_behavior = (
+        _read_json(global_behavior_report_path)
+        if global_behavior_report_path.exists()
+        else {}
+    )
+    global_behavior_stage["protocol_cells"] = global_behavior.get(
+        "protocol_cells", 0
+    )
+    global_behavior_stage["behavior_claims_proven"] = global_behavior.get(
+        "behavior_claims_proven", 0
+    )
+    global_behavior_stage["idempotent_replays"] = global_behavior.get(
+        "idempotent_replays", 0
+    )
+    global_behavior_stage["ok"] = (
+        global_behavior_stage["ok"]
+        and bool(global_behavior.get("ok"))
+        and global_behavior.get("protocol_cells") == 72
+        and global_behavior.get("idempotent_replays") == 72
+        and global_behavior.get("behavior_claims_proven") == 0
+        and global_behavior.get("not_production_behavior_evidence") is True
+        and global_behavior.get("production_mutations") == 0
+    )
+    stages.append(global_behavior_stage)
 
     activation_report_path = ROOT / "research/flywire_results/nerves_activation_canary.json"
     activation_report_path.unlink(missing_ok=True)

@@ -32,6 +32,7 @@ from memory.nerves_mission_handoff import (
     bind_platform_worker,
     claim_handoff,
     deliver_jarvis_handoff,
+    hold_handoff,
     submit_receipt,
 )
 
@@ -249,6 +250,19 @@ def _deliver(fixture: Fixture, tmp_path: Path, **overrides):
         skill_dir=fixture.skill,
         now=NOW,
     )
+
+
+def _hold_command(command_id: str = "hold-william-jarvis-canary") -> dict:
+    return {
+        "schema": "seal.nerves.hold-command.v1",
+        "command_id": command_id,
+        "command": "HOLD",
+        "issuer": "William",
+        "source_channel": "web_chat",
+        "source_ref": "api_william_1784899999999999999",
+        "authority_adapter": "seal_chat_session_identity",
+        "authority_evidence_sha256": "a" * 64,
+    }
 
 
 def _receipt(fixture: Fixture, handoff, claim: ClaimResult, **changes) -> dict:
@@ -480,6 +494,61 @@ def test_concurrent_delivery_and_claim_are_exactly_once(tmp_path: Path) -> None:
             handoff.idempotency_key,
             handoff.handoff_sha256,
             "platform-worker-2",
+            inbox_dir=inbox,
+            state_path=state,
+        )
+
+
+def test_verified_hold_releases_jarvis_claim_and_blocks_reclaim(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    handoff = _deliver(fixture, tmp_path)
+    inbox, state, _ = _paths(tmp_path)
+    claim = claim_handoff(
+        handoff.mission_id,
+        handoff.idempotency_key,
+        handoff.handoff_sha256,
+        "platform-worker-hold",
+        inbox_dir=inbox,
+        state_path=state,
+        now=NOW,
+    )
+    held = hold_handoff(
+        handoff.mission_id,
+        command=_hold_command(),
+        inbox_dir=inbox,
+        state_path=state,
+        now=NOW,
+    )
+    assert held.held
+    assert held.lease_released
+    assert held.accepted_effects_after_command == 0
+    record = _load_state(state)["deliveries"][handoff.mission_id]
+    assert record["status"] == "abstained"
+    assert record["claim"] is None
+    assert record["released_claim"]["claim_id"] == claim.claim_id
+    with pytest.raises(HandoffError, match="handoff_not_claimable"):
+        claim_handoff(
+            handoff.mission_id,
+            handoff.idempotency_key,
+            handoff.handoff_sha256,
+            "platform-worker-after-hold",
+            inbox_dir=inbox,
+            state_path=state,
+        )
+
+
+def test_jarvis_hold_rejects_non_william_authority(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    handoff = _deliver(fixture, tmp_path)
+    inbox, state, _ = _paths(tmp_path)
+    command = _hold_command()
+    command["issuer"] = "ADA"
+    with pytest.raises(HandoffError, match="hold_issuer_invalid"):
+        hold_handoff(
+            handoff.mission_id,
+            command=command,
             inbox_dir=inbox,
             state_path=state,
         )

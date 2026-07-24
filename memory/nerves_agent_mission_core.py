@@ -255,6 +255,16 @@ class ClaimResult:
 
 
 @dataclass(frozen=True, slots=True)
+class HoldResult:
+    mission_id: str
+    command_id: str
+    status: str
+    held: bool
+    lease_released: bool
+    accepted_effects_after_command: int
+
+
+@dataclass(frozen=True, slots=True)
 class CompletionResult:
     mission_id: str
     status: str
@@ -1709,6 +1719,129 @@ def claim_handoff(
             True,
             "claimed",
             Path(str(record["receipt_path"])),
+        )
+    finally:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        finally:
+            os.close(lock_fd)
+
+
+def hold_handoff(
+    mission_id: str,
+    *,
+    command: Mapping[str, Any],
+    route: NervesRouteConfig = ADA_ROUTE,
+    now: datetime | None = None,
+) -> HoldResult:
+    """Atomically stop a pending/claimed A2 mission after verified William HOLD.
+
+    The caller must be the trusted command adapter.  This function still
+    revalidates the adapter's typed authority evidence and persists the released
+    claim for audit.  A held mission becomes terminal ``abstained``; no later
+    receipt can be accepted and it cannot be claimed again.
+    """
+    try:
+        mission_id = str(uuid.UUID(mission_id))
+    except ValueError as exc:
+        raise AgentMissionError("mission_id_invalid") from exc
+    expected_keys = {
+        "schema",
+        "command_id",
+        "command",
+        "issuer",
+        "source_channel",
+        "source_ref",
+        "authority_adapter",
+        "authority_evidence_sha256",
+    }
+    if set(command) != expected_keys:
+        raise AgentMissionError("hold_command_shape_invalid")
+    if command["schema"] != "seal.nerves.hold-command.v1":
+        raise AgentMissionError("hold_command_schema_invalid")
+    if command["command"] not in {"HOLD", "STOP"}:
+        raise AgentMissionError("hold_command_invalid")
+    if command["issuer"] != "William":
+        raise AgentMissionError("hold_issuer_invalid")
+    if command["source_channel"] not in {"web_chat", "dm:ada:william"}:
+        raise AgentMissionError("hold_source_channel_invalid")
+    source_ref = command["source_ref"]
+    if (
+        not isinstance(source_ref, str)
+        or not source_ref.startswith(("api_william_", "db_"))
+    ):
+        raise AgentMissionError("hold_source_ref_invalid")
+    if command["authority_adapter"] not in {
+        "seal_chat_session_identity",
+        "seal_memory_session_identity",
+    }:
+        raise AgentMissionError("hold_authority_adapter_invalid")
+    authority_hash = command["authority_evidence_sha256"]
+    if (
+        not isinstance(authority_hash, str)
+        or len(authority_hash) != 64
+        or any(char not in "0123456789abcdef" for char in authority_hash)
+    ):
+        raise AgentMissionError("hold_authority_evidence_invalid")
+    command_id = command["command_id"]
+    if not isinstance(command_id, str) or not command_id:
+        raise AgentMissionError("hold_command_id_invalid")
+
+    lock_fd = _open_lock(
+        route.state_path.with_suffix(route.state_path.suffix + ".lock")
+    )
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        state = _load_state(route.state_path)
+        deliveries = dict(state["deliveries"])
+        record = deliveries.get(mission_id)
+        if not isinstance(record, dict):
+            raise AgentMissionError("hold_unknown_mission")
+        if record.get("route_sha256") != route.route_sha256:
+            raise AgentMissionError("hold_route_mismatch")
+        prior_hold = record.get("hold")
+        if prior_hold is not None:
+            if prior_hold.get("command_id") != command_id:
+                raise AgentMissionError("mission_already_held_by_other_command")
+            return HoldResult(
+                mission_id,
+                command_id,
+                str(record["status"]),
+                False,
+                bool(prior_hold.get("lease_released")),
+                0,
+            )
+        if record.get("status") in STATE_TERMINAL:
+            raise AgentMissionError("terminal_mission_not_holdable")
+        held_at = now or datetime.now(timezone.utc)
+        record = dict(record)
+        claim = record.get("claim")
+        released_claim = None
+        if isinstance(claim, dict):
+            released_claim = {
+                **claim,
+                "lease_released_at": held_at.isoformat(),
+                "release_reason": str(command["command"]),
+            }
+        record["released_claim"] = released_claim
+        record["claim"] = None
+        record["status"] = "abstained"
+        record["hold"] = {
+            **dict(command),
+            "command_sha256": _sha256(_canonical_bytes(dict(command))),
+            "held_at": held_at.isoformat(),
+            "lease_released": released_claim is not None,
+            "accepted_effects_after_command": 0,
+        }
+        deliveries[mission_id] = record
+        _write_state_atomic(route.state_path, _state_body(deliveries))
+        return HoldResult(
+            mission_id,
+            command_id,
+            "abstained",
+            True,
+            released_claim is not None,
+            0,
         )
     finally:
         try:
