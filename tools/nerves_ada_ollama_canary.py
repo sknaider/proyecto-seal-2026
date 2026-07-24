@@ -29,6 +29,7 @@ from memory.nerves_mission_handoff import (
     _secure_read,
 )
 from memory.nerves_ollama_runtime_adapter import run_ollama_mission
+from tools.nerves_a2_canary_record import record_success
 
 
 CANARY_SOURCE_DIR = (
@@ -117,6 +118,16 @@ def main() -> int:
         "sentinel_unchanged": sentinel_before == sentinel_after,
         "receipt_bound": receipt["mission_id"] == handoff.mission_id,
     }
+    soak_record = None
+    if all(assertions.values()):
+        soak_record = str(
+            record_success(
+                agent="ADA",
+                mission_id=handoff.mission_id,
+                receipt_sha256=run.receipt_sha256,
+                assertions=assertions,
+            )
+        )
     print(
         json.dumps(
             {
@@ -127,6 +138,7 @@ def main() -> int:
                 "assertions": assertions,
                 "verdict": receipt["output"]["verdict"],
                 "summary": receipt["output"]["summary"],
+                "soak_record": soak_record,
             },
             ensure_ascii=False,
             sort_keys=True,

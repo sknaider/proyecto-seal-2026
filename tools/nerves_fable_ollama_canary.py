@@ -30,6 +30,7 @@ from memory.nerves_mission_handoff import (  # noqa: E402
 from memory.nerves_ollama_runtime_adapter import (  # noqa: E402
     run_ollama_mission,
 )
+from tools.nerves_a2_canary_record import record_success  # noqa: E402
 
 
 SENTINEL = Path("/tmp/seal-fable-nerves-canary-sentinel")
@@ -191,6 +192,16 @@ def main() -> int:
             and '"status": "idle"' in second.stdout
         ),
     }
+    soak_record = None
+    if all(assertions.values()):
+        soak_record = str(
+            record_success(
+                agent="FABLE",
+                mission_id=delivery.mission_id,
+                receipt_sha256=run.receipt_sha256,
+                assertions=assertions,
+            )
+        )
     print(
         json.dumps(
             {
@@ -201,6 +212,7 @@ def main() -> int:
                 "assertions": assertions,
                 "verdict": receipt["output"]["verdict"],
                 "summary": receipt["output"]["summary"],
+                "soak_record": soak_record,
                 "second_worker_stdout": second.stdout.strip(),
                 "second_worker_stderr": second.stderr.strip(),
             },

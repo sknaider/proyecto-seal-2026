@@ -54,6 +54,11 @@ RELEASE_FILES = (
     "skills/seal-nerves-rigor-adjudication/scripts/collect_rigor_evidence.py",
     "skills/seal-ada-ack-latency-triage/SKILL.md",
     "skills/seal-ada-ack-latency-triage/scripts/ack_latency_triage.py",
+    "tools/nerves_a2_canary_record.py",
+    "tools/nerves_ada_ollama_canary.py",
+    "tools/nerves_alice_ollama_canary.py",
+    "tools/nerves_nexus_ollama_canary.py",
+    "tools/nerves_fable_ollama_canary.py",
 )
 
 
