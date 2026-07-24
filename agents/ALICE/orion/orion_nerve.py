@@ -24,7 +24,7 @@ Reglas de seguridad de la CAPA 2:
 Uso:  python3 orion_nerve.py    (silencioso si OK; actúa+avisa si remediable; escala si crítico)
 Exit: 0 sano · 1 falla remediada o pendiente · 2 CRÍTICO escalado.
 """
-import asyncio, asyncpg, json, os, pathlib, subprocess, sys, time, urllib.request
+import asyncio, asyncpg, json, math, os, pathlib, subprocess, sys, time, urllib.request
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
@@ -42,7 +42,10 @@ BACKUP_MAX_MIN = 45
 LOGIN_URL = "http://localhost:8851/login"
 MAX_RESTARTS = 2                # auto-reinicios permitidos por ventana
 REMEDIATION_WINDOW_MIN = 30     # ventana de la guarda anti-loop
+MAX_BACKUP_ATTEMPTS = 2         # intentos de backup permitidos por ventana
+BACKUP_WINDOW_MIN = 60          # evita reintentos destructivos/ruidosos por tick
 ALERT_COOLDOWN_MIN = 15         # cooldown de avisos a William por tipo de evento
+MIN_BASELINE_RATIO = 0.50       # caída parcial severa → escala, nunca repara
 
 
 def _env_dsn() -> str:
@@ -110,6 +113,17 @@ def _restarts_in_window(state: dict) -> int:
     return len([t for t in state.get("restarts", []) if t >= cutoff])
 
 
+def _backup_attempts_in_window(state: dict) -> int:
+    cutoff = time.time() - BACKUP_WINDOW_MIN * 60
+    return len([t for t in state.get("backup_attempts", []) if t >= cutoff])
+
+
+def _reserve_attempt(state: dict, key: str) -> None:
+    """Persist the attempt before the side effect so a crash cannot bypass guards."""
+    state.setdefault(key, []).append(time.time())
+    _write_private_json(STATE_FILE, state)
+
+
 def _alert_william(state: dict, kind: str, message: str) -> bool:
     """Aviso a William con cooldown por tipo. Devuelve True si envió. seal_send maneja el token."""
     now = time.time()
@@ -159,7 +173,9 @@ def _service_healthy() -> bool:
 
 def _run_backup() -> bool:
     try:
-        r = subprocess.run(["python3", str(BACKUP_SCRIPT)],
+        # El nervio solo crea/verifica: la retención destructiva queda fuera de
+        # esta autoacción y sigue siendo responsabilidad del timer canónico.
+        r = subprocess.run(["python3", str(BACKUP_SCRIPT), "backup", "--no-prune"],
                            capture_output=True, text=True, timeout=120)
         return r.returncode == 0
     except Exception:
@@ -190,6 +206,8 @@ def _is_critical_fail(f: str) -> bool:
         "identidad ORION inválida",       # proceso corre como seal u otro, no svc_orion_exam
         "DSN del proceso vivo difiere",   # el proceso vivo usa una DSN distinta al EnvironmentFile
         "cayó a 0",                       # una tabla base colapsó a 0 (posible pérdida de datos)
+        "descendió bajo baseline",         # pérdida parcial severa
+        "baseline de conteos ausente",     # TOFU queda prohibido
         "autenticó como",                 # la sesión DB autenticó con otro rol
     ))
 
@@ -253,12 +271,19 @@ async def _probe() -> dict:
                 loaded = json.loads(BASELINE_FILE.read_text(encoding="utf-8"))
                 baseline = loaded.get("counts", {}) if isinstance(loaded, dict) else {}
             else:
-                baseline = dict(counts)
-                _write_private_json(BASELINE_FILE,
-                    {"created_at": datetime.now(timezone.utc).isoformat(), "counts": baseline})
+                fails.append(
+                    "baseline de conteos ausente (requiere bootstrap explícito)"
+                )
             for table in ("users", "courses", "exams", "tasks"):
-                if int(baseline.get(table, 0)) > 0 and int(counts.get(table, 0)) == 0:
+                expected = int(baseline.get(table, 0))
+                actual = int(counts.get(table, 0))
+                if expected > 0 and actual == 0:
                     fails.append(f"orion_exam.{table} cayó a 0 (baseline > 0)")
+                elif expected >= 10 and actual < math.ceil(expected * MIN_BASELINE_RATIO):
+                    fails.append(
+                        f"orion_exam.{table} descendió bajo baseline "
+                        f"({actual} < {MIN_BASELINE_RATIO:.0%} de {expected})"
+                    )
         except Exception as e:
             fails.append(f"no pude verificar conteos restringidos: {type(e).__name__}")
 
@@ -271,6 +296,52 @@ async def _probe() -> dict:
         "counts": counts,
         "baseline": baseline,
     }
+
+
+async def bootstrap_baseline() -> int:
+    """Create the baseline only through an explicit, approved operator action."""
+    if os.environ.get("SEAL_ORION_BASELINE_APPROVED") != "1":
+        print(
+            "SEAL_ORION_BASELINE_APPROVED=1 requerido para crear baseline",
+            file=sys.stderr,
+        )
+        return 2
+    if (
+        BASELINE_FILE.exists()
+        and os.environ.get("SEAL_ORION_BASELINE_REPLACE_APPROVED") != "1"
+    ):
+        print(
+            "baseline ya existe; reemplazo requiere "
+            "SEAL_ORION_BASELINE_REPLACE_APPROVED=1",
+            file=sys.stderr,
+        )
+        return 2
+    dsn = _env_dsn()
+    c = await asyncpg.connect(dsn, timeout=6)
+    try:
+        db_user = await c.fetchval("SELECT current_user")
+        if db_user != "svc_orion_exam":
+            print(f"rol inválido para baseline: {db_user}", file=sys.stderr)
+            return 2
+        counts = {
+            table: await c.fetchval(f"SELECT count(*) FROM orion_exam.{table}")
+            for table in ("users", "courses", "exams", "tasks", "exam_sessions")
+        }
+    finally:
+        await c.close()
+    if any(int(counts.get(table, 0)) <= 0 for table in ("users", "courses", "exams")):
+        print("baseline rechazado: tablas críticas vacías", file=sys.stderr)
+        return 2
+    _write_private_json(
+        BASELINE_FILE,
+        {
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "counts": counts,
+            "source": "explicit_operator_bootstrap",
+        },
+    )
+    print("baseline ORION creado explícitamente", file=sys.stderr)
+    return 0
 
 
 async def run():
@@ -311,33 +382,51 @@ async def run():
     service_fail = any(_is_service_fail(f) for f in fails)
     backup_fail = any(_is_backup_fail(f) for f in fails)
     critical = [f for f in fails if _is_critical_fail(f)]
+    unclassified = [
+        f for f in fails
+        if not _is_service_fail(f)
+        and not _is_backup_fail(f)
+        and not _is_critical_fail(f)
+    ]
+    # La indisponibilidad de identidad/conteos puede ser un efecto secundario
+    # del servicio caído. Sin una falla de servicio que la explique, bloquea.
+    blocking = list(critical)
+    if unclassified and not service_fail:
+        blocking.extend(unclassified)
 
     # CRÍTICO: nunca auto-actúa, escala.
-    if critical:
-        escalations.extend(critical)
+    if blocking:
+        escalations.extend(blocking)
 
     # REMEDIABLE 1: servicio/login caído → reiniciar (con guarda anti-loop) y verificar.
-    if service_fail:
+    if service_fail and not blocking:
         if _restarts_in_window(state) >= MAX_RESTARTS:
             escalations.append(
                 f"servicio caído y ya se auto-reinició {MAX_RESTARTS}x en {REMEDIATION_WINDOW_MIN} min "
                 "→ no reintento (posible falla persistente), escalo")
         else:
+            _reserve_attempt(state, "restarts")
             _restart_service()
             time.sleep(3)
             ok = _service_healthy()
-            state.setdefault("restarts", []).append(time.time())
             actions.append({"issue": "servicio/login caído", "action": "restart orion-exam", "verified_ok": ok})
             if not ok:
                 escalations.append("reinicié orion-exam pero /login sigue sin responder → escalo")
 
     # REMEDIABLE 2: backup viejo/ausente → correr backup y verificar.
-    if backup_fail:
-        ran = _run_backup()
-        fresh = _backup_fresh()
-        actions.append({"issue": "backup viejo/ausente", "action": "orion_backup.py", "verified_ok": ran and fresh})
-        if not (ran and fresh):
-            escalations.append("corrí el backup pero no quedó un snapshot fresco → escalo")
+    if backup_fail and not blocking:
+        if _backup_attempts_in_window(state) >= MAX_BACKUP_ATTEMPTS:
+            escalations.append(
+                f"backup pendiente y ya se intentó {MAX_BACKUP_ATTEMPTS}x en {BACKUP_WINDOW_MIN} min "
+                "→ no reintento, escalo"
+            )
+        else:
+            _reserve_attempt(state, "backup_attempts")
+            ran = _run_backup()
+            fresh = _backup_fresh()
+            actions.append({"issue": "backup viejo/ausente", "action": "orion_backup.py --no-prune", "verified_ok": ran and fresh})
+            if not (ran and fresh):
+                escalations.append("corrí el backup pero no quedó un snapshot fresco → escalo")
 
     # Una reparación no queda verde solo por servicio+HTTP: repetir el probe
     # completo prueba además identidad restringida, conteos y backup.
@@ -416,4 +505,6 @@ async def run():
 
 
 if __name__ == "__main__":
+    if "--bootstrap-baseline" in sys.argv[1:]:
+        sys.exit(asyncio.run(bootstrap_baseline()))
     sys.exit(asyncio.run(run()))
