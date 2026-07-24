@@ -55,6 +55,7 @@ RELEASE_FILES = (
     "skills/seal-ada-ack-latency-triage/SKILL.md",
     "skills/seal-ada-ack-latency-triage/scripts/ack_latency_triage.py",
     "tools/nerves_a2_canary_record.py",
+    "tools/nerves_public_ack_canary.py",
     "tools/nerves_ada_ollama_canary.py",
     "tools/nerves_alice_ollama_canary.py",
     "tools/nerves_nexus_ollama_canary.py",
@@ -235,6 +236,20 @@ def _canaries(
             )
         ):
             raise SoakError(f"canary_boundary_failed:{path.name}")
+        if value["kind"] not in {
+            "A2_ROUTE_CANARY",
+            "PRINCIPAL_ACK_CANARY",
+        }:
+            raise SoakError(f"canary_kind_invalid:{path.name}")
+        if value["kind"] == "PRINCIPAL_ACK_CANARY" and (
+            value["agent"] != "ADA"
+            or value["missions_created"] != 0
+            or value["worker_successes"] != 0
+            or value["estimated_cost_units"] != 0
+            or value["principal_ack_latency_ms"] is None
+            or value["harm_avoided_method"] != "principal_ack_under_2s"
+        ):
+            raise SoakError(f"ack_canary_semantics_invalid:{path.name}")
         accepted.append(
             {
                 "canary_id": value["canary_id"],

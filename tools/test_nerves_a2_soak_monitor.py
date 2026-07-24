@@ -45,7 +45,7 @@ def _canary(
         "canary_id": f"real-a2-canary-{agent.lower()}",
         "release_fingerprint": fingerprint,
         "recorded_at": recorded_at.isoformat(),
-        "kind": "self_created_public_ack_triage",
+        "kind": "A2_ROUTE_CANARY",
         "ok": True,
         "risk_class": "A2_READ_ONLY",
         "mutations": 0,

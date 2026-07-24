@@ -6,7 +6,11 @@ import stat
 
 import pytest
 
-from tools.nerves_a2_canary_record import CanaryRecordError, record_success
+from tools.nerves_a2_canary_record import (
+    CanaryRecordError,
+    record_principal_ack,
+    record_success,
+)
 
 
 def _state(path: Path, *, status: str = "SOAKING") -> None:
@@ -61,3 +65,62 @@ def test_rejects_failed_assertion_and_inactive_soak(tmp_path: Path):
     _state(state, status="FAILED")
     with pytest.raises(CanaryRecordError, match="soak_not_active"):
         record_success(assertions={"completed": True}, **common)
+
+
+def test_records_content_free_principal_ack(tmp_path: Path):
+    state = tmp_path / "state.json"
+    canaries = tmp_path / "canaries"
+    _state(state)
+    evidence = {
+        "schema": "seal.nerves.principal-ack-evidence.v1",
+        "channel": "web_chat",
+        "request_id": 117574,
+        "request_legacy_id": "api_william_request",
+        "request_created_at": "2026-07-24T19:30:44.454127+00:00",
+        "ack_id": 117575,
+        "ack_legacy_id": "api_ada_ack",
+        "ack_created_at": "2026-07-24T19:30:44.927763+00:00",
+        "in_reply_to": "api_william_request",
+    }
+    first = record_principal_ack(
+        evidence=evidence,
+        principal_ack_latency_ms=474,
+        state_path=state,
+        canary_dir=canaries,
+    )
+    second = record_principal_ack(
+        evidence=evidence,
+        principal_ack_latency_ms=474,
+        state_path=state,
+        canary_dir=canaries,
+    )
+    assert first == second
+    value = json.loads(first.read_text(encoding="utf-8"))
+    assert value["kind"] == "PRINCIPAL_ACK_CANARY"
+    assert value["principal_ack_latency_ms"] == 474
+    assert value["missions_created"] == 0
+    assert value["estimated_cost_units"] == 0
+    assert value["mutations"] == 0
+
+
+def test_principal_ack_rejects_private_or_unbound_evidence(tmp_path: Path):
+    state = tmp_path / "state.json"
+    _state(state)
+    evidence = {
+        "schema": "seal.nerves.principal-ack-evidence.v1",
+        "channel": "dm:ada:william",
+        "request_id": 117574,
+        "request_legacy_id": "api_william_request",
+        "request_created_at": "2026-07-24T19:30:44.454127+00:00",
+        "ack_id": 117575,
+        "ack_legacy_id": "api_ada_ack",
+        "ack_created_at": "2026-07-24T19:30:44.927763+00:00",
+        "in_reply_to": "wrong",
+    }
+    with pytest.raises(CanaryRecordError, match="evidence_invalid"):
+        record_principal_ack(
+            evidence=evidence,
+            principal_ack_latency_ms=474,
+            state_path=state,
+            canary_dir=tmp_path / "canaries",
+        )
