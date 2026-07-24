@@ -54,6 +54,7 @@ from dual_memory_governance import (
 from embeddings import get_embedding, warmup_model
 from config import settings
 from agent_rubric import load_agent_rubric
+from boot_rule_selection import BOOT_CRITICAL_RULES_SQL
 from memory_admission import audit_memory_skip_event, memory_auto_event_skip_reason
 from reasoning_quality_validator import (
     score_and_update_reasoning_trace,
@@ -3687,12 +3688,8 @@ async def boot_context(agent: str, session_token: "str | None" = None) -> str:
         except Exception as _e:
             LOG.debug(f"[boot_context] daily_dreams skipped (likely empty or table just created): {_e}")
 
-        # ── CORE: Critical rules only (not all rules) ──
-        rules = await conn.fetch(
-            """SELECT rule_key, content FROM rules
-               WHERE active = TRUE AND priority = 10
-               ORDER BY created_at DESC LIMIT 5"""
-        )
+        # ── CORE: Critical rules, bounded and balanced by visibility scope ──
+        rules = await conn.fetch(BOOT_CRITICAL_RULES_SQL, agent)
         if rules:
             sections.append("\n## Critical Rules")
             for r in rules:
