@@ -990,6 +990,9 @@ async def _sense_task_drive(engine: "MotivationEngine", now: datetime) -> dict:
 # arranca dry-run/gated, se enciende con evidencia + OK familia.
 NERVES_USEFUL = os.environ.get("SEAL_NERVES_USEFUL", "0") == "1"
 NERVES_MISSION_SHADOW = os.environ.get("SEAL_NERVES_MISSION_SHADOW", "0") == "1"
+NERVES_MISSION_HANDOFF = (
+    os.environ.get("SEAL_NERVES_MISSION_HANDOFF", "0") == "1"
+)
 _MESSAGES_DIR = "/home/dadito/IA/proyecto-seal/messages"
 _MAINTENANCE_NOT_RUN = object()
 
@@ -1069,6 +1072,65 @@ def _open_jarvis_shadow_mission():
         ) from exc
 
 
+def _dispatch_jarvis_read_only_mission():
+    """Build authenticated evidence and wake JARVIS for one A2 mission.
+
+    This is still a non-mutating pilot: the daemon only compiles the mission,
+    collects the fixed read-only evidence bundle, and writes/notifies the
+    durable handoff.  The JARVIS principal remains the orchestrator and is the
+    only component allowed to spawn the platform-native, tool-less reasoner.
+
+    Replays deliberately run the full idempotent path.  That lets a pending
+    live notification recover after a transient bridge/feed failure without
+    recollecting evidence or duplicating a mission.
+    """
+    try:
+        from nerves_integrity_evidence_bundle import (
+            ROOT as NERVES_WORKSPACE,
+            build_integrity_evidence_bundle,
+        )
+        from nerves_mission_handoff import deliver_jarvis_handoff
+        from nerves_mission_shadow import DEFAULT_MANIFEST_DIR
+
+        opened = _open_jarvis_shadow_mission()
+        mission_id = str(opened.mission["mission_id"])
+        manifest_path = DEFAULT_MANIFEST_DIR / f"{mission_id}.json"
+        evidence_dir = (
+            NERVES_WORKSPACE
+            / "research/flywire_results/nerves_evidence_bundles/JARVIS"
+        )
+        bundle = build_integrity_evidence_bundle(
+            manifest_path,
+            output_dir=evidence_dir,
+            workspace=NERVES_WORKSPACE,
+        )
+        handoff = deliver_jarvis_handoff(
+            manifest_path,
+            bundle.evidence_path,
+            bundle.provenance_path,
+            workspace=NERVES_WORKSPACE,
+        )
+        log.info(
+            "[JARVIS] mission handoff mission_id=%s mission_created=%s "
+            "evidence_joined=%s handoff_created=%s status=%s "
+            "live_notified=%s",
+            mission_id,
+            opened.created,
+            bundle.joined,
+            handoff.created,
+            handoff.status,
+            handoff.live_notified,
+        )
+        return opened, bundle, handoff
+    except NervesActionError:
+        raise
+    except Exception as exc:
+        log.error("[JARVIS] mission handoff failed: %s", exc)
+        raise NervesActionError(
+            f"mission_handoff_failed:JARVIS:{type(exc).__name__}"
+        ) from exc
+
+
 class MotivationEngine:
     """
     LIF-based motivation engine for SEAL agents.
@@ -1106,7 +1168,17 @@ class MotivationEngine:
             raise NervesActionError(artifact)
         if artifact:
             if first_run:
-                if NERVES_MISSION_SHADOW and self.agent == "JARVIS":
+                if NERVES_MISSION_HANDOFF and self.agent == "JARVIS":
+                    try:
+                        await asyncio.to_thread(
+                            _dispatch_jarvis_read_only_mission
+                        )
+                    except NervesActionError:
+                        self._maintenance_tick_result = (
+                            "maintenance_failed:JARVIS:mission_handoff"
+                        )
+                        raise
+                elif NERVES_MISSION_SHADOW and self.agent == "JARVIS":
                     try:
                         opened = await asyncio.to_thread(
                             _open_jarvis_shadow_mission

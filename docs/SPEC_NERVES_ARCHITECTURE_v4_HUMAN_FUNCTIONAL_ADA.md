@@ -313,7 +313,7 @@ Solo operaciones de orquestación de menos de 60 segundos, sin trabajo pesado:
 - integrar/verificar el resultado;
 - acción determinística L1 ya allowlisted.
 
-## 9. Runner v4
+## 9. Orquestación v4 y frontera del worker
 
 La auditoría confirmó que no existe hoy un runner durable listo:
 
@@ -322,7 +322,62 @@ La auditoría confirmó que no existe hoy un runner durable listo:
 - `executive_event_router` es dry-run;
 - el app-server público de ADA no puede compartirse sin contaminar continuidad.
 
-Diseño:
+### 9.1 Camino canónico del piloto JARVIS
+
+El primer piloto no lanza un segundo runtime LLM desde el daemon. Un collector
+determinístico, fijo y read-only prepara primero la evidencia tipada; después
+se entrega la misión durable al **JARVIS principal**, que ya posee la superficie
+interactiva de orquestación y crea un subagente nativo efímero de razonamiento,
+sin herramientas de datos —solo `SendMessage` como transporte de control
+atestiguado—, sobre esa evidencia. Esto conserva dos propiedades
+obligatorias:
+
+- JARVIS principal queda libre para William y solo integra receipts;
+- el worker conserva la frontera de permisos, identidad y aprobaciones de la
+  sesión principal, en lugar de compartir credenciales con un proceso nuevo.
+
+```text
+mission_created
+  -> collector fijo read-only + evidence bundle 0600
+  -> handoff durable 0600 + receipt idempotente
+  -> wake del JARVIS principal
+  -> JARVIS valida schema/hash/riesgo/bundle
+  -> claim atómico de spawn
+  -> JARVIS crea subagente nativo con solo SendMessage + output schema
+  -> evidencia 0600
+  -> receipt validado + verificación independiente
+```
+
+El handoff no lee DMs, no publica a webchat, no ejecuta la misión y no puede
+ampliar `allowed_tools`. Un fallo del live feed conserva la misión como
+`pending_delivery`; nunca la marca ejecutada.
+
+El subagente cognitivo no relee el JSONL original ni ejecuta el collector. Solo
+recibe misión canónica, evidencia tipada, schema de salida y prompt estático.
+La reparación futura se hará mediante un broker de acciones exactas; nunca por
+shell general dentro del razonador.
+
+El receipt del razonador es **evidencia, no una capability de acción**. El
+principal tampoco puede convertir una recomendación `A2_READ_ONLY` en
+`systemctl restart`, escritura de archivos o mutación equivalente. Un
+`PreToolUse` causal liga la sesión principal al audit owner-only de la misión y
+niega herramientas mutantes o Bash mutante durante todo el ciclo A2. Una
+reparación requiere otra misión con clase de riesgo y autoridad propias; nunca
+una “liberación” del receipt diagnóstico. El incidente canario del 23-jul —el principal intentó
+pasar de diagnóstico a restart después de un receipt válido— demostró que el
+prompt por sí solo no basta; el gate debe existir en código.
+
+Los modos `0700/0600` y hashes del piloto son una frontera cooperativa contra
+errores, symlinks, drift y procesos de otros usuarios. No protegen frente a un
+proceso malicioso que ya ejecute como el mismo UID. La autoridad fuerte futura
+requiere identidad PostgreSQL dura o witness protegido. El piloto no puede
+promoverse presentando un `worker_kind` escrito por el modelo: el claim y el
+identificador del worker deben venir del orquestador/plataforma y el receipt
+debe validarlos antes de cualquier transición terminal.
+
+### 9.2 Runner aislado futuro
+
+El diseño objetivo posterior sigue siendo:
 
 ```text
 seal-nerves-mission-dispatcher.service
@@ -343,6 +398,26 @@ seal-nerves-mission-dispatcher.service
 - output JSON validado por schema;
 - nunca reutilizar `ws://127.0.0.1:8772`;
 - nunca `danger-full-access` para worker NERVES.
+
+**HOLD comprobado (23-jul-2026):** `systemd --user` no demostró una frontera
+de secretos suficiente en este host. Incluso con `ProtectHome=tmpfs` y
+`ProtectSystem=strict`, el canario todavía observó el repositorio y
+`~/.codex/auth.json`; el namespace endurecido falló con
+`226/NAMESPACE`. Además, `--ignore-user-config` no basta para demostrar que la
+configuración local del proyecto, plugins, hooks, MCPs y multiagente quedaron
+fuera. Por tanto:
+
+- `codex exec` queda permitido solo como **pure reasoner canary sin herramientas
+  de datos**; el transporte de retorno debe declararse y atestiguarse;
+- cualquier evento de herramienta distinto del único
+  `SendMessage(to=main)` invalida el resultado;
+- no existe promoción live hasta demostrar filesystem deny-by-default en una
+  unidad de sistema, contenedor o sandbox equivalente;
+- limpiar variables de entorno no sustituye ocultar credenciales en disco.
+
+El harness desconectado `nerves_shadow_worker.py` es material de prueba
+cuarentenado, no un control de seguridad ni una ruta de producción. No se
+integra a timers/daemons y no puede usarse como evidencia de aislamiento.
 
 ### Adapter Claude
 
@@ -518,8 +593,8 @@ verifier: ADA first lens + FABLE/NEXUS independent gate
 P0 spec + schema + contract candidate
 P1 ledger shadow (cero workers)
 P2 compilador JARVIS integrity_drift en shadow
-P3 worker JARVIS A2 read-only en clon/fixture
-P4 canario real read-only + principal responsiveness
+P3 handoff idempotente al orquestador principal JARVIS
+P4 subagente nativo A2 read-only + canario real + principal responsiveness
 P5 soak 24h
 P6 decisión go/no-go por efecto
 P7 A3 reversible, solo después de nuevo gate

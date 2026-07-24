@@ -19,7 +19,18 @@ from typing import Any, Iterable, Mapping
 
 from jsonschema import Draft202012Validator
 
-from memory.ssai_shadow.ledger import LedgerIntegrityError, ShadowLedger
+try:
+    from memory.nerves_integrity_evidence_bundle import (
+        MISSION_COMPILER_REV,
+        skill_bundle_digest,
+    )
+    from memory.ssai_shadow.ledger import LedgerIntegrityError, ShadowLedger
+except ModuleNotFoundError:  # direct execution from memory/ by systemd
+    from nerves_integrity_evidence_bundle import (
+        MISSION_COMPILER_REV,
+        skill_bundle_digest,
+    )
+    from ssai_shadow.ledger import LedgerIntegrityError, ShadowLedger
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,6 +72,7 @@ def _episode_key(record: Mapping[str, Any], *, episode_anchor: str) -> str:
         "state": record.get("state"),
         "findings": findings,
         "episode_anchor": episode_anchor,
+        "compiler_rev": MISSION_COMPILER_REV,
     }
     encoded = json.dumps(
         material, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -128,6 +140,14 @@ def compile_jarvis_integrity_mission(
     if not resolved_artifact.is_relative_to(resolved_workspace):
         raise MissionCompileError("artifact_path_outside_workspace")
     artifact_relative = resolved_artifact.relative_to(resolved_workspace)
+    record_sha256 = hashlib.sha256(
+        json.dumps(
+            dict(record),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
 
     episode_key = _episode_key(record, episode_anchor=episode_anchor)
     mission_uuid = uuid.uuid5(MISSION_NAMESPACE, episode_key)
@@ -147,7 +167,7 @@ def compile_jarvis_integrity_mission(
         "risk_class": "A2_READ_ONLY",
         "source_refs": [
             f"file:{artifact_relative}",
-            f"sha256:{_sha256_file(artifact_path)}",
+            f"record_sha256:{record_sha256}",
             f"episode_anchor:{episode_anchor}",
         ],
         "initiation_conditions": [
@@ -168,7 +188,7 @@ def compile_jarvis_integrity_mission(
             {
                 "id": "seal-nerves-integrity-audit",
                 "version": "1",
-                "sha256": _sha256_file(skill_path),
+                "sha256": skill_bundle_digest(skill_path.parent),
             }
         ],
         "allowed_tools": [

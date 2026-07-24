@@ -56,6 +56,11 @@ soul_awareness.log
 
 # Claude internal
 .claude/
+!.claude/
+.claude/*
+!.claude/agents/
+.claude/agents/*
+!.claude/agents/nerves-jarvis-reasoner.md
 .mcp.json
 
 # Credenciales — nunca commitear
@@ -74,6 +79,9 @@ credentials.env
 # Datasets pesados que no deben estar en git
 research/flywire_results/nt_types.json
 research/flywire_results/*.json
+# Owner-only NERVES handoffs/receipts/transcript snapshots are runtime custody,
+# may contain model context, and must never enter git.
+research/flywire_results/nerves_orchestrator_inbox/
 
 # Runtime databases / local service volumes
 matrix/pgdata/
