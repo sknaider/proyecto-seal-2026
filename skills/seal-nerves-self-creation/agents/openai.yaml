@@ -1,0 +1,4 @@
+interface:
+  display_name: "NERVES Self Creation"
+  short_description: "Create safe A2 nerves from repeated experience"
+  default_prompt: "Use $seal-nerves-self-creation to turn a repeated verified need into a staged SELF_CREATED A2 nerve candidate."
