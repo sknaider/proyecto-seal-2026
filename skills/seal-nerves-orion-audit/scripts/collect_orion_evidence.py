@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Any, Mapping
 
 
@@ -29,6 +30,28 @@ ALLOWED_RECORD_KEYS = frozenset(
 ACTIONABLE_STATUSES = frozenset(
     {"FAIL", "CRITICAL", "REMEDIATED", "UNVERIFIABLE"}
 )
+FAILURE_PREFIXES = (
+    "servicio orion-exam no activo (",
+    "no pude consultar el servicio:",
+    "/login devolvió ",
+    "/login inaccesible:",
+    "no hay snapshots de backup",
+    "backup viejo (",
+    "identidad ORION inválida:",
+    "DSN del proceso vivo difiere del EnvironmentFile",
+    "no pude verificar identidad viva:",
+    "sesión DB autenticó como ",
+    "baseline de conteos ausente (",
+    "orion_exam.",
+    "no pude verificar conteos restringidos:",
+    "reinicié orion-exam pero ",
+    "backup pendiente y ya se intentó ",
+    "corrí el backup pero ",
+)
+IDENTITY_PATTERN = re.compile(
+    r"^(?:[A-Za-z_][A-Za-z0-9_]{0,62}|unknown|not_rechecked)$"
+)
+SERVICE_PATTERN = re.compile(r"^[a-z][a-z-]{0,31}$")
 
 
 class OrionEvidenceError(ValueError):
@@ -57,6 +80,13 @@ def _bounded_strings(value: Any, *, label: str) -> list[str]:
     return list(value)
 
 
+def _admit_failures(values: list[str]) -> tuple[list[str], int]:
+    admitted = [
+        value for value in values if value.startswith(FAILURE_PREFIXES)
+    ]
+    return admitted, len(values) - len(admitted)
+
+
 def build_evidence(
     mission_id: str,
     record: Mapping[str, Any],
@@ -71,23 +101,38 @@ def build_evidence(
     if status not in ACTIONABLE_STATUSES:
         raise OrionEvidenceError("record_status_not_actionable")
     service = record.get("service")
-    if not isinstance(service, str) or not service:
+    if (
+        not isinstance(service, str)
+        or SERVICE_PATTERN.fullmatch(service) is None
+    ):
         raise OrionEvidenceError("service_invalid")
     login_http = record.get("login_http")
     if isinstance(login_http, bool) or not isinstance(login_http, int):
         raise OrionEvidenceError("login_http_invalid")
     db_user = record.get("db_user", "not_rechecked")
-    if not isinstance(db_user, str) or not db_user:
+    if (
+        not isinstance(db_user, str)
+        or IDENTITY_PATTERN.fullmatch(db_user) is None
+    ):
         raise OrionEvidenceError("db_user_invalid")
-    failures = _bounded_strings(
+    raw_failures = _bounded_strings(
         record.get("fails", record.get("fails_original", [])),
         label="fails",
     )
+    failures, rejected_failures = _admit_failures(raw_failures)
     escalations = record.get("escalations", [])
     if escalations:
-        escalations = _bounded_strings(escalations, label="escalations")
+        raw_escalations = _bounded_strings(
+            escalations, label="escalations"
+        )
+        escalations, rejected_escalations = _admit_failures(
+            raw_escalations
+        )
     elif not isinstance(escalations, list):
         raise OrionEvidenceError("escalations_invalid")
+    else:
+        rejected_escalations = 0
+    rejected_count = rejected_failures + rejected_escalations
     actions = record.get("actions", [])
     if not isinstance(actions, list) or any(
         not isinstance(action, dict)
@@ -134,6 +179,15 @@ def build_evidence(
             "value": escalations,
         },
         {
+            "evidence_id": "orion:source-data-integrity",
+            "kind": "source_data_integrity",
+            "ok": rejected_count == 0,
+            "value": {
+                "rejected_failures": rejected_failures,
+                "rejected_escalations": rejected_escalations,
+            },
+        },
+        {
             "evidence_id": "orion:post-remediation",
             "kind": "post_remediation",
             "ok": (
@@ -156,7 +210,8 @@ def build_evidence(
         "summary": (
             f"status={status}; service={service}; login_http={login_http}; "
             f"db_user={db_user}; failures={len(failures)}; "
-            f"actions={len(actions)}; escalations={len(escalations)}"
+            f"actions={len(actions)}; escalations={len(escalations)}; "
+            f"rejected_entries={rejected_count}"
         ),
         "checks": checks,
     }
