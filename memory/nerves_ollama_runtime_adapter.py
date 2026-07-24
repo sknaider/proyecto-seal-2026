@@ -21,17 +21,15 @@ import urllib.error
 import urllib.request
 import uuid
 
-from jsonschema import Draft202012Validator, FormatChecker
-
 from memory.nerves_agent_mission_core import (
     ADA_ROUTE,
-    REASONING_SCHEMA,
     AgentMissionError,
     CompletionResult,
     NervesRouteConfig,
     claim_handoff,
     complete_handoff,
     load_delivery,
+    validate_reasoning_result,
 )
 from memory.nerves_mission_handoff import (
     _canonical_bytes,
@@ -173,46 +171,11 @@ def _prompt(
 def _validate_result(
     value: Mapping[str, Any], evidence: Mapping[str, Any]
 ) -> list[str]:
-    schema = json.loads(REASONING_SCHEMA.read_text(encoding="utf-8"))
-    errors = sorted(
-        Draft202012Validator(
-            schema, format_checker=FormatChecker()
-        ).iter_errors(value),
-        key=lambda error: list(error.absolute_path),
-    )
-    if errors:
-        detail = ";".join(
-            f"{'/'.join(map(str, error.absolute_path))}:{error.message}"
-            for error in errors[:8]
-        )
-        raise OllamaRuntimeError(f"result_schema_invalid:{detail}")
-    allowed = {
-        str(check["evidence_id"])
-        for check in evidence.get("checks", [])
-        if isinstance(check, dict) and check.get("evidence_id")
-    }
-    cited = [
-        str(identifier)
-        for hypothesis in value.get("hypotheses", [])
-        for identifier in hypothesis.get("evidence_ids", [])
-    ]
-    if len(cited) != len(set(cited)):
-        raise OllamaRuntimeError("result_duplicate_evidence_id")
-    if not set(cited).issubset(allowed):
-        raise OllamaRuntimeError("result_cites_unknown_evidence")
-    for action in value.get("recommended_actions", []):
-        if (
-            action["risk_class"]
-            in {"A4_SERVICE_CHANGE", "A5_GOVERNED", "A6_DESTRUCTIVE"}
-            and action["requires_human_approval"] is not True
-        ):
-            raise OllamaRuntimeError("governed_action_missing_approval")
-    return [
-        "result_schema",
-        "evidence_id_allowlist",
-        "evidence_id_unique",
-        "governed_action_approval",
-    ]
+    try:
+        return validate_reasoning_result(value, evidence, label="result")
+    except AgentMissionError as exc:
+        detail = str(exc).replace("result_unknown_evidence_id", "result_cites_unknown_evidence")
+        raise OllamaRuntimeError(detail) from exc
 
 
 def _safe_failure(reason: str) -> dict[str, Any]:
@@ -498,7 +461,25 @@ def fail_stale_ollama_claim(
     )
     preflight = _json_no_duplicates(preflight_raw, label="stale_preflight")
     request = _json_no_duplicates(request_raw, label="stale_request")
-    response_path = run_dir / "ollama-response.json"
+    primary_response = run_dir / "ollama-response.json"
+    response_path = primary_response
+    checks = [
+        "claim_lease_expired",
+        "no_requeue",
+        "request_artifact_hash",
+        "failed_closed",
+    ]
+    if primary_response.exists():
+        # Preserve the immutable primary model response as incident evidence.
+        # A separate canonical failure artifact closes the expired claim.
+        _secure_read(
+            primary_response,
+            label="stale_primary_response",
+            max_bytes=MAX_RUNTIME_BYTES,
+            required_mode=0o600,
+        )
+        response_path = run_dir / "ollama-terminal-failure.json"
+        checks.append("preserved_primary_response")
     response_raw = _private_json(
         response_path,
         {
@@ -543,12 +524,7 @@ def fail_stale_ollama_claim(
         "verifier": {
             "kind": "deterministic_parent",
             "verdict": "accepted",
-            "checks": [
-                "claim_lease_expired",
-                "no_requeue",
-                "request_artifact_hash",
-                "failed_closed",
-            ],
+            "checks": checks,
         },
     }
     completion = complete_handoff(receipt, route=route, now=current)

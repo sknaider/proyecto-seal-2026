@@ -38,8 +38,25 @@ def _run() -> str | None:
             return "entrega ORION: timestamp futuro inválido"
         if age_s > MAX_AGE_S:
             return f"entrega ORION: artefacto stale ({int(age_s)}s > {MAX_AGE_S}s)"
-        if payload.get("status") != "OK":
-            failures = payload.get("fails") or ["estado FAIL sin detalle"]
+        status = str(payload.get("status") or "")
+        if status == "REMEDIATED":
+            actions = payload.get("actions") or []
+            detail = "; ".join(
+                str(action.get("action") or "acción")
+                for action in actions[:3]
+                if isinstance(action, dict)
+            )
+            return (
+                "entrega ORION: remediación verificada localmente"
+                f" ({detail or 'sin detalle'}); pendiente siguiente OK completo"
+            )
+        if status != "OK":
+            failures = (
+                payload.get("fails")
+                or payload.get("escalations")
+                or payload.get("fails_original")
+                or [f"estado {status or 'desconocido'} sin detalle"]
+            )
             detail = "; ".join(str(item) for item in failures[:3])
             return f"entrega ORION: {detail[:500]}"
         if payload.get("db_user") != "svc_orion_exam":

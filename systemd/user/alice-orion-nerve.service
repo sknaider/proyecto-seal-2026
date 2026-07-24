@@ -1,0 +1,14 @@
+[Unit]
+Description=ALICE ORION nerve — product healthcheck by effect
+After=network-online.target orion-exam.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal/agents/ALICE/orion
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/agents/ALICE/orion/orion_nerve.py
+UMask=0077
+NoNewPrivileges=yes
+Nice=10
+StandardOutput=journal
+StandardError=journal

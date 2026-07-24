@@ -1185,6 +1185,43 @@ def _dispatch_ada_read_only_mission():
         ) from exc
 
 
+def _dispatch_alice_read_only_mission():
+    """Compile one ALICE ORION finding for a tool-less A2 worker.
+
+    ``alice-orion-nerve`` remains the only detector/remediator. This path
+    snapshots its canonical artifact, creates a hash-bound read-only mission,
+    and leaves product state untouched.
+    """
+    try:
+        from nerves_agent_mission_core import (
+            ALICE_ROUTE,
+            compile_alice_orion_mission,
+            deliver_handoff,
+        )
+        from nerves_maintenance_alice import STATUS_LOG
+
+        compiled = compile_alice_orion_mission(STATUS_LOG)
+        handoff = deliver_handoff(
+            compiled, route=ALICE_ROUTE, notify_live=False
+        )
+        log.info(
+            "[ALICE] mission handoff mission_id=%s mission_created=%s "
+            "handoff_created=%s status=%s",
+            compiled.mission["mission_id"],
+            compiled.created,
+            handoff.created,
+            handoff.status,
+        )
+        return compiled, handoff
+    except NervesActionError:
+        raise
+    except Exception as exc:
+        log.error("[ALICE] mission handoff failed: %s", exc)
+        raise NervesActionError(
+            f"mission_handoff_failed:ALICE:{type(exc).__name__}"
+        ) from exc
+
+
 class MotivationEngine:
     """
     LIF-based motivation engine for SEAL agents.
@@ -1240,6 +1277,16 @@ class MotivationEngine:
                     except NervesActionError:
                         self._maintenance_tick_result = (
                             "maintenance_failed:ADA:mission_handoff"
+                        )
+                        raise
+                elif NERVES_AGENT_HANDOFF and self.agent == "ALICE":
+                    try:
+                        await asyncio.to_thread(
+                            _dispatch_alice_read_only_mission
+                        )
+                    except NervesActionError:
+                        self._maintenance_tick_result = (
+                            "maintenance_failed:ALICE:mission_handoff"
                         )
                         raise
                 elif NERVES_MISSION_SHADOW and self.agent == "JARVIS":

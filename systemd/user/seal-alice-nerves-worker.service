@@ -1,12 +1,12 @@
 [Unit]
-Description=SEAL ADA NERVES tool-less local A2 worker
+Description=SEAL ALICE NERVES tool-less local A2 worker
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
 WorkingDirectory=/home/dadito/IA/proyecto-seal
-ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/nerves_local_sidecar.py --agent ADA
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/nerves_local_sidecar.py --agent ALICE
 Environment=PYTHONPATH=/home/dadito/IA/proyecto-seal:/home/dadito/IA/proyecto-seal/memory
 Environment=PYTHONUNBUFFERED=1
 UMask=0077
@@ -15,9 +15,10 @@ PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=read-only
 ReadOnlyPaths=/home/dadito/IA/proyecto-seal
-ReadWritePaths=/home/dadito/IA/proyecto-seal/research/flywire_results/nerves_orchestrator_inbox/ADA
-ReadWritePaths=/home/dadito/IA/proyecto-seal/research/flywire_results/nerves_ollama_runs/ADA
+ReadWritePaths=/home/dadito/IA/proyecto-seal/research/flywire_results/nerves_orchestrator_inbox/ALICE
+ReadWritePaths=/home/dadito/IA/proyecto-seal/research/flywire_results/nerves_ollama_runs/ALICE
 InaccessiblePaths=-/home/dadito/.codex
+InaccessiblePaths=-/home/dadito/.config/seal/orion_exam_db.env
 InaccessiblePaths=-/home/dadito/IA/proyecto-seal/.env
 InaccessiblePaths=-/home/dadito/IA/proyecto-seal/memory/.env
 InaccessiblePaths=-/home/dadito/IA/proyecto-seal/seal-agent/.env.server

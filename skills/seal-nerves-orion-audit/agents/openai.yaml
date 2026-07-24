@@ -1,0 +1,4 @@
+interface:
+  display_name: "SEAL NERVES ORION Audit"
+  short_description: "Diagnose ALICE ORION nerve findings without mutation"
+  default_prompt: "Use $seal-nerves-orion-audit to classify this authenticated ALICE ORION finding and return a bounded read-only diagnosis."

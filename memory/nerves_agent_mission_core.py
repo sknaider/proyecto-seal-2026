@@ -134,7 +134,33 @@ ADA_ROUTE = NervesRouteConfig(
     live_channel="internal:nerves:ada",
 )
 
-ROUTES = {"ADA": ADA_ROUTE}
+ALICE_ROUTE = NervesRouteConfig(
+    agent="ALICE",
+    action="orion_product_pulse",
+    specialty="orion_product_reliability",
+    objective=(
+        "Classify the authenticated ALICE ORION finding and propose the "
+        "smallest separately governed recovery without mutation."
+    ),
+    skill_id="seal-nerves-orion-audit",
+    skill_dir=ROOT / "skills/seal-nerves-orion-audit",
+    allowed_tools=(),
+    runtime="local_ollama_json_no_tools",
+    inbox_dir=(
+        ROOT / "research/flywire_results/nerves_orchestrator_inbox/ALICE"
+    ),
+    runtime_artifact_dir=(
+        ROOT / "research/flywire_results/nerves_ollama_runs/ALICE"
+    ),
+    state_path=(
+        ROOT
+        / "research/flywire_results/nerves_orchestrator_inbox/ALICE.state.json"
+    ),
+    live_feed=Path("/tmp/seal_events_ALICE.log"),
+    live_channel="internal:nerves:alice",
+)
+
+ROUTES = {"ADA": ADA_ROUTE, "ALICE": ALICE_ROUTE}
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,6 +218,43 @@ def _validate_schema(
             for error in errors[:8]
         )
         raise AgentMissionError(f"{label}_schema_invalid:{detail}")
+
+
+def validate_reasoning_result(
+    value: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    *,
+    label: str,
+) -> list[str]:
+    """Validate one reasoning result against schema and admitted evidence."""
+    _validate_schema(value, REASONING_SCHEMA, label=label)
+    allowed_ids = {
+        str(check["evidence_id"])
+        for check in evidence.get("checks", [])
+        if isinstance(check, dict) and check.get("evidence_id")
+    }
+    cited_ids = [
+        str(identifier)
+        for hypothesis in value.get("hypotheses", [])
+        for identifier in hypothesis.get("evidence_ids", [])
+    ]
+    if len(cited_ids) != len(set(cited_ids)):
+        raise AgentMissionError(f"{label}_duplicate_evidence_id")
+    if not set(cited_ids).issubset(allowed_ids):
+        raise AgentMissionError(f"{label}_unknown_evidence_id")
+    for action in value.get("recommended_actions", []):
+        if (
+            action["risk_class"]
+            in {"A4_SERVICE_CHANGE", "A5_GOVERNED", "A6_DESTRUCTIVE"}
+            and action["requires_human_approval"] is not True
+        ):
+            raise AgentMissionError(f"{label}_governed_action_missing_approval")
+    return [
+        f"{label}_schema",
+        f"{label}_evidence_id_allowlist",
+        f"{label}_evidence_id_unique",
+        f"{label}_governed_action_approval",
+    ]
 
 
 def _secure_json(path: Path, *, label: str) -> tuple[dict[str, Any], bytes]:
@@ -261,6 +324,18 @@ def _load_engineering_builder():
     return module
 
 
+def _load_orion_builder(route: NervesRouteConfig = ALICE_ROUTE):
+    script = route.skill_dir / "scripts/collect_orion_evidence.py"
+    spec = importlib.util.spec_from_file_location(
+        "seal_nerves_orion_evidence", script
+    )
+    if spec is None or spec.loader is None:
+        raise AgentMissionError("orion_evidence_loader_unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _record_sha256(record: Mapping[str, Any]) -> str:
     return _sha256(_canonical_bytes(dict(record)))
 
@@ -292,6 +367,44 @@ def latest_actionable_ada_episode(
             last_clean = str(record.get("ts") or "clean_without_timestamp")
             candidate = None
         elif record.get("status") == "issue" and candidate is None:
+            candidate = (record, last_clean)
+    return candidate
+
+
+def latest_actionable_alice_episode(
+    artifact_path: Path,
+) -> tuple[dict[str, Any], str] | None:
+    """Return the first unresolved ORION issue after the latest healthy state."""
+    records: list[dict[str, Any]] = []
+    for number, line in enumerate(
+        artifact_path.read_text(encoding="utf-8").splitlines(), 1
+    ):
+        if not line.strip():
+            continue
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise AgentMissionError(
+                f"alice_artifact_invalid_json_line_{number}"
+            ) from exc
+        if not isinstance(value, dict):
+            raise AgentMissionError(
+                f"alice_artifact_line_{number}_not_object"
+            )
+        records.append(value)
+    last_clean = "genesis"
+    candidate: tuple[dict[str, Any], str] | None = None
+    for record in records:
+        status = str(record.get("status") or "")
+        if status == "OK":
+            last_clean = str(record.get("ts") or "clean_without_timestamp")
+            candidate = None
+        elif status in {
+            "FAIL",
+            "CRITICAL",
+            "REMEDIATED",
+            "UNVERIFIABLE",
+        } and candidate is None:
             candidate = (record, last_clean)
     return candidate
 
@@ -468,6 +581,190 @@ def compile_ada_engineering_mission(
         current, _ = _secure_json(provenance_path, label="provenance")
         if current != provenance:
             raise AgentMissionError("existing_provenance_mismatch")
+    return CompiledMission(
+        opened.mission,
+        manifest_path,
+        evidence_path,
+        provenance_path,
+        opened.created,
+    )
+
+
+def _compile_alice_envelope(
+    record: Mapping[str, Any],
+    *,
+    artifact_path: Path,
+    episode_anchor: str,
+    route: NervesRouteConfig = ALICE_ROUTE,
+    workspace_root: Path = ROOT,
+) -> dict[str, Any]:
+    if route.agent != "ALICE" or route.action != "orion_product_pulse":
+        raise AgentMissionError("alice_compiler_route_mismatch")
+    if record.get("status") not in {
+        "FAIL",
+        "CRITICAL",
+        "REMEDIATED",
+        "UNVERIFIABLE",
+    }:
+        raise AgentMissionError("alice_source_record_not_actionable")
+    workspace = workspace_root.resolve(strict=True)
+    source = artifact_path.resolve(strict=True)
+    if not source.is_relative_to(workspace):
+        raise AgentMissionError("alice_artifact_outside_workspace")
+    source_relative = source.relative_to(workspace).as_posix()
+    record_digest = _record_sha256(record)
+    episode_key = _sha256(
+        _canonical_bytes(
+            {
+                "agent": route.agent,
+                "action": route.action,
+                "record_sha256": record_digest,
+                "episode_anchor": episode_anchor,
+                "route_sha256": route.route_sha256,
+            }
+        )
+    )
+    mission_id = str(uuid.uuid5(MISSION_NAMESPACE, episode_key))
+    mission = {
+        "schema": "seal.nerves.mission.v1",
+        "mission_id": mission_id,
+        "idempotency_key": f"alice-orion-{episode_key}",
+        "agent": route.agent,
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "nerve_fire_id": (
+            f"alice-orion:{record.get('ts')}:{episode_key[:16]}"
+        ),
+        "correlation_id": episode_key,
+        "nerve_layer": "AGENT_ROLE",
+        "drive": "reactive",
+        "specialty": route.specialty,
+        "objective": route.objective,
+        "risk_class": route.risk_class,
+        "source_refs": [
+            f"file:{source_relative}",
+            f"record_sha256:{record_digest}",
+            f"episode_anchor:{episode_anchor}",
+        ],
+        "initiation_conditions": [
+            "ORION status requires diagnosis or a full OK confirmation",
+            "source record is unique and hash-bound",
+        ],
+        "scope": {
+            "workspace": str(workspace),
+            "paths": sorted(
+                {
+                    "agents/ALICE/orion/orion_nerve.py",
+                    "memory/nerves_maintenance_alice.py",
+                    source_relative,
+                }
+            ),
+            "services": ["orion-exam.service"],
+            "network": "none",
+        },
+        "skills": [
+            {
+                "id": route.skill_id,
+                "version": "1",
+                "sha256": skill_bundle_digest(route.skill_dir),
+            }
+        ],
+        "allowed_tools": list(route.allowed_tools),
+        "budgets": {
+            "wall_seconds": route.wall_seconds,
+            "max_attempts": 1,
+            "token_budget": route.token_budget,
+        },
+        "expected_evidence": [
+            "typed ORION product evidence",
+            "runtime trace hash",
+            "deterministic parent verifier",
+        ],
+        "termination_conditions": [
+            "one typed result submitted",
+            "scope invalid and worker abstains",
+            "budget exhausted and mission fails closed",
+        ],
+        "rollback": {
+            "required": False,
+            "plan": "A2 is non-mutating; retain evidence and stop the worker.",
+        },
+        "builder": "ADA@mission-core-v3",
+        "verifier": "deterministic-parent",
+        "confidence_prior": 0.5,
+    }
+    _validate_schema(mission, MISSION_SCHEMA, label="alice_mission")
+    return mission
+
+
+def compile_alice_orion_mission(
+    artifact_path: Path,
+    *,
+    route: NervesRouteConfig = ALICE_ROUTE,
+    ledger_path: Path = DEFAULT_LEDGER,
+    manifest_dir: Path = DEFAULT_MANIFEST_DIR,
+    bundle_dir: Path | None = None,
+    workspace_root: Path = ROOT,
+) -> CompiledMission:
+    episode = latest_actionable_alice_episode(artifact_path)
+    if episode is None:
+        raise AgentMissionError("alice_artifact_has_no_actionable_episode")
+    record, anchor = episode
+    mission = _compile_alice_envelope(
+        record,
+        artifact_path=artifact_path,
+        episode_anchor=anchor,
+        route=route,
+        workspace_root=workspace_root,
+    )
+    opened = ShadowMissionLedger(ledger_path).open_or_join(mission)
+    manifest_path = write_shadow_manifest(opened.mission, manifest_dir)
+
+    mission_id = str(opened.mission["mission_id"])
+    bundle_dir = bundle_dir or (
+        ROOT / "research/flywire_results/nerves_evidence_bundles/ALICE"
+    )
+    _ensure_private_directory(bundle_dir)
+    evidence_path = bundle_dir / f"{mission_id}.evidence.json"
+    provenance_path = bundle_dir / f"{mission_id}.provenance.json"
+    builder = _load_orion_builder(route)
+    record_digest = _record_sha256(record)
+    evidence = builder.build_evidence(
+        mission_id, record, expected_record_sha256=record_digest
+    )
+    _validate_schema(evidence, EVIDENCE_SCHEMA, label="alice_evidence")
+    evidence_created = _write_private_json(evidence_path, evidence)
+    evidence_raw = _canonical_bytes(evidence) + b"\n"
+    manifest_raw = manifest_path.read_bytes()
+    provenance = {
+        "schema": "seal.nerves.agent-provenance.v1",
+        "mission_id": mission_id,
+        "route_sha256": route.route_sha256,
+        "manifest_sha256": _sha256(manifest_raw),
+        "skill_bundle_sha256": skill_bundle_digest(route.skill_dir),
+        "source": {
+            "path": str(
+                artifact_path.resolve(strict=True).relative_to(
+                    workspace_root.resolve(strict=True)
+                )
+            ),
+            "record_sha256": record_digest,
+            "timestamp": str(record.get("ts") or ""),
+            "correlation_id": opened.mission["correlation_id"],
+            "nerve_fire_id": opened.mission["nerve_fire_id"],
+        },
+        "evidence_sha256": _sha256(evidence_raw),
+    }
+    provenance_created = _write_private_json(provenance_path, provenance)
+    if not evidence_created:
+        current, _ = _secure_json(evidence_path, label="alice_evidence")
+        if current != evidence:
+            raise AgentMissionError("existing_alice_evidence_mismatch")
+    if not provenance_created:
+        current, _ = _secure_json(
+            provenance_path, label="alice_provenance"
+        )
+        if current != provenance:
+            raise AgentMissionError("existing_alice_provenance_mismatch")
     return CompiledMission(
         opened.mission,
         manifest_path,
@@ -920,6 +1217,18 @@ def _validate_receipt_document(
     output = dict(receipt["output"])
     if _sha256(_canonical_bytes(output)) != runtime["result_sha256"]:
         raise AgentMissionError("runtime_result_digest_mismatch")
+    handoff, _ = _secure_json(
+        Path(str(record["inbox_path"])), label="receipt_handoff"
+    )
+    evidence_path = Path(str(handoff["bindings"]["evidence_path"]))
+    evidence, evidence_raw = _secure_json(
+        evidence_path, label="receipt_evidence"
+    )
+    if _sha256(evidence_raw) != record["evidence_sha256"]:
+        raise AgentMissionError("receipt_evidence_digest_mismatch")
+    result_checks = validate_reasoning_result(
+        output, evidence, label="receipt_output"
+    )
     status = str(receipt["status"])
     if status == "completed":
         if runtime["http_status"] != 200 or response.get("done") is not True:
@@ -943,17 +1252,20 @@ def _validate_receipt_document(
             )
         except json.JSONDecodeError:
             replay_observed = None
-        observed_projection = {
-            key: value
-            for key, value in output.items()
-            if key not in {"uncertainties", "verification_checks"}
-        }
+        if isinstance(replay_observed, dict):
+            try:
+                validate_reasoning_result(
+                    replay_observed,
+                    evidence,
+                    label="runtime_replay",
+                )
+            except AgentMissionError as exc:
+                raise AgentMissionError(
+                    "runtime_independent_replay_mismatch"
+                ) from exc
+        observed_projection = _decision_projection(output)
         replay_projection = (
-            {
-                key: value
-                for key, value in replay_observed.items()
-                if key not in {"uncertainties", "verification_checks"}
-            }
+            _decision_projection(replay_observed)
             if isinstance(replay_observed, dict)
             else None
         )
@@ -966,39 +1278,9 @@ def _validate_receipt_document(
     elif output.get("verdict") != "abstain":
         raise AgentMissionError("runtime_failure_must_abstain")
 
-    handoff, _ = _secure_json(
-        Path(str(record["inbox_path"])), label="receipt_handoff"
-    )
-    evidence_path = Path(str(handoff["bindings"]["evidence_path"]))
-    evidence, evidence_raw = _secure_json(
-        evidence_path, label="receipt_evidence"
-    )
-    if _sha256(evidence_raw) != record["evidence_sha256"]:
-        raise AgentMissionError("receipt_evidence_digest_mismatch")
-    allowed_ids = {
-        str(check["evidence_id"])
-        for check in evidence.get("checks", [])
-        if isinstance(check, dict) and check.get("evidence_id")
-    }
-    cited_ids: list[str] = [
-        str(identifier)
-        for hypothesis in output.get("hypotheses", [])
-        for identifier in hypothesis.get("evidence_ids", [])
-    ]
-    if len(cited_ids) != len(set(cited_ids)):
-        raise AgentMissionError("receipt_duplicate_evidence_id")
-    if not set(cited_ids).issubset(allowed_ids):
-        raise AgentMissionError("receipt_unknown_evidence_id")
-    for action in output.get("recommended_actions", []):
-        if (
-            action["risk_class"]
-            in {"A4_SERVICE_CHANGE", "A5_GOVERNED", "A6_DESTRUCTIVE"}
-            and action["requires_human_approval"] is not True
-        ):
-            raise AgentMissionError("receipt_governed_action_missing_approval")
-
     return [
         *[name for name, ok in checks.items() if ok],
+        *result_checks,
         "time_order",
         "runtime_artifact_paths",
         "runtime_artifact_hashes",
@@ -1009,6 +1291,39 @@ def _validate_receipt_document(
         "independent_transport_replay",
         "evidence_semantics",
     ]
+
+
+def _decision_projection(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Project model output onto the fields that can change mission authority.
+
+    A seeded local model can legitimately vary explanatory prose, confidence,
+    hypothesis count, and evidence selection between transport replays.  Those
+    fields remain schema/evidence validated separately.  Replay agreement is
+    required on the actual decision and every proposed action boundary.
+    """
+    actions: list[dict[str, Any]] = []
+    raw_actions = value.get("recommended_actions", [])
+    if isinstance(raw_actions, list):
+        for action in raw_actions:
+            if not isinstance(action, Mapping):
+                continue
+            actions.append(
+                {
+                    "action": " ".join(
+                        str(action.get("action") or "").split()
+                    ).casefold(),
+                    "risk_class": action.get("risk_class"),
+                    "requires_human_approval": action.get(
+                        "requires_human_approval"
+                    ),
+                }
+            )
+    return {
+        "schema": value.get("schema"),
+        "verdict": value.get("verdict"),
+        "severity": value.get("severity"),
+        "recommended_actions": actions,
+    }
 
 
 def complete_handoff(

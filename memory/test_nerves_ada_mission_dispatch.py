@@ -69,7 +69,7 @@ def test_ada_handoff_failure_is_fail_closed(monkeypatch):
 
 
 def test_ada_flag_does_not_dispatch_other_agents(monkeypatch):
-    engine = nerves.MotivationEngine("ALICE")
+    engine = nerves.MotivationEngine("NEXUS")
     posts = []
 
     async def maintenance(_engine):
@@ -88,6 +88,6 @@ def test_ada_flag_does_not_dispatch_other_agents(monkeypatch):
 
     assert (
         asyncio.run(engine._fire_useful_maintenance())
-        == "maintenance_fired:value:ALICE"
+        == "maintenance_fired:value:NEXUS"
     )
     assert len(posts) == 1

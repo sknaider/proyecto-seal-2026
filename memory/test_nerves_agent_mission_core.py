@@ -13,6 +13,7 @@ import pytest
 from memory.nerves_agent_mission_core import (
     ADA_ROUTE,
     AgentMissionError,
+    _decision_projection,
     claim_handoff,
     compile_ada_engineering_mission,
     complete_handoff,
@@ -334,6 +335,74 @@ def test_expired_claim_is_closed_without_requeue(
     assert record["claim"]["attempt"] == 1
 
 
+def test_expired_claim_preserves_primary_response_and_closes_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    route, compiled = _fixture(tmp_path, claim_lease_seconds=0)
+    delivery = deliver_handoff(compiled, route=route, now=NOW, notify_live=False)
+    output = {
+        "schema": "soul.nerves.agent-reasoning.v1",
+        "verdict": "repairable",
+        "severity": "low",
+        "summary": "Bounded finding.",
+        "hypotheses": [
+            {
+                "claim": "The admitted diff check failed.",
+                "evidence_ids": ["engineering:git-diff-check"],
+                "confidence": 0.9,
+            }
+        ],
+        "recommended_actions": [],
+        "verification_checks": [],
+        "uncertainties": [],
+    }
+    monkeypatch.setattr(ollama_adapter, "_model_digest", lambda model: "a" * 64)
+    monkeypatch.setattr(
+        ollama_adapter,
+        "_post_generate",
+        lambda *args, **kwargs: (
+            200,
+            {
+                "done": True,
+                "model": "qwen2.5:7b",
+                "response": _canonical(output),
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        mission_core,
+        "_replay_local_ollama_request",
+        lambda request, timeout_seconds: {
+            "done": True,
+            "model": request["model"],
+            "response": '{"fabricated":true}',
+        },
+    )
+    with pytest.raises(
+        AgentMissionError, match="independent_replay_mismatch"
+    ):
+        run_ollama_mission(delivery.mission_id, route=route)
+    primary = (
+        route.runtime_artifact_dir
+        / delivery.mission_id
+        / "ollama-response.json"
+    )
+    primary_sha = hashlib.sha256(primary.read_bytes()).hexdigest()
+    result = fail_stale_ollama_claim(
+        delivery.mission_id,
+        route=route,
+        now=datetime.now(timezone.utc),
+    )
+    assert result.status == "failed"
+    assert hashlib.sha256(primary.read_bytes()).hexdigest() == primary_sha
+    assert (
+        primary.parent / "ollama-terminal-failure.json"
+    ).is_file()
+    assert stale_claim_mission_ids(
+        route=route, now=datetime.now(timezone.utc)
+    ) == []
+
+
 def test_receipt_rejects_tampered_runtime_artifact(tmp_path: Path):
     route, compiled = _fixture(tmp_path)
     delivery = deliver_handoff(compiled, route=route, now=NOW, notify_live=False)
@@ -381,6 +450,117 @@ def test_completed_receipt_requires_independent_transport_replay(
     ):
         complete_handoff(receipt, route=route, now=NOW)
     assert called["count"] == 1
+
+
+def test_completed_receipt_allows_explanatory_replay_variation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    route, compiled = _fixture(tmp_path)
+    delivery = deliver_handoff(compiled, route=route, now=NOW, notify_live=False)
+    claim = claim_handoff(
+        delivery.mission_id,
+        worker_id="local-ollama:semantic-replay",
+        route=route,
+        now=NOW,
+    )
+    receipt = _receipt(route, delivery, claim, compiled)
+    varied = dict(receipt["output"])
+    varied["summary"] = "Different explanatory wording."
+    varied["hypotheses"] = []
+    varied["verification_checks"] = ["A different bounded check."]
+    varied["uncertainties"] = ["Different prose is non-authoritative."]
+    monkeypatch.setattr(
+        mission_core,
+        "_replay_local_ollama_request",
+        lambda request, timeout_seconds: {
+            "done": True,
+            "model": request["model"],
+            "response": _canonical(varied),
+        },
+    )
+    completed = complete_handoff(receipt, route=route, now=NOW)
+    assert completed.accepted is True
+    assert completed.status == "completed"
+
+
+def test_completed_receipt_rejects_invalid_replay_with_same_decision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    route, compiled = _fixture(tmp_path)
+    delivery = deliver_handoff(compiled, route=route, now=NOW, notify_live=False)
+    claim = claim_handoff(
+        delivery.mission_id,
+        worker_id="local-ollama:invalid-semantic-replay",
+        route=route,
+        now=NOW,
+    )
+    receipt = _receipt(route, delivery, claim, compiled)
+    invalid = dict(receipt["output"])
+    invalid["hypotheses"] = "not-an-array"
+    monkeypatch.setattr(
+        mission_core,
+        "_replay_local_ollama_request",
+        lambda request, timeout_seconds: {
+            "done": True,
+            "model": request["model"],
+            "response": _canonical(invalid),
+        },
+    )
+    with pytest.raises(
+        AgentMissionError, match="independent_replay_mismatch"
+    ):
+        complete_handoff(receipt, route=route, now=NOW)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("verdict", "abstain"),
+        ("severity", "critical"),
+    ],
+)
+def test_decision_projection_covers_top_level_authority(field, value):
+    base = {
+        "schema": "soul.nerves.agent-reasoning.v1",
+        "verdict": "repairable",
+        "severity": "low",
+        "recommended_actions": [
+            {
+                "action": "inspect bounded evidence",
+                "risk_class": "A2_READ_ONLY",
+                "requires_human_approval": False,
+            }
+        ],
+    }
+    changed = dict(base)
+    changed[field] = value
+    assert _decision_projection(changed) != _decision_projection(base)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("action", "restart service"),
+        ("risk_class", "A4_SERVICE_CHANGE"),
+        ("requires_human_approval", True),
+    ],
+)
+def test_decision_projection_covers_action_authority(field, value):
+    base = {
+        "schema": "soul.nerves.agent-reasoning.v1",
+        "verdict": "repairable",
+        "severity": "low",
+        "recommended_actions": [
+            {
+                "action": "inspect bounded evidence",
+                "risk_class": "A2_READ_ONLY",
+                "requires_human_approval": False,
+            }
+        ],
+    }
+    changed = json.loads(json.dumps(base))
+    changed["recommended_actions"][0][field] = value
+    assert _decision_projection(changed) != _decision_projection(base)
 
 
 def test_repeated_issue_before_clean_keeps_one_episode(tmp_path: Path):
