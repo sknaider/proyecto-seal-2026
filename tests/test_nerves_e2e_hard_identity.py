@@ -104,3 +104,11 @@ def test_outcome_rejects_false_green_reset_for_clean_observation():
         ledger_statuses={"claimed", "observed_no_effect"},
     )
     assert (passed, outcome) == (False, "invalid")
+
+
+def test_controlled_canary_captures_notifications_instead_of_publishing():
+    source = (ROOT / "memory/nerves_e2e_canary.py").read_text(
+        encoding="utf-8"
+    )
+    assert "engine._post_chat = capture_notification" in source
+    assert "captured_notifications" in source

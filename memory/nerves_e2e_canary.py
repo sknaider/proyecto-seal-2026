@@ -116,12 +116,19 @@ async def _one(agent: str) -> dict:
     started = time.monotonic()
     fired: list[dict] = []
     snapshot: list[dict] = []
+    notifications: list[dict[str, str]] = []
 
     async def never_suppress() -> bool:
         return False
 
     async def no_flush() -> None:
         return None
+
+    async def capture_notification(
+        message: str, to: str = "William"
+    ) -> None:
+        """Attest the notification path without writing to William's stream."""
+        notifications.append({"message": str(message), "to": str(to)})
 
     try:
         nerves.DB_URL = _runtime_dsn(agent)
@@ -133,6 +140,7 @@ async def _one(agent: str) -> dict:
         await engine.connect()
         engine._should_suppress = never_suppress
         engine._flush_queue_if_idle = no_flush
+        engine._post_chat = capture_notification
         async with engine.pool.acquire() as conn:
             rows = await conn.fetch(
                 "SELECT tank,value,last_update,last_fired,fire_count,metadata "
@@ -200,6 +208,7 @@ async def _one(agent: str) -> dict:
             "status": "pass" if passed else "fail",
             "outcome": outcome,
             "fired": fired,
+            "captured_notifications": len(notifications),
             "artifact_updated": artifact_updated,
             "artifact_mode": "verified" if not update_required else "produced",
             "artifact_update_required": update_required,
