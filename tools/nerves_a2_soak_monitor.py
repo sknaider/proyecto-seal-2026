@@ -84,6 +84,8 @@ RELEASE_FILES = (
     "tools/nerves_nexus_ollama_canary.py",
     "tools/nerves_fable_ollama_canary.py",
     "tools/nerves_jarvis_native_canary.py",
+    "tools/nerves_a2_canary_record.py",
+    "tools/nerves_a2_soak_monitor.py",
 )
 FINGERPRINT_UNITS = tuple(
     sorted(

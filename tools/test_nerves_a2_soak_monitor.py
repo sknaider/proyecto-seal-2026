@@ -365,6 +365,20 @@ def test_release_and_runtime_drift_fail_closed(tmp_path: Path) -> None:
         )
 
 
+def test_release_fingerprint_covers_monitor_and_recorder(
+    tmp_path: Path,
+) -> None:
+    root = _root(tmp_path / "workspace")
+    before = soak.release_fingerprint(root)
+    monitor = root / "tools/nerves_a2_soak_monitor.py"
+    monitor.write_text("changed monitor\n", encoding="utf-8")
+    after_monitor = soak.release_fingerprint(root)
+    assert after_monitor != before
+    recorder = root / "tools/nerves_a2_canary_record.py"
+    recorder.write_text("changed recorder\n", encoding="utf-8")
+    assert soak.release_fingerprint(root) != after_monitor
+
+
 def test_private_canary_boundary_and_attestation_are_required(tmp_path: Path) -> None:
     root = _root(tmp_path / "workspace")
     fingerprint = soak.release_fingerprint(root)
