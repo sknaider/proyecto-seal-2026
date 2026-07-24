@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seal.local/schemas/nerves_orchestrator_receipt_v3.schema.json",
+  "title": "SEAL NERVES orchestrator receipt v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "mission_id",
+    "idempotency_key",
+    "handoff_sha256",
+    "claim_id",
+    "worker_kind",
+    "worker_id",
+    "runtime_attestation",
+    "status",
+    "evidence_sha256",
+    "provenance_sha256",
+    "started_at",
+    "finished_at",
+    "output",
+    "verifier"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "seal.nerves.orchestrator-receipt.v3"
+    },
+    "mission_id": {"type": "string", "format": "uuid"},
+    "idempotency_key": {"type": "string", "minLength": 16, "maxLength": 160},
+    "handoff_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "claim_id": {"type": "string", "format": "uuid"},
+    "worker_kind": {
+      "type": "string",
+      "const": "local_ollama_subagent"
+    },
+    "worker_id": {"type": "string", "minLength": 3, "maxLength": 160},
+    "runtime_attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "isolation",
+        "endpoint",
+        "model",
+        "model_digest",
+        "preflight_path",
+        "preflight_sha256",
+        "request_path",
+        "request_sha256",
+        "response_path",
+        "response_sha256",
+        "prompt_sha256",
+        "result_sha256",
+        "http_status",
+        "run_id",
+        "tool_events"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "const": "ollama_generate_json"
+        },
+        "isolation": {
+          "type": "string",
+          "const": "no_tool_api"
+        },
+        "endpoint": {
+          "type": "string",
+          "const": "http://127.0.0.1:11434/api/generate"
+        },
+        "model": {"type": "string", "minLength": 1, "maxLength": 160},
+        "model_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "preflight_path": {"type": "string", "minLength": 1},
+        "preflight_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "request_path": {"type": "string", "minLength": 1},
+        "request_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "response_path": {"type": "string", "minLength": 1},
+        "response_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "prompt_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "result_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "http_status": {"type": "integer", "minimum": 0, "maximum": 599},
+        "run_id": {"type": "string", "format": "uuid"},
+        "tool_events": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "failed", "abstained"]
+    },
+    "evidence_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "provenance_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "output": {"$ref": "nerves_agent_reasoning_v1.schema.json"},
+    "verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "verdict", "checks"],
+      "properties": {
+        "kind": {"type": "string", "const": "deterministic_parent"},
+        "verdict": {"type": "string", "enum": ["accepted", "rejected"]},
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1, "maxLength": 200}
+        }
+      }
+    }
+  }
+}

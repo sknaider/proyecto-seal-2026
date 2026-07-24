@@ -993,6 +993,9 @@ NERVES_MISSION_SHADOW = os.environ.get("SEAL_NERVES_MISSION_SHADOW", "0") == "1"
 NERVES_MISSION_HANDOFF = (
     os.environ.get("SEAL_NERVES_MISSION_HANDOFF", "0") == "1"
 )
+NERVES_AGENT_HANDOFF = (
+    os.environ.get("SEAL_NERVES_AGENT_HANDOFF", "0") == "1"
+)
 _MESSAGES_DIR = "/home/dadito/IA/proyecto-seal/messages"
 _MAINTENANCE_NOT_RUN = object()
 
@@ -1145,6 +1148,43 @@ def _dispatch_jarvis_read_only_mission():
         ) from exc
 
 
+def _dispatch_ada_read_only_mission():
+    """Compile and wake one isolated ADA A2 engineering mission.
+
+    The NERVES daemon remains deterministic and model-free.  It binds the
+    engineering pulse to a private mission/evidence/provenance bundle and wakes
+    ADA's dedicated Codex sidecar.  The sidecar—not this process—owns the
+    read-only subagent runtime and typed receipt.
+    """
+    try:
+        from nerves_agent_mission_core import (
+            ADA_ROUTE,
+            compile_ada_engineering_mission,
+            deliver_handoff,
+        )
+        from nerves_maintenance_ada import ARTIFACT
+
+        compiled = compile_ada_engineering_mission(ARTIFACT)
+        handoff = deliver_handoff(compiled, route=ADA_ROUTE)
+        log.info(
+            "[ADA] mission handoff mission_id=%s mission_created=%s "
+            "handoff_created=%s status=%s live_notified=%s",
+            compiled.mission["mission_id"],
+            compiled.created,
+            handoff.created,
+            handoff.status,
+            handoff.live_notified,
+        )
+        return compiled, handoff
+    except NervesActionError:
+        raise
+    except Exception as exc:
+        log.error("[ADA] mission handoff failed: %s", exc)
+        raise NervesActionError(
+            f"mission_handoff_failed:ADA:{type(exc).__name__}"
+        ) from exc
+
+
 class MotivationEngine:
     """
     LIF-based motivation engine for SEAL agents.
@@ -1190,6 +1230,16 @@ class MotivationEngine:
                     except NervesActionError:
                         self._maintenance_tick_result = (
                             "maintenance_failed:JARVIS:mission_handoff"
+                        )
+                        raise
+                elif NERVES_AGENT_HANDOFF and self.agent == "ADA":
+                    try:
+                        await asyncio.to_thread(
+                            _dispatch_ada_read_only_mission
+                        )
+                    except NervesActionError:
+                        self._maintenance_tick_result = (
+                            "maintenance_failed:ADA:mission_handoff"
                         )
                         raise
                 elif NERVES_MISSION_SHADOW and self.agent == "JARVIS":

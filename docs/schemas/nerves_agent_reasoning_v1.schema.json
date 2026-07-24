@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seal.local/schemas/nerves_agent_reasoning_v1.schema.json",
+  "title": "SEAL NERVES isolated agent reasoning v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "verdict",
+    "severity",
+    "summary",
+    "hypotheses",
+    "recommended_actions",
+    "verification_checks",
+    "uncertainties"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "soul.nerves.agent-reasoning.v1"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["observe", "repairable", "escalate", "abstain"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low", "info"]
+    },
+    "summary": {"type": "string", "minLength": 1, "maxLength": 8000},
+    "hypotheses": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "evidence_ids", "confidence"],
+        "properties": {
+          "claim": {"type": "string", "minLength": 1, "maxLength": 1500},
+          "evidence_ids": {
+            "type": "array",
+            "maxItems": 24,
+            "items": {"type": "string", "minLength": 1, "maxLength": 256}
+          },
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    },
+    "recommended_actions": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action", "risk_class", "requires_human_approval"],
+        "properties": {
+          "action": {"type": "string", "minLength": 1, "maxLength": 1500},
+          "risk_class": {
+            "type": "string",
+            "enum": [
+              "A2_READ_ONLY",
+              "A3_REVERSIBLE_WRITE",
+              "A4_SERVICE_CHANGE",
+              "A5_GOVERNED",
+              "A6_DESTRUCTIVE"
+            ]
+          },
+          "requires_human_approval": {"type": "boolean"}
+        }
+      }
+    },
+    "verification_checks": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {"type": "string", "minLength": 1, "maxLength": 1500}
+    },
+    "uncertainties": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {"type": "string", "minLength": 1, "maxLength": 1500}
+    }
+  }
+}

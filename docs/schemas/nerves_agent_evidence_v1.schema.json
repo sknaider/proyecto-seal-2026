@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seal.local/schemas/nerves_agent_evidence_v1.schema.json",
+  "title": "SEAL NERVES agent evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "mission_id",
+    "agent",
+    "action",
+    "read_only",
+    "source_record_sha256",
+    "observed_at",
+    "summary",
+    "checks"
+  ],
+  "properties": {
+    "schema": {"const": "seal.nerves.agent-evidence.v1"},
+    "mission_id": {"type": "string", "format": "uuid"},
+    "agent": {
+      "type": "string",
+      "enum": ["ADA", "ALICE", "NEXUS", "FABLE"]
+    },
+    "action": {"type": "string", "minLength": 3, "maxLength": 120},
+    "read_only": {"const": true},
+    "source_record_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "observed_at": {"type": "string", "minLength": 1, "maxLength": 80},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 4000},
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidence_id", "kind", "ok", "value"],
+        "properties": {
+          "evidence_id": {"type": "string", "minLength": 3, "maxLength": 200},
+          "kind": {"type": "string", "minLength": 3, "maxLength": 120},
+          "ok": {"type": "boolean"},
+          "value": {}
+        }
+      }
+    }
+  }
+}
