@@ -697,11 +697,23 @@ def _compile_ada_envelope(
     }
     episode_key = _sha256(_canonical_bytes(episode_material))
     mission_id = str(uuid.uuid5(MISSION_NAMESPACE, episode_key))
-    syntax_paths = [
-        str(path)
-        for path in record.get("syntax_failures", [])
-        if isinstance(path, str) and path
-    ]
+    syntax_paths = []
+    for value in record.get("syntax_failures", []):
+        if not isinstance(value, str) or not value:
+            continue
+        candidate = Path(value)
+        if candidate.is_absolute() or candidate.suffix != ".py":
+            continue
+        try:
+            resolved = (workspace / candidate).resolve(strict=True)
+        except (OSError, RuntimeError):
+            continue
+        if (
+            not resolved.is_file()
+            or not resolved.is_relative_to(workspace)
+        ):
+            continue
+        syntax_paths.append(resolved.relative_to(workspace).as_posix())
     mission = {
         "schema": "seal.nerves.mission.v1",
         "mission_id": mission_id,
@@ -2048,9 +2060,12 @@ def _decision_projection(value: Mapping[str, Any]) -> dict[str, Any]:
     """Project model output onto the fields that can change mission authority.
 
     A seeded local model can legitimately vary explanatory prose, confidence,
-    hypothesis count, and evidence selection between transport replays.  Those
-    fields remain schema/evidence validated separately.  Replay agreement is
-    required on the actual decision and every proposed action boundary.
+    hypothesis count, evidence selection, and the wording of a recommendation
+    between transport replays. Those fields remain schema/evidence validated
+    separately. Recommendations are non-executable A2 evidence; actual
+    authority is bounded by the risk class and the mandatory approval bit.
+    Replay agreement is therefore required on the decision and those
+    mechanically enforceable action boundaries, not on prose.
     """
     actions: list[dict[str, Any]] = []
     raw_actions = value.get("recommended_actions", [])
@@ -2060,9 +2075,6 @@ def _decision_projection(value: Mapping[str, Any]) -> dict[str, Any]:
                 continue
             actions.append(
                 {
-                    "action": " ".join(
-                        str(action.get("action") or "").split()
-                    ).casefold(),
                     "risk_class": action.get("risk_class"),
                     "requires_human_approval": action.get(
                         "requires_human_approval"
