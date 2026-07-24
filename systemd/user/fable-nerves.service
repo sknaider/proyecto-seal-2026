@@ -1,0 +1,42 @@
+[Unit]
+Description=FABLE NERVES — typed rigor audit and authenticated A2 handoff
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+Environment=SEAL_AGENT=FABLE
+Environment=SEAL_NERVES_AGENT_HANDOFF=1
+Environment=PYTHONPATH=/home/dadito/IA/proyecto-seal:/home/dadito/IA/proyecto-seal/memory
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/fable/fable_nerves.py
+StandardOutput=journal
+StandardError=journal
+Nice=12
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectProc=invisible
+ProcSubset=pid
+ReadOnlyPaths=/home/dadito/IA/proyecto-seal
+ReadWritePaths=/home/dadito/IA/proyecto-seal/research/flywire_results
+InaccessiblePaths=-/home/dadito/.codex
+InaccessiblePaths=-/home/dadito/.claude
+InaccessiblePaths=-/home/dadito/.config/seal
+InaccessiblePaths=-/home/dadito/IA/proyecto-seal/.env
+InaccessiblePaths=-/home/dadito/IA/proyecto-seal/memory/.env
+InaccessiblePaths=-/home/dadito/IA/proyecto-seal/seal-agent/.env.server
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+TimeoutStartSec=2min

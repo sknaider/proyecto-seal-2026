@@ -187,7 +187,40 @@ NEXUS_ROUTE = NervesRouteConfig(
     live_channel="internal:nerves:nexus",
 )
 
-ROUTES = {"ADA": ADA_ROUTE, "ALICE": ALICE_ROUTE, "NEXUS": NEXUS_ROUTE}
+FABLE_ROUTE = NervesRouteConfig(
+    agent="FABLE",
+    action="rigor_pulse",
+    specialty="evidence_integrity_and_false_green_adjudication",
+    objective=(
+        "Adjudicate one authenticated FABLE rigor finding, distinguish a "
+        "real unhealthy instrument from an unverifiable or false-green claim, "
+        "and propose the smallest separately governed next action without "
+        "mutation."
+    ),
+    skill_id="seal-nerves-rigor-adjudication",
+    skill_dir=ROOT / "skills/seal-nerves-rigor-adjudication",
+    allowed_tools=(),
+    runtime="local_ollama_json_no_tools",
+    inbox_dir=(
+        ROOT / "research/flywire_results/nerves_orchestrator_inbox/FABLE"
+    ),
+    runtime_artifact_dir=(
+        ROOT / "research/flywire_results/nerves_ollama_runs/FABLE"
+    ),
+    state_path=(
+        ROOT
+        / "research/flywire_results/nerves_orchestrator_inbox/FABLE.state.json"
+    ),
+    live_feed=Path("/tmp/seal_events_FABLE.log"),
+    live_channel="internal:nerves:fable",
+)
+
+ROUTES = {
+    "ADA": ADA_ROUTE,
+    "ALICE": ALICE_ROUTE,
+    "NEXUS": NEXUS_ROUTE,
+    "FABLE": FABLE_ROUTE,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -375,6 +408,18 @@ def _load_security_builder(route: NervesRouteConfig = NEXUS_ROUTE):
     return module
 
 
+def _load_rigor_builder(route: NervesRouteConfig = FABLE_ROUTE):
+    script = route.skill_dir / "scripts/collect_rigor_evidence.py"
+    spec = importlib.util.spec_from_file_location(
+        "seal_nerves_rigor_evidence", script
+    )
+    if spec is None or spec.loader is None:
+        raise AgentMissionError("rigor_evidence_loader_unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _record_sha256(record: Mapping[str, Any]) -> str:
     return _sha256(_canonical_bytes(dict(record)))
 
@@ -509,6 +554,107 @@ def latest_actionable_nexus_episode(
                 )
                 candidate = (record, transition_anchor)
                 prior_issue_fingerprint = fingerprint
+    return candidate
+
+
+def latest_actionable_fable_episode(
+    artifact_path: Path,
+) -> tuple[dict[str, Any], str] | None:
+    """Return the latest distinct unresolved FABLE rigor transition."""
+    try:
+        raw, _ = _secure_read(
+            artifact_path,
+            label="fable_rigor_ledger",
+            max_bytes=4_194_304,
+            required_mode=0o600,
+        )
+    except HandoffError as exc:
+        raise AgentMissionError(str(exc)) from exc
+    records: list[dict[str, Any]] = []
+    for number, line in enumerate(raw.splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            value = _json_no_duplicates(
+                line, label=f"fable_rigor_line_{number}"
+            )
+        except HandoffError as exc:
+            raise AgentMissionError(str(exc)) from exc
+        if not isinstance(value, dict):
+            raise AgentMissionError(
+                f"fable_rigor_line_{number}_not_object"
+            )
+        records.append(value)
+
+    clean_anchor = "genesis"
+    prior_fingerprint: str | None = None
+    candidate: tuple[dict[str, Any], str] | None = None
+    for record in records:
+        if (
+            record.get("schema") != "seal.fable.rigor-claim-audit.v2"
+            or record.get("agent") != "FABLE"
+            or record.get("action") != "rigor_pulse"
+            or record.get("target") != "rigor_claim_audit"
+            or record.get("action_source")
+            != "fable/rigor_claim_audit.py"
+        ):
+            raise AgentMissionError("fable_artifact_route_mismatch")
+        state = str(record.get("state") or "")
+        if state == "GREEN" and record.get("status") == "clean":
+            clean_anchor = str(
+                record.get("event_id")
+                or record.get("ts")
+                or "clean_without_anchor"
+            )
+            prior_fingerprint = None
+            candidate = None
+            continue
+        if (
+            state not in {"FINDING", "BROKEN"}
+            or record.get("status") != "issue"
+        ):
+            raise AgentMissionError("fable_artifact_status_invalid")
+        failures = sorted(
+            (
+                str(check.get("evidence_id") or ""),
+                str(check.get("reason_code") or ""),
+            )
+            for check in record.get("checks", [])
+            if isinstance(check, dict)
+            and check.get("required") is True
+            and check.get("status") == "FAIL"
+        )
+        broken = sorted(
+            (
+                str(check.get("evidence_id") or ""),
+                str(check.get("reason_code") or ""),
+            )
+            for check in record.get("checks", [])
+            if isinstance(check, dict)
+            and check.get("required") is True
+            and check.get("status") == "UNKNOWN"
+        )
+        semantic_fingerprint = _sha256(
+            _canonical_bytes(
+                {
+                    "contract_rev": record.get("contract_rev"),
+                    "target": record.get("target"),
+                    "claim_id": (record.get("claim") or {}).get("claim_id"),
+                    "source_record_sha256": (
+                        record.get("claim") or {}
+                    ).get("source_record_sha256"),
+                    "state": state,
+                    "failures": failures,
+                    "broken": broken,
+                }
+            )
+        )
+        if semantic_fingerprint != prior_fingerprint:
+            candidate = (
+                record,
+                f"{clean_anchor}:{semantic_fingerprint}",
+            )
+            prior_fingerprint = semantic_fingerprint
     return candidate
 
 
@@ -1053,6 +1199,188 @@ def compile_nexus_security_mission(
         )
         if current != provenance:
             raise AgentMissionError("existing_nexus_provenance_mismatch")
+    return CompiledMission(
+        opened.mission,
+        manifest_path,
+        evidence_path,
+        provenance_path,
+        opened.created,
+    )
+
+
+def _compile_fable_envelope(
+    record: Mapping[str, Any],
+    *,
+    artifact_path: Path,
+    episode_anchor: str,
+    route: NervesRouteConfig = FABLE_ROUTE,
+    workspace_root: Path = ROOT,
+) -> dict[str, Any]:
+    if route.agent != "FABLE" or route.action != "rigor_pulse":
+        raise AgentMissionError("fable_compiler_route_mismatch")
+    if (
+        record.get("agent") != route.agent
+        or record.get("action") != route.action
+        or record.get("target") != "rigor_claim_audit"
+        or record.get("state") not in {"FINDING", "BROKEN"}
+        or record.get("status") != "issue"
+    ):
+        raise AgentMissionError("fable_source_record_not_actionable")
+    workspace = workspace_root.resolve(strict=True)
+    source = artifact_path.resolve(strict=True)
+    if not source.is_relative_to(workspace):
+        raise AgentMissionError("fable_artifact_outside_workspace")
+    source_relative = source.relative_to(workspace).as_posix()
+    record_digest = _record_sha256(record)
+    episode_key = _sha256(
+        _canonical_bytes(
+            {
+                "agent": route.agent,
+                "action": route.action,
+                "episode_anchor": episode_anchor,
+                "route_sha256": route.route_sha256,
+            }
+        )
+    )
+    mission_id = str(uuid.uuid5(MISSION_NAMESPACE, episode_key))
+    mission = {
+        "schema": "seal.nerves.mission.v1",
+        "mission_id": mission_id,
+        "idempotency_key": f"fable-rigor-{episode_key}",
+        "agent": route.agent,
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "nerve_fire_id": (
+            f"fable-rigor:{record.get('ts')}:{episode_key[:16]}"
+        ),
+        "correlation_id": episode_key,
+        "nerve_layer": "AGENT_ROLE",
+        "drive": "proactive",
+        "specialty": route.specialty,
+        "objective": route.objective,
+        "risk_class": route.risk_class,
+        "source_refs": [
+            f"file:{source_relative}",
+            f"record_sha256:{record_digest}",
+            f"episode_anchor:{episode_anchor}",
+        ],
+        "initiation_conditions": [
+            "FABLE rigor claim audit state is FINDING or BROKEN",
+            "source record is typed, transition-deduplicated, and hash-bound",
+        ],
+        "scope": {
+            "workspace": str(workspace),
+            "paths": sorted(
+                {
+                    "fable/fable_nerves.py",
+                    "fable/rigor_claim_audit.py",
+                    source_relative,
+                }
+            ),
+            "services": ["fable-nerves.service"],
+            "network": "none",
+        },
+        "skills": [
+            {
+                "id": route.skill_id,
+                "version": "1",
+                "sha256": skill_bundle_digest(route.skill_dir),
+            }
+        ],
+        "allowed_tools": list(route.allowed_tools),
+        "budgets": {
+            "wall_seconds": route.wall_seconds,
+            "max_attempts": 1,
+            "token_budget": route.token_budget,
+        },
+        "expected_evidence": [
+            "typed FABLE rigor evidence",
+            "runtime trace hash",
+            "deterministic parent verifier",
+        ],
+        "termination_conditions": [
+            "one typed result submitted",
+            "scope invalid and worker abstains",
+            "budget exhausted and mission fails closed",
+        ],
+        "rollback": {
+            "required": False,
+            "plan": "A2 is non-mutating; retain evidence and stop the worker.",
+        },
+        "builder": "ADA@mission-core-v5",
+        "verifier": "deterministic-parent",
+        "confidence_prior": 0.5,
+    }
+    _validate_schema(mission, MISSION_SCHEMA, label="fable_mission")
+    return mission
+
+
+def compile_fable_rigor_mission(
+    artifact_path: Path,
+    *,
+    route: NervesRouteConfig = FABLE_ROUTE,
+    ledger_path: Path = DEFAULT_LEDGER,
+    manifest_dir: Path = DEFAULT_MANIFEST_DIR,
+    bundle_dir: Path | None = None,
+    workspace_root: Path = ROOT,
+) -> CompiledMission:
+    episode = latest_actionable_fable_episode(artifact_path)
+    if episode is None:
+        raise AgentMissionError("fable_artifact_has_no_actionable_episode")
+    record, anchor = episode
+    mission = _compile_fable_envelope(
+        record,
+        artifact_path=artifact_path,
+        episode_anchor=anchor,
+        route=route,
+        workspace_root=workspace_root,
+    )
+    opened = ShadowMissionLedger(ledger_path).open_or_join(mission)
+    manifest_path = write_shadow_manifest(opened.mission, manifest_dir)
+    mission_id = str(opened.mission["mission_id"])
+    bundle_dir = bundle_dir or (
+        ROOT / "research/flywire_results/nerves_evidence_bundles/FABLE"
+    )
+    _ensure_private_directory(bundle_dir)
+    evidence_path = bundle_dir / f"{mission_id}.evidence.json"
+    provenance_path = bundle_dir / f"{mission_id}.provenance.json"
+    builder = _load_rigor_builder(route)
+    record_digest = _record_sha256(record)
+    evidence = builder.build_evidence(
+        mission_id, record, expected_record_sha256=record_digest
+    )
+    _validate_schema(evidence, EVIDENCE_SCHEMA, label="fable_evidence")
+    evidence_created = _write_private_json(evidence_path, evidence)
+    evidence_raw = _canonical_bytes(evidence) + b"\n"
+    provenance = {
+        "schema": "seal.nerves.agent-provenance.v1",
+        "mission_id": mission_id,
+        "route_sha256": route.route_sha256,
+        "manifest_sha256": _sha256(manifest_path.read_bytes()),
+        "skill_bundle_sha256": skill_bundle_digest(route.skill_dir),
+        "source": {
+            "path": str(
+                artifact_path.resolve(strict=True).relative_to(
+                    workspace_root.resolve(strict=True)
+                )
+            ),
+            "record_sha256": record_digest,
+            "timestamp": str(record.get("ts") or ""),
+            "correlation_id": opened.mission["correlation_id"],
+            "nerve_fire_id": opened.mission["nerve_fire_id"],
+        },
+        "evidence_sha256": _sha256(evidence_raw),
+    }
+    provenance_created = _write_private_json(provenance_path, provenance)
+    if not evidence_created:
+        current, _ = _secure_json(evidence_path, label="fable_evidence")
+        if current != evidence:
+            raise AgentMissionError("existing_fable_evidence_mismatch")
+    if not provenance_created:
+        current, _ = _secure_json(
+            provenance_path, label="fable_provenance"
+        )
+        if current != provenance:
+            raise AgentMissionError("existing_fable_provenance_mismatch")
     return CompiledMission(
         opened.mission,
         manifest_path,

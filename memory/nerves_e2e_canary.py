@@ -63,6 +63,50 @@ def _artifact_update_required(agent: str) -> bool:
     return maintenance.get(agent, {}).get("central_mode") != "verify_artifact_only"
 
 
+def _outcome_passes(
+    *,
+    fired: list[dict],
+    artifact_effect_ok: bool,
+    stimulated_value: float,
+    threshold: float,
+    state_after,
+    before_fire_count: int,
+    ledger_statuses: set[str],
+) -> tuple[bool, str]:
+    """Validate either a useful effect or an honest healthy observation.
+
+    A clean maintenance observation deliberately does not reset the drive:
+    no work was performed, so recording ``effect_verified`` would be a false
+    green. It does start cooldown and increments the fire counter to prevent a
+    hot loop. Both outcomes are valid, but their evidence is mutually
+    exclusive.
+    """
+    if state_after is None or not artifact_effect_ok or stimulated_value < threshold:
+        return False, "invalid"
+    fire_count_ok = int(state_after["fire_count"]) == before_fire_count + 1
+    cooldown_started = state_after["last_fired"] is not None
+    effect_verified = (
+        len(fired) == 1
+        and fired[0].get("tank") == "curiosity"
+        and str(fired[0].get("result", "")).startswith("maintenance_fired:")
+        and float(state_after["value"]) == 0.0
+        and fire_count_ok
+        and cooldown_started
+        and ledger_statuses
+        == {"claimed", "effect_verified", "reset_committed"}
+    )
+    if effect_verified:
+        return True, "effect_verified"
+    clean_observed = (
+        not fired
+        and float(state_after["value"]) > 0.0
+        and fire_count_ok
+        and cooldown_started
+        and ledger_statuses == {"claimed", "observed_no_effect"}
+    )
+    return clean_observed, "clean_observed" if clean_observed else "invalid"
+
+
 async def _one(agent: str) -> dict:
     run_id = f"canary-{agent.lower()}-{uuid.uuid4()}"
     previous_db_url = nerves.DB_URL
@@ -137,27 +181,24 @@ async def _one(agent: str) -> dict:
         artifact_effect_ok = after_mtime is not None and (
             artifact_updated or not update_required
         )
-        passed = (
-            len(fired) == 1
-            and fired[0].get("tank") == "curiosity"
-            and str(fired[0].get("result", "")).startswith("maintenance_fired:")
-            and artifact_effect_ok
-            and float(stimulated.get("curiosity", 0.0)) >= threshold
-            and state_after is not None
-            and float(state_after["value"]) == 0.0
-            and state_after["last_fired"] is not None
-            and int(state_after["fire_count"]) == before_fire_count + 1
-            and ledger_statuses
-                == {"claimed", "effect_verified", "reset_committed"}
-            and all(
-                row.get("trigger_source") == "controlled_e2e_canary"
-                for row in action_evidence
-            )
+        passed, outcome = _outcome_passes(
+            fired=fired,
+            artifact_effect_ok=artifact_effect_ok,
+            stimulated_value=float(stimulated.get("curiosity", 0.0)),
+            threshold=threshold,
+            state_after=state_after,
+            before_fire_count=before_fire_count,
+            ledger_statuses=ledger_statuses,
+        )
+        passed = passed and all(
+            row.get("trigger_source") == "controlled_e2e_canary"
+            for row in action_evidence
         )
         return {
             "agent": agent,
             "db_identity": urlsplit(nerves.DB_URL).username,
             "status": "pass" if passed else "fail",
+            "outcome": outcome,
             "fired": fired,
             "artifact_updated": artifact_updated,
             "artifact_mode": "verified" if not update_required else "produced",

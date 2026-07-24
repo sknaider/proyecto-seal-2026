@@ -1328,38 +1328,53 @@ class MotivationEngine:
                         raise
                 elif NERVES_AGENT_HANDOFF and self.agent == "NEXUS":
                     try:
-                        compiled, _handoff = await asyncio.to_thread(
+                        compiled, handoff = await asyncio.to_thread(
                             _dispatch_nexus_read_only_mission
                         )
                         mission_id = str(compiled.mission["mission_id"])
-                        pulse_state = str(
-                            compiled.evidence["checks"][0]["value"]
-                        )
-                        if pulse_state == "BROKEN":
-                            alert_summary = (
-                                "Instrumento de seguridad BROKEN; misión A2 "
-                                "tool-less creada o unida."
+                        # The first delivery owns the one public notification.
+                        # If coordination rejects that transport, the durable
+                        # handoff still exists and the worker can finish it.
+                        # A later tick joins the same mission and must not turn
+                        # the already-processed finding into an endless
+                        # service failure / notification retry loop.
+                        if handoff.created:
+                            if hasattr(compiled, "evidence_path"):
+                                evidence = json.loads(
+                                    compiled.evidence_path.read_text(
+                                        encoding="utf-8"
+                                    )
+                                )
+                            else:  # focused test double
+                                evidence = compiled.evidence
+                            pulse_state = str(
+                                evidence["checks"][0]["value"]
                             )
-                        else:
-                            alert_summary = (
-                                "Hallazgo de seguridad autenticado; misión A2 "
-                                "tool-less creada o unida."
+                            if pulse_state == "BROKEN":
+                                alert_summary = (
+                                    "Instrumento de seguridad BROKEN; misión "
+                                    "A2 tool-less creada."
+                                )
+                            else:
+                                alert_summary = (
+                                    "Hallazgo de seguridad autenticado; misión "
+                                    "A2 tool-less creada."
+                                )
+                            await send_agent_message(
+                                "NEXUS",
+                                "William",
+                                (
+                                    f"[NERVES/NEXUS] {alert_summary} "
+                                    f"mission_id={mission_id}."
+                                ),
+                                channel="web_chat",
+                                message_type="nerves_fire",
+                                idempotency_key=(
+                                    f"nerves_nexus_security_{mission_id}"
+                                ),
+                                proactive=True,
+                                timeout=5,
                             )
-                        await send_agent_message(
-                            "NEXUS",
-                            "William",
-                            (
-                                f"[NERVES/NEXUS] {alert_summary} "
-                                f"mission_id={mission_id}."
-                            ),
-                            channel="web_chat",
-                            message_type="nerves_fire",
-                            idempotency_key=(
-                                f"nerves_nexus_security_{mission_id}"
-                            ),
-                            proactive=True,
-                            timeout=5,
-                        )
                     except Exception as exc:
                         self._maintenance_tick_result = (
                             "maintenance_failed:NEXUS:mission_handoff"

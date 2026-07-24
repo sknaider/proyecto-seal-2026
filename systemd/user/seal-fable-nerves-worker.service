@@ -1,0 +1,42 @@
+[Unit]
+Description=SEAL FABLE NERVES tool-less local A2 worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/nerves_local_sidecar.py --agent FABLE
+Environment=PYTHONPATH=/home/dadito/IA/proyecto-seal:/home/dadito/IA/proyecto-seal/memory
+Environment=PYTHONUNBUFFERED=1
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectProc=invisible
+ProcSubset=pid
+ReadOnlyPaths=/home/dadito/IA/proyecto-seal
+ReadWritePaths=/home/dadito/IA/proyecto-seal/research/flywire_results/nerves_orchestrator_inbox/FABLE
+ReadWritePaths=/home/dadito/IA/proyecto-seal/research/flywire_results/nerves_ollama_runs/FABLE
+InaccessiblePaths=-/home/dadito/.codex
+InaccessiblePaths=-/home/dadito/.claude
+InaccessiblePaths=-/home/dadito/.config/seal
+InaccessiblePaths=-/home/dadito/IA/proyecto-seal/.env
+InaccessiblePaths=-/home/dadito/IA/proyecto-seal/memory/.env
+InaccessiblePaths=-/home/dadito/IA/proyecto-seal/fable/.db_cred
+InaccessiblePaths=-/home/dadito/IA/proyecto-seal/seal-agent/.env.server
+InaccessiblePaths=-/home/dadito/IA/proyecto-seal/auto-browser/.env
+InaccessiblePaths=-/home/dadito/IA/proyecto-seal/multimedia-pipeline/.env
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+TimeoutStartSec=5min

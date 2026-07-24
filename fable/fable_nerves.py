@@ -65,6 +65,14 @@ ACTION_REPORT = Path(os.environ.get(
     "FABLE_NERVES_ACTION_REPORT",
     "/home/dadito/IA/proyecto-seal/research/flywire_results/nerves_fable_maintenance.json",
 ))
+RIGOR_LEDGER = Path(os.environ.get(
+    "FABLE_NERVES_RIGOR_LEDGER",
+    "/home/dadito/IA/proyecto-seal/research/flywire_results/"
+    "nerves_fable/rigor_claim_audit_v2.jsonl",
+))
+NERVES_AGENT_HANDOFF = (
+    os.environ.get("SEAL_NERVES_AGENT_HANDOFF", "0") == "1"
+)
 # Heartbeat de LIVENESS: se escribe en CADA tick (cruce umbral o no). Separa
 # "el nervio está vivo" (este archivo, renueva ~cada tick) de "disparó una acción"
 # (ACTION_REPORT, solo en fire por umbral, que legítimamente puede pasar >2h sin fire).
@@ -77,16 +85,16 @@ LOCK_FILE = Path(os.environ.get("FABLE_NERVES_LOCK", "/tmp/seal-nerves-FABLE.loc
 
 
 def _write_heartbeat(payload: dict) -> None:
-    """Escribe el heartbeat de liveness de forma atómica y 0600. Nunca rompe el tick."""
-    try:
-        HEARTBEAT_FILE.parent.mkdir(parents=True, exist_ok=True)
-        tmp = HEARTBEAT_FILE.with_suffix(".hb.tmp")
-        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        os.chmod(tmp, 0o600)
-        tmp.replace(HEARTBEAT_FILE)
-        os.chmod(HEARTBEAT_FILE, 0o600)
-    except Exception as e:
-        print(f"[fable_nerves] heartbeat write failed (no rompe el tick): {e}", file=sys.stderr)
+    """Persist one truthful heartbeat atomically; inability to do so is fatal."""
+    HEARTBEAT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = HEARTBEAT_FILE.with_suffix(".hb.tmp")
+    tmp.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    os.chmod(tmp, 0o600)
+    tmp.replace(HEARTBEAT_FILE)
+    os.chmod(HEARTBEAT_FILE, 0o600)
 
 
 @contextmanager
@@ -113,7 +121,7 @@ async def _execute_live_action(target: str) -> dict:
         raise RuntimeError(f"fire target is not allowlisted: {target}")
     proc = await asyncio.create_subprocess_exec(
         sys.executable,
-        "/home/dadito/IA/proyecto-seal/fable/instrumentation_health.py",
+        "/home/dadito/IA/proyecto-seal/fable/rigor_claim_audit.py",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -135,6 +143,27 @@ async def _execute_live_action(target: str) -> dict:
     tmp.replace(ACTION_REPORT)
     os.chmod(ACTION_REPORT, 0o600)
     return report
+
+
+def _dispatch_fable_read_only_mission() -> dict:
+    """Compile and deliver one transition-deduplicated A2 rigor mission."""
+    from memory.nerves_agent_mission_core import (
+        FABLE_ROUTE,
+        compile_fable_rigor_mission,
+        deliver_handoff,
+    )
+
+    compiled = compile_fable_rigor_mission(RIGOR_LEDGER)
+    delivery = deliver_handoff(
+        compiled,
+        route=FABLE_ROUTE,
+        notify_live=False,
+    )
+    return {
+        "mission_id": delivery.mission_id,
+        "handoff_created": delivery.created,
+        "handoff_status": delivery.status,
+    }
 
 
 def _decay(value, dt_s, tau):
@@ -186,7 +215,18 @@ async def _tick_locked(stimulus: dict | None = None):
         c = await asyncpg.connect(FABLE_CRED)
     except Exception as e:
         print(f"[fable_nerves] FAIL-LOUD: no pude conectar a DB: {e}", file=sys.stderr)
-        sys.exit(2)
+        _write_heartbeat({
+            "schema": "seal.fable_nerves_heartbeat.v1",
+            "ts": now.isoformat(timespec="seconds"),
+            "agent": AGENT,
+            "alive": False,
+            "status": "broken",
+            "n_tanks": 0,
+            "tanks": [],
+            "n_urges": 0,
+            "action_failures": [f"db_connect:{type(e).__name__}"],
+        })
+        raise RuntimeError("fable_nerves_db_connect_failed") from e
     urges = []
     action_failures = []
     tank_summary = []
@@ -198,7 +238,7 @@ async def _tick_locked(stimulus: dict | None = None):
         )
         if not rows:
             print("[fable_nerves] FAIL-LOUD: 0 tanques sembrados — nervios no inicializados", file=sys.stderr)
-            sys.exit(3)
+            raise RuntimeError("fable_nerves_zero_tanks")
         for r in rows:
             d = DRIVES.get(r["tank"])
             if not d:
@@ -219,15 +259,24 @@ async def _tick_locked(stimulus: dict | None = None):
             if live:
                 try:
                     action_result = await _execute_live_action(d["fire"])
+                    if (
+                        NERVES_AGENT_HANDOFF
+                        and action_result.get("status") == "finding"
+                    ):
+                        mission = await asyncio.to_thread(
+                            _dispatch_fable_read_only_mission
+                        )
+                        action_result = {**action_result, **mission}
                 except Exception as exc:
                     action_failures.append(f"{d['fire']}:{type(exc).__name__}:{exc}")
+                    action_result = None
 
             action_ok = live and action_result is not None
-            # A gated observe-only crossing still completed its signal cycle;
-            # reset it and start cooldown so it cannot emit the same urge every
-            # 15 minutes forever. A failed live action stays pressurized and
-            # retries instead of being acknowledged falsely.
-            cycle_completed = action_ok or (crossed and not live)
+            # Only a completed live action consumes pressure. Observe-only
+            # signals and failed handoffs stay pressurized; detecting without
+            # doing work must never increment fire_count or create autonomy
+            # theater.
+            cycle_completed = action_ok
             stored_value = 0.0 if cycle_completed else round(v, 4)
             await c.execute(
                 "UPDATE fable.motivation_states SET value=$1, last_update=$2"
@@ -247,20 +296,33 @@ async def _tick_locked(stimulus: dict | None = None):
                 "INSERT INTO fable.soul(key,value) VALUES('nerves_urges',$1) "
                 "ON CONFLICT(key) DO UPDATE SET value=$1, updated_at=now()",
                 json.dumps({"urges": urges, "ts": now.isoformat(timespec='seconds')}, ensure_ascii=False))
-    finally:
-        await c.close()
-        # Heartbeat de liveness: se escribe SIEMPRE que el tick corre (cruce umbral o no).
-        # El supervisor lo vigila para "el nervio está vivo"; nunca stale si el timer corre.
+    except Exception as exc:
         _write_heartbeat({
             "schema": "seal.fable_nerves_heartbeat.v1",
             "ts": now.isoformat(timespec="seconds"),
             "agent": AGENT,
-            "alive": True,
+            "alive": False,
+            "status": "failed",
             "n_tanks": len(tank_summary),
             "tanks": tank_summary,
             "n_urges": len(urges),
-            "action_failures": action_failures,
+            "action_failures": action_failures
+            + [f"{type(exc).__name__}:{exc}"],
         })
+        raise
+    finally:
+        await c.close()
+    _write_heartbeat({
+        "schema": "seal.fable_nerves_heartbeat.v1",
+        "ts": now.isoformat(timespec="seconds"),
+        "agent": AGENT,
+        "alive": not action_failures,
+        "status": "healthy" if not action_failures else "failed",
+        "n_tanks": len(tank_summary),
+        "tanks": tank_summary,
+        "n_urges": len(urges),
+        "action_failures": action_failures,
+    })
     if action_failures:
         raise RuntimeError("; ".join(action_failures))
     return urges

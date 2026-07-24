@@ -165,7 +165,7 @@ def test_nexus_dispatch_alert_uses_stable_mission_idempotency(monkeypatch):
                 mission={"mission_id": "11111111-1111-4111-8111-111111111111"},
                 evidence={"checks": [{"value": "FINDING"}]},
             ),
-            object(),
+            SimpleNamespace(created=True),
         )
 
     async def send(*args, **kwargs):
@@ -195,7 +195,7 @@ def test_nexus_alert_failure_fails_closed(monkeypatch):
             SimpleNamespace(
                 mission={"mission_id": "11111111-1111-4111-8111-111111111111"}
             ),
-            object(),
+            SimpleNamespace(created=True),
         )
 
     async def send(*args, **kwargs):
@@ -210,3 +210,32 @@ def test_nexus_alert_failure_fails_closed(monkeypatch):
     assert engine._maintenance_tick_result == (
         "maintenance_failed:NEXUS:mission_handoff"
     )
+
+
+def test_nexus_joined_handoff_does_not_retry_public_alert(monkeypatch):
+    engine = nerves.MotivationEngine("NEXUS")
+    sent = []
+
+    async def maintenance(received):
+        return "FINDING: already delivered security finding"
+
+    def dispatch():
+        return (
+            SimpleNamespace(
+                mission={"mission_id": "11111111-1111-4111-8111-111111111111"},
+                evidence={"checks": [{"value": "FINDING"}]},
+            ),
+            SimpleNamespace(created=False),
+        )
+
+    async def send(*args, **kwargs):
+        sent.append((args, kwargs))
+
+    monkeypatch.setattr(nerves, "NERVES_AGENT_HANDOFF", True)
+    monkeypatch.setattr(nerves, "_run_maintenance_action", maintenance)
+    monkeypatch.setattr(nerves, "_dispatch_nexus_read_only_mission", dispatch)
+    monkeypatch.setattr(nerves, "send_agent_message", send)
+    assert asyncio.run(engine._fire_useful_maintenance()) == (
+        "maintenance_fired:value:NEXUS"
+    )
+    assert sent == []

@@ -46,3 +46,61 @@ def test_runtime_dsn_rejects_insecure_permissions(monkeypatch, tmp_path):
     path.chmod(0o640)
     with pytest.raises(RuntimeError, match="0600"):
         canary._runtime_dsn("ADA")
+
+
+class _State(dict):
+    pass
+
+
+def test_outcome_accepts_verified_effect_and_reset():
+    passed, outcome = canary._outcome_passes(
+        fired=[
+            {
+                "tank": "curiosity",
+                "result": "maintenance_fired:value:ADA",
+            }
+        ],
+        artifact_effect_ok=True,
+        stimulated_value=55.0,
+        threshold=50.0,
+        state_after=_State(
+            value=0.0, last_fired="2026-07-23T00:00:00Z", fire_count=4
+        ),
+        before_fire_count=3,
+        ledger_statuses={
+            "claimed",
+            "effect_verified",
+            "reset_committed",
+        },
+    )
+    assert (passed, outcome) == (True, "effect_verified")
+
+
+def test_outcome_accepts_clean_observation_without_false_effect():
+    passed, outcome = canary._outcome_passes(
+        fired=[],
+        artifact_effect_ok=True,
+        stimulated_value=55.0,
+        threshold=50.0,
+        state_after=_State(
+            value=54.9, last_fired="2026-07-23T00:00:00Z", fire_count=4
+        ),
+        before_fire_count=3,
+        ledger_statuses={"claimed", "observed_no_effect"},
+    )
+    assert (passed, outcome) == (True, "clean_observed")
+
+
+def test_outcome_rejects_false_green_reset_for_clean_observation():
+    passed, outcome = canary._outcome_passes(
+        fired=[],
+        artifact_effect_ok=True,
+        stimulated_value=55.0,
+        threshold=50.0,
+        state_after=_State(
+            value=0.0, last_fired="2026-07-23T00:00:00Z", fire_count=4
+        ),
+        before_fire_count=3,
+        ledger_statuses={"claimed", "observed_no_effect"},
+    )
+    assert (passed, outcome) == (False, "invalid")

@@ -148,6 +148,10 @@
     ],
     "mode": "mixed_one_live_three_observe",
     "artifact": "research/flywire_results/nerves_fable_maintenance.json",
+    "rigor_ledger": "research/flywire_results/nerves_fable/rigor_claim_audit_v2.jsonl",
+    "worker_service": "seal-fable-nerves-worker.service",
+    "worker_timer": "seal-fable-nerves-worker.timer",
+    "worker_state": "research/flywire_results/nerves_orchestrator_inbox/FABLE.state.json",
     "single_flight_required": true,
     "cooldown_required": true
   },
@@ -250,7 +254,8 @@
       "ALICE",
       "DUM",
       "JARVIS",
-      "NEXUS"
+      "NEXUS",
+      "FABLE"
     ],
     "required_e2e_ledger_states": [
       "claimed",
