@@ -1,6 +1,7 @@
 from pathlib import Path
 import importlib.util
 import json
+import urllib.error
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "ada_codex_compact_monitor.py"
@@ -112,3 +113,17 @@ def test_heartbeat_distinguishes_idle_from_missing_token_count(monkeypatch, tmp_
 
     monitor.write_heartbeat(session_path=session, context_pct=None, now=1235.0)
     assert json.loads(heartbeat.read_text())["status"] == "waiting_for_token_count"
+
+
+def test_mcp_404_invalidates_stale_global_session(monkeypatch):
+    monitor.MCP_SESSION_ID = "stale-session"
+
+    def stale_post(_payload, *, timeout):
+        raise urllib.error.HTTPError(
+            monitor.MCP_URL, 404, "session not found", {}, None
+        )
+
+    monkeypatch.setattr(monitor, "mcp_post", stale_post)
+
+    assert monitor.mcp_call("self_reflect", {"agent": "ADA"}) is None
+    assert monitor.MCP_SESSION_ID is None

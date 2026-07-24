@@ -290,6 +290,7 @@ def ensure_mcp_session() -> bool:
 
 
 def mcp_call(tool_name: str, arguments: dict) -> dict | None:
+    global MCP_SESSION_ID
     arguments = with_session_token(arguments)
     if not ensure_mcp_session():
         return None
