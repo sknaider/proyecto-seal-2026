@@ -2197,27 +2197,67 @@ def load_delivery(
     return dict(record)
 
 
-def stale_claim_mission_ids(
+def stale_claim_scan(
     *,
     route: NervesRouteConfig = ADA_ROUTE,
     now: datetime | None = None,
-) -> list[str]:
-    """Return expired claimed missions without mutating or reassigning them."""
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Barrido resiliente: devuelve (vencidas, no_medibles).
+
+    `no_medibles` es [(mission_id, motivo)] — registros que NO se pudieron evaluar.
+
+    Corregido 24-jul-2026 (FABLE, autorizado por ADA como dueña del soak de 24 h).
+    Antes, los dos `raise` estaban DENTRO del bucle:
+
+        if not isinstance(claim, dict):
+            raise AgentMissionError("claimed_record_missing_claim")
+        ...
+        except ValueError as exc:
+            raise AgentMissionError("claim_lease_invalid") from exc
+
+    Un solo registro malo abortaba el barrido completo **y descartaba las misiones
+    vencidas ya acumuladas**. El llamador recibía una excepción en lugar de una lista,
+    con lo cual *"no hay nada vencido"* y *"no pude mirar"* llegaban indistinguibles.
+
+    El cambio es fail-loud POR REGISTRO en vez de fail-blind por ruta: lo no medible se
+    REPORTA en su propia lista —que es lo contrario de silenciarlo— y el barrido sigue,
+    así una mina en el disco no esconde las misiones vencidas que sí hay que atender.
+    """
     current = now or datetime.now(timezone.utc)
     state = _load_state(route.state_path)
     stale: list[tuple[str, str]] = []
+    unmeasurable: list[tuple[str, str]] = []
     for mission_id, record in state.get("deliveries", {}).items():
         if not isinstance(record, dict) or record.get("status") != "claimed":
             continue
         claim = record.get("claim")
         if not isinstance(claim, dict):
-            raise AgentMissionError("claimed_record_missing_claim")
+            unmeasurable.append((str(mission_id), "claimed_record_missing_claim"))
+            continue
         raw_expiry = str(claim.get("lease_expires_at") or "")
         try:
             expiry = datetime.fromisoformat(raw_expiry.replace("Z", "+00:00"))
-        except ValueError as exc:
-            raise AgentMissionError("claim_lease_invalid") from exc
+        except ValueError:
+            unmeasurable.append((str(mission_id), "claim_lease_invalid"))
+            continue
         if expiry <= current:
             stale.append((str(claim.get("claimed_at") or ""), str(mission_id)))
     stale.sort()
-    return [mission_id for _, mission_id in stale]
+    unmeasurable.sort()
+    return [mission_id for _, mission_id in stale], unmeasurable
+
+
+def stale_claim_mission_ids(
+    *,
+    route: NervesRouteConfig = ADA_ROUTE,
+    now: datetime | None = None,
+) -> list[str]:
+    """Return expired claimed missions without mutating or reassigning them.
+
+    Firma y tipo de retorno SIN CAMBIOS a propósito (condición de ADA): los llamadores
+    de `nerves_local_sidecar.py` y los tests que la monkeypatchean con `lambda **_: []`
+    siguen funcionando igual. Lo no medible se obtiene con `stale_claim_scan()`, que es
+    la que el sidecar usa para exponerlo en su JSON.
+    """
+    vencidas, _no_medibles = stale_claim_scan(route=route, now=now)
+    return vencidas

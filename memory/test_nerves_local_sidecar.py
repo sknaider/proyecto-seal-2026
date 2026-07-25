@@ -146,6 +146,32 @@ def test_claim_conflict_without_durable_claim_remains_fail_closed(
     assert output["error"] == "handoff_not_claimable"
 
 
+def test_idle_reports_unmeasurable_claims_instead_of_plain_idle(
+    monkeypatch, capsys, tmp_path
+):
+    route = _route(tmp_path)
+    unmeasurable = [("mission-bad", "claim_lease_invalid")]
+
+    monkeypatch.setattr(sidecar, "ROUTES", {"ADA": route})
+    monkeypatch.setattr(sidecar, "recoverable_claim_mission_ids", lambda _: [])
+    monkeypatch.setattr(sidecar, "stale_claim_mission_ids", lambda **_: [])
+    monkeypatch.setattr(
+        sidecar,
+        "stale_claim_scan",
+        lambda **_: ([], unmeasurable),
+    )
+    monkeypatch.setattr(sidecar, "pending_mission_ids", lambda _: [])
+
+    assert sidecar.main(["--agent", "ADA"]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output == {
+        "ok": True,
+        "processed": 0,
+        "status": "idle_with_unmeasurable",
+        "unmeasurable_claims": [["mission-bad", "claim_lease_invalid"]],
+    }
+
+
 @pytest.mark.parametrize(
     "record",
     [

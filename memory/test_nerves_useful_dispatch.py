@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import seal_nerves as nerves
 import nerves_maintenance_alice as alice_maintenance
 import nerves_maintenance_jarvis as jarvis_maintenance
+import nerves_maintenance_nexus as nexus_maintenance
 
 
 def test_useful_curiosity_executes_maintenance_without_public_post(monkeypatch):
@@ -93,6 +94,35 @@ def test_jarvis_connector_fails_loud_on_real_finding(monkeypatch, tmp_path):
     assert result is not None
     assert "FINDING" in result
     assert "synthetic mismatch" in result
+
+
+def test_nexus_connector_invokes_read_only_watch_and_persists_green(monkeypatch, tmp_path):
+    artifact = tmp_path / "nexus.jsonl"
+    monkeypatch.setattr(nexus_maintenance, "ARTIFACT", artifact)
+    monkeypatch.setattr(
+        nexus_maintenance,
+        "_watch_check",
+        lambda: ("GREEN", [], [], "controles=3/3 daemons=2/2 cred=0o600"),
+    )
+    assert asyncio.run(nexus_maintenance.security_pulse()) is None
+    payload = json.loads(artifact.read_text(encoding="utf-8").splitlines()[-1])
+    assert payload["state"] == "GREEN"
+    assert payload["action_source"] == "tools/nexus_nerves_watch.py"
+    assert artifact.stat().st_mode & 0o077 == 0
+
+
+def test_nexus_connector_fails_loud_when_instrument_is_broken(monkeypatch, tmp_path):
+    artifact = tmp_path / "nexus.jsonl"
+    monkeypatch.setattr(nexus_maintenance, "ARTIFACT", artifact)
+    monkeypatch.setattr(
+        nexus_maintenance,
+        "_watch_check",
+        lambda: ("BROKEN", [], ["synthetic unreadable control"], "controls unknown"),
+    )
+    result = asyncio.run(nexus_maintenance.security_pulse())
+    assert result is not None
+    assert "BROKEN" in result
+    assert "synthetic unreadable control" in result
 
 
 def test_useful_maintenance_alerts_once_and_deduplicates_same_tick(monkeypatch):

@@ -16,6 +16,7 @@ from memory.nerves_agent_mission_core import (
     _secure_json,
     load_delivery,
     stale_claim_mission_ids,
+    stale_claim_scan,
 )
 from memory.nerves_ollama_runtime_adapter import (
     OllamaRuntimeError,
@@ -236,6 +237,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     stale = stale_claim_mission_ids(route=route)
+    # Se sigue llamando a `stale_claim_mission_ids` para la DECISIÓN de reaping: es la
+    # superficie que los tests monkeypatchean y la que ADA pidió no mover. El barrido
+    # resiliente se consulta aparte, sólo para REPORTAR lo que no se pudo evaluar.
+    _, unmeasurable = stale_claim_scan(route=route)
     if stale:
         result = fail_stale_ollama_claim(stale[0], route=route)
         print(
@@ -246,6 +251,7 @@ def main(argv: list[str] | None = None) -> int:
                     "status": result.status,
                     "receipt_sha256": result.receipt_sha256,
                     "reaped_stale_claim": True,
+                    "unmeasurable_claims": [list(u) for u in unmeasurable],
                 },
                 sort_keys=True,
             )
@@ -253,7 +259,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     pending = pending_mission_ids(route)
     if not pending:
-        print(json.dumps({"ok": True, "status": "idle", "processed": 0}))
+        # `idle` afirma que no hay nada que atender. Con registros no medibles eso es
+        # falso: hay algo que NO SE PUDO MIRAR, que es distinto de que no haya nada.
+        # Antes esa diferencia no llegaba a ninguna salida; ahora viaja en el JSON.
+        idle: dict[str, object] = {"ok": True, "status": "idle", "processed": 0}
+        if unmeasurable:
+            idle["status"] = "idle_with_unmeasurable"
+            idle["unmeasurable_claims"] = [list(u) for u in unmeasurable]
+        print(json.dumps(idle, sort_keys=True))
         return 0
     mission_id = pending[0]
     try:

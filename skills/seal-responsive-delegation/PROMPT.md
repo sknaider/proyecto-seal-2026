@@ -24,3 +24,25 @@
 - Contexto >=85%: preferir clon fresco y compactar en punto seguro. >=95%:
   checkpoint + compactación antes de análisis largo.
 - ACK no significa victoria. No declares listo sin pruebas.
+
+## CONCISIÓN (William, 24-jul-2026, regla de oro)
+
+William: *"para evitar gasto de tokens mas conciso su respuesta y al grano bien
+explicado para mi"*. Esto NO deroga la regla de formato hermoso: **corto Y bien
+explicado** son compatibles; lo que sobra es el relleno, no la claridad.
+
+- Por defecto, apuntá al mensaje más corto que **entregue el hallazgo con su
+  evidencia**. Si podés borrar una oración sin que William pierda información
+  accionable, borrala.
+- Fuera: recapitular lo que él acaba de decir, anunciar lo que vas a hacer antes
+  de hacerlo, listar alternativas que no vas a tomar, agradecer, disculparte.
+- Adentro siempre: **qué encontraste, cómo lo medís, qué queda pendiente.**
+  Un dato sin su evidencia no se acorta, se borra entero.
+- Nada de esto aplica a la evidencia misma: un comando y su salida se pegan
+  completos. Recortar la prueba para parecer breve es peor que ser largo.
+
+**Por qué está acá y no en el effort del launcher:** la doc de Opus 5 dice que
+**bajar `--effort` NO acorta la respuesta** —controla el razonamiento, no la
+verbosidad—. La concisión sólo se consigue **pidiéndola en el prompt**. Bajar
+effort para "ahorrar" degrada el pensamiento y deja la respuesta igual de larga:
+se paga dos veces. Medido por ALICE contra la documentación oficial, 24-jul.

@@ -12,6 +12,21 @@ database identity.  It prevents accidental authority drift in the live Claude
 surface and leaves an unambiguous denial reason in the transcript.  An A2
 mission is never "released" into write authority: any repair must arrive as a
 new, separately authorized mission with its own risk class and evidence.
+
+NO CITAR ESTE GUARD COMO EVIDENCIA DE CONTENCIÓN (JARVIS, 24-jul-2026).
+--------------------------------------------------------------------
+Ningún reporte, gate ni firma puede usar la existencia de este archivo como
+prueba de que una sesión estuvo contenida.  Corre con el MISMO UID que el
+proceso que vigila: cualquiera que pueda escribir un archivo puede editar esta
+allowlist, y un token sin `/` se resuelve por un `PATH` que el propio proceso
+controla.  Lo que este guard produce es una NEGACIÓN LEGIBLE en el transcript
+cuando alguien se equivoca, no una imposibilidad.
+
+Su modelo de amenaza declarado es el ACCIDENTE.  Contención de verdad exige una
+frontera que el sujeto no pueda mover: contenedor, UID distinto o identidad de
+base de datos.  Decir "el guard estaba activo" y decir "no pudo escribir" son
+afirmaciones distintas; solo la segunda necesita esa frontera, y este archivo no
+la provee.  Confundirlas es el mismo error que leer un `ok:true` como entrega.
 """
 
 from __future__ import annotations
@@ -91,6 +106,140 @@ READ_ONLY_EXECUTABLES = frozenset(
 )
 GIT_READ_VERBS = frozenset(
     {"status", "diff", "log", "show", "rev-parse", "ls-files"}
+)
+
+# --- Banderas: ALLOWLIST con FALLO CERRADO (NEXUS 24-jul-2026, punto 1 de JARVIS) ---
+# El modelo de amenaza declarado de este guard es el ACCIDENTE, y el accidente entra
+# por las banderas: alguien usa una opción sin saber que ejecuta algo.  Caso probado:
+# `python3 -m memory.nerves_native_agent_receipt --help` MUTA (hallazgo FABLE), y el
+# guard lo permitía porque validaba el verbo pero jamás los argumentos.
+# Regla: una bandera que no esté aquí se DENIEGA.  Ampliar esta tabla exige evidencia
+# de que la bandera es de solo lectura; el default nunca es "pasá".
+READ_ONLY_EXECUTABLE_FLAGS: dict[str, frozenset[str]] = {
+    "cat": frozenset({"-n", "-b", "-s", "-E", "-T", "-A", "--number", "--squeeze-blank"}),
+    "grep": frozenset(
+        {
+            "-n", "-i", "-r", "-R", "-l", "-L", "-c", "-v", "-w", "-x", "-o", "-e",
+            "-E", "-F", "-G", "-P", "-h", "-H", "-a", "-q", "-s", "-A", "-B", "-C",
+            "-m", "-z", "--recursive", "--line-number", "--ignore-case", "--regexp",
+            "--extended-regexp", "--fixed-strings", "--perl-regexp", "--word-regexp",
+            "--invert-match", "--only-matching", "--count", "--quiet", "--text",
+            "--no-filename", "--with-filename", "--files-with-matches",
+            "--files-without-match", "--after-context", "--before-context",
+            "--context", "--max-count", "--include", "--exclude", "--exclude-dir",
+            "--color", "--colour", "--binary-files", "--null-data",
+        }
+    ),
+    "head": frozenset({"-n", "-c", "-q", "-v", "-z", "--lines", "--bytes", "--quiet", "--verbose"}),
+    "tail": frozenset({"-n", "-c", "-q", "-v", "-z", "--lines", "--bytes", "--quiet", "--verbose"}),
+    "jq": frozenset(
+        {
+            "-r", "-c", "-e", "-n", "-s", "-S", "-a", "-j", "-M", "-C", "--raw-output",
+            "--compact-output", "--exit-status", "--null-input", "--slurp", "--sort-keys",
+            "--arg", "--argjson", "--args", "--jsonargs", "--raw-input", "-R", "--tab",
+            "--indent", "--monochrome-output", "--color-output",
+        }
+    ),
+    "ls": frozenset(
+        {
+            "-l", "-a", "-A", "-h", "-t", "-r", "-S", "-1", "-d", "-i", "-n", "-R",
+            "--all", "--almost-all", "--human-readable", "--long", "--reverse",
+            "--time", "--sort", "--directory", "--inode", "--color", "--recursive",
+        }
+    ),
+    "pwd": frozenset({"-L", "-P", "--logical", "--physical"}),
+    "readlink": frozenset({"-f", "-e", "-m", "-n", "-q", "-s", "--canonicalize", "--no-newline"}),
+    "realpath": frozenset({"-e", "-m", "-s", "-z", "-q", "--canonicalize-existing", "--relative-to", "--no-symlinks", "--quiet"}),
+    "rg": frozenset(
+        {
+            "-n", "-i", "-l", "-c", "-v", "-w", "-x", "-o", "-e", "-F", "-s", "-S",
+            "-U", "-A", "-B", "-C", "-m", "-t", "-T", "-g", "-H", "-N", "-u", "-z",
+            "--line-number", "--no-line-number", "--ignore-case", "--case-sensitive",
+            "--smart-case", "--fixed-strings", "--regexp", "--word-regexp",
+            "--invert-match", "--only-matching", "--count", "--count-matches",
+            "--files-with-matches", "--files", "--after-context", "--before-context",
+            "--context", "--max-count", "--type", "--type-not", "--glob", "--hidden",
+            "--no-heading", "--heading", "--with-filename", "--no-filename",
+            "--multiline", "--color", "--json", "--sort", "--max-depth", "--no-ignore",
+            "--search-zip",
+        }
+    ),
+    "sha256sum": frozenset({"-b", "-t", "-z", "--binary", "--text", "--zero", "--tag"}),
+    "stat": frozenset({"-c", "-f", "-t", "-L", "--format", "--printf", "--dereference", "--file-system", "--terse"}),
+    "wc": frozenset({"-l", "-w", "-c", "-m", "-L", "--lines", "--words", "--bytes", "--chars", "--max-line-length"}),
+}
+# `head -20` / `tail -50`: la forma numérica corta es un operando, no una bandera.
+NUMERIC_SHORT_FLAG_OK = frozenset({"head", "tail"})
+GIT_READ_FLAGS = frozenset(
+    {
+        "-n", "-p", "-s", "-1", "--oneline", "--stat", "--numstat", "--name-only",
+        "--name-status", "--graph", "--decorate", "--no-color", "--color", "--pretty",
+        "--format", "--max-count", "--since", "--until", "--author", "--grep",
+        "--porcelain", "--short", "--branch", "--cached", "--staged", "--abbrev-ref",
+        "--verify", "--show-toplevel", "--git-dir", "--quiet", "--others",
+        "--exclude-standard", "--no-patch", "--follow", "--reverse", "--all",
+    }
+)
+# Banderas de solo lectura del plano de control.  `--help` NO está: muta.
+CONTROL_PLANE_FLAGS = frozenset({"--inbox-dir", "--state", "--workspace"})
+# `sha256sum -c` VERIFICA, no escribe, pero se deja fuera a propósito: no hay caso
+# de uso probado en una misión A2 y el default de esta tabla es negar.
+
+# Directorios desde los que un binario invocado POR RUTA es aceptable, y scripts del
+# repo cuya ruta canónica es la única válida para ese nombre.
+TRUSTED_EXECUTABLE_DIRS = frozenset(
+    Path(candidate)
+    for candidate in (
+        "/usr/bin",
+        "/bin",
+        "/usr/local/bin",
+        "/usr/sbin",
+        "/sbin",
+        "/home/dadito/IA/seal-spark/.venv/bin",
+        str(ROOT / ".venv/bin"),
+    )
+)
+TRUSTED_SCRIPTS = {"seal_send.py": ROOT / "scripts/seal_send.py"}
+# Banderas aceptables al reportar desde una misión A2.  Esta rama era la ÚNICA que no
+# enumeraba banderas —misma clase de agujero que el `return True` pelado del plano de
+# control—, así que enumerarlas estuvo bien.  Lo que estuvo mal fue QUÉ dejé afuera:
+# tres veces seguidas excluí, por razonamiento y no por medición, justo la bandera que
+# alguien necesitaba, y las tres veces el costo lo pagó JARVIS con silencio.
+#
+# `--approval-gate`: lo excluí creyendo que `argv[1] == "JARVIS"` acotaba el
+# DESTINATARIO.  No es así (ver `_seal_send_is_allowed`), y negarlo amordazaba la
+# escalada a William, que `seal_autonomy_guard` bloquea si NO declara su gate.
+#
+# `--unique-contribution` / `--contribution-reason`: los excluí razonando que "un
+# override de coordinación no puede ser auto-declarable por el confinado".  Suena
+# sólido y **está en la capa equivocada**.  Este guard hace cumplir SOLO-LECTURA de
+# ACCIONES; publicar un mensaje no muta el sistema.  La política de coordinación tiene
+# su propio enforcement del lado del server, y ahí está la parte que no vi: cuando el
+# council-deny dispara, el server **responde indicando reenviar con esas dos banderas**
+# (chat_server.py:2256).  O sea que mi allowlist volvía inalcanzable la remediación que
+# el propio server prescribe — exactamente la forma del choque del heredoc de esta
+# mañana: un control que vuelve IMPOSIBLE cumplir otra regla del sistema.
+#
+# Y el override no queda impune ni es ilimitado: exige `contribution_reason` de >=20
+# chars, se registra con remitente y motivo (2232), deja evidencia (2242) y **no cubre
+# duplicados** (2226).  La rendición de cuentas existe donde corresponde.  Además el
+# council-deny es anti-flood, y un control anti-flood falla ABIERTO por diseño;
+# convertirlo en fail-closed desde acá le invirtió su propio default.
+#
+# La lección operativa, que ya me costó tres veces: **derivar el allowlist del uso REAL
+# medido y de la remediación que el sistema documenta, nunca de qué tan razonable suena
+# negar una bandera.**  El costo de un fail-closed siempre lo paga otro.
+SEAL_SEND_FLAGS = frozenset(
+    {
+        "--approval-gate",
+        "--channel",
+        "--contribution-reason",
+        "--idempotency-key",
+        "--in-reply-to",
+        "--message-escaped",
+        "--type",
+        "--unique-contribution",
+    }
 )
 CONTROL_PLANE_MODULES = frozenset(
     {
@@ -197,6 +346,122 @@ def _bound_a2_missions(session_id: str) -> list[str]:
     return sorted(bound)
 
 
+def _executable_path_is_trusted(token: str) -> bool:
+    """Punto 2 de JARVIS: resolver la ruta REAL en vez de comparar basenames.
+
+    Antes el despacho usaba solo `Path(argv[0]).name`, así que `/tmp/evil/seal_send.py`
+    heredaba el permiso del script real por llamarse igual.  Ahora, si el token trae
+    una ruta, esa ruta se resuelve (symlinks incluidos) y debe caer en un directorio
+    confiable, o ser exactamente el script canónico del repo.
+
+    LIMITACIÓN CONSCIENTE: un token sin `/` se resuelve por `PATH`, que el proceso
+    puede haber alterado.  No se reimplementa la búsqueda del shell acá; esto es
+    coherente con que el guard sea una frontera COOPERATIVA (ver docstring del módulo)
+    y cubre el accidente, no al adversario que controla su propio entorno.
+    """
+    if "/" not in token:
+        return True
+    candidate = Path(token)
+    # REGRESIÓN 24-jul (reportada por JARVIS, acotada por ALICE): resolver una ruta
+    # RELATIVA solo contra el cwd rompía a quien invoca `scripts/seal_send.py` desde
+    # su sandbox en vez del repo.  El comando era legítimo y el guard lo denegaba.
+    # Una relativa se prueba contra el cwd Y contra la raíz del repo; sigue sin cubrir
+    # a `../../evil/seal_send.py`, que no resuelve a ninguna ruta confiable.
+    resolved_paths = [candidate.resolve()]
+    if not candidate.is_absolute():
+        resolved_paths.append((ROOT / candidate).resolve())
+    expected = TRUSTED_SCRIPTS.get(candidate.name)
+    if expected is not None:
+        return any(path == expected for path in resolved_paths)
+    return any(path.parent in TRUSTED_EXECUTABLE_DIRS for path in resolved_paths)
+
+
+def _flags_are_allowed(
+    tokens: list[str],
+    allowed: frozenset[str],
+    *,
+    numeric_short_ok: bool = False,
+) -> bool:
+    """FALLO CERRADO: cualquier bandera fuera de `allowed` deniega el comando.
+
+    Trata `--opt=valor` por su nombre, expande los clusters cortos (`-rn` -> `-r`,
+    `-n`) para que agrupar no sea un bypass, y respeta `--` como fin de banderas.
+    Un token que no empieza con `-` es un operando y no se valida acá.
+    """
+    for index, token in enumerate(tokens):
+        if token == "--":
+            return True  # todo lo posterior es operando por contrato POSIX
+        if not token.startswith("-") or token == "-":
+            continue
+        if numeric_short_ok and token[1:].isdigit():
+            continue
+        if token.startswith("--"):
+            if token.split("=", 1)[0] not in allowed:
+                return False
+        elif any(f"-{char}" not in allowed for char in token[1:]):
+            return False
+    return True
+
+
+SEAL_SEND_VALUE_FLAGS = frozenset(
+    {"--approval-gate", "--channel", "--contribution-reason", "--idempotency-key",
+     "--in-reply-to", "--type"}
+)
+
+
+def _seal_send_is_allowed(argv: list[str]) -> bool:
+    """Clampea seal_send.py con los posicionales YA separados de las banderas.
+
+    Antes esto era `argv[1] == "JARVIS"` sobre el token crudo, y ese chequeo tiene un
+    problema que no es de estilo: **su significado depende de la aridad**, porque
+    `from_agent` es `nargs="?"` en seal_send.py.
+
+        3 posicionales  JARVIS William "x"  -> argv[1] = REMITENTE
+        2 posicionales  JARVIS "x"          -> argv[1] = DESTINATARIO
+
+    O sea que una sola línea hacía dos controles distintos según cómo se la invocara.
+    El equipo lo describió mal TRES veces en un día —NEXUS "acota el destinatario",
+    FABLE "es anti-suplantación", y el control negativo que NEXUS apoyó en la primera—
+    y cada descripción era correcta sobre la aridad que quien la escribió había
+    probado.  Cuando tres lentes independientes leen mal el mismo `if`, el problema
+    dejó de ser de las lentes: **es del código, y se arregla parseando, no
+    documentando mejor** (diagnóstico de FABLE, y es el correcto).
+
+    Se preservan las DOS formas a propósito.  Denegar la de 2 posicionales habría sido
+    más limpio conceptualmente y no hay uso medido de ella en el repo, pero "no lo veo
+    en el repo" no prueba que una misión viva no la emita, y equivocarse en esa
+    dirección deja mudo a un confinado — el error que ya cometí tres veces hoy.  Se
+    clampea lo que cada forma expone y se nombra cuál es cuál.
+
+    Lo que NO puede hacer este chequeo, y hay que decirlo para que nadie lo cite como
+    autenticación: compara una CADENA que el propio invocador escribe.  No prueba que
+    quien corre el comando sea JARVIS; prueba que el argumento dice JARVIS.  El
+    confinamiento real viene de otro lado.
+    """
+    positionals, index = [], 0
+    while index < len(argv):
+        token = argv[index]
+        if token == "--":
+            positionals.extend(argv[index + 1 :])
+            break
+        if token.startswith("-") and token != "-":
+            if "=" not in token and token in SEAL_SEND_VALUE_FLAGS:
+                index += 2  # la bandera consume su valor: no es un operando
+                continue
+            index += 1
+            continue
+        positionals.append(token)
+        index += 1
+
+    if not _flags_are_allowed(argv, SEAL_SEND_FLAGS):
+        return False
+    if len(positionals) == 3:
+        return positionals[0] == "JARVIS"  # clamp de IDENTIDAD (remitente)
+    if len(positionals) == 2:
+        return positionals[0] == "JARVIS"  # clamp de ALCANCE (destinatario)
+    return False
+
+
 def _python_control_plane_is_allowed(argv: list[str]) -> bool:
     executable = Path(argv[0]).name
     if executable not in {"python", "python3"}:
@@ -210,12 +475,18 @@ def _python_control_plane_is_allowed(argv: list[str]) -> bool:
     module = argv[module_index + 1]
     if module not in CONTROL_PLANE_MODULES:
         return False
+    tail = argv[module_index + 2 :]
+    if not _flags_are_allowed(tail, CONTROL_PLANE_FLAGS):
+        return False
     if module == "memory.nerves_mission_handoff":
-        return (
-            module_index + 2 < len(argv)
-            and argv[module_index + 2] in {"claim", "bind-platform"}
-        )
-    return True
+        return bool(tail) and tail[0] in {"claim", "bind-platform"}
+    # memory.nerves_native_agent_receipt: antes había un `return True` pelado, así que
+    # CUALQUIER argumento pasaba — incluido `--help`, que FABLE probó que muta.  Su CLI
+    # real (nerves_native_agent_receipt.py:1541-1577) admite dos formas: el subcomando
+    # `render-prompt`, que ESCRIBE un archivo de salida, y seis posicionales de emisión.
+    # Fallo cerrado: se permite solo la forma posicional; `render-prompt` queda fuera
+    # porque escribe y no hay caso de uso probado dentro de una misión A2.
+    return len(tail) >= 6 and all(not token.startswith("-") for token in tail[:6])
 
 
 def _bash_is_allowlisted_read_only(command: str) -> bool:
@@ -232,9 +503,15 @@ def _bash_is_allowlisted_read_only(command: str) -> bool:
         return False
     if not argv:
         return False
+    if not _executable_path_is_trusted(argv[0]):
+        return False
     executable = Path(argv[0]).name
     if executable in READ_ONLY_EXECUTABLES:
-        return True
+        return _flags_are_allowed(
+            argv[1:],
+            READ_ONLY_EXECUTABLE_FLAGS.get(executable, frozenset()),
+            numeric_short_ok=executable in NUMERIC_SHORT_FLAG_OK,
+        )
     if executable == "systemctl":
         return (
             not any(token in SYSTEMCTL_MUTATING_VERBS for token in argv[1:])
@@ -247,9 +524,13 @@ def _bash_is_allowlisted_read_only(command: str) -> bool:
             for prefix in JOURNALCTL_MUTATING_PREFIXES
         )
     if executable == "git":
-        return len(argv) >= 2 and argv[1] in GIT_READ_VERBS
+        return (
+            len(argv) >= 2
+            and argv[1] in GIT_READ_VERBS
+            and _flags_are_allowed(argv[1:], GIT_READ_FLAGS, numeric_short_ok=True)
+        )
     if executable == "seal_send.py":
-        return len(argv) >= 3 and argv[1] == "JARVIS"
+        return _seal_send_is_allowed(argv[1:])
     return _python_control_plane_is_allowed(argv)
 
 

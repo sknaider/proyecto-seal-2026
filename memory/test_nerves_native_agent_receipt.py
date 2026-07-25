@@ -1111,3 +1111,79 @@ def test_direct_submit_cannot_forge_child_semantics(
             inbox_dir=inbox,
             state_path=state,
         )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected"),
+    [
+        # BASELINE — sin mutación el receipt DEBE aceptarse. Sin esta celda el
+        # test sería vacuo: cuatro rechazos no prueban nada si el camino sano
+        # tampoco pasa.
+        ("none", None),
+        # La celda que motiva el hallazgo: el padre persiste el SENTINEL previo
+        # al hook; el prompt renderizado sólo llega al hijo vía updatedInput.
+        # Un transcript con el prompt renderizado del lado del padre es
+        # exactamente el que una implementación ingenua aceptaría.
+        ("rendered_prompt", "parent_agent_spawn_input_mismatch"),
+        ("stub_tampered", "parent_agent_spawn_input_mismatch"),
+        ("extra_input_key", "parent_agent_spawn_input_mismatch"),
+        ("dropped_input_key", "parent_agent_spawn_input_mismatch"),
+    ],
+)
+def test_parent_spawn_attests_sentinel_not_rendered_prompt(
+    tmp_path: Path,
+    mutation: str,
+    expected: str | None,
+) -> None:
+    fixture, handoff, inbox, state, worker, platform, profile = _bound(tmp_path)
+    parent, child = _transcripts(tmp_path, fixture, platform, _model_result())
+
+    if mutation != "none":
+        records = [json.loads(line) for line in parent.read_text().splitlines()]
+        spawn_input = next(
+            item["input"]
+            for record in records
+            if isinstance(record.get("message"), dict)
+            and isinstance(record["message"].get("content"), list)
+            for item in record["message"]["content"]
+            if isinstance(item, dict)
+            and item.get("type") == "tool_use"
+            and item.get("name") == "Agent"
+        )
+        if mutation == "rendered_prompt":
+            spawn_input["prompt"] = build_native_reasoner_prompt(
+                fixture.mission["mission_id"],
+                fixture.evidence.read_bytes(),
+                fixture.provenance.read_bytes(),
+            )
+        elif mutation == "stub_tampered":
+            spawn_input["prompt"] += "unbound\n"
+        elif mutation == "extra_input_key":
+            spawn_input["model"] = "claude-opus-5"
+        else:
+            del spawn_input["run_in_background"]
+        parent.write_text(
+            "".join(json.dumps(record) + "\n" for record in records),
+            encoding="utf-8",
+        )
+        parent.chmod(0o600)
+
+    if expected is None:
+        result = create_native_receipt(
+            fixture.mission["mission_id"],
+            worker,
+            platform,
+            profile,
+            parent,
+            child,
+            inbox_dir=inbox,
+            state_path=state,
+        )
+        assert result.status == "completed"
+        assert result.accepted is True
+        return
+
+    _assert_attestation_failure(
+        fixture, handoff, inbox, state, worker, platform, profile,
+        parent, child, expected,
+    )

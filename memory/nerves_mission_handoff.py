@@ -191,6 +191,90 @@ class ReceiptResult:
     accepted: bool
 
 
+def _boot_id() -> str | None:
+    try:
+        return Path("/proc/sys/kernel/random/boot_id").read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+
+
+def _parse_starttime(crudo: str) -> int | None:
+    """Campo 22 de /proc/<pid>/stat. Función pura para poder probar el caso hostil.
+
+    Se parte por el ÚLTIMO `)` a propósito: el campo 2 es el `comm`, que puede
+    contener espacios y paréntesis, y partir por espacios desde el principio
+    devuelve un campo vecino justo para los procesos con nombre raro — un valor
+    que después se compararía como si fuera identidad.
+    """
+    try:
+        return int(crudo[crudo.rindex(")") + 1 :].split()[19])
+    except (ValueError, IndexError):
+        return None
+
+
+def _process_starttime(pid: int) -> int | None:
+    try:
+        crudo = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return _parse_starttime(crudo)
+
+
+def _worker_liveness_handle() -> dict[str, Any] | None:
+    """Algo DIRECCIONABLE del proceso que reclama, para poder probar su muerte.
+
+    El `worker_id` del claim es un UUID con prefijo: no trae PID, ni sesión, ni
+    handle. Sin esto no hay liveness verificable, y sin liveness no puede haber
+    contrapresión: un lease que vence cambia «congelado para siempre» por «dos
+    workers en la misma misión» cuando el primero está lento y no muerto.
+
+    La terna es la mínima que identifica una INSTANCIA y no un número: el PID
+    solo no alcanza porque el kernel los recicla, y un PID reciclado se ve
+    exactamente igual que el original si no se compara el `starttime`.
+    """
+    pid = os.getpid()
+    arranque = _process_starttime(pid)
+    boot = _boot_id()
+    if arranque is None or boot is None:
+        return None
+    return {"kind": "process", "pid": pid, "boot_id": boot, "starttime": arranque}
+
+
+def claim_worker_liveness(claim: Any) -> dict[str, str]:
+    """¿El proceso que reclamó sigue vivo? Reporta; no muta ni libera nada.
+
+    Devuelve `state` en {alive, dead, unmeasurable} y `detail` con la razón.
+
+    **`unmeasurable` NUNCA es `dead`.** Un claim viejo —escrito antes de que
+    existiera el handle— no habilita reasignar nada. Es lo contrario de un TTL:
+    ante la duda no se libera, porque el daño de duplicar un worker es peor que
+    el de esperar. Sólo se declara muerte cuando se PRUEBA.
+    """
+    if not isinstance(claim, dict):
+        return {"state": "unmeasurable", "detail": "claim_not_a_mapping"}
+    handle = claim.get("worker_liveness")
+    if not isinstance(handle, dict):
+        return {"state": "unmeasurable", "detail": "handle_absent"}
+    if handle.get("kind") != "process":
+        return {"state": "unmeasurable", "detail": "handle_kind_unknown"}
+    pid, boot, arranque = handle.get("pid"), handle.get("boot_id"), handle.get("starttime")
+    if not isinstance(pid, int) or not isinstance(arranque, int) or not isinstance(boot, str):
+        return {"state": "unmeasurable", "detail": "handle_malformed"}
+    boot_actual = _boot_id()
+    if boot_actual is None:
+        return {"state": "unmeasurable", "detail": "boot_id_unreadable"}
+    if boot != boot_actual:
+        # Reboot: TODO proceso de aquel arranque está muerto. Es la única muerte
+        # que se prueba sin mirar el proceso.
+        return {"state": "dead", "detail": "host_rebooted"}
+    actual = _process_starttime(pid)
+    if actual is None:
+        return {"state": "dead", "detail": "process_absent"}
+    if actual != arranque:
+        return {"state": "dead", "detail": "pid_recycled"}
+    return {"state": "alive", "detail": "process_matches_handle"}
+
+
 def _canonical_bytes(value: Any) -> bytes:
     try:
         return json.dumps(
@@ -956,6 +1040,11 @@ def claim_handoff(
             "claimed_at": (now or datetime.now(timezone.utc)).isoformat(),
             "worker_kind": "native_subagent",
             "tools": NATIVE_CONTROL_PLANE_TOOLS,
+            # Aditivo y opcional: `None` si /proc no es legible. Ningún consumidor
+            # del claim compara el dict entero ni lo hashea —verificado uno por uno
+            # en sidecar, guard A2, prompt hook y adaptador ollama—, y el guard A2
+            # pinnea el key-set de `tool_input`, no el del claim.
+            "worker_liveness": _worker_liveness_handle(),
         }
         record["status"] = "claimed"
         deliveries[mission_id] = record

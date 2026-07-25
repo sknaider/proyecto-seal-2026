@@ -41,7 +41,7 @@
     "correlation_id": {"type": ["string", "null"]},
     "nerve_layer": {
       "type": "string",
-      "enum": ["GLOBAL", "AGENT_ROLE", "EMERGENT"]
+      "enum": ["GLOBAL", "AGENT_ROLE", "SELF_CREATED", "EMERGENT"]
     },
     "drive": {
       "type": "string",

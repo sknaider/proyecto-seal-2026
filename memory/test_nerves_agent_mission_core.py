@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -20,6 +20,7 @@ from memory.nerves_agent_mission_core import (
     deliver_handoff,
     hold_handoff,
     load_delivery,
+    stale_claim_scan,
     stale_claim_mission_ids,
 )
 from memory.nerves_ollama_runtime_adapter import (
@@ -465,6 +466,52 @@ def test_expired_claim_is_closed_without_requeue(
     record = load_delivery(delivery.mission_id, route=route)
     assert record["status"] == "failed"
     assert record["claim"]["attempt"] == 1
+
+
+def test_stale_scan_keeps_valid_expiry_when_other_claims_are_unmeasurable(
+    tmp_path: Path,
+):
+    route, compiled = _fixture(tmp_path, claim_lease_seconds=0)
+    delivery = deliver_handoff(compiled, route=route, now=NOW, notify_live=False)
+    claim_handoff(
+        delivery.mission_id,
+        worker_id="local-ollama:stale-control",
+        route=route,
+        now=NOW,
+    )
+    state = mission_core._load_state(route.state_path)
+    control = dict(state["deliveries"][delivery.mission_id])
+    deliveries = {
+        delivery.mission_id: control,
+        "missing-claim": {**control, "mission_id": "missing-claim", "claim": None},
+        "invalid-lease": {
+            **control,
+            "mission_id": "invalid-lease",
+            "claim": {
+                **dict(control["claim"]),
+                "lease_expires_at": "not-an-instant",
+            },
+        },
+    }
+    mission_core._write_state_atomic(
+        route.state_path,
+        mission_core._state_body(deliveries),
+    )
+
+    stale, unmeasurable = stale_claim_scan(
+        route=route,
+        now=NOW + timedelta(seconds=1),
+    )
+
+    assert stale == [delivery.mission_id]
+    assert unmeasurable == [
+        ("invalid-lease", "claim_lease_invalid"),
+        ("missing-claim", "claimed_record_missing_claim"),
+    ]
+    assert stale_claim_mission_ids(
+        route=route,
+        now=NOW + timedelta(seconds=1),
+    ) == [delivery.mission_id]
 
 
 def test_expired_claim_preserves_primary_response_and_closes_once(
