@@ -24,6 +24,7 @@ from memory.nerves_agent_mission_core import (
     stale_claim_mission_ids,
 )
 from memory.nerves_ollama_runtime_adapter import (
+    _prompt,
     _validate_result,
     fail_ollama_claim_validation,
     fail_stale_ollama_claim,
@@ -346,6 +347,46 @@ def test_result_rejects_unknown_evidence_id():
         Exception, match="result_cites_unknown_evidence"
     ):
         _validate_result(result, evidence)
+
+
+def test_result_rejects_reused_evidence_id_across_hypotheses():
+    evidence = {
+        "checks": [{"evidence_id": "allowed"}],
+    }
+    result = {
+        "schema": "soul.nerves.agent-reasoning.v1",
+        "verdict": "observe",
+        "severity": "info",
+        "summary": "Overlapping claims.",
+        "hypotheses": [
+            {
+                "claim": "First claim.",
+                "evidence_ids": ["allowed"],
+                "confidence": 0.6,
+            },
+            {
+                "claim": "Second claim.",
+                "evidence_ids": ["allowed"],
+                "confidence": 0.5,
+            },
+        ],
+        "recommended_actions": [],
+        "verification_checks": [],
+        "uncertainties": [],
+    }
+    with pytest.raises(Exception, match="result_duplicate_evidence_id"):
+        _validate_result(result, evidence)
+
+
+def test_ollama_prompt_exposes_global_evidence_uniqueness_contract():
+    rendered = _prompt(
+        {"agent": "ADA", "action": "engineering_pulse"},
+        {"checks": [{"evidence_id": "engineering:git-diff-check"}]},
+        {"source": "test"},
+        ADA_ROUTE,
+    )
+    assert "each admitted evidence ID at most once" in rendered
+    assert "merge overlapping hypotheses" in rendered
 
 
 def test_runtime_timeout_commits_terminal_failed_receipt(
