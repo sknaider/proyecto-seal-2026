@@ -478,6 +478,33 @@ def _attest_native_transcript_records(
         f"{expected_prompt}\n"
         "</teammate-message>"
     )
+    expected_stub = (
+        "SEAL_NERVES_RENDER_V1\n"
+        f"mission_id={mission_id}\n"
+        f"claim_id={claim_id}\n"
+    )
+    try:
+        audit_raw, _ = _secure_read(
+            prompt_render_audit_path,
+            label="prompt_render_audit",
+            max_bytes=262_144,
+            required_mode=0o600,
+        )
+        audit = _json_no_duplicates(audit_raw, label="prompt_render_audit")
+    except HandoffError as exc:
+        raise NativeReceiptError(f"prompt_render_audit_invalid:{exc}") from exc
+    if audit_raw != _canonical_bytes(audit) + b"\n":
+        raise NativeReceiptError("prompt_render_audit_not_canonical")
+    audit_tool_use_id = audit.get("tool_use_id")
+    if (
+        audit.get("schema") != PROMPT_RENDER_AUDIT_SCHEMA
+        or audit.get("mission_id") != mission_id
+        or audit.get("claim_id") != claim_id
+        or not isinstance(audit_tool_use_id, str)
+        or not audit_tool_use_id
+    ):
+        raise NativeReceiptError("prompt_render_audit_binding_mismatch")
+
     parent_agent_tool_records: list[
         tuple[dict[str, Any], Mapping[str, Any], int]
     ] = []
@@ -492,6 +519,7 @@ def _attest_native_transcript_records(
             if isinstance(item, dict)
             and item.get("type") == "tool_use"
             and item.get("name") == "Agent"
+            and item.get("id") == audit_tool_use_id
         )
     if len(parent_agent_tool_records) != 1:
         raise NativeReceiptError("parent_agent_spawn_not_unique")
@@ -500,11 +528,6 @@ def _attest_native_transcript_records(
     )
     parent_agent_tool_id = parent_agent_tool.get("id")
     parent_agent_input = parent_agent_tool.get("input")
-    expected_stub = (
-        "SEAL_NERVES_RENDER_V1\n"
-        f"mission_id={mission_id}\n"
-        f"claim_id={claim_id}\n"
-    )
     if (
         not isinstance(parent_agent_tool_id, str)
         or not parent_agent_tool_id
@@ -540,7 +563,10 @@ def _attest_native_transcript_records(
         attachment = record.get("attachment")
         if not isinstance(attachment, dict):
             continue
-        if attachment.get("command") == PINNED_PROMPT_RENDER_HOOK_COMMAND:
+        if (
+            attachment.get("command") == PINNED_PROMPT_RENDER_HOOK_COMMAND
+            and attachment.get("toolUseID") == parent_agent_tool_id
+        ):
             renderer_events.append((attachment, record_index))
         if (
             attachment.get("type") == "hook_additional_context"
@@ -627,18 +653,6 @@ def _attest_native_transcript_records(
         or parent_agent_record.get("sessionId") != parent_session_id
     ):
         raise NativeReceiptError("parent_session_binding_invalid")
-    try:
-        audit_raw, _ = _secure_read(
-            prompt_render_audit_path,
-            label="prompt_render_audit",
-            max_bytes=262_144,
-            required_mode=0o600,
-        )
-        audit = _json_no_duplicates(audit_raw, label="prompt_render_audit")
-    except HandoffError as exc:
-        raise NativeReceiptError(f"prompt_render_audit_invalid:{exc}") from exc
-    if audit_raw != _canonical_bytes(audit) + b"\n":
-        raise NativeReceiptError("prompt_render_audit_not_canonical")
     transcript_path = audit.get("transcript_path")
     if (
         set(audit)
@@ -687,7 +701,18 @@ def _attest_native_transcript_records(
         result = record.get("toolUseResult")
         if not isinstance(result, dict):
             continue
-        if result.get("status") == "teammate_spawned":
+        message = record.get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        causally_bound = (
+            isinstance(content, list)
+            and any(
+                isinstance(item, dict)
+                and item.get("type") == "tool_result"
+                and item.get("tool_use_id") == parent_agent_tool_id
+                for item in content
+            )
+        )
+        if result.get("status") == "teammate_spawned" and causally_bound:
             spawns.append((result, record, record_index))
     if len(spawns) != 1:
         raise NativeReceiptError("parent_spawn_binding_not_unique")

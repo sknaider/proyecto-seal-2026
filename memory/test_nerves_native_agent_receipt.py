@@ -518,6 +518,55 @@ def test_native_result_becomes_bound_launcher_receipt(tmp_path: Path) -> None:
     assert replay.receipt_sha256 == result.receipt_sha256
 
 
+def test_second_native_mission_in_same_parent_is_scoped_by_tool_use_id(
+    tmp_path: Path,
+) -> None:
+    """A prior completed Agent spawn must not poison the next mission receipt."""
+
+    fixture, handoff, inbox, state, worker, platform, profile = _bound(tmp_path)
+    parent, child = _transcripts(tmp_path, fixture, platform, _model_result())
+    current = [json.loads(line) for line in parent.read_text().splitlines()]
+    previous = json.loads(json.dumps(current))
+
+    previous_tool_id = "toolu-previous-agent"
+    previous_parent_uuid = "previous-agent-tool-record"
+    previous[0]["uuid"] = previous_parent_uuid
+    previous[0]["message"]["content"][0]["id"] = previous_tool_id
+    previous[0]["message"]["content"][0]["input"]["prompt"] = (
+        "SEAL_NERVES_RENDER_V1\n"
+        "mission_id=11111111-1111-4111-8111-111111111111\n"
+        "claim_id=22222222-2222-4222-8222-222222222222\n"
+    )
+    previous[1]["attachment"]["toolUseID"] = previous_tool_id
+    previous[2]["attachment"]["toolUseID"] = previous_tool_id
+    previous[3]["parentUuid"] = previous_parent_uuid
+    previous[3]["sourceToolAssistantUUID"] = previous_parent_uuid
+    previous[3]["message"]["content"][0]["tool_use_id"] = previous_tool_id
+    previous[3]["toolUseResult"]["agent_id"] = "previous-platform-worker"
+
+    parent.write_text(
+        "".join(json.dumps(record) + "\n" for record in [*previous, *current]),
+        encoding="utf-8",
+    )
+    parent.chmod(0o600)
+
+    result = create_native_receipt(
+        fixture.mission["mission_id"],
+        worker,
+        platform,
+        profile,
+        parent,
+        child,
+        inbox_dir=inbox,
+        state_path=state,
+    )
+    assert result.status == "completed"
+    assert result.accepted is True
+    receipt = json.loads(handoff.receipt_path.read_text())
+    assert receipt["verifier_verdict"]["verdict"] == "accepted"
+    assert receipt["platform_worker_id"] == platform
+
+
 def test_source_transcript_prefixes_are_each_read_once(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
