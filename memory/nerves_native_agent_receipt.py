@@ -107,10 +107,11 @@ def _spawn_result_name_matches(
 ) -> bool:
     """Accept Claude's collision suffix while binding it to the worker ID.
 
-    Claude preserves the requested Agent ``name`` for the first spawn, then
-    appends ``-N`` when the same parent session reuses that name.  The suffix
-    is platform-assigned and is also the exact prefix of ``agent_id``.  Keep
-    the requested namespace fail-closed and require both fields to agree.
+    Three repeated spawns with the same requested literal were observed as
+    the base name, ``-2`` and ``-3``.  That does not establish how Claude
+    assigns names when requested literals differ.  This verifier does not
+    predict that rule: it confines the returned namespace and binds the
+    platform-assigned name to the exact ``agent_id`` prefix.
     """
 
     if not isinstance(spawn_name, str):
