@@ -127,13 +127,19 @@ def main() -> None:
         print(json.dumps({}))
         return
 
-    output = {
-        "hookSpecificOutput": {
-            "hookEventName": "PostToolUse",
-            "toolResponse": truncated,
-        }
-    }
-    print(json.dumps(output))
+    # HOTFIX (JARVIS design-owner + FABLE verificador, 2026-07-18):
+    # PostToolUse hookSpecificOutput NO admite "toolResponse" en el schema de
+    # Claude Code (v2.1.212): solo hookEventName + additionalContext, y
+    # additionalContext AÑADE texto (no reemplaza el tool_result). Emitir el dict
+    # con toolResponse causaba "Hook JSON output validation failed — (root):
+    # Invalid input" en TODO output > budget (fleet-wide), y como se rechazaba, el
+    # truncado NUNCA se aplicaba → outputs enteros → presión de contexto que
+    # alimentaba los loops de auto-compact (una de las causas del outage 2026-07-18).
+    # No-op válido: mata el error/spam sin perder comportamiento (ya estaba roto).
+    # El ahorro real de contexto requiere otro mecanismo (rediseño aparte — PostToolUse
+    # no puede reescribir el tool_result en este Claude Code).
+    _ = truncated  # computado pero no emitible bajo el schema actual
+    print(json.dumps({}))
 
 
 if __name__ == "__main__":

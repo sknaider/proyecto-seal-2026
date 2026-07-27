@@ -69,7 +69,7 @@ async def main() -> int:
 
             CREATE OR REPLACE VIEW soul_v3.stability_guard_autonomy_rules_v
             WITH (security_barrier=true) AS
-              SELECT id, content, active
+              SELECT DISTINCT id, content, active
               FROM soul_v3.rules
               WHERE id IN (42,73);
 
@@ -87,12 +87,17 @@ async def main() -> int:
                 AND usename IN ('seal','postgres');
             """
         )
-        await admin.execute(
-            f"GRANT SELECT ON "
+        guard_views = (
             "soul_v3.stability_guard_ada_memory_audit_v, "
             "soul_v3.stability_guard_autonomy_rules_v, "
             "soul_v3.stability_guard_jarvis_identity_v, "
-            f"soul_v3.stability_guard_superuser_clients_v TO {ROLE}"
+            "soul_v3.stability_guard_superuser_clients_v"
+        )
+        await admin.execute(
+            f"REVOKE ALL ON {guard_views} FROM PUBLIC, soul_sdk_runtime"
+        )
+        await admin.execute(
+            f"GRANT SELECT ON {guard_views} TO {ROLE}"
         )
     finally:
         await admin.close()
@@ -111,6 +116,20 @@ async def main() -> int:
         rules = await conn.fetchval(
             "SELECT count(*) FROM soul_v3.stability_guard_autonomy_rules_v"
         )
+        sdk_view_dml_denied = not any([
+            await conn.fetchval(
+                "SELECT has_table_privilege('soul_sdk_runtime', "
+                "'soul_v3.stability_guard_autonomy_rules_v', $1)",
+                privilege,
+            )
+            for privilege in ("INSERT", "UPDATE", "DELETE")
+        ])
+        view_is_read_only = await conn.fetchval(
+            "SELECT is_updatable='NO' AND is_insertable_into='NO' "
+            "FROM information_schema.views "
+            "WHERE table_schema='soul_v3' "
+            "AND table_name='stability_guard_autonomy_rules_v'"
+        )
         denied = False
         try:
             await conn.fetchval("SELECT count(*) FROM soul_v3.memories")
@@ -122,6 +141,8 @@ async def main() -> int:
             and not attrs["rolbypassrls"]
             and not attrs["rolinherit"]
             and rules == 2
+            and sdk_view_dml_denied
+            and view_is_read_only
             and denied
             and (CRED.stat().st_mode & 0o777) == 0o600
         )
@@ -130,6 +151,8 @@ async def main() -> int:
                 "ok": ok,
                 "role": ROLE,
                 "rules": rules,
+                "sdk_view_dml_denied": sdk_view_dml_denied,
+                "view_is_read_only": view_is_read_only,
                 "base_memories_denied": denied,
                 "mode": oct(CRED.stat().st_mode & 0o777),
             }
