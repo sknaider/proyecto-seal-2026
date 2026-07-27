@@ -31,6 +31,9 @@ QUERY_EXPANSIONS: dict[str, tuple[str, ...]] = {
     "consola": ("terminal", "powershell"),
     "recuerdos": ("memoria", "memory"),
     "pesas": ("prioriza", "peso", "contrato"),
+    "trabajas": ("work", "recovery", "operacional"),
+    "hablas": ("relationship", "emocional"),
+    "distinto": ("dual", "mode", "contrato"),
     "familia": ("emocional", "relationship", "william"),
     "generica": ("identidad", "presencia", "soul"),
     "genérica": ("identidad", "presencia", "soul"),
@@ -137,6 +140,10 @@ def extract_facets(text: str, *, category: str = "", layer: str = "") -> dict[st
         add_facet(facets, "relation:family", 0.76)
     if contains_any(content, ("presencia", "esencia", "memoria emocional", "emocional")):
         add_facet(facets, "state:emotional_presence", 0.96)
+    if contains_any(content, ("dual-memory", "dual memory", "work/recovery mode")) and contains_any(
+        content, ("relationship mode", "memoria emocional")
+    ):
+        add_facet(facets, "contract:dual_memory", 1.0)
     if contains_any(content, ("soul", "alma", "continuidad")):
         add_facet(facets, "system:soul", 0.80)
 
@@ -174,6 +181,14 @@ def extract_facets(text: str, *, category: str = "", layer: str = "") -> dict[st
     if {"librerias", "librerías", "herramientas", "tools", "instalar"} & tokens:
         add_facet(facets, "intent:tooling_permission", 0.92)
         add_facet(facets, "capability:tooling", 0.84)
+    if (
+        {"recuerdos", "memoria", "memory"} & tokens
+        and {"trabajas", "work", "recovery", "operacional"} & tokens
+        and {"familia", "relationship", "emocional"} & tokens
+    ):
+        add_facet(facets, "intent:dual_memory_contract", 1.0)
+        add_facet(facets, "contract:dual_memory", 0.96)
+        add_facet(facets, "state:emotional_presence", 0.72)
 
     return facets
 
@@ -267,6 +282,9 @@ def intent_score_from_facets(query_facets: dict[str, float], memory_facets: dict
     if "intent:tooling_permission" in query_facets:
         required = ("capability:tooling", "evidence:validation")
         best = max(best, sum(1 for facet in required if facet in memory_facets) / len(required))
+    if "intent:dual_memory_contract" in query_facets:
+        required = ("contract:dual_memory", "state:emotional_presence", "layer:operational")
+        best = max(best, sum(1 for facet in required if facet in memory_facets) / len(required))
     return best
 
 
@@ -333,6 +351,14 @@ class SoulFacetGraph:
             penalty += 0.14
         if "intent:tooling_permission" in query_facets and "capability:tooling" not in memory_facets:
             penalty += 0.12
+        if "intent:dual_memory_contract" in query_facets and "contract:dual_memory" not in memory_facets:
+            penalty += 0.24
+        if "intent:channel_rule" in query_facets and not (
+            "category:rule" in memory_facets
+            or "category:operational_anchor" in memory_facets
+            or "category:correction" in memory_facets
+        ):
+            penalty += 0.22
         return min(penalty, 0.50)
 
 

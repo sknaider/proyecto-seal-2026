@@ -5,8 +5,10 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from soul_map_benchmark import (
     CompiledSoulFacetGraph,
+    MemoryAnchor,
     SoulFacetGraph,
     SoulMapCase,
+    _matches_anchor,
     evaluate_case_compiled,
     evaluate_case,
     extract_facets,
@@ -276,3 +278,40 @@ def test_compiled_rank_top_preserves_tie_break_by_importance_and_id():
     ]
     ranked = CompiledSoulFacetGraph(rows).rank_top("same", preferred_layer="operational", k=3)
     assert [item.id for item in ranked] == [3, 1, 2]
+
+
+def test_stable_anchor_matches_metadata_instead_of_expiring_database_id():
+    record = {
+        "source": "conversation",
+        "category": "decision",
+        "content": "Contrato vivo dual-memory para ADA",
+        "metadata": '{"anchor_kind":"canonical_operational_dual_memory"}',
+    }
+    anchor = MemoryAnchor(
+        metadata=(("anchor_kind", "canonical_operational_dual_memory"),),
+        content_all=("dual-memory",),
+    )
+    assert _matches_anchor(record, anchor) is True
+
+
+def test_dual_memory_intent_prefers_the_canonical_contract():
+    rows = [
+        make_row(
+            248035,
+            "Contrato vivo dual-memory. En work/recovery mode prioriza memoria operativa; "
+            "en relationship mode pesa memoria emocional para familia.",
+            category="decision",
+        ),
+        make_row(
+            2,
+            "La familia SEAL comparte herramientas y trabaja de forma proactiva.",
+            category="decision",
+        ),
+    ]
+    ranked = rank_rows(
+        "cuando trabajas y cuando me hablas como familia que recuerdos pesas distinto",
+        rows,
+        preferred_layer="operational",
+    )
+    assert ranked[0].id == 248035
+    assert ranked[0].intent_score > ranked[1].intent_score

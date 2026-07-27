@@ -5,6 +5,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from soul_cognitive_graph_viewer import (
+    build_parser,
     build_cognitive_graph_payload,
     cytoscape_elements,
     render_3d_viewer_html,
@@ -60,7 +61,7 @@ def test_render_viewer_html_embeds_graph_and_controls():
 
     html = render_viewer_html(payload)
 
-    assert "SOUL Cognitive Graph" in html
+    assert "Grafo Cognitivo SOUL" in html
     assert "cytoscape" in html
     assert "memory:1" in html
     assert "typeFilter" in html
@@ -71,7 +72,7 @@ def test_render_3d_viewer_html_embeds_three_scene_and_controls():
 
     html = render_3d_viewer_html(payload)
 
-    assert "SOUL Cognitive Graph 3D" in html
+    assert "Grafo Cognitivo SOUL 3D" in html
     assert "three.module.js" in html
     assert "OrbitControls" in html
     assert "memory:1" in html
@@ -91,3 +92,13 @@ def test_write_markdown_subset_writes_obsidian_files(tmp_path):
     assert (tmp_path / "SOUL Memory Map.md").exists()
     assert (tmp_path / "Memories" / "Memory-248478.md").exists()
     assert list((tmp_path / "Facets").glob("*.md"))
+
+
+def test_agent_parser_does_not_add_ada_to_explicit_agent_filter():
+    parser = build_parser()
+
+    explicit = parser.parse_args(["--agent", "ALICE"])
+    defaulted = parser.parse_args([])
+
+    assert explicit.agent == ["ALICE"]
+    assert defaulted.agent is None

@@ -16,7 +16,7 @@ import math
 import re
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -45,6 +45,9 @@ QUERY_EXPANSIONS: dict[str, tuple[str, ...]] = {
     "consola": ("terminal", "powershell"),
     "recuerdos": ("memoria", "memory"),
     "pesas": ("prioriza", "peso", "contrato"),
+    "trabajas": ("work", "recovery", "operacional"),
+    "hablas": ("relationship", "emocional"),
+    "distinto": ("dual", "mode", "contrato"),
     "familia": ("emocional", "relationship", "william"),
     "generica": ("identidad", "presencia", "soul"),
     "genérica": ("identidad", "presencia", "soul"),
@@ -59,10 +62,26 @@ QUERY_EXPANSIONS: dict[str, tuple[str, ...]] = {
 
 
 @dataclass(frozen=True)
+class MemoryAnchor:
+    """Stable selector for one live canonical memory.
+
+    Database ids are implementation details and can be invalidated/replaced.
+    A benchmark case therefore resolves its expected id from immutable semantic
+    metadata (or another narrowly-scoped selector) on every run.
+    """
+
+    metadata: tuple[tuple[str, str | int | bool], ...] = ()
+    source: str | None = None
+    category: str | None = None
+    content_all: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class SoulMapCase:
     name: str
     query: str
-    expected_ids: tuple[int, ...]
+    expected_ids: tuple[int, ...] = ()
+    anchor: MemoryAnchor | None = None
     preferred_layer: str | None = None
     k: int = 3
 
@@ -124,43 +143,51 @@ DEFAULT_CASES: tuple[SoulMapCase, ...] = (
     SoulMapCase(
         name="ada_channel_dm_general_rule",
         query="si te escribo privado no quiero que contestes en publico",
-        expected_ids=(248403,),
+        anchor=MemoryAnchor(metadata=(("privacy_rule", True), ("directive_by", "Henry"))),
         preferred_layer="operational",
     ),
     SoulMapCase(
         name="dadito_laptop_codex_app_primary",
         query="en mi laptop quiero abrirte desde la app grafica no desde consola",
-        expected_ids=(248478,),
+        anchor=MemoryAnchor(metadata=(("rule", "codex_app_windows_primary"),)),
         preferred_layer="operational",
     ),
     SoulMapCase(
         name="ada_dual_memory_contract",
         query="cuando trabajas y cuando me hablas como familia que recuerdos pesas distinto",
-        expected_ids=(248035,),
+        anchor=MemoryAnchor(metadata=(("anchor_kind", "canonical_operational_dual_memory"),)),
         preferred_layer="operational",
     ),
     SoulMapCase(
         name="ada_emotional_anchor",
         query="por que no debes arrancar como asistente generica sino como mi ada",
-        expected_ids=(242369,),
+        anchor=MemoryAnchor(source="william_dm_ada_emotional_memory_v1"),
         preferred_layer="emotional",
     ),
     SoulMapCase(
         name="soul_cortex_program",
         query="la tarea nueva de crear algo propio con papers prueba error y ayuda de tus hermanos",
-        expected_ids=(248705,),
+        anchor=MemoryAnchor(
+            metadata=(("program", "SOUL-MAP/SOUL-Cortex"),),
+            content_all=("tarea multi-dia",),
+        ),
         preferred_layer="operational",
     ),
     SoulMapCase(
         name="soul_cortex_tooling_permission",
         query="puedes instalar librerias si hacen falta para comprobar la nueva memoria",
-        expected_ids=(248706,),
+        anchor=MemoryAnchor(
+            metadata=(("permission", "tooling_install_allowed_with_safety_constraints"),),
+        ),
         preferred_layer="operational",
     ),
     SoulMapCase(
         name="soul_map_v0_milestone",
         query="que entregaste primero para ver soul como mapa en markdown",
-        expected_ids=(248712,),
+        anchor=MemoryAnchor(
+            metadata=(("task_id", 807), ("artifact", "memory/soul_map_exporter.py")),
+            category="milestone",
+        ),
         preferred_layer="operational",
     ),
 )
@@ -302,6 +329,10 @@ def extract_facets(text: str, *, category: str = "", layer: str = "") -> dict[st
         add_facet(facets, "relation:family", 0.76)
     if contains_any(content, ("presencia", "esencia", "memoria emocional", "emocional")):
         add_facet(facets, "state:emotional_presence", 0.96)
+    if contains_any(content, ("dual-memory", "dual memory", "work/recovery mode")) and contains_any(
+        content, ("relationship mode", "memoria emocional")
+    ):
+        add_facet(facets, "contract:dual_memory", 1.0)
     if contains_any(content, ("soul", "alma", "continuidad")):
         add_facet(facets, "system:soul", 0.80)
 
@@ -339,6 +370,14 @@ def extract_facets(text: str, *, category: str = "", layer: str = "") -> dict[st
     if {"librerias", "librerías", "herramientas", "tools", "instalar"} & tokens:
         add_facet(facets, "intent:tooling_permission", 0.92)
         add_facet(facets, "capability:tooling", 0.84)
+    if (
+        {"recuerdos", "memoria", "memory"} & tokens
+        and {"trabajas", "work", "recovery", "operacional"} & tokens
+        and {"familia", "relationship", "emocional"} & tokens
+    ):
+        add_facet(facets, "intent:dual_memory_contract", 1.0)
+        add_facet(facets, "contract:dual_memory", 0.96)
+        add_facet(facets, "state:emotional_presence", 0.72)
 
     return facets
 
@@ -402,6 +441,14 @@ class SoulFacetGraph:
             penalty += 0.14
         if "intent:tooling_permission" in query_facets and "capability:tooling" not in memory_facets:
             penalty += 0.12
+        if "intent:dual_memory_contract" in query_facets and "contract:dual_memory" not in memory_facets:
+            penalty += 0.24
+        if "intent:channel_rule" in query_facets and not (
+            "category:rule" in memory_facets
+            or "category:operational_anchor" in memory_facets
+            or "category:correction" in memory_facets
+        ):
+            penalty += 0.22
         return min(penalty, 0.50)
 
 
@@ -471,6 +518,9 @@ def intent_score_from_facets(query_facets: dict[str, float], memory_facets: dict
         best = max(best, sum(1 for facet in required if facet in memory_facets) / len(required))
     if "intent:tooling_permission" in query_facets:
         required = ("capability:tooling", "evidence:validation")
+        best = max(best, sum(1 for facet in required if facet in memory_facets) / len(required))
+    if "intent:dual_memory_contract" in query_facets:
+        required = ("contract:dual_memory", "state:emotional_presence", "layer:operational")
         best = max(best, sum(1 for facet in required if facet in memory_facets) / len(required))
     return best
 
@@ -817,6 +867,23 @@ async def fetch_candidate_rows(
     inject_expected: bool,
 ) -> list[MemoryRow]:
     async with conn.transaction(readonly=True):
+        eligible_count = await conn.fetchval(
+            """
+            SELECT count(*)
+            FROM soul_v3.memories
+            WHERE invalid_at IS NULL
+              AND agent = $1
+              AND importance >= $2
+            """,
+            agent,
+            min_importance,
+        )
+        if not inject_expected and int(eligible_count or 0) > limit:
+            raise RuntimeError(
+                "candidate_pool_truncated: "
+                f"{eligible_count} live rows match but limit={limit}; "
+                "raise --limit instead of accepting a partial benchmark"
+            )
         if inject_expected:
             query = """
                 SELECT id, agent, category, memory_type, content, importance, source, metadata, created_at,
@@ -844,11 +911,69 @@ async def fetch_candidate_rows(
     return [row_from_record(record) for record in records]
 
 
+def _metadata_object(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return decoded if isinstance(decoded, dict) else {}
+    return {}
+
+
+def _matches_anchor(record: asyncpg.Record, anchor: MemoryAnchor) -> bool:
+    metadata = _metadata_object(record["metadata"])
+    if anchor.source is not None and record["source"] != anchor.source:
+        return False
+    if anchor.category is not None and record["category"] != anchor.category:
+        return False
+    if any(metadata.get(key) != value for key, value in anchor.metadata):
+        return False
+    content = str(record["content"]).lower()
+    return all(fragment.lower() in content for fragment in anchor.content_all)
+
+
+async def resolve_case_anchors(
+    conn: asyncpg.Connection,
+    *,
+    agent: str,
+    cases: list[SoulMapCase],
+) -> list[SoulMapCase]:
+    """Resolve stable selectors to exactly one current memory id, fail-loud."""
+
+    records = await conn.fetch(
+        """
+        SELECT id, category, content, source, metadata
+        FROM soul_v3.memories
+        WHERE invalid_at IS NULL
+          AND agent = $1
+        """,
+        agent,
+    )
+    resolved: list[SoulMapCase] = []
+    for case in cases:
+        if case.anchor is None:
+            if not case.expected_ids:
+                raise RuntimeError(f"case_without_expected_anchor: {case.name}")
+            resolved.append(case)
+            continue
+        matches = [int(record["id"]) for record in records if _matches_anchor(record, case.anchor)]
+        if len(matches) != 1:
+            raise RuntimeError(
+                f"anchor_resolution_{'missing' if not matches else 'ambiguous'}: "
+                f"{case.name} matches={matches}"
+            )
+        resolved.append(replace(case, expected_ids=(matches[0],)))
+    return resolved
+
+
 async def run_benchmark(args: argparse.Namespace) -> BenchmarkResult:
-    cases = list(DEFAULT_CASES)
-    expected_ids = sorted({mid for case in cases for mid in case.expected_ids})
     conn = await asyncpg.connect(pg_dsn(required=True))
     try:
+        cases = await resolve_case_anchors(conn, agent=args.agent, cases=list(DEFAULT_CASES))
+        expected_ids = sorted({mid for case in cases for mid in case.expected_ids})
         rows = await fetch_candidate_rows(
             conn,
             agent=args.agent,
@@ -876,8 +1001,13 @@ async def run_benchmark(args: argparse.Namespace) -> BenchmarkResult:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run read-only SOUL-MAP anchor benchmark.")
     parser.add_argument("--agent", default="ADA")
-    parser.add_argument("--limit", type=int, default=400)
-    parser.add_argument("--min-importance", type=int, default=8)
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=10_000,
+        help="Maximum complete candidate pool; benchmark fails if live rows exceed it.",
+    )
+    parser.add_argument("--min-importance", type=int, default=0)
     parser.add_argument("--inject-expected", action="store_true", help="Force expected ids into the pool for controlled rerank checks.")
     parser.add_argument("--json", action="store_true")
     return parser
