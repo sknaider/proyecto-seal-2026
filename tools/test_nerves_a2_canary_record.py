@@ -170,6 +170,7 @@ def test_records_content_free_principal_ack(tmp_path: Path):
     assert value["estimated_cost_units"] == 0
     assert value["mutations"] == 0
     assert value["harm_avoided"] == 0
+    assert value["harm_avoided_method"] == "principal_ack_under_2s"
     assert value["utility_basis"] == "measured_principal_ack_latency"
     assert value["attestation_sha256"] == hashlib.sha256(
         attestation.read_bytes()

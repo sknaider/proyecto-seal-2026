@@ -506,7 +506,7 @@ def record_principal_ack(
         "human_corrections": 0,
         "harm_avoided": 0,
         "harm_caused": 0,
-        "harm_avoided_method": "none_claimed_ack_canary",
+        "harm_avoided_method": "principal_ack_under_2s",
         "principal_ack_latency_ms": principal_ack_latency_ms,
         "attestation_kind": "principal_ack_evidence",
         "attestation_path": str(evidence_path.resolve()),
