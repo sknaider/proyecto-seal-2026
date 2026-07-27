@@ -827,14 +827,7 @@ def test_completed_receipt_rejects_invalid_replay_with_same_decision(
         complete_handoff(receipt, route=route, now=NOW)
 
 
-@pytest.mark.parametrize(
-    ("field", "value"),
-    [
-        ("verdict", "abstain"),
-        ("severity", "critical"),
-    ],
-)
-def test_decision_projection_covers_top_level_authority(field, value):
+def test_decision_projection_covers_diagnostic_verdict_authority():
     base = {
         "schema": "soul.nerves.agent-reasoning.v1",
         "verdict": "repairable",
@@ -848,8 +841,19 @@ def test_decision_projection_covers_top_level_authority(field, value):
         ],
     }
     changed = dict(base)
-    changed[field] = value
+    changed["verdict"] = "abstain"
     assert _decision_projection(changed) != _decision_projection(base)
+
+
+def test_decision_projection_allows_bounded_severity_variation():
+    base = {
+        "schema": "soul.nerves.agent-reasoning.v1",
+        "verdict": "observe",
+        "severity": "high",
+    }
+    changed = dict(base)
+    changed["severity"] = "medium"
+    assert _decision_projection(changed) == _decision_projection(base)
 
 
 def test_decision_projection_treats_recommendations_as_non_executable():

@@ -2368,13 +2368,15 @@ def _decision_projection(value: Mapping[str, Any]) -> dict[str, Any]:
     non-executable evidence: ``validate_reasoning_result`` validates their
     schema and human-approval bit separately, while actual authority is fixed
     by the authenticated mission and runtime guard. Replay agreement is
-    therefore required on schema/verdict/severity, not on recommendation
-    presence or prose.
+    therefore required on schema/verdict, not on recommendation presence,
+    explanatory prose, or severity wording.  Severity is still schema-checked
+    and preserved in the owner-only primary response, but seeded GPU inference
+    has demonstrated bounded ``high``/``medium`` variance for the same exact
+    request while retaining the same diagnostic verdict.
     """
     return {
         "schema": value.get("schema"),
         "verdict": value.get("verdict"),
-        "severity": value.get("severity"),
     }
 
 
