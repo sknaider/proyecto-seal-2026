@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Runtime-neutral custody, claim, and receipt core for SEAL NERVES missions.
 
-JARVIS keeps its closed Claude receipt v1 adapter.  This module is the v2 core
-for new agents: route configuration is server-side, evidence is domain-specific,
-and the runtime adapter is explicit.  It never launches a model or grants a
-repair capability.
+JARVIS keeps its closed Claude receipt v1 adapter as the preferred native
+route.  The runtime-neutral route below is an explicit fail-closed fallback for
+periods where that provider is unavailable; it preserves JARVIS ownership while
+changing only the isolated reasoning carrier.  Route configuration is
+server-side, evidence is domain-specific, and the runtime adapter is explicit.
+This module never launches a model or grants a repair capability.
 """
 
 from __future__ import annotations
@@ -215,11 +217,39 @@ FABLE_ROUTE = NervesRouteConfig(
     live_channel="internal:nerves:fable",
 )
 
+JARVIS_PORTABLE_ROUTE = NervesRouteConfig(
+    agent="JARVIS",
+    action="integrity_pulse",
+    specialty="architecture_integrity_audit",
+    objective=(
+        "Classify one authenticated JARVIS architecture-integrity observation "
+        "and propose the smallest separately governed next action without "
+        "mutation."
+    ),
+    skill_id="seal-nerves-integrity-audit",
+    skill_dir=ROOT / "skills/seal-nerves-integrity-audit",
+    allowed_tools=(),
+    runtime="local_ollama_json_no_tools",
+    inbox_dir=(
+        ROOT / "research/flywire_results/nerves_orchestrator_inbox/JARVIS_PORTABLE"
+    ),
+    runtime_artifact_dir=(
+        ROOT / "research/flywire_results/nerves_ollama_runs/JARVIS"
+    ),
+    state_path=(
+        ROOT
+        / "research/flywire_results/nerves_orchestrator_inbox/JARVIS_PORTABLE.state.json"
+    ),
+    live_feed=Path("/tmp/seal_events_JARVIS.log"),
+    live_channel="internal:nerves:jarvis-portable",
+)
+
 ROUTES = {
     "ADA": ADA_ROUTE,
     "ALICE": ALICE_ROUTE,
     "NEXUS": NEXUS_ROUTE,
     "FABLE": FABLE_ROUTE,
+    "JARVIS": JARVIS_PORTABLE_ROUTE,
 }
 
 
@@ -1414,6 +1444,266 @@ def compile_fable_rigor_mission(
         )
         if current != provenance:
             raise AgentMissionError("existing_fable_provenance_mismatch")
+    return CompiledMission(
+        opened.mission,
+        manifest_path,
+        evidence_path,
+        provenance_path,
+        opened.created,
+    )
+
+
+def latest_jarvis_integrity_episode(
+    artifact_path: Path,
+) -> tuple[dict[str, Any], str] | None:
+    """Return the latest bounded JARVIS integrity observation.
+
+    Unlike the native Claude adapter, the portable carrier does not collect
+    evidence.  It only receives one record already produced by the existing
+    read-only JARVIS integrity probe.
+    """
+    candidate: tuple[dict[str, Any], str] | None = None
+    for number, line in enumerate(
+        artifact_path.read_text(encoding="utf-8").splitlines(), 1
+    ):
+        if not line.strip():
+            continue
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise AgentMissionError(
+                f"jarvis_artifact_invalid_json_line_{number}"
+            ) from exc
+        if not isinstance(value, dict):
+            raise AgentMissionError(
+                f"jarvis_artifact_line_{number}_not_object"
+            )
+        if (
+            value.get("agent") != "JARVIS"
+            or value.get("action") != "integrity_pulse"
+            or value.get("status") not in {"clean", "issue"}
+            or value.get("state") not in {"GREEN", "FINDING", "BROKEN"}
+            or not isinstance(value.get("p5_validation_canary"), bool)
+        ):
+            continue
+        digest = _record_sha256(value)
+        candidate = (
+            value,
+            f"jarvis-portable:{value.get('ts')}:{digest}",
+        )
+    return candidate
+
+
+def _compile_jarvis_portable_envelope(
+    record: Mapping[str, Any],
+    *,
+    artifact_path: Path,
+    episode_anchor: str,
+    route: NervesRouteConfig = JARVIS_PORTABLE_ROUTE,
+    workspace_root: Path = ROOT,
+) -> dict[str, Any]:
+    if route.agent != "JARVIS" or route.action != "integrity_pulse":
+        raise AgentMissionError("jarvis_portable_compiler_route_mismatch")
+    if record.get("agent") != route.agent or record.get("action") != route.action:
+        raise AgentMissionError("source_record_route_mismatch")
+    workspace = workspace_root.resolve(strict=True)
+    source = artifact_path.resolve(strict=True)
+    if not source.is_file() or not source.is_relative_to(workspace):
+        raise AgentMissionError("artifact_outside_workspace")
+    source_relative = source.relative_to(workspace).as_posix()
+    record_digest = _record_sha256(record)
+    episode_material = {
+        "agent": route.agent,
+        "action": route.action,
+        "record_sha256": record_digest,
+        "episode_anchor": episode_anchor,
+        "route_sha256": route.route_sha256,
+    }
+    episode_key = _sha256(_canonical_bytes(episode_material))
+    mission_id = str(uuid.uuid5(MISSION_NAMESPACE, episode_key))
+    mission = {
+        "schema": "seal.nerves.mission.v1",
+        "mission_id": mission_id,
+        "idempotency_key": f"jarvis-portable-integrity-{episode_key}",
+        "agent": route.agent,
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "nerve_fire_id": (
+            f"jarvis-portable-integrity:{record.get('ts')}:{episode_key[:16]}"
+        ),
+        "correlation_id": episode_key,
+        "nerve_layer": "AGENT_ROLE",
+        "drive": "reactive",
+        "specialty": route.specialty,
+        "objective": route.objective,
+        "risk_class": route.risk_class,
+        "source_refs": [
+            f"file:{source_relative}",
+            f"record_sha256:{record_digest}",
+            f"episode_anchor:{episode_anchor}",
+        ],
+        "initiation_conditions": [
+            "integrity_pulse has a bounded read-only observation",
+            "native JARVIS reasoning carrier is unavailable or a portable canary is requested",
+        ],
+        "scope": {
+            "workspace": str(workspace),
+            "paths": sorted(
+                {
+                    "tools/jarvis_nerves_watch.py",
+                    source_relative,
+                }
+            ),
+            "services": [],
+            "network": "none",
+        },
+        "skills": [
+            {
+                "id": route.skill_id,
+                "version": "1",
+                "sha256": skill_bundle_digest(route.skill_dir),
+            }
+        ],
+        "allowed_tools": list(route.allowed_tools),
+        "budgets": {
+            "wall_seconds": route.wall_seconds,
+            "max_attempts": 1,
+            "token_budget": route.token_budget,
+        },
+        "expected_evidence": [
+            "typed integrity observation",
+            "runtime trace hash",
+            "deterministic parent verifier",
+        ],
+        "termination_conditions": [
+            "one typed result submitted",
+            "scope invalid and worker abstains",
+            "budget exhausted and mission fails closed",
+        ],
+        "rollback": {
+            "required": False,
+            "plan": "A2 is non-mutating; retain evidence and stop the worker.",
+        },
+        "builder": "JARVIS@mission-core-portable-v1",
+        "verifier": "deterministic-parent",
+        "confidence_prior": 0.5,
+    }
+    _validate_schema(mission, MISSION_SCHEMA, label="jarvis_portable_mission")
+    return mission
+
+
+def compile_jarvis_portable_mission(
+    artifact_path: Path,
+    *,
+    route: NervesRouteConfig = JARVIS_PORTABLE_ROUTE,
+    ledger_path: Path = DEFAULT_LEDGER,
+    manifest_dir: Path = DEFAULT_MANIFEST_DIR,
+    bundle_dir: Path | None = None,
+    workspace_root: Path = ROOT,
+) -> CompiledMission:
+    episode = latest_jarvis_integrity_episode(artifact_path)
+    if episode is None:
+        raise AgentMissionError(
+            "jarvis_artifact_has_no_bounded_integrity_episode"
+        )
+    record, anchor = episode
+    mission = _compile_jarvis_portable_envelope(
+        record,
+        artifact_path=artifact_path,
+        episode_anchor=anchor,
+        route=route,
+        workspace_root=workspace_root,
+    )
+    opened = ShadowMissionLedger(ledger_path).open_or_join(mission)
+    manifest_path = write_shadow_manifest(opened.mission, manifest_dir)
+    mission_id = str(opened.mission["mission_id"])
+    bundle_dir = bundle_dir or (
+        ROOT / "research/flywire_results/nerves_evidence_bundles/JARVIS_PORTABLE"
+    )
+    _ensure_private_directory(bundle_dir)
+    evidence_path = bundle_dir / f"{mission_id}.evidence.json"
+    provenance_path = bundle_dir / f"{mission_id}.provenance.json"
+    record_digest = _record_sha256(record)
+    findings = [
+        str(item)[:1000]
+        for item in record.get("findings", [])
+        if isinstance(item, (str, int, float, bool))
+    ][:10]
+    checks: list[dict[str, Any]] = [
+        {
+            "evidence_id": "jarvis-integrity:state",
+            "kind": "integrity_state",
+            "ok": record.get("state") == "GREEN",
+            "value": str(record.get("state")),
+        },
+        {
+            "evidence_id": "jarvis-integrity:p5-validation-canary",
+            "kind": "p5_validation_canary",
+            "ok": record.get("p5_validation_canary") is True,
+            "value": bool(record.get("p5_validation_canary")),
+        },
+    ]
+    checks.extend(
+        {
+            "evidence_id": f"jarvis-integrity:finding:{index}",
+            "kind": "integrity_finding",
+            "ok": False,
+            "value": finding,
+        }
+        for index, finding in enumerate(findings, 1)
+    )
+    evidence = {
+        "schema": "seal.nerves.agent-evidence.v1",
+        "mission_id": mission_id,
+        "agent": route.agent,
+        "action": route.action,
+        "read_only": True,
+        "source_record_sha256": record_digest,
+        "observed_at": str(record.get("ts") or ""),
+        "summary": (
+            f"state={record.get('state')}; findings={len(findings)}; "
+            f"p5_validation_canary={bool(record.get('p5_validation_canary'))}"
+        ),
+        "checks": checks,
+    }
+    _validate_schema(
+        evidence, EVIDENCE_SCHEMA, label="jarvis_portable_evidence"
+    )
+    evidence_created = _write_private_json(evidence_path, evidence)
+    evidence_raw = _canonical_bytes(evidence) + b"\n"
+    provenance = {
+        "schema": "seal.nerves.agent-provenance.v1",
+        "mission_id": mission_id,
+        "route_sha256": route.route_sha256,
+        "manifest_sha256": _sha256(manifest_path.read_bytes()),
+        "skill_bundle_sha256": skill_bundle_digest(route.skill_dir),
+        "source": {
+            "path": str(
+                artifact_path.resolve(strict=True).relative_to(
+                    workspace_root.resolve(strict=True)
+                )
+            ),
+            "record_sha256": record_digest,
+            "timestamp": str(record.get("ts") or ""),
+            "correlation_id": opened.mission["correlation_id"],
+            "nerve_fire_id": opened.mission["nerve_fire_id"],
+        },
+        "evidence_sha256": _sha256(evidence_raw),
+    }
+    provenance_created = _write_private_json(provenance_path, provenance)
+    if not evidence_created:
+        current, _ = _secure_json(
+            evidence_path, label="jarvis_portable_evidence"
+        )
+        if current != evidence:
+            raise AgentMissionError("existing_jarvis_portable_evidence_mismatch")
+    if not provenance_created:
+        current, _ = _secure_json(
+            provenance_path, label="jarvis_portable_provenance"
+        )
+        if current != provenance:
+            raise AgentMissionError(
+                "existing_jarvis_portable_provenance_mismatch"
+            )
     return CompiledMission(
         opened.mission,
         manifest_path,

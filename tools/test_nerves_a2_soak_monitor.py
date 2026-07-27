@@ -56,6 +56,7 @@ def _route_receipt(
     agent: str,
     mission_id: str,
     started_at: datetime,
+    jarvis_portable: bool = False,
 ) -> Path:
     runtime = (
         {
@@ -67,7 +68,7 @@ def _route_receipt(
             "mcp_servers_configured": [],
             "max_turns": 1,
         }
-        if agent == "JARVIS"
+        if agent == "JARVIS" and not jarvis_portable
         else {
             "platform": "ollama_generate_json",
             "isolation": "no_tool_api",
@@ -80,7 +81,7 @@ def _route_receipt(
         {
             "schema": (
                 "seal.nerves.orchestrator-receipt.v1"
-                if agent == "JARVIS"
+                if agent == "JARVIS" and not jarvis_portable
                 else "seal.nerves.orchestrator-receipt.v3"
             ),
             "mission_id": mission_id,
@@ -89,12 +90,27 @@ def _route_receipt(
             "finished_at": (started_at + timedelta(seconds=1)).isoformat(),
             "worker_kind": (
                 "native_subagent"
-                if agent == "JARVIS"
+                if agent == "JARVIS" and not jarvis_portable
                 else "local_ollama_subagent"
             ),
-            "tools_used": ["SendMessage"] if agent == "JARVIS" else [],
+            "tools_used": (
+                ["SendMessage"]
+                if agent == "JARVIS" and not jarvis_portable
+                else []
+            ),
             "verifier_verdict": (
-                {"verdict": "accepted"} if agent == "JARVIS" else {}
+                {"verdict": "accepted"}
+                if agent == "JARVIS" and not jarvis_portable
+                else {}
+            ),
+            "verifier": (
+                {
+                    "kind": "deterministic_parent",
+                    "verdict": "accepted",
+                    "checks": ["runtime"],
+                }
+                if jarvis_portable
+                else {}
             ),
             "runtime_attestation": runtime,
         },
@@ -109,6 +125,7 @@ def _canary(
     *,
     agent: str = "ADA",
     harm_caused: int = 0,
+    jarvis_portable: bool = False,
 ) -> None:
     mission_id = {
         "ADA": "11111111-1111-4111-8111-111111111111",
@@ -122,6 +139,7 @@ def _canary(
         agent=agent,
         mission_id=mission_id,
         started_at=recorded_at,
+        jarvis_portable=jarvis_portable,
     )
     receipt_sha = hashlib.sha256(receipt.read_bytes()).hexdigest()
     value = {
@@ -159,7 +177,9 @@ def _canary(
         "harm_avoided_method": "sentinel_hash_unchanged",
         "principal_ack_latency_ms": None,
         "attestation_kind": (
-            "jarvis_native_receipt"
+            "jarvis_portable_ollama_receipt"
+            if agent == "JARVIS" and jarvis_portable
+            else "jarvis_native_receipt"
             if agent == "JARVIS"
             else "local_ollama_receipt"
         ),
@@ -235,6 +255,34 @@ def _ack(
         ).isoformat(),
     }
     _write_private(path, value)
+
+
+def test_soak_accepts_explicit_jarvis_portable_attestation(
+    tmp_path: Path,
+) -> None:
+    root = _root(tmp_path / "workspace")
+    canary_dir = root / "canaries"
+    fingerprint = soak.release_fingerprint(root)
+    _canary(
+        canary_dir / "jarvis-portable.json",
+        root,
+        fingerprint,
+        NOW,
+        agent="JARVIS",
+        jarvis_portable=True,
+    )
+    accepted = soak._canaries(
+        NOW - timedelta(seconds=1),
+        fingerprint,
+        canary_dir=canary_dir,
+        root=root,
+    )
+    assert len(accepted) == 1
+    assert accepted[0]["agent"] == "JARVIS"
+    assert (
+        accepted[0]["attestation_kind"]
+        == "jarvis_portable_ollama_receipt"
+    )
 
 
 def test_soak_starts_private_and_passes_only_after_24h_with_canaries(

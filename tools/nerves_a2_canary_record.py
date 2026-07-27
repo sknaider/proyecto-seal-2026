@@ -22,6 +22,10 @@ JARVIS_STATE = (
     ROOT
     / "research/flywire_results/nerves_orchestrator_inbox/JARVIS.state.json"
 )
+JARVIS_PORTABLE_STATE = (
+    ROOT
+    / "research/flywire_results/nerves_orchestrator_inbox/JARVIS_PORTABLE.state.json"
+)
 JARVIS_PROFILE = ROOT / ".claude/agents/nerves-jarvis-reasoner.md"
 SOAK_SCHEMA = "seal.nerves.a2-soak.v2"
 CANARY_SCHEMA = "seal.nerves.a2-soak-canary.v2"
@@ -136,6 +140,7 @@ def _validate_route_attestation(
     workspace_root: Path = ROOT,
     jarvis_state_path: Path = JARVIS_STATE,
     jarvis_profile_path: Path = JARVIS_PROFILE,
+    jarvis_portable_state_path: Path = JARVIS_PORTABLE_STATE,
 ) -> tuple[Path, str, str, str, str]:
     path, receipt, digest = _workspace_private_object(
         receipt_path,
@@ -155,7 +160,10 @@ def _validate_route_attestation(
     if not isinstance(runtime, dict):
         raise CanaryRecordError("route_runtime_attestation_missing")
 
-    if agent == "JARVIS":
+    if (
+        agent == "JARVIS"
+        and receipt.get("schema") == "seal.nerves.orchestrator-receipt.v1"
+    ):
         if (
             receipt.get("schema") != "seal.nerves.orchestrator-receipt.v1"
             or receipt.get("worker_kind") != "native_subagent"
@@ -226,6 +234,10 @@ def _validate_route_attestation(
         if (
             receipt.get("schema") != "seal.nerves.orchestrator-receipt.v3"
             or receipt.get("worker_kind") != "local_ollama_subagent"
+            or (
+                agent == "JARVIS"
+                and receipt.get("verifier", {}).get("verdict") != "accepted"
+            )
             or runtime.get("platform") != "ollama_generate_json"
             or runtime.get("isolation") != "no_tool_api"
             or runtime.get("tool_events") != []
@@ -234,6 +246,56 @@ def _validate_route_attestation(
         ):
             raise CanaryRecordError("local_ollama_boundary_invalid")
         kind = "local_ollama_receipt"
+        if agent == "JARVIS":
+            from memory.nerves_agent_mission_core import JARVIS_PORTABLE_ROUTE
+
+            state = _private_object(jarvis_portable_state_path)
+            delivery = state.get("deliveries", {}).get(mission_id)
+            if not isinstance(delivery, dict):
+                raise CanaryRecordError("jarvis_portable_delivery_missing")
+            state_receipt = delivery.get("receipt")
+            if (
+                delivery.get("status") != "completed"
+                or delivery.get("route_sha256")
+                != JARVIS_PORTABLE_ROUTE.route_sha256
+                or not isinstance(delivery.get("claim"), dict)
+                or not isinstance(state_receipt, dict)
+                or state_receipt.get("sha256") != digest
+                or Path(str(delivery.get("receipt_path", ""))).resolve()
+                != path
+            ):
+                raise CanaryRecordError(
+                    "jarvis_portable_delivery_terminal_mismatch"
+                )
+            for label, timestamp in (
+                (
+                    "jarvis_portable_delivery_created_at",
+                    delivery.get("created_at"),
+                ),
+                (
+                    "jarvis_portable_claimed_at",
+                    delivery["claim"].get("claimed_at"),
+                ),
+                (
+                    "jarvis_portable_receipt_accepted_at",
+                    state_receipt.get("accepted_at"),
+                ),
+            ):
+                if _parse_time(timestamp, label) < soak_started_at:
+                    raise CanaryRecordError(f"{label}_before_soak")
+            handoff_path, _, handoff_digest = _workspace_private_object(
+                Path(str(delivery.get("inbox_path", ""))),
+                "jarvis_portable_handoff",
+                workspace_root=workspace_root,
+            )
+            if (
+                handoff_digest != delivery.get("handoff_sha256")
+                or handoff_path.name != f"{mission_id}.handoff.json"
+            ):
+                raise CanaryRecordError(
+                    "jarvis_portable_handoff_custody_mismatch"
+                )
+            kind = "jarvis_portable_ollama_receipt"
     return path, digest, kind, started.isoformat(), finished.isoformat()
 
 
@@ -271,6 +333,7 @@ def record_success(
     workspace_root: Path = ROOT,
     jarvis_state_path: Path = JARVIS_STATE,
     jarvis_profile_path: Path = JARVIS_PROFILE,
+    jarvis_portable_state_path: Path = JARVIS_PORTABLE_STATE,
 ) -> Path:
     """Write one immutable P5 record derived from a successful live canary."""
     if agent not in ROUTES:
@@ -321,6 +384,7 @@ def record_success(
         workspace_root=workspace_root,
         jarvis_state_path=jarvis_state_path,
         jarvis_profile_path=jarvis_profile_path,
+        jarvis_portable_state_path=jarvis_portable_state_path,
     )
     canary_id = str(
         uuid.uuid5(

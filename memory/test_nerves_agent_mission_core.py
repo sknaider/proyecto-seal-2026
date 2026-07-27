@@ -12,10 +12,12 @@ import pytest
 
 from memory.nerves_agent_mission_core import (
     ADA_ROUTE,
+    JARVIS_PORTABLE_ROUTE,
     AgentMissionError,
     _decision_projection,
     claim_handoff,
     compile_ada_engineering_mission,
+    compile_jarvis_portable_mission,
     complete_handoff,
     deliver_handoff,
     hold_handoff,
@@ -88,6 +90,59 @@ def _fixture(tmp_path: Path, *, claim_lease_seconds: int = 180):
         workspace_root=workspace,
     )
     return route, compiled
+
+
+def test_compile_jarvis_portable_route_is_owner_bound_and_toolless(
+    tmp_path: Path,
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    artifact = workspace / "research/jarvis-integrity.jsonl"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text(
+        _canonical(
+            {
+                "ts": NOW.isoformat(),
+                "agent": "JARVIS",
+                "action": "integrity_pulse",
+                "state": "BROKEN",
+                "findings": ["absolute health instrument unavailable"],
+                "detail": "bounded read-only observation",
+                "status": "issue",
+                "p5_validation_canary": False,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    route = replace(
+        JARVIS_PORTABLE_ROUTE,
+        inbox_dir=tmp_path / "inbox",
+        runtime_artifact_dir=tmp_path / "runtime",
+        state_path=tmp_path / "state.json",
+        live_feed=tmp_path / "live.jsonl",
+    )
+    compiled = compile_jarvis_portable_mission(
+        artifact,
+        route=route,
+        ledger_path=tmp_path / "ledger.jsonl",
+        manifest_dir=tmp_path / "manifests",
+        bundle_dir=tmp_path / "bundles",
+        workspace_root=workspace,
+    )
+    evidence = json.loads(compiled.evidence_path.read_text(encoding="utf-8"))
+    assert compiled.mission["agent"] == "JARVIS"
+    assert compiled.mission["allowed_tools"] == []
+    assert compiled.mission["specialty"] == "architecture_integrity_audit"
+    assert evidence["agent"] == "JARVIS"
+    assert evidence["read_only"] is True
+    assert {
+        item["evidence_id"] for item in evidence["checks"]
+    } == {
+        "jarvis-integrity:state",
+        "jarvis-integrity:p5-validation-canary",
+        "jarvis-integrity:finding:1",
+    }
 
 
 def _receipt(route, delivery, claim, compiled) -> dict:

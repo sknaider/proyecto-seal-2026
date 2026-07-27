@@ -7,6 +7,7 @@ import stat
 
 import pytest
 
+from memory.nerves_agent_mission_core import JARVIS_PORTABLE_ROUTE
 from tools.nerves_a2_canary_record import (
     CANARY_SCHEMA,
     SOAK_SCHEMA,
@@ -90,6 +91,70 @@ def test_records_private_immutable_success(tmp_path: Path):
     assert value["attestation_sha256"] == hashlib.sha256(
         arguments["receipt_path"].read_bytes()
     ).hexdigest()
+
+
+def test_records_jarvis_portable_receipt_without_native_impersonation(
+    tmp_path: Path,
+):
+    workspace = tmp_path / "workspace"
+    state = workspace / "state.json"
+    canaries = workspace / "canaries"
+    portable_state = workspace / "jarvis-portable.state.json"
+    _state(state)
+    receipt = _local_receipt(workspace)
+    receipt_value = json.loads(receipt.read_text(encoding="utf-8"))
+    receipt_value["verifier"] = {
+        "kind": "deterministic_parent",
+        "verdict": "accepted",
+        "checks": ["runtime"],
+    }
+    _write_private(receipt, receipt_value)
+    handoff = _write_private(
+        workspace / "handoffs" / f"{MISSION_ID}.handoff.json",
+        {
+            "schema": "seal.nerves.orchestrator-handoff.v3",
+            "mission_id": MISSION_ID,
+        },
+    )
+    receipt_sha = hashlib.sha256(receipt.read_bytes()).hexdigest()
+    handoff_sha = hashlib.sha256(handoff.read_bytes()).hexdigest()
+    _write_private(
+        portable_state,
+        {
+            "schema": "seal.nerves.orchestrator-state.v3",
+            "deliveries": {
+                MISSION_ID: {
+                    "mission_id": MISSION_ID,
+                    "status": "completed",
+                    "created_at": "2026-07-24T18:59:58+00:00",
+                    "inbox_path": str(handoff),
+                    "handoff_sha256": handoff_sha,
+                    "receipt_path": str(receipt),
+                    "route_sha256": JARVIS_PORTABLE_ROUTE.route_sha256,
+                    "claim": {
+                        "claimed_at": "2026-07-24T18:59:59+00:00",
+                    },
+                    "receipt": {
+                        "accepted_at": "2026-07-24T19:00:02+00:00",
+                        "sha256": receipt_sha,
+                    },
+                }
+            },
+        },
+    )
+    path = record_success(
+        agent="JARVIS",
+        mission_id=MISSION_ID,
+        receipt_path=receipt,
+        assertions={"portable_owner_bound": True, "zero_tools": True},
+        state_path=state,
+        canary_dir=canaries,
+        workspace_root=workspace,
+        jarvis_portable_state_path=portable_state,
+    )
+    value = json.loads(path.read_text(encoding="utf-8"))
+    assert value["agent"] == "JARVIS"
+    assert value["attestation_kind"] == "jarvis_portable_ollama_receipt"
 
 
 def test_rejects_failed_assertion_inactive_soak_and_stale_receipt(tmp_path: Path):

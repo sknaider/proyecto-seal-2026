@@ -20,7 +20,7 @@
     "mission_id": {"type": "string", "format": "uuid"},
     "agent": {
       "type": "string",
-      "enum": ["ADA", "ALICE", "NEXUS", "FABLE"]
+      "enum": ["ADA", "ALICE", "NEXUS", "FABLE", "JARVIS"]
     },
     "action": {"type": "string", "minLength": 3, "maxLength": 120},
     "read_only": {"const": true},

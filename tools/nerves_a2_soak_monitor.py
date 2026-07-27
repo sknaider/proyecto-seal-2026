@@ -84,6 +84,7 @@ RELEASE_FILES = (
     "tools/nerves_nexus_ollama_canary.py",
     "tools/nerves_fable_ollama_canary.py",
     "tools/nerves_jarvis_native_canary.py",
+    "tools/nerves_jarvis_ollama_canary.py",
     "tools/nerves_a2_canary_record.py",
     "tools/nerves_a2_soak_monitor.py",
 )
@@ -313,6 +314,18 @@ def _canaries(
             and runtime.get("tool_events") == []
             and runtime.get("endpoint") == "http://127.0.0.1:11434/api/generate"
         )
+        jarvis_portable_attestation = (
+            value["attestation_kind"] == "jarvis_portable_ollama_receipt"
+            and value["agent"] == "JARVIS"
+            and attestation.get("schema") == "seal.nerves.orchestrator-receipt.v3"
+            and attestation.get("worker_kind") == "local_ollama_subagent"
+            and attestation.get("verifier", {}).get("verdict") == "accepted"
+            and isinstance(runtime, dict)
+            and runtime.get("platform") == "ollama_generate_json"
+            and runtime.get("isolation") == "no_tool_api"
+            and runtime.get("tool_events") == []
+            and runtime.get("endpoint") == "http://127.0.0.1:11434/api/generate"
+        )
         jarvis_attestation = (
             value["attestation_kind"] == "jarvis_native_receipt"
             and value["agent"] == "JARVIS"
@@ -369,7 +382,12 @@ def _canaries(
             or attested_started < started_at
             or attested_finished < attested_started
             or recorded_at < attested_finished
-            or not (local_attestation or jarvis_attestation or ack_attestation)
+            or not (
+                local_attestation
+                or jarvis_attestation
+                or jarvis_portable_attestation
+                or ack_attestation
+            )
             or (
                 route_attestation
                 and value["utility_basis"] != "controlled_route_completion"
