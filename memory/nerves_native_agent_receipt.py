@@ -84,6 +84,9 @@ NATIVE_TRANSPORT_SUMMARY = "NERVES_RESULT"
 NATIVE_TRANSPORT_PREFIX = "NERVES_RESULT_V1|"
 NATIVE_SPAWN_DESCRIPTION = "Nerves JARVIS one-turn reasoner"
 NATIVE_SPAWN_NAME = "jarvis_nerves_reasoner"
+NATIVE_SPAWN_RESULT_NAME_PATTERN = re.compile(
+    rf"{re.escape(NATIVE_SPAWN_NAME)}(?:-[1-9][0-9]*)?"
+)
 SUBAGENT_BOUNDARY_SUFFIX = (
     "\n\nSUBAGENT BOUNDARY: You are an internal worker, not the public SEAL agent. "
     "Do not call scripts/seal_send.py, /api/agents/send, webchat or DM tools. "
@@ -96,6 +99,59 @@ SUBAGENT_BOUNDARY_SUFFIX = (
 
 class NativeReceiptError(RuntimeError):
     """Raised when the native worker result or platform binding is invalid."""
+
+
+def _spawn_result_name_matches(
+    spawn_name: object,
+    platform_worker_id: str,
+) -> bool:
+    """Accept Claude's collision suffix while binding it to the worker ID.
+
+    Claude preserves the requested Agent ``name`` for the first spawn, then
+    appends ``-N`` when the same parent session reuses that name.  The suffix
+    is platform-assigned and is also the exact prefix of ``agent_id``.  Keep
+    the requested namespace fail-closed and require both fields to agree.
+    """
+
+    if not isinstance(spawn_name, str):
+        return False
+    if NATIVE_SPAWN_RESULT_NAME_PATTERN.fullmatch(spawn_name) is None:
+        return False
+    if spawn_name == NATIVE_SPAWN_NAME:
+        return True
+    return platform_worker_id.startswith(f"{spawn_name}@session-")
+
+
+def _is_native_session_roster_reminder(record: Mapping[str, Any]) -> bool:
+    """Recognize Claude's inert roster reminder in reused Agent sessions.
+
+    A second or later Agent spawn receives a platform-generated user record
+    listing the already-active sibling names.  Accept only the exact fixed
+    sentence and the confined NERVES namespace; arbitrary system-reminder
+    text remains a fail-closed extra child input.
+    """
+
+    if record.get("parentUuid") is None:
+        return False
+    message = record.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(content, str):
+        return False
+    prefix = (
+        "<system-reminder>\n"
+        "Other agents active in this session, addressable via "
+        "SendMessage({to: name, message}): "
+    )
+    suffix = ".\n</system-reminder>"
+    if not content.startswith(prefix) or not content.endswith(suffix):
+        return False
+    names = content[len(prefix) : -len(suffix)].split(", ")
+    if len(names) < 2 or names[0] != "main" or len(names) != len(set(names)):
+        return False
+    return all(
+        NATIVE_SPAWN_RESULT_NAME_PATTERN.fullmatch(name) is not None
+        for name in names[1:]
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -726,7 +782,9 @@ def _attest_native_transcript_records(
     if (
         spawn.get("agent_id") != platform_worker_id
         or spawn.get("agent_type") != NATIVE_PROFILE
-        or spawn.get("name") != NATIVE_SPAWN_NAME
+        or not _spawn_result_name_matches(
+            spawn.get("name"), platform_worker_id
+        )
         or spawn.get("prompt") != expected_prompt
         or not isinstance(spawn_content, list)
         or len(spawn_content) != 1
@@ -790,7 +848,12 @@ def _attest_native_transcript_records(
     ]
     if forbidden_assistant_items:
         raise NativeReceiptError("child_assistant_extra_output_detected")
-    if len(user_records) != 2:
+    substantive_user_records = [
+        record
+        for record in user_records
+        if not _is_native_session_roster_reminder(record)
+    ]
+    if len(substantive_user_records) != 2:
         raise NativeReceiptError("child_initial_mission_not_unique")
     if [tool.get("name") for tool in tool_uses] != NATIVE_CONTROL_PLANE_TOOLS:
         raise NativeReceiptError("child_tool_trace_not_sendmessage_only")
@@ -972,7 +1035,7 @@ def _attest_native_transcript_records(
                 "durationMs",
             }
             or attachment.get("hookName")
-            != f"SubagentStart:{NATIVE_SPAWN_NAME}"
+            != f"SubagentStart:{spawn.get('name')}"
             or not isinstance(attachment.get("toolUseID"), str)
             or not attachment["toolUseID"]
             or attachment.get("content") != ""
