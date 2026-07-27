@@ -59,6 +59,65 @@ def test_bound_mission_denies_other_capability_surfaces(
     assert _decision(guard.evaluate(_payload(tool_name, {}))) == "deny"
 
 
+def test_protected_agent_is_delegated_even_with_completed_mission_bound(
+    monkeypatch,
+) -> None:
+    """The renderer owns this decision; a parallel sibling must not veto it."""
+
+    monkeypatch.setattr(
+        guard, "_bound_a2_missions", lambda _session: ["completed-old-mission"]
+    )
+    protected = {
+        "description": guard.NATIVE_SPAWN_DESCRIPTION,
+        "subagent_type": guard.NATIVE_PROFILE,
+        "name": guard.NATIVE_SPAWN_NAME,
+        "prompt": (
+            guard.PROMPT_STUB_PREFIX
+            + "mission_id=11111111-1111-4111-8111-111111111111\n"
+            + "claim_id=22222222-2222-4222-8222-222222222222\n"
+        ),
+        "run_in_background": True,
+    }
+    assert _decision(guard.evaluate(_payload("Agent", protected))) == "pass"
+
+
+def test_partial_protected_agent_is_delegated_for_renderer_to_deny(
+    monkeypatch,
+) -> None:
+    """Malformed protected launches still reach the fail-closed renderer."""
+
+    monkeypatch.setattr(
+        guard, "_bound_a2_missions", lambda _session: ["completed-old-mission"]
+    )
+    partial = {
+        "description": guard.NATIVE_SPAWN_DESCRIPTION,
+        "subagent_type": "general-purpose",
+        "name": "wrong",
+        "prompt": "wrong",
+        "run_in_background": False,
+    }
+    assert _decision(guard.evaluate(_payload("Agent", partial))) == "pass"
+
+
+def test_unrelated_agent_remains_denied_when_a2_session_is_bound(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        guard, "_bound_a2_missions", lambda _session: ["completed-old-mission"]
+    )
+    unrelated = {
+        "description": "ordinary worker",
+        "subagent_type": "general-purpose",
+        "name": "worker",
+        "prompt": "inspect",
+    }
+    denied = guard.evaluate(_payload("Agent", unrelated))
+    assert _decision(denied) == "deny"
+    assert "agent_not_allowlisted" in denied["hookSpecificOutput"][
+        "permissionDecisionReason"
+    ]
+
+
 def test_hook_failure_denies(monkeypatch) -> None:
     def explode(_session):
         raise ValueError("bad state")

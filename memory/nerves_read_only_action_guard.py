@@ -45,6 +45,13 @@ ROOT = Path(__file__).resolve().parents[1]
 INBOX = ROOT / "research/flywire_results/nerves_orchestrator_inbox/JARVIS"
 STATE = INBOX.parent / "JARVIS.state.json"
 MUTATING_TOOLS = frozenset({"Edit", "MultiEdit", "Write", "NotebookEdit"})
+NATIVE_SPAWN_DESCRIPTION = "Nerves JARVIS one-turn reasoner"
+NATIVE_SPAWN_NAME = "jarvis_nerves_reasoner"
+NATIVE_PROFILE = "nerves-jarvis-reasoner"
+PROMPT_STUB_PREFIX = "SEAL_NERVES_RENDER_V1\n"
+PROTECTED_AGENT_MARKERS = frozenset(
+    {NATIVE_SPAWN_DESCRIPTION, NATIVE_SPAWN_NAME, NATIVE_PROFILE}
+)
 SYSTEMCTL_READ_VERBS = frozenset(
     {
         "status",
@@ -534,39 +541,29 @@ def _bash_is_allowlisted_read_only(command: str) -> bool:
     return _python_control_plane_is_allowed(argv)
 
 
-def _initial_agent_spawn_allowed(
-    tool_input: Mapping[str, Any], missions: list[str]
-) -> bool:
-    if len(missions) != 1:
-        return False
-    state = _read_private_json(STATE)
-    record = state.get("deliveries", {}).get(missions[0])
-    if not isinstance(record, dict) or record.get("status") != "claimed":
-        return False
-    if record.get("platform_binding") is not None:
-        return False
-    claim = record.get("claim")
-    if not isinstance(claim, dict):
-        return False
-    expected_prompt = (
-        "SEAL_NERVES_RENDER_V1\n"
-        f"mission_id={missions[0]}\n"
-        f"claim_id={claim.get('claim_id')}\n"
-    )
-    return (
-        set(tool_input)
-        == {
-            "description",
-            "subagent_type",
-            "name",
-            "prompt",
-            "run_in_background",
-        }
-        and tool_input.get("description") == "Nerves JARVIS one-turn reasoner"
-        and tool_input.get("subagent_type") == "nerves-jarvis-reasoner"
-        and tool_input.get("name") == "jarvis_nerves_reasoner"
-        and tool_input.get("prompt") == expected_prompt
-        and tool_input.get("run_in_background") is True
+def _looks_like_protected_agent(tool_input: Mapping[str, Any]) -> bool:
+    """Recognize launches owned by the authenticated prompt-render hook.
+
+    Claude runs every matching PreToolUse hook in parallel.  The renderer is
+    therefore the *only* decision owner for this protected Agent launch: it
+    authenticates the claim, renders the canonical prompt and persists the
+    audit.  This guard must neither duplicate that decision nor reject a new
+    mission merely because the same parent session is still confined by an
+    older completed mission.
+
+    We intentionally recognize partial protected shapes too.  They are
+    delegated to the renderer, which denies malformed values fail-closed.
+    An unrelated Agent call in an A2-bound session remains denied here.
+    """
+
+    values = {
+        tool_input.get("description"),
+        tool_input.get("name"),
+        tool_input.get("subagent_type"),
+    }
+    prompt = tool_input.get("prompt")
+    return bool(values & PROTECTED_AGENT_MARKERS) or (
+        isinstance(prompt, str) and prompt.startswith(PROMPT_STUB_PREFIX)
     )
 
 
@@ -580,6 +577,13 @@ def evaluate(payload: Mapping[str, Any]) -> dict[str, Any]:
         return _deny("session_id_missing")
     if not isinstance(tool_name, str) or not isinstance(tool_input, dict):
         return _deny("tool_payload_invalid")
+    # All matching Claude hooks run in parallel.  For the protected Agent
+    # surface, the prompt-render hook is the sole authoritative gate and this
+    # hook returns no decision.  That removes the old split-brain sequence in
+    # which the renderer durably wrote an audit while this sibling denied the
+    # same spawn because a completed mission was also bound to the session.
+    if tool_name == "Agent" and _looks_like_protected_agent(tool_input):
+        return _allow("delegated_to_authenticated_prompt_renderer")
     try:
         missions = _bound_a2_missions(session_id)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -588,11 +592,6 @@ def evaluate(payload: Mapping[str, Any]) -> dict[str, Any]:
         return _allow("no_bound_a2_mission")
     mission_token = ",".join(missions)
     if tool_name == "Agent":
-        try:
-            if _initial_agent_spawn_allowed(tool_input, missions):
-                return _allow(f"initial_agent_spawn:mission={mission_token}")
-        except (OSError, ValueError, json.JSONDecodeError):
-            pass
         return _deny(f"agent_not_allowlisted:mission={mission_token}")
     if tool_name in MUTATING_TOOLS:
         return _deny(f"mutating_tool:{tool_name}:mission={mission_token}")
