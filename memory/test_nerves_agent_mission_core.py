@@ -132,6 +132,10 @@ def test_compile_jarvis_portable_route_is_owner_bound_and_toolless(
     )
     evidence = json.loads(compiled.evidence_path.read_text(encoding="utf-8"))
     assert compiled.mission["agent"] == "JARVIS"
+    assert (
+        compiled.mission["skills"][0]["id"]
+        == "seal-nerves-jarvis-portable-audit"
+    )
     assert compiled.mission["allowed_tools"] == []
     assert compiled.mission["specialty"] == "architecture_integrity_audit"
     assert evidence["agent"] == "JARVIS"

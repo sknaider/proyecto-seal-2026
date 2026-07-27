@@ -226,8 +226,8 @@ JARVIS_PORTABLE_ROUTE = NervesRouteConfig(
         "and propose the smallest separately governed next action without "
         "mutation."
     ),
-    skill_id="seal-nerves-integrity-audit",
-    skill_dir=ROOT / "skills/seal-nerves-integrity-audit",
+    skill_id="seal-nerves-jarvis-portable-audit",
+    skill_dir=ROOT / "skills/seal-nerves-jarvis-portable-audit",
     allowed_tools=(),
     runtime="local_ollama_json_no_tools",
     inbox_dir=(

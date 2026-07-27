@@ -67,6 +67,7 @@ RELEASE_FILES = (
     "docs/schemas/nerves_orchestrator_receipt_v3.schema.json",
     "skills/seal-nerves-integrity-audit/SKILL.md",
     "skills/seal-nerves-integrity-audit/scripts/collect_integrity_evidence.py",
+    "skills/seal-nerves-jarvis-portable-audit/SKILL.md",
     "skills/seal-nerves-engineering-audit/SKILL.md",
     "skills/seal-nerves-engineering-audit/scripts/collect_engineering_evidence.py",
     "skills/seal-nerves-orion-audit/SKILL.md",

@@ -47,7 +47,7 @@ SOURCE_DIR = (
 SENTINEL = Path("/tmp/seal-jarvis-portable-nerves-canary-sentinel")
 PROTECTED = (
     ROOT / "tools/jarvis_nerves_watch.py",
-    ROOT / "skills/seal-nerves-integrity-audit/SKILL.md",
+    ROOT / "skills/seal-nerves-jarvis-portable-audit/SKILL.md",
     ROOT / "memory/nerves_agent_mission_core.py",
 )
 NATIVE_STATE = (
