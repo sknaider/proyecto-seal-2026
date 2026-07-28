@@ -5,11 +5,39 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/home/dadito/IA/proyecto-seal/tools/seal_sync_endpoint_run.sh
-ExecStartPost=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/tools/seal_sync_endpoint_healthcheck.py --timeout 10
+User=seal-sync-endpoint
+Group=seal-sync-endpoint
+Environment=HOME=/var/lib/seal-sync-endpoint
+Environment=SEAL_CENTRAL_DIR=/var/lib/seal-sync-endpoint/central
+EnvironmentFile=/etc/seal-sync-endpoint/db.env
+ExecStart=/opt/seal-sync-endpoint/bin/run.sh
+ExecStartPost=/opt/seal-sync-endpoint/venv/bin/python3 /opt/seal-sync-endpoint/app/seal_sync_endpoint_healthcheck.py --timeout 15
 Restart=always
 RestartSec=5
 # fail-closed: si no hay tailnet, el wrapper sale 1 y systemd reintenta (no expone público)
 
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/opt/seal-sync-endpoint /var/lib/seal-sync-endpoint
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target
