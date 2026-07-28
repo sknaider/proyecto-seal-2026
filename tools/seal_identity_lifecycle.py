@@ -8,6 +8,8 @@ later coordinated rollout can measure age before enforcement.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import hashlib
 import json
 import os
@@ -113,6 +115,170 @@ def _atomic_private_text(path: Path, value: str) -> None:
 
 def _meta_path(token_path: Path) -> Path:
     return token_path.with_suffix(".token.meta.json")
+
+
+@contextlib.contextmanager
+def _lifecycle_lock(token_dir: Path):
+    token_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = token_dir / ".identity-lifecycle.lock"
+    fd = os.open(
+        lock_path,
+        os.O_RDWR | os.O_CREAT | getattr(os, "O_CLOEXEC", 0),
+        0o600,
+    )
+    try:
+        os.fchmod(fd, 0o600)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+def _validated_meta(
+    token: str,
+    meta_path: Path,
+    agent: str,
+    mode: str,
+    *,
+    now: datetime,
+) -> dict:
+    meta = json.loads(_read_private_regular(meta_path))
+    if meta.get("schema") != SCHEMA:
+        raise RuntimeError(f"{meta_path}: unsupported_schema")
+    if meta.get("agent") != agent:
+        raise RuntimeError(f"{meta_path}: agent_mismatch")
+    if meta.get("mode") != mode or meta.get("enforced") is not True:
+        raise RuntimeError(f"{meta_path}: invalid_mode")
+    if meta.get("token_sha256") != _digest(token):
+        raise RuntimeError(f"{meta_path}: token_metadata_mismatch")
+    if meta.get("revoked_at"):
+        raise RuntimeError(f"{meta_path}: already_revoked")
+    expires_at = datetime.fromisoformat(str(meta["expires_at"]).replace("Z", "+00:00"))
+    if expires_at <= now:
+        raise RuntimeError(f"{meta_path}: expired")
+    return meta
+
+
+def promote_next(
+    token_dir: Path,
+    agents: Iterable[str],
+    *,
+    now: datetime | None = None,
+) -> list[dict]:
+    """Swap NEXT into CURRENT while retaining the old generation as grace."""
+    observed_at = now or _utcnow()
+    rows: list[dict] = []
+    with _lifecycle_lock(token_dir):
+        for raw_agent in agents:
+            agent = raw_agent.strip().upper()
+            current_path = token_dir / f"{agent}.token"
+            current_meta_path = _meta_path(current_path)
+            next_path = token_dir / f"{agent}.token.next"
+            next_meta_path = token_dir / f"{agent}.token.next.meta.json"
+            current = _read_private_regular(current_path)
+            next_token = _read_private_regular(next_path)
+            current_meta = _validated_meta(
+                current, current_meta_path, agent, "CURRENT", now=observed_at
+            )
+            next_meta = _validated_meta(
+                next_token, next_meta_path, agent, "NEXT", now=observed_at
+            )
+            current_generation = int(current_meta.get("generation", 0))
+            next_generation = int(next_meta.get("generation", 0))
+            if next_generation != current_generation + 1:
+                raise RuntimeError(f"{next_meta_path}: generation_not_successor")
+
+            promoted_meta = {
+                **next_meta,
+                "mode": "CURRENT",
+                "promoted_at": _iso(observed_at),
+                "previous_generation": current_generation,
+            }
+            grace_meta = {
+                **current_meta,
+                "mode": "NEXT",
+                "grace_after_promotion": True,
+                "superseded_by_generation": next_generation,
+                "superseded_at": _iso(observed_at),
+            }
+
+            # At every boundary at least one slot remains valid.
+            _atomic_private_text(current_path, next_token)
+            _atomic_private_json(current_meta_path, promoted_meta)
+            _atomic_private_text(next_path, current)
+            _atomic_private_json(next_meta_path, grace_meta)
+            rows.append(
+                {
+                    "agent": agent,
+                    "action": "promoted_with_grace",
+                    "current_generation": next_generation,
+                    "grace_generation": current_generation,
+                    "current_expires_at": promoted_meta["expires_at"],
+                    "grace_expires_at": grace_meta["expires_at"],
+                }
+            )
+    return rows
+
+
+def retire_previous(
+    token_dir: Path,
+    agents: Iterable[str],
+    *,
+    archive_dir: Path,
+    now: datetime | None = None,
+) -> list[dict]:
+    """Remove a superseded grace credential from the live acceptance surface."""
+    observed_at = now or _utcnow()
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(archive_dir, 0o700)
+    rows: list[dict] = []
+    with _lifecycle_lock(token_dir):
+        for raw_agent in agents:
+            agent = raw_agent.strip().upper()
+            current_path = token_dir / f"{agent}.token"
+            current_meta_path = _meta_path(current_path)
+            next_path = token_dir / f"{agent}.token.next"
+            next_meta_path = token_dir / f"{agent}.token.next.meta.json"
+            current = _read_private_regular(current_path)
+            grace = _read_private_regular(next_path)
+            current_meta = _validated_meta(
+                current, current_meta_path, agent, "CURRENT", now=observed_at
+            )
+            grace_meta = _validated_meta(
+                grace, next_meta_path, agent, "NEXT", now=observed_at
+            )
+            if grace_meta.get("grace_after_promotion") is not True:
+                raise RuntimeError(f"{next_meta_path}: not_promotion_grace")
+            if int(grace_meta.get("superseded_by_generation", 0)) != int(
+                current_meta.get("generation", 0)
+            ):
+                raise RuntimeError(f"{next_meta_path}: supersession_mismatch")
+
+            retired_meta = {
+                **grace_meta,
+                "revoked_at": _iso(observed_at),
+                "revocation_reason": "coordinated_store_a_generation_promotion",
+            }
+            archive_token = archive_dir / f"{agent}.token.retired"
+            archive_meta = archive_dir / f"{agent}.token.retired.meta.json"
+            if archive_token.exists() or archive_meta.exists():
+                raise RuntimeError(f"{archive_dir}: archive_target_exists")
+            _atomic_private_text(archive_token, grace)
+            _atomic_private_json(archive_meta, retired_meta)
+            next_path.unlink()
+            next_meta_path.unlink()
+            rows.append(
+                {
+                    "agent": agent,
+                    "action": "previous_retired",
+                    "current_generation": int(current_meta["generation"]),
+                    "retired_generation": int(grace_meta["generation"]),
+                    "archive_token": str(archive_token),
+                    "archive_metadata": str(archive_meta),
+                }
+            )
+    return rows
 
 
 def bootstrap_shadow(
@@ -344,6 +510,9 @@ def main() -> int:
     sub.add_parser("promote-current")
     stage = sub.add_parser("stage-next")
     stage.add_argument("--ttl-hours", type=int, default=DEFAULT_TTL_HOURS)
+    sub.add_parser("promote-next")
+    retire = sub.add_parser("retire-previous")
+    retire.add_argument("--archive-dir", type=Path, required=True)
     args = parser.parse_args()
     agents = tuple(args.agents or DEFAULT_AGENTS)
     dirs = [Path(p) for p in (args.token_dirs or _default_dirs())]
@@ -381,7 +550,7 @@ def main() -> int:
                 for token_dir in dirs
             ],
         }
-    else:
+    elif args.command == "stage-next":
         result = {
             "schema": SCHEMA,
             "mode": "NEXT",
@@ -397,6 +566,39 @@ def main() -> int:
                     ),
                 }
                 for token_dir in dirs
+            ],
+        }
+    elif args.command == "promote-next":
+        result = {
+            "schema": SCHEMA,
+            "mode": "CURRENT_PLUS_GRACE",
+            "enforcement_changed": True,
+            "rotated": True,
+            "directories": [
+                {
+                    "directory": str(token_dir),
+                    "rows": promote_next(token_dir, agents),
+                }
+                for token_dir in dirs
+            ],
+        }
+    else:
+        if len(dirs) != 1:
+            raise RuntimeError("retire-previous requires exactly one live token directory")
+        result = {
+            "schema": SCHEMA,
+            "mode": "CURRENT",
+            "enforcement_changed": True,
+            "rotated": True,
+            "directories": [
+                {
+                    "directory": str(dirs[0]),
+                    "rows": retire_previous(
+                        dirs[0],
+                        agents,
+                        archive_dir=args.archive_dir,
+                    ),
+                }
             ],
         }
     print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
