@@ -83,3 +83,28 @@ def test_promote_current_enables_metadata_without_rotating_token(tmp_path: Path)
     assert meta["mode"] == "CURRENT"
     assert meta["enforced"] is True
     assert rows[0]["action"] == "promoted"
+
+
+def test_stage_next_is_idempotent_and_preserves_current(tmp_path: Path) -> None:
+    token = _token(tmp_path, "ADA")
+    before = token.read_bytes()
+    now = datetime(2026, 7, 26, tzinfo=timezone.utc)
+    lifecycle.bootstrap_shadow(tmp_path, ["ADA"], ttl_hours=24, now=now)
+    lifecycle.promote_current(
+        tmp_path,
+        ["ADA"],
+        now=datetime(2026, 7, 26, 1, tzinfo=timezone.utc),
+    )
+    first = lifecycle.stage_next(
+        tmp_path,
+        ["ADA"],
+        ttl_hours=24,
+        now=datetime(2026, 7, 26, 2, tzinfo=timezone.utc),
+    )
+    next_before = (tmp_path / "ADA.token.next").read_bytes()
+    second = lifecycle.stage_next(tmp_path, ["ADA"])
+    assert token.read_bytes() == before
+    assert (tmp_path / "ADA.token.next").read_bytes() == next_before
+    assert first[0]["action"] == "created"
+    assert first[0]["generation"] == 2
+    assert second[0]["action"] == "kept"

@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import secrets
 import stat
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -65,6 +66,33 @@ def _atomic_private_json(path: Path, payload: dict) -> None:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fd = -1
             json.dump(payload, fh, ensure_ascii=False, sort_keys=True)
+            fh.write("\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+        dir_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _atomic_private_text(path: Path, value: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    tmp = Path(tmp_name)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fd = -1
+            fh.write(value)
             fh.write("\n")
             fh.flush()
             os.fsync(fh.fileno())
@@ -181,6 +209,82 @@ def promote_current(
     return rows
 
 
+def stage_next(
+    token_dir: Path,
+    agents: Iterable[str],
+    *,
+    ttl_hours: int = DEFAULT_TTL_HOURS,
+    now: datetime | None = None,
+) -> list[dict]:
+    """Create an accepted next generation without changing the live current token."""
+    if ttl_hours <= 0:
+        raise ValueError("ttl_hours_must_be_positive")
+    observed_at = now or _utcnow()
+    rows: list[dict] = []
+    for raw_agent in agents:
+        agent = raw_agent.strip().upper()
+        current_path = token_dir / f"{agent}.token"
+        current_meta_path = _meta_path(current_path)
+        current = _read_private_regular(current_path)
+        current_meta = json.loads(_read_private_regular(current_meta_path))
+        if current_meta.get("schema") != SCHEMA:
+            raise RuntimeError(f"{current_meta_path}: unsupported_schema")
+        if current_meta.get("token_sha256") != _digest(current):
+            raise RuntimeError(f"{current_meta_path}: token_metadata_mismatch")
+        if current_meta.get("mode") != "CURRENT" or current_meta.get("enforced") is not True:
+            raise RuntimeError(f"{current_meta_path}: current_not_enforced")
+
+        next_path = token_dir / f"{agent}.token.next"
+        next_meta_path = token_dir / f"{agent}.token.next.meta.json"
+        if next_path.exists() or next_meta_path.exists():
+            if not (next_path.exists() and next_meta_path.exists()):
+                raise RuntimeError(f"{next_path}: incomplete_next_generation")
+            next_token = _read_private_regular(next_path)
+            next_meta = json.loads(_read_private_regular(next_meta_path))
+            if (
+                next_meta.get("schema") != SCHEMA
+                or next_meta.get("agent") != agent
+                or next_meta.get("mode") != "NEXT"
+                or next_meta.get("enforced") is not True
+                or next_meta.get("token_sha256") != _digest(next_token)
+            ):
+                raise RuntimeError(f"{next_meta_path}: invalid_next_generation")
+            action = "kept"
+        else:
+            next_token = secrets.token_urlsafe(48)
+            generation = int(current_meta.get("generation", 0)) + 1
+            next_meta = {
+                "schema": SCHEMA,
+                "agent": agent,
+                "mode": "NEXT",
+                "generation": generation,
+                "token_sha256": _digest(next_token),
+                "issued_at": _iso(observed_at),
+                "expires_at": _iso(observed_at + timedelta(hours=ttl_hours)),
+                "issued_at_basis": "coordinated_stage_next",
+                "enforced": True,
+                "previous_generation": int(current_meta.get("generation", 0)),
+            }
+            _atomic_private_text(next_path, next_token)
+            try:
+                _atomic_private_json(next_meta_path, next_meta)
+            except Exception:
+                next_path.unlink(missing_ok=True)
+                raise
+            action = "created"
+        rows.append(
+            {
+                "agent": agent,
+                "action": action,
+                "mode": "NEXT",
+                "generation": next_meta["generation"],
+                "expires_at": next_meta["expires_at"],
+                "token_fingerprint": next_meta["token_sha256"][:12],
+            }
+        )
+    return rows
+
+
 def audit(token_dirs: Iterable[Path], agents: Iterable[str]) -> dict:
     dirs = [Path(d) for d in token_dirs]
     rows: list[dict] = []
@@ -238,6 +342,8 @@ def main() -> int:
     bootstrap = sub.add_parser("bootstrap-shadow")
     bootstrap.add_argument("--ttl-hours", type=int, default=DEFAULT_TTL_HOURS)
     sub.add_parser("promote-current")
+    stage = sub.add_parser("stage-next")
+    stage.add_argument("--ttl-hours", type=int, default=DEFAULT_TTL_HOURS)
     args = parser.parse_args()
     agents = tuple(args.agents or DEFAULT_AGENTS)
     dirs = [Path(p) for p in (args.token_dirs or _default_dirs())]
@@ -261,7 +367,7 @@ def main() -> int:
                 for token_dir in dirs
             ],
         }
-    else:
+    elif args.command == "promote-current":
         result = {
             "schema": SCHEMA,
             "mode": "CURRENT",
@@ -271,6 +377,24 @@ def main() -> int:
                 {
                     "directory": str(token_dir),
                     "rows": promote_current(token_dir, agents),
+                }
+                for token_dir in dirs
+            ],
+        }
+    else:
+        result = {
+            "schema": SCHEMA,
+            "mode": "NEXT",
+            "enforcement_changed": False,
+            "rotated": False,
+            "directories": [
+                {
+                    "directory": str(token_dir),
+                    "rows": stage_next(
+                        token_dir,
+                        agents,
+                        ttl_hours=args.ttl_hours,
+                    ),
                 }
                 for token_dir in dirs
             ],
