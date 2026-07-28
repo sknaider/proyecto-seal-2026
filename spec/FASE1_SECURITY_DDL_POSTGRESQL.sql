@@ -76,9 +76,11 @@ CREATE INDEX idx_revoked_tokens_revoked_at
     ON soul_v3.revoked_tokens(revoked_at DESC);
 
 -- Fast TTL expiry query (for cleanup)
+-- NEXUS fix 2026-07-02: quitado el predicado parcial (CURRENT_TIMESTAMP no es IMMUTABLE → inválido en
+-- índice). El índice full sobre revoked_at cubre la query de cleanup igual (ya existe idx_revoked_tokens_revoked_at,
+-- pero se mantiene por claridad del propósito TTL).
 CREATE INDEX idx_revoked_tokens_age
-    ON soul_v3.revoked_tokens(revoked_at)
-    WHERE revoked_at > CURRENT_TIMESTAMP - INTERVAL '90 days';
+    ON soul_v3.revoked_tokens(revoked_at);
 
 -- ============================================================================
 -- TABLE 3: token_audit
@@ -304,24 +306,25 @@ $$ LANGUAGE plpgsql;
 -- MAINTENANCE PROCEDURES
 -- ============================================================================
 
--- Cleanup old revocation entries (>90 days)
--- Run daily via cron: psql -d soul_v3 -c "SELECT soul_v3.cleanup_revoked_tokens();"
+-- Revocation rows are retained indefinitely. The current schema does not
+-- persist the signed token expiry, so age since revocation cannot prove that a
+-- token is safe to forget. This function fails loudly until an expiry-bound
+-- retention migration is approved.
 
 CREATE OR REPLACE FUNCTION soul_v3.cleanup_revoked_tokens()
 RETURNS TABLE (
     deleted_count INTEGER
 ) AS $$
-DECLARE
-    count_deleted INTEGER;
 BEGIN
-    DELETE FROM soul_v3.revoked_tokens
-    WHERE revoked_at < CURRENT_TIMESTAMP - INTERVAL '90 days';
-
-    GET DIAGNOSTICS count_deleted = ROW_COUNT;
-
-    RETURN QUERY SELECT count_deleted;
+    RAISE EXCEPTION 'revoked_token_retention_indefinite'
+        USING ERRCODE = '55000',
+              HINT = 'Persist token_expires_at and approve an expiry-bound policy before cleanup.';
 END;
 $$ LANGUAGE plpgsql;
+
+REVOKE ALL ON FUNCTION soul_v3.cleanup_revoked_tokens() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION soul_v3.cleanup_revoked_tokens() FROM soul_admin;
+GRANT EXECUTE ON FUNCTION soul_v3.cleanup_revoked_tokens() TO seal;
 
 -- Cleanup old pending registrations (>24 hours)
 CREATE OR REPLACE FUNCTION soul_v3.cleanup_pending_registrations()

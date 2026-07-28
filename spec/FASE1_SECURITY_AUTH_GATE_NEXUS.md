@@ -279,9 +279,9 @@ CREATE INDEX idx_revoked_tokens_device_id ON soul_v3.revoked_tokens(device_id);
 CREATE INDEX idx_revoked_tokens_agent ON soul_v3.revoked_tokens(agent);
 CREATE INDEX idx_revoked_tokens_revoked_at ON soul_v3.revoked_tokens(revoked_at DESC);
 
--- Limpieza automática: borrar tokens revocados hace >90 días
--- (ejecutar diariamente vía cron)
--- DELETE FROM soul_v3.revoked_tokens WHERE revoked_at < CURRENT_TIMESTAMP - INTERVAL '90 days';
+-- Retención: indefinida hasta persistir token_expires_at y aprobar una
+-- política ligada a expiración. La antigüedad de revoked_at por sí sola no
+-- demuestra que el token ya no pueda autenticarse.
 ```
 
 ### 2.3 Tabla: `token_audit` (Auditoría)

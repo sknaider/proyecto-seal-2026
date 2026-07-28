@@ -240,8 +240,10 @@
   ```
 - [ ] Set up daily maintenance (cron)
   ```bash
-  # Daily cleanup (revocations >90d, audit >180d, pending >24h)
-  0 3 * * * psql -d soul_v3 -c "SELECT soul_v3.cleanup_revoked_tokens(); SELECT soul_v3.cleanup_token_audit(); SELECT soul_v3.cleanup_pending_registrations();"
+  # Daily cleanup (audit >180d, pending >24h).
+  # revoked_tokens is deliberately excluded: retain indefinitely until the
+  # signed token expiry is stored and an expiry-bound policy is approved.
+  0 3 * * * psql -d soul_v3 -c "SELECT soul_v3.cleanup_token_audit(); SELECT soul_v3.cleanup_pending_registrations();"
   ```
 - [ ] Create alert thresholds
   - [ ] Failed validations > 10/hour → alert

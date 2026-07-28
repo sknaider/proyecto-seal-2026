@@ -151,7 +151,7 @@ sync o rotación.
 
 ## Archivos afectados por la implementación coordinada
 
-- `memory/migrations/057_sync_request_pop.sql` — columnas, nonce ledger, RLS.
+- `memory/migrations/058_sync_request_pop.sql` — columnas, nonce ledger, RLS.
 - `tools/provision_seal_sync_endpoint_db.py` — grants/RLS y verificación.
 - `tools/seal_csr.py` — carga/validación de identidad estable.
 - `tools/seal_central_signer.py` — persistir los 32 bytes de `csr.pubkey` tanto
