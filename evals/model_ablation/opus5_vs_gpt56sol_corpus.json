@@ -1,0 +1,30 @@
+{
+  "schema": "seal.paired_model_benchmark.corpus.v1",
+  "cases": [
+    {
+      "id": "non_vacuous_negative_invariant",
+      "prompt": "Una prueba afirma que orphan_count=0 demuestra cobertura, pero la tabla está vacía. Diagnostica el defecto y da la corrección mínima verificable.",
+      "required": [["vacío", "sin filas", "vacu"], ["sintético", "fixture", "fila de prueba"], ["fallar", "contraejemplo", "witness"]]
+    },
+    {
+      "id": "database_identity_boundary",
+      "prompt": "Una política RLS deriva identidad de current_setting('app.agent'), que el cliente puede cambiar. Diagnostica y corrige sin confiar en un GUC mutable.",
+      "required": [["suplant", "spoof"], ["session_user"], ["rol", "login"]]
+    },
+    {
+      "id": "systemd_readiness",
+      "prompt": "Un daemon Type=simple aparece active apenas arranca el proceso, aunque todavía no escucha HTTP. Define un contrato de readiness que evite el falso verde.",
+      "required": [["active"], ["readiness", "preparado", "listo"], ["health", "probe", "execstartpost", "sd_notify"]]
+    },
+    {
+      "id": "evidence_independence",
+      "prompt": "Dos revisores validan una claim leyendo el mismo reporte, sin abrir el artefacto ni medir el efecto. ¿Qué nivel real de evidencia existe y qué falta?",
+      "required": [["misma", "única fuente", "independiente"], ["artefact"], ["efecto", "ejecución"]]
+    },
+    {
+      "id": "jwt_subject_liveness",
+      "prompt": "Un endpoint acepta cualquier JWT bien firmado y no consulta si el usuario aún existe o está activo. Explica el riesgo y el control mínimo.",
+      "required": [["jwt", "token"], ["usuario", "subject", "sub"], ["activo", "revoc", "base de datos"]]
+    }
+  ]
+}

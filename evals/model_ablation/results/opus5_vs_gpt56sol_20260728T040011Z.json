@@ -1,0 +1,232 @@
+{
+  "schema": "seal.paired_model_benchmark.result.v1",
+  "seed": 20260727,
+  "prompt_sha256": "bf5afda10a4a79ec556dd934b49e402df3c94771c2edd21a8daacbd497b4e1e0",
+  "corpus_sha256": "a8f95862c0fae349c44dbce4977ecde30714adb6984f4efcfc648d09aab3b6e7",
+  "same_corpus": true,
+  "tools": "none requested",
+  "output_budget": "<=90 words per case",
+  "execution_order": [
+    "opus5",
+    "gpt56sol"
+  ],
+  "blinded_results": {
+    "candidate_A": {
+      "model": "claude-opus-5",
+      "metrics": {
+        "score": 93.33,
+        "corrections_needed": 1,
+        "cases": [
+          {
+            "id": "non_vacuous_negative_invariant",
+            "criteria": 3,
+            "hits": 2,
+            "missing": [
+              [
+                "sintético",
+                "fixture",
+                "fila de prueba"
+              ]
+            ],
+            "score": 66.67
+          },
+          {
+            "id": "database_identity_boundary",
+            "criteria": 3,
+            "hits": 3,
+            "missing": [],
+            "score": 100.0
+          },
+          {
+            "id": "systemd_readiness",
+            "criteria": 3,
+            "hits": 3,
+            "missing": [],
+            "score": 100.0
+          },
+          {
+            "id": "evidence_independence",
+            "criteria": 3,
+            "hits": 3,
+            "missing": [],
+            "score": 100.0
+          },
+          {
+            "id": "jwt_subject_liveness",
+            "criteria": 3,
+            "hits": 3,
+            "missing": [],
+            "score": 100.0
+          }
+        ]
+      },
+      "latency_seconds": 34.809,
+      "cost_usd": 0.11283649999999999,
+      "usage": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 5599,
+        "cache_read_input_tokens": 15509,
+        "output_tokens": 1926,
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 5599,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "not_available",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 1926,
+            "cache_read_input_tokens": 15509,
+            "cache_creation_input_tokens": 5599,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 5599
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "response": {
+        "answers": [
+          {
+            "id": "non_vacuous_negative_invariant",
+            "diagnosis": "La aserción orphan_count=0 es vacuamente verdadera: con la tabla vacía, el conteo de huérfanos es 0 por ausencia de filas, no por integridad referencial. La prueba no distingue \"sin violaciones\" de \"sin datos\", así que pasaría igualmente con el pipeline de carga roto o el filtro mal escrito. No hay evidencia de cobertura porque el denominador nunca se observa.",
+            "action": "Convertir el invariante en condicional-no-vacío: asertar primero total_count >= N esperado (o >0), y además orphan_count=0; idealmente asertar sobre un caso testigo insertado que sí sería huérfano para probar que la consulta detecta violaciones (control positivo). Fallar la prueba si el denominador es 0.",
+            "risk": "Bajo: solo endurece la prueba. Riesgo real es que exponga fallos previos de carga; el umbral N debe ser estable para no volverse flaky."
+          },
+          {
+            "id": "database_identity_boundary",
+            "diagnosis": "current_setting('app.agent') es un GUC de sesión que cualquier rol conectado puede fijar con SET/set_config, así que la identidad es autodeclarada por el cliente. La política RLS confunde un canal de configuración con un canal autenticado: quien controla la conexión puede suplantar a cualquier agente. Si el pool comparte sesiones, además hay fuga de contexto entre peticiones por GUC residual.",
+            "action": "Derivar identidad de algo no mutable por el cliente: usar roles de base de datos por identidad y comparar contra current_user/session_user, o mantener el GUC pero fijarlo únicamente desde un proxy/función SECURITY DEFINER que valide el token, revocando al rol de aplicación la capacidad de asignarlo (SET LOCAL dentro de transacción, verificado por una tabla de sesiones firmada).",
+            "risk": "Medio-alto: cambiar el sujeto de RLS puede romper consultas y el pooling; requiere migración de roles/grants y pruebas negativas de suplantación."
+          },
+          {
+            "id": "systemd_readiness",
+            "diagnosis": "Type=simple marca la unidad active en cuanto se hace fork/exec, antes de bind/listen y de dependencias (migraciones, caché, upstream). El estado refleja existencia de proceso, no capacidad de servir; los dependientes con After=/Requires= arrancan contra un puerto cerrado y health checks externos reportan verde falso durante la ventana de arranque.",
+            "action": "Contrato: la unidad solo es active cuando el socket acepta conexiones y /readyz devuelve 200. Implementar con Type=notify y sd_notify(READY=1) emitido tras listen y dependencias listas, más NotifyAccess=main, TimeoutStartSec finito y WatchdogSec; alternativa sin código: Type=exec más socket activation, o ExecStartPost con un sondeo del endpoint de readiness que falle el arranque si no responde.",
+            "risk": "Bajo-medio: si READY=1 nunca se emite, el arranque expira y falla; puede romper órdenes de arranque existentes y requiere ajustar timeouts."
+          },
+          {
+            "id": "evidence_independence",
+            "diagnosis": "Ambos revisores comparten una única fuente: el reporte. No hay independencia, solo replicación de la misma afirmación, así que sus acuerdos no aportan información adicional (correlación 1 entre errores). El nivel real es evidencia de segunda mano, no verificada: se confirma que el reporte dice X, no que X sea cierto. Errores de medición, selección o fabricación en el reporte pasan intactos.",
+            "action": "Exigir verificación en el artefacto: al menos un revisor debe reproducir la medición desde la fuente primaria (ejecutar el comando, abrir logs/archivo, comparar antes/después con la métrica del efecto) y registrar el comando, salida y hash/ruta del artefacto. El acuerdo solo cuenta si los revisores usan rutas de evidencia distintas.",
+            "risk": "Bajo: mayor coste y latencia de revisión; riesgo de que la reproducción muestre que la claim original no se sostiene."
+          },
+          {
+            "id": "jwt_subject_liveness",
+            "diagnosis": "Validar firma prueba origen e integridad del token, no el estado actual del sujeto. Entre emisión y expiración el usuario puede haber sido eliminado, suspendido, cambiado de rol o haber rotado credenciales; el token sigue siendo criptográficamente válido. Resultado: acceso persistente tras revocación o baja, escalada con permisos obsoletos y ninguna capacidad de expulsar una sesión comprometida.",
+            "action": "Control mínimo: tras verificar firma, claims (exp, iss, aud) resolver el sub contra el almacén de identidad en cada petición y exigir usuario existente y activo, más comprobación de revocación (jti en denylist o token_version/last_invalidated_at comparado con iat). Cachear el estado con TTL corto (segundos) para acotar coste manteniendo ventana de revocación pequeña.",
+            "risk": "Medio: añade dependencia y latencia por petición; una caída del almacén puede denegar tráfico legítimo, y una caché demasiado larga reabre la ventana de revocación."
+          }
+        ]
+      },
+      "response_sha256": "1ce1d6dc29aa40b1fb36d90d111ef21352376c1944d1dc5936a4f30e632f7c13"
+    },
+    "candidate_B": {
+      "model": "gpt-5.6-sol",
+      "metrics": {
+        "score": 80.0,
+        "corrections_needed": 3,
+        "cases": [
+          {
+            "id": "non_vacuous_negative_invariant",
+            "criteria": 3,
+            "hits": 2,
+            "missing": [
+              [
+                "fallar",
+                "contraejemplo",
+                "witness"
+              ]
+            ],
+            "score": 66.67
+          },
+          {
+            "id": "database_identity_boundary",
+            "criteria": 3,
+            "hits": 2,
+            "missing": [
+              [
+                "session_user"
+              ]
+            ],
+            "score": 66.67
+          },
+          {
+            "id": "systemd_readiness",
+            "criteria": 3,
+            "hits": 2,
+            "missing": [
+              [
+                "readiness",
+                "preparado",
+                "listo"
+              ]
+            ],
+            "score": 66.67
+          },
+          {
+            "id": "evidence_independence",
+            "criteria": 3,
+            "hits": 3,
+            "missing": [],
+            "score": 100.0
+          },
+          {
+            "id": "jwt_subject_liveness",
+            "criteria": 3,
+            "hits": 3,
+            "missing": [],
+            "score": 100.0
+          }
+        ]
+      },
+      "latency_seconds": 19.281,
+      "cost_usd": null,
+      "usage": {},
+      "response": {
+        "answers": [
+          {
+            "id": "non_vacuous_negative_invariant",
+            "diagnosis": "orphan_count=0 es una verdad vacua si la tabla evaluada no contiene filas; demuestra ausencia observada de huérfanos, no cobertura efectiva del invariante.",
+            "action": "Añadir una precondición verificable de no vacuidad, por ejemplo source_count>0, y exigir simultáneamente source_count>0 AND orphan_count=0. Mejor aún, insertar un fixture positivo y uno huérfano para comprobar que la consulta detecta la violación.",
+            "risk": "La prueba puede permanecer verde sin ejecutar casos relevantes, ocultando joins incorrectos, filtros excesivos o ausencia total de datos."
+          },
+          {
+            "id": "database_identity_boundary",
+            "diagnosis": "current_setting('app.agent') no constituye una frontera de identidad si el cliente puede ejecutar SET; permite suplantar sujetos y hacer que RLS autorice con una afirmación controlada por el atacante.",
+            "action": "Derivar identidad de una credencial validada fuera del control SQL del cliente y usar roles de base de datos no asumibles, o una función SECURITY DEFINER que valide una sesión opaca almacenada server-side. Revocar SET/impersonación relevante y vincular RLS a esa identidad autenticada.",
+            "risk": "Un cliente autenticado podría leer o modificar filas de otro agente, rompiendo aislamiento, auditoría y atribución."
+          },
+          {
+            "id": "systemd_readiness",
+            "diagnosis": "Type=simple sólo confirma que el proceso fue iniciado; active no prueba que el socket HTTP esté enlazado ni que dependencias e inicialización hayan terminado.",
+            "action": "Usar Type=notify y emitir sd_notify('READY=1') únicamente después de completar inicialización y verificar que HTTP acepta solicitudes. Configurar NotifyAccess apropiadamente y hacer que servicios dependientes ordenen sobre la unidad; añadir un healthcheck funcional para supervisión continua.",
+            "risk": "Dependencias y balanceadores pueden enviar tráfico durante el arranque, causando rechazos, carreras, reinicios en cascada o pérdida de solicitudes pese al estado active."
+          },
+          {
+            "id": "evidence_independence",
+            "diagnosis": "Existe corroboración documental duplicada, no evidencia independiente: ambos revisores dependen de la misma fuente y no verifican el artefacto ni el resultado alegado.",
+            "action": "Cada revisor debe inspeccionar el artefacto primario y reproducir una medición del efecto con procedimiento, entradas y resultados registrados. Para independencia real, usar ejecuciones o fuentes separadas y comparar resultados contra criterios previos.",
+            "risk": "Un error, omisión o sesgo del reporte se replica como consenso aparente; la claim permanece sin validación empírica ni trazabilidad al objeto evaluado."
+          },
+          {
+            "id": "jwt_subject_liveness",
+            "diagnosis": "La firma válida autentica al emisor y protege el token, pero no demuestra que el subject siga existiendo, activo o autorizado después de su emisión.",
+            "action": "Tras validar firma, issuer, audience, expiración y demás claims, resolver sub contra una fuente autoritativa y exigir usuario existente y activo. Para revocación inmediata, comprobar también versión de sesión/token o estado de revocación server-side.",
+            "risk": "Cuentas eliminadas, suspendidas o comprometidas conservan acceso hasta expirar el JWT, permitiendo acciones no autorizadas con credenciales criptográficamente válidas."
+          }
+        ]
+      },
+      "response_sha256": "778a762cb91e85ba61dd362cec002ca261c4c1bb33d80072bc3be6c142210055"
+    }
+  },
+  "status": "completed",
+  "errors": {}
+}
