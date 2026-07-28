@@ -14,6 +14,8 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import nerves_queue_depth as q  # noqa: E402
 
@@ -72,10 +74,101 @@ def test_sin_marca_de_tiempo_se_reporta(tmp_path):
     assert f["sin_marca"] is True
 
 
-def test_estado_ilegible_no_revienta(tmp_path):
+def test_estado_ilegible_falla_ruidoso(tmp_path):
     p = tmp_path / "X.state.json"
     p.write_text("{roto", encoding="utf-8")
-    assert q.atascados(p, max_espera_min=60, ahora=AHORA) == []
+    with pytest.raises(q.StateReadError, match="JSON inválido"):
+        q.atascados(p, max_espera_min=60, ahora=AHORA)
+
+
+def test_raiz_json_no_objeto_falla_ruidoso(tmp_path):
+    p = tmp_path / "X.state.json"
+    p.write_text("[]", encoding="utf-8")
+    with pytest.raises(q.StateReadError, match="raíz JSON no es un objeto"):
+        q.atascados(p, max_espera_min=60, ahora=AHORA)
+
+
+def test_main_json_distingue_instrumento_mudo_de_cero(
+        tmp_path, monkeypatch, capsys):
+    path = tmp_path / "JARVIS.state.json"
+    path.write_text("{roto", encoding="utf-8")
+    monkeypatch.setattr(q, "INBOX_ROOT", tmp_path)
+    monkeypatch.setattr(q, "expected_colas", lambda: {"JARVIS": path})
+    monkeypatch.setattr(q, "LATIDO", tmp_path / "latido.log")
+    monkeypatch.setattr(sys, "argv", ["nerves_queue_depth.py", "--json"])
+
+    assert q.main() == 2
+    out = json.loads(capsys.readouterr().out)
+    assert out["total"] == 0
+    assert out["superficies"] == ["JARVIS"]
+    assert "JARVIS" in out["errores_instrumento"]
+
+
+def test_main_sin_superficies_no_declara_cola_limpia(
+        tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(q, "INBOX_ROOT", tmp_path)
+    monkeypatch.setattr(q, "expected_colas", lambda: {})
+    monkeypatch.setattr(q, "LATIDO", tmp_path / "latido.log")
+    monkeypatch.setattr(sys, "argv", ["nerves_queue_depth.py", "--json"])
+
+    assert q.main() == 2
+    out = json.loads(capsys.readouterr().out)
+    assert out["superficies_total"] == 0
+    assert "_discovery" in out["errores_instrumento"]
+
+
+def test_main_falla_si_desaparece_una_superficie_canonica(
+        tmp_path, monkeypatch, capsys):
+    native = tmp_path / "JARVIS.state.json"
+    native.write_text('{"deliveries":{}}', encoding="utf-8")
+    portable = tmp_path / "JARVIS_PORTABLE.state.json"
+    monkeypatch.setattr(q, "INBOX_ROOT", tmp_path)
+    monkeypatch.setattr(
+        q,
+        "expected_colas",
+        lambda: {"JARVIS": native, "JARVIS_PORTABLE": portable},
+    )
+    monkeypatch.setattr(q, "LATIDO", tmp_path / "latido.log")
+    monkeypatch.setattr(sys, "argv", ["nerves_queue_depth.py", "--json"])
+
+    assert q.main() == 2
+    out = json.loads(capsys.readouterr().out)
+    assert "JARVIS_PORTABLE" in out["errores_instrumento"]["_missing_expected"]
+
+
+def test_main_agrega_nativa_y_portable_sin_mezclar_superficies(
+        tmp_path, monkeypatch, capsys):
+    native = _estado(tmp_path, {
+        "native": {"status": "live_notified", "live_notified_at": _hace(5)}
+    })
+    native.rename(tmp_path / "JARVIS.state.json")
+    native = tmp_path / "JARVIS.state.json"
+    portable = tmp_path / "JARVIS_PORTABLE.state.json"
+    portable.write_text(json.dumps({"deliveries": {
+        "portable": {
+            "status": "running",
+            "live_notified_at": _hace(5),
+            "claim": {"worker_id": "portable-worker", "claimed_at": _hace(4)},
+        }
+    }}), encoding="utf-8")
+    monkeypatch.setattr(q, "INBOX_ROOT", tmp_path)
+    monkeypatch.setattr(
+        q,
+        "expected_colas",
+        lambda: {"JARVIS": native, "JARVIS_PORTABLE": portable},
+    )
+    monkeypatch.setattr(q, "LATIDO", tmp_path / "latido.log")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["nerves_queue_depth.py", "--json", "--max-espera-min", "60"],
+    )
+
+    assert q.main() == 1
+    out = json.loads(capsys.readouterr().out)
+    assert out["total"] == 2
+    assert out["atascados"]["JARVIS"][0]["categoria"] == "sin_claim"
+    assert out["atascados"]["JARVIS_PORTABLE"][0]["categoria"] == "con_claim"
 
 
 def test_colas_enumera_el_disco(tmp_path, monkeypatch):
