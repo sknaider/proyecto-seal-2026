@@ -82,6 +82,33 @@ def routing_contract() -> dict[str, bool]:
     }
 
 
+def delivery_route_state(
+    states: dict[str, dict[str, Any]], lease: dict[str, Any]
+) -> dict[str, Any]:
+    """Require at least one live writer instead of every redundant writer.
+
+    The visible TUI poller deliberately releases its lease after an
+    unacknowledged submit so the headless bridge can take over.  Treating that
+    failover state as a reason to restart the poller every minute created a
+    restart loop without improving William's delivery path.
+    """
+    bridge_state = states.get("ada-codex-remote-bridge.service", {})
+    terminal_listener_ok = bool(lease.get("ok"))
+    headless_bridge_ok = bool(
+        bridge_state.get("active") and bridge_state.get("enabled")
+    )
+    return {
+        "ok": terminal_listener_ok or headless_bridge_ok,
+        "terminal_listener_ok": terminal_listener_ok,
+        "headless_bridge_ok": headless_bridge_ok,
+        "mode": (
+            "terminal"
+            if terminal_listener_ok
+            else ("headless_failover" if headless_bridge_ok else "unavailable")
+        ),
+    }
+
+
 def listener_lease() -> dict[str, Any]:
     try:
         data = json.loads(poller.LISTENER_HEALTH_FILE.read_text(encoding="utf-8"))
@@ -567,8 +594,6 @@ def repair_services(
     quarantined = quarantine_stale_route(route)
     for name, state in states.items():
         needs_restart = not state["active"]
-        if name == "seal-ada-codex-poller.service" and not lease.get("ok"):
-            needs_restart = True
         if quarantined and name in {
             "seal-ada-codex-poller.service",
             "seal-ada-codex-stream-relay.service",
@@ -589,11 +614,13 @@ def repair_services(
 def run(repair: bool = False, alert: bool = False) -> dict[str, Any]:
     states = {name: service_state(name) for name in SERVICES}
     lease = listener_lease()
+    delivery_route = delivery_route_state(states, lease)
     route = active_route_state()
     repaired, quarantined = repair_services(states, lease, route) if repair else ([], None)
     if repaired:
         states = {name: service_state(name) for name in SERVICES}
         lease = listener_lease()
+        delivery_route = delivery_route_state(states, lease)
     if quarantined:
         route = active_route_state()
 
@@ -640,8 +667,8 @@ def run(repair: bool = False, alert: bool = False) -> dict[str, Any]:
             failures.append(f"{name} active/enabled={state['active']}/{state['enabled']}")
     if not all(contract.values()):
         failures.append(f"routing_contract={contract}")
-    if not lease.get("ok"):
-        failures.append(f"listener_lease={lease}")
+    if not delivery_route.get("ok"):
+        failures.append(f"delivery_route={delivery_route}; listener_lease={lease}")
     if not route.get("ok"):
         failures.append(f"active_route={route}")
     if effective_cursor is None:
@@ -666,6 +693,7 @@ def run(repair: bool = False, alert: bool = False) -> dict[str, Any]:
         "services": states,
         "routing_contract": contract,
         "listener_lease": lease,
+        "delivery_route": delivery_route,
         "active_route": route,
         "terminal_writer_active": terminal_active,
         "bridge_cursor": bridge_cursor,

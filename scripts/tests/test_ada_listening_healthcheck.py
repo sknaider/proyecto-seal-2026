@@ -226,6 +226,53 @@ def test_recent_busy_route_remains_valid(monkeypatch, tmp_path):
     assert not result["stale_busy"]
 
 
+def test_delivery_route_uses_headless_failover_when_listener_releases_lease():
+    states = {
+        "ada-codex-remote-bridge.service": {
+            "active": True,
+            "enabled": True,
+        }
+    }
+
+    result = health.delivery_route_state(
+        states,
+        {"ok": False, "status": "degraded"},
+    )
+
+    assert result == {
+        "ok": True,
+        "terminal_listener_ok": False,
+        "headless_bridge_ok": True,
+        "mode": "headless_failover",
+    }
+
+
+def test_repair_does_not_restart_active_poller_for_released_lease(monkeypatch):
+    calls = []
+    states = {
+        "ada-codex-remote-bridge.service": {"active": True},
+        "seal-ada-codex-poller.service": {"active": True},
+        "seal-ada-codex-stream-relay.service": {"active": True},
+        "seal-ada-codex-autostart.service": {"active": True},
+    }
+    monkeypatch.setattr(health, "quarantine_stale_route", lambda _route: None)
+    monkeypatch.setattr(
+        health,
+        "_systemctl",
+        lambda *args: calls.append(args),
+    )
+
+    repaired, quarantined = health.repair_services(
+        states,
+        {"ok": False, "status": "degraded"},
+        {"ok": True},
+    )
+
+    assert repaired == []
+    assert quarantined is None
+    assert calls == []
+
+
 def test_william_backlog_ignores_cursors_and_fails_on_unanswered(monkeypatch):
     class FakeConn:
         async def fetchrow(self, _query, horizon):
