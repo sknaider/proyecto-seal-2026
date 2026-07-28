@@ -172,6 +172,8 @@ def main() -> None:
         "prompt_sha256": hashlib.sha256(text.encode()).hexdigest(),
         "corpus_sha256": hashlib.sha256(CORPUS.read_bytes()).hexdigest(),
         "same_corpus": True,
+        "same_corpus_scope": "within_result_candidates",
+        "corpus_snapshot": corpus,
         "tools": "none requested",
         "output_budget": "<=90 words per case",
         "execution_order": order,
