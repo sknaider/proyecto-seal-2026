@@ -1,0 +1,15 @@
+[Unit]
+Description=SEAL sync endpoint (device->central, HTTP over Tailscale) — carril NEXUS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/dadito/IA/proyecto-seal/tools/seal_sync_endpoint_run.sh
+ExecStartPost=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/tools/seal_sync_endpoint_healthcheck.py --timeout 10
+Restart=always
+RestartSec=5
+# fail-closed: si no hay tailnet, el wrapper sale 1 y systemd reintenta (no expone público)
+
+[Install]
+WantedBy=default.target
