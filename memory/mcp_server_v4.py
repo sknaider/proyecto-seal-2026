@@ -976,9 +976,10 @@ def _session_key():
 import os as _os_cure
 
 # Directorio de tokens por-sesión, SEMBRADO POR EL LAUNCHER de cada agente (no por el caller).
-# El launcher escribe SEAL_TOKENS_DIR/<AGENTE>.token (chmod 600) y exporta SEAL_SESSION_TOKEN
-# al entorno del agente; el agente lo presenta a boot_context/announce_agent. La identidad se
-# PRUEBA con ese secreto, no se ASEVERA por el nombre. (Cura identidad/privacidad SOUL, NEXUS 2026-06-09)
+# El launcher escribe SEAL_TOKENS_DIR/<AGENTE>.token (chmod 600) y configura
+# Authorization: Bearer en el transporte MCP. El secreto NUNCA viaja como argumento de tool:
+# los argumentos terminan en transcripts/auditoría y no son un carrier de autenticación.
+# (Cura identidad/privacidad SOUL, NEXUS 2026-06-09; Bearer-only 2026-07-27)
 _SEAL_TOKENS_DIR = _os_cure.environ.get("SEAL_TOKENS_DIR", "/tmp/seal_tokens")
 
 
@@ -1018,35 +1019,21 @@ def _seal_identity_mode_paths() -> list[str]:
 
 
 def _read_agent_token(agent: str) -> "str | None":
-    """Lee el token legítimo del agente (sembrado por su launcher). None si no hay."""
-    for token_dir in _seal_token_dirs():
-        try:
-            p = _os_cure.path.join(token_dir, f"{agent.upper()}.token")
-            with open(p, "r") as fh:
-                t = fh.read().strip()
-                if t:
-                    return t
-        except Exception:
-            pass
-    return None
+    """Lee el current legítimo (o next durante overlap), con lifecycle fail-closed."""
+    from seal_identity_tokens import valid_tokens
+
+    tokens = valid_tokens(_seal_token_dirs(), agent)
+    return tokens[0] if tokens else None
 
 
 def _agent_for_token(token: "str | None") -> "str | None":
     """Reverse-lookup: ¿QUÉ agente es dueño de este token? (identidad por SECRETO, no por nombre).
     Cierre residual ENFORCE: permite re-ligar una sesión desde CUALQUIER llamada que traiga el token
-    (inyectado por el hook), no solo boot_context → un restart del MCP bajo ENFORCE no brickea a las
-    vivas. Match EXACTO (sin strip del input = seguro; el hook ya inyecta con .strip()). O(4) read-only."""
-    if not token:
-        return None
-    for a in _KNOWN_AGENTS:
-        for token_dir in _seal_token_dirs():
-            try:
-                with open(_os_cure.path.join(token_dir, f"{a}.token"), "r") as fh:
-                    if fh.read().strip() == token:
-                        return a
-            except Exception:
-                pass
-    return None
+    por Authorization: Bearer, no solo boot_context → un restart del MCP bajo ENFORCE no brickea
+    a las vivas. Match exacto contra current+next válidos. O(agentes) read-only."""
+    from seal_identity_tokens import token_owner
+
+    return token_owner(_seal_token_dirs(), _KNOWN_AGENTS, token)
 
 
 def _bearer_token_from_authorization(value: "str | None") -> "str | None":
@@ -1143,8 +1130,10 @@ def _register_caller_session(agent: str, token: "str | None" = None) -> None:
     if key is None:
         return
     mode = _seal_identity_mode()
-    expected = _read_agent_token(a)
-    verified = expected is not None and bool(token) and token == expected
+    from seal_identity_tokens import valid_tokens
+
+    expected = valid_tokens(_seal_token_dirs(), a)
+    verified = bool(token) and token in expected
 
     # ── Pieza 2 — token VÁLIDO override SIEMPRE, en CUALQUIER modo (cierre del mis-bind stale) ──
     # Un token válido (identidad por el SECRETO: verified = token == el del agente `a`) re-liga la
@@ -1404,11 +1393,6 @@ def _session_diag(tool_name: str, caller: str, target: str) -> None:
 def _observed_tool(**tool_kwargs):
     """Wrapper around @mcp.tool() that auto-instruments with _observe, rate-limits, and privacy."""
     def decorator(func):
-        import inspect as _inspect_rh
-        # Cierre residual ENFORCE: ¿esta tool acepta session_token en su firma? (boot_context/
-        # announce_agent=True; las ~50 restantes=False). Se computa UNA vez aquí (no per-call);
-        # gobierna el STRIP incondicional del wrapper.
-        _accepts_tok = "session_token" in _inspect_rh.signature(func).parameters
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             # ── Rate limit check (before any work) ──
@@ -1422,7 +1406,10 @@ def _observed_tool(**tool_kwargs):
                 )
             t0 = _time.monotonic()
             target = _extract_agent_from_args(args, kwargs, func)
-            _sess_tok = kwargs.get("session_token") or _session_token_from_request()
+            # Autenticación exclusivamente por el carrier HTTP. Nunca aceptar secretos
+            # dentro de argumentos de tool: además de persistirse en transcripts, permitía
+            # saltar el contrato Bearer-only y confundía evidencia con autoridad.
+            _sess_tok = _session_token_from_request()
             caller = _get_caller_agent()
             # ── Auto-registro / re-bind por TOKEN (cura §9 + cierre residual ENFORCE) ──
             # En 'external' re-liga por el DUEÑO del token (identidad por secreto → liga VERIFICADO,
@@ -1437,11 +1424,10 @@ def _observed_tool(**tool_kwargs):
                 elif target in _KNOWN_AGENTS:
                     _register_caller_session(target)  # OFF/MIGRATE legacy; ENFORCE no liga sin token
                 caller = _get_caller_agent()
-            # ── STRIP INCONDICIONAL de session_token (FUERA del guard — corre en CADA call) ──
-            # Parte A inyecta el token en TODA llamada (incl. sesiones ya ligadas) → quitarlo antes de
-            # func salvo que la tool lo acepte en su firma (boot/announce) → evita TypeError en las ~50
-            # tools que no tienen el param. (must-verify #1 de NEXUS: incondicional, no dentro del if.)
-            if not _accepts_tok and "session_token" in kwargs:
+            # Compatibilidad defensiva para clientes antiguos: si el SDK deja pasar un
+            # argumento extra, se descarta sin usarlo. boot_context/announce_agent ya no
+            # lo publican en su schema, por lo que clientes conformes fallan antes.
+            if "session_token" in kwargs:
                 kwargs = {k: v for k, v in kwargs.items() if k != "session_token"}
             _db_agent_token = _MCP_DB_AGENT.set(caller if caller in _KNOWN_AGENTS else "external")
             try:
@@ -3560,12 +3546,11 @@ def _boot_static_hash(text: str) -> str:
 # ══════════════════════════════════════════════════════════════════════
 
 @mcp.tool()
-async def boot_context(agent: str, session_token: "str | None" = None) -> str:
+async def boot_context(agent: str) -> str:
     """Lightweight boot context — loads only essential identity.
 
-    session_token (cura SOUL §9): el secreto por-sesión sembrado por el launcher
-    ($SEAL_SESSION_TOKEN). Prueba la identidad del agente (no se asevera por el nombre).
-    En modo ENFORCE, sin token válido la sesión queda 'external' (sin acceso privado).
+    La identidad se prueba exclusivamente con Authorization: Bearer del request MCP.
+    En modo ENFORCE, sin Bearer válido la sesión queda 'external' (sin acceso privado).
 
     Philosophy: Boot like the brain wakes up — know WHO you are, not everything
     you've ever experienced. Use memory_search() and soul_snapshot() on demand
@@ -3577,7 +3562,10 @@ async def boot_context(agent: str, session_token: "str | None" = None) -> str:
     Args:
         agent: Agent name (ADA, JARVIS, DUM)
     """
-    _register_caller_session(agent, session_token)  # liga sesión→agente, identidad por token (§9)
+    _register_caller_session(
+        agent,
+        _session_token_from_request(),
+    )  # liga sesión→agente exclusivamente por Bearer (§9)
     pool = await get_pool()
     sections = []
     _static_sections: list[str] = []  # Frente 2: static content accumulator
@@ -13191,21 +13179,21 @@ async def system_gateway(
 # ── Privacy tools (spec_memory_privacy_enforcement) ──
 
 @mcp.tool()
-async def announce_agent(agent: str, session_token: "str | None" = None) -> str:
+async def announce_agent(agent: str) -> str:
     """Register this MCP session as belonging to `agent`.
 
     Call this at session start if boot_context() was not the first call.
     First-registration-wins: safe to call multiple times — only the first sticks.
 
-    session_token (cura SOUL §9): secreto por-sesión sembrado por el launcher ($SEAL_SESSION_TOKEN).
-    Prueba la identidad (no se asevera por nombre). En ENFORCE, sin token válido → external.
+    La identidad se prueba exclusivamente con Authorization: Bearer del request MCP.
+    En ENFORCE, sin Bearer válido → external.
 
     Args:
         agent: Your agent name (ADA, JARVIS, ALICE, NEXUS, DUM, SPECTRE)
     """
     if agent.upper() not in _KNOWN_AGENTS:
         return f"Unknown agent '{agent}'. Valid: {sorted(_KNOWN_AGENTS)}"
-    _register_caller_session(agent, session_token)
+    _register_caller_session(agent, _session_token_from_request())
     registered = _SESSION_CALLERS.get(_session_key(), "unknown")
     return f"Session registered as {registered}"
 

@@ -139,15 +139,6 @@ def seal_session_token(agent: str = SEAL_AGENT) -> str:
     return os.environ.get("SEAL_SESSION_TOKEN", "").strip()
 
 
-def with_session_token(arguments: dict) -> dict:
-    updated = dict(arguments)
-    if "session_token" not in updated:
-        token = seal_session_token()
-        if token:
-            updated["session_token"] = token
-    return updated
-
-
 def resolve_db_dsn() -> str:
     creds = load_credentials_file()
     for key in ("SEAL_DB_DSN", "SEAL_DB_URL", "SEAL_PG_DSN"):
@@ -291,7 +282,6 @@ def ensure_mcp_session() -> bool:
 
 def mcp_call(tool_name: str, arguments: dict) -> dict | None:
     global MCP_SESSION_ID
-    arguments = with_session_token(arguments)
     if not ensure_mcp_session():
         return None
     payload = {
