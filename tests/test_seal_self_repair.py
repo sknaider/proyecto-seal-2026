@@ -43,6 +43,16 @@ def test_known_action_resolves_to_exact_unit() -> None:
     assert resolve_unit("NEXUS", "visible_terminal") == "nexus-terminal.service"
 
 
+def test_help_points_bypass_ack_to_stability_guard(capsys) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        seal_self_repair.build_parser().parse_args(["--help"])
+
+    assert exit_info.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "scripts/seal_agent_stability_guard.py" in help_text
+    assert "--ack-out-of-band" in help_text
+
+
 def test_default_receipt_root_is_durable_and_honors_xdg(tmp_path) -> None:
     root = seal_self_repair.default_receipt_root(
         {"XDG_DATA_HOME": str(tmp_path / "data")}

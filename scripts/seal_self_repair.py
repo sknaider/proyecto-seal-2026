@@ -296,7 +296,15 @@ def execute(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Bounded SEAL self-repair")
+    parser = argparse.ArgumentParser(
+        description="Bounded SEAL self-repair",
+        epilog=(
+            "Detected out-of-band restarts are adjudicated by the detector, "
+            "not this broker: use scripts/seal_agent_stability_guard.py "
+            "--ack-out-of-band UNIT with the exact accepted/observed "
+            "InvocationID values."
+        ),
+    )
     parser.add_argument("operation", choices=("restart", "status"))
     parser.add_argument("action", help="policy action name; arbitrary units are not accepted")
     parser.add_argument("--reason", required=True)
