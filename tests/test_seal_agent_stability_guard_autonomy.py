@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -9,6 +10,54 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts import seal_agent_stability_guard as guard
+
+
+def test_fable_memory_repo_boundary_accepts_local_repo_without_remote(
+    tmp_path,
+) -> None:
+    repo = tmp_path / "memory"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+
+    result = guard.check_fable_memory_repo_boundary(repo)
+
+    assert result["ok"] is True
+    assert result["status"] == "healthy"
+    assert result["remote_count"] == 0
+    assert result["remote_names"] == []
+
+
+def test_fable_memory_repo_boundary_detects_real_remote(tmp_path) -> None:
+    repo = tmp_path / "memory"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "remote",
+            "add",
+            "origin",
+            "file:///blocked",
+        ],
+        check=True,
+    )
+
+    result = guard.check_fable_memory_repo_boundary(repo)
+
+    assert result["ok"] is False
+    assert result["status"] == "drift"
+    assert result["remote_count"] == 1
+    assert result["remote_names"] == ["origin"]
+    assert any("remotos prohibidos: origin" in issue for issue in result["issues"])
+
+
+def test_fable_memory_repo_boundary_rejects_missing_repo(tmp_path) -> None:
+    result = guard.check_fable_memory_repo_boundary(tmp_path / "missing")
+
+    assert result["ok"] is False
+    assert result["status"] == "drift"
+    assert result["remote_count"] is None
+    assert any("ausente" in issue for issue in result["issues"])
 
 
 def policy_literal(name: str, value: object) -> str:

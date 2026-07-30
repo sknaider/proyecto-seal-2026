@@ -53,6 +53,10 @@ AUTONOMY_ACK_ROOT = Path(
     os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))
 ) / "seal" / "autonomy_acknowledgements"
 AUTONOMY_RECEIPT_GRACE_SECONDS = 30
+FABLE_MEMORY_REPO = (
+    Path.home()
+    / ".claude/projects/-home-dadito-IA-proyecto-seal/memory"
+)
 PROJECT_MCP_CONFIG = ROOT / ".mcp.json"
 GLOBAL_MCP_CONFIG = Path.home() / ".claude/.mcp.json"
 POSTGRES_MCP_SECRET = Path.home() / ".config/seal/mcp_postgres_observer.env"
@@ -705,6 +709,64 @@ def check_auth_guard_status(path: Path = AUTH_GUARD_STATE, *, now: float | None 
         "raw_status": payload.get("raw_status"),
         "age_seconds": age,
         "consecutive_failures": int(payload.get("consecutive_failures") or 0),
+        "issues": issues,
+    }
+
+
+def check_fable_memory_repo_boundary(
+    repo: Path = FABLE_MEMORY_REPO,
+) -> dict[str, Any]:
+    """Require FABLE's local memory history to remain an exact no-remote repo.
+
+    The pre-push hook protects the act of publishing, but it lives inside the
+    watched tree and can be skipped or lost in a clone. This independent guard
+    protects the cheaper precondition: no remote may exist at all.
+    """
+    repo = repo.expanduser().resolve()
+    issues: list[str] = []
+    remote_names: list[str] = []
+
+    if not repo.is_dir():
+        issues.append(f"FABLE memory repo ausente: {repo}")
+    else:
+        root_result = run(
+            ["git", "-C", str(repo), "rev-parse", "--show-toplevel"],
+            timeout=5,
+        )
+        if root_result.returncode != 0:
+            issues.append(f"FABLE memory repo no es Git independiente: {repo}")
+        else:
+            try:
+                git_root = Path(root_result.stdout.strip()).resolve()
+            except Exception as exc:
+                issues.append(f"FABLE memory repo devolvió raíz inválida: {exc}")
+            else:
+                if git_root != repo:
+                    issues.append(
+                        "FABLE memory repo fue absorbido por otro árbol Git: "
+                        f"esperado={repo} observado={git_root}"
+                    )
+
+        remote_result = run(["git", "-C", str(repo), "remote"], timeout=5)
+        if remote_result.returncode != 0:
+            issues.append("FABLE memory repo no permitió verificar remotos")
+        else:
+            # Only names are read. URLs are deliberately excluded from reports.
+            remote_names = sorted(
+                {line.strip() for line in remote_result.stdout.splitlines() if line.strip()}
+            )
+            if remote_names:
+                issues.append(
+                    "FABLE memory repo tiene remotos prohibidos: "
+                    + ", ".join(remote_names)
+                )
+
+    return {
+        "ok": not issues,
+        "status": "healthy" if not issues else "drift",
+        "repo": str(repo),
+        "remote_count": len(remote_names) if repo.is_dir() else None,
+        "remote_names": remote_names,
         "issues": issues,
     }
 
@@ -1541,6 +1603,7 @@ def stable_hash(report: dict[str, Any]) -> str:
     # crash the guard before it can publish the actual health report.
     studio_boundary = report.get("studio_db_boundary", {})
     sdk_boundary = report.get("sdk_db_boundary", {})
+    fable_repo_boundary = report.get("fable_memory_repo_boundary", {})
     oneshots = report.get("oneshot_results", {})
     relevant = {
         "status": report["status"],
@@ -1567,6 +1630,10 @@ def stable_hash(report: dict[str, Any]) -> str:
             "status": sdk_boundary.get("status"),
             "issues": sdk_boundary.get("issues", []),
         },
+        "fable_memory_repo_boundary": {
+            "status": fable_repo_boundary.get("status"),
+            "issues": fable_repo_boundary.get("issues", []),
+        },
         "oneshot_results": {
             "ok": oneshots.get("ok"),
             "issues": oneshots.get("issues", []),
@@ -1592,7 +1659,7 @@ def maybe_post(report: dict[str, Any], *, post_always: bool, post_on_change: boo
 
     lines = [
         f"ADA Stability Guard — {report['status']}",
-        f"ws={report['ws_ok']}/4 monitors={report.get('monitor_ok', 0)}/4 hb={report['heartbeat_ok']}/5 auth={report['auth_guard']['status']} autonomy={report['autonomy_contract']['status']} postgres_mcp={report['mcp_postgres_boundary']['status']} studio_db={report['studio_db_boundary']['status']} sdk_db={report['sdk_db_boundary']['status']} units_ok={report['units_ok']} fixes={len(report['fixes'])} issues={len(report['issues'])}",
+        f"ws={report['ws_ok']}/4 monitors={report.get('monitor_ok', 0)}/4 hb={report['heartbeat_ok']}/5 auth={report['auth_guard']['status']} autonomy={report['autonomy_contract']['status']} postgres_mcp={report['mcp_postgres_boundary']['status']} studio_db={report['studio_db_boundary']['status']} sdk_db={report['sdk_db_boundary']['status']} fable_repo={report['fable_memory_repo_boundary']['status']} units_ok={report['units_ok']} fixes={len(report['fixes'])} issues={len(report['issues'])}",
     ]
     if report["fixes"]:
         lines.append("Fixes: " + "; ".join(report["fixes"][:6]))
@@ -1635,6 +1702,7 @@ async def build_report() -> dict[str, Any]:
     mcp_postgres_boundary = check_mcp_postgres_boundary()
     studio_db_boundary = await check_studio_db_boundary()
     sdk_db_boundary = await check_sdk_db_boundary()
+    fable_memory_repo_boundary = check_fable_memory_repo_boundary()
 
     fixes: list[str] = []
     issues: list[str] = []
@@ -1658,6 +1726,7 @@ async def build_report() -> dict[str, Any]:
     issues.extend(mcp_postgres_boundary.get("issues", []))
     issues.extend(studio_db_boundary.get("issues", []))
     issues.extend(sdk_db_boundary.get("issues", []))
+    issues.extend(fable_memory_repo_boundary.get("issues", []))
 
     ws_ok = sum(1 for item in ws_results if item.get("live_count_after") == 1 and not item.get("issues"))
     heartbeat_ok = sum(1 for item in heartbeat_results if item.get("ok"))
@@ -1687,6 +1756,7 @@ async def build_report() -> dict[str, Any]:
         "mcp_postgres_boundary": mcp_postgres_boundary,
         "studio_db_boundary": studio_db_boundary,
         "sdk_db_boundary": sdk_db_boundary,
+        "fable_memory_repo_boundary": fable_memory_repo_boundary,
         "fixes": fixes,
         "issues": issues,
     }
