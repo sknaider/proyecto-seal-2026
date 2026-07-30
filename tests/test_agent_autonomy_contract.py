@@ -27,6 +27,9 @@ def test_common_boot_contract_requires_execution_without_second_green() -> None:
         "no cerrar en propuesta",
         "BLOCKED solo es válido con un impedimento real",
         "código + restart + healthcheck",
+        "scripts/seal_self_repair.py restart <acción> --reason <motivo>",
+        "no acepta unidades/PIDs libres",
+        "result=verified",
     )
     assert all(clause in contract for clause in required)
 

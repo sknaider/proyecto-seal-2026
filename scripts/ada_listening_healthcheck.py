@@ -21,6 +21,7 @@ if str(ROOT) not in sys.path:
 
 from messages import ada_codex_remote_bridge as bridge
 from messages import ada_codex_poller as poller
+from scripts import seal_self_repair
 
 
 SERVICES = (
@@ -29,6 +30,12 @@ SERVICES = (
     "seal-ada-codex-stream-relay.service",
     "seal-ada-codex-autostart.service",
 )
+SERVICE_REPAIR_ACTIONS = {
+    "ada-codex-remote-bridge.service": "bridge",
+    "seal-ada-codex-poller.service": "visible_poller",
+    "seal-ada-codex-stream-relay.service": "stream_relay",
+    "seal-ada-codex-autostart.service": "visible_terminal",
+}
 STATE_DIR = Path(os.environ.get("ADA_CODEX_STATE_DIR", Path.home() / ".local/state/seal"))
 REPORT_PATH = STATE_DIR / "ada_listening_guard_report.json"
 MONITOR_STATE_PATH = STATE_DIR / "ada_listening_monitor_state.json"
@@ -589,26 +596,62 @@ def repair_allowed() -> bool:
 
 def repair_services(
     states: dict[str, dict[str, Any]], lease: dict[str, Any], route: dict[str, Any]
-) -> tuple[list[str], str | None]:
+) -> tuple[list[str], str | None, list[dict[str, Any]], list[str]]:
     repaired: list[str] = []
+    receipts: list[dict[str, Any]] = []
+    errors: list[str] = []
     quarantined = quarantine_stale_route(route)
     for name, state in states.items():
         needs_restart = not state["active"]
-        if quarantined and name in {
-            "seal-ada-codex-poller.service",
-            "seal-ada-codex-stream-relay.service",
-        }:
-            needs_restart = True
         if needs_restart:
-            _systemctl("restart", name)
-            repaired.append(name)
+            try:
+                evidence = repair_service(
+                    name,
+                    reason=(
+                        "ADA listening healthcheck observed the supervised "
+                        "service inactive"
+                    ),
+                )
+                repaired.append(name)
+                receipts.append(evidence)
+            except (PermissionError, RuntimeError, subprocess.TimeoutExpired) as exc:
+                errors.append(f"{name}: {exc}")
     if repaired:
         for _ in range(20):
             if all(service_state(name)["active"] for name in repaired):
                 time.sleep(1.0)
                 break
             time.sleep(0.5)
-    return repaired, quarantined
+    return repaired, quarantined, receipts, errors
+
+
+def repair_service(name: str, *, reason: str) -> dict[str, Any]:
+    """Repair one ADA service through the bounded broker and retain evidence."""
+    try:
+        action = SERVICE_REPAIR_ACTIONS[name]
+    except KeyError as exc:
+        raise PermissionError(f"{name} has no ADA self-repair action") from exc
+    receipt = seal_self_repair.execute(
+        "ADA",
+        action,
+        "restart",
+        reason,
+        timeout=8,
+    )
+    path = seal_self_repair.write_receipt(receipt)
+    if receipt.result != "verified":
+        raise RuntimeError(
+            f"broker receipt {path} result={receipt.result}; "
+            "repair is not verified"
+        )
+    return {
+        "unit": name,
+        "action": action,
+        "receipt": str(path),
+        "result": receipt.result,
+        "before_invocation_id": receipt.before.invocation_id,
+        "after_invocation_id": receipt.after.invocation_id,
+    }
 
 
 def run(repair: bool = False, alert: bool = False) -> dict[str, Any]:
@@ -616,7 +659,12 @@ def run(repair: bool = False, alert: bool = False) -> dict[str, Any]:
     lease = listener_lease()
     delivery_route = delivery_route_state(states, lease)
     route = active_route_state()
-    repaired, quarantined = repair_services(states, lease, route) if repair else ([], None)
+    if repair:
+        repaired, quarantined, repair_receipts, repair_errors = repair_services(
+            states, lease, route
+        )
+    else:
+        repaired, quarantined, repair_receipts, repair_errors = [], None, [], []
     if repaired:
         states = {name: service_state(name) for name in SERVICES}
         lease = listener_lease()
@@ -651,10 +699,23 @@ def run(repair: bool = False, alert: bool = False) -> dict[str, Any]:
         and (coverage.get("overdue") or not completions.get("ok"))
         and repair_allowed()
     ):
-        result = _systemctl("restart", "ada-codex-remote-bridge.service")
-        communication_repair = result.returncode == 0
+        try:
+            evidence = repair_service(
+                "ada-codex-remote-bridge.service",
+                reason=(
+                    "ADA listening healthcheck found overdue delivery or a "
+                    "stale completion artifact"
+                ),
+            )
+            repair_receipts.append(evidence)
+            communication_repair = True
+        except (PermissionError, RuntimeError, subprocess.TimeoutExpired) as exc:
+            repair_errors.append(f"ada-codex-remote-bridge.service: {exc}")
         if communication_repair:
             time.sleep(3)
+            states = {name: service_state(name) for name in SERVICES}
+            lease = listener_lease()
+            delivery_route = delivery_route_state(states, lease)
             try:
                 coverage = asyncio.run(reply_coverage(dsn, start_id))
             except Exception as exc:
@@ -662,6 +723,7 @@ def run(repair: bool = False, alert: bool = False) -> dict[str, Any]:
             completions = stale_completion_artifacts()
 
     failures: list[str] = []
+    failures.extend(f"repair={error}" for error in repair_errors)
     for name, state in states.items():
         if not state["active"] or not state["enabled"]:
             failures.append(f"{name} active/enabled={state['active']}/{state['enabled']}")
@@ -705,6 +767,8 @@ def run(repair: bool = False, alert: bool = False) -> dict[str, Any]:
         "completion_artifacts": completions,
         "communication_repair": communication_repair,
         "repaired_services": repaired,
+        "repair_receipts": repair_receipts,
+        "repair_errors": repair_errors,
         "quarantined_route": quarantined,
         "failures": failures,
     }

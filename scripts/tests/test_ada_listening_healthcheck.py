@@ -247,6 +247,12 @@ def test_delivery_route_uses_headless_failover_when_listener_releases_lease():
     }
 
 
+def test_healthcheck_repair_table_matches_ada_broker_policy():
+    assert set(health.SERVICE_REPAIR_ACTIONS) == set(health.SERVICES)
+    for unit, action in health.SERVICE_REPAIR_ACTIONS.items():
+        assert health.seal_self_repair.AGENT_ACTIONS["ADA"][action] == unit
+
+
 def test_repair_does_not_restart_active_poller_for_released_lease(monkeypatch):
     calls = []
     states = {
@@ -262,7 +268,7 @@ def test_repair_does_not_restart_active_poller_for_released_lease(monkeypatch):
         lambda *args: calls.append(args),
     )
 
-    repaired, quarantined = health.repair_services(
+    repaired, quarantined, receipts, errors = health.repair_services(
         states,
         {"ok": False, "status": "degraded"},
         {"ok": True},
@@ -270,7 +276,147 @@ def test_repair_does_not_restart_active_poller_for_released_lease(monkeypatch):
 
     assert repaired == []
     assert quarantined is None
+    assert receipts == []
+    assert errors == []
     assert calls == []
+
+
+def test_quarantined_route_does_not_restart_active_services(monkeypatch):
+    states = {
+        "ada-codex-remote-bridge.service": {"active": True},
+        "seal-ada-codex-poller.service": {"active": True},
+        "seal-ada-codex-stream-relay.service": {"active": True},
+        "seal-ada-codex-autostart.service": {"active": True},
+    }
+    calls = []
+    monkeypatch.setattr(
+        health,
+        "quarantine_stale_route",
+        lambda _route: "/evidence/orphaned-active-task.json",
+    )
+    monkeypatch.setattr(
+        health,
+        "repair_service",
+        lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+
+    repaired, quarantined, receipts, errors = health.repair_services(
+        states,
+        {"ok": False, "status": "degraded"},
+        {"ok": False, "status": "pending_submit"},
+    )
+
+    assert repaired == []
+    assert quarantined == "/evidence/orphaned-active-task.json"
+    assert receipts == []
+    assert errors == []
+    assert calls == []
+
+
+def test_inactive_poller_is_repaired_through_broker(monkeypatch):
+    states = {
+        "ada-codex-remote-bridge.service": {"active": True},
+        "seal-ada-codex-poller.service": {"active": False},
+        "seal-ada-codex-stream-relay.service": {"active": True},
+        "seal-ada-codex-autostart.service": {"active": True},
+    }
+    calls = []
+    evidence = {
+        "unit": "seal-ada-codex-poller.service",
+        "action": "visible_poller",
+        "receipt": "/durable/receipt.json",
+        "result": "verified",
+    }
+    monkeypatch.setattr(health, "quarantine_stale_route", lambda _route: None)
+    monkeypatch.setattr(
+        health,
+        "repair_service",
+        lambda name, *, reason: calls.append((name, reason)) or evidence,
+    )
+    monkeypatch.setattr(
+        health,
+        "service_state",
+        lambda _name: {"active": True},
+    )
+    monkeypatch.setattr(health.time, "sleep", lambda _seconds: None)
+
+    repaired, quarantined, receipts, errors = health.repair_services(
+        states,
+        {"ok": True},
+        {"ok": True},
+    )
+
+    assert repaired == ["seal-ada-codex-poller.service"]
+    assert quarantined is None
+    assert receipts == [evidence]
+    assert errors == []
+    assert calls[0][0] == "seal-ada-codex-poller.service"
+
+
+def test_repair_service_writes_verified_broker_receipt(monkeypatch, tmp_path):
+    before = health.seal_self_repair.UnitSnapshot(
+        unit="seal-ada-codex-poller.service",
+        observed_at="2026-07-30T00:00:00+00:00",
+        load_state="loaded",
+        unit_type="simple",
+        active_state="active",
+        sub_state="running",
+        main_pid=10,
+        invocation_id="old",
+        result="success",
+    )
+    after = health.seal_self_repair.UnitSnapshot(
+        **{
+            **before.__dict__,
+            "observed_at": "2026-07-30T00:00:01+00:00",
+            "main_pid": 11,
+            "invocation_id": "new",
+        }
+    )
+    receipt = health.seal_self_repair.RepairReceipt(
+        schema="seal.autonomy.repair-receipt.v1",
+        receipt_id="healthcheck-test",
+        agent="ADA",
+        operation="restart",
+        action="visible_poller",
+        unit="seal-ada-codex-poller.service",
+        reason="healthcheck test",
+        started_at=before.observed_at,
+        finished_at=after.observed_at,
+        opportunity={"command_invoked": True, "operation": "restart"},
+        expected={"target_changed": True},
+        before=before,
+        after=after,
+        negative_control_before=before,
+        negative_control_after=before,
+        checks={"passed": True},
+        command=["systemctl", "--user", "restart", before.unit],
+        returncode=0,
+        output="",
+        result="verified",
+    )
+    calls = []
+    monkeypatch.setattr(
+        health.seal_self_repair,
+        "execute",
+        lambda *args, **kwargs: calls.append((args, kwargs)) or receipt,
+    )
+    path = tmp_path / "receipt.json"
+    monkeypatch.setattr(
+        health.seal_self_repair,
+        "write_receipt",
+        lambda value: path if value is receipt else None,
+    )
+
+    result = health.repair_service(
+        "seal-ada-codex-poller.service",
+        reason="healthcheck test",
+    )
+
+    assert calls[0][0][:3] == ("ADA", "visible_poller", "restart")
+    assert result["receipt"] == str(path)
+    assert result["before_invocation_id"] == "old"
+    assert result["after_invocation_id"] == "new"
 
 
 def test_william_backlog_ignores_cursors_and_fails_on_unanswered(monkeypatch):

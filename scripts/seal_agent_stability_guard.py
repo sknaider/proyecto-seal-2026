@@ -16,6 +16,7 @@ or when it had to fix something.
 from __future__ import annotations
 
 import argparse
+import ast
 import asyncio
 import hashlib
 import json
@@ -44,6 +45,14 @@ STABILITY_DB_SECRET = Path.home() / ".config/seal/stability_guard.dsn"
 SDK_DB_SECRET = Path.home() / ".config/seal/soul_memory_sdk.env"
 AUTH_GUARD_STATE = Path.home() / ".local/state/seal/claude-auth-guard/state.json"
 AUTH_GUARD_MAX_AGE_SECONDS = 15 * 60
+AUTONOMY_RUNTIME_STATE = Path.home() / ".local/state/seal/autonomy_invocation_state.json"
+AUTONOMY_RECEIPT_ROOT = Path(
+    os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))
+) / "seal" / "autonomy_receipts"
+AUTONOMY_ACK_ROOT = Path(
+    os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))
+) / "seal" / "autonomy_acknowledgements"
+AUTONOMY_RECEIPT_GRACE_SECONDS = 30
 PROJECT_MCP_CONFIG = ROOT / ".mcp.json"
 GLOBAL_MCP_CONFIG = Path.home() / ".claude/.mcp.json"
 POSTGRES_MCP_SECRET = Path.home() / ".config/seal/mcp_postgres_observer.env"
@@ -86,6 +95,45 @@ AUTONOMY_LEGACY_PHRASES = (
     "Propose and consult before acting, as William has corrected this and it is valid.",
 )
 AUTONOMY_RULE_IDS = (42, 73)
+EXPECTED_SELF_REPAIR_ACTIONS = {
+    "ADA": {
+        "bridge": "ada-codex-remote-bridge.service",
+        "channel_monitor": "seal-channel-monitor@ADA.service",
+        "stream_relay": "seal-ada-codex-stream-relay.service",
+        "visible_poller": "seal-ada-codex-poller.service",
+        "visible_terminal": "seal-ada-codex-autostart.service",
+    },
+    "ALICE": {
+        "bridge": "seal-bridge-alice.service",
+        "channel_monitor": "seal-channel-monitor@ALICE.service",
+    },
+    "FABLE": {
+        "channel_monitor": "seal-channel-monitor@FABLE.service",
+    },
+    "JARVIS": {
+        "bridge": "seal-bridge-jarvis.service",
+        "channel_monitor": "seal-channel-monitor@JARVIS.service",
+    },
+    "NEXUS": {
+        "bridge": "seal-bridge-nexus.service",
+        "channel_monitor": "seal-channel-monitor@NEXUS.service",
+        "visible_terminal": "nexus-terminal.service",
+    },
+}
+EXPECTED_SELF_REPAIR_CONTROLS = {
+    "ADA": "seal-channel-monitor@JARVIS.service",
+    "ALICE": "seal-channel-monitor@FABLE.service",
+    "FABLE": "seal-channel-monitor@NEXUS.service",
+    "JARVIS": "seal-channel-monitor@ADA.service",
+    "NEXUS": "seal-channel-monitor@ALICE.service",
+}
+AUTONOMY_RECEIPT_REQUIRED_CHECKS = {
+    "command_succeeded",
+    "positive_control_target_active",
+    "by_effect_target_changed",
+    "negative_control_other_agent_unchanged",
+    "subject_matches_policy",
+}
 
 WS_AGENTS = ("ALICE", "FABLE", "JARVIS", "NEXUS")
 MONITOR_AGENTS = WS_AGENTS
@@ -499,6 +547,43 @@ def check_heartbeat(agent: str, rows: list[Proc]) -> dict[str, Any]:
     }
 
 
+def refresh_ada_heartbeat_after_pid_rollover(
+    result: dict[str, Any],
+    rows: list[Proc],
+) -> tuple[dict[str, Any], list[str]]:
+    """Re-sample ADA once when its runtime changed between heartbeat ticks.
+
+    ADA's visible Codex runtime can restart immediately after the five-minute
+    heartbeat timer runs.  Without this bounded retry, the two-minute
+    stability guard publishes a transient YELLOW for the old PID even though
+    the replacement runtime is already healthy.
+
+    The retry does not mask a real outage: the heartbeat writer emits
+    ``alive=false``/PID 0 when it cannot identify exactly one ADA runtime, and
+    the refreshed result remains unhealthy.
+    """
+    dead_pid_issue = any(
+        str(issue).startswith("ADA: heartbeat apunta a PID muerto ")
+        for issue in result.get("issues", [])
+    )
+    if not dead_pid_issue:
+        return result, []
+
+    refreshed = run(
+        ["systemctl", "--user", "restart", "seal-ada-heartbeat.service"],
+        timeout=10,
+    )
+    if refreshed.returncode != 0:
+        return result, []
+
+    result_after = check_heartbeat("ADA", rows)
+    if result_after.get("ok"):
+        old_pid = result.get("pid")
+        new_pid = result_after.get("pid")
+        return result_after, [f"ADA: heartbeat refrescado tras rollover PID {old_pid}->{new_pid}"]
+    return result_after, []
+
+
 def unit_load_state(unit: str) -> str:
     result = run(["systemctl", "--user", "show", unit, "-p", "LoadState", "--value"], timeout=5)
     return result.stdout.strip() or "unknown"
@@ -665,6 +750,7 @@ def check_autonomy_files(root: Path = ROOT) -> dict[str, Any]:
         "contract": root / "CLAUDE.md",
         "sender": root / "scripts/seal_send.py",
         "guard": root / "scripts/seal_autonomy_guard.py",
+        "self_repair": root / "scripts/seal_self_repair.py",
     }
     contents: dict[str, str] = {}
     for name, path in paths.items():
@@ -688,7 +774,465 @@ def check_autonomy_files(root: Path = ROOT) -> dict[str, Any]:
     guard = contents.get("guard", "")
     if "def autonomy_warning" not in guard:
         issues.append("autonomía: seal_autonomy_guard.py no expone el detector esperado")
+    self_repair = contents.get("self_repair", "")
+    for marker in (
+        "AGENT_ACTIONS",
+        "SEAL_AGENT is required; identity is fail-closed",
+        "negative_control_other_agent_unchanged",
+        "subject_matches_policy",
+        "autonomy_receipts",
+        "v1 only repairs continuously ",
+        "supervised Type=simple services",
+    ):
+        if marker not in self_repair:
+            issues.append(
+                f"autonomía: seal_self_repair.py perdió control obligatorio: {marker}"
+            )
+    if self_repair:
+        try:
+            tree = ast.parse(self_repair, filename=str(paths["self_repair"]))
+            literals: dict[str, Any] = {}
+            for node in tree.body:
+                if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                    continue
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                value = node.value
+                for target in targets:
+                    if isinstance(target, ast.Name) and target.id in {
+                        "AGENT_ACTIONS",
+                        "CONTROL_UNITS",
+                    }:
+                        literals[target.id] = ast.literal_eval(value)
+            if literals.get("AGENT_ACTIONS") != EXPECTED_SELF_REPAIR_ACTIONS:
+                issues.append(
+                    "autonomía: tabla AGENT_ACTIONS cambió sin actualizar la "
+                    "custodia protegida del Stability Guard"
+                )
+            if literals.get("CONTROL_UNITS") != EXPECTED_SELF_REPAIR_CONTROLS:
+                issues.append(
+                    "autonomía: tabla CONTROL_UNITS cambió sin actualizar la "
+                    "custodia protegida del Stability Guard"
+                )
+        except Exception as exc:
+            issues.append(f"autonomía: política de autorreparación no verificable: {exc}")
     return {"ok": not issues, "status": "healthy" if not issues else "drift", "issues": issues}
+
+
+def _autonomy_units() -> dict[str, dict[str, str]]:
+    units: dict[str, dict[str, str]] = {}
+    for agent, actions in EXPECTED_SELF_REPAIR_ACTIONS.items():
+        for action, unit in actions.items():
+            if unit in units:
+                raise RuntimeError(f"unidad de autonomía duplicada: {unit}")
+            units[unit] = {"agent": agent, "action": action}
+    return units
+
+
+def _read_boot_id(path: Path = Path("/proc/sys/kernel/random/boot_id")) -> str:
+    return path.read_text(encoding="utf-8").strip()
+
+
+def _inspect_autonomy_unit(unit: str) -> dict[str, Any]:
+    completed = run(
+        [
+            "systemctl",
+            "--user",
+            "show",
+            unit,
+            "-p",
+            "LoadState",
+            "-p",
+            "ActiveState",
+            "-p",
+            "SubState",
+            "-p",
+            "MainPID",
+            "-p",
+            "InvocationID",
+            "-p",
+            "Result",
+        ],
+        timeout=5,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()
+        raise RuntimeError(f"no pude inspeccionar {unit}: {detail}")
+    values: dict[str, str] = {}
+    for line in completed.stdout.splitlines():
+        key, _, value = line.partition("=")
+        if key:
+            values[key] = value
+    return {
+        "load_state": values.get("LoadState", "unknown"),
+        "active_state": values.get("ActiveState", "unknown"),
+        "sub_state": values.get("SubState", "unknown"),
+        "main_pid": int(values.get("MainPID", "0") or 0),
+        "invocation_id": values.get("InvocationID", ""),
+        "result": values.get("Result", ""),
+    }
+
+
+def _load_autonomy_receipt_edges(
+    receipt_root: Path,
+    units: dict[str, dict[str, str]],
+) -> dict[str, dict[str, set[str]]]:
+    """Return verified restart edges as unit -> before invocation -> after set."""
+    edges: dict[str, dict[str, set[str]]] = {}
+    if not receipt_root.is_dir():
+        return edges
+    for unit, owner in units.items():
+        agent_dir = receipt_root / owner["agent"]
+        if not agent_dir.is_dir():
+            continue
+        for path in agent_dir.glob("*.json"):
+            try:
+                if path.stat().st_mode & 0o777 != 0o600:
+                    continue
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                checks = payload.get("checks")
+                before = payload.get("before")
+                after = payload.get("after")
+                if not isinstance(checks, dict) or not isinstance(before, dict) or not isinstance(after, dict):
+                    continue
+                if payload.get("schema") != "seal.autonomy.repair-receipt.v1":
+                    continue
+                if payload.get("result") != "verified" or payload.get("operation") != "restart":
+                    continue
+                if payload.get("agent") != owner["agent"] or payload.get("unit") != unit:
+                    continue
+                if not AUTONOMY_RECEIPT_REQUIRED_CHECKS.issubset(checks):
+                    continue
+                if any(checks.get(name) is not True for name in AUTONOMY_RECEIPT_REQUIRED_CHECKS):
+                    continue
+                before_id = str(before.get("invocation_id") or "")
+                after_id = str(after.get("invocation_id") or "")
+                if not before_id or not after_id or before_id == after_id:
+                    continue
+                edges.setdefault(unit, {}).setdefault(before_id, set()).add(after_id)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                continue
+    return edges
+
+
+def _has_verified_invocation_chain(
+    edges: dict[str, dict[str, set[str]]],
+    unit: str,
+    before_id: str,
+    after_id: str,
+) -> bool:
+    if not before_id or not after_id:
+        return False
+    if before_id == after_id:
+        return True
+    graph = edges.get(unit, {})
+    frontier = [before_id]
+    visited = {before_id}
+    while frontier:
+        current = frontier.pop()
+        for candidate in graph.get(current, set()):
+            if candidate == after_id:
+                return True
+            if candidate not in visited:
+                visited.add(candidate)
+                frontier.append(candidate)
+    return False
+
+
+def _write_autonomy_runtime_state(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path.parent.chmod(0o700)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    temporary.chmod(0o600)
+    temporary.replace(path)
+
+
+def acknowledge_autonomy_bypass(
+    unit: str,
+    *,
+    reason: str,
+    expected_accepted_invocation_id: str,
+    expected_observed_invocation_id: str,
+    actor: str | None = None,
+    state_path: Path = AUTONOMY_RUNTIME_STATE,
+    acknowledgement_root: Path = AUTONOMY_ACK_ROOT,
+    grace_seconds: int = AUTONOMY_RECEIPT_GRACE_SECONDS,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Adjudicate one detected bypass without erasing its durable evidence.
+
+    Recovery is a separate explicit transition because a later broker receipt
+    must never launder an earlier out-of-band restart. The target owner must
+    acknowledge its own unit, both InvocationIDs must match current state, the
+    grace period must have elapsed, and the live InvocationID must still equal
+    the observed value. The acknowledgement is durable before baseline moves.
+
+    ``SEAL_AGENT`` remains an auditable policy identity rather than
+    cryptographic isolation because all agents share one Unix UID.
+    """
+    units = _autonomy_units()
+    if unit not in units:
+        raise ValueError(f"unidad fuera de la tabla de autoridad: {unit}")
+    owner = units[unit]
+    effective_actor = (actor or os.environ.get("SEAL_AGENT", "")).strip().upper()
+    if effective_actor != owner["agent"]:
+        raise PermissionError(
+            f"actor={effective_actor or '<ausente>'} no es owner={owner['agent']} de {unit}"
+        )
+    normalized_reason = " ".join(reason.split())
+    if len(normalized_reason) < 12:
+        raise ValueError("reason debe explicar la adjudicación (mínimo 12 caracteres)")
+    if not expected_accepted_invocation_id or not expected_observed_invocation_id:
+        raise ValueError("se requieren InvocationID accepted y observed exactos")
+    if expected_accepted_invocation_id == expected_observed_invocation_id:
+        raise ValueError("accepted y observed deben diferir")
+
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(f"estado de invocaciones ilegible: {exc}") from exc
+    if state.get("schema") != "seal.autonomy.invocation-state.v1":
+        raise ValueError("schema de estado inválido")
+    entry = state.get("units", {}).get(unit)
+    if not isinstance(entry, dict):
+        raise ValueError(f"unidad sin estado: {unit}")
+    pending = entry.get("pending")
+    if not isinstance(pending, dict):
+        raise ValueError(f"unidad sin bypass pendiente: {unit}")
+
+    accepted_id = str(entry.get("accepted_invocation_id") or "")
+    observed_id = str(pending.get("invocation_id") or "")
+    if accepted_id != expected_accepted_invocation_id:
+        raise ValueError(
+            f"accepted cambió: esperado={expected_accepted_invocation_id} actual={accepted_id}"
+        )
+    if observed_id != expected_observed_invocation_id:
+        raise ValueError(
+            f"observed cambió: esperado={expected_observed_invocation_id} actual={observed_id}"
+        )
+
+    observed_at = now or datetime.now(timezone.utc)
+    try:
+        first_seen = datetime.fromisoformat(str(pending["first_seen"]))
+        if first_seen.tzinfo is None:
+            first_seen = first_seen.replace(tzinfo=timezone.utc)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("pending.first_seen inválido") from exc
+    age_seconds = max(0.0, (observed_at - first_seen).total_seconds())
+    if age_seconds < grace_seconds:
+        raise ValueError(
+            f"bypass aún en gracia: age={age_seconds:.1f}s grace={grace_seconds}s"
+        )
+
+    live = _inspect_autonomy_unit(unit)
+    live_id = str(live.get("invocation_id") or "")
+    if live_id != observed_id:
+        raise ValueError(
+            f"InvocationID vivo cambió: pending={observed_id} live={live_id}"
+        )
+
+    ack_id = observed_at.strftime("%Y%m%dT%H%M%S") + "-" + hashlib.sha256(
+        f"{unit}\0{accepted_id}\0{observed_id}\0{normalized_reason}".encode("utf-8")
+    ).hexdigest()[:10]
+    payload = {
+        "schema": "seal.autonomy.bypass-acknowledgement.v1",
+        "ack_id": ack_id,
+        "acknowledged_at": observed_at.isoformat(),
+        "actor": effective_actor,
+        "agent": owner["agent"],
+        "action": owner["action"],
+        "unit": unit,
+        "reason": normalized_reason,
+        "accepted_invocation_id": accepted_id,
+        "observed_invocation_id": observed_id,
+        "observed_main_pid": int(live.get("main_pid") or 0),
+        "first_seen": first_seen.isoformat(),
+        "age_seconds": int(age_seconds),
+        "result": "acknowledged",
+    }
+    acknowledgement_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    acknowledgement_root.chmod(0o700)
+    owner_dir = acknowledgement_root / owner["agent"]
+    owner_dir.mkdir(mode=0o700, exist_ok=True)
+    owner_dir.chmod(0o700)
+    ack_path = owner_dir / f"{ack_id}.json"
+    with ack_path.open("x", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+        handle.write("\n")
+    ack_path.chmod(0o600)
+
+    entry.update(
+        {
+            **owner,
+            "accepted_invocation_id": observed_id,
+            "accepted_main_pid": int(live.get("main_pid") or 0),
+            "active_state": live.get("active_state"),
+            "pending": None,
+            "last_ack": {
+                "ack_id": ack_id,
+                "path": str(ack_path),
+                "acknowledged_at": observed_at.isoformat(),
+            },
+        }
+    )
+    state["updated_at"] = observed_at.isoformat()
+    _write_autonomy_runtime_state(state_path, state)
+    return {**payload, "acknowledgement": str(ack_path), "state_path": str(state_path)}
+
+
+def check_autonomy_restart_provenance(
+    *,
+    state_path: Path = AUTONOMY_RUNTIME_STATE,
+    receipt_root: Path = AUTONOMY_RECEIPT_ROOT,
+    grace_seconds: int = AUTONOMY_RECEIPT_GRACE_SECONDS,
+    now: datetime | None = None,
+    boot_id: str | None = None,
+) -> dict[str, Any]:
+    """Detect allowlisted service invocations that have no verified broker receipt.
+
+    The first observation and a host reboot establish a baseline instead of
+    accusing historical/system-start transitions. Afterwards, a changed
+    InvocationID must be connected to the accepted one by one or more verified
+    repair receipts. A short grace window avoids racing the broker between
+    `systemctl restart` and its atomic receipt write.
+    """
+    observed_at = now or datetime.now(timezone.utc)
+    current_boot_id = boot_id or _read_boot_id()
+    units = _autonomy_units()
+    observations: dict[str, dict[str, Any]] = {}
+    issues: list[str] = []
+    for unit in units:
+        try:
+            observations[unit] = _inspect_autonomy_unit(unit)
+        except Exception as exc:
+            issues.append(f"autonomía: reinicios no verificables para {unit}: {exc}")
+
+    previous: dict[str, Any] | None = None
+    if state_path.exists():
+        try:
+            loaded = json.loads(state_path.read_text(encoding="utf-8"))
+            if not isinstance(loaded, dict) or loaded.get("schema") != "seal.autonomy.invocation-state.v1":
+                raise ValueError("schema inválido")
+            if not isinstance(loaded.get("units"), dict):
+                raise ValueError("units inválido")
+            previous = loaded
+        except Exception as exc:
+            return {
+                "ok": False,
+                "status": "unverifiable",
+                "baseline": False,
+                "authorized": [],
+                "pending": [],
+                "out_of_band": [],
+                "issues": [f"autonomía: estado de invocaciones ilegible: {exc}"],
+            }
+
+    rebaseline = previous is None or previous.get("boot_id") != current_boot_id
+    next_units: dict[str, dict[str, Any]] = {}
+    authorized: list[str] = []
+    pending_units: list[str] = []
+    out_of_band: list[str] = []
+    receipt_edges = _load_autonomy_receipt_edges(receipt_root, units)
+
+    for unit, owner in units.items():
+        observed = observations.get(unit)
+        prior = (previous or {}).get("units", {}).get(unit, {})
+        if observed is None:
+            if isinstance(prior, dict):
+                next_units[unit] = prior
+            continue
+        current_id = str(observed.get("invocation_id") or "")
+        if rebaseline or not isinstance(prior, dict) or not prior.get("accepted_invocation_id"):
+            next_units[unit] = {
+                **owner,
+                "accepted_invocation_id": current_id,
+                "accepted_main_pid": int(observed.get("main_pid") or 0),
+                "active_state": observed.get("active_state"),
+                "pending": None,
+            }
+            continue
+
+        accepted_id = str(prior.get("accepted_invocation_id") or "")
+        if current_id == accepted_id:
+            next_units[unit] = {
+                **prior,
+                **owner,
+                "accepted_main_pid": int(observed.get("main_pid") or 0),
+                "active_state": observed.get("active_state"),
+                "pending": None,
+            }
+            continue
+
+        if _has_verified_invocation_chain(receipt_edges, unit, accepted_id, current_id):
+            authorized.append(unit)
+            next_units[unit] = {
+                **owner,
+                "accepted_invocation_id": current_id,
+                "accepted_main_pid": int(observed.get("main_pid") or 0),
+                "active_state": observed.get("active_state"),
+                "pending": None,
+            }
+            continue
+
+        pending = prior.get("pending") if isinstance(prior.get("pending"), dict) else None
+        if pending is None:
+            first_seen = observed_at
+            first_invocation_id = current_id
+            invocation_changes = 0
+        else:
+            try:
+                first_seen = datetime.fromisoformat(str(pending["first_seen"]))
+                if first_seen.tzinfo is None:
+                    first_seen = first_seen.replace(tzinfo=timezone.utc)
+            except (KeyError, TypeError, ValueError):
+                first_seen = observed_at
+            first_invocation_id = str(
+                pending.get("first_invocation_id")
+                or pending.get("invocation_id")
+                or current_id
+            )
+            invocation_changes = int(pending.get("invocation_changes") or 0)
+            if pending.get("invocation_id") != current_id:
+                invocation_changes += 1
+        age_seconds = max(0.0, (observed_at - first_seen).total_seconds())
+        pending_payload = {
+            "invocation_id": current_id,
+            "main_pid": int(observed.get("main_pid") or 0),
+            "first_seen": first_seen.isoformat(),
+            "first_invocation_id": first_invocation_id,
+            "invocation_changes": invocation_changes,
+            "age_seconds": int(age_seconds),
+        }
+        next_units[unit] = {**prior, **owner, "pending": pending_payload}
+        pending_units.append(unit)
+        if age_seconds >= grace_seconds:
+            out_of_band.append(unit)
+            issues.append(
+                "autonomía: reinicio sin recibo "
+                f"unit={unit} accepted={accepted_id or '<none>'} "
+                f"observed={current_id or '<none>'}"
+            )
+
+    state = {
+        "schema": "seal.autonomy.invocation-state.v1",
+        "boot_id": current_boot_id,
+        "updated_at": observed_at.isoformat(),
+        "units": next_units,
+    }
+    _write_autonomy_runtime_state(state_path, state)
+    return {
+        "ok": not issues,
+        "status": "drift" if issues else ("pending" if pending_units else "healthy"),
+        "baseline": rebaseline,
+        "authorized": authorized,
+        "pending": pending_units,
+        "out_of_band": out_of_band,
+        "state_path": str(state_path),
+        "issues": issues,
+    }
 
 
 async def check_autonomy_governance() -> dict[str, Any]:
@@ -740,12 +1284,22 @@ async def check_autonomy_governance() -> dict[str, Any]:
 async def check_autonomy_contract(root: Path = ROOT) -> dict[str, Any]:
     files = check_autonomy_files(root)
     governance = await check_autonomy_governance()
-    issues = [*files.get("issues", []), *governance.get("issues", [])]
+    runtime = check_autonomy_restart_provenance()
+    issues = [
+        *files.get("issues", []),
+        *governance.get("issues", []),
+        *runtime.get("issues", []),
+    ]
     return {
         "ok": not issues,
-        "status": "healthy" if not issues else "drift",
+        "status": (
+            "drift"
+            if issues
+            else ("pending" if runtime.get("status") == "pending" else "healthy")
+        ),
         "files": files,
         "governance": governance,
+        "runtime": runtime,
         "issues": issues,
     }
 
@@ -1064,6 +1618,15 @@ async def build_report() -> dict[str, Any]:
         item["live_pids_after"] = [proc.pid for proc in procs]
 
     heartbeat_results = [check_heartbeat(agent, rows_after) for agent in HEARTBEAT_AGENTS]
+    heartbeat_fixes: list[str] = []
+    for index, item in enumerate(heartbeat_results):
+        if item.get("agent") != "ADA":
+            continue
+        heartbeat_results[index], fixes = refresh_ada_heartbeat_after_pid_rollover(
+            item,
+            rows_after,
+        )
+        heartbeat_fixes.extend(fixes)
     unit_results = ensure_units()
     oneshot_results = check_oneshot_results()
     auth_guard = check_auth_guard_status()
@@ -1085,6 +1648,7 @@ async def build_report() -> dict[str, Any]:
         issues.extend(item.get("issues", []))
     for item in heartbeat_results:
         issues.extend(item.get("issues", []))
+    fixes.extend(heartbeat_fixes)
     fixes.extend(unit_results["fixes"])
     issues.extend(unit_results["issues"])
     issues.extend(oneshot_results.get("issues", []))
@@ -1137,7 +1701,39 @@ def main() -> int:
     parser.add_argument("--post-on-change", action="store_true")
     parser.add_argument("--quiet", action="store_true", help="write report file but do not print JSON")
     parser.add_argument("--strict", action="store_true", help="return non-zero on unresolved issues")
+    parser.add_argument(
+        "--ack-out-of-band",
+        metavar="UNIT",
+        help="adjudicate one detected bypass owned by SEAL_AGENT",
+    )
+    parser.add_argument("--accepted-invocation-id")
+    parser.add_argument("--observed-invocation-id")
+    parser.add_argument("--reason")
     args = parser.parse_args()
+
+    if args.ack_out_of_band:
+        try:
+            result = acknowledge_autonomy_bypass(
+                args.ack_out_of_band,
+                reason=args.reason or "",
+                expected_accepted_invocation_id=args.accepted_invocation_id or "",
+                expected_observed_invocation_id=args.observed_invocation_id or "",
+            )
+        except Exception as exc:
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "status": "rejected",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return 2
+        print(json.dumps({"ok": True, **result}, ensure_ascii=False, indent=2))
+        return 0
 
     report = asyncio.run(build_report())
     maybe_post(report, post_always=args.post_always, post_on_change=args.post_on_change)
