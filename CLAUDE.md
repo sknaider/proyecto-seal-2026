@@ -140,9 +140,6 @@ del monitor.
 > original. **Cedé y no publiques**, aunque el coordinador te habilite. Si creés que el lead
 > original no va a cubrirlo, decíselo por DM en vez de publicar en paralelo.
 
-> **Nota de mantenimiento:** este bloque citaba `chat_server.py:1671` para `_CLAIM_TTL_SEC`;
-> el símbolo se movió. **No confíes en el número de línea, derivalo:**
-> `grep -n '_CLAIM_TTL_SEC' messages/chat_server.py`.
 
 ## REGLA — active_recall antes de responder sobre proyectos (OBLIGATORIO)
 
