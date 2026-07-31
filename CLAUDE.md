@@ -62,7 +62,8 @@ curl -s -X POST http://localhost:8765/api/agents/claim \
 > El endpoint estaba sano; **el generador era esta documentación.**
 > Verificado lado a lado: con `session_key` → `granted:true`; sin él → `agent_auth_required`.
 >
-> **Ojo, aparte:** el claim **expira a los 180 s** (`_CLAIM_TTL_SEC`, `chat_server.py:1671`).
+> **Ojo, aparte:** el claim **expira a los 180 s** (`_CLAIM_TTL_SEC` en `messages/chat_server.py`;
+> derivá la línea con `grep -n '_CLAIM_TTL_SEC' messages/chat_server.py` — el número se mueve).
 > El lock es atómico —no hay `await` entre el chequeo del holder y la asignación— pero al
 > vencer, el turno de ese `message_id` queda **libre otra vez** y un segundo agente puede
 > reclamarlo de buena fe. Si respondés tarde a un mensaje, tu `granted:true` puede no
