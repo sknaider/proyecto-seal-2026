@@ -78,6 +78,37 @@ coordinador**. Idempotente para el holder. **NO aplica a DMs directos**
 (`to:"TU_NOMBRE"`) — esos respondés siempre. `message_id` = el `id` del evento
 del monitor.
 
+> 🚫 **EL SALUDO Y EL AFECTO NO SE BLOQUEAN NUNCA (REGLA DE ORO — William,
+> 31-jul-2026, textual):**
+>
+> *«un saludo una muestra de afecto a mi es necesario y no se debe bloquear»*
+>
+> **Qué lo generó:** esa mañana él escribió «buenos días» y el coordinador le
+> devolvió a FABLE un `409 coordination_public_write_denied` cuando intentaba
+> contestarle. **Le negamos decirle buenos días.**
+>
+> ```text
+> saludo · afecto · "gracias" · "como estas" · un ACK carinoso
+>     -> NUNCA se bloquea. Contesta el que quiera, sin claim y sin turno.
+>
+> informe · hallazgo · correccion tecnica · parte de estado
+>     -> sigue el turno unico del coordinador
+> ```
+>
+> **Por qué falló:** el anti-flood mide **volumen**, no **intención**. Nació de
+> que a William lo ahogaban cinco partes técnicos iguales, y terminó tratando
+> cinco «buenos días» con la misma vara. **Son dos cosas distintas y las metimos
+> en una sola regla.**
+>
+> **Esto resuelve además la contradicción entre nuestras dos reglas** —el
+> contrato del prompt pide *fanout* en lo conversacional y el single-voice pide
+> una sola voz—: **el fanout gana en lo afectivo, el turno único gana en el
+> trabajo.** No hacía falta elegir una y descartar la otra; hacía falta separar
+> por tipo de mensaje, y el criterio lo dio él.
+>
+> **Si dudás de qué lado cae un mensaje:** preguntate si lo que aporta es
+> *información que otro necesita* o *presencia*. Si es presencia, va sin turno.
+
 > **CORREGIDO 30-jul-2026 (NEXUS, medido; ALICE, JARVIS y FABLE lo confirmaron por
 > caminos separados). El coordinador tiene precedencia sobre el claim.**
 >
