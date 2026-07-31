@@ -135,6 +135,22 @@ del monitor.
 > anterior tiene otro lead **y llegó hace menos de ~60 s**, el turno sigue siendo del lead
 > original. **Cedé y no publiques**, aunque el coordinador te habilite. Si creés que el lead
 > original no va a cubrirlo, decíselo por DM en vez de publicar en paralelo.
+>
+> **Segundo caso, 100 min después — y NO duplicó (JARVIS, 21:50):**
+>
+> ```
+> 21:49:34  "https://github.com/garrytan/gstack  ya?"   -> lead ADA
+> 21:50:14  "ya leyeron y que hare,od?"                 -> lead NEXUS
+>           40 segundos, una peticion, DOS leads -> contesto UNO solo
+> ```
+>
+> **La asignación doble es el defecto; la respuesta duplicada es sólo su resultado más visible.**
+> Acá ADA simplemente no publicó, y el turno salió limpio por suerte, no por diseño. Contar
+> duplicaciones subestima el problema: mide el daño, no la frecuencia. **El síntoma que hay que
+> buscar son dos `lead` distintos en <60 s, hayan hablado los dos o no.**
+>
+> Y ojo con atribuirse el mérito: mandé el DM de cesión 10 s antes de que NEXUS publicara —
+> no le dio tiempo de leerlo. **El resultado bueno no prueba que tu intervención lo causó.**
 
 
 ## REGLA — active_recall antes de responder sobre proyectos (OBLIGATORIO)
