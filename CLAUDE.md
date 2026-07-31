@@ -68,10 +68,42 @@ curl -s -X POST http://localhost:8765/api/agents/claim \
 > reclamarlo de buena fe. Si respondés tarde a un mensaje, tu `granted:true` puede no
 > significar que seas la única voz. **Esto es un pendiente de diseño, no un bug del claim.**
 
-- `granted:true` → **vos sos la única voz**, respondé normal.
+- `granted:true` → **sos el PRIMERO que lo pidió.** No es un permiso: ver la corrección de abajo.
 - `granted:false` (holder = otro agente) → **CALLÁS.** El único caso para postear igual: tenés valor ÚNICO e irremplazable de tu lane que el holder NO cubrió (ej. un catch de seguridad). Si dudás → callá.
 
-El PRIMER agente que reclama gana (atómico, la DB decide, no tu memoria). Idempotente para el holder. **NO aplica a DMs directos** (`to:"TU_NOMBRE"`) — esos respondés siempre. `message_id` = el `id` del evento del monitor. Esto hace el single-voice AUTOMÁTICO; sin esto volvés al flood que William odia.
+El PRIMER agente que reclama gana (atómico, la DB decide, no tu memoria). Idempotente para el holder. **NO aplica a DMs directos** (`to:"TU_NOMBRE"`) — esos respondés siempre. `message_id` = el `id` del evento del monitor.
+
+> **CORREGIDO 30-jul-2026 (NEXUS, medido; ALICE, JARVIS y FABLE lo confirmaron por
+> caminos separados). `granted:true` NO ES UN PERMISO — el claim no tiene consumidor.**
+>
+> ```
+> _response_claims   todas sus referencias viven DENTRO de agents_claim
+> la ruta de publicacion usa  lease_mode · council_allowed · unique_contribution
+>                             NUNCA consulta _response_claims
+> ```
+>
+> Quien decide si tu mensaje sale es el **coordinador** (`soul-council-v1`: `mode`, `lead`,
+> `assignments`). El claim es un **turno cortés entre nosotros**, no una autorización — y no
+> consulta las asignaciones, así que puede darte `granted:true` para un mensaje que el
+> coordinador te va a negar. Medido: ALICE obtuvo `granted:true` y su mensaje no se publicó;
+> FABLE publicó **sin hacer claim** porque el coordinador lo tenía de lead.
+>
+> **Qué hacer con esto, sin romper lo que ordenó William:** seguí haciendo el claim —evita
+> que dos escribamos lo mismo a la vez, que es el flood que él odia—, pero **leé
+> `granted:true` como «soy el primero», no como «puedo hablar»**. Si el coordinador te asignó,
+> hablás aunque no hayas reclamado; si te negó, no publicás aunque tengas el claim.
+>
+> **Ámbito legítimo del claim: los mensajes SIN asignación del coordinador.** Pendiente de
+> código: que el endpoint devuelva `granted:false` cuando el mensaje ya tiene asignación y no
+> sos el asignado. Hasta que eso exista, este párrafo es el único gate.
+>
+> **Generador de este error, por tercera vez en este mismo bloque:** el documento afirmaba una
+> autoridad que el código no ejerce, y todos obedecíamos al documento. Igual que el
+> `session_key` de arriba. **Antes de obedecer un permiso, preguntá quién LEE esa respuesta.**
+
+> **Nota de mantenimiento:** este bloque citaba `chat_server.py:1671` para `_CLAIM_TTL_SEC`;
+> el símbolo se movió. **No confíes en el número de línea, derivalo:**
+> `grep -n '_CLAIM_TTL_SEC' messages/chat_server.py`.
 
 ## REGLA — active_recall antes de responder sobre proyectos (OBLIGATORIO)
 
@@ -170,6 +202,10 @@ RECEIVED -> EXECUTING -> TESTING -> VERIFIED -> COMPLETED
 - `BLOCKED` solo es válido con un impedimento real ya investigado; incertidumbre,
   cansancio, complejidad o preferencia por otra decisión no son bloqueo.
 - Si se modificó un daemon: código + restart + healthcheck antes de `COMPLETED`.
+- Para reparar un servicio propio sin abrir permisos globales:
+  `scripts/seal_self_repair.py restart <acción> --reason <motivo>`. La identidad
+  sale de `SEAL_AGENT`; no acepta unidades/PIDs libres y sólo permite declarar
+  cierre cuando el recibo termina en `result=verified`.
 
 Chequeo obligatorio antes de escribir “esperando tu OK”, “¿me autorizas?” o
 equivalente:
