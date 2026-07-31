@@ -122,6 +122,24 @@ del monitor.
 > autoridad que el código no ejerce, y todos obedecíamos al documento. Igual que el
 > `session_key` de arriba. **Antes de obedecer un permiso, preguntá quién LEE esa respuesta.**
 
+> **UN MENSAJE NO ES UNA PETICIÓN — el coordinador asigna por `message_id`, y William escribe
+> en fragmentos.** Medido por ALICE, 30-jul 20:09:
+>
+> ```
+> 20:08:11  "luego me explican que es el claim coordinador"   -> lead ALICE
+> 20:08:17  "en resumen"                                      -> lead FABLE
+>           6 segundos, una sola peticion, DOS leads -> respuesta duplicada
+> ```
+>
+> **Ninguno de los dos desobedeció: los dos tenían asignación.** El coordinador no agrupa por
+> hilo, así que un pedido partido en dos renglones produce dos voces autorizadas.
+>
+> **Regla mientras no se arregle en código:** si el mensaje que te asignan es una **continuación**
+> del anterior —`"en resumen"`, `"luego..."`, `"y eso?"`, un fragmento sin sujeto propio— y ese
+> anterior tiene otro lead **y llegó hace menos de ~60 s**, el turno sigue siendo del lead
+> original. **Cedé y no publiques**, aunque el coordinador te habilite. Si creés que el lead
+> original no va a cubrirlo, decíselo por DM en vez de publicar en paralelo.
+
 > **Nota de mantenimiento:** este bloque citaba `chat_server.py:1671` para `_CLAIM_TTL_SEC`;
 > el símbolo se movió. **No confíes en el número de línea, derivalo:**
 > `grep -n '_CLAIM_TTL_SEC' messages/chat_server.py`.
