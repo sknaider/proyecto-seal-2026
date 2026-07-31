@@ -101,22 +101,18 @@ del monitor.
 > cuando hay asignación y el agente no tiene permiso público, y falla cerrado con
 > HTTP 503 si no puede consultar la asignación en modo `ENFORCE`.
 >
-> ⚠️ **EN DISCO ≠ EN EJECUCIÓN. Medido 30-jul 20:07 (NEXUS): el server vivo NO tiene
-> este cambio.** Reclamé un mensaje asignado a otro agente y me lo concedió:
+> ✅ **DESPLEGADO Y VERIFICADO 30-jul 20:10 (ADA).** `seal-chat` fue
+> reiniciado aislando dependencias y el hash cargado coincide con el archivo.
+> Prueba viva sobre un turno asignado a ALICE:
 >
 > ```
-> esperado  granted:false · reason:"coordinator_assigned_other"
-> obtenido  {"ok":true,"granted":true,"holder":"NEXUS"}   sin campo `reason`
-> codigo modificado  20:06:37     proceso :8765 arrancado  18:34:45
+> ADA    -> granted:false · holder:"ALICE" · reason:"coordinator_assigned_other"
+> ALICE  -> granted:true  · holder:"ALICE" · reason:"assigned_public_writer"
 > ```
 >
-> **Hasta que `seal-chat` se reinicie y esto se verifique por efecto, seguí leyendo
-> `granted:true` como «soy el primero», nunca como permiso.** Comprobalo vos mismo antes
-> de confiar: si la respuesta **no trae `reason`**, estás hablando con el server viejo.
->
-> Es la regla de este repo aplicada a sí misma: *fix a daemon = código + restart +
-> verificación*. Un doc que dice «implementado» sobre un proceso que no lo corre es el
-> mismo falso verde que este bloque ya produjo dos veces.
+> Control negativo: un `message_id` sin asignación conserva first-wins
+> (`ADA:true`, luego `ALICE:false`, holder ADA). Stability Guard quedó GREEN,
+> `issues=0`, sin cambiar `InvocationID` de bridges ni monitores.
 >
 > **Generador de este error, por tercera vez en este mismo bloque:** el documento afirmaba una
 > autoridad que el código no ejerce, y todos obedecíamos al documento. Igual que el
@@ -252,6 +248,35 @@ equivalente:
 ¿Soy owner o estoy delegado?           sí
 => NO preguntar. Ejecutar y reportar evidencia.
 ```
+
+> **PRIMERA PREGUNTA, ANTES DE ESE CHEQUEO (REGLA DE ORO — William, 30-jul-2026):**
+> **¿el objetivo nace de un DEFECTO medible o de una QUEJA suya?** Textual:
+>
+> *«no asuman que cuando yo me queje tienen que ustedes solucionar automáticamente»*
+> *«siempre pregunten ok?, regla de oro»*
+> *«si me quejo me pregunta el porque y solucionemos el problema, nos ponemos modo plan»*
+>
+> ```text
+> DEFECTO medible (servicio caido, test rojo, dato corrupto)
+>     -> el chequeo de arriba aplica tal cual: ejecutás y reportás
+>
+> QUEJA o molestia de William ("no puedo leer nada", "esto anda mal")
+>     -> NO es una orden de trabajo. Preguntá el PORQUÉ, acordá el plan
+>        con él, y recién entonces ejecutá
+> ```
+>
+> **Por qué está acá:** el 30-jul dijo *«dame el resumen no puedo leer nada»* y los cinco lo
+> leímos como «reparen el sistema de mensajes». En una hora tocamos el coordinador, el claim,
+> este archivo, desplegamos un filtro y armamos una métrica. Después aclaró que **la
+> conversación técnica no le molesta**: el filtro no hacía falta. **Nadie desobedeció — todos
+> aplicamos el chequeo de arriba, que no distingue un defecto de una molestia.**
+>
+> El checklist sigue siendo correcto para su caso. Lo que faltaba era la pregunta previa.
+
+> **RUTEO (misma orden, 21:07):** *«cuando son correcciones entre 1v1 por interno, si todo el
+> equipo tiene que enterarse ahí sí general»*. Una corrección dirigida a UN agente va por DM o
+> whisper; el canal general es para lo que los cinco necesitan saber. Medido ese día: **188 de
+> 611 mensajes `to:equipo` (31 %) empezaban nombrando a un solo agente.**
 
 Incumplir esta regla no es prudencia: es devolverle a William trabajo de
 coordinación que delegó explícitamente al equipo.
