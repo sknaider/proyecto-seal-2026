@@ -1,0 +1,29 @@
+{
+  "schema": "seal.known-defect-patterns.v1",
+  "patterns": [
+    {
+      "key": "git-ls-files-as-history",
+      "regex": "ls-files.*--error-unmatch|\\bgit\\s+ls-files\\b(?!.*--others)",
+      "extensions": [".py", ".sh", ".bash"],
+      "reason": "git ls-files reads the index, not committed history; use git ls-tree HEAD when history is the claim",
+      "bait": "subprocess.run(['git', 'ls-files', '--error-unmatch', path])",
+      "clean": "subprocess.run(['git', 'ls-tree', '-r', 'HEAD', '--name-only'])"
+    },
+    {
+      "key": "create-true-in-patch",
+      "regex": "(?:mock\\.)?patch(?:\\.object|\\.dict|\\.multiple)?\\([^)]*create\\s*=\\s*True",
+      "extensions": [".py"],
+      "reason": "create=True can fabricate a misspelled patch target and let the real side effect escape",
+      "bait": "with patch.object(mod, '_missing', fake, create=True):",
+      "clean": "with mock.patch('mod._alert') as mocked:"
+    },
+    {
+      "key": "exit-code-after-pipe",
+      "regex": "\\|\\s*(?:tail|head|grep|sed|awk|tee)\\b[^\\n]*\\n\\s*(?:echo\\s+)?[^\\n]*\\$\\?",
+      "extensions": [".sh", ".bash"],
+      "reason": "$? after a pipe is the last command status; use pipefail or PIPESTATUS",
+      "bait": "command | tee output.log\nEXIT_CODE=$?",
+      "clean": "command | tee output.log\nEXIT_CODE=${PIPESTATUS[0]}"
+    }
+  ]
+}

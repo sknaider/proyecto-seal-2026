@@ -13,3 +13,11 @@
 /messages/ada_codex_soul_bootstrap.py @sknaider
 /messages/tests/test_ada_codex_remote_bridge_silence.py @sknaider
 /scripts/seal_core_guard.py @sknaider
+
+# Quality policy and enforcement require William's authenticated GitHub review.
+/quality/** @sknaider
+/quality_gate/** @sknaider
+/scripts/seal_quality_gate.py @sknaider
+/.githooks/pre-commit @sknaider
+/.github/workflows/seal-quality-gate.yml @sknaider
+/setup.cfg @sknaider
