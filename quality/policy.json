@@ -40,12 +40,14 @@
     "quality/known-defect-patterns.json",
     "quality/mutation-baseline.json",
     "quality/manifests/quality-gate-bootstrap.json",
+    "quality/manifests/agent-upload-auth-20260805.json",
     "setup.cfg",
     ".githooks/pre-commit",
     ".github/workflows/seal-quality-gate.yml",
     ".github/CODEOWNERS"
   ],
   "manifests": [
-    "quality/manifests/quality-gate-bootstrap.json"
+    "quality/manifests/quality-gate-bootstrap.json",
+    "quality/manifests/agent-upload-auth-20260805.json"
   ]
 }

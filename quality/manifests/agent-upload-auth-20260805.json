@@ -1,0 +1,74 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "agent-upload-auth-20260805",
+  "owner": "ADA",
+  "independent_reviewer": "GODEL",
+  "review": {
+    "status": "approved",
+    "evidence": "GODEL independently exercised positive, negative and human-control arms, then ran five targeted mutations against the staged bytes.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "GODEL",
+      "verdict": "APPROVED",
+      "evidence": "19 tests passed; 5 targeted mutants, 4 killed and 1 redundant survivor; score 80.000%.",
+      "reviewed_sha256": {
+        "messages/chat_server.py": "4ab40a64ae5a7474bc01f131b53bd9d72b6eb30794ab6448d509e1ed8ba8e73d",
+        "messages/tests/test_agent_upload_endpoint.py": "a3157bd8089cd1a29c5a9e1a940fc0e4bec2fd6711e92c14268ba97a3e74264f"
+      },
+      "staged_diff_sha256": "c7f7e28db4e46b5f595c256f314ec5d5b7ec99e71844b66fe5f65cfa421c9e10",
+      "manifest_digest": "6c90055f67db91bc8c4e9c04cb52d3d6c28667b4fc5c73177c6f480d18b84af6"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/chat_server.py"
+  ],
+  "tests": [
+    "messages/tests/test_agent_upload_endpoint.py"
+  ],
+  "commands": [
+    {
+      "id": "agent-upload-unit",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "messages/tests/test_agent_upload_endpoint.py"],
+      "expected_exit": 0
+    },
+    {
+      "id": "agent-upload-positive",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "messages/tests/test_agent_upload_endpoint.py", "-k", "authenticated_agent_upload_persists_verified_identity"],
+      "expected_exit": 0
+    },
+    {
+      "id": "agent-upload-negative",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "messages/tests/test_agent_upload_endpoint.py", "-k", "agent_upload_rejects_before_writing"],
+      "expected_exit": 0
+    },
+    {
+      "id": "agent-upload-control",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "messages/tests/test_agent_upload_endpoint.py", "-k", "human_upload_route_still_requires_auth_dependency"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["messages.chat_server"],
+    "omit": ["messages/tests/*"],
+    "pytest_args": ["-q", "messages/tests/test_agent_upload_endpoint.py"],
+    "baseline_percent": 14.791,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-agent-upload-20260805.json",
+  "mutation_baseline_percent": 80.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Isolated by-effect endpoint test persists a verified machine upload and observes DB, file, broadcast and enqueue effects; negative arms reject before any write.",
+    "command": {
+      "id": "agent-upload-delivery-effect",
+      "argv": ["python3", "-m", "pytest", "-q", "messages/tests/test_agent_upload_endpoint.py", "-k", "authenticated_agent_upload_persists_verified_identity"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

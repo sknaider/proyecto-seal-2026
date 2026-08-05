@@ -1,0 +1,18 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "godel-targeted-source-mutations",
+  "killed": 4,
+  "survived": 1,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 5,
+  "mutation_score_percent": 80.0,
+  "reviewer": "GODEL",
+  "file_sha256": {
+    "messages/chat_server.py": "4ab40a64ae5a7474bc01f131b53bd9d72b6eb30794ab6448d509e1ed8ba8e73d",
+    "messages/tests/test_agent_upload_endpoint.py": "a3157bd8089cd1a29c5a9e1a940fc0e4bec2fd6711e92c14268ba97a3e74264f"
+  },
+  "evidence": "Positive 1 passed; negatives 7 passed; human control 1 passed; combined 19 passed. One survivor removed a redundant identity comparison already enforced by _agent_auth_gate in ENFORCE mode."
+}

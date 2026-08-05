@@ -2663,6 +2663,206 @@ async def upload_file(
     return JSONResponse({"ok": True, "id": msg_id, "file_url": file_url})
 
 
+async def _agent_upload_channel_is_known(channel: str) -> bool:
+    """Accept only delivery surfaces that exist; never invent a channel on upload."""
+    lookup_channel = channel
+    if channel == "web_chat":
+        return True
+    if channel.startswith("dm:"):
+        parts = channel[3:].split(":")
+        if not (
+            len(parts) == 2
+            and all(re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.~-]{0,63}", part or "") for part in parts)
+        ):
+            return False
+        ordered = sorted(parts, key=str.casefold)
+        lookup_channel = f"dm:{ordered[0].casefold()}:{ordered[1].casefold()}"
+    if not chat_db.pool:
+        return False
+    try:
+        return bool(await chat_db.pool.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM chat_channels WHERE name = $1)",
+            lookup_channel,
+        ))
+    except Exception as exc:
+        print(
+            f"[agent-upload] channel lookup failed channel={channel[:80]!r} "
+            f"error={type(exc).__name__}",
+            flush=True,
+        )
+        return False
+
+
+@app.post("/api/agents/upload")
+async def agents_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    caption: str = Form(""),
+    channel: str = Form("web_chat"),
+    sender: str = Form(""),
+    session_key: str = Form(""),
+    instance_id: str = Form(""),
+):
+    """Upload a file using the existing machine-session authentication."""
+    if request.client and not _is_local_or_lan(request.client.host):
+        return JSONResponse({"ok": False, "error": "acceso denegado"}, status_code=403)
+
+    asserted_sender = sender.strip()
+    session = await _resolve_agent_auth(request, {"session_key": session_key.strip()})
+    rejection = _agent_auth_gate(session, asserted_sender, "upload", request)
+    if rejection is not None:
+        return rejection
+
+    verified = ""
+    if session:
+        verified = str(session.get("username") or session.get("display_name") or "").strip()
+    if not verified:
+        return JSONResponse({"ok": False, "error": "agent_auth_required"}, status_code=401)
+    # Authentication can run in audit mode. Attribution itself must always fail closed.
+    if verified.casefold() != asserted_sender.casefold():
+        return JSONResponse({"ok": False, "error": "agent_sender_mismatch"}, status_code=403)
+    # ``chat_sessions`` is shared by humans and machines. A matching username is
+    # not enough: this endpoint requires both the durable machine role and a core
+    # agent identity, otherwise it would bypass the human upload ACL.
+    if str(session.get("role") or "").casefold() != "agent":
+        return JSONResponse({"ok": False, "error": "agent_role_required"}, status_code=403)
+    if verified.upper() not in _ALLOWED_AGENTS:
+        return JSONResponse({"ok": False, "error": "agent_identity_required"}, status_code=403)
+    # Clone provenance is not caller-controlled. A future clone upload contract must
+    # validate the canonical-agent/instance pair before this field is accepted.
+    if instance_id.strip():
+        return JSONResponse(
+            {"ok": False, "error": "agent_upload_instance_unsupported"},
+            status_code=403,
+        )
+
+    channel = _canonical_upload_channel(channel)
+    if not await _agent_upload_channel_is_known(channel):
+        return JSONResponse(
+            {"ok": False, "error": "unknown_channel", "channel": channel},
+            status_code=422,
+        )
+    if channel.startswith("dm:"):
+        participants = sorted(channel[3:].split(":"), key=str.casefold)
+        channel = f"dm:{participants[0].casefold()}:{participants[1].casefold()}"
+        if verified.casefold() not in {part.casefold() for part in participants}:
+            return JSONResponse(
+                {"ok": False, "error": "agent_dm_participant_required"},
+                status_code=403,
+            )
+
+    content_type = (file.content_type or "").lower()
+    file_type, extension = _classify_upload(file.filename or "", content_type)
+    filename = f"{file_type}_{time.time_ns()}{extension}"
+    file_path = UPLOADS_DIR / filename
+    part_path = UPLOADS_DIR / f".{filename}.part"
+    total = 0
+    header = bytearray()
+    try:
+        with part_path.open("xb") as output:
+            while True:
+                chunk = await file.read(UPLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_UPLOAD_SIZE:
+                    raise ValueError("upload_too_large")
+                if len(header) < 64:
+                    header.extend(chunk[: 64 - len(header)])
+                output.write(chunk)
+        if not _upload_signature_matches(file_type, content_type, bytes(header)):
+            raise ValueError("mime_mismatch")
+        os.replace(part_path, file_path)
+    except ValueError as exc:
+        part_path.unlink(missing_ok=True)
+        file_path.unlink(missing_ok=True)
+        if str(exc) == "upload_too_large":
+            return JSONResponse(
+                {"ok": False, "error": "archivo muy grande (max 300MB)"},
+                status_code=413,
+            )
+        if str(exc) == "mime_mismatch":
+            return JSONResponse(
+                {"ok": False, "error": "el contenido no coincide con el tipo de archivo"},
+                status_code=415,
+            )
+        raise
+    except Exception:
+        part_path.unlink(missing_ok=True)
+        file_path.unlink(missing_ok=True)
+        raise
+    finally:
+        await file.close()
+
+    file_url = f"/uploads/{filename}"
+    timestamp = datetime.now(PERU_TZ).isoformat()
+    message_id = f"upload_{time.time_ns()}"
+    upload_to = "equipo"
+    if channel.startswith("dm:"):
+        others = [part for part in channel[3:].split(":") if part.casefold() != verified.casefold()]
+        upload_to = others[0].upper() if others else "equipo"
+
+    entry = {
+        "id": message_id,
+        "from": verified,
+        "to": upload_to,
+        "timestamp": timestamp,
+        "type": file_type,
+        "message": caption.strip(),
+        "file_url": file_url,
+        "filename": Path(file.filename or filename).name,
+        "channel": channel,
+        "provenance": {
+            "verified": True,
+            "verified_sender": verified,
+            "from_matches_session": True,
+        },
+    }
+    entry = await _stamp_coordination(entry, verified_human=False)
+
+    if not chat_db.pool:
+        file_path.unlink(missing_ok=True)
+        return JSONResponse({"ok": False, "error": "upload database unavailable"}, status_code=503)
+    try:
+        sender_id = int(session["user_id"]) if session.get("user_id") is not None else None
+        create_kwargs = {
+            "sender_name": verified,
+            "content": caption.strip() or f"[{file_type}]",
+            "channel": channel,
+            "sender_type": "user" if sender_id is not None else "agent",
+            "sender_id": sender_id,
+            "message_type": file_type,
+            "metadata": {"file_url": file_url, "filename": file.filename},
+        }
+        if channel.startswith("dm:"):
+            async with chat_db.pool.acquire() as connection:
+                async with connection.transaction():
+                    await connection.execute(
+                        "SELECT set_config('app.current_identity', $1, true)", verified
+                    )
+                    db_message = await chat_db.create_message(conn=connection, **create_kwargs)
+        else:
+            db_message = await chat_db.create_message(**create_kwargs)
+        entry["db_id"] = db_message["id"]
+    except Exception as exc:
+        file_path.unlink(missing_ok=True)
+        print(f"[agent-upload] DB persist failed: {exc}", flush=True)
+        return JSONResponse(
+            {"ok": False, "error": "upload persistence failed"},
+            status_code=503,
+        )
+
+    # DMs stay out of the shared JSONL; their delivery is the authenticated DB row.
+    if not channel.startswith("dm:"):
+        jsonl_entry = _encrypt_for_jsonl(entry)
+        with open(LOG_WILLIAM, "a", encoding="utf-8") as log_file:
+            log_file.write(json.dumps(jsonl_entry, ensure_ascii=False) + "\n")
+
+    await broadcast(entry)
+    await enqueue(entry)
+    return JSONResponse({"ok": True, "id": message_id, "file_url": file_url})
+
+
 @app.get("/uploads/{filename}")
 async def serve_upload(filename: str, user: dict = Depends(require_auth)):
     """Serve uploaded files."""
