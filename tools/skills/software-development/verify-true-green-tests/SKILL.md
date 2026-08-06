@@ -1,13 +1,13 @@
 ---
 name: verify-true-green-tests
-description: Use when accepting a claimed green or completion after code, configuration, daemon, database, integration, security-boundary, migration, or deployment changes, especially when pass counts may hide stale, duplicated, partial, or self-verified evidence.
+description: Use when accepting a claimed green/completion, especially when pass counts may hide stale, duplicated, partial, or self-verified evidence.
 ---
 
 # Verify True Green Tests
 
 ## Objective
 
-Accept completion only when fresh evidence proves the claimed effect. Treat missing, stale, ambiguous, wrong-identity, or self-referential evidence as non-green.
+Accept completion only with fresh by-effect evidence; missing, stale, ambiguous, wrong-identity, or self-referential evidence = non-green.
 
 Use these states exactly:
 

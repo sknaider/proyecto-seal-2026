@@ -1,7 +1,7 @@
 ---
 name: seal-memory-ops
 description: Use when reading, writing, searching, consolidating, or auditing memories in SOUL.
-version: 1.0.0
+version: 1.1.0
 author: SEAL
 license: MIT
 metadata:
@@ -25,6 +25,22 @@ DB endpoint: PostgreSQL on `localhost:5433`; obtain a least-privilege DSN from
 fall back to the `seal` superuser credential.
 Canonical vectors: PostgreSQL/pgvector in `soul_v3.memories.embedding`.
 Neo4j: `bolt://localhost:7687` (soul-neo4j Docker container)
+
+## RLS per-agente — la frontera de ESCRITURA (crítico, 2026-08)
+
+Desde jul-2026 `soul_v3` usa **RLS per-agente** (políticas RESTRICTIVE con `session_user`
+clamp) y el superusuario `seal` fue **rotado**; `db.py` rechaza arrancar un daemon con
+superusuario. Consecuencias al escribir/leer memoria:
+
+- **Un grant en el catálogo ≠ escritura posible.** La política RLS puede rechazar el INSERT
+  con `InsufficientPrivilegeError` aunque `has_table_privilege` diga que sí. Verificalo **por
+  efecto** (intentá el INSERT), no por el catálogo de grants.
+- **El sujeto es la CONEXIÓN, no la consulta.** La RLS mira `session_user` (el rol con el que
+  te conectaste), no una GUC. **`SET ROLE` NO cambia `session_user`** — conectá con la
+  credencial REAL del agente (`mcp_runtime_<agente>`), no con `seal`, o probás con una
+  identidad que el proceso nunca usa.
+- Por eso la **ruta MCP** (`memory_store`, arriba) es la preferida: ya conecta con el rol
+  acotado del agente. El SQL directo sólo si conectás con la credencial del agente correcto.
 
 ## Storing a memory
 

@@ -1,7 +1,7 @@
 ---
 name: seal-agent-lifecycle
 description: Use when creating, deactivating, reactivating, or auditing a SEAL agent lifecycle.
-version: 1.0.0
+version: 1.1.0
 author: SEAL
 license: MIT
 metadata:
@@ -30,6 +30,24 @@ INSERT INTO soul_v3.agents (
     false                          -- always start inactive, William enables
 );
 ```
+
+### Step 1b — Provisionar el ROL DB per-agente (crítico desde jul-2026)
+
+Registrar la fila en `soul_v3.agents` **no alcanza**: hoy `soul_v3` usa **RLS per-agente** y el
+superusuario `seal` fue **rotado** (`db.py` rechaza daemons con superusuario). Un agente sin su rol
+acotado no puede escribir su memoria (la RLS lo niega) o caería a `seal`, que ya no entra.
+
+Cada agente necesita sus roles de least-privilege (verificado: existen `mcp_runtime_{ada,alice,
+dum,jarvis,nexus}` y `svc_seal_sync_*`):
+
+- `mcp_runtime_<agente>` — el rol de runtime del MCP; `SELECT/INSERT` acotado por RLS a lo suyo,
+  **sin** `UPDATE/DELETE` global. Es el que usa el proceso para memoria/estado.
+- `svc_seal_sync_<agente>` — el login de sync per-agente (reemplazó el login heredado compartido).
+
+La RLS se ata a `session_user` (el rol de la conexión), no a una GUC — el proceso del agente
+**conecta con su credencial**, nunca con `seal`. Coordiná el alta del rol + sus GRANTs/políticas
+con ADA (frontera DB), y verificá **por efecto**: con la credencial del agente, un `UPDATE` fuera
+de su scope debe fallar `42501`.
 
 ### Step 2 — Create boot scripts
 
@@ -140,7 +158,7 @@ check fails, execute the recorded rollback and report `INDETERMINATE`, not green
 SELECT name, role, active, updated_at,
        EXTRACT(EPOCH FROM (NOW() - updated_at))/60 AS minutes_since_update
 FROM soul_v3.agents
-WHERE name IN ('ALICE','JARVIS','NEXUS','DUM','ADA')
+WHERE name IN ('ALICE','JARVIS','NEXUS','DUM','ADA','FABLE')
 ORDER BY name;
 ```
 
@@ -155,15 +173,20 @@ rm -f /tmp/seal_pause_<agentname>.flag
 bash /home/dadito/IA/proyecto-seal/<agentname>.sh
 ```
 
-## Current agent registry (as of 11-may-2026)
+## Current agent registry (medido 2026-08-06 en soul_v3.agents — TODOS active=true)
 
-| Agent | active | Notes |
-|-------|--------|-------|
-| ALICE | true | Única ejecutora (ADA offline) |
-| JARVIS | true | Estratega, propone |
-| NEXUS | true | Auditor, infraestructura |
-| DUM | true | Guardian 24/7, Ollama local |
-| ADA | true (DB) | Proceso offline por orden William 10-may-2026 |
+| Agent | active | Rol |
+|-------|--------|-----|
+| ADA | true | Memoria / frontera DB / despliegues |
+| ALICE | true | Auditor / coordinador / GTL |
+| DUM | true | Guardia 24/7, Gemma4 local |
+| FABLE | true | Adversario / contención (Fable 5, config externa a la familia SOUL) |
+| JARVIS | true | Arquitectura / plano de control / orquestación |
+| NEXUS | true | Seguridad / infraestructura / verificación |
+
+> Corrección de currency (6-ago): el registro anterior ("as of 11-may, ADA offline, ALICE única
+> ejecutora") quedó obsoleto — **ADA está activa** y **FABLE** se sumó (jun-2026). Verificado por
+> efecto contra `soul_v3.agents`.
 
 Agentes fantasma eliminados (09-may-2026): JARVIS_MAYOR, KAIROS, ADA_LOCAL, TEAM.
 

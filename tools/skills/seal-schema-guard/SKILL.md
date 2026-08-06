@@ -1,7 +1,7 @@
 ---
 name: seal-schema-guard
 description: Use before database operations, after restart, or when SOUL schema drift is suspected.
-version: 1.0.0
+version: 1.1.0
 author: SEAL
 license: MIT
 metadata:
@@ -50,6 +50,7 @@ Required tables (minimum set for SEAL to function):
 | agents | Agent registry |
 | instinct_activations | Instinct fire log |
 | ocean_drift_log | OCEAN drift tracking |
+| runtime_hooks | Capa 2: registro portable de hooks de aprendizaje (soul_event → script) |
 
 ## Critical columns to verify
 
@@ -88,6 +89,30 @@ RETURN name, type, labelsOrTypes, properties;
 ```
 
 Expected: `Entity(uuid)` uniqueness constraint for Graphiti.
+
+## RLS per-agente — validar la FRONTERA, no sólo las tablas (crítico, 2026-08)
+
+Desde jul-2026 la seguridad de `soul_v3` **vive en la RLS** (medido hoy: RLS habilitada en ~100
+tablas, **426 políticas**). Una tabla presente con la RLS caída es un **drift de seguridad que el
+chequeo de tablas/columnas NO ve** — hay que validar la frontera por separado.
+
+```sql
+-- ¿Sigue la RLS habilitada en las tablas sensibles? (0 filas = todas OK)
+SELECT c.relname AS tabla_sin_rls
+FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='soul_v3' AND c.relkind='r'
+  AND c.relname IN ('memories','inner_monologue','agent_tasks','skills','runtime_hooks',
+                    'chat_messages','working_state','capability_grants')
+  AND c.relrowsecurity = false;   -- cualquier fila acá = RLS CAÍDA en una tabla sensible
+
+-- Conteo de políticas (una caída brusca vs el baseline ~426 = política borrada)
+SELECT count(*) AS politicas_rls FROM pg_policies WHERE schemaname='soul_v3';
+```
+
+Regla al escribir el guard: **verificá la RLS por EFECTO** (con la credencial real de un agente,
+intentá un `UPDATE` que debe fallar `42501`), no por el catálogo de grants — un grant presente no
+significa que la RLS deje escribir. Y `SET ROLE` no cambia `session_user`: conectá con
+`mcp_runtime_<agente>`, no con `seal` (que además fue rotado y `db.py` lo rechaza).
 
 ## Automated validation script
 
