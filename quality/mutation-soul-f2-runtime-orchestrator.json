@@ -10,13 +10,19 @@
   "timeout": 0,
   "total": 17,
   "mutation_score_percent": 100.0,
-  "reviewer": "F2_ADVERSARIAL",
+  "reviewer": "F3_HARNESS_AUDIT",
   "file_sha256": {
+    "memory/agent_rubric.py": "556f2fcb1b85eee513a215152874af06d80a3d631c30566001bb0e1fca695565",
+    "memory/memory_admission.py": "b088d6c7020bd8b81057e2ebb162b4968f1df76f53d0e116a1fbce703e69c431",
+    "memory/memory_importance_guard.py": "f147349d602b4070e6294dacf97e203949fb3be63d7fdeab4afd4894bc22983d",
     "memory/soul_event_interface.py": "fec5d59181feb3f12757802b90aaa4e5463d4dc01efadf2faa0c036a5b38214f",
     "memory/soul_runtime_adapter.py": "ac91cef40bc644bdc9268df82e756ecd79501d2b2bef02badee8b0daddd2bf90",
-    "memory/soul_runtime_orchestrator.py": "7399741f4762c62ccad49616e1f53d753c5d44cea5d4365f7770b710fb50b8df",
+    "memory/soul_runtime_orchestrator.py": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8",
     "memory/memory_extraction_hook.py": "13daf51cd9c8f2fd4a6c1cb997ec2e5e2205c166c6fcf2b9f59cf64c8f54f9a4",
+    "memory/seal_secrets.py": "56a7ea5740891b00f59f641cda11afcc0c345f1e4e530c2ccc43115697e06a32",
     "skills/dream/autodream_8gates.sh": "43ef7078d980c4e7028392c9e777fa535daf5670ffb5ee866d89af72ca0f3b31",
+    "tests/test_seal_secrets.py": "8d523f34d89590c5a032351b26ba8075d5cb910331f80a535470620f14a44699",
+    "tests/test_soul_memory_admission_dependencies.py": "c725a30ab2a9cc489979bc7b9ce43a3dc2b1623b655a71012c4ea9228346c0ca",
     "tests/test_soul_runtime_orchestrator.py": "a23a24e88bfd1e417441e092c21bbc09b0316f85880cd372beb1177fa1255e64",
     "tests/test_soul_f1_quality.py": "9169ddfda8472d30ec356bc798b030167a87a19161d8127fe0bcc6a356d822b4"
   }

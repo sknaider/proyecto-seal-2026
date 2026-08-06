@@ -41,7 +41,7 @@ DB_ENV_NAMES = {
 }
 SAFE_ENV_NAMES = {
     "HOME", "LANG", "LC_ALL", "TZ", "XDG_RUNTIME_DIR",
-    "SOUL_CIRCUMSTANCE_ROUTING",
+    "SOUL_CIRCUMSTANCE_ROUTING", "SOUL_PARITY_RUNTIME_PID",
 }
 TRUSTED_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 MAX_HTTP_RESPONSE_BYTES = 4 * 1024 * 1024
@@ -132,10 +132,19 @@ class RuntimeDatabaseIdentity:
 class RuntimeHookStore:
     """RLS-backed registry reader.  It refuses superuser or mismatched identities."""
 
-    def __init__(self, agent: str, dsn_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        agent: str,
+        dsn_path: Path | None = None,
+        restricted_dsn: str | None = None,
+    ) -> None:
         self.agent = _normalized_agent(agent)
+        if dsn_path is not None and restricted_dsn is not None:
+            raise RuntimeIdentityError("provide dsn_path or restricted_dsn, not both")
         self.dsn_path = dsn_path or default_dsn_path(self.agent)
-        self.dsn = read_private_dsn(self.dsn_path)
+        self.dsn = restricted_dsn or read_private_dsn(self.dsn_path)
+        if not self.dsn.startswith(("postgresql://", "postgres://")):
+            raise RuntimeIdentityError("runtime DSN is not PostgreSQL")
         self.conn: Any | None = None
         self.identity: RuntimeDatabaseIdentity | None = None
 
@@ -257,7 +266,7 @@ class HookExecutor:
             os.close(fd)
             raise
 
-    def _environment(self, session_id: str) -> dict[str, str]:
+    def _environment(self, session_id: str, runtime_name: str = "local_llama") -> dict[str, str]:
         env = {key: value for key, value in os.environ.items() if key in SAFE_ENV_NAMES and value}
         for key in DB_ENV_NAMES:
             env.pop(key, None)
@@ -273,7 +282,7 @@ class HookExecutor:
                 "SEAL_DB_DSN": self.restricted_dsn,
                 "SEAL_DB_URL": self.restricted_dsn,
                 "SEAL_PG_DSN": self.restricted_dsn,
-                "SOUL_RUNTIME": "local_llama",
+                "SOUL_RUNTIME": runtime_name,
                 "CLAUDE_PROJECT_DIR": str(ROOT),
                 "PYTHONPATH": os.pathsep.join((str(MEMORY), str(ROOT))),
             }
@@ -287,10 +296,12 @@ class HookExecutor:
             script, fd = self._open_script(registration.script_path)
             if script.suffix == ".py":
                 launcher = (
-                    "import os,sys; fd=int(sys.argv[1]); path=sys.argv[2]; "
+                    "import hashlib,os,sys; fd=int(sys.argv[1]); path=sys.argv[2]; "
                     "parts=[]; "
                     "\nwhile True:\n b=os.read(fd,65536)\n if not b: break\n parts.append(b)\n"
-                    "code=compile(b''.join(parts),path,'exec'); "
+                    "source=b''.join(parts); "
+                    "os.environ['SOUL_EXECUTED_SCRIPT_SHA256']=hashlib.sha256(source).hexdigest(); "
+                    "code=compile(source,path,'exec'); "
                     "scope={'__name__':'__main__','__file__':path,'__package__':None}; exec(code,scope,scope)"
                 )
                 argv = [sys.executable, "-c", launcher, str(fd), str(script)]
@@ -313,7 +324,7 @@ class HookExecutor:
                 text=True,
                 capture_output=True,
                 cwd=ROOT,
-                env=self._environment(envelope["session_id"]),
+                env=self._environment(envelope["session_id"], str(envelope["runtime"])),
                 timeout=self.timeout_seconds,
                 pass_fds=(fd,),
                 check=False,
@@ -348,6 +359,7 @@ class SoulRuntimeOrchestrator:
         runtime: str = "local_llama",
         session_id: str | None = None,
         dsn_path: Path | None = None,
+        restricted_dsn: str | None = None,
         llm_url: str = "http://127.0.0.1:8899/v1/chat/completions",
         model: str = "gemma4-dum",
         state_root: Path | None = None,
@@ -356,6 +368,7 @@ class SoulRuntimeOrchestrator:
         self.adapter = get_adapter(runtime)
         self.session_id = session_id or f"soul-{self.agent.lower()}-{uuid.uuid4().hex}"
         self.dsn_path = dsn_path or default_dsn_path(self.agent)
+        self.restricted_dsn = restricted_dsn
         self.llm_url = validated_local_llm_url(llm_url)
         self.model = model
         self._booted = False
@@ -413,7 +426,11 @@ class SoulRuntimeOrchestrator:
             native_event, self.agent, self.session_id,
             datetime.now(UTC).isoformat(), payload,
         )
-        async with RuntimeHookStore(self.agent, self.dsn_path) as store:
+        async with RuntimeHookStore(
+            self.agent,
+            None if self.restricted_dsn is not None else self.dsn_path,
+            self.restricted_dsn,
+        ) as store:
             registry = await store.load(envelope.soul_event)
             selected = hooks_for(registry, envelope.soul_event, self.agent, envelope.payload)
             executor = HookExecutor(self.agent, store.dsn)
@@ -474,7 +491,11 @@ class SoulRuntimeOrchestrator:
         return {"answer": answer, "boot": boot, "before": before, "after": after}
 
     async def probe(self) -> dict[str, Any]:
-        async with RuntimeHookStore(self.agent, self.dsn_path) as store:
+        async with RuntimeHookStore(
+            self.agent,
+            None if self.restricted_dsn is not None else self.dsn_path,
+            self.restricted_dsn,
+        ) as store:
             rows: list[HookRegistration] = []
             for soul_event in sorted(self.adapter.emits()):
                 rows.extend(await store.load(soul_event))
