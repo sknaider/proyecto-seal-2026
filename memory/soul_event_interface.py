@@ -24,6 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from fnmatch import fnmatchcase
 from pathlib import Path
+import re
 from typing import Callable, Iterable, Mapping, Sequence
 
 
@@ -93,6 +94,45 @@ class HookRegistration:
     matcher: str | None = None       # p.ej. FileChanged observa un archivo concreto; None = todos
 
 
+def _matcher_candidates(payload: Mapping | None) -> list[str]:
+    data = payload or {}
+    values: list[str] = []
+    for key in (
+        "matcher_value", "tool_name", "tool", "source", "path", "file_path", "filename",
+    ):
+        raw = data.get(key)
+        if raw is None or raw == "":
+            continue
+        value = str(raw)
+        for candidate in (value, Path(value).name):
+            if candidate not in values:
+                values.append(candidate)
+    return values
+
+
+def _matcher_matches(pattern: str, candidates: Sequence[str]) -> bool:
+    """Claude matcher semantics without treating literal filenames as regexes.
+
+    - `.*` is the explicit match-all used by the live settings.
+    - `*.jsonl`-style historical globs remain supported.
+    - patterns with explicit regex operators (`Edit|Write`) are regexes.
+    - everything else is an exact literal, so `ada.jsonl` cannot match `adaXjsonl`.
+    """
+    if pattern == ".*":
+        return True
+    regex_markers = ("|", "^", "$", "(", ")", "[", "]", "{", "}", "\\", "+")
+    looks_regex = any(marker in pattern for marker in regex_markers)
+    looks_glob = not looks_regex and any(marker in pattern for marker in ("*", "?"))
+    if looks_regex:
+        try:
+            return any(re.fullmatch(pattern, candidate) is not None for candidate in candidates)
+        except re.error:
+            return False
+    if looks_glob:
+        return any(fnmatchcase(candidate, pattern) for candidate in candidates)
+    return pattern in candidates
+
+
 def hooks_for(
     registry: Iterable[HookRegistration],
     soul_event: str,
@@ -104,16 +144,7 @@ def hooks_for(
     def matcher_applies(hook: HookRegistration) -> bool:
         if not hook.matcher:
             return True
-        data = payload or {}
-        candidate = str(
-            data.get("path") or data.get("file_path") or data.get("filename") or ""
-        )
-        if not candidate:
-            return False
-        return (
-            fnmatchcase(candidate, hook.matcher)
-            or fnmatchcase(Path(candidate).name, hook.matcher)
-        )
+        return _matcher_matches(hook.matcher, _matcher_candidates(payload))
 
     out = [
         h for h in registry

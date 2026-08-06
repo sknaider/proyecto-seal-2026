@@ -93,7 +93,7 @@ def test_delivery_effect_preserves_five_file_matchers() -> None:
 def test_mutation_matcher_widening_is_killed(monkeypatch) -> None:
     import soul_event_interface
 
-    monkeypatch.setattr(soul_event_interface, "fnmatchcase", lambda _value, _pattern: True)
+    monkeypatch.setattr(soul_event_interface, "_matcher_matches", lambda _pattern, _values: True)
     with pytest.raises(AssertionError):
         _assert_matcher_routes_one()
 

@@ -76,6 +76,9 @@ class LocalRuntimeAdapter(RuntimeAdapter):
         "context_trim":    "on_compact",
         "tool_invoke":     "on_tool_call",
         "tool_return":     "on_tool_result",
+        "file_changed":    "on_file_change",
+        "task_created":    "on_task_create",
+        "permission_denied": "on_permission_denied",
     }
 
 

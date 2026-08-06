@@ -1,0 +1,23 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "pytest explicit adversarial mutants",
+  "workspace": "seventeen byte-bound mutants: matcher widening/literal/candidate/invalid-regex, nine-event parity, superuser/cross-agent acceptance, privileged alias/env inheritance, remote LLM URL, hook path/FD escape, transcript path/parent/history escape, boot-context loss, autodream skip-as-failure",
+  "killed": 17,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 17,
+  "mutation_score_percent": 100.0,
+  "reviewer": "F2_ADVERSARIAL",
+  "file_sha256": {
+    "memory/soul_event_interface.py": "fec5d59181feb3f12757802b90aaa4e5463d4dc01efadf2faa0c036a5b38214f",
+    "memory/soul_runtime_adapter.py": "ac91cef40bc644bdc9268df82e756ecd79501d2b2bef02badee8b0daddd2bf90",
+    "memory/soul_runtime_orchestrator.py": "7399741f4762c62ccad49616e1f53d753c5d44cea5d4365f7770b710fb50b8df",
+    "memory/memory_extraction_hook.py": "13daf51cd9c8f2fd4a6c1cb997ec2e5e2205c166c6fcf2b9f59cf64c8f54f9a4",
+    "skills/dream/autodream_8gates.sh": "43ef7078d980c4e7028392c9e777fa535daf5670ffb5ee866d89af72ca0f3b31",
+    "tests/test_soul_runtime_orchestrator.py": "a23a24e88bfd1e417441e092c21bbc09b0316f85880cd372beb1177fa1255e64",
+    "tests/test_soul_f1_quality.py": "9169ddfda8472d30ec356bc798b030167a87a19161d8127fe0bcc6a356d822b4"
+  }
+}

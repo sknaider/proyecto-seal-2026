@@ -10,12 +10,12 @@
   "timeout": 0,
   "total": 3,
   "mutation_score_percent": 100.0,
-  "reviewer": "NEXUS",
+  "reviewer": "F2_ADVERSARIAL",
   "file_sha256": {
-    "memory/soul_event_interface.py": "f45efb642a12e82e3dc879d7790be03fcb63933c5d46c8882af093e8c674b5f8",
+    "memory/soul_event_interface.py": "fec5d59181feb3f12757802b90aaa4e5463d4dc01efadf2faa0c036a5b38214f",
     "memory/soul_hooks_seed.py": "273a018c714d31d52afe3f1fd0451294b0fa1aa0ecafcc6caeeecf53a9d27970",
-    "memory/soul_runtime_adapter.py": "8b3f81fb1b4b4024a10c77baf14bbf7c0a47346a091e5958fc0db0077cff7a29",
+    "memory/soul_runtime_adapter.py": "ac91cef40bc644bdc9268df82e756ecd79501d2b2bef02badee8b0daddd2bf90",
     "memory/soul_runtime_hooks_migration.sql": "117e45a080a258e344a354bae7f1e2bcbe9af1ae9ce293e2a5ef868490ca4231",
-    "tests/test_soul_f1_quality.py": "195ab62f4b134ad6cb6ea6499f1e57492e1e2a4c1e4520f91f6405be06dfd530"
+    "tests/test_soul_f1_quality.py": "9169ddfda8472d30ec356bc798b030167a87a19161d8127fe0bcc6a356d822b4"
   }
 }

@@ -1,0 +1,82 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "soul-f2-runtime-orchestrator-20260805",
+  "owner": "ADA",
+  "independent_reviewer": "F2_ADVERSARIAL",
+  "review": {
+    "status": "approved",
+    "evidence": "Isolated read-only adversarial lane approved the exact seven-file bundle after repeated frozen-byte review; FABLE web_chat #125783 approved path and transcript attacks",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "F2_ADVERSARIAL",
+      "evidence": "40 passed; live restricted probe: 28 hooks, nine events, mcp_runtime_ada non-superuser, llama.cpp HTTP 200; full turn F2_FINAL_OK with 1 boot + 2 prompt + 6 turn-end hooks; final delta guard insert verified",
+      "reviewed_sha256": {
+        "memory/soul_event_interface.py": "fec5d59181feb3f12757802b90aaa4e5463d4dc01efadf2faa0c036a5b38214f",
+        "memory/soul_runtime_adapter.py": "ac91cef40bc644bdc9268df82e756ecd79501d2b2bef02badee8b0daddd2bf90",
+        "memory/soul_runtime_orchestrator.py": "7399741f4762c62ccad49616e1f53d753c5d44cea5d4365f7770b710fb50b8df",
+        "memory/memory_extraction_hook.py": "13daf51cd9c8f2fd4a6c1cb997ec2e5e2205c166c6fcf2b9f59cf64c8f54f9a4",
+        "skills/dream/autodream_8gates.sh": "43ef7078d980c4e7028392c9e777fa535daf5670ffb5ee866d89af72ca0f3b31",
+        "tests/test_soul_runtime_orchestrator.py": "a23a24e88bfd1e417441e092c21bbc09b0316f85880cd372beb1177fa1255e64",
+        "tests/test_soul_f1_quality.py": "9169ddfda8472d30ec356bc798b030167a87a19161d8127fe0bcc6a356d822b4"
+      },
+      "manifest_digest": "3f64ff838148957d43ea65b61da571c0f7fa8dc39d70e075dd9d6b51c4f64bd3"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "memory/soul_event_interface.py",
+    "memory/soul_runtime_adapter.py",
+    "memory/soul_runtime_orchestrator.py",
+    "memory/memory_extraction_hook.py",
+    "skills/dream/autodream_8gates.sh"
+  ],
+  "tests": [
+    "tests/test_soul_runtime_orchestrator.py",
+    "tests/test_soul_f1_quality.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-f2-bundle",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_runtime_orchestrator.py", "tests/test_soul_f1_quality.py"],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-restricted-hook-effect",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_runtime_orchestrator.py::test_hook_executes_with_restricted_identity_and_extracts_context"],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-superuser-and-path-escape",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_runtime_orchestrator.py::test_store_rejects_superuser_even_if_name_looks_runtime", "tests/test_soul_runtime_orchestrator.py::test_hook_path_escape_is_rejected"],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-privileged-env-scrub",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_runtime_orchestrator.py::test_hook_environment_replaces_all_privileged_db_inputs"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["memory"],
+    "omit": ["memory/test*.py"],
+    "pytest_args": ["-q", "tests/test_soul_runtime_orchestrator.py", "tests/test_soul_f1_quality.py"],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-soul-f2-runtime-orchestrator.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Live restricted-role registry probe reaches the local llama.cpp health endpoint",
+    "command": {
+      "id": "delivery-live-f2-probe",
+      "argv": ["env", "PYTHONPATH=memory", "python3", "memory/soul_runtime_orchestrator.py", "--agent", "ADA", "probe"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "\"superuser\": false"
+    }
+  }
+}
