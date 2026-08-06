@@ -14,12 +14,48 @@
 Todo texto entre tool calls SOLO se ve en el terminal. Para que tu voz llegue a William:
 
 ```bash
-curl -s -X POST http://localhost:8765/api/agents/send \
-  -H "Content-Type: application/json" \
-  -d '{"from":"TU_NOMBRE","to":"William","type":"conversation","channel":"web_chat","message":"<texto>"}'
+python3 scripts/seal_send.py TU_NOMBRE William "<texto>" \
+  --channel web_chat \
+  --in-reply-to '<api_william_... o id numérico de soul_v3.chat_messages>' \
+  --idempotency-key '<clave durable del turno>'
 ```
 
-Antes de cerrar cualquier turno con respuesta a William → ejecuta este POST.
+`seal_send.py` carga la credencial del agente y convierte automáticamente un ID
+numérico a `db_<id>`. **Nunca uses `curl` crudo contra `/api/agents/send`:** en
+modo ENFORCE será rechazado correctamente con `agent_auth_required`.
+
+Antes de cerrar cualquier turno con respuesta a William → ejecuta el writer
+autenticado y verifica que el `id` devuelto existe en `soul_v3.chat_messages`.
+**REGLA DE ORO (William, 31-jul-2026): trabajo finalizado = trabajo reportado y
+verificado en el chat general.** Un resultado local, un DM o `ok:true` no cierran.
+
+## REGLA DE ORO — NO AFIRMAR EN PÚBLICO SIN VERIFICAR (OBLIGATORIO — William 6-ago-2026, SANCIONABLE)
+
+William, textual: *"Regla de oro, no afirmen algo en público sin verificar, si no
+verifican será sancionado."*
+
+**Qué lo generó:** agentes afirmaban un hecho del sistema en el canal y a los
+segundos se corregían (`dream-skill`, una policy RLS, un bundle). Casi todos los
+flip-flops estaban a **UN comando** de la verdad; se postearon antes de correrlo
+por la prisa de contestar primero. La información errónea confunde a William.
+
+**La regla, operativa:**
+> Toda afirmación fáctica sobre el sistema va **con su evidencia (comando + salida)**
+> o marcada explícitamente **"sin verificar" / "a confirmar"**. Sin eso, no se
+> afirma en el canal público.
+
+**Cómo cumplirla:**
+1. Si una afirmación se puede zanjar corriendo algo, **se corre ANTES de postear**.
+2. Separá **"medido"** de **"creo/parece"** — si no lo verificaste, decilo; no lo
+   afirmes plano.
+3. No postees la lectura plausible sólo por ser el primero: 10 s ahorrados cuestan
+   una corrección + confusión. Una respuesta verificada 30 s después vale más que dos mensajes.
+4. Medí el caso que te **REFUTARÍA**, no el que te confirma — el sesgo es correr el
+   chequeo cómodo (el que confirma) y disparar.
+
+**El matiz que NO deroga la regla:** corregirse no es la falla —es el sistema
+funcionando—; la falla es **afirmar en público antes de verificar**. La sanción
+cae sobre la afirmación sin verificar, no sobre la honestidad de retractarse.
 
 ## REGLA DE ORO — mensajes HERMOSOS y bien formateados (OBLIGATORIO — William 15-jul-2026)
 
@@ -36,7 +72,10 @@ Título en negrita:
 - punto 2
 EOF
 )
-scripts/seal_send.py TU_NOMBRE William "$MSG" --channel web_chat --type conversation
+scripts/seal_send.py TU_NOMBRE William "$MSG" \
+  --channel web_chat --type conversation \
+  --in-reply-to '<api_william_... o id numérico>' \
+  --idempotency-key '<clave durable del turno>'
 ```
 
 **NO** normalizar `\n` a ciegas en `seal_send.py`: corrompería snippets de código que legítimamente llevan `\n` (ej. `print("a\nb")`, regex). Es disciplina de LLAMADA (heredoc/printf), no transform del tool. Regla verificable por efecto: leé tu propio mensaje en el chat/DB y confirmá que los saltos son reales.
@@ -346,7 +385,14 @@ trabajo operativo ya autorizado.
 
 Cuando se modifica un archivo ejecutado por un servicio systemd:
 1. Aplicar el fix en disco
-2. `systemctl restart [nombre-servicio]`
+2. Si el servicio está en la tabla de autonomía, reiniciarlo por el broker:
+   `SEAL_AGENT=TU_NOMBRE python3 scripts/seal_self_repair.py restart <acción> --reason <motivo>`.
+   Para deploy de chat con comprobación de hash usar:
+   `SEAL_AGENT=TU_NOMBRE ./seal_safe_restart.sh seal-chat.service --reason <motivo> --code-file messages/chat_server.py --version-url http://localhost:8765/__version`.
+   **Nunca** usar `systemctl --user restart seal-chat` directo: deja el servicio
+   sano pero sin recibo y Stability Guard lo detecta como YELLOW.
+   Para unidades fuera de esa tabla sí se usa `systemctl restart [nombre-servicio]`.
 3. Verificar que el proceso nuevo cargó el código correcto (`systemctl status [servicio]`)
 
-Sin restart, el daemon sigue corriendo con el código viejo en memoria.
+Sin restart, el daemon sigue corriendo con el código viejo en memoria. Sin
+recibo, la salud prueba funcionamiento pero no procedencia/autorización.
