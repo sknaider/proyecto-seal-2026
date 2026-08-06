@@ -1,0 +1,78 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "soul-f1-runtime-hooks-20260805",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "approved",
+    "evidence": "NEXUS web_chat #125738: byte hashes matched, quality suite 8 passed, and live mcp_runtime_nexus RLS attack denied INSERT/UPDATE/DELETE/TRUNCATE/DISABLE-RLS while preserving 28 rows",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "Independent byte review and restricted-role database attack recorded in web_chat #125738; verdict APPROVED",
+      "reviewed_sha256": {
+        "memory/soul_event_interface.py": "f45efb642a12e82e3dc879d7790be03fcb63933c5d46c8882af093e8c674b5f8",
+        "memory/soul_hooks_seed.py": "273a018c714d31d52afe3f1fd0451294b0fa1aa0ecafcc6caeeecf53a9d27970",
+        "memory/soul_runtime_adapter.py": "8b3f81fb1b4b4024a10c77baf14bbf7c0a47346a091e5958fc0db0077cff7a29",
+        "memory/soul_runtime_hooks_migration.sql": "117e45a080a258e344a354bae7f1e2bcbe9af1ae9ce293e2a5ef868490ca4231",
+        "tests/test_soul_f1_quality.py": "195ab62f4b134ad6cb6ea6499f1e57492e1e2a4c1e4520f91f6405be06dfd530"
+      },
+      "manifest_digest": "2117eaa310a76dd0c9bf9821a290edc485bfde502199cc53e39cadde650d7252"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "memory/soul_event_interface.py",
+    "memory/soul_hooks_seed.py",
+    "memory/soul_runtime_adapter.py",
+    "memory/soul_runtime_hooks_migration.sql"
+  ],
+  "tests": [
+    "tests/test_soul_f1_quality.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-f1-bundle",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_f1_quality.py::test_unit_script_suites"],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-matcher-routing",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_f1_quality.py::test_matcher_positive_routes_one_hook"],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-unknown-event",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_f1_quality.py::test_unknown_event_negative_fails_closed"],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-rls-no-write",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_f1_quality.py::test_rls_control_contract_denies_runtime_writes"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["memory"],
+    "omit": ["memory/test*.py"],
+    "pytest_args": ["-q", "tests/test_soul_f1_quality.py"],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-soul-f1-runtime-hooks.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Live settings seed preserves five distinct FileChanged matchers and dispatch routes one effect",
+    "command": {
+      "id": "delivery-live-seed-effect",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_f1_quality.py::test_delivery_effect_preserves_five_file_matchers"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

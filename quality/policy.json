@@ -46,6 +46,7 @@
     ".github/CODEOWNERS"
   ],
   "manifests": [
-    "quality/manifests/quality-gate-bootstrap.json"
+    "quality/manifests/quality-gate-bootstrap.json",
+    "quality/manifests/soul-f1-runtime-hooks.json"
   ]
 }
