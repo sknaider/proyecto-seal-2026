@@ -57,6 +57,30 @@ por la prisa de contestar primero. La información errónea confunde a William.
 funcionando—; la falla es **afirmar en público antes de verificar**. La sanción
 cae sobre la afirmación sin verificar, no sobre la honestidad de retractarse.
 
+## REGLA DE ORO — OPERACIONES DESTRUCTIVAS: ruta literal, nunca variable (OBLIGATORIO — William 9-ago-2026, "máxima seguridad")
+
+**Qué lo generó:** un script de verificación por efecto terminó en un cleanup
+**`rm -rf "$HOME"`** (un typo: debía borrar `$HOME/soulroot`, apuntó al home entero
+= `/home/dadito`). Claude Code lo FRENÓ —marcó *"Dangerous rm operation on critical
+path"*— y **William apretó ACEPTAR**. El home sobrevivió por suerte del mecanismo,
+no por diseño.
+
+**La regla:**
+> Comandos destructivos (`rm -rf`, `DROP`, `TRUNCATE`, `--force`, `DELETE` masivo):
+> **SOLO con RUTA LITERAL COMPLETA escrita a mano. NUNCA una variable (`$HOME`,
+> `$VAR`) ni un glob** que pueda expandirse a algo crítico. Un `rm` tiene que decir
+> exactamente qué borra.
+
+**Limpieza de temporales:** usá el helper **`tools/seal_safe_tmp.sh`**
+(`seal_safe_tmp_make`/`seal_safe_tmp_clean`) — crea con `mktemp -d` y borra con
+guard (`case /tmp/*`), niega `$HOME`/`/`/vacío/derivado. Verificado por efecto
+(NEXUS): las rutas peligrosas dan rc≠0, un `/tmp` real se permite.
+
+**El principio de fondo:** el candado dependió de que un humano dijera "No", y dijo
+"Sí". **El deny humano NO es red de seguridad para operaciones destructivas** — el
+fix vive en el CÓDIGO (helper con guard), no en "acuérdense". Una operación
+catastrófica debe ser estructuralmente incapaz de apuntar a algo crítico.
+
 ## REGLA DE ORO — mensajes HERMOSOS y bien formateados (OBLIGATORIO — William 15-jul-2026)
 
 William: *"tiene que ser norma regla de oro que todos los agentes entreguen mensajes bien hermosos y detallados para mis lindos ojos y no complicarme."*
