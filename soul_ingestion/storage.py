@@ -12,14 +12,23 @@ from .contracts import IngestResult, RawArtifact
 
 
 class StagingRepository:
-    def __init__(self, pool: asyncpg.Pool) -> None:
+    def __init__(self, pool: asyncpg.Pool, *, review_pool: asyncpg.Pool | None = None) -> None:
         self.pool = pool
+        self.review_pool = review_pool or pool
 
     @asynccontextmanager
     async def _processor_transaction(self, tenant_id: UUID) -> AsyncIterator[asyncpg.Connection]:
         async with self.pool.acquire() as connection:
             async with connection.transaction():
                 await connection.execute("SET LOCAL ROLE pr_ingestion_processor")
+                await connection.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_id))
+                yield connection
+
+    @asynccontextmanager
+    async def _review_transaction(self, tenant_id: UUID) -> AsyncIterator[asyncpg.Connection]:
+        async with self.review_pool.acquire() as connection:
+            async with connection.transaction():
+                await connection.execute("SET LOCAL ROLE pr_ingestion_reviewer")
                 await connection.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_id))
                 yield connection
 
@@ -223,6 +232,9 @@ class StagingRepository:
             memory_write = await connection.fetchval(
                 "SELECT has_table_privilege(current_user, 'soul_v3.memories', 'INSERT')"
             )
+            review_membership = await connection.fetchval(
+                "SELECT pg_has_role(session_user, 'pr_ingestion_reviewer', 'MEMBER')"
+            )
             return {
                 "database": server["db"],
                 "login": server["login"],
@@ -230,6 +242,26 @@ class StagingRepository:
                 "server_version": server["version"],
                 "staging_tables": table_count,
                 "memory_insert_privilege": memory_write,
+                "review_role_membership": review_membership,
+            }
+
+    async def review_health(self, tenant_id: UUID) -> dict[str, object]:
+        async with self._review_transaction(tenant_id) as connection:
+            server = await connection.fetchrow(
+                "SELECT current_database() db, session_user login, current_user db_role"
+            )
+            memory_write = await connection.fetchval(
+                "SELECT has_table_privilege(current_user, 'soul_v3.memories', 'INSERT')"
+            )
+            promoter_membership = await connection.fetchval(
+                "SELECT pg_has_role(session_user, 'pr_ingestion_promoter', 'MEMBER')"
+            )
+            return {
+                "database": server["db"],
+                "login": server["login"],
+                "role": server["db_role"],
+                "memory_insert_privilege": memory_write,
+                "promoter_role_membership": promoter_membership,
             }
 
     async def get_document(self, tenant_id: UUID, document_id: UUID) -> dict[str, object] | None:
@@ -315,3 +347,71 @@ class StagingRepository:
                     limit,
                 )
                 return [dict(row) for row in rows]
+
+    async def list_review_candidates(
+        self, tenant_id: UUID, *, limit: int = 100
+    ) -> list[dict[str, object]]:
+        if not 1 <= limit <= 200:
+            raise ValueError("review limit must be 1–200")
+        async with self._review_transaction(tenant_id) as connection:
+            rows = await connection.fetch(
+                """
+                WITH latest AS (
+                  SELECT DISTINCT ON (candidate_id) candidate_id, event_type, actor,
+                         reason, metadata, created_at
+                  FROM soul_v3.ingestion_state_events
+                  WHERE candidate_id IS NOT NULL
+                  ORDER BY candidate_id, event_id DESC
+                )
+                SELECT c.candidate_id, c.document_id, c.derivation_id,
+                       c.proposed_agent, c.proposed_category, c.proposed_content,
+                       c.proposed_importance, c.confidence, c.risk_flags,
+                       c.initial_state, c.created_at, d.title, d.source_ref,
+                       d.scope, d.sensitivity, d.raw_hash_sha256,
+                       r.output_hash_sha256,
+                       CASE WHEN l.event_type = 'candidate_created' THEN c.initial_state
+                            ELSE COALESCE(l.event_type, c.initial_state) END AS review_state,
+                       l.actor AS reviewed_by, l.reason AS review_reason,
+                       l.metadata AS review_metadata, l.created_at AS reviewed_at,
+                       o.status AS promotion_status, o.attempts AS promotion_attempts,
+                       o.last_error AS promotion_error, o.memory_id
+                FROM soul_v3.ingestion_memory_candidates c
+                JOIN soul_v3.ingestion_documents d ON d.document_id=c.document_id
+                JOIN soul_v3.ingestion_derivations r ON r.derivation_id=c.derivation_id
+                LEFT JOIN latest l ON l.candidate_id=c.candidate_id
+                LEFT JOIN LATERAL (
+                  SELECT status, attempts, last_error, memory_id
+                  FROM soul_v3.ingestion_promotion_outbox
+                  WHERE candidate_id=c.candidate_id
+                  ORDER BY outbox_id DESC LIMIT 1
+                ) o ON true
+                ORDER BY c.created_at DESC, c.candidate_id
+                LIMIT $1
+                """,
+                limit,
+            )
+            return [dict(row) for row in rows]
+
+    async def review_candidate(
+        self,
+        tenant_id: UUID,
+        candidate_id: UUID,
+        *,
+        decision: str,
+        actor: str,
+        actor_session_id: str,
+        reason: str,
+    ) -> dict[str, object]:
+        if decision not in {"approved", "rejected", "revoked"}:
+            raise ValueError("decision must be approved, rejected, or revoked")
+        async with self._review_transaction(tenant_id) as connection:
+            result = await connection.fetchval(
+                "SELECT soul_v3.ingestion_review_decide($1,$2,$3,$4,$5,$6)",
+                tenant_id,
+                candidate_id,
+                decision,
+                actor,
+                actor_session_id,
+                reason,
+            )
+            return dict(result)

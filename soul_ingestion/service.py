@@ -1,7 +1,7 @@
-"""Authenticated localhost service for SUIE staging.
+"""Authenticated localhost SUIE staging and human-review service.
 
-This service has deliberately no promotion endpoint and no privilege on
-``soul_v3.memories``.
+Ingestion and review use separate restricted PostgreSQL identities. Approved
+decisions enter a durable outbox consumed by the isolated promoter service.
 """
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ import os
 import secrets
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from email import policy
+from email.parser import BytesParser
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
@@ -37,9 +39,10 @@ from .storage import StagingRepository
 
 DEFAULT_TENANT = UUID("00000000-0000-0000-0000-000000000001")
 TOKEN_PATH = Path(os.environ.get("SUIE_TOKEN_FILE", "var/soul_ingestion/service.token")).resolve()
+REVIEW_TOKEN_PATH = Path(
+    os.environ.get("SUIE_REVIEW_TOKEN_FILE", "var/soul_ingestion/review.token")
+).resolve()
 ARTIFACT_PATH = Path(os.environ.get("SUIE_ARTIFACT_ROOT", "var/soul_ingestion/artifacts")).resolve()
-
-
 async def _configure_connection(connection: asyncpg.Connection) -> None:
     """Decode PostgreSQL JSON/JSONB as structured API values, never strings."""
 
@@ -53,16 +56,20 @@ async def _configure_connection(connection: asyncpg.Connection) -> None:
         )
 
 
-def _database_dsn(token: str) -> str:
-    """Derive a domain-separated password for the restricted SUIE login."""
+def _database_dsn(token: str, *, login: str = "svc_soul_ingestion") -> str:
+    """Derive a domain-separated password for one restricted SUIE login."""
 
-    password = hashlib.sha256(b"seal-suie-db-v1\0" + token.encode("utf-8")).hexdigest()
+    allowed = {
+        "svc_soul_ingestion": b"seal-suie-db-v1\0",
+        "svc_soul_ingestion_review": b"seal-suie-review-db-v1\0",
+        "svc_soul_ingestion_promoter": b"seal-suie-promoter-db-v1\0",
+    }
+    if login not in allowed:
+        raise RuntimeError("SUIE refuses to start with a non-dedicated database login")
+    password = hashlib.sha256(allowed[login] + token.encode("utf-8")).hexdigest()
     host = os.environ.get("SUIE_DB_HOST", "127.0.0.1")
     port = int(os.environ.get("SUIE_DB_PORT", "5433"))
     database = os.environ.get("SUIE_DB_NAME", "seal_memory")
-    login = os.environ.get("SUIE_DB_LOGIN", "svc_soul_ingestion")
-    if login != "svc_soul_ingestion":
-        raise RuntimeError("SUIE refuses to start with a non-dedicated database login")
     return f"postgresql://{login}:{quote(password)}@{host}:{port}/{database}"
 
 
@@ -135,24 +142,43 @@ class YouTubeIngestRequest(BaseModel):
     propose_candidates: bool = False
 
 
+class ReviewDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: str = Field(pattern=r"^(approved|rejected|revoked)$")
+    actor: str = Field(pattern=r"^William$", max_length=64)
+    actor_session_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    reason: str = Field(min_length=3, max_length=1000)
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     token = _load_or_create_token(TOKEN_PATH)
+    review_token = _load_or_create_token(REVIEW_TOKEN_PATH)
     ARTIFACT_PATH.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(ARTIFACT_PATH, 0o700)
     pool = await asyncpg.create_pool(
-        _database_dsn(token),
+        _database_dsn(token, login=os.environ.get("SUIE_DB_LOGIN", "svc_soul_ingestion")),
         min_size=1,
         max_size=5,
         command_timeout=15,
         init=_configure_connection,
     )
+    review_pool = await asyncpg.create_pool(
+        _database_dsn(review_token, login="svc_soul_ingestion_review"),
+        min_size=1,
+        max_size=2,
+        command_timeout=15,
+        init=_configure_connection,
+    )
     application.state.token = token
+    application.state.review_token = review_token
     application.state.pool = pool
-    application.state.repository = StagingRepository(pool)
+    application.state.review_pool = review_pool
+    application.state.repository = StagingRepository(pool, review_pool=review_pool)
     application.state.artifacts = ArtifactStore(ARTIFACT_PATH)
     application.state.engine = IngestionEngine()
     yield
+    await review_pool.close()
     await pool.close()
 
 
@@ -172,14 +198,29 @@ async def require_token(authorization: Annotated[str | None, Header()] = None) -
         raise HTTPException(status_code=401, detail="authenticated SUIE capability required")
 
 
+async def require_review_token(
+    x_suie_review_token: Annotated[str | None, Header()] = None,
+) -> None:
+    supplied = x_suie_review_token or ""
+    if not supplied or not hmac.compare_digest(supplied, app.state.review_token):
+        raise HTTPException(status_code=401, detail="verified human review capability required")
+
+
 @app.get("/health")
 async def health() -> dict[str, object]:
     details = await app.state.repository.health(DEFAULT_TENANT)
+    review_details = await app.state.repository.review_health(DEFAULT_TENANT)
     artifact_ready = ARTIFACT_PATH.exists() and os.access(ARTIFACT_PATH, os.R_OK | os.W_OK)
     healthy = (
+        # The processor intentionally cannot see the review outbox.
         details["staging_tables"] == 6
         and details["role"] == "pr_ingestion_processor"
         and details["memory_insert_privilege"] is False
+        and details["review_role_membership"] is False
+        and review_details["login"] == "svc_soul_ingestion_review"
+        and review_details["role"] == "pr_ingestion_reviewer"
+        and review_details["memory_insert_privilege"] is False
+        and review_details["promoter_role_membership"] is False
         and artifact_ready
     )
     if not healthy:
@@ -193,6 +234,10 @@ async def health() -> dict[str, object]:
         "database_role": details["role"],
         "staging_tables": details["staging_tables"],
         "memory_write": False,
+        "processor_can_review": False,
+        "review_database_login": review_details["login"],
+        "review_memory_write": False,
+        "reviewer_can_promote": False,
         "artifact_store": "ready",
     }
 
@@ -217,6 +262,30 @@ async def ingest_text(request: TextIngestRequest) -> dict[str, object]:
 async def _process_and_persist(
     artifact: RawArtifact, profile_id: str, propose_candidates: bool
 ) -> dict[str, object]:
+    # Secrets are rejected before writing even the immutable raw artifact.
+    from memory.secret_scanner import scan_text
+
+    scan_targets = [artifact.extracted_text or "", artifact.content.decode("utf-8", errors="ignore")]
+    if artifact.media_type == "message/rfc822":
+        # MIME transfer encodings hide attachment bytes from a raw-text scan.
+        # Decode every leaf before the immutable raw message can reach disk.
+        message = BytesParser(policy=policy.default).parsebytes(artifact.content)
+        for part in message.walk():
+            if part.is_multipart():
+                continue
+            payload = part.get_payload(decode=True) or b""
+            charset = part.get_content_charset() or "utf-8"
+            try:
+                scan_targets.append(payload.decode(charset, errors="replace"))
+            except LookupError:
+                scan_targets.append(payload.decode("utf-8", errors="replace"))
+    detections = [finding for target in scan_targets for finding in scan_text(target)]
+    if detections:
+        kinds = sorted({item.pattern_name for item in detections})
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "secret_detected_before_persistence", "types": kinds},
+        )
     artifact_ref = app.state.artifacts.put(artifact.content)
     if artifact_ref != f"artifact://sha256/{artifact.raw_hash_sha256}":
         raise HTTPException(status_code=500, detail="artifact address verification failed")
@@ -326,3 +395,66 @@ async def search_documents(
 ) -> dict[str, object]:
     results = await app.state.repository.search_documents(tenant_id, q, limit=limit)
     return {"ok": True, "count": len(results), "results": results}
+
+
+@app.get("/v1/review/candidates", dependencies=[Depends(require_review_token)])
+async def list_review_candidates(
+    tenant_id: UUID = Query(default=DEFAULT_TENANT),
+    limit: int = Query(default=100, ge=1, le=200),
+) -> dict[str, object]:
+    candidates = await app.state.repository.list_review_candidates(tenant_id, limit=limit)
+    return {"ok": True, "count": len(candidates), "candidates": candidates}
+
+
+@app.post(
+    "/v1/review/candidates/{candidate_id}/decision",
+    dependencies=[Depends(require_review_token)],
+)
+async def review_candidate(
+    candidate_id: UUID,
+    request: ReviewDecisionRequest,
+    tenant_id: UUID = Query(default=DEFAULT_TENANT),
+) -> dict[str, object]:
+    from memory.secret_scanner import scan_text
+
+    if scan_text(request.reason):
+        raise HTTPException(status_code=422, detail="review reason contains secret material")
+    try:
+        result = await app.state.repository.review_candidate(
+            tenant_id,
+            candidate_id,
+            decision=request.decision,
+            actor=request.actor,
+            actor_session_id=request.actor_session_id,
+            reason=request.reason,
+        )
+    except asyncpg.NoDataFoundError as exc:
+        raise HTTPException(status_code=404, detail="candidate not found in authorized tenant") from exc
+    except (asyncpg.CheckViolationError, asyncpg.UniqueViolationError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc).split("\n", 1)[0]) from exc
+    except asyncpg.InsufficientPrivilegeError as exc:
+        raise HTTPException(status_code=403, detail="review authority rejected") from exc
+    return {"ok": True, **result}
+
+
+@app.get("/v1/review/export.md", dependencies=[Depends(require_review_token)])
+async def export_reviewed_markdown(
+    tenant_id: UUID = Query(default=DEFAULT_TENANT),
+) -> dict[str, object]:
+    candidates = await app.state.repository.list_review_candidates(tenant_id, limit=200)
+    promoted = [item for item in candidates if item["review_state"] == "promoted"]
+    lines = ["# Conocimiento humano revisado en SOUL", ""]
+    for item in promoted:
+        lines.extend(
+            [
+                f"## {item['title'] or item['proposed_category']}",
+                "",
+                str(item["proposed_content"]),
+                "",
+                f"- Categoría: `{item['proposed_category']}`",
+                f"- Fuente: `{item['source_ref']}`",
+                f"- Evidencia SHA-256: `{item['raw_hash_sha256']}`",
+                "",
+            ]
+        )
+    return {"ok": True, "count": len(promoted), "markdown": "\n".join(lines)}

@@ -11,6 +11,7 @@ CUES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("milestone", ("cerrado", "completado", "desplegado", "verificado", "pasa ")),
     ("fact", ("es ", "son ", "tiene ", "resultado", "responsable")),
 )
+HUMAN_CAPTURE_PREFIX = "human_capture:"
 
 
 def propose_memory_candidates(
@@ -60,6 +61,41 @@ def propose_memory_candidates(
                 confidence=confidence,
                 confidence_factors=confidence_factors,
                 source_anchors=(anchor,),
+                risk_flags=tuple(risk_flags),
+                state="review_blocked" if quarantined else "candidate",
+                approval_verified=False,
+            )
+        )
+    # The authenticated human inbox must not silently discard prose that lacks
+    # a keyword cue. It still creates only a quarantined proposal; William must
+    # review it before the canonical writer sees it.
+    if not candidates and document.source.source_ref.startswith(HUMAN_CAPTURE_PREFIX):
+        risk_flags = ["requires_human_review", "human_capture_fallback"]
+        quarantined = document.sensitivity.value in {"confidential", "medical"}
+        if quarantined:
+            risk_flags.append(f"sensitivity:{document.sensitivity.value}")
+        candidates.append(
+            MemoryCandidate(
+                candidate_id=stable_uuid(
+                    "candidate",
+                    str(derivation.derivation_id),
+                    proposed_agent,
+                    "insight",
+                    derivation.output_hash_sha256,
+                ),
+                document_id=document.document_id,
+                derivation_id=derivation.derivation_id,
+                proposed_agent=proposed_agent,
+                proposed_category="insight",
+                proposed_content=derivation.content,
+                proposed_importance=5,
+                confidence=0.55,
+                confidence_factors={
+                    "authenticated_human_capture": 0.3,
+                    "exact_source_anchor": 0.2,
+                    "human_review_required": 0.05,
+                },
+                source_anchors=derivation.evidence_anchors,
                 risk_flags=tuple(risk_flags),
                 state="review_blocked" if quarantined else "candidate",
                 approval_verified=False,

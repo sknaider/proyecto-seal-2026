@@ -82,3 +82,23 @@ def test_trust_tier_is_advisory_and_does_not_change_scoring_or_digest() -> None:
     ]
     assert all(candidate.state == "candidate" for candidate in trusted_result.candidates)
     assert all(candidate.state == "review_blocked" for candidate in untrusted_result.candidates)
+
+
+def test_authenticated_human_capture_without_keyword_still_proposes_review() -> None:
+    artifact = TextAdapter().acquire(
+        "Trabajar temprano mejora el enfoque colectivo durante toda la jornada.",
+        tenant_id=TENANT,
+        owner_agent="ADA",
+        scope=Scope.WILLIAM,
+        source_ref="human_capture:william:synthetic-hash",
+        sensitivity=Sensitivity.CONFIDENTIAL,
+        trust_tier=TrustTier.OWNER_VERIFIED,
+        observed_at=NOW,
+    )
+    result = IngestionEngine().process(artifact, now=NOW, propose_candidates=True)
+    assert len(result.candidates) == 1
+    candidate = result.candidates[0]
+    assert candidate.proposed_category == "insight"
+    assert candidate.state == "review_blocked"
+    assert "human_capture_fallback" in candidate.risk_flags
+    assert candidate.approval_verified is False

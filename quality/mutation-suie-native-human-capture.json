@@ -1,0 +1,30 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "pytest explicit adversarial mutants",
+  "workspace": "four byte-bound mutants: direct outbox UPDATE, historical uniqueness weakening, lease ownership removal and MIME transfer-decoding bypass",
+  "killed": 4,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
+  "mutation_score_percent": 100.0,
+  "reviewer": "PLATFORM_SECURITY_AUDIT",
+  "file_sha256": {
+    "memory/migrations/20260809_suie_human_review_enforce.sql": "43bc4fc4095d9d45ab0e4f5368f1ff6ff05ae73b54bc3484b7adf847fd612521",
+    "scripts/bootstrap_soul_ingestion_promoter_db_role.py": "d9e163ac30de26ba3efddb70e06a5f701eff09b77015f2e18d3fa4c9434817bc",
+    "scripts/bootstrap_soul_ingestion_review_db_role.py": "b143b7fb2ce3f37c468836f6bf3ba12ad7bc49d7fcef979ea837ac24e3d0dcd2",
+    "scripts/verify_suie_human_review_enforce.py": "ae686085c51287bc7d5435727ee082c1ebdc40a04ec2566175c280e870e1a34b",
+    "soul_ingestion/candidates.py": "ff77fceab2044bb0b7fd5bd6930f0cbc8e5da4a86b89b1cea0ae45edd3315787",
+    "soul_ingestion/memory_writer.py": "917eeb27cfa2f7e72b2607e4ecba8eee3122ae4ae3e055451df29aaafee2ca1d",
+    "soul_ingestion/promoter.py": "028a48e6d2a71a973413482ec85e6b974c9c31897681a6e975bf058d9ad9fd53",
+    "soul_ingestion/service.py": "9e37742ec734f188b9c50bd89dcd735c5f10dd80f04e1abba8f5337773db4d76",
+    "soul_ingestion/storage.py": "e88006aea56928465e2c1f64a63ffef61ceb5b7ec566e29520462605ed86f6cd",
+    "soul_ingestion/tests/test_candidates.py": "8a3a9bf1e60a9c798bfc4a9cdd6ca20044527b9de9dc000f561200d556aef6b6",
+    "soul_ingestion/tests/test_human_review_enforce.py": "d195f2705243a1985e3a4959d51c881e2b92ca6a0e189d25c88f99cebf872166",
+    "soul_ingestion/tests/test_promoter.py": "9ec7d52a5e5858e4663e42c2d8615c41a691e62c473edf2a16be3bda3074f61c",
+    "soul_ingestion/tests/test_service_contract.py": "44c60716e49d2285239d68b696d9c779ea6b66b11ac2f8d06d64cf73882cb32a",
+    "soul_ingestion/tests/test_native_quality_mutants.py": "32ee7aa9895d6d523ae9c523e277a5f442d37e1069e0171c2ae85bcf19d660dd"
+  }
+}

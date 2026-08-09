@@ -1,0 +1,30 @@
+[Unit]
+Description=SEAL SUIE durable human-review promoter
+After=network-online.target seal-mcp.service seal-soul-ingestion.service
+Requires=seal-soul-ingestion.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+Environment=PYTHONUNBUFFERED=1
+Environment=SUIE_DB_HOST=127.0.0.1
+Environment=SUIE_DB_PORT=5433
+Environment=SUIE_DB_NAME=seal_memory
+Environment=SUIE_PROMOTER_TOKEN_FILE=/home/dadito/IA/proyecto-seal/var/soul_ingestion/promoter.token
+Environment=SUIE_PROMOTER_STATUS_FILE=/home/dadito/IA/proyecto-seal/var/soul_ingestion/promoter_status.json
+Environment=SUIE_MEMORY_TOKEN_FILE=/run/user/1000/seal/ADA.token
+Environment=SUIE_MCP_URL=http://127.0.0.1:8771/mcp
+ExecStart=/usr/bin/python3 -m soul_ingestion.promoter
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/dadito/IA/proyecto-seal/var/soul_ingestion
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=default.target

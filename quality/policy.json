@@ -51,6 +51,7 @@
     "quality/manifests/soul-f2-runtime-orchestrator.json",
     "quality/manifests/soul-f3-runtime-parity.json",
     "quality/manifests/soul-platform-machine-soul.json",
-    "quality/manifests/panel-soul-release-links.json"
+    "quality/manifests/panel-soul-release-links.json",
+    "quality/manifests/suie-native-human-capture.json"
   ]
 }
