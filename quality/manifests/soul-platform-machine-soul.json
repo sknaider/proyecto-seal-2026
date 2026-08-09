@@ -1,0 +1,102 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "soul-platform-machine-soul-20260808",
+  "owner": "ADA",
+  "independent_reviewer": "PLATFORM_RUNTIME_AUDIT",
+  "review": {
+    "status": "approved",
+    "evidence": "Three independent lanes audited runtime, security and cross-model continuity on the frozen 0.2.0 wheel",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "PLATFORM_RUNTIME_AUDIT",
+      "evidence": "Exact wheel 8dd24e43: 63/63 tests, clean install, Unix installer E2E, real two-model/two-PID continuity, lifecycle rollback and adversarial controls approved; security and matrix reviewers independently returned GO",
+      "reviewed_sha256": {
+        "soul-platform/demos/comparar_soul.py": "5a3d25e163553c1da7ad7e748fb6394498d4d0e26b4abdf6a7597e6a8a21a444",
+        "soul-platform/installer/Install-Soul.ps1": "90e2018edccca13b5ed5cf00c3280be864c2a9a3809bc807a7fd9b5e8f1b4d59",
+        "soul-platform/installer/soul-install.sh": "e1e7f50ad960195c0eebfd59b996df26ab6edfe82a50773cd1362ba18919b3c6",
+        "soul-platform/src/soul_platform/__init__.py": "981229ad80561549b886e15bc56333b95100ca382999332c377c3e75378e592a",
+        "soul-platform/src/soul_platform/agency.py": "b96f0fc5e1c68e7340f974749c19dfc7ab491aa83a53c87f372fc3cdcbb2b76a",
+        "soul-platform/src/soul_platform/api.py": "a13a2d71887a07214ea38f3f33854fce3716cff9d625dd596037432e43fcca90",
+        "soul-platform/src/soul_platform/auth.py": "f89cf20e11e7666d34381ae87a5a8551e7e62bfecd78018dd470cf4171a55b9f",
+        "soul-platform/src/soul_platform/autonomy.py": "0524a5d76d62d909602bbe7971f5ded6c32c0fa511d4f4c17bcf5f5b99396a68",
+        "soul-platform/src/soul_platform/autostart.py": "cf4e2c43f623cdbc8c08b5352c1601a0dc622486f1a96f53c9ca373c10d17a2f",
+        "soul-platform/src/soul_platform/bootstrap.py": "97bb9fde6a14086c9c19a35f52ac6861a72914453a6104f4f9170435757c2d11",
+        "soul-platform/src/soul_platform/cli.py": "d33d4cf92e488217bdcfd9add7143de7759e2ff93a4150aa287559e2fa90ef1e",
+        "soul-platform/src/soul_platform/coordination.py": "08440b99fb39a6d2815117d7ff735efef0606cf549bcdf4dc829b072ee17daf0",
+        "soul-platform/src/soul_platform/proxy.py": "6d9d5b24b4dcad23525d22f175a37f0cbb97f9548d8573733291458e12286bc6",
+        "soul-platform/src/soul_platform/receipts.py": "18cddfe78d9581eca21464bae7199e82dc988c8a2296eb887c835b266e0dcf58",
+        "soul-platform/src/soul_platform/runtime.py": "46de614050a48c48bb4910fe0dd68db09b2ba4d2774cd1141194fb9e9003032d",
+        "soul-platform/src/soul_platform/sandbox.py": "cbd144c9981a3f0fb562553e1d9f5fb5c629fd2d182eaa5b18b2388f4fbd36fe",
+        "soul-platform/tests/test_agency_v1.py": "03b552dfd5bab1a38c5e019fdf383f88a972153bd87ed6b58348d720405a3ce1",
+        "soul-platform/tests/test_api_v1.py": "90d0ec6afa0150654ac8cd818ad7a67658bdd8f75f68b89e0546cfea19f44a69",
+        "soul-platform/tests/test_autonomy_v1.py": "358587b2420bf1f4031b525c1a43e76516ca7c40158405db3ca95017c9a802d3",
+        "soul-platform/tests/test_autostart_v1.py": "0076bbf16c2fcad07f43895425ad18b6dd546885bcd13f6f69fdc45bb5ff996b",
+        "soul-platform/tests/test_bootstrap_v1.py": "9828a30ecd5efcce2a4ffdf043587425f8bcb236a7ea62de91b89088c803eb15",
+        "soul-platform/tests/test_coordination_v1.py": "4a63b05fa79b99c366a5522fa0916e275fec066bbdcd1d62cb8347d5633fb075",
+        "soul-platform/tests/test_installer_machine_v1.py": "2713e6a11a405e7d82b806a9930684329c68c3f91e74160deb7b69b5170d2f99",
+        "soul-platform/tests/test_proxy_v1.py": "425dc29bd62c2c78296e5172827a106f0e5c811d10755f69e90bd8da3ca46989",
+        "soul-platform/tests/test_release_hygiene_v1.py": "8b8a8e989f5739d08616a8405d00fa0bf21803928c532fd384f5301f29e5035d",
+        "soul-platform/tests/test_runtime_v1.py": "3040e64a130a059464371b49d6ed1ac745f9abefc237760c2fbfbea3ec525979",
+        "soul-platform/tests/test_sandbox_v1.py": "c9d3fe675ea4a708506b936e2731d63a98f0e15061f81a8ac1fc18a1e97a7cb9"
+      },
+      "manifest_digest": "947f4c2ab34c07751af9a431903ddd7f733fbeb238e369a67f3b8323b38103a8"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "soul-platform/demos/comparar_soul.py",
+    "soul-platform/installer/Install-Soul.ps1",
+    "soul-platform/installer/soul-install.sh",
+    "soul-platform/src/soul_platform/__init__.py",
+    "soul-platform/src/soul_platform/agency.py",
+    "soul-platform/src/soul_platform/api.py",
+    "soul-platform/src/soul_platform/auth.py",
+    "soul-platform/src/soul_platform/autonomy.py",
+    "soul-platform/src/soul_platform/autostart.py",
+    "soul-platform/src/soul_platform/bootstrap.py",
+    "soul-platform/src/soul_platform/cli.py",
+    "soul-platform/src/soul_platform/coordination.py",
+    "soul-platform/src/soul_platform/proxy.py",
+    "soul-platform/src/soul_platform/receipts.py",
+    "soul-platform/src/soul_platform/runtime.py",
+    "soul-platform/src/soul_platform/sandbox.py"
+  ],
+  "tests": [
+    "soul-platform/tests/test_agency_v1.py",
+    "soul-platform/tests/test_api_v1.py",
+    "soul-platform/tests/test_autonomy_v1.py",
+    "soul-platform/tests/test_autostart_v1.py",
+    "soul-platform/tests/test_bootstrap_v1.py",
+    "soul-platform/tests/test_coordination_v1.py",
+    "soul-platform/tests/test_installer_machine_v1.py",
+    "soul-platform/tests/test_proxy_v1.py",
+    "soul-platform/tests/test_release_hygiene_v1.py",
+    "soul-platform/tests/test_runtime_v1.py",
+    "soul-platform/tests/test_sandbox_v1.py"
+  ],
+  "commands": [
+    {"id": "unit-platform-bundle", "kind": "unit", "argv": [".venv-quality/bin/python", "-m", "pytest", "-q", "soul-platform/tests/test_agency_v1.py", "soul-platform/tests/test_api_v1.py", "soul-platform/tests/test_autonomy_v1.py", "soul-platform/tests/test_autostart_v1.py", "soul-platform/tests/test_bootstrap_v1.py", "soul-platform/tests/test_coordination_v1.py", "soul-platform/tests/test_installer_machine_v1.py", "soul-platform/tests/test_proxy_v1.py", "soul-platform/tests/test_release_hygiene_v1.py", "soul-platform/tests/test_runtime_v1.py", "soul-platform/tests/test_sandbox_v1.py"], "expected_exit": 0},
+    {"id": "positive-soul-continuity", "kind": "qa_positive", "argv": [".venv-quality/bin/python", "-m", "pytest", "-q", "soul-platform/tests/test_proxy_v1.py::test_same_soul_survives_model_switch_and_process_restart", "soul-platform/tests/test_bootstrap_v1.py::test_init_is_user_space_idempotent_and_preserves_identity"], "expected_exit": 0},
+    {"id": "negative-security-mutants", "kind": "qa_negative", "argv": [".venv-quality/bin/python", "-m", "pytest", "-q", "soul-platform/tests/test_proxy_v1.py::test_settings_reject_public_bind_remote_without_opt_in_and_weak_token", "soul-platform/tests/test_proxy_v1.py::test_config_and_soul_paths_must_be_private_and_canonical", "soul-platform/tests/test_autostart_v1.py::test_failed_stop_retains_descriptor"], "expected_exit": 0},
+    {"id": "control-isolation-rollback", "kind": "qa_control", "argv": [".venv-quality/bin/python", "-m", "pytest", "-q", "soul-platform/tests/test_proxy_v1.py::test_different_soul_is_negative_control", "soul-platform/tests/test_bootstrap_v1.py::test_switch_rolls_back_config_when_managed_restart_fails", "soul-platform/tests/test_installer_machine_v1.py"], "expected_exit": 0}
+  ],
+  "coverage": {
+    "source": ["soul_platform"],
+    "omit": ["soul-platform/tests/*"],
+    "pytest_args": ["-q", "soul-platform/tests"],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-soul-platform-machine-soul.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Frozen wheel executed cross-model continuity with identical soul ID, baseline and memory evidence across distinct processes",
+    "command": {
+      "id": "delivery-machine-soul-continuity",
+      "argv": [".venv-quality/bin/python", "-m", "pytest", "-q", "soul-platform/tests/test_proxy_v1.py::test_same_soul_survives_model_switch_and_process_restart"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

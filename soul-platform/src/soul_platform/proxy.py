@@ -1,0 +1,439 @@
+"""Authenticated local OpenAI-compatible gateway for one persistent machine soul.
+
+The model is an interchangeable upstream. Identity and memory remain in the
+canonical SOUL database configured for the device.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import hmac
+import json
+import os
+import stat
+import argparse
+import uuid
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit
+
+import httpx
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
+from soul_framework import Soul
+
+
+LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+VALID_ROLES = {"system", "user", "assistant", "tool"}
+UPSTREAM_API_KEY_ENV = "SOUL_PROXY_UPSTREAM_API_KEY"
+WINDOWS_REPARSE_POINT = 0x400
+
+
+def _is_link_or_reparse(path: Path) -> bool:
+    if path.is_symlink():
+        return True
+    if os.name == "nt" and path.exists():
+        return bool(getattr(os.lstat(path), "st_file_attributes", 0) & WINDOWS_REPARSE_POINT)
+    return False
+
+
+def _assert_private_owned_file(path: Path, field: str) -> None:
+    if _is_link_or_reparse(path) or not path.is_file():
+        raise ValueError(f"{field} must be a regular file, never a symlink")
+    if os.name != "nt":
+        info = path.stat()
+        if info.st_uid != os.getuid():
+            raise ValueError(f"{field} must be owned by the current user")
+        if stat.S_IMODE(info.st_mode) & 0o077:
+            raise ValueError(f"{field} must not be accessible by group/other")
+
+
+def _assert_private_directory(path: Path, field: str) -> None:
+    if _is_link_or_reparse(path) or not path.is_dir():
+        raise ValueError(f"{field} must be a real directory, never a symlink")
+    if os.name != "nt":
+        info = path.stat()
+        if info.st_uid != os.getuid():
+            raise ValueError(f"{field} must be owned by the current user")
+        if stat.S_IMODE(info.st_mode) & 0o077:
+            raise ValueError(f"{field} must not be accessible by group/other")
+
+
+def _assert_no_symlink_components(path: Path, field: str) -> None:
+    current = Path(path.anchor)
+    for part in path.parts[1:]:
+        current /= part
+        if current.exists() and _is_link_or_reparse(current):
+            raise ValueError(f"{field} contains a symlinked path component")
+
+
+def _assert_windows_canonical_root(path: Path) -> None:
+    if os.name != "nt":
+        return
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if not local_app_data:
+        raise ValueError("LOCALAPPDATA is required on Windows")
+    expected = (Path(local_app_data) / "SOUL").resolve()
+    if path.resolve() != expected:
+        raise ValueError("Windows SOUL state must stay inside %LOCALAPPDATA%\\SOUL")
+
+
+def _absolute_path(value: object, field: str) -> Path:
+    text = str(value or "")
+    if not text or any(char in text for char in ("\x00", "\r", "\n")):
+        raise ValueError(f"{field} must be a non-empty safe path")
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        raise ValueError(f"{field} must be absolute")
+    return path
+
+
+@dataclass(frozen=True)
+class ProxySettings:
+    soul_name: str
+    soul_db: Path
+    machine_soul_id: str
+    host: str
+    port: int
+    require_auth: bool
+    token_file: Path
+    upstream_kind: str
+    upstream_base_url: str
+    upstream_model: str
+    upstream_api_key_env: str = UPSTREAM_API_KEY_ENV
+    upstream_allow_remote: bool = False
+    timeout_seconds: float = 180.0
+    mem_k: int = 4
+    auto_store: bool = False
+    max_request_bytes: int = 1_048_576
+    max_response_bytes: int = 8_388_608
+
+    @classmethod
+    def from_toml(cls, path: str | os.PathLike[str]) -> "ProxySettings":
+        import tomllib
+
+        config = _absolute_path(path, "config")
+        _assert_no_symlink_components(config, "config")
+        _assert_windows_canonical_root(config.parent)
+        _assert_private_owned_file(config, "config")
+        _assert_private_directory(config.parent, "config parent")
+        raw = tomllib.loads(config.read_text(encoding="utf-8"))
+        soul = raw.get("soul") or {}
+        proxy = raw.get("proxy") or {}
+        upstream = raw.get("upstream") or {}
+        settings = cls(
+            soul_name=str(soul.get("name") or "MachineSoul"),
+            soul_db=_absolute_path(soul.get("db"), "soul.db"),
+            machine_soul_id=str(soul.get("machine_soul_id") or ""),
+            host=str(proxy.get("host") or "127.0.0.1"),
+            port=int(proxy.get("port", 11435)),
+            require_auth=proxy.get("require_auth") is True,
+            token_file=_absolute_path(proxy.get("token_file"), "proxy.token_file"),
+            upstream_kind=str(upstream.get("kind") or "openai-compatible"),
+            upstream_base_url=str(upstream.get("base_url") or "").rstrip("/"),
+            upstream_model=str(upstream.get("model") or ""),
+            upstream_api_key_env=str(
+                upstream.get("api_key_env") or "SOUL_PROXY_UPSTREAM_API_KEY"
+            ),
+            upstream_allow_remote=upstream.get("allow_remote") is True,
+            timeout_seconds=float(upstream.get("timeout_seconds", 180)),
+            mem_k=int(proxy.get("mem_k", 4)),
+            auto_store=proxy.get("auto_store") is True,
+            max_request_bytes=int(proxy.get("max_request_bytes", 1_048_576)),
+            max_response_bytes=int(proxy.get("max_response_bytes", 8_388_608)),
+        )
+        if settings.soul_db.parent.resolve() != config.parent.resolve():
+            raise ValueError("soul.db must stay inside the canonical SOUL root")
+        if settings.token_file.parent.resolve() != config.parent.resolve():
+            raise ValueError("proxy.token_file must stay inside the canonical SOUL root")
+        settings.validate()
+        return settings
+
+    def validate(self) -> None:
+        if not self.soul_name or len(self.soul_name) > 64:
+            raise ValueError("soul.name must be 1..64 characters")
+        try:
+            uuid.UUID(self.machine_soul_id)
+        except (ValueError, AttributeError):
+            raise ValueError("soul.machine_soul_id must be a UUID") from None
+        if self.host not in LOOPBACK_HOSTS:
+            raise ValueError("proxy host must be loopback")
+        if not 1024 <= self.port <= 65535:
+            raise ValueError("proxy port must be between 1024 and 65535")
+        if not self.require_auth:
+            raise ValueError("proxy.require_auth must be true")
+        if not 1 <= self.mem_k <= 20:
+            raise ValueError("proxy.mem_k must be between 1 and 20")
+        if not 4_096 <= self.max_request_bytes <= 8_388_608:
+            raise ValueError("proxy.max_request_bytes outside safe range")
+        if not 4_096 <= self.max_response_bytes <= 33_554_432:
+            raise ValueError("proxy.max_response_bytes outside safe range")
+        if not 1 <= self.timeout_seconds <= 600:
+            raise ValueError("upstream.timeout_seconds outside safe range")
+        parsed = urlsplit(self.upstream_base_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("upstream.base_url must be an absolute HTTP(S) URL")
+        if parsed.username or parsed.password:
+            raise ValueError("credentials are forbidden in upstream.base_url")
+        if parsed.query or parsed.fragment:
+            raise ValueError("query/fragment are forbidden in upstream.base_url")
+        if parsed.hostname not in LOOPBACK_HOSTS:
+            raise ValueError("remote upstreams are disabled in proxy v1")
+        if self.upstream_allow_remote:
+            raise ValueError("upstream.allow_remote is unsupported in proxy v1")
+        if self.upstream_api_key_env != UPSTREAM_API_KEY_ENV:
+            raise ValueError(f"upstream.api_key_env must be {UPSTREAM_API_KEY_ENV}")
+        if not self.upstream_model:
+            raise ValueError("upstream.model is required")
+        _assert_no_symlink_components(self.soul_db, "soul.db")
+        self.read_token()
+
+    def read_token(self) -> str:
+        _assert_no_symlink_components(self.token_file, "proxy token_file")
+        _assert_private_owned_file(self.token_file, "proxy token_file")
+        token = self.token_file.read_text(encoding="utf-8").strip()
+        if len(token.encode()) < 32:
+            raise ValueError("proxy token must contain at least 32 bytes")
+        return token
+
+    @property
+    def baseline_hash(self) -> str:
+        payload = f"{self.machine_soul_id}\0{self.soul_name}\0{self.soul_db.resolve()}"
+        return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def create_app(
+    settings: ProxySettings,
+    *,
+    upstream_transport: httpx.AsyncBaseTransport | None = None,
+) -> FastAPI:
+    settings.validate()
+    state: dict[str, Any] = {"soul": None, "upstream": None}
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        settings.soul_db.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if os.name != "nt":
+            os.chmod(settings.soul_db.parent, 0o700)
+        _assert_no_symlink_components(settings.soul_db, "soul.db")
+        if settings.soul_db.is_symlink():
+            raise ValueError("soul.db must never be a symlink")
+        if not settings.soul_db.exists():
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            fd = os.open(settings.soul_db, flags, 0o600)
+            os.close(fd)
+        headers = {}
+        key = os.environ.get(settings.upstream_api_key_env, "").strip()
+        if key:
+            headers["Authorization"] = f"Bearer {key}"
+        client = httpx.AsyncClient(
+            timeout=settings.timeout_seconds,
+            headers=headers,
+            transport=upstream_transport,
+        )
+        try:
+            async with Soul.create(
+                settings.soul_name,
+                backend="sqlite",
+                backend_url=str(settings.soul_db),
+            ) as soul:
+                if settings.soul_db.exists() and os.name != "nt":
+                    os.chmod(settings.soul_db, 0o600)
+                state["soul"] = soul
+                state["upstream"] = client
+                yield
+        finally:
+            state["soul"] = None
+            state["upstream"] = None
+            await client.aclose()
+
+    app = FastAPI(title="SOUL Proxy", version="1", lifespan=lifespan)
+
+    def require_token(authorization: str | None, x_soul_token: str | None) -> None:
+        expected = settings.read_token()
+        provided = x_soul_token or ""
+        if authorization and authorization.lower().startswith("bearer "):
+            provided = authorization[7:].strip()
+        if not hmac.compare_digest(provided.encode(), expected.encode()):
+            raise HTTPException(status_code=401, detail="local SOUL token required")
+
+    @app.get("/health")
+    async def health() -> dict[str, Any]:
+        return {
+            "ok": state["soul"] is not None,
+            "machine_soul_id": settings.machine_soul_id,
+            "baseline_hash": settings.baseline_hash,
+        }
+
+    @app.post("/admin/shutdown")
+    async def shutdown(
+        authorization: str | None = Header(None),
+        x_soul_token: str | None = Header(None),
+    ) -> dict[str, bool]:
+        require_token(authorization, x_soul_token)
+        callback = getattr(app.state, "request_shutdown", None)
+        if callback is None:
+            raise HTTPException(status_code=503, detail="shutdown controller unavailable")
+        callback()
+        return {"ok": True}
+
+    @app.get("/ready")
+    async def ready() -> JSONResponse:
+        brain = False
+        try:
+            response = await state["upstream"].get(
+                f"{settings.upstream_base_url}/models"
+            )
+            payload = response.json() if response.is_success else {}
+            models = payload.get("data") if isinstance(payload, dict) else []
+            brain = response.is_success and any(
+                isinstance(item, dict) and item.get("id") == settings.upstream_model
+                for item in (models or [])
+            )
+        except (httpx.HTTPError, ValueError):
+            pass
+        ready_now = state["soul"] is not None and brain
+        return JSONResponse(
+            status_code=200 if ready_now else 503,
+            content={"ready": ready_now, "soul_loaded": state["soul"] is not None, "brain_reachable": brain},
+        )
+
+    @app.get("/v1/models")
+    async def models(
+        authorization: str | None = Header(None),
+        x_soul_token: str | None = Header(None),
+    ) -> dict[str, Any]:
+        require_token(authorization, x_soul_token)
+        return {
+            "object": "list",
+            "data": [{"id": settings.upstream_model, "object": "model", "owned_by": "soul"}],
+        }
+
+    async def soul_context(query: str) -> tuple[str, list[dict[str, Any]]]:
+        soul = state["soul"]
+        if soul is None:
+            raise HTTPException(status_code=503, detail="machine soul is not loaded")
+        try:
+            boot = await soul.boot()
+            hits = await soul.memory.search(query, limit=settings.mem_k) if query else []
+        except Exception:
+            raise HTTPException(status_code=503, detail="machine soul recall failed") from None
+        evidence = [
+            {
+                "memory_id": hit.memory.id,
+                "content_sha256": hashlib.sha256(hit.memory.content.encode()).hexdigest(),
+                "score": round(float(hit.score), 6),
+            }
+            for hit in hits
+        ]
+        memories = "\n".join(f"- {hit.memory.content}" for hit in hits) or "(ninguna)"
+        guard = (
+            "Usa exclusivamente las memorias suministradas para datos personales. "
+            "Si el dato no aparece, responde honestamente que no lo recuerdas; no lo inventes."
+        )
+        return f"{guard}\n\n{boot}\n\n## Memorias relevantes\n{memories}", evidence
+
+    @app.post("/v1/chat/completions")
+    async def chat_completions(
+        request: Request,
+        authorization: str | None = Header(None),
+        x_soul_token: str | None = Header(None),
+    ) -> JSONResponse:
+        require_token(authorization, x_soul_token)
+        declared = request.headers.get("content-length")
+        if declared:
+            try:
+                declared_size = int(declared)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="invalid content-length") from None
+            if declared_size < 0:
+                raise HTTPException(status_code=400, detail="invalid content-length")
+            if declared_size > settings.max_request_bytes:
+                raise HTTPException(status_code=413, detail="request too large")
+        raw = await request.body()
+        if len(raw) > settings.max_request_bytes:
+            raise HTTPException(status_code=413, detail="request too large")
+        try:
+            body = json.loads(raw)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise HTTPException(status_code=400, detail="invalid JSON") from None
+        if not isinstance(body, dict) or not isinstance(body.get("messages"), list):
+            raise HTTPException(status_code=422, detail="messages must be a list")
+        if body.get("stream") is True:
+            raise HTTPException(status_code=422, detail="streaming is not supported in proxy v1")
+        messages = body["messages"]
+        if not 1 <= len(messages) <= 256:
+            raise HTTPException(status_code=422, detail="messages count outside safe range")
+        last_user = ""
+        for message in messages:
+            if not isinstance(message, dict) or message.get("role") not in VALID_ROLES:
+                raise HTTPException(status_code=422, detail="invalid message role")
+            if not isinstance(message.get("content"), str):
+                raise HTTPException(status_code=422, detail="message content must be text")
+            if message["role"] == "user":
+                last_user = message["content"]
+        block, evidence = await soul_context(last_user)
+        forwarded = dict(body)
+        forwarded["messages"] = [{"role": "system", "content": block}] + messages
+        forwarded["model"] = settings.upstream_model
+        forwarded["stream"] = False
+        try:
+            async with state["upstream"].stream(
+                "POST", f"{settings.upstream_base_url}/chat/completions", json=forwarded
+            ) as response:
+                content = bytearray()
+                async for chunk in response.aiter_bytes():
+                    content.extend(chunk)
+                    if len(content) > settings.max_response_bytes:
+                        return JSONResponse(status_code=502, content={"error": "upstream response too large"})
+                data = json.loads(content)
+                upstream_status = response.status_code
+        except (httpx.HTTPError, ValueError, json.JSONDecodeError):
+            return JSONResponse(status_code=502, content={"error": "upstream request failed"})
+        store_status = "disabled"
+        if settings.auto_store and response.is_success and last_user:
+            try:
+                await state["soul"].memory.store(
+                    f"El usuario dijo: {last_user}", importance=5
+                )
+                store_status = "stored"
+            except Exception:
+                # The upstream operation already happened. Preserve its response so a
+                # client retry cannot duplicate model work or cost.
+                store_status = "failed"
+        headers = {
+            "X-Soul-Id": settings.machine_soul_id,
+            "X-Soul-Baseline": settings.baseline_hash,
+            "X-Soul-Memories": str(len(evidence)),
+            "X-Soul-Memory-Ids": ",".join(str(item["memory_id"]) for item in evidence),
+            "X-Soul-Memory-SHA256": ",".join(item["content_sha256"] for item in evidence),
+            "X-Soul-Store": store_status,
+        }
+        return JSONResponse(status_code=upstream_status, content=data, headers=headers)
+
+    return app
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="python -m soul_platform.proxy")
+    parser.add_argument("--config", required=True)
+    args = parser.parse_args()
+    settings = ProxySettings.from_toml(args.config)
+    run_proxy(settings)
+
+
+def run_proxy(settings: ProxySettings) -> None:
+    import uvicorn
+
+    app = create_app(settings)
+    server = uvicorn.Server(uvicorn.Config(app, host=settings.host, port=settings.port))
+    app.state.request_shutdown = lambda: setattr(server, "should_exit", True)
+    server.run()
+
+
+if __name__ == "__main__":
+    main()

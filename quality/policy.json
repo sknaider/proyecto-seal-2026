@@ -49,6 +49,7 @@
     "quality/manifests/quality-gate-bootstrap.json",
     "quality/manifests/soul-f1-runtime-hooks.json",
     "quality/manifests/soul-f2-runtime-orchestrator.json",
-    "quality/manifests/soul-f3-runtime-parity.json"
+    "quality/manifests/soul-f3-runtime-parity.json",
+    "quality/manifests/soul-platform-machine-soul.json"
   ]
 }
