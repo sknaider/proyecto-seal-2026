@@ -1,0 +1,70 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "panel-soul-release-links-20260809",
+  "owner": "ADA",
+  "independent_reviewer": "PLATFORM_SECURITY_AUDIT",
+  "review": {
+    "status": "approved",
+    "evidence": "Independent adversarial review of canonical release binding, malformed metadata fail-closed behavior and authenticated SHA-bound private download",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "PLATFORM_SECURITY_AUDIT",
+      "evidence": "10 tests passed; wrong tag/name, userinfo, query, fragment, port and malformed private metadata all fail closed; private ZIP is fetched with fixed gh argv and verified by asset ID, exact size and SHA-256 before delivery",
+      "reviewed_sha256": {
+        "fable/soul_standalone/spectre_dashboard.py": "466131dc37a63991e1dcdde413d2b11cc1efffbfea4d421c5dc7ee8e838d6186",
+        "tests/test_spectre_dashboard_release_link.py": "25c141bbcb2b4a6c811855e9d259d2a1af0d8ce997e2e8cb45f8275c5ba28101"
+      },
+      "manifest_digest": "b5ccfe490b2fa7a2a0ea3d7b682a2aad640ea6fd0e37978baddb39fcd377ea9f"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "fable/soul_standalone/spectre_dashboard.py"
+  ],
+  "tests": [
+    "tests/test_spectre_dashboard_release_link.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-panel-release-links",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_spectre_dashboard_release_link.py"],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-private-platform-bundle",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_spectre_dashboard_release_link.py::test_platform_metadata_selects_private_windows_bundle"],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-supply-chain-spoof",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_spectre_dashboard_release_link.py::test_release_metadata_rejects_wrong_tag_userinfo_and_query"],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-malformed-private-metadata",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_spectre_dashboard_release_link.py::test_malformed_private_payload_fails_closed"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["fable/soul_standalone"],
+    "omit": ["tests/*"],
+    "pytest_args": ["-q", "tests/test_spectre_dashboard_release_link.py"],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "The private Platform ZIP is fetched server-side with authenticated GitHub access and rejected unless size and SHA-256 match release metadata",
+    "command": {
+      "id": "delivery-private-download",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_spectre_dashboard_release_link.py::test_private_download_is_server_authenticated_and_digest_bound"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

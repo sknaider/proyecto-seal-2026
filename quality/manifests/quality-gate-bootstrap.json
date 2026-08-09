@@ -5,16 +5,16 @@
   "independent_reviewer": "F3_HARNESS_AUDIT",
   "review": {
     "status": "approved",
-    "evidence": "Original GODEL review remains valid for unchanged gate bytes; F3_HARNESS_AUDIT reviewed the policy-only registration of the F3 manifest",
+    "evidence": "Original GODEL review remains valid for unchanged gate bytes; F3_HARNESS_AUDIT reviewed the additive registrations of F3 and Panel SOUL manifests without ratchet reductions",
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "F3_HARNESS_AUDIT",
-      "evidence": "Original gate implementation and tests unchanged; policy adds one independently reviewed F3 manifest and preserves all ratchets",
+      "evidence": "Original gate implementation and tests unchanged; policy adds independently reviewed F3 and Panel SOUL manifests, preserves all ratchets, and the gate suite remains 78 passed",
       "reviewed_sha256": {
         "quality_gate/__init__.py": "2ec46a04611898170ffbe967e7535c91ffde5e647f81bedfc8606384acd0695d",
         "quality_gate/gate.py": "5e979c2585bc1b895483f2ff202287f927bc0956f7b9c9d17f26a4aba0172e74",
         "scripts/seal_quality_gate.py": "7323183cbbc86a74b533b75156c80129e4ea6a41890b14d64b9072e5ee67d86c",
-        "quality/policy.json": "1b3d65aa8d34c5c5ef8cfe035008168eb577f53a7e21ea5d15c8d106e2580ed1",
+        "quality/policy.json": "d3e75ebb10ec4681099372a70e2b10ba3d8fc8bf200fc858c9653d09c69f943a",
         "quality/SEAL_QUALITY_GOLDEN_RULE.md": "8b918155a3a32c458f0def0a131acab1f757bf9efd54db66ccb2f34ba6fa930d",
         "quality/requirements.lock": "d58a7d93e6f1df9222168ee6d73f228547e807497501f4c15d4ed599248cd613",
         "quality/known-defect-patterns.json": "a5108e82c97c9df885d2137868a7296f1589615eec5b4e815925cb1f4cb8af11",
@@ -25,7 +25,7 @@
         "spectre_fresh.sh": "657272b4f6feeff9bcd534908efe61910f1482213ee76593082efdfe9ff7c14c",
         "quality_gate/tests/test_gate.py": "276e6873807111462bb73f940ef64aa0e6261b35fd50f97af1d4ad75adc8e232"
       },
-      "manifest_digest": "d8eaf7289b12c0e7da69745a02602da755936c56d7ac2954ab9042eb4c9f396f"
+      "manifest_digest": "7e75ff6653f23539e4542894928862cc2c43f4d82132eb343a385f33d47d1023"
     }
   },
   "deletions": [],
