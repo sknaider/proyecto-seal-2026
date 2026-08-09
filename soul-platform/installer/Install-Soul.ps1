@@ -4,7 +4,8 @@ param(
     [string]$Kind = $(if ($env:SOUL_UPSTREAM_KIND) { $env:SOUL_UPSTREAM_KIND } else { "ollama" }),
     [string]$BaseUrl = $(if ($env:SOUL_UPSTREAM_URL) { $env:SOUL_UPSTREAM_URL } else { "http://127.0.0.1:11434/v1" }),
     [string]$Venv = $(if ($env:SOUL_VENV) { $env:SOUL_VENV } else { Join-Path $env:LOCALAPPDATA "SOUL\venv" }),
-    [string]$PackageSource = $(if ($env:SOUL_PACKAGE_SOURCE) { $env:SOUL_PACKAGE_SOURCE } else { "soul-platform" }),
+    [string]$PackageSource,
+    [switch]$RequireBundledWheel,
     [switch]$NoMachine,
     [switch]$Check
 )
@@ -18,6 +19,41 @@ function Invoke-Checked([string]$File, [string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) {
         throw "El comando fallo con codigo ${LASTEXITCODE}: $File $($Arguments -join ' ')"
     }
+}
+
+function Resolve-PackageSource {
+    if (-not $RequireBundledWheel) {
+        if ($PackageSource) { return $PackageSource }
+        if ($env:SOUL_PACKAGE_SOURCE) { return $env:SOUL_PACKAGE_SOURCE }
+    }
+
+    $bundledWheels = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter "soul_platform-*.whl" -File)
+    if ($bundledWheels.Count -gt 1) {
+        throw "Hay varios wheels soul-platform junto al instalador. Deja solo el que quieras instalar o usa -PackageSource."
+    }
+    if ($bundledWheels.Count -eq 1) {
+        $wheel = $bundledWheels[0]
+        $checksumFile = "$($wheel.FullName).sha256"
+        if (-not (Test-Path -LiteralPath $checksumFile -PathType Leaf)) {
+            throw "Falta el checksum del paquete incluido: $checksumFile"
+        }
+        $expected = ((Get-Content -LiteralPath $checksumFile -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+        if ($expected -notmatch '^[0-9a-f]{64}$') {
+            throw "El checksum incluido no tiene formato SHA-256 valido."
+        }
+        $actual = (Get-FileHash -LiteralPath $wheel.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actual -ne $expected) {
+            throw "El wheel incluido no coincide con su SHA-256. No lo instalo."
+        }
+        Good "Paquete incluido verificado: $($wheel.Name) ($actual)"
+        return $wheel.FullName
+    }
+
+    if ($RequireBundledWheel) {
+        throw "El instalador de doble clic exige exactamente un wheel soul-platform incluido y su checksum. Extrae todo el ZIP y reintenta."
+    }
+
+    return "soul-platform"
 }
 
 function Find-Python {
@@ -41,6 +77,8 @@ function Find-Python {
 
 $launcher = Find-Python
 Good "Python detectado"
+$resolvedPackageSource = Resolve-PackageSource
+$resolvedPackageIsBundled = Test-Path -LiteralPath $resolvedPackageSource -PathType Leaf
 $venvPython = Join-Path $Venv "Scripts\python.exe"
 
 if (-not $Check) {
@@ -60,7 +98,13 @@ if (-not $Check) {
     }
     Step "Instalando SOUL Platform dentro del entorno aislado"
     Invoke-Checked $venvPython @("-m", "pip", "install", "--upgrade", "pip")
-    Invoke-Checked $venvPython @("-m", "pip", "install", "--upgrade", $PackageSource)
+    Invoke-Checked $venvPython @("-m", "pip", "install", "--upgrade", $resolvedPackageSource)
+    if ($resolvedPackageIsBundled) {
+        # `pip --upgrade` skips a local wheel when the same version is already
+        # present. Reinstall only this package so updates with an unchanged
+        # semantic version still load the exact verified bundle bytes.
+        Invoke-Checked $venvPython @("-m", "pip", "install", "--force-reinstall", "--no-deps", $resolvedPackageSource)
+    }
 }
 
 if (-not (Test-Path $venvPython)) { throw "No existe un entorno SOUL verificable en $Venv" }

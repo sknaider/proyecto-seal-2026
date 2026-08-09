@@ -104,6 +104,7 @@ def test_descriptors_use_absolute_python_config_and_loopback_contract(tmp_path, 
     assert "NoNewPrivileges=true" in linux
     assert "ProtectSystem=strict" in linux
     assert "WScript.Shell" in windows and "pythonw.exe" not in windows
+    assert windows.count("Chr(34)") == 4
     assert "-m\" \"soul_platform.proxy" in linux
 
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 import uuid
 from pathlib import Path
 
@@ -8,7 +10,7 @@ import httpx
 import pytest
 from soul_framework import Soul
 
-from soul_platform.proxy import ProxySettings, create_app
+from soul_platform.proxy import ProxySettings, create_app, run_proxy
 
 
 def _settings(tmp_path: Path, model: str = "brain-a") -> ProxySettings:
@@ -27,6 +29,37 @@ def _settings(tmp_path: Path, model: str = "brain-a") -> ProxySettings:
         upstream_base_url="http://127.0.0.1:11434/v1",
         upstream_model=model,
     )
+
+
+def test_pythonw_without_stdio_disables_uvicorn_console_logging(tmp_path, monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeConfig:
+        def __init__(self, app, **kwargs):
+            captured["kwargs"] = kwargs
+
+    class FakeServer:
+        def __init__(self, _config):
+            self.should_exit = False
+
+        def run(self):
+            captured["ran"] = True
+
+    monkeypatch.setitem(
+        sys.modules,
+        "uvicorn",
+        types.SimpleNamespace(Config=FakeConfig, Server=FakeServer),
+    )
+    monkeypatch.setattr(sys, "stdout", None)
+    monkeypatch.setattr(sys, "stderr", None)
+    run_proxy(_settings(tmp_path))
+    assert captured["kwargs"] == {
+        "host": "127.0.0.1",
+        "port": 11435,
+        "log_config": None,
+        "access_log": False,
+    }
+    assert captured["ran"] is True
 
 
 def _transport(captured: list[dict]):
@@ -149,9 +182,63 @@ async def test_different_soul_is_negative_control(tmp_path):
     assert int(response.headers["X-Soul-Memories"]) == 0
 
 
-async def test_streaming_and_oversized_requests_fail_closed(tmp_path):
+async def test_explicit_remember_header_persists_without_global_auto_store(tmp_path):
     settings = _settings(tmp_path)
-    app = create_app(settings, upstream_transport=_transport([]))
+    captured: list[dict] = []
+    app = create_app(settings, upstream_transport=_transport(captured))
+    auth = {"Authorization": f"Bearer {settings.read_token()}"}
+    stored = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers={**auth, "X-Soul-Remember": "true"},
+        json={"messages": [{"role": "user", "content": "LUCERO-127469"}]},
+    )
+    recalled = await _request(
+        create_app(settings, upstream_transport=_transport(captured)),
+        "POST",
+        "/v1/chat/completions",
+        headers=auth,
+        json={"messages": [{"role": "user", "content": "LUCERO-127469"}]},
+    )
+    assert stored.headers["X-Soul-Store"] == "stored"
+    assert recalled.headers["X-Soul-Store"] == "disabled"
+    assert int(recalled.headers["X-Soul-Memories"]) >= 1
+    assert "LUCERO-127469" in captured[-1]["messages"][0]["content"]
+
+
+async def test_invalid_remember_header_fails_closed(tmp_path):
+    settings = _settings(tmp_path)
+    response = await _request(
+        create_app(settings, upstream_transport=_transport([])),
+        "POST",
+        "/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {settings.read_token()}",
+            "X-Soul-Remember": "yes",
+        },
+        json={"messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert response.status_code == 422
+
+
+async def test_streaming_sse_is_bounded_and_preserves_soul_headers(tmp_path):
+    settings = _settings(tmp_path)
+    captured: list[dict] = []
+
+    def streaming_transport(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        captured.append(body)
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream; charset=utf-8"},
+            content=(
+                b'data: {"choices":[{"delta":{"content":"GROK-SOUL-OK"}}]}\n\n'
+                b"data: [DONE]\n\n"
+            ),
+        )
+
+    app = create_app(settings, upstream_transport=httpx.MockTransport(streaming_transport))
     headers = {"Authorization": f"Bearer {settings.read_token()}"}
     streamed = await _request(
         app,
@@ -159,6 +246,27 @@ async def test_streaming_and_oversized_requests_fail_closed(tmp_path):
         "/v1/chat/completions",
         headers=headers,
         json={"stream": True, "messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert streamed.status_code == 200
+    assert streamed.headers["content-type"].startswith("text/event-stream")
+    assert streamed.headers["X-Soul-Id"] == settings.machine_soul_id
+    assert streamed.headers["X-Soul-Store"] == "disabled"
+    assert b"GROK-SOUL-OK" in streamed.content and b"[DONE]" in streamed.content
+    assert captured[0]["stream"] is True
+    assert captured[0]["model"] == settings.upstream_model
+    assert captured[0]["messages"][0]["role"] == "system"
+
+
+async def test_invalid_stream_and_oversized_requests_fail_closed(tmp_path):
+    settings = _settings(tmp_path)
+    app = create_app(settings, upstream_transport=_transport([]))
+    headers = {"Authorization": f"Bearer {settings.read_token()}"}
+    invalid_stream = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers=headers,
+        json={"stream": "true", "messages": [{"role": "user", "content": "hi"}]},
     )
     tiny = ProxySettings(**{**settings.__dict__, "max_request_bytes": 4096})
     oversized = await _request(
@@ -168,8 +276,127 @@ async def test_streaming_and_oversized_requests_fail_closed(tmp_path):
         headers=headers,
         json={"messages": [{"role": "user", "content": "x" * 5000}]},
     )
-    assert streamed.status_code == 422
+    assert invalid_stream.status_code == 422
     assert oversized.status_code == 413
+
+
+async def test_streaming_response_type_and_size_fail_closed(tmp_path):
+    settings = ProxySettings(**{**_settings(tmp_path).__dict__, "max_response_bytes": 4096})
+    headers = {
+        "Authorization": f"Bearer {settings.read_token()}",
+        "X-Soul-Remember": "true",
+    }
+    payload = {"stream": True, "messages": [{"role": "user", "content": "hi"}]}
+
+    not_sse = await _request(
+        create_app(
+            settings,
+            upstream_transport=httpx.MockTransport(
+                lambda _request: httpx.Response(200, json={"unexpected": True})
+            ),
+        ),
+        "POST",
+        "/v1/chat/completions",
+        headers=headers,
+        json=payload,
+    )
+    malformed_sse = await _request(
+        create_app(
+            settings,
+            upstream_transport=httpx.MockTransport(
+                lambda _request: httpx.Response(
+                    200,
+                    headers={"content-type": "text/event-stream"},
+                    content=b'data: {"choices": []}\n\n',
+                )
+            ),
+        ),
+        "POST",
+        "/v1/chat/completions",
+        headers=headers,
+        json=payload,
+    )
+    non_finite_sse = await _request(
+        create_app(
+            settings,
+            upstream_transport=httpx.MockTransport(
+                lambda _request: httpx.Response(
+                    200,
+                    headers={"content-type": "text/event-stream"},
+                    content=b'data: {"choices":[{"score":NaN}]}\n\ndata: [DONE]\n\n',
+                )
+            ),
+        ),
+        "POST",
+        "/v1/chat/completions",
+        headers=headers,
+        json=payload,
+    )
+    too_large = await _request(
+        create_app(
+            settings,
+            upstream_transport=httpx.MockTransport(
+                lambda _request: httpx.Response(
+                    200,
+                    headers={"content-type": "text/event-stream"},
+                    content=b"x" * 5000,
+                )
+            ),
+        ),
+        "POST",
+        "/v1/chat/completions",
+        headers=headers,
+        json=payload,
+    )
+    assert not_sse.status_code == 502
+    assert not_sse.json()["error"] == "upstream streaming response is not event-stream"
+    assert not_sse.headers["X-Soul-Store"] == "disabled"
+    assert malformed_sse.status_code == 502
+    assert malformed_sse.json()["error"] == "upstream streaming response is invalid"
+    assert malformed_sse.headers["X-Soul-Store"] == "disabled"
+    assert non_finite_sse.status_code == 502
+    assert non_finite_sse.json()["error"] == "upstream streaming response is invalid"
+    assert non_finite_sse.headers["X-Soul-Store"] == "disabled"
+    assert too_large.status_code == 502
+    assert too_large.json()["error"] == "upstream response too large"
+    async with Soul.create(
+        settings.soul_name, backend="sqlite", backend_url=str(settings.soul_db)
+    ) as soul:
+        assert await soul.memory.search("hi") == []
+
+
+@pytest.mark.parametrize(
+    "bad_content",
+    [b"not-json", b'{"choices":[{"score":NaN}]}', b'{"score":Infinity}'],
+)
+async def test_invalid_success_response_never_mutates_memory(tmp_path, bad_content):
+    settings = _settings(tmp_path)
+    headers = {
+        "Authorization": f"Bearer {settings.read_token()}",
+        "X-Soul-Remember": "true",
+    }
+    response = await _request(
+        create_app(
+            settings,
+            upstream_transport=httpx.MockTransport(
+                lambda _request: httpx.Response(
+                    200,
+                    headers={"content-type": "application/json"},
+                    content=bad_content,
+                )
+            ),
+        ),
+        "POST",
+        "/v1/chat/completions",
+        headers=headers,
+        json={"messages": [{"role": "user", "content": "PHANTOM-STORE-127469"}]},
+    )
+    assert response.status_code == 502
+    assert response.headers["X-Soul-Store"] == "disabled"
+    async with Soul.create(
+        settings.soul_name, backend="sqlite", backend_url=str(settings.soul_db)
+    ) as soul:
+        assert await soul.memory.search("PHANTOM-STORE-127469") == []
 
 
 async def test_upstream_response_limit_and_authenticated_shutdown(tmp_path):

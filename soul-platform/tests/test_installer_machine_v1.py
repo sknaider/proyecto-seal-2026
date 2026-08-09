@@ -23,3 +23,19 @@ def test_windows_installer_is_user_space_and_initializes_machine_soul():
     assert "Remove-Item" not in text
     assert "ExecutionPolicy" not in text
     assert "Start-Process -Verb RunAs" not in text
+    assert 'Get-ChildItem -LiteralPath $PSScriptRoot -Filter "soul_platform-*.whl"' in text
+    assert 'if ($actual -ne $expected)' in text
+    assert 'return "soul-platform"' in text
+    assert '"--force-reinstall", "--no-deps"' in text
+    assert "if (-not $RequireBundledWheel)" in text
+    assert "if ($RequireBundledWheel)" in text
+    assert "$env:SOUL_PACKAGE_SOURCE" in text
+
+
+def test_windows_click_installer_is_local_and_non_elevating():
+    text = (ROOT / "installer" / "Instalar-SOUL-Windows.bat").read_text()
+    assert "Install-Soul.ps1" in text
+    assert "-RequireBundledWheel" in text
+    assert "-ExecutionPolicy Bypass" in text
+    assert "RunAs" not in text
+    assert "curl" not in text

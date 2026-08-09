@@ -100,12 +100,14 @@ def render_windows(contract: AutostartContract) -> bytes:
     python = contract.python.with_name("pythonw.exe")
     if not python.exists():
         python = contract.python
-    command = f'"{python}" -m soul_platform.proxy --config "{contract.config}"'
     script = (
         "Option Explicit\r\n"
         "Dim shell\r\n"
         "Set shell = CreateObject(\"WScript.Shell\")\r\n"
-        f'shell.Run "{_vbs_string(command)}", 0, False\r\n'
+        'shell.Run Chr(34) & '
+        f'"{_vbs_string(str(python))}" & Chr(34) & '
+        '" -m soul_platform.proxy --config " & Chr(34) & '
+        f'"{_vbs_string(str(contract.config))}" & Chr(34), 0, False\r\n'
     )
     return script.encode("utf-8")
 

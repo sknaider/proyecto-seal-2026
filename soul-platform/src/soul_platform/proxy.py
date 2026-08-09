@@ -12,6 +12,7 @@ import json
 import os
 import stat
 import argparse
+import sys
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -21,12 +22,20 @@ from urllib.parse import urlsplit
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from soul_framework import Soul
 
 
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 VALID_ROLES = {"system", "user", "assistant", "tool"}
+
+
+def _reject_non_finite_json(value: str) -> None:
+    raise ValueError(f"non-finite JSON constant: {value}")
+
+
+def _strict_json_loads(payload: str | bytes | bytearray) -> Any:
+    return json.loads(payload, parse_constant=_reject_non_finite_json)
 UPSTREAM_API_KEY_ENV = "SOUL_PROXY_UPSTREAM_API_KEY"
 WINDOWS_REPARSE_POINT = 0x400
 
@@ -342,8 +351,13 @@ def create_app(
         request: Request,
         authorization: str | None = Header(None),
         x_soul_token: str | None = Header(None),
+        x_soul_remember: str | None = Header(None),
     ) -> JSONResponse:
         require_token(authorization, x_soul_token)
+        remember_header = (x_soul_remember or "").strip().lower()
+        if remember_header not in {"", "true", "false"}:
+            raise HTTPException(status_code=422, detail="X-Soul-Remember must be true or false")
+        should_store = settings.auto_store if not remember_header else remember_header == "true"
         declared = request.headers.get("content-length")
         if declared:
             try:
@@ -363,8 +377,10 @@ def create_app(
             raise HTTPException(status_code=400, detail="invalid JSON") from None
         if not isinstance(body, dict) or not isinstance(body.get("messages"), list):
             raise HTTPException(status_code=422, detail="messages must be a list")
-        if body.get("stream") is True:
-            raise HTTPException(status_code=422, detail="streaming is not supported in proxy v1")
+        stream_value = body.get("stream")
+        if stream_value not in (None, False, True):
+            raise HTTPException(status_code=422, detail="stream must be a boolean")
+        wants_stream = stream_value is True
         messages = body["messages"]
         if not 1 <= len(messages) <= 256:
             raise HTTPException(status_code=422, detail="messages count outside safe range")
@@ -380,7 +396,7 @@ def create_app(
         forwarded = dict(body)
         forwarded["messages"] = [{"role": "system", "content": block}] + messages
         forwarded["model"] = settings.upstream_model
-        forwarded["stream"] = False
+        forwarded["stream"] = wants_stream
         try:
             async with state["upstream"].stream(
                 "POST", f"{settings.upstream_base_url}/chat/completions", json=forwarded
@@ -390,12 +406,67 @@ def create_app(
                     content.extend(chunk)
                     if len(content) > settings.max_response_bytes:
                         return JSONResponse(status_code=502, content={"error": "upstream response too large"})
-                data = json.loads(content)
                 upstream_status = response.status_code
+                upstream_content_type = response.headers.get("content-type", "")
         except (httpx.HTTPError, ValueError, json.JSONDecodeError):
             return JSONResponse(status_code=502, content={"error": "upstream request failed"})
         store_status = "disabled"
-        if settings.auto_store and response.is_success and last_user:
+        headers = {
+            "X-Soul-Id": settings.machine_soul_id,
+            "X-Soul-Baseline": settings.baseline_hash,
+            "X-Soul-Memories": str(len(evidence)),
+            "X-Soul-Memory-Ids": ",".join(str(item["memory_id"]) for item in evidence),
+            "X-Soul-Memory-SHA256": ",".join(item["content_sha256"] for item in evidence),
+            "X-Soul-Store": store_status,
+        }
+        if wants_stream:
+            # Grok Build and other OpenAI-compatible clients require SSE when
+            # stream=true. Buffer the bounded upstream response before exposing
+            # status/headers so an oversized body still fails closed with 502
+            # instead of becoming a truncated 200 after headers were committed.
+            # The client still receives valid SSE bytes; v1 intentionally trades
+            # token-by-token latency for deterministic size enforcement.
+            if response.is_success and "text/event-stream" not in upstream_content_type.lower():
+                return JSONResponse(
+                    status_code=502,
+                    content={"error": "upstream streaming response is not event-stream"},
+                    headers=headers,
+                )
+            if response.is_success:
+                try:
+                    data_lines = [
+                        line[5:].strip()
+                        for line in bytes(content).decode("utf-8").splitlines()
+                        if line.startswith("data:")
+                    ]
+                    if not data_lines or data_lines[-1] != "[DONE]":
+                        raise ValueError("incomplete event stream")
+                    for payload in data_lines[:-1]:
+                        _strict_json_loads(payload)
+                except (UnicodeDecodeError, ValueError):
+                    return JSONResponse(
+                        status_code=502,
+                        content={"error": "upstream streaming response is invalid"},
+                        headers=headers,
+                    )
+            data = None
+        else:
+            try:
+                data = _strict_json_loads(content)
+                # Prove that Starlette's strict JSON serializer can produce the
+                # response before any persistent memory mutation is attempted.
+                json.dumps(data, ensure_ascii=False, allow_nan=False)
+            except (UnicodeDecodeError, ValueError):
+                return JSONResponse(
+                    status_code=502,
+                    content={"error": "upstream request failed"},
+                    headers=headers,
+                )
+
+        # Memory mutation is deliberately after response validation. A client
+        # that observes 502 may safely retry without duplicating or poisoning
+        # the persistent soul with a request whose response was unusable.
+        if should_store and response.is_success and last_user:
             try:
                 await state["soul"].memory.store(
                     f"El usuario dijo: {last_user}", importance=5
@@ -405,14 +476,13 @@ def create_app(
                 # The upstream operation already happened. Preserve its response so a
                 # client retry cannot duplicate model work or cost.
                 store_status = "failed"
-        headers = {
-            "X-Soul-Id": settings.machine_soul_id,
-            "X-Soul-Baseline": settings.baseline_hash,
-            "X-Soul-Memories": str(len(evidence)),
-            "X-Soul-Memory-Ids": ",".join(str(item["memory_id"]) for item in evidence),
-            "X-Soul-Memory-SHA256": ",".join(item["content_sha256"] for item in evidence),
-            "X-Soul-Store": store_status,
-        }
+        headers["X-Soul-Store"] = store_status
+        if wants_stream:
+            return Response(
+                status_code=upstream_status,
+                content=bytes(content),
+                headers={**headers, "content-type": upstream_content_type or "text/event-stream"},
+            )
         return JSONResponse(status_code=upstream_status, content=data, headers=headers)
 
     return app
@@ -430,7 +500,16 @@ def run_proxy(settings: ProxySettings) -> None:
     import uvicorn
 
     app = create_app(settings)
-    server = uvicorn.Server(uvicorn.Config(app, host=settings.host, port=settings.port))
+    config_options: dict[str, Any] = {
+        "host": settings.host,
+        "port": settings.port,
+    }
+    # Windows autostart uses pythonw.exe so no console flashes at logon.
+    # pythonw deliberately exposes no stdout/stderr; Uvicorn's default logging
+    # config otherwise exits before binding the socket.
+    if sys.stdout is None or sys.stderr is None:
+        config_options.update(log_config=None, access_log=False)
+    server = uvicorn.Server(uvicorn.Config(app, **config_options))
     app.state.request_shutdown = lambda: setattr(server, "should_exit", True)
     server.run()
 

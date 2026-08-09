@@ -46,6 +46,11 @@ Novice installers are included for both families of desktop systems. They
 create an isolated virtual environment, install only inside it, detect a local
 Ollama model when available, and then run the same verified bootstrap:
 
+The downloadable Windows bundle includes the exact wheel and its SHA-256 next
+to the installer. Extract the ZIP and double-click
+`Instalar-SOUL-Windows.bat`; the PowerShell installer verifies the wheel before
+installing it into `%LOCALAPPDATA%\SOUL\venv`.
+
 ```powershell
 # Windows PowerShell
 .\installer\Install-Soul.ps1
@@ -78,8 +83,15 @@ and after the switch. On Windows the default config lives under
 `~/Library/Application Support/SOUL`.
 
 The client must send the generated token as `Authorization: Bearer <token>`.
-The v1 proxy deliberately rejects streaming instead of silently returning a
-different response shape. Remote upstreams are disabled in proxy v1. The one
+Recall is read-only by default. A trusted local client opts into learning for a
+request with `X-Soul-Remember: true`; `false` explicitly opts out even when the
+machine-wide `auto_store` setting is enabled. Invalid truthy strings are
+rejected instead of being guessed. The response reports `X-Soul-Store` as
+`stored`, `disabled` or `failed` without exposing memory content.
+The v1 proxy accepts OpenAI-compatible SSE when `stream=true`, preserves SOUL
+evidence headers and enforces the response-size ceiling before returning the
+bounded event stream. It does not yet provide token-by-token low-latency
+forwarding. Remote upstreams are disabled in proxy v1. The one
 supported credential name is `SOUL_PROXY_UPSTREAM_API_KEY`; its value is read
 from the environment and never stored in the TOML file.
 
