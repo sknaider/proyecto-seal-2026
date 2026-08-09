@@ -1,7 +1,7 @@
 [Unit]
 Description=SEAL SUIE durable human-review promoter
-After=network-online.target seal-mcp.service seal-soul-ingestion.service
-Requires=seal-soul-ingestion.service
+After=network-online.target seal-mcp-server.service seal-soul-ingestion.service
+Requires=seal-mcp-server.service seal-soul-ingestion.service
 
 [Service]
 Type=simple

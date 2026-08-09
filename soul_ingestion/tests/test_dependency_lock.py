@@ -14,7 +14,9 @@ def test_runtime_dependency_lock_is_complete_and_matches_environment() -> None:
     }
     assert entries == {
         "asyncpg": "0.31.0",
+        "beautifulsoup4": "4.14.3",
         "fastapi": "0.136.1",
+        "mcp": "1.27.0",
         "pydantic": "2.13.3",
         "pypdf": "6.12.2",
         "uvicorn": "0.46.0",
