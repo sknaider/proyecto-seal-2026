@@ -1,0 +1,50 @@
+[Unit]
+Description=SEAL host-side Claude broker for isolated JARVIS-u116
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=seal-claude-u116
+Group=seal-claude-u116-client
+UMask=0077
+RuntimeDirectory=seal-claude-u116
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=restart
+StateDirectory=seal-claude-u116
+StateDirectoryMode=0700
+LoadCredential=anthropic.key:/etc/seal/claude-u116/anthropic.key
+LoadCredential=client.capability:/etc/seal/claude-u116/client/client.capability
+ExecStart=/usr/bin/python3 /usr/local/libexec/seal/claude_u116_broker.py --key-file %d/anthropic.key --client-capability-file %d/client.capability --consent-file /etc/seal/claude-u116/consent.json --consent-signature-file /etc/seal/claude-u116/consent.sig --consent-public-key-file /etc/seal/claude-u116/consent-public-key.pem --socket /run/seal-claude-u116/u116.sock --state-dir /var/lib/seal-claude-u116 --requests-per-hour 30 --daily-budget-usd 1.00 --max-output-tokens 1500
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/etc/seal/claude-u116
+ReadWritePaths=/run/seal-claude-u116 /var/lib/seal-claude-u116
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target
