@@ -58,7 +58,7 @@ def _consent() -> dict:
         "instance": "JARVIS-u116",
         "provider": "Anthropic",
         "model": "claude-sonnet-5",
-        "subject_id": "professor:william2",
+        "subject_id": "seal-user-id:116",
         "consented": True,
         "scope": "u116-complete-prompt-to-anthropic",
         "data_classes": [
@@ -162,7 +162,7 @@ def test_private_key_rejects_group_mode_symlink_and_invalid_shape(tmp_path: Path
 @pytest.mark.parametrize("field,value,match", [
     ("consented", False, "does not authorize"),
     ("instance", "JARVIS-u999", "does not authorize"),
-    ("subject_id", "anything", "subject identity"),
+    ("subject_id", "professor:demo", "immutable u116"),
     ("recorded_by", "attacker", "recorder"),
     ("evidence_ref", "trust-me", "evidence"),
     ("data_classes", ["professor_chat_history"], "every outbound"),
@@ -289,7 +289,11 @@ def test_disconnect_does_not_escape_as_server_error(tmp_path: Path) -> None:
 
 def test_worker_e2e_uses_capability_but_never_provider_key(tmp_path: Path) -> None:
     config = _config(tmp_path); captured = {}
-    def opener(req, timeout): captured["key"] = dict(req.header_items())["X-api-key"]; return _success("Hola aislado")
+    def opener(req, timeout):
+        headers = dict(req.header_items())
+        captured["xapikey"] = headers.get("X-api-key")
+        captured["has_auth"] = "Authorization" in headers
+        return _success("Hola aislado")
     server, thread = _start(config, opener)
     cap = config.client_capability_file.read_text().strip()
     try:
@@ -299,5 +303,6 @@ def test_worker_e2e_uses_capability_but_never_provider_key(tmp_path: Path) -> No
             _model_backend_health(f"unix://{config.socket_path}", MODEL)
     finally:
         server.shutdown(); server.server_close(); thread.join(timeout=2)
-    assert captured["key"].startswith("sk-ant-")
+    assert captured["xapikey"].startswith("sk-ant-")
+    assert captured["has_auth"] is False
     assert stat.S_IMODE(config.key_file.stat().st_mode) == 0o600

@@ -18,12 +18,13 @@ import hmac
 import http.server
 import json
 import os
+import re
 import socket
 import socketserver
 import stat
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 from urllib import error, request
@@ -126,6 +127,56 @@ def load_client_capability(path: Path) -> str:
     return value
 
 
+def validate_consent_payload(payload: Any) -> dict[str, Any]:
+    """Validate consent semantics before signing or accepting exact bytes."""
+    required = {
+        "schema", "instance", "provider", "model", "subject_id", "consented",
+        "scope", "data_classes", "accepted_at", "expires_at", "recorded_by",
+        "evidence_ref",
+    }
+    if not isinstance(payload, dict) or set(payload) != required:
+        raise BrokerDenied("consent artifact fields do not match the contract")
+    if (
+        payload["schema"] != "seal.external-model-consent.v2"
+        or payload["instance"] != INSTANCE
+        or payload["provider"] != PROVIDER
+        or payload["model"] != MODEL
+        or payload["consented"] is not True
+        or payload["scope"] != "u116-complete-prompt-to-anthropic"
+    ):
+        raise BrokerDenied("consent does not authorize this exact instance/provider/model")
+    expected_classes = [
+        "curated_technical_context",
+        "professor_chat_history",
+        "public_voice_few_shot",
+        "system_prompt",
+    ]
+    if payload["data_classes"] != expected_classes:
+        raise BrokerDenied("consent does not cover every outbound prompt data class")
+    if payload["subject_id"] != "seal-user-id:116":
+        raise BrokerDenied("consent subject is not the immutable u116 identity")
+    if payload["recorded_by"] != "William":
+        raise BrokerDenied("consent recorder is not authorized")
+    if not (
+        re.fullmatch(r"seal-chat:db_[1-9][0-9]*", str(payload["evidence_ref"]))
+        or re.fullmatch(r"document:sha256:[0-9a-f]{64}", str(payload["evidence_ref"]))
+    ):
+        raise BrokerDenied("consent evidence reference is invalid")
+    try:
+        accepted = datetime.fromisoformat(str(payload["accepted_at"]).replace("Z", "+00:00"))
+        expires = datetime.fromisoformat(str(payload["expires_at"]).replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise BrokerDenied("consent timestamp is invalid") from exc
+    now = datetime.now(timezone.utc)
+    if (
+        accepted.tzinfo is None or expires.tzinfo is None or accepted > now
+        or expires <= now or expires <= accepted
+        or expires - accepted > timedelta(days=365)
+    ):
+        raise BrokerDenied("consent validity window is invalid")
+    return payload
+
+
 def load_signed_consent(
     path: Path, signature_path: Path, public_key_path: Path,
 ) -> dict[str, Any]:
@@ -154,53 +205,7 @@ def load_signed_consent(
         payload = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise BrokerDenied("signed consent is not valid UTF-8 JSON") from exc
-    required = {
-        "schema", "instance", "provider", "model", "subject_id", "consented",
-        "scope", "data_classes", "accepted_at", "expires_at", "recorded_by",
-        "evidence_ref",
-    }
-    if not isinstance(payload, dict) or set(payload) != required:
-        raise BrokerDenied("consent artifact fields do not match the contract")
-    if (
-        payload["schema"] != "seal.external-model-consent.v2"
-        or payload["instance"] != INSTANCE
-        or payload["provider"] != PROVIDER
-        or payload["model"] != MODEL
-        or payload["consented"] is not True
-        or payload["scope"] != "u116-complete-prompt-to-anthropic"
-    ):
-        raise BrokerDenied("consent does not authorize this exact instance/provider/model")
-    expected_classes = [
-        "curated_technical_context",
-        "professor_chat_history",
-        "public_voice_few_shot",
-        "system_prompt",
-    ]
-    if payload["data_classes"] != expected_classes:
-        raise BrokerDenied("consent does not cover every outbound prompt data class")
-    import re
-    if not re.fullmatch(r"professor:[a-z0-9][a-z0-9._-]{1,63}", str(payload["subject_id"])):
-        raise BrokerDenied("consent subject identity is invalid")
-    if payload["recorded_by"] != "William":
-        raise BrokerDenied("consent recorder is not authorized")
-    if not (
-        re.fullmatch(r"seal-chat:db_[1-9][0-9]*", str(payload["evidence_ref"]))
-        or re.fullmatch(r"document:sha256:[0-9a-f]{64}", str(payload["evidence_ref"]))
-    ):
-        raise BrokerDenied("consent evidence reference is invalid")
-    try:
-        accepted = datetime.fromisoformat(str(payload["accepted_at"]).replace("Z", "+00:00"))
-        expires = datetime.fromisoformat(str(payload["expires_at"]).replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise BrokerDenied("consent timestamp is invalid") from exc
-    now = datetime.now(timezone.utc)
-    if (
-        accepted.tzinfo is None or expires.tzinfo is None or accepted > now
-        or expires <= now or expires <= accepted
-        or (expires - accepted).days > 365
-    ):
-        raise BrokerDenied("consent validity window is invalid")
-    return payload
+    return validate_consent_payload(payload)
 
 
 def _normalize_messages(payload: dict[str, Any], max_output_tokens: int) -> dict[str, Any]:

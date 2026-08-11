@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=seal-u116-chat-relay
-Group=seal-claude-u116-client
+Group=seal-u116-chat-client
 UMask=0077
 RuntimeDirectory=seal-u116-chat-relay
 RuntimeDirectoryMode=0750

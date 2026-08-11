@@ -121,6 +121,26 @@ class _Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     daemon_threads = True
     request_queue_size = 32
 
+    def __init__(self, *args: Any, max_workers: int = 16, **kwargs: Any):
+        self._slots = __import__("threading").BoundedSemaphore(max_workers)
+        super().__init__(*args, **kwargs)
+
+    def process_request(self, sock: socket.socket, client_address: Any) -> None:
+        if not self._slots.acquire(blocking=False):
+            sock.close()
+            return
+        try:
+            super().process_request(sock, client_address)
+        except Exception:
+            self._slots.release()
+            raise
+
+    def process_request_thread(self, request_sock: socket.socket, client_address: Any) -> None:
+        try:
+            super().process_request_thread(request_sock, client_address)
+        finally:
+            self._slots.release()
+
 
 def make_handler(relay: ChatRelay):
     class Handler(http.server.BaseHTTPRequestHandler):

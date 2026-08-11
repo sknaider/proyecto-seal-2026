@@ -11,12 +11,18 @@ DROPIN_DIR="/home/dadito/.config/systemd/user/seal-user-clone@JARVIS-u116.servic
 
 getent group seal-claude-u116-client >/dev/null \
   || groupadd --system seal-claude-u116-client
+getent group seal-u116-chat-client >/dev/null \
+  || groupadd --system seal-u116-chat-client
 id seal-claude-u116 >/dev/null 2>&1 \
   || useradd --system --no-create-home --home-dir /nonexistent \
        --shell /usr/sbin/nologin --gid seal-claude-u116-client seal-claude-u116
 id seal-u116-chat-relay >/dev/null 2>&1 \
   || useradd --system --no-create-home --home-dir /nonexistent \
-       --shell /usr/sbin/nologin --gid seal-claude-u116-client seal-u116-chat-relay
+       --shell /usr/sbin/nologin --gid seal-u116-chat-client seal-u116-chat-relay
+# Repair prior installations too: the chat relay must never inherit the
+# provider-broker group that can read the dedicated key/capability/consent.
+usermod -g seal-claude-u116-client seal-claude-u116
+usermod -g seal-u116-chat-client seal-u116-chat-relay
 
 install -d -o root -g seal-claude-u116-client -m 0750 "$CONFIG"
 install -d -o root -g seal-claude-u116-client -m 0710 "$CLIENT_DIR"
@@ -93,4 +99,4 @@ runuser -u dadito -- env XDG_RUNTIME_DIR=/run/user/1000 \
   disable --now seal-user-clone@JARVIS-u116.service >/dev/null 2>&1 || true
 
 echo "provisioned=YES activated=NO"
-echo "missing_by_design=/etc/seal/claude-u116/anthropic.key,consent.json,consent.sig,activation-marker"
+echo "external_required=anthropic.key,consent.json,consent.sig activation_marker=ABSENT"

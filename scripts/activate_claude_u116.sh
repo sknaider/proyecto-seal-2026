@@ -18,11 +18,16 @@ cd "$REPO"
 python3 - "$CONFIG" <<'PY'
 import sys
 from pathlib import Path
-from messages.claude_u116_broker import load_api_key, load_client_capability, load_signed_consent
+from messages.claude_u116_broker import (
+    BrokerDenied, load_api_key, load_client_capability, load_signed_consent,
+)
 p = Path(sys.argv[1])
-load_api_key(p / "anthropic.key")
-load_client_capability(p / "client/client.capability")
-load_signed_consent(p / "consent.json", p / "consent.sig", p / "consent-public-key.pem")
+try:
+    load_api_key(p / "anthropic.key")
+    load_client_capability(p / "client/client.capability")
+    load_signed_consent(p / "consent.json", p / "consent.sig", p / "consent-public-key.pem")
+except BrokerDenied as exc:
+    raise SystemExit(f"activation_artifacts=DENIED: {exc}") from None
 print("activation_artifacts=VALID")
 PY
 
@@ -55,7 +60,7 @@ for _ in {1..30}; do [[ -S "$SOCKET" ]] && break; sleep 1; done
   echo "broker socket custody mismatch" >&2; exit 78;
 }
 [[ "$(stat -c '%U:%G:%a' /run/seal-u116-chat-relay/u116.sock)" == \
-   "seal-u116-chat-relay:seal-claude-u116-client:660" ]] || {
+   "seal-u116-chat-relay:seal-u116-chat-client:660" ]] || {
   echo "chat relay socket custody mismatch" >&2; exit 78;
 }
 
@@ -71,10 +76,12 @@ class C(http.client.HTTPConnection):
 def probe(headers):
     c=C("localhost", timeout=3); c.request("GET", "/health", headers=headers)
     r=c.getresponse(); body=r.read(); c.close(); return r.status, json.loads(body)
-assert probe({})[0] == 401
+if probe({})[0] != 401:
+    raise SystemExit("broker negative auth control failed")
 cap=open(cap_path, encoding="ascii").read().strip()
 status, body=probe({"Authorization":f"Bearer {cap}","X-SEAL-Instance":"JARVIS-u116"})
-assert status == 200 and body == {"ok":True,"instance":"JARVIS-u116","model":"claude-sonnet-5"}
+if status != 200 or body != {"ok":True,"instance":"JARVIS-u116","model":"claude-sonnet-5"}:
+    raise SystemExit("broker positive auth control failed")
 print("broker_auth_negative=401 broker_auth_positive=200")
 PY
 
@@ -84,6 +91,9 @@ install -o root -g root -m 0444 "$marker_tmp" "$MARKER"
 rm -f "$marker_tmp"
 user_systemctl daemon-reload
 user_systemctl enable --now seal-user-clone@JARVIS-u116.service
+# Force a fresh container after the marker and both relays are live. Merely
+# enabling an already-active unit could leave a pre-activation container.
+user_systemctl restart seal-user-clone@JARVIS-u116.service
 container_ready=0
 for _ in {1..30}; do
   if docker inspect seal-jarvis-u116-clone >/dev/null 2>&1; then
@@ -103,6 +113,7 @@ if [[ "$live_network_mode" != "none" ]]; then
 fi
 docker inspect seal-jarvis-u116-clone --format '{{json .Args}} {{json .Mounts}}' \
   | grep -F 'unix:///run/soul-broker/u116.sock' \
+  | grep -F 'unix:///run/soul-relay/u116.sock' \
   | grep -F 'claude-broker-capability' >/dev/null
 echo "JARVIS-u116 Claude activation verified network=none"
 trap - ERR

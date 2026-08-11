@@ -55,11 +55,14 @@ if [[ "$INSTANCE" == "JARVIS-u116" ]]; then
       exit 78
     }
     BROKER_GID="$(getent group seal-claude-u116-client | cut -d: -f3)"
+    CHAT_RELAY_GID="$(getent group seal-u116-chat-client | cut -d: -f3)"
     [[ "$BROKER_GID" =~ ^[1-9][0-9]*$ ]] || { echo "Claude broker client group missing" >&2; exit 78; }
+    [[ "$CHAT_RELAY_GID" =~ ^[1-9][0-9]*$ ]] || { echo "u116 chat client group missing" >&2; exit 78; }
+    [[ "$BROKER_GID" != "$CHAT_RELAY_GID" ]] || { echo "broker and chat relay groups must be distinct" >&2; exit 78; }
     # The launcher intentionally is not in the secret-bearing client group.
     # Root validates file custody during provisioning/activation; Docker mounts
     # the root-owned capability and the worker revalidates owner/GID/mode.
-    BROKER_RUNTIME_ARGS=(--group-add "$BROKER_GID")
+    BROKER_RUNTIME_ARGS=(--group-add "$BROKER_GID" --group-add "$CHAT_RELAY_GID")
     BROKER_MOUNTS=(
       --mount "type=bind,src=$CLAUDE_SOCKET_DIR,dst=/run/soul-broker,readonly"
       --mount "type=bind,src=$CLAUDE_CAPABILITY,dst=/run/secrets/claude-broker-capability,readonly"

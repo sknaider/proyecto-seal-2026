@@ -12,7 +12,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from messages.claude_u116_broker import load_signed_consent
+from messages.claude_u116_broker import load_signed_consent, validate_consent_payload
 
 
 def _atomic(path: Path, data: bytes, mode: int, gid: int) -> None:
@@ -39,6 +39,8 @@ def main() -> int:
     if os.geteuid() != 0:
         raise SystemExit("consent signing requires root")
     payload = json.loads(args.draft.read_text(encoding="utf-8"))
+    # Reject invalid semantics before either live artifact is replaced.
+    validate_consent_payload(payload)
     raw = (json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode()
     private_raw = (args.config_dir / "consent-signing-key.pem").read_bytes()
     private = serialization.load_pem_private_key(private_raw, password=None)

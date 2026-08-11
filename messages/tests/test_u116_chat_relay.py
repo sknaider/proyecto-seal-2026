@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import socket
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -85,6 +87,43 @@ def test_relay_source_and_unit_have_no_provider_key_and_local_only_egress() -> N
     unit = (root / "systemd/seal-u116-chat-relay.service").read_text()
     assert "api.anthropic.com" not in source and "sk-ant-" not in source
     assert "User=seal-u116-chat-relay" in unit
+    assert "Group=seal-u116-chat-client" in unit
+    assert "Group=seal-claude-u116-client" not in unit
     assert "seal-chat.service" not in unit
     assert "IPAddressDeny=any" in unit and "IPAddressAllow=localhost" in unit
     assert "ProtectHome=true" in unit
+
+
+def test_relay_thread_count_is_bounded_under_slow_clients(tmp_path: Path) -> None:
+    relay = ChatRelay(_token(tmp_path), opener=lambda *_a, **_k: Response({"ok": True}))
+    sock_path = tmp_path / "bounded.sock"
+    server = _Server(str(sock_path), make_handler(relay), max_workers=2)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    slow_clients = []
+    request_head = (
+        "POST /api/agents/send HTTP/1.1\r\nHost:x\r\n"
+        f"Authorization: Bearer {TOKEN}\r\nContent-Length:100\r\n\r\nx"
+    ).encode()
+    try:
+        for _ in range(2):
+            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            client.connect(str(sock_path)); client.sendall(request_head)
+            slow_clients.append(client)
+        time.sleep(0.1)
+        denied = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        denied.settimeout(0.5); denied.connect(str(sock_path))
+        denied.sendall(
+            ("GET /health HTTP/1.1\r\nHost:x\r\n"
+             f"Authorization: Bearer {TOKEN}\r\n\r\n").encode()
+        )
+        try:
+            assert denied.recv(1024) == b""
+        except ConnectionResetError:
+            pass
+        denied.close()
+        assert server._slots._value == 0
+    finally:
+        for client in slow_clients:
+            client.close()
+        server.shutdown(); server.server_close(); thread.join(timeout=3)

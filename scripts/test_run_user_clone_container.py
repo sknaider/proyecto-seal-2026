@@ -43,7 +43,10 @@ def test_claude_broker_is_scoped_fail_closed_and_provider_credential_zero() -> N
     assert 'CLAUDE_ENABLED="/etc/seal/claude-u116.enabled"' in text
     assert 'systemctl is-active --quiet seal-claude-u116-broker.service' in text
     assert 'getent group seal-claude-u116-client' in text
+    assert 'getent group seal-u116-chat-client' in text
     assert '--group-add "$BROKER_GID"' in text
+    assert '--group-add "$CHAT_RELAY_GID"' in text
+    assert '[[ "$BROKER_GID" != "$CHAT_RELAY_GID" ]]' in text
     assert 'unix:///run/soul-broker/u116.sock' in text
     assert 'NETWORK_ARGS=(--network none)' in text
     assert 'unix:///run/soul-relay/u116.sock' in text
