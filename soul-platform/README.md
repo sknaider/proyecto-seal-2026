@@ -16,6 +16,36 @@ python3 -m venv .venv
 soul-machine init --model gemma3:1b-it-qat
 ```
 
+### Windows desktop tray: cableado sin terminal
+
+Install the desktop extra and launch the visual controller:
+
+```bash
+pip install 'soul-platform[desktop]'
+soul-tray
+```
+
+On Windows, `Install-Soul.ps1` installs and opens it automatically. Supplying
+`-NoTray` also removes any prior tray startup descriptor. The violet icon beside the clock shows the live proxy
+state, discovers the user's Ollama models, starts/stops the managed proxy,
+switches brains without replacing the soul database, and copies the endpoint
+or local token only when the user explicitly asks. Closing the tray leaves the
+managed proxy running; turning the soul off preserves its identity and memory.
+
+For a display-free diagnostic (also used by the installer):
+
+```bash
+soul-tray-cli --check
+```
+
+The status probe binds the UI to the configured machine-soul UUID and baseline
+hash. An unrelated HTTP service occupying port `11435` is reported as foreign,
+not as a healthy soul, and the diagnostic exits nonzero unless SOUL is ready.
+The Windows installer also registers the tray itself in the current user's
+Startup folder, so both the proxy and its visual controller return after login.
+The ZIP binds SOUL Platform to its SHA-256; pinned third-party desktop
+dependencies are downloaded from PyPI and therefore require internet access.
+
 Optional integrations:
 
 ```bash
@@ -101,10 +131,12 @@ To remove only the autostart descriptor while preserving the soul:
 soul-machine disable-autostart
 ```
 
-`soul-machine uninstall` stops and removes the per-user runtime integration but
-also preserves the soul database, identity and token. Running `init` again
-recovers the same soul. Purging those persistent files is intentionally not an
-installer operation; it requires an explicit, separately reviewed deletion.
+`soul-machine uninstall` stops the proxy and removes both per-user startup
+descriptors while preserving the soul database, identity and token. A tray
+already visible must be closed once from its own menu (or ends at logout); it
+will not return at the next login. Running `init` again recovers the same soul.
+Purging those persistent files is intentionally not an installer operation; it
+requires an explicit, separately reviewed deletion.
 
 The current release renders and activates native Linux, Windows and macOS
 per-user startup descriptors and is covered by cross-platform contract tests.

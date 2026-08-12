@@ -6,12 +6,10 @@ import argparse
 import json
 import os
 import secrets
-import sys
 import tempfile
 import uuid
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Literal
 
 from soul_platform.autostart import (
     AutostartContract,
@@ -20,6 +18,7 @@ from soul_platform.autostart import (
     activate_descriptor,
     deactivate_descriptor,
     disable_descriptor,
+    disable_tray_descriptor,
     install_descriptor,
     restart_descriptor,
 )
@@ -37,7 +36,9 @@ class BootstrapResult:
     created: bool
 
 
-def default_root(platform: PlatformName | None = None, *, home: Path | None = None) -> Path:
+def default_root(
+    platform: PlatformName | None = None, *, home: Path | None = None
+) -> Path:
     platform = platform or _current_platform()
     home = (home or Path.home()).resolve()
     if platform == "windows":
@@ -138,7 +139,11 @@ def initialize(
         raise ValueError(f"refusing symlinked SOUL directory: {root}")
     root = root.resolve()
     _private_dir(root)
-    config, token, database = root / "proxy.toml", root / "proxy.token", root / "MachineSoul.db"
+    config, token, database = (
+        root / "proxy.toml",
+        root / "proxy.token",
+        root / "MachineSoul.db",
+    )
     created = False
     if config.exists():
         settings = ProxySettings.from_toml(config)
@@ -146,7 +151,9 @@ def initialize(
             raise ValueError("existing config points outside the canonical SOUL root")
     else:
         if token.exists() or token.is_symlink():
-            raise ValueError("token exists without a config; refusing ambiguous partial install")
+            raise ValueError(
+                "token exists without a config; refusing ambiguous partial install"
+            )
         token_created = False
         try:
             _create_token(token)
@@ -172,13 +179,30 @@ def initialize(
             raise
     autostart = None
     if enable_autostart:
-        autostart = install_descriptor(
-            AutostartContract.load(config, python=python), platform, home=home
-        )
-        if activate_autostart:
-            activate_descriptor(
-                AutostartContract.load(config, python=python), platform, home=home
-            )
+        contract = AutostartContract.load(config, python=python)
+        try:
+            autostart = install_descriptor(contract, platform, home=home)
+            if activate_autostart:
+                activate_descriptor(contract, platform, home=home)
+        except Exception as original:
+            # A failed first boot must not leave a login launcher that retries a
+            # broken brain forever. Preserve identity/token/memory, but fail
+            # closed by stopping the candidate and removing its descriptor.
+            if autostart is not None:
+                try:
+                    deactivate_descriptor(contract, platform, home=home)
+                except (OSError, RuntimeError, ValueError) as rollback_error:
+                    try:
+                        disable_descriptor(platform, home=home)
+                    except (OSError, ValueError) as disable_error:
+                        original.add_note(
+                            "failed bootstrap rollback could not remove the "
+                            f"autostart descriptor: {disable_error}"
+                        )
+                    original.add_note(
+                        f"failed bootstrap stop during rollback: {rollback_error}"
+                    )
+            raise
     return BootstrapResult(
         root=root,
         config=config,
@@ -223,18 +247,24 @@ def switch_upstream(
             raise RuntimeError("brain switch changed the machine soul invariant")
         if restart:
             restart_descriptor(
-                AutostartContract.load(config), platform or _current_platform(), home=home
+                AutostartContract.load(config),
+                platform or _current_platform(),
+                home=home,
             )
         return reloaded
-    except Exception:
+    except Exception as original:
         _atomic_config(config, previous)
         if restart:
             try:
                 restart_descriptor(
-                    AutostartContract.load(config), platform or _current_platform(), home=home
+                    AutostartContract.load(config),
+                    platform or _current_platform(),
+                    home=home,
                 )
-            except Exception:
-                pass
+            except (OSError, RuntimeError, ValueError) as rollback_error:
+                original.add_note(
+                    f"prior brain restart rollback failed: {rollback_error}"
+                )
         raise
 
 
@@ -280,19 +310,25 @@ def main() -> None:
         print(f"brain={result.upstream_kind}:{result.upstream_model}")
         print(f"machine_soul_id={result.machine_soul_id} (unchanged)")
     else:
+        platform = _current_platform()
         config = (
             Path(args.config).expanduser().resolve()
             if args.config
             else default_root() / "proxy.toml"
         )
         if config.exists():
-            target = deactivate_descriptor(
-                AutostartContract.load(config), _current_platform()
-            )
+            target = deactivate_descriptor(AutostartContract.load(config), platform)
         else:
-            target = disable_descriptor(_current_platform())
-        action = "runtime uninstalled" if args.action == "uninstall" else "autostart disabled"
+            target = disable_descriptor(platform)
+        tray_target = disable_tray_descriptor(platform)
+        action = (
+            "runtime uninstalled"
+            if args.action == "uninstall"
+            else "autostart disabled"
+        )
         print(f"{action}; soul data preserved: {target}")
+        if tray_target is not None:
+            print(f"tray autostart disabled: {tray_target}")
 
 
 if __name__ == "__main__":

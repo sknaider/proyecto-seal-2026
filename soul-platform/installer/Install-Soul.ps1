@@ -7,6 +7,7 @@ param(
     [string]$PackageSource,
     [switch]$RequireBundledWheel,
     [switch]$NoMachine,
+    [switch]$NoTray,
     [switch]$Check
 )
 
@@ -99,6 +100,8 @@ if (-not $Check) {
     Step "Instalando SOUL Platform dentro del entorno aislado"
     Invoke-Checked $venvPython @("-m", "pip", "install", "--upgrade", "pip")
     Invoke-Checked $venvPython @("-m", "pip", "install", "--upgrade", $resolvedPackageSource)
+    Step "Instalando la interfaz de bandeja con versiones verificadas"
+    Invoke-Checked $venvPython @("-m", "pip", "install", "--upgrade", "pystray==0.19.5", "pillow==12.3.0")
     if ($resolvedPackageIsBundled) {
         # `pip --upgrade` skips a local wheel when the same version is already
         # present. Reinstall only this package so updates with an unchanged
@@ -112,11 +115,16 @@ Invoke-Checked $venvPython @("-c", "import soul_platform, soul_framework")
 Invoke-Checked $venvPython @("-m", "pip", "check")
 $installedVersion = & $venvPython -c "from importlib.metadata import version; print(version('soul-platform'))"
 if ($LASTEXITCODE -ne 0) { throw "No pude leer la version instalada de soul-platform" }
-if ([version]$installedVersion.Trim() -lt [version]"0.2.0") {
-    throw "Se requiere soul-platform 0.2.0 o superior; quedo instalada $installedVersion"
+if ([version]$installedVersion.Trim() -lt [version]"0.3.0") {
+    throw "Se requiere soul-platform 0.3.0 o superior; quedo instalada $installedVersion"
 }
 $machine = Join-Path $Venv "Scripts\soul-machine.exe"
 if (-not (Test-Path $machine)) { throw "Falta soul-machine.exe en el paquete instalado" }
+$tray = Join-Path $Venv "Scripts\soul-tray.exe"
+if (-not (Test-Path $tray)) { throw "Falta soul-tray.exe en el paquete instalado" }
+$trayCli = Join-Path $Venv "Scripts\soul-tray-cli.exe"
+if (-not (Test-Path $trayCli)) { throw "Falta soul-tray-cli.exe en el paquete instalado" }
+Invoke-Checked $trayCli @("--check-desktop")
 Good "Paquete, dependencias y comandos verificados"
 
 if (-not $Check -and -not $NoMachine) {
@@ -129,10 +137,38 @@ if (-not $Check -and -not $NoMachine) {
     if ($Model) {
         Step "Inicializando alma persistente con cerebro ${Kind}:$Model"
         Invoke-Checked $machine @("init", "--kind", $Kind, "--base-url", $BaseUrl, "--model", $Model)
+        Invoke-Checked $trayCli @("--check")
         Good "Alma persistente y arranque automatico verificados"
     } else {
         Write-Warning "SOUL quedo instalado, pero no detecte un modelo Ollama. Cuando tengas uno ejecuta: $machine init --model NOMBRE"
     }
+}
+
+if (-not $Check -and -not $NoTray) {
+    $trayAutostartInstalled = $false
+    try {
+        Step "Registrando la interfaz para cada inicio de sesion"
+        Invoke-Checked $trayCli @("--install-autostart")
+        $trayAutostartInstalled = $true
+        Step "Abriendo la interfaz SOUL junto al reloj"
+        $trayProcess = Start-Process -FilePath $tray -WindowStyle Hidden -PassThru
+        Start-Sleep -Seconds 2
+        if ($trayProcess.HasExited -and $trayProcess.ExitCode -ne 0) {
+            throw "La interfaz SOUL termino al iniciar (codigo $($trayProcess.ExitCode))."
+        }
+        Good "Interfaz de bandeja iniciada"
+    } catch {
+        if ($trayAutostartInstalled) {
+            & $trayCli --remove-autostart | Out-Null
+        }
+        throw
+    }
+}
+
+if (-not $Check -and $NoTray) {
+    Step "Desactivando el arranque automatico de la interfaz por -NoTray"
+    Invoke-Checked $trayCli @("--remove-autostart")
+    Good "Interfaz de bandeja desactivada; alma y memoria preservadas"
 }
 
 Write-Host "SOUL listo. Datos persistentes: $env:LOCALAPPDATA\SOUL" -ForegroundColor Green

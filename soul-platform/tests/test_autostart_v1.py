@@ -5,14 +5,19 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
 from soul_platform.autostart import (
     AutostartContract,
+    _authenticated_probe,
     _clean_path,
+    _request_shutdown,
+    _windows_roaming_root,
     activate_descriptor,
     deactivate_descriptor,
+    descriptor_path,
     disable_descriptor,
+    disable_tray_descriptor,
     install_descriptor,
+    tray_descriptor_path,
 )
 
 
@@ -39,10 +44,10 @@ def _contract(tmp_path: Path, monkeypatch, **proxy_overrides) -> AutostartContra
         'machine_soul_id = "12345678-1234-5678-1234-567812345678"\n'
         "[proxy]\n"
         + "\n".join(
-            f'{key} = {str(value).lower() if isinstance(value, bool) else repr(value)}'
+            f"{key} = {str(value).lower() if isinstance(value, bool) else repr(value)}"
             for key, value in proxy.items()
         )
-        + "\n[upstream]\nbase_url = \"http://127.0.0.1:11434/v1\"\nmodel = \"brain\"\n"
+        + '\n[upstream]\nbase_url = "http://127.0.0.1:11434/v1"\nmodel = "brain"\n'
     )
     config.chmod(0o600)
     return AutostartContract.load(config, python=str(python))
@@ -77,7 +82,9 @@ def test_autostart_rejects_weak_or_shared_token(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("platform", ["linux", "windows", "macos"])
-def test_install_is_per_user_and_disable_preserves_soul(tmp_path, monkeypatch, platform):
+def test_install_is_per_user_and_disable_preserves_soul(
+    tmp_path, monkeypatch, platform
+):
     contract = _contract(tmp_path, monkeypatch)
     home = tmp_path / "User Home"
     target = install_descriptor(contract, platform, home=home)
@@ -89,10 +96,76 @@ def test_install_is_per_user_and_disable_preserves_soul(tmp_path, monkeypatch, p
     assert contract.config.exists() and contract.token_file.exists()
 
 
-def test_descriptors_use_absolute_python_config_and_loopback_contract(tmp_path, monkeypatch):
+def test_windows_tray_descriptor_can_be_disabled_without_touching_soul(tmp_path):
+    home = tmp_path / "User Home"
+    target = tray_descriptor_path("windows", home)
+    assert target is not None
+    target.parent.mkdir(parents=True)
+    target.write_text("launcher")
+    soul_data = home / "soul.db"
+    soul_data.write_text("memory")
+    assert disable_tray_descriptor("windows", home=home) == target
+    assert not target.exists()
+    assert soul_data.read_text() == "memory"
+    assert disable_tray_descriptor("linux", home=home) is None
+
+
+def test_windows_startup_uses_redirected_appdata(tmp_path, monkeypatch):
+    redirected = tmp_path / "Redirected Roaming"
+    monkeypatch.setattr("soul_platform.autostart.sys.platform", "win32")
+    monkeypatch.setenv("APPDATA", str(redirected))
+    assert _windows_roaming_root(tmp_path / "home") == redirected
+    assert redirected in descriptor_path("windows", tmp_path / "home").parents
+    assert redirected in tray_descriptor_path("windows", tmp_path / "home").parents
+
+
+def test_ipv6_loopback_probe_and_shutdown_use_bracketed_urls(tmp_path, monkeypatch):
+    contract = _contract(tmp_path, monkeypatch, host="::1")
+    urls = []
+
+    class Response:
+        status = 200
+
+        def __init__(self, payload):
+            self.payload = payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return self.payload
+
+    def open_request(request, **_kwargs):
+        urls.append(request.full_url)
+        if request.full_url.endswith("/v1/models"):
+            return Response(b'{"object":"list","data":[{"id":"brain"}]}')
+        if request.full_url.endswith("/ready"):
+            return Response(b'{"ready":true}')
+        return Response(b"{}")
+
+    monkeypatch.setattr("soul_platform.autostart.urllib.request.urlopen", open_request)
+    _authenticated_probe(contract, timeout_seconds=0.1)
+    _request_shutdown(contract)
+    assert urls == [
+        "http://[::1]:11435/v1/models",
+        "http://[::1]:11435/ready",
+        "http://[::1]:11435/admin/shutdown",
+    ]
+
+
+def test_descriptors_use_absolute_python_config_and_loopback_contract(
+    tmp_path, monkeypatch
+):
     contract = _contract(tmp_path, monkeypatch)
-    linux = install_descriptor(contract, "linux", home=tmp_path / "linux-home").read_text()
-    windows = install_descriptor(contract, "windows", home=tmp_path / "win-home").read_text()
+    linux = install_descriptor(
+        contract, "linux", home=tmp_path / "linux-home"
+    ).read_text()
+    windows = install_descriptor(
+        contract, "windows", home=tmp_path / "win-home"
+    ).read_text()
     mac = plistlib.loads(
         install_descriptor(contract, "macos", home=tmp_path / "mac-home").read_bytes()
     )
@@ -105,7 +178,7 @@ def test_descriptors_use_absolute_python_config_and_loopback_contract(tmp_path, 
     assert "ProtectSystem=strict" in linux
     assert "WScript.Shell" in windows and "pythonw.exe" not in windows
     assert windows.count("Chr(34)") == 4
-    assert "-m\" \"soul_platform.proxy" in linux
+    assert '-m" "soul_platform.proxy' in linux
 
 
 def test_newline_in_path_is_rejected(tmp_path, monkeypatch):
@@ -113,7 +186,9 @@ def test_newline_in_path_is_rejected(tmp_path, monkeypatch):
         _clean_path(str(tmp_path / "safe") + "\nbad", "test.path")
 
 
-def test_symlinked_descriptor_parent_and_systemd_specifier_are_rejected_or_escaped(tmp_path, monkeypatch):
+def test_symlinked_descriptor_parent_and_systemd_specifier_are_rejected_or_escaped(
+    tmp_path, monkeypatch
+):
     contract = _contract(tmp_path, monkeypatch)
     home = tmp_path / "home"
     home.mkdir()
@@ -127,7 +202,9 @@ def test_symlinked_descriptor_parent_and_systemd_specifier_are_rejected_or_escap
     percent_root.mkdir()
     percent_root.chmod(0o700)
     percent_contract = _contract(percent_root, monkeypatch)
-    unit = install_descriptor(percent_contract, "linux", home=tmp_path / "safe-home").read_text()
+    unit = install_descriptor(
+        percent_contract, "linux", home=tmp_path / "safe-home"
+    ).read_text()
     assert "percent%%h" in unit
     assert "percent%h" not in unit.replace("percent%%h", "")
 
@@ -143,7 +220,9 @@ def test_linux_lifecycle_enables_starts_stops_and_preserves_data(tmp_path, monke
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr("soul_platform.autostart._run", fake_run)
-    monkeypatch.setattr("soul_platform.autostart._authenticated_probe", lambda contract: None)
+    monkeypatch.setattr(
+        "soul_platform.autostart._authenticated_probe", lambda contract: None
+    )
     monkeypatch.setattr("soul_platform.autostart._wait_stopped", lambda contract: None)
     assert activate_descriptor(contract, "linux", home=home) == target
     assert ["systemctl", "--user", "enable", "--now", target.name] in commands
