@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import json
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -58,6 +59,30 @@ def _assert_five_file_matchers(rows: list) -> None:
     assert all(row.matcher for row in file_rows)
 
 
+def _portable_settings_fixture(tmp_path: Path) -> Path:
+    """CI-safe equivalent of the five matcher contract.
+
+    The live ``~/.claude/settings.json`` is deployment evidence, not a file
+    available on a clean GitHub runner.  Keep this unit/mutation arm bound to
+    a deterministic fixture while the live parity probe remains a separate
+    delivery check on the SEAL host.
+    """
+    settings = {
+        "hooks": {
+            "FileChanged": [
+                {
+                    "matcher": f"agent-{index}.jsonl",
+                    "hooks": [{"command": "python3 /x/file_changed_context_hook.py"}],
+                }
+                for index in range(5)
+            ]
+        }
+    }
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps(settings), encoding="utf-8")
+    return path
+
+
 def test_unit_script_suites() -> None:
     assert event_suite() == 0
     assert seed_suite() == 0
@@ -82,10 +107,10 @@ def test_rls_control_contract_denies_runtime_writes() -> None:
     _assert_rls_sql_contract(sql)
 
 
-def test_delivery_effect_preserves_five_file_matchers() -> None:
+def test_delivery_effect_preserves_five_file_matchers(tmp_path: Path) -> None:
     from soul_hooks_seed import derive_seed
 
-    rows, unmapped = derive_seed()
+    rows, unmapped = derive_seed(_portable_settings_fixture(tmp_path))
     assert unmapped == []
     _assert_five_file_matchers(rows)
 
@@ -106,10 +131,10 @@ def test_mutation_write_grant_is_killed() -> None:
         _assert_rls_sql_contract(mutant)
 
 
-def test_mutation_matcher_erasure_is_killed() -> None:
+def test_mutation_matcher_erasure_is_killed(tmp_path: Path) -> None:
     from soul_hooks_seed import derive_seed
 
-    rows, _unmapped = derive_seed()
+    rows, _unmapped = derive_seed(_portable_settings_fixture(tmp_path))
     mutant = [replace(row, matcher=None) for row in rows]
     with pytest.raises(AssertionError):
         _assert_five_file_matchers(mutant)
