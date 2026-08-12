@@ -1,0 +1,120 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "pytest explicit adversarial mutants executed independently on staged blobs",
+  "workspace": "sixteen byte-bound fail-closed mutants: candidate hash, mixed dimensions, symlink/reparse, BGE readiness, byte-safe rollback active/source/config hashes, TOML profile replacement, ProxySettings BGE/1024/auto, Python 3.13 TimeoutError, Core 0.4.2 bundle identity, pre-move source hash, installer auto-profile, Core wheel checksum oracle, SQLite exclusive-stop gate, and final WAL re-checkpoint bypass",
+  "killed": 16,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 16,
+  "mutation_score_percent": 100.0,
+  "reviewer": "PLATFORM_RUNTIME_AUDIT",
+  "file_sha256": {
+    "soul-platform/README.md": "1d18e460717395e0d04b9518fd2e3319127fcc4942063277734e60a7c95b6746",
+    "soul-platform/demos/comparar_soul.py": "5a3d25e163553c1da7ad7e748fb6394498d4d0e26b4abdf6a7597e6a8a21a444",
+    "soul-platform/installer/Instalar-SOUL-Windows.bat": "52471017db9ad95ffec21bc262193c853ab75df303869e5efd706a3be20c784c",
+    "soul-platform/installer/Install-Soul.ps1": "59448ca6c49d965ba5f27bbf5bbdcdc01a1d5aa847f45dde76667363cd8f2d65",
+    "soul-platform/installer/LEEME-WINDOWS.txt": "66a829e1c600c2bf435bc5ed1dd1e788b8c0cf0a3bbdbd86d03156ec29d4187c",
+    "soul-platform/installer/soul-install.sh": "e1e7f50ad960195c0eebfd59b996df26ab6edfe82a50773cd1362ba18919b3c6",
+    "soul-platform/src/soul_platform/__init__.py": "868f397028d89dc055401f2ed702c0db72634ccc31e0e40c9b492df7cb6b27df",
+    "soul-platform/src/soul_platform/agency.py": "b96f0fc5e1c68e7340f974749c19dfc7ab491aa83a53c87f372fc3cdcbb2b76a",
+    "soul-platform/src/soul_platform/api.py": "a13a2d71887a07214ea38f3f33854fce3716cff9d625dd596037432e43fcca90",
+    "soul-platform/src/soul_platform/auth.py": "f89cf20e11e7666d34381ae87a5a8551e7e62bfecd78018dd470cf4171a55b9f",
+    "soul-platform/src/soul_platform/autonomy.py": "0524a5d76d62d909602bbe7971f5ded6c32c0fa511d4f4c17bcf5f5b99396a68",
+    "soul-platform/src/soul_platform/autostart.py": "54fddbfa1b002773a9e583c73f1c0ecd6ab8b21cf0b0200ca0016a15b768ce20",
+    "soul-platform/src/soul_platform/bootstrap.py": "08be3717ed4c535605fbd5ab487a5356c5de746ad131eafb8a3d99d91a8d84aa",
+    "soul-platform/src/soul_platform/cli.py": "d33d4cf92e488217bdcfd9add7143de7759e2ff93a4150aa287559e2fa90ef1e",
+    "soul-platform/src/soul_platform/coordination.py": "08440b99fb39a6d2815117d7ff735efef0606cf549bcdf4dc829b072ee17daf0",
+    "soul-platform/src/soul_platform/embedding_cutover.py": "450a3dbfdc6a42adbd009347a8340bbfcb20fb188060419cb1abbad4144bfb0f",
+    "soul-platform/src/soul_platform/proxy.py": "10eacb7c44d5183a222aa87496c73c7b7d328f3464a973fa159c00465a70932d",
+    "soul-platform/src/soul_platform/receipts.py": "18cddfe78d9581eca21464bae7199e82dc988c8a2296eb887c835b266e0dcf58",
+    "soul-platform/src/soul_platform/runtime.py": "46de614050a48c48bb4910fe0dd68db09b2ba4d2774cd1141194fb9e9003032d",
+    "soul-platform/src/soul_platform/sandbox.py": "cbd144c9981a3f0fb562553e1d9f5fb5c629fd2d182eaa5b18b2388f4fbd36fe",
+    "soul-platform/tests/conftest.py": "d8963217e14cb5b8d12b49683b8d44d369dad3707878bfad0a05bd8aa0f04071",
+    "soul-platform/desktop/soul_tray.py": "cbbeb54238f3a8bc0fe98d652b1dc1a9d8eeed57affd52b2069242554337e0cd",
+    "soul-platform/src/soul_platform/tray.py": "4be9bad7bdda4caad49fb2ab512e975ee8942fa88766623c959bcd83f8ad438c",
+    "soul-platform/tools/build_windows_bundle.py": "cccd97468939a65a83baf84bb721aed71ec828a3c6b358849cd0c1cd9cf74d47",
+    "soul-platform/tests/test_agency_v1.py": "03b552dfd5bab1a38c5e019fdf383f88a972153bd87ed6b58348d720405a3ce1",
+    "soul-platform/tests/test_api_v1.py": "90d0ec6afa0150654ac8cd818ad7a67658bdd8f75f68b89e0546cfea19f44a69",
+    "soul-platform/tests/test_autonomy_v1.py": "358587b2420bf1f4031b525c1a43e76516ca7c40158405db3ca95017c9a802d3",
+    "soul-platform/tests/test_autostart_v1.py": "683ae36f9f148233210ffd8fa9d824e3b133266f6ca704af851ade979dc74cf1",
+    "soul-platform/tests/test_bootstrap_v1.py": "4cb35629af729e140214490dd4b9cd272926ed4b08b60e063d401f3ffd32ea66",
+    "soul-platform/tests/test_coordination_v1.py": "4a63b05fa79b99c366a5522fa0916e275fec066bbdcd1d62cb8347d5633fb075",
+    "soul-platform/tests/test_embedding_cutover_v1.py": "c99cf67a54f3f98f9b6c2c5228a0a49ccf0b820f82c48f47450a9217ae1d9817",
+    "soul-platform/tests/test_installer_machine_v1.py": "5afbb62b16b6523963e9d04dd1ddc272ba2d62845f5dcb22ff5324369526ba6c",
+    "soul-platform/tests/test_proxy_v1.py": "054fa0773569a1e9bdf587c9a45916d740005efb0d2e40ab7bb108394c8fe873",
+    "soul-platform/tests/test_release_hygiene_v1.py": "1f0e5ce40a393b1c5e98c230ef40164be84b0c30c0e01ea59143326e4ce39ca0",
+    "soul-platform/tests/test_runtime_v1.py": "3040e64a130a059464371b49d6ed1ac745f9abefc237760c2fbfbea3ec525979",
+    "soul-platform/tests/test_sandbox_v1.py": "c9d3fe675ea4a708506b936e2731d63a98f0e15061f81a8ac1fc18a1e97a7cb9",
+    "soul-platform/tests/test_tray_v1.py": "2733576862e9ca157e4445c88aee9b9767796b6972a5894a6bebc6c7cdd29c52",
+    "soul-platform/tests/test_windows_bundle_v1.py": "c5e912e3138c8099f1ef95177a51ecaff3691086db2d58be1fee48d79da97575"
+  },
+  "mutants": [
+    {
+      "id": "candidate-checkpoint-hash-bypass",
+      "result": "killed"
+    },
+    {
+      "id": "mixed-embedding-dimension-bypass",
+      "result": "killed"
+    },
+    {
+      "id": "symlink-source-bypass",
+      "result": "killed"
+    },
+    {
+      "id": "bge-readiness-bypass",
+      "result": "killed"
+    },
+    {
+      "id": "rollback-active-hash-bypass",
+      "result": "killed"
+    },
+    {
+      "id": "embedding-block-replacement-bypass",
+      "result": "killed"
+    },
+    {
+      "id": "proxy-auto-profile-to-hnsw",
+      "result": "killed"
+    },
+    {
+      "id": "python313-timeout-catch-removed",
+      "result": "killed"
+    },
+    {
+      "id": "wrong-core-wheel-accepted",
+      "result": "killed"
+    },
+    {
+      "id": "pre-move-source-hash-bypass",
+      "result": "killed"
+    },
+    {
+      "id": "rollback-source-backup-hash-bypass",
+      "result": "killed"
+    },
+    {
+      "id": "rollback-config-backup-hash-bypass",
+      "result": "killed"
+    },
+    {
+      "id": "installer-auto-profile-to-hnsw",
+      "result": "killed"
+    },
+    {
+      "id": "core-wheel-checksum-forged",
+      "result": "killed"
+    },
+    {
+      "id": "sqlite-exclusive-probe-weakened",
+      "result": "killed"
+    },
+    {
+      "id": "final-wal-recheckpoint-bypass",
+      "result": "killed"
+    }
+  ]
+}
