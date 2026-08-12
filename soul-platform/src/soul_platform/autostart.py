@@ -344,7 +344,11 @@ def _request_shutdown(contract: AutostartContract) -> None:
                 raise RuntimeError(f"shutdown returned HTTP {response.status}")
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"shutdown returned HTTP {exc.code}") from exc
-    except urllib.error.URLError:
+    except (urllib.error.URLError, TimeoutError):
+        # Python 3.13 may surface a read timeout as bare TimeoutError rather
+        # than wrapping it in URLError. The caller still executes
+        # ``_wait_stopped`` and therefore cannot delete the descriptor unless
+        # the listener actually disappears.
         return
 
 

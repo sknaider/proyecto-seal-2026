@@ -24,6 +24,7 @@ import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from soul_framework import Soul
+from soul_framework.config import SoulConfig
 
 
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
@@ -111,6 +112,12 @@ class ProxySettings:
     upstream_kind: str
     upstream_base_url: str
     upstream_model: str
+    embedding_provider: str = "bge-m3"
+    embedding_dimensions: int = 1024
+    embedding_model: str = "bge-m3"
+    embedding_url: str = "http://127.0.0.1:11434/api/embed"
+    embedding_timeout_seconds: float = 60.0
+    memory_vector_index: str = "auto"
     upstream_api_key_env: str = UPSTREAM_API_KEY_ENV
     upstream_allow_remote: bool = False
     timeout_seconds: float = 180.0
@@ -132,6 +139,19 @@ class ProxySettings:
         soul = raw.get("soul") or {}
         proxy = raw.get("proxy") or {}
         upstream = raw.get("upstream") or {}
+        embedding = raw.get("embedding")
+        legacy_embedding = embedding is None
+        if legacy_embedding:
+            embedding = {
+                "provider": "simple",
+                "dimensions": 128,
+                "model": "simple",
+                "url": "http://127.0.0.1:11434/api/embed",
+                "timeout_seconds": 60,
+                "vector_index": "exact",
+            }
+        elif not isinstance(embedding, dict):
+            raise ValueError("embedding section must be a TOML table")
         settings = cls(
             soul_name=str(soul.get("name") or "MachineSoul"),
             soul_db=_absolute_path(soul.get("db"), "soul.db"),
@@ -143,6 +163,12 @@ class ProxySettings:
             upstream_kind=str(upstream.get("kind") or "openai-compatible"),
             upstream_base_url=str(upstream.get("base_url") or "").rstrip("/"),
             upstream_model=str(upstream.get("model") or ""),
+            embedding_provider=str(embedding.get("provider") or ""),
+            embedding_dimensions=int(embedding.get("dimensions", 0)),
+            embedding_model=str(embedding.get("model") or ""),
+            embedding_url=str(embedding.get("url") or ""),
+            embedding_timeout_seconds=float(embedding.get("timeout_seconds", 0)),
+            memory_vector_index=str(embedding.get("vector_index") or ""),
             upstream_api_key_env=str(
                 upstream.get("api_key_env") or "SOUL_PROXY_UPSTREAM_API_KEY"
             ),
@@ -196,6 +222,35 @@ class ProxySettings:
             raise ValueError(f"upstream.api_key_env must be {UPSTREAM_API_KEY_ENV}")
         if not self.upstream_model:
             raise ValueError("upstream.model is required")
+        profile = (
+            self.embedding_provider,
+            self.embedding_dimensions,
+            self.embedding_model,
+            self.memory_vector_index,
+        )
+        if profile not in {
+            ("bge-m3", 1024, "bge-m3", "auto"),
+            ("simple", 128, "simple", "exact"),
+        }:
+            raise ValueError(
+                "embedding profile must be bge-m3/1024/auto or legacy simple/128/exact"
+            )
+        if not 1 <= self.embedding_timeout_seconds <= 600:
+            raise ValueError("embedding.timeout_seconds outside safe range")
+        embedding_url = urlsplit(self.embedding_url)
+        if (
+            embedding_url.scheme != "http"
+            or embedding_url.hostname not in LOOPBACK_HOSTS
+            or embedding_url.port is None
+            or embedding_url.path != "/api/embed"
+            or embedding_url.username
+            or embedding_url.password
+            or embedding_url.query
+            or embedding_url.fragment
+        ):
+            raise ValueError(
+                "embedding.url must be an uncredentialed loopback /api/embed URL"
+            )
         _assert_no_symlink_components(self.soul_db, "soul.db")
         self.read_token()
 
@@ -245,11 +300,17 @@ def create_app(
             transport=upstream_transport,
         )
         try:
-            async with Soul.create(
-                settings.soul_name,
+            soul_config = SoulConfig(
                 backend="sqlite",
                 backend_url=str(settings.soul_db),
-            ) as soul:
+                embedding_provider=settings.embedding_provider,
+                embedding_dimensions=settings.embedding_dimensions,
+                memory_vector_index=settings.memory_vector_index,
+                ollama_embedding_model=settings.embedding_model,
+                ollama_embedding_url=settings.embedding_url,
+                ollama_embedding_timeout=settings.embedding_timeout_seconds,
+            )
+            async with Soul.create(settings.soul_name, config=soul_config) as soul:
                 if settings.soul_db.exists() and os.name != "nt":
                     os.chmod(settings.soul_db, 0o600)
                 state["soul"] = soul

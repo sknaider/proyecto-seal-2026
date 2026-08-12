@@ -44,7 +44,25 @@ def test_windows_installer_is_user_space_and_initializes_machine_soul():
     assert "Start-Process -FilePath $tray" in text
     assert "-PassThru" in text and "$trayProcess.HasExited" in text
     assert "Start-Process -Verb RunAs" not in text
-    assert '[version]"0.3.0"' in text
+    assert '[version]"0.4.0"' in text
+    assert "soul-framework 0.4.2 exacto" in text
+    assert '$installedCoreVersion = & $venvPython -c' in text
+    assert '$installedCoreVersion = & $python -c' not in text
+    assert 'soul-machine-embedding-cutover.exe' in text
+    assert '@("disable-autostart", "--config", $soulConfig)' in text
+    assert '@("migrate", $soulDb, "--candidate", $candidate, "--checkpoint", $checkpoint)' in text
+    assert '@("verify", $checkpoint)' in text
+    assert '@("activate", $soulConfig, $checkpoint)' in text
+    assert 'migracion parcial ambigua' in text
+    assert 'Verificando BGE-M3 antes de detener el alma legacy' in text
+    assert '$probe.embeddings[0].Count -ne 1024' in text
+    assert text.index('Verificando BGE-M3 antes') < text.index('@("disable-autostart"')
+    assert 'reactivando el runtime legacy preservado' in text
+    assert '@("init", "--root", $soulRoot' in text
+    assert '$isLegacyProfile' in text and '$isBgeProfile' in text
+    assert 'provider\\s*=\\s*"simple"' in text
+    assert 'vector_index\\s*=\\s*"auto"' in text
+    assert 'perfil embedding no soportado' in text
 
 
 def test_windows_click_installer_is_local_and_non_elevating():
@@ -58,6 +76,6 @@ def test_windows_click_installer_is_local_and_non_elevating():
 
 def test_windows_novice_guide_matches_tray_release():
     text = (ROOT / "installer" / "LEEME-WINDOWS.txt").read_text()
-    assert "SOUL PLATFORM 0.3.0" in text
+    assert "SOUL PLATFORM 0.4.0" in text
     assert "icono violeta SOUL" in text
     assert "Copiar token local" in text

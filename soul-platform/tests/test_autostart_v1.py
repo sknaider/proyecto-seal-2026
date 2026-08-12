@@ -42,6 +42,9 @@ def _contract(tmp_path: Path, monkeypatch, **proxy_overrides) -> AutostartContra
         "[soul]\n"
         f'name = "MachineSoul"\ndb = "{data / "MachineSoul.db"}"\n'
         'machine_soul_id = "12345678-1234-5678-1234-567812345678"\n'
+        '[embedding]\nprovider = "bge-m3"\ndimensions = 1024\nmodel = "bge-m3"\n'
+        'url = "http://127.0.0.1:11434/api/embed"\ntimeout_seconds = 60\n'
+        'vector_index = "auto"\n'
         "[proxy]\n"
         + "\n".join(
             f"{key} = {str(value).lower() if isinstance(value, bool) else repr(value)}"
@@ -154,6 +157,16 @@ def test_ipv6_loopback_probe_and_shutdown_use_bracketed_urls(tmp_path, monkeypat
         "http://[::1]:11435/ready",
         "http://[::1]:11435/admin/shutdown",
     ]
+
+
+def test_shutdown_read_timeout_defers_to_listener_stop_gate(tmp_path, monkeypatch):
+    contract = _contract(tmp_path, monkeypatch)
+
+    def timed_out(*_args, **_kwargs):
+        raise TimeoutError("peer closed after accepting shutdown")
+
+    monkeypatch.setattr("soul_platform.autostart.urllib.request.urlopen", timed_out)
+    _request_shutdown(contract)
 
 
 def test_descriptors_use_absolute_python_config_and_loopback_contract(

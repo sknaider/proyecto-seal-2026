@@ -15,10 +15,8 @@ def test_version_contract_and_packaged_source_layout():
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
     assert project["version"] == soul_platform.__version__ == version("soul-platform")
     assert (ROOT / "src/soul_platform/agency.py").is_file()
-    core_version = tuple(
-        int(part) for part in soul_framework.__version__.split(".")[:2]
-    )
-    assert core_version >= (0, 3), "soul-platform 0.3 requires soul-framework 0.3+"
+    core_version = tuple(int(part) for part in soul_framework.__version__.split(".")[:3])
+    assert core_version == (0, 4, 2), "soul-platform 0.4 pins soul-framework 0.4.2"
 
 
 def test_build_excludes_all_local_distribution_directories():

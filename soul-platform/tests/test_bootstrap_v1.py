@@ -35,6 +35,29 @@ def test_init_is_user_space_idempotent_and_preserves_identity(tmp_path):
     assert first.machine_soul_id == second.machine_soul_id
     assert second.token_file.read_bytes() == token_before
     assert first.autostart == second.autostart
+    settings = ProxySettings.from_toml(first.config)
+    assert settings.embedding_provider == "bge-m3"
+    assert settings.embedding_dimensions == 1024
+    assert settings.memory_vector_index == "auto"
+
+
+def test_legacy_config_has_only_safe_128d_exact_compatibility(tmp_path):
+    result = initialize(
+        root=tmp_path / "soul",
+        upstream_kind="ollama",
+        upstream_base_url="http://127.0.0.1:11434/v1",
+        upstream_model="brain",
+        enable_autostart=False,
+    )
+    text = result.config.read_text()
+    start, end = text.index("[embedding]"), text.index("[proxy]")
+    result.config.write_text(text[:start] + text[end:])
+    settings = ProxySettings.from_toml(result.config)
+    assert (
+        settings.embedding_provider,
+        settings.embedding_dimensions,
+        settings.memory_vector_index,
+    ) == ("simple", 128, "exact")
 
 
 def test_failed_activation_removes_login_launcher_but_preserves_soul(

@@ -9,8 +9,25 @@ from pathlib import Path
 import httpx
 import pytest
 from soul_framework import Soul
+from soul_framework.config import SoulConfig
 
 from soul_platform.proxy import ProxySettings, create_app, run_proxy
+
+
+@pytest.fixture(autouse=True)
+def _local_bge_stub(monkeypatch):
+    """Exercise the 1024-d/portable ANN path without depending on a live Ollama daemon."""
+    async def embed_batch(_self, texts):
+        vectors = []
+        for text in texts:
+            vector = [0.0] * 1024
+            vector[sum(text.encode("utf-8")) % 1024] = 1.0
+            vectors.append(vector)
+        return vectors
+
+    monkeypatch.setattr(
+        "soul_framework.embedding.bge_m3.BgeM3Embedding.embed_batch", embed_batch
+    )
 
 
 def _settings(tmp_path: Path, model: str = "brain-a") -> ProxySettings:
@@ -90,10 +107,25 @@ def _transport(captured: list[dict]):
 
 
 async def _seed(settings: ProxySettings):
-    async with Soul.create(
-        settings.soul_name, backend="sqlite", backend_url=str(settings.soul_db)
-    ) as soul:
+    config = SoulConfig(
+        backend="sqlite",
+        backend_url=str(settings.soul_db),
+        embedding_provider="bge-m3",
+        embedding_dimensions=1024,
+        memory_vector_index="auto",
+    )
+    async with Soul.create(settings.soul_name, config=config) as soul:
         await soul.memory.store("La clave de continuidad es ORQUIDEA-127387.", importance=10)
+
+
+def _soul_config(settings: ProxySettings) -> SoulConfig:
+    return SoulConfig(
+        backend="sqlite",
+        backend_url=str(settings.soul_db),
+        embedding_provider="bge-m3",
+        embedding_dimensions=1024,
+        memory_vector_index="auto",
+    )
 
 
 async def _request(app, method: str, path: str, **kwargs):
@@ -359,9 +391,7 @@ async def test_streaming_response_type_and_size_fail_closed(tmp_path):
     assert non_finite_sse.headers["X-Soul-Store"] == "disabled"
     assert too_large.status_code == 502
     assert too_large.json()["error"] == "upstream response too large"
-    async with Soul.create(
-        settings.soul_name, backend="sqlite", backend_url=str(settings.soul_db)
-    ) as soul:
+    async with Soul.create(settings.soul_name, config=_soul_config(settings)) as soul:
         assert await soul.memory.search("hi") == []
 
 
@@ -393,9 +423,7 @@ async def test_invalid_success_response_never_mutates_memory(tmp_path, bad_conte
     )
     assert response.status_code == 502
     assert response.headers["X-Soul-Store"] == "disabled"
-    async with Soul.create(
-        settings.soul_name, backend="sqlite", backend_url=str(settings.soul_db)
-    ) as soul:
+    async with Soul.create(settings.soul_name, config=_soul_config(settings)) as soul:
         assert await soul.memory.search("PHANTOM-STORE-127469") == []
 
 
@@ -442,9 +470,12 @@ def test_config_and_soul_paths_must_be_private_and_canonical(tmp_path):
     config = tmp_path / "proxy.toml"
     config.write_text(
         "[soul]\n"
-        f'name="MachineSoul"\ndb="{settings.soul_db}"\n'
-        f'machine_soul_id="{settings.machine_soul_id}"\n'
-        "[proxy]\n"
+            f'name="MachineSoul"\ndb="{settings.soul_db}"\n'
+            f'machine_soul_id="{settings.machine_soul_id}"\n'
+            '[embedding]\nprovider="bge-m3"\ndimensions=1024\nmodel="bge-m3"\n'
+            'url="http://127.0.0.1:11434/api/embed"\ntimeout_seconds=60\n'
+            'vector_index="auto"\n'
+            "[proxy]\n"
         f'host="127.0.0.1"\nport=11435\nrequire_auth=true\ntoken_file="{settings.token_file}"\n'
         '[upstream]\nkind="ollama"\nbase_url="http://127.0.0.1:11434/v1"\nmodel="brain"\n'
     )

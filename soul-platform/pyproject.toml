@@ -1,11 +1,11 @@
 [project]
 name = "soul-platform"
-version = "0.3.0"
+version = "0.4.0"
 description = "SOUL Platform — contained agent runtime, coordination and autonomy for SOUL Core"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "soul-framework>=0.3.0,<0.4",
+    "soul-framework[ann]==0.4.2",
     "cryptography>=42",
     "fastapi>=0.110",
     "uvicorn>=0.29",
@@ -13,8 +13,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-postgres = ["asyncpg>=0.29", "soul-framework[postgres]>=0.3.0,<0.4"]
-embeddings = ["soul-framework[embeddings]>=0.3.0,<0.4"]
+postgres = ["soul-framework[ann,postgres]==0.4.2"]
+embeddings = ["soul-framework[ann,embeddings]==0.4.2"]
 desktop = ["pywebview==6.2.1", "pystray==0.19.5", "pillow==12.3.0"]
 all = ["soul-platform[postgres,embeddings,desktop]"]
 dev = ["httpx>=0.27", "pytest>=8", "pytest-asyncio>=0.24"]
@@ -22,6 +22,7 @@ dev = ["httpx>=0.27", "pytest>=8", "pytest-asyncio>=0.24"]
 [project.scripts]
 soul-platform = "soul_platform.cli:main"
 soul-machine = "soul_platform.bootstrap:main"
+soul-machine-embedding-cutover = "soul_platform.embedding_cutover:main"
 soul-tray-cli = "soul_platform.tray:main"
 
 [project.gui-scripts]
