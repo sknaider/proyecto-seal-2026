@@ -1,7 +1,7 @@
 {
   "schema": "seal.mutation-evidence.v1",
   "tool": "pytest explicit adversarial mutants",
-  "workspace": "seventeen byte-bound mutants: matcher widening/literal/candidate/invalid-regex, nine-event parity, superuser/cross-agent acceptance, privileged alias/env inheritance, remote LLM URL, hook path/FD escape, transcript path/parent/history escape, boot-context loss, autodream skip-as-failure",
+  "workspace": "seventeen byte-bound mutants: matcher widening/literal/candidate/invalid-regex, nine-event parity, superuser/cross-agent acceptance, privileged alias/env inheritance, remote LLM URL, hook path/FD escape, transcript path/parent/history escape, boot-context loss, autodream skip-as-failure; deterministic CI fixture re-ran the same matcher mutants",
   "killed": 17,
   "survived": 0,
   "no_tests": 0,
@@ -24,6 +24,6 @@
     "tests/test_seal_secrets.py": "8d523f34d89590c5a032351b26ba8075d5cb910331f80a535470620f14a44699",
     "tests/test_soul_memory_admission_dependencies.py": "c725a30ab2a9cc489979bc7b9ce43a3dc2b1623b655a71012c4ea9228346c0ca",
     "tests/test_soul_runtime_orchestrator.py": "a23a24e88bfd1e417441e092c21bbc09b0316f85880cd372beb1177fa1255e64",
-    "tests/test_soul_f1_quality.py": "9169ddfda8472d30ec356bc798b030167a87a19161d8127fe0bcc6a356d822b4"
+    "tests/test_soul_f1_quality.py": "db3cd5ebf11bb2cc78ce0e128e92f70fb690ca8a381fac6cf5309727063fb792"
   }
 }

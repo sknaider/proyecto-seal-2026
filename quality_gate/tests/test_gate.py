@@ -421,6 +421,27 @@ def test_diff_ratchet_compares_policy_to_requested_base(tmp_path: Path) -> None:
     assert "policy_ratchet_regression:committed_test_ratio_floor:0.0<0.5" in result["errors"]
 
 
+@pytest.mark.parametrize("field", ["manifests", "required_tracked_paths", "critical_paths"])
+def test_diff_ratchet_rejects_removing_detection_surface(tmp_path: Path, field: str) -> None:
+    repo = _repo(tmp_path)
+    policy_path = repo / "quality/policy.json"
+    original = _policy()
+    original[field] = [*original[field], "protected/extra"]
+    policy_path.write_text(json.dumps(original), encoding="utf-8")
+    _git(repo, "add", "quality/policy.json")
+    _git(repo, "commit", "-qm", "policy baseline")
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo, check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    policy_path.write_text(json.dumps(_policy()), encoding="utf-8")
+    _git(repo, "add", "quality/policy.json")
+    _git(repo, "commit", "-qm", "shrink policy")
+
+    result = gate.diff_gate(repo, policy_path, base)
+
+    assert f"policy_ratchet_removed:{field}:protected/extra" in result["errors"]
+
+
 def test_diff_ratchet_checks_changed_manifest_against_requested_base(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     policy_path = repo / "quality/policy.json"
@@ -607,6 +628,89 @@ def test_diff_gate_checks_committed_change_against_base(tmp_path: Path) -> None:
 
     assert result["ok"] is False
     assert "subject_without_quality_manifest:src/main.go" in result["errors"]
+
+
+@pytest.mark.parametrize(
+    ("changed_path", "reason"),
+    [
+        ("src/app.py", "subject:src/app.py"),
+        ("tests/test_app.py", "test:tests/test_app.py"),
+        ("quality/mutation.json", "mutation_evidence:quality/mutation.json"),
+        ("quality/change.json", "manifest:quality/change.json"),
+    ],
+)
+def test_diff_selects_manifest_for_every_evidence_surface(
+    tmp_path: Path, changed_path: str, reason: str, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = _repo(tmp_path)
+    policy = _policy()
+    manifest = _manifest()
+    manifest["mutation_evidence"] = "quality/mutation.json"
+    (repo / "quality/mutation.json").write_text("{}", encoding="utf-8")
+    (repo / "quality/change.json").write_text(json.dumps(manifest), encoding="utf-8")
+    policy_path = repo / "quality/policy.json"
+    policy_path.write_text(json.dumps(policy), encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "quality baseline")
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo, check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    path = repo / changed_path
+    path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    if changed_path == "quality/change.json":
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        manifest["change_id"] = "changed"
+        _refresh_review(manifest)
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+    _git(repo, "add", changed_path)
+    _git(repo, "commit", "-qm", "change evidence surface")
+    monkeypatch.setattr(gate, "verify_manifest", lambda *args, **kwargs: {"ok": True})
+
+    result = gate.diff_gate(repo, policy_path, base)
+
+    assert result["selected"] == ["quality/change.json"]
+    assert reason in result["selection_reason"]["quality/change.json"]
+
+
+def test_diff_execute_runs_only_selected_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo = _repo(tmp_path)
+    policy = _policy()
+    manifest = _manifest()
+    second = _manifest()
+    second["subjects"] = ["src/other.py"]
+    (repo / "src/other.py").write_text("VALUE = 1\n", encoding="utf-8")
+    _refresh_review(second)
+    policy["manifests"] = ["quality/change.json", "quality/other.json"]
+    (repo / "quality/change.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (repo / "quality/other.json").write_text(json.dumps(second), encoding="utf-8")
+    policy_path = repo / "quality/policy.json"
+    policy_path.write_text(json.dumps(policy), encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "two manifests")
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo, check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    (repo / "tests/test_app.py").write_text("def test_answer():\n    assert 6 * 7 == 42\n", encoding="utf-8")
+    _git(repo, "add", "tests/test_app.py")
+    _git(repo, "commit", "-qm", "change shared test")
+    calls: list[tuple[str, bool]] = []
+    def fake_verify(_repo, _policy, path, *, execute=False, ratchet_base="HEAD"):
+        calls.append((path.name, execute))
+        return {"ok": True}
+    monkeypatch.setattr(gate, "verify_manifest", fake_verify)
+
+    result = gate.diff_gate(repo, policy_path, base, execute=True)
+
+    assert result["selected"] == ["quality/change.json", "quality/other.json"]
+    assert calls == [("change.json", True), ("other.json", True)]
+
+
+def test_diff_rejects_non_commit_base(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    policy_path = repo / "quality/policy.json"
+    policy_path.write_text(json.dumps(_policy()), encoding="utf-8")
+    with pytest.raises(gate.QualityGateError, match="invalid_diff_base"):
+        gate.diff_gate(repo, policy_path, "does-not-exist")
 
 
 def test_hook_status_proves_effective_versioned_hook(tmp_path: Path) -> None:

@@ -1,7 +1,7 @@
 {
   "schema": "seal.mutation-evidence.v1",
   "tool": "pytest explicit mutants",
-  "workspace": "three byte-bound adversarial mutants: matcher widening, runtime UPDATE grant, matcher erasure",
+  "workspace": "three byte-bound adversarial mutants: matcher widening, runtime UPDATE grant, matcher erasure; deterministic CI fixture re-ran the same matcher mutants",
   "killed": 3,
   "survived": 0,
   "no_tests": 0,
@@ -16,6 +16,6 @@
     "memory/soul_hooks_seed.py": "273a018c714d31d52afe3f1fd0451294b0fa1aa0ecafcc6caeeecf53a9d27970",
     "memory/soul_runtime_adapter.py": "ac91cef40bc644bdc9268df82e756ecd79501d2b2bef02badee8b0daddd2bf90",
     "memory/soul_runtime_hooks_migration.sql": "117e45a080a258e344a354bae7f1e2bcbe9af1ae9ce293e2a5ef868490ca4231",
-    "tests/test_soul_f1_quality.py": "9169ddfda8472d30ec356bc798b030167a87a19161d8127fe0bcc6a356d822b4"
+    "tests/test_soul_f1_quality.py": "db3cd5ebf11bb2cc78ce0e128e92f70fb690ca8a381fac6cf5309727063fb792"
   }
 }

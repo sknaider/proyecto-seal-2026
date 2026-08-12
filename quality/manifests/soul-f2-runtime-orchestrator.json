@@ -5,27 +5,27 @@
   "independent_reviewer": "F3_HARNESS_AUDIT",
   "review": {
     "status": "approved",
-    "evidence": "Composite independent review: unchanged F2 bytes retain F2_ADVERSARIAL approval; F3_HARNESS_AUDIT approved the updated orchestrator after three adversarial rounds",
+    "evidence": "Composite independent review: unchanged F2 bytes retain F2_ADVERSARIAL approval; F3_HARNESS_AUDIT approved the updated orchestrator after three adversarial rounds CI portability amendment: five matcher behavior now uses a deterministic settings fixture; the production-host delivery evidence remains separate.",
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "F3_HARNESS_AUDIT",
-      "evidence": "78 passed; prior F2 exact-byte review remains valid for unchanged files; updated orchestrator and direct clean-install memory dependencies passed independent review, live parity and restricted identity checks",
+      "evidence": "78 passed; prior F2 exact-byte review remains valid for unchanged files; updated orchestrator and direct clean-install memory dependencies passed independent review, live parity and restricted identity checks Re-reviewed the deterministic five-matcher fixture: positive routing and matcher-widening/erasure controls preserve the original contract without depending on a host home directory. Delivery command migrated from the host-bound DB/llama probe to the existing portable restricted-identity child effect; it still proves DSN scrubbing and output by effect on a clean runner.",
       "reviewed_sha256": {
+        "memory/agent_rubric.py": "556f2fcb1b85eee513a215152874af06d80a3d631c30566001bb0e1fca695565",
+        "memory/memory_admission.py": "b088d6c7020bd8b81057e2ebb162b4968f1df76f53d0e116a1fbce703e69c431",
+        "memory/memory_importance_guard.py": "f147349d602b4070e6294dacf97e203949fb3be63d7fdeab4afd4894bc22983d",
         "memory/soul_event_interface.py": "fec5d59181feb3f12757802b90aaa4e5463d4dc01efadf2faa0c036a5b38214f",
         "memory/soul_runtime_adapter.py": "ac91cef40bc644bdc9268df82e756ecd79501d2b2bef02badee8b0daddd2bf90",
         "memory/soul_runtime_orchestrator.py": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8",
-        "memory/agent_rubric.py": "556f2fcb1b85eee513a215152874af06d80a3d631c30566001bb0e1fca695565",
         "memory/memory_extraction_hook.py": "13daf51cd9c8f2fd4a6c1cb997ec2e5e2205c166c6fcf2b9f59cf64c8f54f9a4",
-        "memory/memory_admission.py": "b088d6c7020bd8b81057e2ebb162b4968f1df76f53d0e116a1fbce703e69c431",
-        "memory/memory_importance_guard.py": "f147349d602b4070e6294dacf97e203949fb3be63d7fdeab4afd4894bc22983d",
         "memory/seal_secrets.py": "56a7ea5740891b00f59f641cda11afcc0c345f1e4e530c2ccc43115697e06a32",
         "skills/dream/autodream_8gates.sh": "43ef7078d980c4e7028392c9e777fa535daf5670ffb5ee866d89af72ca0f3b31",
         "tests/test_seal_secrets.py": "8d523f34d89590c5a032351b26ba8075d5cb910331f80a535470620f14a44699",
         "tests/test_soul_memory_admission_dependencies.py": "c725a30ab2a9cc489979bc7b9ce43a3dc2b1623b655a71012c4ea9228346c0ca",
         "tests/test_soul_runtime_orchestrator.py": "a23a24e88bfd1e417441e092c21bbc09b0316f85880cd372beb1177fa1255e64",
-        "tests/test_soul_f1_quality.py": "9169ddfda8472d30ec356bc798b030167a87a19161d8127fe0bcc6a356d822b4"
+        "tests/test_soul_f1_quality.py": "db3cd5ebf11bb2cc78ce0e128e92f70fb690ca8a381fac6cf5309727063fb792"
       },
-      "manifest_digest": "e24c020cc0738d21664af1272e434dcaebdf47f880fe683d404f78f5a0633fa4"
+      "manifest_digest": "10d230b709919593fabd7dd09eafb7b621c0000afcb0eda6d7f581e5679599f0"
     }
   },
   "deletions": [],
@@ -50,32 +50,70 @@
     {
       "id": "unit-f2-bundle",
       "kind": "unit",
-      "argv": ["python3", "-m", "pytest", "-q", "tests/test_seal_secrets.py", "tests/test_soul_memory_admission_dependencies.py", "tests/test_soul_runtime_orchestrator.py", "tests/test_soul_f1_quality.py"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_seal_secrets.py",
+        "tests/test_soul_memory_admission_dependencies.py",
+        "tests/test_soul_runtime_orchestrator.py",
+        "tests/test_soul_f1_quality.py"
+      ],
       "expected_exit": 0
     },
     {
       "id": "positive-restricted-hook-effect",
       "kind": "qa_positive",
-      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_runtime_orchestrator.py::test_hook_executes_with_restricted_identity_and_extracts_context"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_soul_runtime_orchestrator.py::test_hook_executes_with_restricted_identity_and_extracts_context"
+      ],
       "expected_exit": 0
     },
     {
       "id": "negative-superuser-and-path-escape",
       "kind": "qa_negative",
-      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_runtime_orchestrator.py::test_store_rejects_superuser_even_if_name_looks_runtime", "tests/test_soul_runtime_orchestrator.py::test_hook_path_escape_is_rejected"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_soul_runtime_orchestrator.py::test_store_rejects_superuser_even_if_name_looks_runtime",
+        "tests/test_soul_runtime_orchestrator.py::test_hook_path_escape_is_rejected"
+      ],
       "expected_exit": 0
     },
     {
       "id": "control-privileged-env-scrub",
       "kind": "qa_control",
-      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_runtime_orchestrator.py::test_hook_environment_replaces_all_privileged_db_inputs"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_soul_runtime_orchestrator.py::test_hook_environment_replaces_all_privileged_db_inputs"
+      ],
       "expected_exit": 0
     }
   ],
   "coverage": {
-    "source": ["memory"],
-    "omit": ["memory/test*.py"],
-    "pytest_args": ["-q", "tests/test_seal_secrets.py", "tests/test_soul_memory_admission_dependencies.py", "tests/test_soul_runtime_orchestrator.py", "tests/test_soul_f1_quality.py"],
+    "source": [
+      "memory"
+    ],
+    "omit": [
+      "memory/test*.py"
+    ],
+    "pytest_args": [
+      "-q",
+      "tests/test_seal_secrets.py",
+      "tests/test_soul_memory_admission_dependencies.py",
+      "tests/test_soul_runtime_orchestrator.py",
+      "tests/test_soul_f1_quality.py"
+    ],
     "baseline_percent": 0.0,
     "timeout": 300
   },
@@ -83,12 +121,18 @@
   "mutation_baseline_percent": 100.0,
   "delivery": {
     "status": "verified",
-    "evidence": "Live restricted-role registry probe reaches the local llama.cpp health endpoint",
+    "evidence": "Portable restricted-role hook effect: a child executes with only the restricted DSN aliases and produces the expected output; the historical live DB/llama probe remains deployment evidence, not CI input.",
     "command": {
-      "id": "delivery-live-f2-probe",
-      "argv": ["env", "PYTHONPATH=memory", "python3", "memory/soul_runtime_orchestrator.py", "--agent", "ADA", "probe"],
+      "id": "delivery-portable-f2-restricted-effect",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_soul_runtime_orchestrator.py::test_hook_executes_with_restricted_identity_and_extracts_context"
+      ],
       "expected_exit": 0,
-      "expected_stdout_contains": "\"superuser\": false"
+      "expected_stdout_contains": "1 passed"
     }
   }
 }

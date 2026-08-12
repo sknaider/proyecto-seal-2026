@@ -271,6 +271,13 @@ def _policy_ratchet_errors(repo: Path, policy_path: Path, policy: dict[str, Any]
         new = current_thresholds.get(key)
         if isinstance(old, (int, float)) and isinstance(new, (int, float)) and float(new) < float(old):
             errors.append(f"policy_ratchet_regression:{key}:{new}<{old}")
+    for key in ("manifests", "required_tracked_paths", "critical_paths"):
+        old_rows = previous.get(key, [])
+        new_rows = policy.get(key, [])
+        if not isinstance(old_rows, list) or not isinstance(new_rows, list):
+            continue
+        for removed in sorted(set(old_rows) - set(new_rows)):
+            errors.append(f"policy_ratchet_removed:{key}:{removed}")
     return errors
 
 
@@ -797,8 +804,37 @@ def staged(repo: Path, policy_path: Path) -> dict[str, Any]:
     }
 
 
-def diff_gate(repo: Path, policy_path: Path, base: str) -> dict[str, Any]:
+def _manifest_selection(
+    repo: Path, policy: dict[str, Any], changed: Iterable[str]
+) -> tuple[dict[str, list[str]], list[str]]:
+    """Select every manifest whose declared evidence surface intersects the diff."""
+    changed_set = set(changed)
+    reasons: dict[str, list[str]] = {}
+    all_manifests = list(policy.get("manifests", []))
+    for manifest_raw in all_manifests:
+        manifest_path = _repo_path(repo, manifest_raw)
+        if not manifest_path.is_file():
+            continue
+        manifest = _read_json(manifest_path)
+        covered: dict[str, str] = {manifest_raw: "manifest"}
+        for raw in manifest.get("subjects", []):
+            if isinstance(raw, str):
+                covered[raw] = "subject"
+        for raw in manifest.get("tests", []):
+            if isinstance(raw, str):
+                covered[raw] = "test"
+        mutation = manifest.get("mutation_evidence")
+        if isinstance(mutation, str) and mutation:
+            covered[mutation] = "mutation_evidence"
+        for raw in sorted(changed_set & set(covered)):
+            reasons.setdefault(manifest_raw, []).append(f"{covered[raw]}:{raw}")
+    return reasons, sorted(set(all_manifests) - set(reasons))
+
+
+def diff_gate(repo: Path, policy_path: Path, base: str, execute: bool = False) -> dict[str, Any]:
     """CI equivalent of the staged gate, evaluated against an immutable base."""
+    if _git(repo, "cat-file", "-e", f"{base}^{{commit}}").returncode != 0:
+        raise QualityGateError(f"invalid_diff_base:{base}")
     policy = load_policy(policy_path)
     proc = _git(repo, "diff", "--name-only", "--diff-filter=ACMRD", f"{base}...HEAD")
     if proc.returncode != 0:
@@ -807,7 +843,8 @@ def diff_gate(repo: Path, policy_path: Path, base: str) -> dict[str, Any]:
     subjects = [raw for raw in changed if _repo_path(repo, raw).is_file() and _is_source_path(raw, policy)]
     deletions = [raw for raw in changed if not _repo_path(repo, raw).exists() and _is_source_path(raw, policy)]
     errors: list[str] = _policy_ratchet_errors(repo, policy_path, policy, base)
-    manifests: set[str] = {raw for raw in policy.get("manifests", []) if raw in changed}
+    selection_reason, skipped = _manifest_selection(repo, policy, changed)
+    manifests: set[str] = set(selection_reason)
     subject_results: list[dict[str, Any]] = []
     for raw in subjects:
         result = check_subject(repo, policy_path, raw)
@@ -829,7 +866,7 @@ def diff_gate(repo: Path, policy_path: Path, base: str) -> dict[str, Any]:
     errors.extend(scan_known_defects(repo, policy, subjects))
     manifest_results = []
     for raw in sorted(manifests):
-        result = verify_manifest(repo, policy, _repo_path(repo, raw), execute=False, ratchet_base=base)
+        result = verify_manifest(repo, policy, _repo_path(repo, raw), execute=execute, ratchet_base=base)
         manifest_results.append(result)
         if not result["ok"]:
             errors.extend(f"{raw}:{error}" for error in result.get("errors", [result["status"]]))
@@ -837,6 +874,7 @@ def diff_gate(repo: Path, policy_path: Path, base: str) -> dict[str, Any]:
         "schema": "seal.quality-diff-gate.v1", "ok": not errors,
         "status": "PASSED" if not errors else "REJECTED", "base": base,
         "changed": changed, "subjects": subject_results, "deletions": deletions,
+        "selected": sorted(manifests), "selection_reason": selection_reason, "skipped": skipped,
         "manifests": manifest_results, "errors": errors,
     }
 
@@ -893,6 +931,7 @@ def build_parser() -> argparse.ArgumentParser:
     diff_parser = sub.add_parser("diff")
     diff_parser.add_argument("--base", required=True)
     diff_parser.add_argument("--policy", type=Path, default=Path("quality/policy.json"))
+    diff_parser.add_argument("--execute", action="store_true")
     sub.add_parser("hook-status")
     mutation_parser = sub.add_parser("mutation-audit")
     mutation_parser.add_argument("manifest", type=Path)
@@ -917,7 +956,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.action == "staged":
             result = staged(repo, _repo_path(repo, str(args.policy)))
         elif args.action == "diff":
-            result = diff_gate(repo, _repo_path(repo, str(args.policy)), args.base)
+            result = diff_gate(repo, _repo_path(repo, str(args.policy)), args.base, execute=args.execute)
         elif args.action == "hook-status":
             result = hook_status(repo)
         elif args.action == "mutation-audit":

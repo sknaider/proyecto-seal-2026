@@ -5,11 +5,11 @@
   "independent_reviewer": "PLATFORM_RUNTIME_AUDIT",
   "review": {
     "status": "approved",
-    "evidence": "Independent adversarial re-audit of staged Core 0.4.2/Platform 0.4.0 cutover: 123 tests in a fresh wheel-installed environment; legacy explicit profile replaced with BGE-M3/1024/auto and byte-exact rollback; DB-open, source/candidate hash, mixed-dimension, corrupt candidate, symlink/reparse parent, missing BGE, final WAL re-checkpoint, stale ANN sidecar and config/profile mismatch gates attacked by effect.",
+    "evidence": "Independent adversarial re-audit of staged Core 0.4.2/Platform 0.4.0 cutover: 123 tests in a fresh wheel-installed environment; legacy explicit profile replaced with BGE-M3/1024/auto and byte-exact rollback; DB-open, source/candidate hash, mixed-dimension, corrupt candidate, symlink/reparse parent, missing BGE, final WAL re-checkpoint, stale ANN sidecar and config/profile mismatch gates attacked by effect. CI execution uses the runner Python after installing the exact Platform package contract.",
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "PLATFORM_RUNTIME_AUDIT",
-      "evidence": "Fresh exact bundled wheels Core 0.4.2 + Platform 0.4.0: pip check GREEN, 123/123 full; 16/16 independent byte-bound mutants killed; final WAL re-checkpoint, legacy profile cutover/rollback, stale ANN rebuild, Windows bundle checksum and Python 3.13 lifecycle reattacked by effect.",
+      "evidence": "Fresh exact bundled wheels Core 0.4.2 + Platform 0.4.0: pip check GREEN, 123/123 full; 16/16 independent byte-bound mutants killed; final WAL re-checkpoint, legacy profile cutover/rollback, stale ANN rebuild, Windows bundle checksum and Python 3.13 lifecycle reattacked by effect. Command argv normalized from host-local .venv path to runner python3; reviewed code/test hashes unchanged.",
       "reviewed_sha256": {
         "soul-platform/README.md": "1d18e460717395e0d04b9518fd2e3319127fcc4942063277734e60a7c95b6746",
         "soul-platform/demos/comparar_soul.py": "5a3d25e163553c1da7ad7e748fb6394498d4d0e26b4abdf6a7597e6a8a21a444",
@@ -50,7 +50,7 @@
         "soul-platform/tests/test_tray_v1.py": "2733576862e9ca157e4445c88aee9b9767796b6972a5894a6bebc6c7cdd29c52",
         "soul-platform/tests/test_windows_bundle_v1.py": "c5e912e3138c8099f1ef95177a51ecaff3691086db2d58be1fee48d79da97575"
       },
-      "manifest_digest": "6e4468e6727b25824b9ef82039f245cfe93385cf880ec26065f1cb7fd03ebd6d"
+      "manifest_digest": "8cd08c1d34d1c632afe17e135f26d50047f71bf26d141091baf6dd1f796f0637"
     }
   },
   "deletions": [],
@@ -102,7 +102,7 @@
       "id": "unit-platform-bundle",
       "kind": "unit",
       "argv": [
-        ".venv-quality/bin/python",
+        "python3",
         "-m",
         "pytest",
         "-q",
@@ -127,7 +127,7 @@
       "id": "positive-soul-continuity",
       "kind": "qa_positive",
       "argv": [
-        ".venv-quality/bin/python",
+        "python3",
         "-m",
         "pytest",
         "-q",
@@ -142,7 +142,7 @@
       "id": "negative-security-mutants",
       "kind": "qa_negative",
       "argv": [
-        ".venv-quality/bin/python",
+        "python3",
         "-m",
         "pytest",
         "-q",
@@ -158,7 +158,7 @@
       "id": "control-isolation-rollback",
       "kind": "qa_control",
       "argv": [
-        ".venv-quality/bin/python",
+        "python3",
         "-m",
         "pytest",
         "-q",
@@ -193,7 +193,7 @@
     "command": {
       "id": "delivery-windows-tray-and-continuity",
       "argv": [
-        ".venv-quality/bin/python",
+        "python3",
         "-m",
         "pytest",
         "-q",
