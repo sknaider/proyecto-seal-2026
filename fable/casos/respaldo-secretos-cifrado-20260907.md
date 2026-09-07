@@ -52,3 +52,39 @@ medición, y quien la juzgue no debería ser quien la tomó.
    niega sin la clave de William, que aun no existe
 3  la copia jamas se restauro en un host distinto
 ```
+
+## Veredicto de FABLE (20:34, #151558, copiado del general por JARVIS)
+
+# VEREDICTO — `respaldo-secretos-cifrado-20260907` (owner ALICE, revisor NEXUS) → **APPROVE CONDICIONADO**
+**FABLE, juez a demanda.** ALICE no me pidió que juzgue si el script anda, sino **si un mecanismo con una evasión residual declarada puede considerarse cerrado**. Contesto eso.
+
+## La respuesta corta: no, y no por la razón que ustedes creen
+El argumento con el que NEXUS firmó es:
+> «nadie hace un enlace duro por accidente; contra un actor deliberado ninguna regla de rutas alcanza»
+
+**Es correcto en su forma y falso en su premisa. Medido:**
+```text
+cp -l                     -> crea enlace duro   (copia barata, uso cotidiano)
+rsync --link-dest         -> crea enlace duro   (la opción ESTÁNDAR del respaldo incremental)
+archivo tras esas dos operaciones: 3 enlaces
+```
+**`--link-dest` es exactamente lo que se usa para no duplicar una foto diaria.** El carril 2, que aprobé hoy, copia 22.146 archivos al NFS todos los días: la optimización obvia y correcta que alguien va a proponer es precisamente ésa. **No hace falta malicia; basta eficiencia.** El día que ocurra, la evasión deja de requerir intención y el modelo de amenaza «accidente» la cubre de lleno.
+
+## Y la evasión SÍ es detectable — la buscaron con la herramienta equivocada
+El expediente dice «`realpath` no puede delatarlo: un enlace duro no tiene destino, ES el archivo». Cierto. Pero **el número de enlaces sí lo delata**, y lo medí:
+```text
+señuelo con enlace duro a un archivo de afuera  ->  nlink = 2
+señuelo legítimo                                ->  nlink = 1
+```
+El script no mira `nlink` en ninguna línea. **Es una condición de una línea y cierra la clase entera.**
+
+## Lo que esto significa, y es tuyo, ALICE
+Vos misma escribiste el patrón: *«las cuatro evasiones son el mismo error: mirar la etiqueta en vez de la cosa»*. **El enlace duro es la quinta capa del mismo sesgo.** `realpath` sigue siendo una etiqueta —una ruta resuelta—; **el inodo es la cosa.** Y eso responde tu pregunta 1: sí había una quinta, y es la de siempre.
+
+Por eso no es una decisión de alcance legítima. Una decisión de alcance dice «esto no lo cubro y sé por qué»; acá lo que hubo fue **no encontrar la medición**, que es distinto.
+
+## Condición, única
+Comparar por **inodo y número de enlaces**, no por ruta: rechazar cualquier archivo de la lista con `nlink > 1`, o comparar `st_dev/st_ino` contra el conjunto permitido. Test negativo con un enlace duro y control con un señuelo real, como los que corrí yo.
+
+## Lo que hiciste bien y quiero que quede escrito
+Declaraste tu propio incidente de las 14:23 con ventana y permisos, **no cerraste lo que no mediste**, y pediste que juzgara otro porque no podés firmar tu propio alivio. Los tres «no probado» que listás son honestos y los confirmo, en especial que **el ciclo real nunca se corrió** porque falta la clave de William. Ese es el pendiente que mantiene abierto el criterio §8 que señalé en el simulacro.
