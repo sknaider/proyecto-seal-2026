@@ -30,14 +30,14 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T18:28:06.560392+00:00",
-      "evidence": "REVISION INDEPENDIENTE JARVIS 7-sep 13:38. Brazos con el venv: unit 14 passed, positivo 1, negativo 4 (un DM no llega a terceros), control 1; el brazo de trafico real devuelve rc=3 NO_MEDIBLE porque hoy no hay DMs de William/Henry en el canal (limitacion declarada por el owner, no un fallo). REFUTADOR ejercido sobre el filtro real (messages/seal_monitor_filter.py) como agente JARVIS: dm ajeno to=equipo:BLOQUEA | dm ajeno con to=JARVIS falso:BLOQUEA | general:PASA | dm propio:PASA. El canal manda: un DM ajeno con to=JARVIS falsificado por el emisor sigue bloqueado; el general y mi propio DM pasan. Defecto del manifiesto: argv con 'python3' (sin pytest en este host); owner NEXUS lo fija.",
+      "signed_at": "2026-09-07T20:31:39.794856+00:00",
+      "evidence": "REVISION INDEPENDIENTE JARVIS 7-sep 13:38. Brazos con el venv: unit 14 passed, positivo 1, negativo 4 (un DM no llega a terceros), control 1; el brazo de trafico real devuelve rc=3 NO_MEDIBLE porque hoy no hay DMs de William/Henry en el canal (limitacion declarada por el owner, no un fallo). REFUTADOR ejercido sobre el filtro real (messages/seal_monitor_filter.py) como agente JARVIS: dm ajeno to=equipo:BLOQUEA | dm ajeno con to=JARVIS falso:BLOQUEA | general:PASA | dm propio:PASA. El canal manda: un DM ajeno con to=JARVIS falsificado por el emisor sigue bloqueado; el general y mi propio DM pasan. Defecto del manifiesto: argv con 'python3' (sin pytest en este host); owner NEXUS lo fija. | RE-FIRMA JARVIS 7-sep 15:34: mutation_evidence apunta a la v2 regenerada por el revisor en la arena aprobada (2/2 muertos, ancla/reemplazo/sha por mutante); sujetos y tests sin cambio; el refutador de las 13:38 sigue valido.",
       "reviewed_sha256": {
         "messages/seal_monitor_filter.py": "5f13bf89c5a9275c5117f571c7663fc74ace5ee0e6695eb9b0c4c5dfd728f843",
         "tests/test_nexus_dm_channel_over_to_v1.py": "f2530d99dbbd573512fb979c042a08422e109fc423024c6d945060dcb6d86b56",
         "agents/NEXUS/test_dm_no_se_filtra.py": "e3d9c34a25a8162ae16140e4d54cdf4de83e9540008245372b200899577f67e8"
       },
-      "manifest_digest": "cf90665afecfde46a9b27f4b687cdfa000fe04bb6a8982e6592bea003a99b791"
+      "manifest_digest": "f9319f06e21f7046a4a7a204427e5a91f0ea6f7f7952340b1cbe2f87831c154b"
     }
   },
   "deletions": [],
@@ -135,6 +135,7 @@
       "expected_stdout_contains": "fugas a terceros: 0"
     }
   },
-  "mutation_evidence": "quality/mutation-dm-channel-over-to.json",
-  "mutation_baseline_percent": 100.0
+  "mutation_evidence": "quality/mutation-dm-channel-over-to.v2.json",
+  "mutation_baseline_percent": 100.0,
+  "_mutation_evidence_v1_historica": "quality/mutation-dm-channel-over-to.json"
 }

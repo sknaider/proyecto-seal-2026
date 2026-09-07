@@ -1,0 +1,167 @@
+{
+  "schema": "seal.mutation-evidence.v2",
+  "change_id": "compaction-metrics-v1",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 8,
+  "survived": 0,
+  "total": 8,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "mutants": [
+    {
+      "id": "degradado-siempre-falso",
+      "subject": "memory/compaction_metrics.py",
+      "ancla": "    return bool(contexto) and SENAL_DEGRADADA in contexto",
+      "reemplazo": "    return False",
+      "why": "nunca marca degradado",
+      "registro": {
+        "subject": "memory/compaction_metrics.py",
+        "ancla": "    return bool(contexto) and SENAL_DEGRADADA in contexto",
+        "reemplazo": "    return False",
+        "ancla_sha256": "7ebb65cc305bebd8d31f6c1d28637187ecbfb7e72133a2bd57762482cb5023ec",
+        "sujeto_sha256_antes": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "degradado-siempre-verdadero",
+      "subject": "memory/compaction_metrics.py",
+      "ancla": "def es_degradado(contexto: str | None) -> bool:\n",
+      "reemplazo": "def es_degradado(contexto: str | None) -> bool:\n    return True\n",
+      "why": "siempre degradado",
+      "registro": {
+        "subject": "memory/compaction_metrics.py",
+        "ancla": "def es_degradado(contexto: str | None) -> bool:\n",
+        "reemplazo": "def es_degradado(contexto: str | None) -> bool:\n    return True\n",
+        "ancla_sha256": "c493f94587f3f4b96491937e9fc34bbc57d8b1c27ee05ea485fb6dffa9f9e342",
+        "sujeto_sha256_antes": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "registrar-miente-que-escribio",
+      "subject": "memory/compaction_metrics.py",
+      "ancla": "    except Exception:\n        return False",
+      "reemplazo": "    except Exception:\n        return True",
+      "why": "dice que escribió cuando no pudo",
+      "registro": {
+        "subject": "memory/compaction_metrics.py",
+        "ancla": "    except Exception:\n        return False",
+        "reemplazo": "    except Exception:\n        return True",
+        "ancla_sha256": "2686733a75d0bafd20934c7aa7e98f09eb4eaab704ee4e6cd4ae07adcbb327a9",
+        "sujeto_sha256_antes": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "medir-revienta",
+      "subject": "memory/compaction_metrics.py",
+      "ancla": "    if not transcript_path:\n        return vacio",
+      "reemplazo": "    if not transcript_path:\n        raise RuntimeError(\"MUTANTE: medir revienta\")",
+      "why": "medir no puede romper al hook",
+      "registro": {
+        "subject": "memory/compaction_metrics.py",
+        "ancla": "    if not transcript_path:\n        return vacio",
+        "reemplazo": "    if not transcript_path:\n        raise RuntimeError(\"MUTANTE: medir revienta\")",
+        "ancla_sha256": "d43a257aa1d6eb24b73c163c14db1fa6d2044ac3d023dc193cebfd4edd9b3abf",
+        "sujeto_sha256_antes": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "cuenta-lineas-vacias",
+      "subject": "memory/compaction_metrics.py",
+      "ancla": "                if raw.strip():\n                    total += 1",
+      "reemplazo": "                if True:\n                    total += 1",
+      "why": "cuenta líneas vacías como mensajes",
+      "registro": {
+        "subject": "memory/compaction_metrics.py",
+        "ancla": "                if raw.strip():\n                    total += 1",
+        "reemplazo": "                if True:\n                    total += 1",
+        "ancla_sha256": "669e700034191c2e355db596be7a837bfc83bbe1c842ac2c4c358428e8ee89bc",
+        "sujeto_sha256_antes": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "senal-desalineada",
+      "subject": "memory/compaction_metrics.py",
+      "ancla": "SENAL_DEGRADADA = \"SOUL DB no disponible\"",
+      "reemplazo": "SENAL_DEGRADADA = \"SOUL DB disponible\"",
+      "why": "la señal ya no coincide con el aviso real",
+      "registro": {
+        "subject": "memory/compaction_metrics.py",
+        "ancla": "SENAL_DEGRADADA = \"SOUL DB no disponible\"",
+        "reemplazo": "SENAL_DEGRADADA = \"SOUL DB disponible\"",
+        "ancla_sha256": "6d784fda9f3061e4bcf73fdab8bb1a5a3f8493eafa23eaa577741b19f3708f6c",
+        "sujeto_sha256_antes": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "el-pre-no-instrumenta",
+      "subject": "memory/pre_compact_hook.py",
+      "ancla": "    registrar(construir(\n        \"pre\",",
+      "reemplazo": "    (lambda *a, **k: None)(construir(\n        \"pre\",",
+      "why": "el pre deja de registrar",
+      "registro": {
+        "subject": "memory/pre_compact_hook.py",
+        "ancla": "    registrar(construir(\n        \"pre\",",
+        "reemplazo": "    (lambda *a, **k: None)(construir(\n        \"pre\",",
+        "ancla_sha256": "b4547cd5818b139bf1df22c729279c57a10454cf726bf45e905e3867e6a3c3bb",
+        "sujeto_sha256_antes": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "el-post-no-instrumenta",
+      "subject": "memory/post_compact_session_start_hook.py",
+      "ancla": "    registrar(construir(\n        \"post\", agent,",
+      "reemplazo": "    (lambda *a, **k: None)(construir(\n        \"post\", agent,",
+      "why": "el post deja de registrar",
+      "registro": {
+        "subject": "memory/post_compact_session_start_hook.py",
+        "ancla": "    registrar(construir(\n        \"post\", agent,",
+        "reemplazo": "    (lambda *a, **k: None)(construir(\n        \"post\", agent,",
+        "ancla_sha256": "d495f3ab327991ff2b2f9dd6e47a92c3e8d515e147206b1da4a1edc5521fe300",
+        "sujeto_sha256_antes": "931c404804bac07cca749f65eb685954e6456c33ea5e803c5051caee27b1f5d9",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    }
+  ],
+  "file_sha256": {
+    "memory/compaction_metrics.py": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
+    "memory/post_compact_session_start_hook.py": "931c404804bac07cca749f65eb685954e6456c33ea5e803c5051caee27b1f5d9",
+    "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
+    "memory/tests/test_compaction_metrics_v1.py": "e32cc386e8f403e1eb0085a9af4309bfad3b7b5803eecbb6e17a0adc82d5f7a3"
+  }
+}

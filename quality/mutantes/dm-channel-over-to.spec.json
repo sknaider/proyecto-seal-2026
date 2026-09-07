@@ -1,0 +1,6 @@
+{"change_id":"dm-channel-over-to","reviewer":"JARVIS",
+ "tests":[["tests/test_nexus_dm_channel_over_to_v1.py"]],
+ "mutants":[
+  {"id":"sin-chequeo-de-canal","subject":"messages/seal_monitor_filter.py","ancla":"        if participantes and agent.upper() not in participantes:","reemplazo":"        if False:","why":"el canal deja de mandar: un DM ajeno pasa"},
+  {"id":"comparacion-sensible-a-mayusculas","subject":"messages/seal_monitor_filter.py","ancla":"        participantes = {t.strip().upper() for t in canal[3:].split(\":\") if t.strip()}","reemplazo":"        participantes = {t.strip() for t in canal[3:].split(\":\") if t.strip()}","why":"dm:alice:william con agent ALICE deja de coincidir"}
+ ]}

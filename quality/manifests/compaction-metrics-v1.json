@@ -47,8 +47,8 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T18:25:52.129859+00:00",
-      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30. Los 3 sujetos y el test IDENTICOS a lo firmado el 4-sep 21:53. Unico cambio: quality/delivery_compaction_metrics.sh linea 45: el scrub de ALICE (bf59df8, 12:48) reemplazo la clave FICTICIA 'credencial_muerta' por 'REDACTADO' dentro de un sed de prueba; 8 bytes, sin efecto funcional (diff contra el indice 4-sep). Brazos con el venv: unit 8 passed + 2 subtests, positivo 2, negativo 1, control 1. Defecto del manifiesto: argv con 'python3' resuelve a /usr/bin sin pytest; owner ADA lo fija.",
+      "signed_at": "2026-09-07T20:31:39.795219+00:00",
+      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30. Los 3 sujetos y el test IDENTICOS a lo firmado el 4-sep 21:53. Unico cambio: quality/delivery_compaction_metrics.sh linea 45: el scrub de ALICE (bf59df8, 12:48) reemplazo la clave FICTICIA 'credencial_muerta' por 'REDACTADO' dentro de un sed de prueba; 8 bytes, sin efecto funcional (diff contra el indice 4-sep). Brazos con el venv: unit 8 passed + 2 subtests, positivo 2, negativo 1, control 1. Defecto del manifiesto: argv con 'python3' resuelve a /usr/bin sin pytest; owner ADA lo fija. | RE-FIRMA JARVIS 7-sep 15:34: mutation_evidence v2 regenerada por el revisor en la arena (8/8 muertos: degradado falso/verdadero, registrar miente, medir revienta, cuenta vacias, senal desalineada, pre/post no instrumentan); sujetos y test identicos a la firma de las 13:30.",
       "reviewed_sha256": {
         "memory/compaction_metrics.py": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
         "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
@@ -56,7 +56,7 @@
         "quality/delivery_compaction_metrics.sh": "c104a4b7fa6ec6549674c668152a2cf58731638b7f636b214a1bfdcec985dfea",
         "memory/tests/test_compaction_metrics_v1.py": "e32cc386e8f403e1eb0085a9af4309bfad3b7b5803eecbb6e17a0adc82d5f7a3"
       },
-      "manifest_digest": "568cc31dc02c2a98ce8807dcd8a8d279a556a7f6ca146c28d624e19ffb459936"
+      "manifest_digest": "fd016b05c848221ef1a026e81719884bf0bf30bf5867ea23e0ee70a53b00b6af"
     }
   },
   "deletions": [],
@@ -69,7 +69,7 @@
   "tests": [
     "memory/tests/test_compaction_metrics_v1.py"
   ],
-  "mutation_evidence": "quality/mutation-compaction-metrics-v1.json",
+  "mutation_evidence": "quality/mutation-compaction-metrics-v1.v2.json",
   "commands": [
     {
       "id": "unit-compaction-metrics",
@@ -157,5 +157,6 @@
       "expected_stdout_contains": "delivery: passed"
     }
   },
-  "mutation_baseline_percent": 100.0
+  "mutation_baseline_percent": 100.0,
+  "_mutation_evidence_v1_historica": "quality/mutation-compaction-metrics-v1.json"
 }

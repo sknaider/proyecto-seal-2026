@@ -1,0 +1,57 @@
+{
+  "schema": "seal.mutation-evidence.v2",
+  "change_id": "dm-channel-over-to",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 2,
+  "survived": 0,
+  "total": 2,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "mutants": [
+    {
+      "id": "sin-chequeo-de-canal",
+      "subject": "messages/seal_monitor_filter.py",
+      "ancla": "        if participantes and agent.upper() not in participantes:",
+      "reemplazo": "        if False:",
+      "why": "el canal deja de mandar: un DM ajeno pasa",
+      "registro": {
+        "subject": "messages/seal_monitor_filter.py",
+        "ancla": "        if participantes and agent.upper() not in participantes:",
+        "reemplazo": "        if False:",
+        "ancla_sha256": "7123c82bac08220c63cd281032130769734d1793650ab4a97190dbb7ff4685ef",
+        "sujeto_sha256_antes": "5f13bf89c5a9275c5117f571c7663fc74ace5ee0e6695eb9b0c4c5dfd728f843",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "comparacion-sensible-a-mayusculas",
+      "subject": "messages/seal_monitor_filter.py",
+      "ancla": "        participantes = {t.strip().upper() for t in canal[3:].split(\":\") if t.strip()}",
+      "reemplazo": "        participantes = {t.strip() for t in canal[3:].split(\":\") if t.strip()}",
+      "why": "dm:alice:william con agent ALICE deja de coincidir",
+      "registro": {
+        "subject": "messages/seal_monitor_filter.py",
+        "ancla": "        participantes = {t.strip().upper() for t in canal[3:].split(\":\") if t.strip()}",
+        "reemplazo": "        participantes = {t.strip() for t in canal[3:].split(\":\") if t.strip()}",
+        "ancla_sha256": "faaab7a9272d93c97e44abd8ba5caf5203097878e63ccb47531f8fd7d39cb618",
+        "sujeto_sha256_antes": "5f13bf89c5a9275c5117f571c7663fc74ace5ee0e6695eb9b0c4c5dfd728f843",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    }
+  ],
+  "file_sha256": {
+    "messages/seal_monitor_filter.py": "5f13bf89c5a9275c5117f571c7663fc74ace5ee0e6695eb9b0c4c5dfd728f843",
+    "tests/test_nexus_dm_channel_over_to_v1.py": "f2530d99dbbd573512fb979c042a08422e109fc423024c6d945060dcb6d86b56"
+  }
+}

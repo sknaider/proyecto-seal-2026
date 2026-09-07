@@ -1,0 +1,70 @@
+{
+ "change_id": "chat-redelivery-acusa",
+ "reviewer": "JARVIS",
+ "tests": [
+  [
+   "messages/tests/test_nexus_redelivery_acusa_v1.py"
+  ],
+  [
+   "messages/tests/test_nexus_channel_acl_v1.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "quitar-el-acuse",
+   "subject": "messages/chat_server.py",
+   "ancla": "                        await _msgdelivery.mark_delivered(_ack, row[\"msg_id\"])",
+   "reemplazo": "                        pass  # MUTANTE: sin acuse (el bug ORIGINAL)",
+   "why": "sin acuse el bucle de reentrega es infinito"
+  },
+  {
+   "id": "acusar-en-vez-de-empujar",
+   "subject": "messages/chat_server.py",
+   "ancla": "                    await _push_to_agents(payload)",
+   "reemplazo": "                    async with chat_db.pool.acquire() as _ack0:\n                        await _msgdelivery.mark_delivered(_ack0, row[\"msg_id\"])",
+   "why": "acusa sin haber empujado"
+  },
+  {
+   "id": "el-tick-no-pasa-el-filtro",
+   "subject": "messages/chat_server.py",
+   "ancla": "                    _c, solo_agentes=_ACK_ENABLED_AGENTS",
+   "reemplazo": "                    _c",
+   "why": "reentrega a agentes que no ackean: amplifica ruido"
+  },
+  {
+   "id": "delivered-pisa-read",
+   "subject": "messages/seal_message_delivery.py",
+   "ancla": "           SET status = CASE WHEN status='read' THEN status ELSE 'delivered' END,",
+   "reemplazo": "           SET status = 'delivered',",
+   "why": "delivered no puede pisar read"
+  },
+  {
+   "id": "backstop-sin-attempts",
+   "subject": "messages/seal_message_delivery.py",
+   "ancla": "               WHERE status <> 'read' AND attempts < $2\n                 AND upper(to_agent) = ANY($4::text[])",
+   "reemplazo": "               WHERE status <> 'read' AND TRUE\n                 AND upper(to_agent) = ANY($4::text[])",
+   "why": "sin tope de intentos"
+  },
+  {
+   "id": "el-filtro-vuelve-a-python",
+   "subject": "messages/seal_message_delivery.py",
+   "ancla": "                 AND upper(to_agent) = ANY($4::text[])\n",
+   "reemplazo": "                 AND TRUE\n",
+   "why": "el filtro por agente deja de estar en el SQL"
+  },
+  {
+   "id": "filtrar-siempre",
+   "subject": "messages/seal_message_delivery.py",
+   "ancla": "                                 solo_agentes: set | None = None) -> list:",
+   "reemplazo": "                                 solo_agentes: set | None = frozenset()) -> list:",
+   "why": "default distinto de None cambia el comportamiento histórico"
+  },
+  {
+   "id": "lo-nunca-entregado-pierde",
+   "subject": "messages/seal_message_delivery.py",
+   "ancla": "           ORDER BY priority ASC, (delivered_at IS NOT NULL) ASC, created_at ASC\n           LIMIT $3\"\"\",\n        retry_after_sec, MAX_ATTEMPTS, limit,\n    )",
+   "reemplazo": "           ORDER BY priority ASC, created_at ASC\n           LIMIT $3\"\"\",\n        retry_after_sec, MAX_ATTEMPTS, limit,\n    )",
+   "why": "los NULL (nunca entregados) dejan de ir primero"
+  }
+ ]
+}

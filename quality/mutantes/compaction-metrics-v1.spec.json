@@ -1,0 +1,67 @@
+{
+ "change_id": "compaction-metrics-v1",
+ "reviewer": "JARVIS",
+ "tests": [
+  [
+   "memory/tests/test_compaction_metrics_v1.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "degradado-siempre-falso",
+   "subject": "memory/compaction_metrics.py",
+   "ancla": "    return bool(contexto) and SENAL_DEGRADADA in contexto",
+   "reemplazo": "    return False",
+   "why": "nunca marca degradado"
+  },
+  {
+   "id": "degradado-siempre-verdadero",
+   "subject": "memory/compaction_metrics.py",
+   "ancla": "def es_degradado(contexto: str | None) -> bool:\n",
+   "reemplazo": "def es_degradado(contexto: str | None) -> bool:\n    return True\n",
+   "why": "siempre degradado"
+  },
+  {
+   "id": "registrar-miente-que-escribio",
+   "subject": "memory/compaction_metrics.py",
+   "ancla": "    except Exception:\n        return False",
+   "reemplazo": "    except Exception:\n        return True",
+   "why": "dice que escribió cuando no pudo"
+  },
+  {
+   "id": "medir-revienta",
+   "subject": "memory/compaction_metrics.py",
+   "ancla": "    if not transcript_path:\n        return vacio",
+   "reemplazo": "    if not transcript_path:\n        raise RuntimeError(\"MUTANTE: medir revienta\")",
+   "why": "medir no puede romper al hook"
+  },
+  {
+   "id": "cuenta-lineas-vacias",
+   "subject": "memory/compaction_metrics.py",
+   "ancla": "                if raw.strip():\n                    total += 1",
+   "reemplazo": "                if True:\n                    total += 1",
+   "why": "cuenta líneas vacías como mensajes"
+  },
+  {
+   "id": "senal-desalineada",
+   "subject": "memory/compaction_metrics.py",
+   "ancla": "SENAL_DEGRADADA = \"SOUL DB no disponible\"",
+   "reemplazo": "SENAL_DEGRADADA = \"SOUL DB disponible\"",
+   "why": "la señal ya no coincide con el aviso real"
+  },
+  {
+   "id": "el-pre-no-instrumenta",
+   "subject": "memory/pre_compact_hook.py",
+   "ancla": "    registrar(construir(\n        \"pre\",",
+   "reemplazo": "    (lambda *a, **k: None)(construir(\n        \"pre\",",
+   "why": "el pre deja de registrar"
+  },
+  {
+   "id": "el-post-no-instrumenta",
+   "subject": "memory/post_compact_session_start_hook.py",
+   "ancla": "    registrar(construir(\n        \"post\", agent,",
+   "reemplazo": "    (lambda *a, **k: None)(construir(\n        \"post\", agent,",
+   "why": "el post deja de registrar"
+  }
+ ]
+}

@@ -1,0 +1,98 @@
+{
+ "change_id": "alice-cutover-exclusion-mutua",
+ "reviewer": "JARVIS",
+ "tests": [
+  [
+   "messages/tests/test_nexus_alice_cutover_exclusion_v1.py"
+  ],
+  [
+   "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "agregar-v2-a-plenos",
+   "subject": "messages/channel_acl.py",
+   "ancla": "    if quien in _ALICE_CUERPOS:\n        return (",
+   "reemplazo": "    if False:\n        return (",
+   "why": "saltear el chequeo de cuerpos equivale a agregar ALICE-V2 a REMITENTES_PLENOS"
+  },
+  {
+   "id": "sin-archivo-gana-v2",
+   "subject": "messages/channel_acl.py",
+   "ancla": "    except OSError:\n        return _ALICE_CANONICA",
+   "reemplazo": "    except OSError:\n        return \"ALICE-V2\"",
+   "why": "sin archivo el default pasa a v2"
+  },
+  {
+   "id": "valor-desconocido-pasa",
+   "subject": "messages/channel_acl.py",
+   "ancla": "    return crudo if crudo in _ALICE_CUERPOS else _ALICE_CANONICA",
+   "reemplazo": "    return crudo",
+   "why": "contenido crudo sin validar"
+  },
+  {
+   "id": "el-inactivo-publica-en-cualquier-canal",
+   "subject": "messages/channel_acl.py",
+   "ancla": "            quien == cuerpo_activo_de_alice()\n            or es_canal_de_sombra(channel)",
+   "reemplazo": "            True\n            or es_canal_de_sombra(channel)",
+   "why": "el inactivo publica en cualquier canal"
+  },
+  {
+   "id": "tabla-por-patron",
+   "subject": "messages/chat_server.py",
+   "ancla": "    return str(verificado or \"\").strip().upper() in _CUERPOS_POR_AGENTE.get(canon, frozenset())",
+   "reemplazo": "    return bool(re.fullmatch(r\"ALICE-V\\d+\", str(verificado or \"\").strip().upper()))",
+   "why": "la tabla explícita por un regex"
+  },
+  {
+   "id": "cualquiera-es-cuerpo",
+   "subject": "messages/chat_server.py",
+   "ancla": "def _es_cuerpo_de_agente(verificado: str, aseverado: str) -> bool:\n",
+   "reemplazo": "def _es_cuerpo_de_agente(verificado: str, aseverado: str) -> bool:\n    return True\n",
+   "why": "cualquiera es cuerpo de cualquiera"
+  },
+  {
+   "id": "cuerpo-identity-nunca-aplica",
+   "subject": "messages/chat_server.py",
+   "ancla": "    cuerpo_identity = bool(\n        _es_cuerpo_de_agente(verified, asserted_sender)",
+   "reemplazo": "    cuerpo_identity = False and bool(\n        _es_cuerpo_de_agente(verified, asserted_sender)",
+   "why": "la identidad de cuerpo nunca aplica"
+  },
+  {
+   "id": "instance-id-ajeno-se-ignora",
+   "subject": "messages/chat_server.py",
+   "ancla": "    elif (\n        instance_id\n        and not clone_identity\n        and not cuerpo_identity\n        and action != \"upload\"\n    ):",
+   "reemplazo": "    elif (\n        False\n    ):",
+   "why": "un instance_id sin respaldo de la sesión se ignora en vez de rechazarse"
+  },
+  {
+   "id": "el-gate-deja-pasar-todo",
+   "subject": "messages/chat_server.py",
+   "ancla": "    if reason:\n",
+   "reemplazo": "    if False:\n",
+   "why": "el gate deja pasar todo"
+  },
+  {
+   "id": "cuerpo-persiste-su-propio-nombre",
+   "subject": "messages/chat_server.py",
+   "ancla": "        if _es_cuerpo_de_agente(usuario, sender):\n            return \"user\", int(auth_session[\"user_id\"]), str(sender)",
+   "reemplazo": "        if _es_cuerpo_de_agente(usuario, sender):\n            return \"user\", int(auth_session[\"user_id\"]), usuario",
+   "why": "vuelve a guardar sender_name=ALICE-V2"
+  },
+  {
+   "id": "cualquiera-persiste-el-aseverado",
+   "subject": "messages/chat_server.py",
+   "ancla": "        if _es_cuerpo_de_agente(usuario, sender):\n            return \"user\", int(auth_session[\"user_id\"]), str(sender)\n        return \"user\", int(auth_session[\"user_id\"]), usuario",
+   "reemplazo": "        if True:\n            return \"user\", int(auth_session[\"user_id\"]), str(sender)\n        return \"user\", int(auth_session[\"user_id\"]), usuario",
+   "why": "cualquiera persiste el nombre aseverado"
+  },
+  {
+   "id": "se-pierde-la-autoria-real",
+   "subject": "messages/chat_server.py",
+   "ancla": "            return \"user\", int(auth_session[\"user_id\"]), str(sender)\n        return \"user\", int(auth_session[\"user_id\"]), usuario",
+   "reemplazo": "            return \"user\", None, str(sender)\n        return \"user\", int(auth_session[\"user_id\"]), usuario",
+   "why": "sender_id=None para el cuerpo: se pierde quién escribió"
+  }
+ ]
+}

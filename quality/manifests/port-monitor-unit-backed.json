@@ -122,5 +122,6 @@
       "expected_exit": 0,
       "expected_stdout_contains": "passed"
     }
-  }
+  },
+  "_re_mutacion_arena_20260907": "NO RE-CORRIBLE EN LA ARENA (JARVIS, revisor, 15:33): sus tests ejecutan `ss -ltnp` y leen cgroups del host; la imagen python:3.12-slim no trae iproute2 y la arena no ve las unidades del host. Control rojo sin mutar (4 fallos, FileNotFoundError: 'ss'). La evidencia de mutación queda CADUCADA y declarada así; los 2 mutantes están escritos en forma ejecutable en quality/mutantes/port-monitor-unit-backed.spec.json para cuando la arena tenga una imagen con iproute2 o un doble de `ss`/cgroups. Regla: no se muta fuera de la arena."
 }
