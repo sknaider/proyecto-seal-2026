@@ -3568,6 +3568,21 @@ def _boot_static_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:12]
 
 
+# G2 del spec de William (§12) EN EL ARRANQUE. Repuesto el 7-sep-2026 con
+# autorizacion del orquestador (bug confirmado: la capacidad existia, su ausencia
+# esta medida y el manifiesto seguia declarandola).
+#
+# ESTE HELPER VA ACA A PROPOSITO, lejos de cualquier `@mcp.tool()`. La primera
+# version lo metio ENTRE el decorador y `boot_context`, y el efecto fue doble:
+# el helper quedo registrado como tool -una corrutina, y `not <corutina>` es
+# siempre False, asi que la capa corria con la bandera APAGADA- y sobre todo
+# `boot_context` PERDIO su registro. Lo cazo su test diferencial; la leccion
+# sobrevivio al borrado del home y el codigo no.
+def _g2_encendida() -> bool:
+    """La capa G2 solo corre si alguien la enciende explicitamente."""
+    return os.environ.get("SEAL_BOOT_G2", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 # ══════════════════════════════════════════════════════════════════════
 # POSTGRESQL-BACKED TOOLS (metadata, identity, events, inner life)
 # ══════════════════════════════════════════════════════════════════════
@@ -3867,6 +3882,27 @@ async def boot_context(agent: str) -> str:
             LOG.info(f"[MerkleSoul] {agent} boot checkpoint signed — root={merkle.root_hash[:16]}... leaves={len(merkle._leaves)}")
         except Exception as e:
             LOG.warning(f"[MerkleSoul] Failed to sign boot checkpoint for {agent}: {e}")
+
+    # G2: QUE ESTABAS HACIENDO. La fuente es `agent_tasks`, no el archivo de
+    # checkpoint: si el checkpoint no corrio -fallo dos noches por credencial- el
+    # arranque MENTIRIA POR OMISION, diria "no tenias tareas" cuando en realidad
+    # nadie tomo la foto. Con agent_tasks la fuente es la misma que ve
+    # `agent_task(list)`.
+    if _g2_encendida():
+        try:
+            _tareas = await conn.fetch(
+                "SELECT id, title, status FROM agent_tasks "
+                "WHERE agent = $1 AND status IN ('in_progress', 'pending') "
+                "ORDER BY CASE status WHEN 'in_progress' THEN 0 ELSE 1 END, "
+                "priority DESC, id DESC LIMIT 10", agent)
+        except Exception:
+            _tareas = []          # el arranque NUNCA se cae por esta capa
+        # Sin tareas no se agrega una seccion vacia: un titulo sin contenido
+        # ocupa contexto y ademas dice "mira aca" donde no hay nada.
+        if _tareas:
+            sections.append("## Que estabas haciendo (tareas activas)")
+            for _t in _tareas:
+                sections.append(f"- [{_t['status']}] #{_t['id']} {_t['title']}")
 
     return "\n".join(sections) if sections else f"No boot context for '{agent}'. Fresh start."
 

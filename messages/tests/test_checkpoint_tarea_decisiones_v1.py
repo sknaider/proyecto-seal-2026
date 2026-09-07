@@ -83,3 +83,35 @@ def test_CONTROL_no_vacuo_el_campo_no_aparece_por_casualidad():
                     claves.add(k.value)
     assert {"tareas_activas", "decisiones_recientes"} <= claves, (
         f"las claves no estan en ningun diccionario del modulo: {sorted(claves)[:12]}")
+
+
+def test_la_decision_entra_RECORTADA():
+    """Mata `la-decision-entra-entera-sin-recorte`, que ALICE hallo VIVO.
+
+    Sin recorte, una sola memoria larga infla el checkpoint sin limite: el
+    archivo se lee en cada arranque, asi que su tamano no es cosmetico.
+
+    Se comprueba sobre el ARBOL, no con `in`: buscar la cadena "[:200]" pasaria
+    aunque el recorte estuviera en otra consulta del mismo archivo -las memorias
+    de sesion ya usan uno-, que es justo como un test se vuelve vacuo.
+    """
+    import ast
+    arbol = ast.parse(FUENTE)
+    recortes = set()
+    for nodo in ast.walk(arbol):
+        if not isinstance(nodo, ast.Dict):
+            continue
+        claves = {k.value for k in nodo.keys if isinstance(k, ast.Constant)}
+        # EXACTAMENTE las tres claves de una decision. Mi primera version pedia
+        # "content y created_at presentes" y NO mataba al mutante: el diccionario
+        # de `session_memories` tambien las tiene, con su propio [:200], asi que
+        # el brazo pasaba con el recorte de OTRA consulta. Es la vacuidad que
+        # este mismo docstring advertia, y en la que cai igual.
+        if claves != {"id", "content", "created_at"}:
+            continue
+        for k, v in zip(nodo.keys, nodo.values):
+            if isinstance(k, ast.Constant) and k.value == "content":
+                recortes.add(ast.unparse(v))
+    assert recortes, "no se encontro el diccionario de decisiones en el modulo"
+    assert any("[:200]" in r or ":200]" in r for r in recortes), (
+        f"la decision entra ENTERA en el checkpoint: {recortes}")
