@@ -19,7 +19,7 @@
     "tools/seal_detector_credenciales_unidades.py": "51c83a43b53f16e9fa1a3d0cb1b4b5358b2e6cf4d6d99457172e18f6ba12c81f",
     "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
     "tools/seal_chequeo_integridad_recuperacion.sh": "bb8ad9b8f14efcb3603ca63097782c089c369f24d2e1eace98ba245c89013af3",
-    "tools/tests/test_detectores_recuperacion_v1.py": "c1f525fe69b65aaf7183eb57d504a52fcec91aa20541d24d92d3ecb2e5dc86d7"
+    "tools/tests/test_detectores_recuperacion_v1.py": "566fb8642694561b7d960774a0640e56dcb53d55f8b55c587194e709810cf142"
   },
   "implementation_head": "563f18c6e5836879bf60cfdf88f8d7f818c3e0dd",
   "commands": [
@@ -94,6 +94,30 @@
         "-q",
         "tools/tests/test_detectores_recuperacion_v1.py::test_qa_control_el_hallazgo_desaparece_al_CORREGIR_el_hecho"
       ]
+    },
+    {
+      "id": "negative-mata-mutante-solo-binarios",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detectores_recuperacion_v1.py::test_qa_negative_mata_mutante_solo_binarios_ignora_las_fuentes"
+      ]
+    },
+    {
+      "id": "negative-mata-mutante-sin-fuentes",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detectores_recuperacion_v1.py::test_qa_negative_mata_mutante_sin_fuentes_ignora_los_binarios"
+      ]
     }
   ],
   "coverage": {
@@ -125,5 +149,6 @@
         "n=$(git ls-files seal-studio/frontend/src/app/v2/ChatView.tsx seal-studio/frontend/src/app/v2/MessageContent.tsx seal-studio/frontend/src/app/v2/CaptureControls.tsx seal-studio/frontend/src/app/v2/GmailPanel.tsx seal-studio/frontend/src/app/v2/Productivity.tsx seal-studio/frontend/src/lib/gmail-server.ts | wc -l); echo \"$n de 6 rescatados siguen versionados\"; [ \"$n\" = 6 ]"
       ]
     }
-  }
+  },
+  "mutation_evidence": "Hallazgo de NEXUS (revision independiente, 12:04): la condicion central de paquetes_vacios (`if sos > 0 and pys == 0`) sobrevivia a dos mutantes porque mis brazos no separaban sus dos mitades. Cerrado con dos casos negativos y VERIFICADO mutando una COPIA EN ARENA, nunca el archivo del repo (regla del 7-sep): original -> con-fuentes exit 0, solo-datos exit 0 (pasa); M1 `if sos > 0:` -> marca el paquete CON fuentes (exit 1): MUERE; M2 `if pys == 0:` -> marca un directorio de datos (exit 1): MUERE."
 }

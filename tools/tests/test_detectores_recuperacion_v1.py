@@ -110,3 +110,33 @@ def test_qa_control_el_hallazgo_desaparece_al_CORREGIR_el_hecho():
     _git(a, "add", "pkg/compa.py"); _git(a, "commit", "-q", "-m", "cierro la bomba")
     despues = _corre(NO_VERSIONADO, str(a)).returncode
     assert (antes, despues) == (1, 0), f"antes={antes} despues={despues}"
+
+
+# --------------------------------------------- brazos que matan mutantes
+# NEXUS reviso el 7-sep y encontro que la condicion central de
+# paquetes_vacios (`if sos > 0 and pys == 0`) sobrevivia a dos mutaciones:
+# mis tests no distinguian sus dos mitades. Estos dos casos las separan.
+def test_qa_negative_mata_mutante_solo_binarios_ignora_las_fuentes():
+    """Mata `if sos > 0:` — un paquete CON fuentes no esta mutilado.
+
+    Un namespace legitimo con submodulos .py y ademas un .so compilado
+    NO debe marcarse. Si alguien borra la mitad `pys == 0`, este caso
+    se pone rojo.
+    """
+    a = _arena(); sp = a / "site-packages"; (sp / "plug/sub").mkdir(parents=True)
+    (sp / "plug/sub/mod.py").write_text("X = 1\n")
+    (sp / "plug/sub/acel.cpython-312.so").write_bytes(b"\x00")
+    r = _corre(MUTILADOS, str(sp))
+    assert r.returncode == 0, f"marco un paquete que SI tiene fuentes: {r.stdout}"
+
+
+def test_qa_negative_mata_mutante_sin_fuentes_ignora_los_binarios():
+    """Mata `if pys == 0:` — un directorio sin binarios NO es un paquete roto.
+
+    Datos sueltos sin .py y sin .so no son un paquete mutilado: son datos.
+    Si alguien borra la mitad `sos > 0`, este caso se pone rojo.
+    """
+    a = _arena(); sp = a / "site-packages"; (sp / "datos").mkdir(parents=True)
+    (sp / "datos/tabla.csv").write_text("a,b\n1,2\n")
+    r = _corre(MUTILADOS, str(sp))
+    assert r.returncode == 0, f"marco un directorio de datos: {r.stdout}"
