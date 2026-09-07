@@ -128,3 +128,43 @@ DB       182.156 memorias, contadas con credencial propia y control negativo
   externos ni historial local de editores.
 - Los conteos de `~/.claude` y `~/.codex` dicen **cuántas entradas hay hoy**, no
   cuántas había antes. No tengo con qué comparar.
+
+
+---
+
+## 6. HALLAZGO 4 (18:26) — los hooks de git NO se restauran con un `clone`
+
+**El freno automático del commit no estuvo puesto en 17 horas y nadie lo notó.**
+
+```console
+.githooks/pre-commit        EXISTE y esta versionado (llama al gate y al core guard)
+core.hooksPath              SIN CONFIGURAR
+.git/hooks/                 solo *.sample -> 0 hooks activos
+```
+
+**La causa es mecánica y se generaliza:** `git clone` **nunca** trae los hooks. El
+`.git` viejo murió con el home; el repo se restauró desde GitHub; el archivo del
+hook viaja en el árbol —por eso se ve— pero **el que git ejecuta vive en
+`.git/hooks`, que se reconstruyó vacío.**
+
+**Es una clase propia, distinta de las tres anteriores:** no es un archivo perdido
+(se ve en el árbol), ni una capacidad perdida (el código está), ni una unidad que
+miente. **Es un archivo presente y desconectado.** Ningún inventario que pregunte
+«¿existe?» lo encuentra: hay que preguntar «¿lo ejecuta alguien?».
+
+**Repuesto y verificado por efecto (7-sep 18:28), en los dos sentidos:**
+
+```console
+git config core.hooksPath .githooks
+
+señuelo   toco un sujeto firmado y commiteo   rc=1 · HEAD NO avanza · REJECTED
+CONTROL   commit legitimo                     rc=0 · HEAD avanza
+```
+
+**El control importa tanto como el señuelo:** un hook que rechazara todo se vería
+igual de «puesto» y sería inservible; el que bloquea siempre se termina
+desactivando.
+
+**Estado esencial que un `clone` no restaura** —para el respaldo, junto a las
+credenciales—: `core.hooksPath` **es configuración LOCAL**, no un archivo del
+repo. No está en git, no lo cubre el NFS y no lo declara ningún test.
