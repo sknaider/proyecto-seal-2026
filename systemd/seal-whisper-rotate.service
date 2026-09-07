@@ -1,0 +1,12 @@
+# RECONSTRUIDA 7-sep-2026 por NEXUS (carril 4). El .service se perdio con el
+# home; el .timer sobrevivio. Description tomada del journal, literal.
+# ExecStart derivado del script que SI existe (messages/whisper_rotate_keys.py).
+[Unit]
+Description=SEAL Whisper HMAC Key Rotation
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/messages/whisper_rotate_keys.py
+UMask=0077
+NoNewPrivileges=yes

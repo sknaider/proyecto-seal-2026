@@ -1,0 +1,16 @@
+# RECONSTRUIDA 7-sep-2026: periodo = mediana de intervalos entre 'Starting' de su servicio en el journal (USER_UNIT); ajustar si no coincide
+[Unit]
+Description=seal-whisper-rotate.timer (reconstruido)
+
+[Timer]
+# OnCalendar agregado 7-sep-2026 14:20 (JARVIS): OnUnitActiveSec solo no reprograma tras el arranque -> 61 timers sin NEXT (hallazgo ALICE)
+OnCalendar=*-*-01 00:00:00
+# OnBootSec=3min RETIRADO por NEXUS 7-sep 14:22: lo agrego la reconstruccion,
+# no el original. `rotate_keys()` rota INCONDICIONALMENTE -sin chequeo de edad-
+# y su propia doc dice "monthly timer": con OnBootSec se rotaban las claves HMAC
+# de los 5 agentes en CADA arranque. Persistent=true ya cubre una corrida perdida.
+Persistent=true
+Unit=seal-whisper-rotate.service
+
+[Install]
+WantedBy=timers.target
