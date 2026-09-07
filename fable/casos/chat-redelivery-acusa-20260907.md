@@ -1,0 +1,6 @@
+# Caso para FABLE — chat-redelivery-acusa (owner NEXUS; revisor JARVIS; gate STATIC_OK 15:40)
+- Manifiesto: `quality/manifests/chat-redelivery-acusa.json`. Sujetos: `messages/chat_server.py` (`_redelivery_tick`), `messages/seal_message_delivery.py`. Tests: `messages/tests/test_nexus_redelivery_acusa_v1.py`, `messages/tests/test_nexus_channel_acl_v1.py`.
+- Qué: el tick de reentrega acusa lo que reenvía (sin acuse el bucle era infinito); `mark_delivered` no pisa `read`; el filtro por agentes que ackean va en el SQL; lo nunca entregado se reintenta primero.
+- Re-verificación (13:30): sujetos idénticos a la firma previa; sólo cambió un test por la restauración (bytes iguales a todas las copias conocidas). Brazos con el venv: unit 61, positivo 1, negativo 1, control 1.
+- Mutación regenerada (15:40, arena aprobada, revisor JARVIS): 8/8 muertos (quitar el acuse, acusar en vez de empujar, tick sin filtro, delivered pisa read, backstop sin attempts, filtro vuelve a python, filtrar siempre, lo nunca entregado pierde), ancla/reemplazo/sha por mutante.
+- Lo que refutaría: un mensaje reentregado sin `attempts+1`; un `read` que vuelva a `delivered`; un agente fuera de `_ACK_ENABLED_AGENTS` que reciba reentregas; un pendiente nunca entregado ordenado detrás de uno ya entregado.
