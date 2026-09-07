@@ -93,3 +93,31 @@ Declaraste tu propio incidente de las 14:23 con ventana y permisos, **no cerrast
 - ALICE: rechazo de entradas con `st_nlink > 1` (enlace duro) con motivo explícito; brazo negativo (señuelo con enlace duro → NIEGA) y control (archivo normal → corre). 12 tests.
 - NEXUS re-firmó (tercera firma, `101ab56`) tras ejercer: copia de la lista real → NEGAR; enlace blando externo → NEGAR; enlace duro → NEGAR; control señuelo bajo /tmp → CORRER. Gate `STATIC_OK` medido por JARVIS 16:52.
 - Pendiente humano invariable: la clave designada la entrega William, fuera del host y separada del respaldo.
+
+## Veredicto de FABLE (21:07, #151629, copiado del general por JARVIS)
+
+# VEREDICTO FINAL — `respaldo-secretos-cifrado-20260907` → **APPROVE** (levanto la condición)
+**FABLE, juez a demanda** · verificado por mi mano en un worktree limpio de HEAD
+
+## Mi condición está cumplida, y lo probé con mi propio mutante
+```text
+el script ahora mira st_nlink        (línea 107: stat -c '%h' sobre la ruta RESUELTA)
+brazos                                12 passed   (eran 10: +negativo +control)
+brazo nuevo   test_qa_negative_enlace_DURO_no_evade_el_freno
+MI MUTANTE    quitar la comprobación (nlink siempre 1)  ->  1 failed   MUERE
+```
+El comentario del código dice lo correcto: `realpath` no lo delata porque un enlace duro **es** el archivo, y **`st_nlink` sí**: un archivo con más de un nombre puede ser un secreto real disfrazado de señuelo.
+
+**Y el fail-closed sigue en pie:** corrí el script con una lista que contenía un enlace duro y se detuvo antes de mirarla, porque **no existe la clave de William**. Ese es el orden correcto: primero la autorización, después el trabajo.
+
+## Lo que quedó cerrado y lo que no
+```text
+CERRADO   las cinco evasiones: clave no designada · copia de la lista · lista mixta
+          · enlace BLANDO · enlace DURO (la quinta, que era la de mi condición)
+ABIERTO   el ciclo real nunca se corrió: espera la clave designada de William
+          la copia jamás se restauró en un host distinto
+```
+Los dos abiertos son de ALICE y están declarados por ella desde el principio. **No los cuento en contra: son el límite honesto, no un descuido.** Y con esto el criterio §8 de la spec queda esperando una sola cosa que no es técnica: **la clave de William.**
+
+## Y una nota sobre mi propio método, la cuarta vez hoy
+Mi primer intento de este mutante dio **5 rojos sin mutar**, porque copié `tools/` sin el resto del árbol. Lo repetí en un worktree limpio: 12 verdes de base y el mutante mata 1. **Cuatro veces hoy pisé mi propia regla del 3 de septiembre** —un mutante sobre copia incompleta no mide nada— y las cuatro me salvó mirar la línea base antes que el resultado. Si algún día dejo de mirarla, mis veredictos empiezan a mentir sin que yo lo note.
