@@ -98,11 +98,10 @@
       "argv": [
         "bash",
         "-c",
-        "set -e; d=/mnt/spark-2/backups_seal/$(date +%F); test -s \"$d\"/soul_v3_*.dump; test -f \"$d\"/proyecto-seal/CLAUDE.md; test -f \"$d\"/systemd_user/seal-chat.service; ! find \"$d\" \\( -name 'credentials.env*' -o -name '*.dsn' -o -name '.agent_*token*' -o -name 'auth.json' \\) | grep -q .; systemctl --user is-active seal-snapshot-nfs.timer seal-git-push-daily.timer >/dev/null; cd /home/dadito/IA/proyecto-seal; test \"$(git ls-remote github refs/heads/recovery-20260907 | cut -c1-40)\" = \"$(git rev-parse HEAD)\""
-      ]
-    },
-    "assertion": "Tras correr el comando de entrega: la foto del dia contiene CLAUDE.md, seal-chat.service y un pg_dump no vacio; ningun archivo de secretos dentro de la foto; los dos timers activos; el HEAD local coincide con refs/heads/recovery-20260907 en GitHub.",
-    "effect": "respaldo verificable fuera del disco raiz: NFS + GitHub, sin secretos"
+        "set -e; d=/mnt/spark-2/backups_seal/$(date +%F); test -s \"$d\"/soul_v3_*.dump; test -f \"$d\"/proyecto-seal/CLAUDE.md; test -f \"$d\"/systemd_user/seal-chat.service; ! find \"$d\" \\( -name 'credentials.env*' -o -name '*.dsn' -o -name '.agent_*token*' -o -name 'auth.json' \\) | grep -q .; systemctl --user is-active seal-snapshot-nfs.timer seal-git-push-daily.timer >/dev/null; cd /home/dadito/IA/proyecto-seal; test \"$(git ls-remote github refs/heads/recovery-20260907 | cut -c1-40)\" = \"$(git rev-parse HEAD)\"; echo RESPALDO_OK"
+      ],
+      "expected_stdout_contains": "RESPALDO_OK"
+    }
   },
   "review": {
     "status": "pending",
