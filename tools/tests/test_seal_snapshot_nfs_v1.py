@@ -17,6 +17,13 @@ def test_guarda_rechaza_destino_fuera_de_nfs(tmp_path):
     assert "destino invalido" in r.stderr
     assert not any(tmp_path.iterdir()), "no debe escribir nada fuera de /mnt/spark-2"
 
+def test_guarda_rechaza_evasion_con_puntos_puntos():
+    """Hallazgo NEXUS 7-sep: /mnt/spark-2/../home/dadito pasaba la guarda textual. Ahora se resuelve la ruta."""
+    r = _run({"SEAL_SNAPSHOT_DEST": "/mnt/spark-2/../home/dadito"})
+    assert r.returncode == 2, r.stderr
+    assert "destino invalido" in r.stderr
+
+
 def test_guarda_rechaza_raiz_del_home():
     r = _run({"SEAL_SNAPSHOT_DEST": "/home/dadito"})
     assert r.returncode == 2
@@ -33,6 +40,7 @@ def test_foto_real_contiene_lo_critico_y_ningun_secreto():
                      "claude_memory/MEMORY.md", "CLAUDE_global.md"]:
             assert (dia / must).exists(), f"falta {must}"
         assert any(p.suffix == ".dump" for p in dia.iterdir()), "falta el pg_dump"
+        assert (dia / "NO_RESPALDADO_Y_COMO_SE_REPONE.md").exists(), "la foto debe declarar lo que no contiene"
         secretos = [str(p) for p in dia.rglob("*") if p.is_file() and (
             p.name.startswith("credentials.env") or p.suffix == ".dsn" or p.name.startswith(".agent_")
             or p.name in ("auth.json", "seal_secrets.py") or p.suffix in (".pem", ".key"))]

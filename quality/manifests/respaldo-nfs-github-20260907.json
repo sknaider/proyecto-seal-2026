@@ -13,9 +13,9 @@
     "tools/tests/test_seal_snapshot_nfs_v1.py"
   ],
   "source_sha256": {
-    "tools/seal_snapshot_nfs.sh": "aabb614602d077caa6c7e73e17ba0798691d8881332d31dc0ecb389b5c5b5016",
+    "tools/seal_snapshot_nfs.sh": "59e297baee320ec7a5633537f6fc2fc8c63670a1fefd90fa517df2605769391e",
     "tools/seal_git_push_daily.sh": "37d22154dda39af2c35ae5ce2d2dd189887688cc3d76c10a623c21b205a28af0",
-    "tools/tests/test_seal_snapshot_nfs_v1.py": "f29b2e4d71b110f8c8490b74e5c59ceec7dc1a4465ddae44b06db53ea46ac587"
+    "tools/tests/test_seal_snapshot_nfs_v1.py": "dad1e85a3632f8973a757adc41226d902c62c2e0081d15b750d3a94d90ad42cd"
   },
   "implementation_head": "2e9e5a92bb74d2d580ba913bec7b26ab545100f7",
   "commands": [
@@ -53,7 +53,8 @@
         "pytest",
         "-q",
         "tools/tests/test_seal_snapshot_nfs_v1.py::test_guarda_rechaza_destino_fuera_de_nfs",
-        "tools/tests/test_seal_snapshot_nfs_v1.py::test_guarda_rechaza_raiz_del_home"
+        "tools/tests/test_seal_snapshot_nfs_v1.py::test_guarda_rechaza_raiz_del_home",
+        "tools/tests/test_seal_snapshot_nfs_v1.py::test_guarda_rechaza_evasion_con_puntos_puntos"
       ]
     },
     {
@@ -107,5 +108,9 @@
     "status": "pending",
     "reviewer": "NEXUS"
   },
-  "_nota_para_el_revisor": "Los commits de recuperacion se hicieron con el hook apagado; este manifiesto es la deuda. El brazo positivo tarda ~10 min (foto real al NFS bajo _test_<pid>, se borra al final)."
+  "_nota_para_el_revisor": "Los commits de recuperacion se hicieron con el hook apagado; este manifiesto es la deuda. El brazo positivo tarda ~10 min (foto real al NFS bajo _test_<pid>, se borra al final).",
+  "_hallazgos_revision": {
+    "NEXUS-1": "guarda evadible con .. -> resuelta con realpath -m antes del case; test negativo nuevo",
+    "NEXUS-2": "secretos excluidos a proposito -> cada foto declara NO_RESPALDADO_Y_COMO_SE_REPONE.md; la copia cifrada es el carril 3 (decision de William sobre la clave)"
+  }
 }
