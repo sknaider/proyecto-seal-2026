@@ -20,7 +20,7 @@ Tres estados, porque dos no alcanzan:
     ILEGIBLE     no pude leer el entorno -> NO es "sano", es desconocido
 """
 from __future__ import annotations
-import pathlib, re, sys
+import pathlib, re, subprocess, sys
 
 UNIDADES = pathlib.Path.home() / ".config/systemd/user"   # se puede pasar otro por argv
 # SOLO variables OBLIGATORIAS. Una leida con valor por defecto
@@ -43,6 +43,23 @@ PIDE = re.compile(
     )
 CLAVES = ("DSN", "DB_URL", "DATABASE", "TOKEN", "SECRET", "KEY", "PASS", "CRED")
 
+# Otra FUENTE posible dentro del propio script: si la tiene, la unidad puede no
+# declarar la variable y aun asi arrancar. FABLE lo midio el 7-sep: de 14
+# marcadas, 13 corrian con result=success -eran ruido- y solo 1 era real.
+# Marcar las 13 junto a la 1 hace que nadie lea el informe.
+OTRA_FUENTE = re.compile(
+    r"seal_secrets|pg_dsn\s*\(|read_text\s*\(|open\s*\(|Path\s*\([^)]*env|"
+    r"\.dsn\b|credentials\.env|_cred\b|LoadCredential|CREDENTIALS_DIRECTORY",
+    re.I)
+
+
+def tiene_otra_fuente(script: pathlib.Path) -> bool:
+    """¿El script puede obtener la credencial por un camino que la unidad no declara?"""
+    try:
+        return bool(OTRA_FUENTE.search(script.read_text(errors="replace")))
+    except OSError:
+        return False
+
 
 def variables_que_pide(script: pathlib.Path) -> set[str]:
     try:
@@ -58,7 +75,7 @@ def main() -> int:
     global UNIDADES
     if len(sys.argv) > 1:
         UNIDADES = pathlib.Path(sys.argv[1])
-    sin_fuente, desajuste, ilegible = [], [], []
+    sin_fuente, desajuste, ilegible, a_mano = [], [], [], []
     vistas: set[pathlib.Path] = set()
     for unidad in sorted(UNIDADES.glob("*.service")):
         real = unidad.resolve()
@@ -76,17 +93,34 @@ def main() -> int:
             pedidas |= variables_que_pide(s)
         if not pedidas:
             continue
-        definidas = set(re.findall(r"^Environment=([A-Z][A-Z0-9_]*)=", txt, re.M))
+        # La configuracion EFECTIVA incluye los drop-ins .service.d/*.conf, que
+        # tambien declaran EnvironmentFile. Leer solo el archivo principal deja
+        # afuera unidades perfectamente sanas (lo midio JARVIS el 7-sep con su
+        # seal-jarvis-daily-brief). `systemctl cat` muestra principal + drop-ins;
+        # si no esta disponible se cae al archivo, declarandolo.
+        efectivo = txt
+        try:
+            r = subprocess.run(["systemctl", "--user", "cat", unidad.name],
+                               capture_output=True, text=True, timeout=30)
+            if r.returncode == 0 and r.stdout.strip():
+                efectivo = r.stdout
+        except Exception:
+            pass
+        definidas = set(re.findall(r"^Environment=([A-Z][A-Z0-9_]*)=", efectivo, re.M))
         hubo_ilegible = False
-        for ef in re.findall(r"^EnvironmentFile=-?(\S+)", txt, re.M):
+        for ef in re.findall(r"^EnvironmentFile=-?(\S+)", efectivo, re.M):
             p = pathlib.Path(ef.replace("%h", str(pathlib.Path.home())))
             try:
                 definidas |= set(re.findall(r"^([A-Z][A-Z0-9_]*)=",
                                             p.read_text(errors="replace"), re.M))
             except OSError:
                 hubo_ilegible = True
+        # Antes de marcar: ¿el script tiene otra fuente? (condicion 1 de FABLE)
+        con_fallback = any(tiene_otra_fuente(s) for s in scripts)
         if hubo_ilegible:
             ilegible.append((unidad.name, sorted(pedidas)))
+        elif not definidas and con_fallback:
+            a_mano.append((unidad.name, sorted(pedidas)))
         elif not definidas:
             # LA CATEGORIA QUE ME FALTABA: ninguna fuente, no un nombre distinto.
             sin_fuente.append((unidad.name, sorted(pedidas)))
@@ -100,6 +134,12 @@ def main() -> int:
             for fila in filas:
                 print(f"  {fila[0]}\n      pide: {fila[1]}"
                       + (f"\n      el entorno define: {fila[2]}" if len(fila) > 2 else ""))
+    if a_mano:
+        print(f"\nVERIFICAR A MANO ({len(a_mano)}) — la unidad no declara la variable, PERO el")
+        print("  script puede obtenerla por otra via (seal_secrets, archivo propio, LoadCredential).")
+        print("  NO compite con los hallazgos de arriba: puede estar perfectamente sano.")
+        for n, p in a_mano:
+            print(f"  {n}  pide: {p}")
     if ilegible:
         print(f"\nNO PUDE LEER SU ENTORNO ({len(ilegible)}) — desconocido, NO sano:")
         for n, p in ilegible:

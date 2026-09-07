@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Corre los cuatro detectores nacidos del borrado del 7-sep-2026 y AVISA SOLO
+# Corre los cinco detectores nacidos del borrado del 7-sep-2026 y AVISA SOLO
 # SI HAY HALLAZGO (regla de William, 2-ago: brief por hallazgo, no por reloj).
 #
 # POR QUE ESTE ARCHIVO EXISTE: los tres detectores encontraron perdidas reales
@@ -37,9 +37,13 @@ corre "paquetes mutilados (importan y estan vacios)" \
 # senuelo el 7-sep). Este es el unico que grita cuando ya no queda nada.
 corre "rutas criticas que faltan (arbol vaciado)" \
       python3 "$REPO/tools/seal_detector_existencia.py"
+# Condicion 3 de FABLE (7-sep): "que alguien lo corra". Un detector que no se
+# ejecuta no es una defensa, es la documentacion de una defensa.
+corre "unidades que piden credencial y no tienen de donde sacarla" \
+      python3 "$REPO/tools/seal_detector_credencial_sin_fuente.py"
 
 if [ "$hay" = 0 ]; then
-  echo "sin hallazgos en los cuatro detectores"
+  echo "sin hallazgos en los cinco detectores"
   exit 0
 fi
 
