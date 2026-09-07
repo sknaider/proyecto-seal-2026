@@ -2,6 +2,7 @@
 Prueba la DECISION (guarda de destino, exclusion de secretos, contenido), no el cron.
 Corre contra el NFS real en un subdirectorio de prueba: /mnt/spark-2/backups_seal/_test_<pid>.
 """
+import pathlib
 import os, subprocess, pathlib, shutil, pytest
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "seal_snapshot_nfs.sh"
@@ -42,7 +43,7 @@ def test_foto_real_contiene_lo_critico_y_ningun_secreto():
         assert any(p.suffix == ".dump" for p in dia.iterdir()), "falta el pg_dump"
         assert (dia / "NO_RESPALDADO_Y_COMO_SE_REPONE.md").exists(), "la foto debe declarar lo que no contiene"
         secretos = [str(p) for p in dia.rglob("*") if p.is_file() and (
-            p.name.startswith("credentials.env") or p.suffix == ".dsn" or p.name.startswith(".agent_")
+            p.name.startswith("credentials.env") or p.suffix == ".dsn" or p.name.startswith((".agent_session_token", ".agent_ws_token"))
             or p.name in ("auth.json", "seal_secrets.py") or p.suffix in (".pem", ".key"))]
         assert secretos == [], secretos
         assert not any((dia / "proyecto-seal").rglob("*.gguf")), "ningun modelo GGUF en la foto"
@@ -71,3 +72,21 @@ def test_CONTROL_sin_la_guarda_un_destino_fuera_del_nfs_seria_aceptado(tmp_path)
     r = subprocess.run(["bash", str(copia)], capture_output=True, text=True, env=env, timeout=60)
     assert r.returncode != 2, "la copia sin guarda no debe devolver el codigo de la guarda"
     assert "destino invalido" not in r.stderr
+
+
+def test_redaccion_de_unidades_borra_dsn_y_tokens_en_linea(tmp_path):
+    """Negativo: la COPIA de una unidad con DSN, token y password en linea no conserva ningun valor.
+    Corre las mismas expresiones sed que el script (extraidas del archivo, no copiadas)."""
+    import re, subprocess
+    script = pathlib.Path(__file__).resolve().parents[1] / "seal_snapshot_nfs.sh"
+    exprs = re.findall(r"sed -i -E '([^']+)'", script.read_text())
+    assert len(exprs) >= 2, exprs
+    unidad = tmp_path / "x.service"
+    unidad.write_text('Environment=SEAL_SIDECAR_TOKEN=abcdef0123456789abcdef0123456789 PG_PASSWORD=x9y8z7\n'
+                      'Environment="SEAL_DB_URL=postgres://u:p4ss@h/db"\n')
+    for e in exprs:
+        subprocess.run(["sed", "-i", "-E", e, str(unidad)], check=True)
+    out = unidad.read_text()
+    for valor in ("abcdef0123456789", "x9y8z7", "p4ss"):
+        assert valor not in out, out
+    assert out.count("REDACTADO") == 3, out

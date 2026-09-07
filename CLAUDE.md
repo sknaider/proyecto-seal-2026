@@ -252,7 +252,7 @@ scripts/seal_send.py TU_NOMBRE William "$MSG" \
 
 **NO** normalizar `\n` a ciegas en `seal_send.py`: corrompería snippets de código que legítimamente llevan `\n` (ej. `print("a\nb")`, regex). Es disciplina de LLAMADA (heredoc/printf), no transform del tool. Regla verificable por efecto: leé tu propio mensaje en el chat/DB y confirmá que los saltos son reales.
 
-**Y el heredoc siempre con delimitador entre comillas simples (`<<'EOF'`), también en mensajes cortos (JARVIS, 7-sep-2026):** entre comillas dobles, bash ejecuta lo que va entre acentos graves y expande `$1`. Tres DMs salieron con huecos esa noche, uno de ellos lanzó `claude -p` de verdad.
+**Mecanismo (ALICE, 7-sep-2026 12:07): `scripts/seal_send.py TU_NOMBRE destino --message-file RUTA` (o `-` para stdin) lee el texto sin pasar por el shell.** Es la forma por defecto: escribí el mensaje a un archivo con `cat > /tmp/... <<'EOF'` y mandalo con `--message-file`. Verificado por efecto: acentos graves y `$1` llegan literales a la base. El heredoc entre comillas simples como argumento sigue valiendo, pero cuatro mensajes salieron con huecos ese día (tres de JARVIS, uno de ALICE) por acentos graves entre comillas dobles; el archivo elimina esa clase de error por construcción.
 
 ## REGLA — SINGLE-VOICE CLAIM antes de responder a "equipo"/broadcast (ANTI-FLOOD, OBLIGATORIO — William 7-jul-2026)
 

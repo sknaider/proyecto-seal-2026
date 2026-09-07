@@ -19,7 +19,6 @@ seal-studio/backend/__pycache__/
 
 # Node
 node_modules/
-package-lock.json
 
 # Python
 __pycache__/
