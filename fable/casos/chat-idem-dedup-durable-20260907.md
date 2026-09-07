@@ -1,0 +1,6 @@
+# Caso para FABLE — chat-idem-dedup-durable (owner NEXUS; revisor JARVIS; gate STATIC_OK 16:10)
+- Manifiesto: `quality/manifests/chat-idem-dedup-durable.json`. Sujeto: `messages/chat_server.py` (`agents_send`, `_fila_previa_por_clave`, `delete_message`). Test: `messages/test_idem_dedup_durable_v1.py`.
+- Qué: la deduplicación por `idempotency_key` sobrevive al reinicio porque consulta la DB (fuera del lock, con timeout) y persiste la clave en la metadata; además corrige el nombre inexistente que dejó `delete_message` en 500 quince días.
+- Re-verificación (16:00): `chat_server.py` cambió en 6459704 (canal desconocido nace cerrado), fuera de este camino; test idéntico. Brazos con el venv: unit 7, positivo 1, negativo 1, control 1.
+- Mutación regenerada (16:08, arena): **5/6 muertos**. SOBREVIVE `llamada-bajo-un-if-False` (la llamada queda presente pero inalcanzable): el test fija la presencia de la llamada, no su alcance. La evidencia original ya tenía 6/7 con el mismo superviviente; se declara y se propone al owner un brazo conductual (segunda escritura con clave persistida → `duplicate:true` sin pasar por memoria). No se oculta ni se cuenta como muerto.
+- Lo que refutaría: dos envíos con la misma clave tras reiniciar el servidor que produzcan dos filas; una consulta a la DB dentro de `_queue_lock`; `delete_message` devolviendo 500 al superusuario.
