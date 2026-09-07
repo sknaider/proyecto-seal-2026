@@ -31,6 +31,25 @@ def sha(p: pathlib.Path) -> str:
 ULTIMA_SALIDA = ""
 
 
+_PROHIBIDOS_EN_TESTS = {"python3", "python", "pytest", "-m", "py.test"}
+
+def _validar_tests(tests):
+    """Cada entrada de spec["tests"] es un argv PARA pytest (rutas y flags), no un comando.
+    Un "python3 -m pytest ..." acá hace que pytest busque un archivo llamado python3
+    y falle con un mensaje que confunde (dos clones lo leyeron como PYTHONPATH roto, 7-sep)."""
+    if not isinstance(tests, list) or not tests or not all(isinstance(a, list) and a for a in tests):
+        raise SystemExit("spec['tests'] debe ser una lista no vacia de listas argv para pytest")
+    for argv in tests:
+        malos = [t for t in argv if t in _PROHIBIDOS_EN_TESTS]
+        if malos:
+            raise SystemExit(f"spec['tests'] lleva {malos}: son argv PARA pytest, sin interprete ni '-m pytest' (ej. [['messages/tests/test_x.py']])")
+        for t in argv:
+            if t.startswith("-") or not (t.endswith(".py") or "::" in t or "/" in t):
+                continue  # flags y sus valores (-k "expr", -q) no son rutas
+            ruta = t.split("::")[0]
+            if not (RAIZ / ruta).exists():
+                raise SystemExit(f"spec['tests'] apunta a un archivo inexistente en la arena: {ruta}")
+
 def corre(tests: list[list[str]]) -> int:
     global ULTIMA_SALIDA
     rc = 0
@@ -47,6 +66,7 @@ def main(spec_path: str, salida: str) -> int:
     sms.verificar(str(RAIZ))
     print("[arena] guarda: HABILITA")
     tests = spec["tests"]
+    _validar_tests(tests)
     if corre(tests) != 0:
         print("[arena] CONTROL ROJO; cola de pytest:\n" + "\n".join(ULTIMA_SALIDA.splitlines()[-25:]))
         raise SystemExit("el CONTROL debe estar verde ANTES de mutar")
