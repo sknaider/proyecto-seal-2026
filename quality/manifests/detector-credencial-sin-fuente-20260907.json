@@ -179,5 +179,19 @@
         "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_el_drop_in_no_silencia_una_credencial_REALMENTE_faltante"
       ]
     }
-  ]
+  ],
+  "review": {
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-07T19:50:40.417893+00:00",
+      "evidence": "RE-FIRMA JARVIS 7-sep 14:56 sobre los bytes de las condiciones 1 y 3 de FABLE. 11/11 brazos con el venv. Refutadores repetidos sobre unidades senuelo bajo /tmp: (a) sin fuente -> MARCADA; (d) EnvironmentFile en drop-in .service.d/10-env.conf -> YA NO marcada (antes si); (c) EnvironmentFile en el archivo principal -> no; (e) CREDENTIALS_DIRECTORY con LoadCredential= -> no marcada (matiz ADA); (f) variable de configuracion SEAL_DISABLE_* -> no marcada (matiz ADA). Corrida real: 2 SIN FUENTE + 1 DESAJUSTE + 10 VERIFICAR A MANO (categoria separada, condicion 1). El detector esta llamado desde seal_chequeo_integridad_recuperacion.sh (condicion 3). Correccion previa del revisor (conteo 14, no 2) queda en el expediente.",
+      "reviewed_sha256": {
+        "tools/seal_detector_credencial_sin_fuente.py": "af9e0b3a5729fb376a2821717e8c212268ecd20d08cc5a0003bc6e805709fb0d",
+        "tools/tests/test_credencial_sin_fuente_v1.py": "dfe828390da0e8ab6edd5ad99ea514c080226a8b0d7b64486bfdc0736074040d"
+      },
+      "manifest_digest": "62b1d6499b8e13a9f3c0dd12805fa7156eb7e1dffeedc8cd5c82114dd80b82e5"
+    }
+  }
 }

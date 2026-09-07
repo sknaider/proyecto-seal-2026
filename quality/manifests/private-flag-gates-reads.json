@@ -22,11 +22,11 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T18:27:24.672084+00:00",
-      "evidence": "REVISION INDEPENDIENTE JARVIS 7-sep 13:35. Brazos con el venv: unit 11 passed, positivo 1 (la bandera decide), negativo 1 (falla cerrado), control 1. REFUTADOR POR EFECTO contra el servicio vivo (solo codigos HTTP, sin leer contenido): GET anonimo /api/chat/messages?channel=fable-juez -> 401; shadow:alice-v2 -> 401; web_chat -> 200; en la DB los dos primeros tienen is_private=true. La lectura anonima de un canal privado esta cerrada hoy, no solo en el test. Defecto del manifiesto: argv con 'python3' (en este host sin pytest); owner NEXUS lo fija.",
+      "signed_at": "2026-09-07T19:51:12.082067+00:00",
+      "evidence": "RE-FIRMA JARVIS 7-sep 14:57 sobre la condicion de FABLE (#151271) desplegada por NEXUS en 6459704. Verificado POR EFECTO contra seal-chat vivo (solo codigos HTTP): web_chat 200, general 200, shadow:alice-v2 401, shadow:nuevo-inexistente 401 (prefijo cierra sin registro previo), canal-que-no-existe-jarvis 401 (un canal desconocido NACE cerrado), fable-juez 401. Brazos del manifiesto con el venv: ver salida adjunta en el chat. Defecto de argv 'python3' sigue declarado.",
       "reviewed_sha256": {
-        "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
-        "tests/test_nexus_private_flag_gates_reads_v1.py": "1a1aaf81a67acfa49e386c50b5aedbcc8c68fc48cf58cdcc0274cd500df6c23c"
+        "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "tests/test_nexus_private_flag_gates_reads_v1.py": "0b95aaf1b4a3a3a480f19fa93c7886e2968086a7c82796e002ed2f0b0ca443f8"
       },
       "manifest_digest": "049359e3c9c066e7fabe9315d6739f967759214135f35e9e6d24666296788d07"
     }
