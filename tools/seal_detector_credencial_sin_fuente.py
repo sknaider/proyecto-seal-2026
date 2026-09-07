@@ -31,6 +31,12 @@ UNIDADES = pathlib.Path.home() / ".config/systemd/user"   # se puede pasar otro 
 PIDE = re.compile(
     r"""(?:os\.)?environ\[["']([A-Z][A-Z0-9_]{3,})["']\]"""          # environ["X"]
     r"""|(?:os\.)?environ\.get\(\s*["']([A-Z][A-Z0-9_]{3,})["']\s*\)"""  # .get("X") sin default
+    # ADA, 7-sep 13:01: "tener valor por defecto no demuestra que sea opcional:
+    # puede leerse con "" o None y despues provocar un fallo obligatorio".
+    # Un default VACIO no es un default: es el modismo de "esto lo tenes que
+    # proveer" seguido de un chequeo que aborta. Mi filtro anterior los
+    # descartaba a todos y perdia justo los obligatorios mejor escritos.
+    r"""|(?:os\.)?environ\.get\(\s*["']([A-Z][A-Z0-9_]{3,})["']\s*,\s*(?:""|''|None)\s*\)"""
     r"""|getenv\(\s*["']([A-Z][A-Z0-9_]{3,})["']\s*\)"""            # getenv("X") sin default
     r"""|\$\{([A-Z][A-Z0-9_]{3,})\}(?!:-)"""                        # ${X} sin :-
     r"""|\$\{([A-Z][A-Z0-9_]{3,}):\?"""                             # ${X:?...}
