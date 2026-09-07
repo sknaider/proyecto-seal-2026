@@ -1,0 +1,9 @@
+BANCO DEL ARNES DE MUTACION — 2026-09-07 14:01:19
+  1 sin privilegios + copia en /tmp              guarda=HABILITA  escribe=/trabajo                     OK
+  2 contenedor como root                         guarda=NIEGA     escribe=/trabajo                     OK
+  3 uid 1000 + repo REAL montado                 guarda=NIEGA     escribe=/trabajo                     OK
+  4 uid 1000 + /home montado                     guarda=NIEGA     escribe=/home/dadito,/trabajo        OK
+  5 uid 1000 + NFS de respaldo                   guarda=NIEGA     escribe=/mnt/spark-2,/trabajo        OK
+  6 host, sin contenedor                         guarda=NIEGA      OK
+
+los 6 escenarios se comportan como deben
