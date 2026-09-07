@@ -15,7 +15,7 @@ mkdir -p "$DEST"
 # rsync sin preservar modo (NFS) y sin borrar en destino salvo dentro de la foto del dia
 RS="rsync -a --no-perms --no-owner --no-group --delete-excluded"
 rs(){ "$@" || { rc=$?; [ $rc -eq 23 ] || [ $rc -eq 24 ] || return $rc; }; }
-rs $RS --exclude='.agent_session_token_*' --exclude='.agent_ws_token' --exclude='seal_secrets.py' --exclude='*.pem' --exclude='*.key' --exclude='mattermost/volumes' --exclude='matrix/*/data' --exclude='qdrant_storage' --exclude='*/volumes/*' --exclude='node_modules' --exclude='*.gguf' --exclude='*.safetensors' --exclude='*.bin' --exclude='.venv' --exclude='__pycache__' --exclude='minimax-m2.5' \
+rs $RS --exclude='.agent_session_token_*' --exclude='.agent_ws_token' --exclude='.db_cred' --exclude='*_cred' --exclude='*.dsn' --exclude='credentials.env*' --exclude='seal_secrets.py' --exclude='*.pem' --exclude='*.key' --exclude='mattermost/volumes' --exclude='matrix/*/data' --exclude='qdrant_storage' --exclude='*/volumes/*' --exclude='node_modules' --exclude='*.gguf' --exclude='*.safetensors' --exclude='*.bin' --exclude='.venv' --exclude='__pycache__' --exclude='minimax-m2.5' \
     /home/dadito/IA/proyecto-seal/ "$DEST/proyecto-seal/"
 rs $RS --exclude=".venv" --exclude="__pycache__" /home/dadito/IA/soul-v2-lab/ "$DEST/soul-v2-lab/"
 rs $RS --exclude="node_modules" /home/dadito/IA/soul-infra/ "$DEST/soul-infra/"

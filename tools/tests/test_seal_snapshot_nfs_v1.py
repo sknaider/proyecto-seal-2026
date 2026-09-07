@@ -43,7 +43,7 @@ def test_foto_real_contiene_lo_critico_y_ningun_secreto():
         assert any(p.suffix == ".dump" for p in dia.iterdir()), "falta el pg_dump"
         assert (dia / "NO_RESPALDADO_Y_COMO_SE_REPONE.md").exists(), "la foto debe declarar lo que no contiene"
         secretos = [str(p) for p in dia.rglob("*") if p.is_file() and (
-            p.name.startswith("credentials.env") or p.suffix == ".dsn" or p.name.startswith((".agent_session_token", ".agent_ws_token"))
+            p.name.startswith("credentials.env") or p.suffix == ".dsn" or p.name.startswith((".agent_session_token", ".agent_ws_token")) or p.name.endswith("_cred") or p.name == ".db_cred"
             or p.name in ("auth.json", "seal_secrets.py") or p.suffix in (".pem", ".key"))]
         assert secretos == [], secretos
         assert not any((dia / "proyecto-seal").rglob("*.gguf")), "ningun modelo GGUF en la foto"
@@ -96,3 +96,12 @@ def test_redaccion_de_unidades_borra_dsn_y_tokens_en_linea(tmp_path):
     # controles: lo que NO es secreto queda intacto
     for intacto in ("SEAL_TOKENS_DIR=%t/seal", "PYTHONUNBUFFERED=1", "--port 8080"):
         assert intacto in out, out
+
+
+def test_exclusiones_del_repo_cubren_los_secretos_conocidos():
+    """Negativo por construccion: la linea de rsync del repo excluye cada nombre de secreto que hoy vive en el arbol
+    (hallazgo NEXUS 12:48: fable/.db_cred no estaba excluido y el respaldo se lo llevaba al NFS)."""
+    script = (pathlib.Path(__file__).resolve().parents[1] / "seal_snapshot_nfs.sh").read_text()
+    linea = next(l for l in script.splitlines() if "/home/dadito/IA/proyecto-seal/" in l and "--exclude" in l) if any("/home/dadito/IA/proyecto-seal/" in l and "--exclude" in l for l in script.splitlines()) else script
+    for patron in (".db_cred", "*_cred", "*.dsn", "credentials.env*", ".agent_session_token_*", ".agent_ws_token"):
+        assert f"--exclude='{patron}'" in script, patron
