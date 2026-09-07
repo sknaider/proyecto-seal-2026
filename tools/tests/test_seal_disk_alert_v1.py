@@ -47,7 +47,11 @@ def test_qa_positive_los_campos_en_su_lugar():
     """EL test que habria cazado el bug publicado: 'uso 632G% · libres 83'."""
     import re
     r = corre(ALERTA, SEAL_DISK_WARN_GB="999999")
-    assert re.search(r"libres \d+G +· +uso \d+%", r.stdout), r.stdout
+    # La unidad la elige `df -h` segun el disco: hoy hay 3,1T libres y el patron exigia "G",
+    # asi que el brazo se puso rojo por el TAMANO DEL DISCO, no por un defecto de formato.
+    # Se acepta cualquier unidad y el decimal con coma; lo que se afirma sigue siendo el ORDEN
+    # y la FORMA de los dos campos, que es lo que estaba roto cuando publique "uso 632G% · libres 83".
+    assert re.search(r"libres \d+(?:[.,]\d+)?[KMGTP]? +· +uso \d+%", r.stdout), r.stdout
 
 
 # ── qa_negative ────────────────────────────────────────────────────────────
@@ -117,3 +121,58 @@ def test_qa_negative_drop_rechaza_rutas_peligrosas(ruta, motivo):
                        capture_output=True, text=True, timeout=60)
     assert r.returncode != 0, f"drop ACEPTO {ruta!r} ({motivo})"
     assert "no borro nada" in (r.stderr + r.stdout), r.stderr
+
+
+def test_qa_negative_una_variable_SEAL_DISK_desconocida_FALLA_ruidosa(tmp_path):
+    """Regresión del error que publicó una alerta falsa al canal el 7-sep-2026 18:38.
+
+    Escribí `SEAL_DISK_DRY_RUN=1` (la buena es `SEAL_DISK_DRYRUN`) y el modo prueba no
+    existió por un guion bajo: el script publicó de verdad. Un interruptor de seguridad
+    que se apaga solo por escribir mal su nombre no es un interruptor, es una trampa.
+    """
+    import os, subprocess
+    env = dict(os.environ, SEAL_DISK_DRY_RUN="1")
+    r = subprocess.run(["bash", str(ALERTA)], capture_output=True, text=True, env=env, timeout=120)
+    assert r.returncode == 2, f"deberia morir, no seguir: rc={r.returncode}\n{r.stdout[:200]}"
+    assert "variable desconocida SEAL_DISK_DRY_RUN" in r.stderr
+    assert "SEAL_DISK_DRYRUN" in r.stderr, "el error debe decir cuál es la forma correcta"
+
+
+def test_qa_control_las_variables_VALIDAS_siguen_funcionando(tmp_path):
+    """Control no vacuo: si la guarda matara también los nombres buenos, el script sería
+    inusable y el brazo de arriba pasaría igual."""
+    import os, subprocess
+    env = dict(os.environ, SEAL_DISK_DRYRUN="1", SEAL_DISK_WARN_GB="999999", SEAL_DISK_CRIT_GB="1")
+    r = subprocess.run(["bash", str(ALERTA)], capture_output=True, text=True, env=env, timeout=120)
+    assert r.returncode == 0, r.stderr[:200]
+    assert "DRYRUN" in r.stdout
+
+
+def test_qa_positive_el_titulo_nombra_la_CONDICION_no_una_categoria(tmp_path):
+    """JARVIS, 7-sep 18:39: «tu alerta "Disco alto" salió con 3,1 T libres: el título miente».
+
+    Un aviso cuyo título no se corresponde con lo medido enseña a ignorarlo.
+    """
+    import os, re, subprocess
+    env = dict(os.environ, SEAL_DISK_DRYRUN="1", SEAL_DISK_WARN_GB="999999")
+    r = subprocess.run(["bash", str(ALERTA)], capture_output=True, text=True, env=env, timeout=120)
+    assert "Espacio libre bajo" in r.stdout, r.stdout[:200]
+    assert re.search(r"por debajo del umbral de \d+ GB", r.stdout), "el título debe citar el umbral"
+    assert "Disco alto" not in r.stdout, "el título viejo nombraba una categoría, no la condición"
+
+
+def test_qa_positive_el_titulo_CRITICO_tambien_cita_su_umbral(tmp_path):
+    """Hueco que encontró NEXUS mutando (M5, 7-sep 18:56): `printf` tiene DOS ramas y mi
+    brazo anterior sólo ejercitaba la de AVISO. Quitar el umbral del mensaje CRÍTICO
+    cambiaba la salida visible y mis 15 brazos no se enteraban.
+
+    La ironía es que la rama sin cubrir era la crítica: la que se lee cuando el disco
+    de verdad se está llenando.
+    """
+    import os, re, subprocess
+    env = dict(os.environ, SEAL_DISK_DRYRUN="1",
+               SEAL_DISK_WARN_GB="999999", SEAL_DISK_CRIT_GB="999999")
+    r = subprocess.run(["bash", str(ALERTA)], capture_output=True, text=True, env=env, timeout=120)
+    assert "CRITICO" in r.stdout, f"no se alcanzó la rama crítica: {r.stdout[:200]}"
+    assert re.search(r"por debajo del umbral de \d+ GB", r.stdout), (
+        "el título CRÍTICO debe citar su umbral, igual que el de aviso")

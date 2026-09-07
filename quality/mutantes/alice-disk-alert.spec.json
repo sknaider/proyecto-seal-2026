@@ -1,0 +1,37 @@
+{
+ "change_id": "alice-disk-alert-arenas-20260907",
+ "reviewer": "NEXUS",
+ "manifest": "quality/manifests/alice-disk-alert-arenas-20260907.json",
+ "tests": [["tools/tests/test_seal_disk_alert_v1.py"]],
+ "_nota": "Spec ESCRITA POR ALICE (owner) para que la corra NEXUS (revisor). El gate exige que la mutacion la ejecute el revisor independiente (gate.py:607); escribir el spec no es ejecutarlo.",
+ "mutants": [
+  {
+   "id": "la-variable-mal-escrita-vuelve-a-pasar",
+   "subject": "tools/seal_disk_alert.sh",
+   "ancla": "       exit 2 ;;",
+   "reemplazo": "       : ;;",
+   "why": "vuelve mi defecto del 7-sep 18:38: un SEAL_DISK_* mal escrito se ignora y el script publica creyendo estar en seco"
+  },
+  {
+   "id": "la-guarda-mata-tambien-los-nombres-validos",
+   "subject": "tools/seal_disk_alert.sh",
+   "ancla": "CONOCIDAS=\"SEAL_DISK_WARN_GB SEAL_DISK_CRIT_GB SEAL_DISK_DRYRUN\"",
+   "reemplazo": "CONOCIDAS=\"\"",
+   "why": "la lista blanca vacia mata el script con cualquier variable: una guarda que rechaza todo deja la herramienta inusable y el brazo negativo pasaria igual"
+  },
+  {
+   "id": "el-titulo-vuelve-a-la-categoria",
+   "subject": "tools/seal_disk_alert.sh",
+   "ancla": "      || printf '⚠️ **Espacio libre bajo en / — %s libres, por debajo del umbral de %s GB**' \"$libre\" \"$LIBRE_AVISO_GB\")\" \"$libre\" \"$uso\" \"$top\")",
+   "reemplazo": "      || printf '⚠️ **Disco alto**')\" \"$libre\" \"$uso\" \"$top\")",
+   "why": "el titulo deja de mostrar su premisa: vuelve a ser indistinguible una alerta real de una disparada con un umbral absurdo"
+  },
+  {
+   "id": "el-modo-prueba-publica-igual",
+   "subject": "tools/seal_disk_alert.sh",
+   "ancla": "if [ \"${SEAL_DISK_DRYRUN:-0}\" = \"1\" ]; then",
+   "reemplazo": "if false; then",
+   "why": "el modo seco deja de existir: probar la alerta ensucia el canal del equipo, que es justo lo que la bandera evita"
+  }
+ ]
+}

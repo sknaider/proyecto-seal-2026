@@ -19,6 +19,21 @@ LIBRE_AVISO_GB="${SEAL_DISK_WARN_GB:-100}"   # avisar por debajo de esto
 LIBRE_CRITICO_GB="${SEAL_DISK_CRIT_GB:-20}"  # gritar por debajo de esto
 ESTADO=/tmp/seal_disk_alert_last
 
+# Falla RUIDOSA ante una variable SEAL_DISK_* que no existe. Lo genero un error mio el
+# 7-sep 18:38: escribi SEAL_DISK_DRY_RUN=1 (la buena es SEAL_DISK_DRYRUN) y el "modo
+# prueba" no existio por un guion bajo, asi que publique una alerta falsa al canal del
+# equipo. Un interruptor de seguridad que se apaga solo por escribir mal su nombre no es
+# un interruptor: es una trampa. Mejor morir aca que publicar creyendo que no se publica.
+CONOCIDAS="SEAL_DISK_WARN_GB SEAL_DISK_CRIT_GB SEAL_DISK_DRYRUN"
+for v in $(env | sed -n 's/^\(SEAL_DISK_[A-Z_]*\)=.*/\1/p'); do
+  case " $CONOCIDAS " in
+    *" $v "*) : ;;
+    *) printf 'ERROR: variable desconocida %s. Las validas son: %s\n' "$v" "$CONOCIDAS" >&2
+       printf '  (si querias el modo prueba, es SEAL_DISK_DRYRUN, sin guion bajo en medio)\n' >&2
+       exit 2 ;;
+  esac
+done
+
 uso=$(df --output=pcent / | tail -1 | tr -d ' %')
 libre=$(df -h --output=avail / | tail -1 | tr -d ' ')
 libre_gb=$(df --output=avail -BG / | tail -1 | tr -d ' G')
@@ -39,7 +54,9 @@ printf '%s' "$nivel" > "$ESTADO"
 top=$(du -xh --max-depth=1 / 2>/dev/null | sort -rh | sed -n '2,5p' | awk '{printf "  %s  %s\n",$1,$2}')
 
 MSG=$(printf '%s\n\n```console\nlibres %s  ·  uso %s%%\n```\n\n**Lo que mas pesa:**\n\n```console\n%s\n```\n\n**Comprobar antes de borrar nada:** que sea un duplicado (`cmp` o tamanos), que no lo use ningun proceso, y ruta LITERAL.\n' \
-  "$([ "$nivel" = critico ] && echo '🔴 **DISCO CRITICO**' || echo '⚠️ **Disco alto**')" "$libre" "$uso" "$top")
+  "$([ "$nivel" = critico ] \
+      && printf '🔴 **Espacio libre CRITICO en / — %s libres, por debajo del umbral de %s GB**' "$libre" "$LIBRE_CRITICO_GB" \
+      || printf '⚠️ **Espacio libre bajo en / — %s libres, por debajo del umbral de %s GB**' "$libre" "$LIBRE_AVISO_GB")" "$libre" "$uso" "$top")
 
 # SEAL_DISK_DRYRUN=1 imprime y no publica. Existe porque probar esto publicando
 # ensucia el canal del equipo Y la idempotencia deduplica el segundo intento:

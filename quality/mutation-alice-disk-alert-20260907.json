@@ -2,63 +2,74 @@
   "schema": "seal.mutation-evidence.v1",
   "change_id": "alice-disk-alert-arenas-20260907",
   "owner": "ALICE",
-  "_como_se_midio": "Arena por `seal_arena.sh new tools` (foto del INDICE via git write-tree). CONTROL POSITIVO antes de contar: sin mutar -> 12 passed. OJO: la primera tanda se DESCARTO porque la arena traia la version INDEXADA vieja del test -yo habia editado sin `git add`- y corrio 7 tests en vez de 12. La arena fotografia el indice, no el arbol: si editas y no indexas, mutas codigo viejo.",
-  "harness": [
-    "python3",
-    "-m",
-    "pytest",
-    "-q",
-    "tools/tests/test_seal_disk_alert_v1.py"
-  ],
+  "reviewer": "NEXUS",
+  "tool": "arena contenida (docker --user 65534, imagen python:3.12 con git) + tools/seal_mutacion_segura.py",
+  "workspace": "arena por `seal_arena.sh new tools` (foto del INDICE via git write-tree)",
+  "_como_se_midio": "Corrida por el REVISOR, no por la owner: gate.py:607 exige evidencia.reviewer == independent_reviewer. La evidencia anterior era de ALICE, con control en 12 passed sobre bytes que ya no existen. CONTROL DE COBERTURA: 16 brazos esperados, 16 ejecutados, 0 excluidos. Se declara el numero esperado a proposito: contar solo los deseleccionados no distingue una exclusion deliberada de un brazo que no corre por falta de binario -me paso hoy mismo en el expediente de detectores, con git ausente en python:3.12-slim-. PRIMERA PASADA (15 brazos): M5 SOBREVIVIO. El brazo del umbral solo ejercitaba la rama de AVISO (SEAL_DISK_WARN_GB); la rama CRITICA quedaba sin cubrir. ALICE agrego el brazo espejo y M5 murio. La evidencia se rehizo entera sobre los bytes nuevos.",
   "control_sujeto_sin_mutar": {
-    "observed": "12 passed",
+    "observed": "16 passed in 0.75s",
+    "result": "GREEN",
+    "brazos_esperados": 16,
+    "brazos_ejecutados": 16,
+    "excluidos": 0
+  },
+  "control_final": {
+    "observed": "16 passed",
     "result": "GREEN"
   },
   "file_sha256": {
-    "tools/seal_disk_alert.sh": "96c6ea29486fb964415c19a501ae7982ae08f3b4fe477e49a524a9b4dde655f8",
-    "tools/seal_arena.sh": "3b2f89b32ac9fe7ff852b518bfb5d1c5578ee0b02650c1698bfafea975fc430e",
-    "tools/tests/test_seal_disk_alert_v1.py": "6fe15b725cb397f787c4e92bd02dbe788aa54a5be22cba1ee9368b422a2d1541"
+    "tools/seal_arena.sh": "4cad966a3300dc6ca67d71b97e0bd57d5cfffd098fcd239176f0008ca9b0d2c9",
+    "tools/seal_disk_alert.sh": "7cd34ca28b20fbbec8a91783c35c6241d713727c643d642af6e1b4a322b45ae5",
+    "tools/tests/test_seal_disk_alert_v1.py": "2e7f91368447221e5d99eea693cded7a486b593df7bcc6dfc0ade40a0584ddec"
   },
-  "total": 4,
-  "killed": 4,
+  "total": 5,
+  "killed": 5,
   "survived": 0,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
   "timeout": 0,
-  "mutation_score_percent": 100.0,
-  "mutants": [
+  "detail": [
     {
-      "id": "M1-umbral-invertido",
-      "author": "ALICE",
-      "mutation": "libre_gb -lt -> -gt",
-      "observed": "3 failed, 9 passed",
-      "result": "KILLED",
-      "why": "El aviso dispararia cuando SOBRA espacio y callaria cuando falta. Es el defecto que vuelve la alerta inutil sin que se note: sigue 'funcionando'."
+      "id": "M1-umbral-de-aviso-invertido",
+      "author": "NEXUS",
+      "subject": "tools/seal_disk_alert.sh",
+      "mutation": "el aviso dispara cuando SOBRA espacio: -lt -> -gt. El defecto que deja la alerta muda justo cuando importa, sin dejar de \"funcionar\".",
+      "observed": "5 failed, 11 passed in 0.39s",
+      "result": "KILLED"
     },
     {
-      "id": "M2-campos-cruzados",
-      "author": "ALICE",
-      "mutation": "'libres %s · uso %s%%' -> 'uso %s%% · libres %s'",
-      "observed": "2 failed, 10 passed",
-      "result": "KILLED",
-      "why": "Es EXACTAMENTE el bug que publique al canal a las 00:34 ('DISCO CRITICO uso 632G% libres 83') y que JARVIS y NEXUS tuvieron que desmentirle a William. El test existe porque ese fallo ya ocurrio en produccion."
+      "id": "M2-nivel-critico-nunca-se-alcanza",
+      "author": "NEXUS",
+      "subject": "tools/seal_disk_alert.sh",
+      "mutation": "la rama de critico nunca se evalua: todo queda en aviso. El 100% del disco se reportaria como advertencia menor.",
+      "observed": "2 failed, 14 passed in 0.66s",
+      "result": "KILLED"
     },
     {
-      "id": "M3-sin-memoria-de-nivel",
-      "author": "ALICE",
-      "mutation": "no persistir $nivel en el archivo de estado",
-      "observed": "1 failed, 11 passed",
-      "result": "KILLED",
-      "why": "Repetiria la misma alerta cada 10 min. Un vigilante que grita igual todo el tiempo se deja de leer: es el ruido que mi propio baseline del Pilar III midio en 77 %."
+      "id": "M3-la-guarda-acepta-cualquier-variable",
+      "author": "NEXUS",
+      "subject": "tools/seal_disk_alert.sh",
+      "mutation": "el patron de la lista blanca pasa a comodin: SEAL_DISK_DRY_RUN se acepta en silencio y el modo prueba no existe. Es EXACTAMENTE el defecto del 18:38 que este arreglo viene a matar.",
+      "observed": "1 failed, 15 passed in 0.75s",
+      "result": "KILLED"
     },
     {
-      "id": "M4-drop-sin-guarda",
-      "author": "ALICE",
-      "mutation": "case /tmp/seal-arena-*) -> case *)",
-      "observed": "5 failed, 7 passed",
-      "result": "KILLED",
-      "why": "El mutante DEMOSTRO su punto destruyendo la arena: sin la guarda, el test que llama `drop ''` ejecuta `find '' -mindepth 1 -delete` y borra el directorio actual. Es el defecto real que tuve el 7-sep 01:22 y por el que JARVIS pidio mover la guarda al helper."
+      "id": "M4-la-guarda-avisa-pero-no-corta",
+      "author": "NEXUS",
+      "subject": "tools/seal_disk_alert.sh",
+      "mutation": "la variable desconocida imprime el ERROR y SIGUE. Un freno que informa y no frena: publicaria igual la alerta falsa.",
+      "observed": "1 failed, 15 passed in 0.73s",
+      "result": "KILLED"
+    },
+    {
+      "id": "M5-el-umbral-desaparece-del-mensaje-critico",
+      "author": "NEXUS",
+      "subject": "tools/seal_disk_alert.sh",
+      "mutation": "la alerta critica afirma sin su premisa: \"X libres\" sin decir contra que umbral. Es lo que hizo irreconocible su alerta falsa de las 18:38.",
+      "observed": "1 failed, 15 passed in 0.71s",
+      "result": "KILLED"
     }
-  ]
+  ],
+  "mutation_score_percent": 100.0
 }
