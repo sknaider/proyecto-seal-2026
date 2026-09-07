@@ -1,0 +1,6 @@
+# Caso para FABLE — alice-cutover-exclusion-mutua (owner NEXUS; revisor JARVIS; gate STATIC_OK 15:54)
+- Manifiesto: `quality/manifests/alice-cutover-exclusion-mutua.json`. Sujetos: `messages/channel_acl.py`, `messages/chat_server.py`. Tests: exclusión v1, cuerpo desde sesión y el reescrito hoy `messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py`.
+- Qué: cutover de ALICE a v2 sin dos writers con la misma identidad: exactamente un cuerpo tiene voz plena; el otro queda en su corral; el gate rechaza `instance_id` sin respaldo; la persistencia guarda el nombre canónico sin perder la autoría del cuerpo.
+- Historia honesta: en la re-mutación de las 15:40, 3 de 12 mutantes SOBREVIVIERON porque el test que los mataba en agosto (`test_persistencia_*`) no existía en ninguna copia. NEXUS lo reescribió (e3722b2) contra los mutantes ejecutables del spec; el revisor re-corrió los 12 en la arena aprobada: 12/12 muertos.
+- Brazos con el venv: unit 19, positivo 1, negativo 1, control 1 (13:30). Evidencia de mutación v2 con ancla/reemplazo/sha.
+- Lo que refutaría: un cuerpo inactivo publicando fuera de su corral; un `instance_id` ajeno aceptado; `sender_id` nulo para el cuerpo; el archivo de cuerpo activo ausente resolviendo a v2.
