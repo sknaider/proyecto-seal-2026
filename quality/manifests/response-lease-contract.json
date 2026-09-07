@@ -112,7 +112,7 @@
     "baseline_percent": 0.0,
     "timeout": 300
   },
-  "mutation_evidence": "quality/mutation-response-lease-contract-ALICE.json",
+  "mutation_evidence": "quality/mutation-response-lease-contract.json",
   "mutation_baseline_percent": 100.0,
   "delivery": {
     "status": "verified",
@@ -130,5 +130,6 @@
       "expected_exit": 0,
       "expected_stdout_contains": "passed"
     }
-  }
+  },
+  "_nota_puntero_20260907": "El manifiesto apuntaba a quality/mutation-response-lease-contract-ALICE.json, un archivo que NO existe en el arbol, ni en github/main, ni en el NFS: probablemente el nombre con sufijo del revisor nunca se creo o se perdio. El gate devolvia cannot_read_json, que es un error OPACO: no dice si falta la evidencia o si el manifiesto miente. Ahora apunta al archivo que SI existe; su evidencia es de esquema viejo -sin sha del sujeto- asi que caduca de forma VISIBLE y el revisor sabe que tiene que re-correr. Un puntero roto se ve peor que una evidencia caducada y es mas dificil de diagnosticar."
 }
