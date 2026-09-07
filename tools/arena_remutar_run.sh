@@ -23,5 +23,12 @@ docker run --rm -i --user 65534:65534 -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH
   -v "$ARENA":/trabajo -v /home/dadito/IA/seal-spark/.venv:/venv:ro -w /trabajo python:3.12-slim \
   python3 tools/arena_remutar_revisor.py quality/mutantes/spec.json quality/mutantes/salida.json; RC=$?
 cp "$ARENA/quality/mutantes/salida.json" "$SALIDA"
-echo "[arena] salida copiada a $SALIDA (arena $ARENA queda para inspección; /tmp la limpia)"
+echo "[arena] salida copiada a $SALIDA"
+# Limpieza: la arena pesa ~1,9 GB y sus archivos mutados quedan del uid 65534 (dadito no puede borrarlos). Se borra desde un
+# contenedor desechable que SOLO monta esa arena (ruta bajo /tmp/seal-arena-remut-*, guardada por el case). SEAL_ARENA_KEEP=1 la conserva.
+if [ -z "${SEAL_ARENA_KEEP:-}" ]; then
+  case "$ARENA" in /tmp/seal-arena-remut-*) docker run --rm -v "$ARENA":/x alpine:3.20 sh -c 'find /x -mindepth 1 -delete' >/dev/null 2>&1; rmdir "$ARENA" 2>/dev/null && echo "[arena] arena borrada";; esac
+else
+  echo "[arena] arena conservada en $ARENA (SEAL_ARENA_KEEP=1)"
+fi
 exit $RC
