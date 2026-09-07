@@ -13,6 +13,17 @@
   "suspicious": 0,
   "timeout": 0,
   "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "...........                                                              [100%]\n11 passed in 0.31s",
+    "sha_sujetos_antes": {
+      "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
   "mutants": [
     {
       "id": "canal-desconocido-nace-abierto",
@@ -36,7 +47,8 @@
         "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion",
         "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado"
       ],
-      "pytest_tail": "messages/chat_db.py:498: AttributeError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_positive_un_canal_DESCONOCIDO_nace_cerrado\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado\n3 failed, 8 passed in 0.53s"
+      "pytest_tail": "messages/chat_db.py:498: AttributeError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_positive_un_canal_DESCONOCIDO_nace_cerrado\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado\n3 failed, 8 passed in 0.53s",
+      "sujeto_restaurado": true
     },
     {
       "id": "todo-es-publico",
@@ -59,7 +71,8 @@
         "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion",
         "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado"
       ],
-      "pytest_tail": "\nmessages/chat_db.py:498: AttributeError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado\n2 failed, 9 passed in 0.51s"
+      "pytest_tail": "\nmessages/chat_db.py:498: AttributeError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado\n2 failed, 9 passed in 0.54s",
+      "sujeto_restaurado": true
     },
     {
       "id": "la-bandera-no-entra-en-auth",
@@ -83,7 +96,8 @@
         "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion",
         "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado"
       ],
-      "pytest_tail": "messages/chat_db.py:498: AttributeError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_positive_la_bandera_entra_en_la_decision_de_auth\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado\n3 failed, 8 passed in 0.52s"
+      "pytest_tail": "messages/chat_db.py:498: AttributeError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_positive_la_bandera_entra_en_la_decision_de_auth\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado\n3 failed, 8 passed in 0.54s",
+      "sujeto_restaurado": true
     }
   ],
   "file_sha256": {

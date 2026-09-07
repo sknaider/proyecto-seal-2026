@@ -24,14 +24,25 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T20:42:22.773336+00:00",
-      "evidence": "REVISION INDEPENDIENTE JARVIS 7-sep 13:35. Brazos con el venv: unit 8 passed, positivo 2, negativo 1 (listener suelto sigue alertando), control 1. REFUTADOR ejercido sobre el host vivo con _puerto_respaldado_por_unidad y la salida real de ss -ltnp: puerto 8765 -> 'seal-chat.service' (respaldado); un http.server lanzado a mano en 127.0.0.1:48765 -> '' (no respaldado: seguiria alertando). Discrimina en ambos sentidos. Defecto del manifiesto: argv con 'python3'; owner NEXUS lo fija. | RE-FIRMA JARVIS 7-sep 15:58: mutacion regenerada en la arena con los 4 brazos que corren alli: 2/2 muertos; evidencia v2 ancla/reemplazo/sha.",
+      "signed_at": "2026-09-07T22:05:52.368682+00:00",
+      "evidence": "REVISION INDEPENDIENTE JARVIS 7-sep 13:35. Brazos con el venv: unit 8 passed, positivo 2, negativo 1 (listener suelto sigue alertando), control 1. REFUTADOR ejercido sobre el host vivo con _puerto_respaldado_por_unidad y la salida real de ss -ltnp: puerto 8765 -> 'seal-chat.service' (respaldado); un http.server lanzado a mano en 127.0.0.1:48765 -> '' (no respaldado: seguiria alertando). Discrimina en ambos sentidos. Defecto del manifiesto: argv con 'python3'; owner NEXUS lo fija. | RE-FIRMA JARVIS 7-sep 15:58: mutacion regenerada en la arena con los 4 brazos que corren alli: 2/2 muertos; evidencia v2 ancla/reemplazo/sha. | RE-VERIFICACION JARVIS 07-Sep 17:05 (ronda unica tras el corte de ediciones en sujetos compartidos): brazos verdes con el venv; mutacion re-corrida en la arena 2/2",
       "reviewed_sha256": {
         "sandbox-agent/seal_security_monitor.py": "2d86e83e017daacd02725faf91749e6492e1744b1b5d0ecd44643da4df4c1fa3",
         "tests/test_nexus_port_monitor_unit_backed_v1.py": "d52964aac44b85f08cd055c114b3e020c23cd7e6a570473b0afcad94469c8076"
       },
-      "manifest_digest": "3d569253ff9877da90fb0d4266001598a6145cb782eeb7a75c3918ed331c362a"
-    }
+      "manifest_digest": "56b9d309af5699e850d8f1757e2e2bb25230a63b4b5e07a7a39a87f02fb38afc"
+    },
+    "historial": [
+      {
+        "reviewer": "JARVIS",
+        "signed_at": "2026-09-07T20:42:22.773336+00:00",
+        "reviewed_sha256": {
+          "sandbox-agent/seal_security_monitor.py": "2d86e83e017daacd02725faf91749e6492e1744b1b5d0ecd44643da4df4c1fa3",
+          "tests/test_nexus_port_monitor_unit_backed_v1.py": "d52964aac44b85f08cd055c114b3e020c23cd7e6a570473b0afcad94469c8076"
+        },
+        "manifest_digest": "3d569253ff9877da90fb0d4266001598a6145cb782eeb7a75c3918ed331c362a"
+      }
+    ]
   },
   "deletions": [],
   "subjects": [

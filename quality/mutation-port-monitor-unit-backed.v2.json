@@ -13,6 +13,17 @@
   "suspicious": 0,
   "timeout": 0,
   "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "....                                                                     [100%]\n4 passed, 4 deselected in 0.09s",
+    "sha_sujetos_antes": {
+      "sandbox-agent/seal_security_monitor.py": "2d86e83e017daacd02725faf91749e6492e1744b1b5d0ecd44643da4df4c1fa3"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
   "mutants": [
     {
       "id": "primera-coincidencia-en-vez-de-la-hoja",
@@ -34,7 +45,8 @@
       "killed_by": [
         "tests/test_nexus_port_monitor_unit_backed_v1.py::test_unit_con_unidades_ANIDADAS_gana_la_hoja"
       ],
-      "pytest_tail": "E         + seal-bridge-nexus.service\n\ntests/test_nexus_port_monitor_unit_backed_v1.py:74: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_port_monitor_unit_backed_v1.py::test_unit_con_unidades_ANIDADAS_gana_la_hoja\n1 failed, 3 passed, 4 deselected in 0.09s"
+      "pytest_tail": "E         + seal-bridge-nexus.service\n\ntests/test_nexus_port_monitor_unit_backed_v1.py:74: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_port_monitor_unit_backed_v1.py::test_unit_con_unidades_ANIDADAS_gana_la_hoja\n1 failed, 3 passed, 4 deselected in 0.10s",
+      "sujeto_restaurado": true
     },
     {
       "id": "sin-excluir-el-user-manager",
@@ -56,7 +68,8 @@
       "killed_by": [
         "tests/test_nexus_port_monitor_unit_backed_v1.py::test_unit_solo_el_user_manager_no_cuenta_como_unidad"
       ],
-      "pytest_tail": "E         + user@1000.service\n\ntests/test_nexus_port_monitor_unit_backed_v1.py:81: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_port_monitor_unit_backed_v1.py::test_unit_solo_el_user_manager_no_cuenta_como_unidad\n1 failed, 3 passed, 4 deselected in 0.10s"
+      "pytest_tail": "E         + user@1000.service\n\ntests/test_nexus_port_monitor_unit_backed_v1.py:81: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_port_monitor_unit_backed_v1.py::test_unit_solo_el_user_manager_no_cuenta_como_unidad\n1 failed, 3 passed, 4 deselected in 0.09s",
+      "sujeto_restaurado": true
     }
   ],
   "file_sha256": {

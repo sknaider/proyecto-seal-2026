@@ -13,6 +13,19 @@
   "suspicious": 0,
   "timeout": 0,
   "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "........                                                               [100%]\n8 passed, 2 subtests passed in 0.67s",
+    "sha_sujetos_antes": {
+      "memory/compaction_metrics.py": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
+      "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
+      "memory/post_compact_session_start_hook.py": "931c404804bac07cca749f65eb685954e6456c33ea5e803c5051caee27b1f5d9"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
   "mutants": [
     {
       "id": "degradado-siempre-falso",
@@ -34,7 +47,8 @@
       "killed_by": [
         "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_degradado_reconoce_el_aviso_de_base_caida"
       ],
-      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_degradado_reconoce_el_aviso_de_base_caida\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.65s"
+      "pytest_tail": "E       AssertionError: False is not true\n\nmemory/tests/test_compaction_metrics_v1.py:54: AssertionError\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_degradado_reconoce_el_aviso_de_base_caida\n1 failed, 7 passed, 2 subtests passed in 0.67s",
+      "sujeto_restaurado": true
     },
     {
       "id": "degradado-siempre-verdadero",
@@ -56,7 +70,8 @@
       "killed_by": [
         "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_control_una_compactacion_SANA_no_se_marca_degradada"
       ],
-      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_control_una_compactacion_SANA_no_se_marca_degradada\n1 failed, 7 passed, 1 warning in 0.64s"
+      "pytest_tail": "E       AssertionError: True is not false\n\nmemory/tests/test_compaction_metrics_v1.py:62: AssertionError\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_control_una_compactacion_SANA_no_se_marca_degradada\n1 failed, 7 passed in 0.68s",
+      "sujeto_restaurado": true
     },
     {
       "id": "registrar-miente-que-escribio",
@@ -78,7 +93,8 @@
       "killed_by": [
         "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_medir_nunca_levanta_una_excepcion"
       ],
-      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_medir_nunca_levanta_una_excepcion\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.64s"
+      "pytest_tail": "E       AssertionError: True is not false\n\nmemory/tests/test_compaction_metrics_v1.py:110: AssertionError\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_medir_nunca_levanta_una_excepcion\n1 failed, 7 passed, 2 subtests passed in 0.65s",
+      "sujeto_restaurado": true
     },
     {
       "id": "medir-revienta",
@@ -100,7 +116,8 @@
       "killed_by": [
         "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_medir_nunca_levanta_una_excepcion"
       ],
-      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_medir_nunca_levanta_una_excepcion\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.65s"
+      "pytest_tail": "E           RuntimeError: MUTANTE: medir revienta\n\nmemory/compaction_metrics.py:50: RuntimeError\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_medir_nunca_levanta_una_excepcion\n1 failed, 7 passed, 2 subtests passed in 0.67s",
+      "sujeto_restaurado": true
     },
     {
       "id": "cuenta-lineas-vacias",
@@ -122,7 +139,8 @@
       "killed_by": [
         "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_conteo_cuenta_lineas_reales_y_no_las_vacias"
       ],
-      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_conteo_cuenta_lineas_reales_y_no_las_vacias\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.67s"
+      "pytest_tail": "E       AssertionError: 4 != 2\n\nmemory/tests/test_compaction_metrics_v1.py:116: AssertionError\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_conteo_cuenta_lineas_reales_y_no_las_vacias\n1 failed, 7 passed, 2 subtests passed in 0.68s",
+      "sujeto_restaurado": true
     },
     {
       "id": "senal-desalineada",
@@ -145,7 +163,8 @@
         "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_degradado_reconoce_el_aviso_de_base_caida",
         "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_la_senal_es_la_firma_real_del_defecto"
       ],
-      "pytest_tail": "\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_degradado_reconoce_el_aviso_de_base_caida\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_la_senal_es_la_firma_real_del_defecto\n2 failed, 6 passed, 1 warning, 2 subtests passed in 0.65s"
+      "pytest_tail": "\nmemory/tests/test_compaction_metrics_v1.py:129: AssertionError\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_degradado_reconoce_el_aviso_de_base_caida\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_la_senal_es_la_firma_real_del_defecto\n2 failed, 6 passed, 2 subtests passed in 0.67s",
+      "sujeto_restaurado": true
     },
     {
       "id": "el-pre-no-instrumenta",
@@ -167,7 +186,8 @@
       "killed_by": [
         "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_PRE_registra_de_verdad"
       ],
-      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_PRE_registra_de_verdad\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.65s"
+      "pytest_tail": "E       AssertionError: False is not true : el hook pre NO escribió ninguna métrica\n\nmemory/tests/test_compaction_metrics_v1.py:97: AssertionError\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_PRE_registra_de_verdad\n1 failed, 7 passed, 2 subtests passed in 0.63s",
+      "sujeto_restaurado": true
     },
     {
       "id": "el-post-no-instrumenta",
@@ -189,7 +209,8 @@
       "killed_by": [
         "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_POST_registra_de_verdad"
       ],
-      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_POST_registra_de_verdad\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.66s"
+      "pytest_tail": "E       AssertionError: False is not true : el hook post NO escribió ninguna métrica\n\nmemory/tests/test_compaction_metrics_v1.py:77: AssertionError\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_POST_registra_de_verdad\n1 failed, 7 passed, 2 subtests passed in 0.65s",
+      "sujeto_restaurado": true
     }
   ],
   "file_sha256": {

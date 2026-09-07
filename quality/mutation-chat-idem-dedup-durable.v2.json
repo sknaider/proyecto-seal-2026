@@ -13,6 +13,17 @@
   "suspicious": 0,
   "timeout": 0,
   "mutation_score_percent": 83.333,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": ".......                                                                  [100%]\n7 passed in 0.46s",
+    "sha_sujetos_antes": {
+      "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
   "mutants": [
     {
       "id": "helper-que-miente",
@@ -34,7 +45,8 @@
       "killed_by": [
         "messages/test_idem_dedup_durable_v1.py::test_positivo_clave_ya_persistida_devuelve_el_id_anterior"
       ],
-      "pytest_tail": "E        +  where None = _correr(<test_idem_dedup_durable_v1._Pool object at 0xeb6a7a707950>, 'alice-v2-grant:abc')\n\nmessages/test_idem_dedup_durable_v1.py:45: AssertionError\n=========================== short test summary info ============================\nFAILED messages/test_idem_dedup_durable_v1.py::test_positivo_clave_ya_persistida_devuelve_el_id_anterior\n1 failed, 6 passed in 0.46s"
+      "pytest_tail": "E        +  where None = _correr(<test_idem_dedup_durable_v1._Pool object at 0xe3a700dac710>, 'alice-v2-grant:abc')\n\nmessages/test_idem_dedup_durable_v1.py:45: AssertionError\n=========================== short test summary info ============================\nFAILED messages/test_idem_dedup_durable_v1.py::test_positivo_clave_ya_persistida_devuelve_el_id_anterior\n1 failed, 6 passed in 0.47s",
+      "sujeto_restaurado": true
     },
     {
       "id": "borrar-la-llamada",
@@ -56,7 +68,8 @@
       "killed_by": [
         "messages/test_idem_dedup_durable_v1.py::test_unit_la_capa_esta_CABLEADA_en_el_handler_de_envio"
       ],
-      "pytest_tail": "E       assert set()\n\nmessages/test_idem_dedup_durable_v1.py:78: AssertionError\n=========================== short test summary info ============================\nFAILED messages/test_idem_dedup_durable_v1.py::test_unit_la_capa_esta_CABLEADA_en_el_handler_de_envio\n1 failed, 6 passed in 0.48s"
+      "pytest_tail": "E       assert set()\n\nmessages/test_idem_dedup_durable_v1.py:78: AssertionError\n=========================== short test summary info ============================\nFAILED messages/test_idem_dedup_durable_v1.py::test_unit_la_capa_esta_CABLEADA_en_el_handler_de_envio\n1 failed, 6 passed in 0.49s",
+      "sujeto_restaurado": true
     },
     {
       "id": "llamada-bajo-un-if-False",
@@ -76,7 +89,8 @@
       "result": "SURVIVED",
       "rc": 0,
       "killed_by": [],
-      "pytest_tail": ".......                                                                  [100%]\n7 passed in 0.42s"
+      "pytest_tail": ".......                                                                  [100%]\n7 passed in 0.47s",
+      "sujeto_restaurado": true
     },
     {
       "id": "consulta-de-vuelta-al-lock",
@@ -98,7 +112,8 @@
       "killed_by": [
         "messages/test_idem_dedup_durable_v1.py::test_control_la_consulta_NO_corre_dentro_del_lock_de_la_cola"
       ],
-      "pytest_tail": "E       assert not [<ast.AsyncWith object at 0xfc71d87c8910>]\n\nmessages/test_idem_dedup_durable_v1.py:173: AssertionError\n=========================== short test summary info ============================\nFAILED messages/test_idem_dedup_durable_v1.py::test_control_la_consulta_NO_corre_dentro_del_lock_de_la_cola\n1 failed, 6 passed in 0.43s"
+      "pytest_tail": "E       assert not [<ast.AsyncWith object at 0xe5403d0f6550>]\n\nmessages/test_idem_dedup_durable_v1.py:173: AssertionError\n=========================== short test summary info ============================\nFAILED messages/test_idem_dedup_durable_v1.py::test_control_la_consulta_NO_corre_dentro_del_lock_de_la_cola\n1 failed, 6 passed in 0.44s",
+      "sujeto_restaurado": true
     },
     {
       "id": "metadata-sin-la-clave",
@@ -120,7 +135,8 @@
       "killed_by": [
         "messages/test_idem_dedup_durable_v1.py::test_unit_la_clave_viaja_a_la_METADATA_persistida"
       ],
-      "pytest_tail": "E               assert 'idempotency_key' in {'legacy_id', 'to'}\n\nmessages/test_idem_dedup_durable_v1.py:95: AssertionError\n=========================== short test summary info ============================\nFAILED messages/test_idem_dedup_durable_v1.py::test_unit_la_clave_viaja_a_la_METADATA_persistida\n1 failed, 6 passed in 0.44s"
+      "pytest_tail": "E               assert 'idempotency_key' in {'legacy_id', 'to'}\n\nmessages/test_idem_dedup_durable_v1.py:95: AssertionError\n=========================== short test summary info ============================\nFAILED messages/test_idem_dedup_durable_v1.py::test_unit_la_clave_viaja_a_la_METADATA_persistida\n1 failed, 6 passed in 0.45s",
+      "sujeto_restaurado": true
     },
     {
       "id": "reintroducir-SUPERADMIN_USERNAME",
@@ -142,7 +158,8 @@
       "killed_by": [
         "messages/test_idem_dedup_durable_v1.py::test_control_ningun_NOMBRE_INDEFINIDO_en_el_modulo"
       ],
-      "pytest_tail": "E       assert not [('_SUPERADMIN_USERNAME', 5944)]\n\nmessages/test_idem_dedup_durable_v1.py:144: AssertionError\n=========================== short test summary info ============================\nFAILED messages/test_idem_dedup_durable_v1.py::test_control_ningun_NOMBRE_INDEFINIDO_en_el_modulo\n1 failed, 6 passed in 0.44s"
+      "pytest_tail": "E       assert not [('_SUPERADMIN_USERNAME', 5944)]\n\nmessages/test_idem_dedup_durable_v1.py:144: AssertionError\n=========================== short test summary info ============================\nFAILED messages/test_idem_dedup_durable_v1.py::test_control_ningun_NOMBRE_INDEFINIDO_en_el_modulo\n1 failed, 6 passed in 0.47s",
+      "sujeto_restaurado": true
     }
   ],
   "file_sha256": {

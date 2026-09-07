@@ -47,8 +47,8 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T20:31:39.795219+00:00",
-      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30. Los 3 sujetos y el test IDENTICOS a lo firmado el 4-sep 21:53. Unico cambio: quality/delivery_compaction_metrics.sh linea 45: el scrub de ALICE (bf59df8, 12:48) reemplazo la clave FICTICIA 'credencial_muerta' por 'REDACTADO' dentro de un sed de prueba; 8 bytes, sin efecto funcional (diff contra el indice 4-sep). Brazos con el venv: unit 8 passed + 2 subtests, positivo 2, negativo 1, control 1. Defecto del manifiesto: argv con 'python3' resuelve a /usr/bin sin pytest; owner ADA lo fija. | RE-FIRMA JARVIS 7-sep 15:34: mutation_evidence v2 regenerada por el revisor en la arena (8/8 muertos: degradado falso/verdadero, registrar miente, medir revienta, cuenta vacias, senal desalineada, pre/post no instrumentan); sujetos y test identicos a la firma de las 13:30.",
+      "signed_at": "2026-09-07T22:05:46.701937+00:00",
+      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30. Los 3 sujetos y el test IDENTICOS a lo firmado el 4-sep 21:53. Unico cambio: quality/delivery_compaction_metrics.sh linea 45: el scrub de ALICE (bf59df8, 12:48) reemplazo la clave FICTICIA 'credencial_muerta' por 'REDACTADO' dentro de un sed de prueba; 8 bytes, sin efecto funcional (diff contra el indice 4-sep). Brazos con el venv: unit 8 passed + 2 subtests, positivo 2, negativo 1, control 1. Defecto del manifiesto: argv con 'python3' resuelve a /usr/bin sin pytest; owner ADA lo fija. | RE-FIRMA JARVIS 7-sep 15:34: mutation_evidence v2 regenerada por el revisor en la arena (8/8 muertos: degradado falso/verdadero, registrar miente, medir revienta, cuenta vacias, senal desalineada, pre/post no instrumentan); sujetos y test identicos a la firma de las 13:30. | RE-VERIFICACION JARVIS 07-Sep 17:05 (ronda unica tras el corte de ediciones en sujetos compartidos): brazos verdes con el venv; mutacion re-corrida en la arena 8/8",
       "reviewed_sha256": {
         "memory/compaction_metrics.py": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
         "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
@@ -56,8 +56,22 @@
         "quality/delivery_compaction_metrics.sh": "c104a4b7fa6ec6549674c668152a2cf58731638b7f636b214a1bfdcec985dfea",
         "memory/tests/test_compaction_metrics_v1.py": "e32cc386e8f403e1eb0085a9af4309bfad3b7b5803eecbb6e17a0adc82d5f7a3"
       },
-      "manifest_digest": "fd016b05c848221ef1a026e81719884bf0bf30bf5867ea23e0ee70a53b00b6af"
-    }
+      "manifest_digest": "c12054cf99653e80250d7b5ebfe6a8cee4a5052905bfdcc9c9a568b376e63a7e"
+    },
+    "historial": [
+      {
+        "reviewer": "JARVIS",
+        "signed_at": "2026-09-07T20:31:39.795219+00:00",
+        "reviewed_sha256": {
+          "memory/compaction_metrics.py": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
+          "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
+          "memory/post_compact_session_start_hook.py": "931c404804bac07cca749f65eb685954e6456c33ea5e803c5051caee27b1f5d9",
+          "quality/delivery_compaction_metrics.sh": "c104a4b7fa6ec6549674c668152a2cf58731638b7f636b214a1bfdcec985dfea",
+          "memory/tests/test_compaction_metrics_v1.py": "e32cc386e8f403e1eb0085a9af4309bfad3b7b5803eecbb6e17a0adc82d5f7a3"
+        },
+        "manifest_digest": "fd016b05c848221ef1a026e81719884bf0bf30bf5867ea23e0ee70a53b00b6af"
+      }
+    ]
   },
   "deletions": [],
   "subjects": [

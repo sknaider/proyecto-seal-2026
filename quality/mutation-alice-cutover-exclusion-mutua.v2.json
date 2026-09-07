@@ -13,6 +13,18 @@
   "suspicious": 0,
   "timeout": 0,
   "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "..........                                                               [100%]\n10 passed in 0.27s\n.....                                                                    [100%]\n5 passed in 0.26s",
+    "sha_sujetos_antes": {
+      "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+      "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
   "mutants": [
     {
       "id": "agregar-v2-a-plenos",
@@ -37,7 +49,8 @@
         "messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_el_cutover_es_REVERSIBLE_borrando_el_archivo",
         "messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_el_switch_DEPENDE_de_que_la_instancia_sea_visible"
       ],
-      "pytest_tail": "FAILED messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_el_switch_DEPENDE_de_que_la_instancia_sea_visible\n4 failed, 5 passed in 0.04s\n..........                                                               [100%]\n10 passed in 0.27s\n.....                                                                    [100%]\n5 passed in 0.27s"
+      "pytest_tail": "FAILED messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_el_switch_DEPENDE_de_que_la_instancia_sea_visible\n4 failed, 5 passed in 0.04s\n..........                                                               [100%]\n10 passed in 0.26s\n.....                                                                    [100%]\n5 passed in 0.25s",
+      "sujeto_restaurado": true
     },
     {
       "id": "sin-archivo-gana-v2",
@@ -60,7 +73,8 @@
         "messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_unit_sin_archivo_gana_v1_el_olvido_conserva_lo_que_ya_andaba",
         "messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_el_cutover_es_REVERSIBLE_borrando_el_archivo"
       ],
-      "pytest_tail": "FAILED messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_el_cutover_es_REVERSIBLE_borrando_el_archivo\n2 failed, 7 passed in 0.04s\n..........                                                               [100%]\n10 passed in 0.28s\n.....                                                                    [100%]\n5 passed in 0.25s"
+      "pytest_tail": "FAILED messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_el_cutover_es_REVERSIBLE_borrando_el_archivo\n2 failed, 7 passed in 0.03s\n..........                                                               [100%]\n10 passed in 0.25s\n.....                                                                    [100%]\n5 passed in 0.26s",
+      "sujeto_restaurado": true
     },
     {
       "id": "valor-desconocido-pasa",
@@ -83,7 +97,8 @@
         "messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_unit_valor_desconocido_cae_a_v1_no_al_cuerpo_en_evaluacion",
         "messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_NUNCA_los_dos_cuerpos_a_la_vez"
       ],
-      "pytest_tail": "FAILED messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_NUNCA_los_dos_cuerpos_a_la_vez\n2 failed, 7 passed in 0.04s\n..........                                                               [100%]\n10 passed in 0.25s\n.....                                                                    [100%]\n5 passed in 0.27s"
+      "pytest_tail": "FAILED messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_NUNCA_los_dos_cuerpos_a_la_vez\n2 failed, 7 passed in 0.04s\n..........                                                               [100%]\n10 passed in 0.25s\n.....                                                                    [100%]\n5 passed in 0.25s",
+      "sujeto_restaurado": true
     },
     {
       "id": "el-inactivo-publica-en-cualquier-canal",
@@ -108,7 +123,8 @@
         "messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_el_cutover_es_REVERSIBLE_borrando_el_archivo",
         "messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_el_switch_DEPENDE_de_que_la_instancia_sea_visible"
       ],
-      "pytest_tail": "FAILED messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_el_switch_DEPENDE_de_que_la_instancia_sea_visible\n4 failed, 5 passed in 0.04s\n..........                                                               [100%]\n10 passed in 0.25s\n.....                                                                    [100%]\n5 passed in 0.25s"
+      "pytest_tail": "FAILED messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_el_switch_DEPENDE_de_que_la_instancia_sea_visible\n4 failed, 5 passed in 0.04s\n..........                                                               [100%]\n10 passed in 0.26s\n.....                                                                    [100%]\n5 passed in 0.25s",
+      "sujeto_restaurado": true
     },
     {
       "id": "tabla-por-patron",
@@ -134,7 +150,8 @@
         "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_negativo_una_sesion_ajena_no_firma_como_ALICE",
         "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_CONTROL_el_cuerpo_de_OTRO_agente_tampoco_pasa"
       ],
-      "pytest_tail": "E         + JARVIS\n\nmessages/tests/test_nexus_persistencia_autor_cuerpo_v1.py:64: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_CONTROL_el_cuerpo_de_OTRO_agente_tampoco_pasa\n1 failed, 4 passed in 0.27s"
+      "pytest_tail": "E         + JARVIS\n\nmessages/tests/test_nexus_persistencia_autor_cuerpo_v1.py:64: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_CONTROL_el_cuerpo_de_OTRO_agente_tampoco_pasa\n1 failed, 4 passed in 0.26s",
+      "sujeto_restaurado": true
     },
     {
       "id": "cualquiera-es-cuerpo",
@@ -161,7 +178,8 @@
         "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_NEGATIVO_una_sesion_cualquiera_NO_persiste_el_nombre_aseverado",
         "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_CONTROL_el_cuerpo_de_OTRO_agente_tampoco_pasa"
       ],
-      "pytest_tail": "\nmessages/tests/test_nexus_persistencia_autor_cuerpo_v1.py:64: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_NEGATIVO_una_sesion_cualquiera_NO_persiste_el_nombre_aseverado\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_CONTROL_el_cuerpo_de_OTRO_agente_tampoco_pasa\n2 failed, 3 passed in 0.26s"
+      "pytest_tail": "\nmessages/tests/test_nexus_persistencia_autor_cuerpo_v1.py:64: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_NEGATIVO_una_sesion_cualquiera_NO_persiste_el_nombre_aseverado\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_CONTROL_el_cuerpo_de_OTRO_agente_tampoco_pasa\n2 failed, 3 passed in 0.27s",
+      "sujeto_restaurado": true
     },
     {
       "id": "cuerpo-identity-nunca-aplica",
@@ -183,7 +201,8 @@
       "killed_by": [
         "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_positivo_sesion_del_cuerpo_firma_como_ALICE_sin_declararse"
       ],
-      "pytest_tail": "[agent-auth] mode=ENFORCE action=send reason=agent_sender_mismatch asserted=ALICE\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_positivo_sesion_del_cuerpo_firma_como_ALICE_sin_declararse\n1 failed, 9 passed in 0.26s\n.....                                                                    [100%]\n5 passed in 0.24s"
+      "pytest_tail": "[agent-auth] mode=ENFORCE action=send reason=agent_sender_mismatch asserted=ALICE\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_positivo_sesion_del_cuerpo_firma_como_ALICE_sin_declararse\n1 failed, 9 passed in 0.27s\n.....                                                                    [100%]\n5 passed in 0.25s",
+      "sujeto_restaurado": true
     },
     {
       "id": "instance-id-ajeno-se-ignora",
@@ -205,7 +224,8 @@
       "killed_by": [
         "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_negativo_el_token_canonico_NO_puede_aseverar_otra_instancia"
       ],
-      "pytest_tail": "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py:87: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_negativo_el_token_canonico_NO_puede_aseverar_otra_instancia\n1 failed, 9 passed in 0.26s\n.....                                                                    [100%]\n5 passed in 0.27s"
+      "pytest_tail": "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py:87: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_negativo_el_token_canonico_NO_puede_aseverar_otra_instancia\n1 failed, 9 passed in 0.28s\n.....                                                                    [100%]\n5 passed in 0.28s",
+      "sujeto_restaurado": true
     },
     {
       "id": "el-gate-deja-pasar-todo",
@@ -228,7 +248,8 @@
         "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_negativo_el_token_canonico_NO_puede_aseverar_otra_instancia",
         "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_negativo_una_sesion_ajena_no_firma_como_ALICE"
       ],
-      "pytest_tail": "=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_negativo_el_token_canonico_NO_puede_aseverar_otra_instancia\nFAILED messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_negativo_una_sesion_ajena_no_firma_como_ALICE\n2 failed, 8 passed in 0.27s\n.....                                                                    [100%]\n5 passed in 0.24s"
+      "pytest_tail": "=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_negativo_el_token_canonico_NO_puede_aseverar_otra_instancia\nFAILED messages/tests/test_nexus_cuerpo_desde_sesion_v1.py::test_cableado_negativo_una_sesion_ajena_no_firma_como_ALICE\n2 failed, 8 passed in 0.29s\n.....                                                                    [100%]\n5 passed in 0.26s",
+      "sujeto_restaurado": true
     },
     {
       "id": "cuerpo-persiste-su-propio-nombre",
@@ -250,7 +271,8 @@
       "killed_by": [
         "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_el_cuerpo_persiste_el_nombre_CANONICO_no_el_suyo"
       ],
-      "pytest_tail": "E         ?      +++\n\nmessages/tests/test_nexus_persistencia_autor_cuerpo_v1.py:36: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_el_cuerpo_persiste_el_nombre_CANONICO_no_el_suyo\n1 failed, 4 passed in 0.27s"
+      "pytest_tail": "E         ?      +++\n\nmessages/tests/test_nexus_persistencia_autor_cuerpo_v1.py:36: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_el_cuerpo_persiste_el_nombre_CANONICO_no_el_suyo\n1 failed, 4 passed in 0.26s",
+      "sujeto_restaurado": true
     },
     {
       "id": "cualquiera-persiste-el-aseverado",
@@ -273,7 +295,8 @@
         "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_NEGATIVO_una_sesion_cualquiera_NO_persiste_el_nombre_aseverado",
         "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_CONTROL_el_cuerpo_de_OTRO_agente_tampoco_pasa"
       ],
-      "pytest_tail": "\nmessages/tests/test_nexus_persistencia_autor_cuerpo_v1.py:64: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_NEGATIVO_una_sesion_cualquiera_NO_persiste_el_nombre_aseverado\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_CONTROL_el_cuerpo_de_OTRO_agente_tampoco_pasa\n2 failed, 3 passed in 0.26s"
+      "pytest_tail": "\nmessages/tests/test_nexus_persistencia_autor_cuerpo_v1.py:64: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_NEGATIVO_una_sesion_cualquiera_NO_persiste_el_nombre_aseverado\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_CONTROL_el_cuerpo_de_OTRO_agente_tampoco_pasa\n2 failed, 3 passed in 0.27s",
+      "sujeto_restaurado": true
     },
     {
       "id": "se-pierde-la-autoria-real",
@@ -295,7 +318,8 @@
       "killed_by": [
         "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_la_fila_conserva_la_CUENTA_del_cuerpo"
       ],
-      "pytest_tail": "E       assert None == 42\n\nmessages/tests/test_nexus_persistencia_autor_cuerpo_v1.py:47: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_la_fila_conserva_la_CUENTA_del_cuerpo\n1 failed, 4 passed in 0.26s"
+      "pytest_tail": "E       assert None == 42\n\nmessages/tests/test_nexus_persistencia_autor_cuerpo_v1.py:47: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py::test_la_fila_conserva_la_CUENTA_del_cuerpo\n1 failed, 4 passed in 0.29s",
+      "sujeto_restaurado": true
     }
   ],
   "file_sha256": {
