@@ -25,7 +25,7 @@ NO EJECUTA NADA: solo lee y parsea. La objecion de ADA (7-sep 10:54) es que
 importar ejecuta codigo; este detector no importa nada.
 """
 from __future__ import annotations
-import ast, pathlib, subprocess, sys, warnings
+import ast, json, pathlib, re, subprocess, sys, warnings
 
 
 def versionados(repo: pathlib.Path) -> set[str]:
@@ -34,9 +34,9 @@ def versionados(repo: pathlib.Path) -> set[str]:
 
 
 def imports_relativos(archivo: pathlib.Path) -> list[str]:
-    # ast.parse emite SyntaxWarning por escapes invalidos del archivo LEIDO
-    # (p.ej. "\\*" en un docstring ajeno). Es ruido del sujeto, no un hallazgo.
     """Modulos que el archivo importa desde SU MISMO directorio."""
+    # ast.parse emite SyntaxWarning por escapes invalidos del archivo LEIDO
+    # (p.ej. un "\\*" en un docstring ajeno). Es ruido del sujeto, no hallazgo.
     try:
         arbol = ast.parse(archivo.read_text(encoding="utf-8", errors="replace"))
     except Exception:
@@ -48,6 +48,55 @@ def imports_relativos(archivo: pathlib.Path) -> list[str]:
         elif isinstance(n, ast.Import):
             mods += [a.name.split(".")[0] for a in n.names]
     return mods
+
+
+# Los TRES casos que originaron este detector son .tsx, .json y un directorio
+# de front — ninguno es Python. Un detector que solo mira Python no habria
+# encontrado ninguno de los tres. Este carril cubre lo que falta.
+_IMPORT_JS = re.compile(
+    r"""(?:from|import|require\()\s*['"](\.[^'"]+)['"]""")
+_EXT_JS = ("", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".json",
+           "/index.ts", "/index.tsx", "/index.js", "/index.jsx")
+
+
+def imports_js(archivo: pathlib.Path) -> list[pathlib.Path]:
+    """Rutas RELATIVAS que el archivo importa, ya resueltas a un archivo real.
+
+    Regex y no parser: no hay parser de TS en la stdlib, e instalar uno para
+    un detector de perdidas seria pedirle al detector la misma dependencia
+    fragil que busca. El costo es que no ve imports dinamicos armados en
+    tiempo de ejecucion; queda declarado abajo como limite.
+    """
+    try:
+        txt = archivo.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return []
+    salida = []
+    for ref in set(_IMPORT_JS.findall(txt)):
+        base = (archivo.parent / ref)
+        for ext in _EXT_JS:
+            cand = pathlib.Path(str(base) + ext)
+            if cand.is_file():
+                salida.append(cand.resolve())
+                break
+    return salida
+
+
+def manifiestos_de_paquete(repo: pathlib.Path) -> list[pathlib.Path]:
+    """package.json / lock que existen en disco.
+
+    Se perdio el package.json de seal-desktop/ui por no estar versionado: sin
+    el, ni npm sabe que instalar. Es el archivo mas barato de versionar y el
+    mas caro de perder, porque no se reconstruye leyendo el codigo.
+    """
+    out = []
+    for nombre in ("package.json", "package-lock.json", "pyproject.toml",
+                   "requirements.txt", "Cargo.toml", "go.mod"):
+        for f in repo.rglob(nombre):
+            if ".git" in f.parts or "node_modules" in f.parts:
+                continue
+            out.append(f)
+    return out
 
 
 def main() -> int:
@@ -80,6 +129,35 @@ def main() -> int:
                 ignorados.append((str(py.relative_to(repo)), rel))
                 continue
             bombas.append((str(py.relative_to(repo)), rel))
+    # carril JS/TS: mismos dos cubos, misma regla
+    for src in repo.rglob("*"):
+        if src.suffix not in (".ts", ".tsx", ".js", ".jsx", ".mjs"):
+            continue
+        if ".git" in src.parts or "node_modules" in src.parts:
+            continue
+        for dep in imports_js(src):
+            try:
+                rel = str(dep.relative_to(repo))
+            except ValueError:
+                continue
+            if rel in en_git:
+                continue
+            quien = str(src.relative_to(repo))
+            if subprocess.run(["git", "check-ignore", "-q", rel],
+                              cwd=repo).returncode == 0:
+                ignorados.append((quien, rel))
+            else:
+                bombas.append((quien, rel))
+
+    # manifiestos de paquete: no los importa nadie, pero sin ellos nada instala
+    for man in manifiestos_de_paquete(repo):
+        rel = str(man.relative_to(repo))
+        if rel in en_git:
+            continue
+        destino = ignorados if subprocess.run(
+            ["git", "check-ignore", "-q", rel], cwd=repo).returncode == 0 else bombas
+        destino.append(("(manifiesto de dependencias: sin el, nada instala)", rel))
+
     ign = sorted(set(ignorados))
     if ign:
         print(f"IGNORADOS A PROPOSITO: {len(ign)} — se importan, existen en disco,")
@@ -96,7 +174,9 @@ def main() -> int:
 
     if not bombas:
         print("sin bombas: todo lo que se importa, existe y no esta ignorado,")
-        print("esta versionado. Alcance: imports de Python del mismo directorio.")
+        print("esta versionado. Alcance: imports de Python del mismo directorio,")
+        print("imports relativos de JS/TS y manifiestos de dependencias. NO ve")
+        print("imports armados en tiempo de ejecucion ni rutas en configuracion.")
         return 1 if ign else 0
     print(f"BOMBAS DE TIEMPO: {len(bombas)} archivos existen en disco y NO en git\n")
     for quien, que in sorted(set(bombas))[:40]:
