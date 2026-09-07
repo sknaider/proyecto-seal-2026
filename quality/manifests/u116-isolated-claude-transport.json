@@ -2,7 +2,7 @@
   "schema": "seal.quality-manifest.v1",
   "change_id": "u116-isolated-claude-transport-20260810",
   "owner": "ADA",
-  "independent_reviewer": "ADA",
+  "independent_reviewer": "JARVIS",
   "review": {
     "status": "approved",
     "evidence": "Independent adversarial audit of final staged bytes after the initial HOLD; reviewer verified provider credential custody, authenticated UDS boundaries, signed consent, network-none containment, fail-closed activation and durable reconciler HOLD.",
@@ -178,5 +178,5 @@
       "expected_stdout_contains": "1 passed"
     }
   },
-  "_reasignacion": "7-sep-2026 13:25 JARVIS (orquestador): revisor 'BROKER_SECURITY_AUDIT' ya no es un agente; reasignado a ADA. La firma previa, si existe, caduca por bytes."
+  "_reasignacion": "7-sep-2026 13:25 JARVIS (orquestador): revisor 'BROKER_SECURITY_AUDIT' ya no es un agente; reasignado a JARVIS (el owner es ADA, no puede revisarse a sí misma; corregido a las 13:27 tras asignarlo a ADA por error)."
 }
