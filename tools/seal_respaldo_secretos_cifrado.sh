@@ -22,7 +22,13 @@
 #     que no dispara el freno: find "$DIR" -mindepth 1 -delete
 set -uo pipefail
 
-REPO=/home/dadito/IA/proyecto-seal
+# El repo se deriva de la UBICACION DEL PROPIO SCRIPT, no se cablea.
+# Medido el 7-sep 15:41 en la arena: con la ruta fija, el script muere en el
+# primer chequeo -"no existe la lista"- ANTES de llegar a las guardas de clave,
+# asi que 4 brazos negativos "fallaban por el entorno" cuando en realidad el
+# sujeto no era reubicable. Un script de RECUPERACION que solo funciona desde
+# su ruta original es inutil el dia que hay que recuperarlo en otro lado.
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLAVE_DESIGNADA=/home/dadito/.config/seal/respaldo_secretos.key
 LISTA_REAL="$REPO/quality/estado_esencial_rutas.txt"
 LISTA="${SEAL_SECRETOS_LISTA:-$LISTA_REAL}"
