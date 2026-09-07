@@ -88,7 +88,7 @@ Y DUM deja de declarar «caído» por un solo indicador: exige dos fuentes (lati
 | # | Carril | Owner | Revisa | Estado 7-sep 11:00 |
 |---|---|---|---|---|
 | 1 | Roles por servicio | ALICE | ADA | autorizado; empieza por checkpoints |
-| 2 | Respaldo 3 capas + pg_dump | JARVIS | NEXUS | capa 1 hecha + pg_dump; capa 2 congelada hasta repo privado; redacción de secretos ampliada 12:21; re-firma NEXUS tras el positivo; FABLE REJECT 11:48 pendiente de reenvío |
+| 2 | Respaldo 3 capas + pg_dump | JARVIS | NEXUS | capa 1 hecha + pg_dump; capa 2 congelada hasta repo privado; redacción de secretos ampliada 12:21; re-firma NEXUS tras el positivo; reenviado al juez 12:47; `fable/.db_cred` repuesto 12:48 (rol fable_ltd rotado) |
 | 3 | Arena segura (usuario + red) | NEXUS | ALICE | arnés entregado; falta usuario `seal-arena` y red |
 | 4 | Unidades y cuerpos como código | NEXUS | ADA (roles) / JARVIS (resto) | **abierto y prioritario**: 22 unidades reconstruidas conectan como `seal` por falta de `EnvironmentFile`; recuperación por servicio con rol esperado comprobado |
 | 5 | Estado de misión nerves: procedimiento + copia | ADA | NEXUS | espera OK de William |
