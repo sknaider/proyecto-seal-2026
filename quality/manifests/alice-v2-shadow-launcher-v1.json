@@ -174,20 +174,20 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "reviewed_at": "2026-09-04T00:20:05.413513+00:00",
+      "evidence": "Revision 7-sep 16:07 sobre los bytes de hoy. 72 tests de politica en verde. Mutacion re-corrida POR MI en la arena: 32 de 32 muertos, 0 supervivientes, con los DOS controles positivos en rc=0 (copia sin mutar y politica sin mutar) y el control negativo del oraculo -sintaxis rota- clasificado aparte para que no se lea como mutante. Los mutantes cubren lo que importa de una politica: bypassPermissions, allow Bash total, quitar el deny de python o de Write sobre el repo, publicar como v1, agregar un MCP de postgres, correr el gateway como dadito y el HTTP directo.",
       "reviewed_sha256": {
         "agents/ALICE/v2_shadow/alice_v2_shadow.sh": "ae0a93d91d6571d820218ed21ce87f45ae12a193306134abe3f36e21fb19e765",
-        "agents/ALICE/v2_shadow/settings_alice_v2.json": "9fa60b38867f64c596e844ff1f6a587baa9ca233acc674eacd77182b115ddd0d",
+        "agents/ALICE/v2_shadow/settings_alice_v2.json": "c8ea4535e9aee4d6ad32b11429c2eec9fed8293a61aafd97cebc12e0dffa98b0",
         "agents/ALICE/v2_shadow/mcp_alice_v2.json": "7f8a74dd5c383d9a326cb9f6a60e26268461909a92430ca57dd9c0ea2d7272a0",
         "agents/ALICE/v2_shadow/tests/check_alice_v2_shadow_launcher_mutants.py": "2bc2c6782d11f5a109532770cf7bb7ccdd24858bb9cc7e87ecb59ae099dd4ecb",
         "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_v1.py": "f0a41d75973a0454b3ffdef292e3b5826febf28b5e25b34c81056904df41aa8b",
         "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_control_v1.py": "4f8751414e9c6d44552e448e150c0d4f174af00b609a43023cb00b3eb5d0e8cd",
-        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py": "fdd181809bc11ebfdf67b63e575702714e53b356810c531f338435d2c1bf7d99"
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py": "c7d13c4783f2d3ed9453a01732f3ad2ffeb9b4c32d706975d6e5d17523ed4553"
       },
-      "manifest_digest": "9a15a76f89bac5cf03601b6002c4b28bfa6c6a1a803df1c9a09c2492fb3448a5",
-      "verdict": "APPROVED",
-      "evidence": "Revision del lanzador SOMBRA (el que corre como dadito), tras los cambios de ADA (14:27) y el fix de forma de rutas de JARVIS. Estaba en receipt_stale/bytes_stale.\nBYTES: 7/7 sha declarados == disco. SUITE: 85 passed, corridos por mi.\nFORMA DE LAS RUTAS, medida en el archivo: 0 reglas con UNA barra, 16 con dos. El defecto que JARVIS encontro a las 19:17 --`Read(/abs/...)` con una barra es RELATIVA al proyecto y no intercepta nada fuera del cwd-- esta corregido tambien en esta politica, no solo en la aislada.\nMUTACION PROPIA, copia aislada, control sin mutar PRIMERO (85 passed):\n  M-NEXUS-8  devolver las rutas a una barra        MUERE (10 failed)\n  M-NEXUS-9  dontAsk -> bypassPermissions          MUERE (2 failed)\nNOTA DE ARNES (la cuarta vez hoy y la registro porque ya es patron): mi primera tanda dio ERROR de coleccion en las TRES corridas --control incluido-- porque la copia no tenia `alice_fresh.sh`, que el test de control busca subiendo desde su carpeta. Con el control en rojo, M8 y M9 se veian identicos a un mutante sobreviviente. **Correr el control PRIMERO es lo unico que separa 'el test no lo caza' de 'el arnes no puede medir'.**\nALCANCE: este asiento corre como `dadito`, asi que su contencion es de politica, no de usuario. La diferencia con el aislado es real y esta declarada en los dos manifiestos."
-    }
+      "manifest_digest": "49b9e2807468125160cfcd48e2e75e945c680af7ba884197aed27d641bd1a66a"
+    },
+    "reviewer": "NEXUS",
+    "date": "2026-09-07"
   },
   "delivery": {
     "status": "verified",

@@ -1,7 +1,7 @@
 {
   "schema": "seal.mutation-evidence.v1",
-  "tool": "explicit adversarial mutants on a COPY of agents/ALICE/v2_shadow/alice_v2_shadow.sh per mutant in a fresh tmp dir; killer = test rc==1 in subprocess pytest; rc not in (0,1) = suspicious",
-  "workspace": "asiento ALICE v2 en sombra: lanzador (contrato F2 §2) + POLÍTICA (settings_alice_v2.json: deny obligatorios, allow sin puertas; mcp_alice_v2.json: sólo SOUL con bearer de instancia por variable)",
+  "tool": "check_alice_v2_shadow_launcher_mutants.py corrido DENTRO de la arena del arnes (contenedor sin privilegios, copia desde el INDICE, venv :ro) — arnes aprobado por FABLE 7-sep 14:48",
+  "workspace": "asiento ALICE v2 en sombra: lanzador + política cerrada + gateway SOUL v2 por UID aislado, sin bearer visible",
   "killed": 32,
   "survived": 0,
   "no_tests": 0,
@@ -26,14 +26,18 @@
   "reviewer": "NEXUS",
   "file_sha256": {
     "agents/ALICE/v2_shadow/alice_v2_shadow.sh": "ae0a93d91d6571d820218ed21ce87f45ae12a193306134abe3f36e21fb19e765",
-    "agents/ALICE/v2_shadow/settings_alice_v2.json": "9fa60b38867f64c596e844ff1f6a587baa9ca233acc674eacd77182b115ddd0d",
+    "agents/ALICE/v2_shadow/settings_alice_v2.json": "c8ea4535e9aee4d6ad32b11429c2eec9fed8293a61aafd97cebc12e0dffa98b0",
     "agents/ALICE/v2_shadow/mcp_alice_v2.json": "7f8a74dd5c383d9a326cb9f6a60e26268461909a92430ca57dd9c0ea2d7272a0",
     "agents/ALICE/v2_shadow/tests/check_alice_v2_shadow_launcher_mutants.py": "2bc2c6782d11f5a109532770cf7bb7ccdd24858bb9cc7e87ecb59ae099dd4ecb",
     "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_v1.py": "f0a41d75973a0454b3ffdef292e3b5826febf28b5e25b34c81056904df41aa8b",
     "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_control_v1.py": "4f8751414e9c6d44552e448e150c0d4f174af00b609a43023cb00b3eb5d0e8cd",
-    "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py": "fdd181809bc11ebfdf67b63e575702714e53b356810c531f338435d2c1bf7d99"
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py": "c7d13c4783f2d3ed9453a01732f3ad2ffeb9b4c32d706975d6e5d17523ed4553"
   },
   "detail": {
+    "permission_mode_pide_humano": {
+      "rc": 1,
+      "state": "killed"
+    },
     "skip_permissions_agregado": {
       "rc": 1,
       "state": "killed"
@@ -106,6 +110,10 @@
       "rc": 1,
       "state": "killed"
     },
+    "settings_git_diff_vuelve_al_allow": {
+      "rc": 1,
+      "state": "killed"
+    },
     "settings_publica_como_v1": {
       "rc": 1,
       "state": "killed"
@@ -114,16 +122,47 @@
       "rc": 1,
       "state": "killed"
     },
-    "mcp_token_literal": {
+    "mcp_runs_as_dadito": {
       "rc": 1,
       "state": "killed"
     },
-    "mcp_bearer_de_v1": {
+    "mcp_direct_http": {
       "rc": 1,
       "state": "killed"
     },
-    "refresco_20260903_1921": "owner JARVIS: harness check_alice_v2_shadow_launcher_mutants.py 32/32 sobre los bytes firmados por NEXUS 19:20 (digest 9a15a76f); sha refrescados"
+    "settings_quita_allow_boot_context": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_quita_allow_active_recall": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_quita_allow_memory_hybrid_search": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_quita_allow_search_code": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_quita_allow_soul_recall_router_tool": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_quita_allow_soul_snapshot": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_quita_allow_webchat_poll": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_quita_allow_working_state_get": {
+      "rc": 1,
+      "state": "killed"
+    }
   },
-  "tmp_dir": "/tmp/alice-v2-mutants-hooumehf",
-  "measured_at": "2026-09-04T00:21:13.642659+00:00"
+  "tmp_dir": "/tmp/alice-v2-mutants-vddze145",
+  "nota_re_corrida_20260907": "Re-corrida por NEXUS (revisor) el 7-sep 16:07 sobre los bytes de hoy. Este manifiesto es el UNICO de la tanda cuyos mutantes ya eran EJECUTABLES -viven como funciones en un script que es sujeto del propio manifiesto-, asi que re-correr fue un comando y no hubo que re-derivar nada de la prosa. Comparado con loop-guard, donde re-derivar colgo la arena dos veces, la diferencia de costo es exactamente el argumento del registro reproducible."
 }
