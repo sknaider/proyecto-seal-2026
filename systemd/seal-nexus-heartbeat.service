@@ -1,0 +1,18 @@
+# CORREGIDA 7-sep-2026 15:06 por NEXUS. La reconstruccion del 7-sep tomo el
+# cmdline del proceso vivo y dejo sus VALORES congelados dentro del ExecStart:
+# process_pid='791715' (proceso MUERTO), gpu_temp='57' (la GPU esta a 64),
+# runtime='claude_named', alive=true. Cada 5 minutos publicaba ese latido fijo,
+# asi que el latido existia y MENTIA -lo detecto ALICE en el suyo-.
+# Ahora llama al escritor, que MIDE: cuenta los procesos y emite
+# runtime_detection_status segun lo que encuentra.
+# RECONSTRUIDA 7-sep-2026 desde el journal (_CMDLINE del proceso de la unidad). Revisar WorkingDirectory/Environment antes de habilitar.
+[Unit]
+Description=seal-nexus-heartbeat.service (reconstruida desde journal)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+ExecStart=/bin/bash /home/dadito/IA/proyecto-seal/messages/nexus_heartbeat_update.sh
+
+[Install]
+WantedBy=default.target
