@@ -109,3 +109,86 @@ def test_qa_negative_el_sql_libera_por_estado_y_no_solo_por_tiempo():
 def test_control_no_vacuo_el_test_puede_fallar(modulo):
     with pytest.raises(AssertionError):
         assert not hasattr(modulo, "acquire_db")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# BRAZOS DE CONDUCTA — agregados el 7-sep-2026 tras el hallazgo de ALICE.
+#
+# Ella re-corrio 6 mutantes de CONDUCTA y NINGUNO murio: rompio la exclusion
+# mutua entera -el `return False` paso a `return True`- y esta suite siguio
+# VERDE. Porque verificaba la FORMA del modulo -que los call sites existan, que
+# release_db siga siendo corrutina, el texto del SQL- y **no llamaba a
+# `acquire()` ni una sola vez**.
+#
+# Es el flood que William mando a arreglar, sin un solo test que lo probara.
+# Un brazo de forma no es inutil; lo grave fue llamar "contrato" a un manifiesto
+# que no ejercia el contrato.
+# ══════════════════════════════════════════════════════════════════════════
+import time as _time
+
+from messages.response_lease import InMemoryLease, gate_allows, is_multi_response
+
+
+def test_CONDUCTA_solo_UN_agente_gana_el_lease():
+    """Mata `el-segundo-agente-tambien-gana`, que sobrevivio."""
+    lease = InMemoryLease()
+    assert lease.acquire("b1", "ALICE") is True
+    assert lease.acquire("b1", "NEXUS") is False, (
+        "un SEGUNDO agente gano el mismo turno: eso es el flood que el lease existe "
+        "para impedir")
+
+
+def test_CONDUCTA_el_dueno_conserva_su_turno():
+    """Mata `el-dueno-pierde-su-propio-turno`. Idempotencia: el owner puede
+    re-postear sin perder el lease que ya tiene."""
+    lease = InMemoryLease()
+    assert lease.acquire("b1", "ALICE") is True
+    assert lease.acquire("b1", "ALICE") is True, "el dueño perdio su propio turno"
+
+
+def test_CONDUCTA_el_lease_EXPIRA_y_hay_handoff():
+    """Mata `el-lease-no-expira-nunca`. Sin handoff, un agente que se cuelga deja
+    el turno tomado para siempre y William se queda sin respuesta."""
+    lease = InMemoryLease()
+    assert lease.acquire("b1", "ALICE", ttl=1) is True
+    _time.sleep(1.1)
+    assert lease.acquire("b1", "NEXUS", ttl=1) is True, (
+        "el lease no expiro: un agente colgado bloquea el turno indefinidamente")
+
+
+def test_CONTROL_el_lease_NO_expira_antes_de_tiempo():
+    """Mata `el-lease-expira-al-instante` (TTL=0), el mutante espejo del anterior.
+
+    Sin este control, un lease que expira SIEMPRE pasaria el test de handoff y
+    romperia la exclusion mutua: los dos defectos se ven distintos y el mismo
+    brazo no puede cazar a los dos.
+    """
+    lease = InMemoryLease()
+    assert lease.acquire("b1", "ALICE", ttl=45) is True
+    assert lease.acquire("b1", "NEXUS", ttl=45) is False, (
+        "el lease expiro de inmediato: la exclusion mutua no dura nada")
+
+
+def test_CONDUCTA_multivoz_no_aplica_lease():
+    """Mata `ningun-mensaje-es-multivoz`. Cuando William pide varias voces, el
+    lease NO debe silenciar a nadie."""
+    lease = InMemoryLease()
+    texto = "chicos, respondan todos"
+    assert is_multi_response(texto) is True
+    assert gate_allows(lease, "b1", "ALICE", texto) is True
+    assert gate_allows(lease, "b1", "NEXUS", texto) is True, (
+        "el lease silencio a un agente en un pedido MULTIVOZ")
+
+
+def test_CONTROL_un_mensaje_normal_SI_aplica_lease():
+    """Mata `todo-mensaje-se-declara-multivoz`, el espejo del anterior.
+
+    Sin este control, declarar multivoz a TODO pasaria el test de arriba y
+    desactivaria el lease por completo.
+    """
+    lease = InMemoryLease()
+    texto = "nexus, revisa el gate"
+    assert is_multi_response(texto) is False
+    assert gate_allows(lease, "b1", "ALICE", texto) is True
+    assert gate_allows(lease, "b1", "NEXUS", texto) is False, (
+        "un mensaje normal no aplico lease: el turno unico dejo de existir")
