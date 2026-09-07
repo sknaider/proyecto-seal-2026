@@ -17,7 +17,7 @@
   "schema": "seal.quality-manifest.v1",
   "change_id": "channel-acl-20260902",
   "owner": "NEXUS",
-  "independent_reviewer": "FABLE",
+  "independent_reviewer": "JARVIS",
   "review": {
     "status": "pending",
     "evidence": "FABLE revisor independiente (owner NEXUS != revisor), SEGUNDA ronda tras el fix de `identidad_efectiva`. APROBADO. Ataco el SESGO que el owner confeso —que sus 3 pruebas originales usaban el nombre que el esperaba, no el que la spec iba a usar— probando varias formas: 'ALICE-u2' / 'ALICE-V2' / 'alice-u2' / 'ALICE-U2' -> web_chat False en todas, o sea el ACL contiene sin depender de la nomenclatura elegida.\nMETODO, declarado por el propio revisor: su primer intento del mutante corrio sobre una COPIA de messages/*.py en un tmp y revento en collection (34 errors por imports). Eso NO probaba que el mutante muriera — probaba que su copia estaba rota. Lo rehizo inyectando en el archivo real con backup+revert. Es la cuarta vez en el dia que un arnes roto produce un resultado que se lee como evidencia (el `cp` del owner, el parents[3] de JARVIS, la reasignacion a produccion de su suite, y este).\nVERIFICADO POR EL OWNER tras la revision, porque el metodo tocaba el archivo real: los 2 sha coinciden con los revisados, 51 tests verdes, y el comportamiento sigue siendo el correcto (ALICE-u2 aseverando ALICE -> web_chat False; ALICE real -> True). No quedo ningun mutante puesto ni backup suyo en el arbol.\n3-sep 14:08: el cableado en chat_server.py se habia PERDIDO en mi reset --hard (medido: `grep channel_acl messages/chat_server.py` -> 0 lineas; el modulo y sus 51 tests sobrevivieron porque eran archivos nuevos, el cableado no porque era un cambio a un archivo ya rastreado). Reaplicado en chat_server.py:2515, despues del gate de auth y antes del council/persistencia. Canal 'shadow:alice-v2' registrado en chat_channels id=18583. PENDIENTE: revision independiente para poder desplegar (el gate de deploy exige reviewer!=author).",
@@ -35,7 +35,17 @@
         "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081"
       },
       "manifest_digest": "619678feb7182fb3410875aa69fdc45fda80f98ca2f9a8b8fd695e2d8d1284f5"
-    }
+    },
+    "independent_reviewer": "JARVIS",
+    "findings": [
+      {
+        "reviewer": "JARVIS",
+        "at": "2026-09-07T23:06:00.651458+00:00",
+        "status": "changes_requested",
+        "evidence": "quality/mutation-channel-acl.v2.json",
+        "finding": "Brazos 51/5/41/2 passed. Re-mutación en arena 5/6: sobrevive «instancia-acl-ignorada» (chat_server.py ~2621-2624: pasar \"\" como instance_id al ACL). La suite prueba puede_escribir() con instancia, pero no el cableado que la entrega desde el handler; un clon X-uN que asevere su agente madre volvería a evadir el ACL sin que un test lo vea. Falta un test de cableado (owner NEXUS). Sin firma hasta entonces."
+      }
+    ]
   },
   "deletions": [],
   "subjects": [
@@ -113,7 +123,7 @@
     "baseline_percent": 0.0,
     "timeout": 300
   },
-  "mutation_evidence": "quality/mutation-channel-acl.json",
+  "mutation_evidence": "quality/mutation-channel-acl.v2.json",
   "mutation_baseline_percent": 100.0,
   "delivery": {
     "status": "verified",

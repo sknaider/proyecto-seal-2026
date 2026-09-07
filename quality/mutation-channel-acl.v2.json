@@ -1,0 +1,178 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "channel-acl",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 5,
+  "survived": 1,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 83.333,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "...................................................                      [100%]\n51 passed in 0.03s",
+    "sha_sujetos_antes": {
+      "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+      "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "desconocido-abierto",
+      "subject": "messages/channel_acl.py",
+      "ancla": "    if quien in REMITENTES_PLENOS:\n        return True\n    # Desconocido: sólo su propio corral.\n    return es_canal_de_sombra(channel)",
+      "reemplazo": "    if quien in REMITENTES_PLENOS:\n        return True\n    # Desconocido: cualquier canal\n    return True",
+      "why": "un desconocido puede publicar en web_chat, no solo en shadow:*; la guarda fail-closed se pierde",
+      "registro": {
+        "subject": "messages/channel_acl.py",
+        "ancla": "    if quien in REMITENTES_PLENOS:\n        return True\n    # Desconocido: sólo su propio corral.\n    return es_canal_de_sombra(channel)",
+        "reemplazo": "    if quien in REMITENTES_PLENOS:\n        return True\n    # Desconocido: cualquier canal\n    return True",
+        "ancla_sha256": "2b1fbbbd0ba4fae84d0a9ef4f71beec651a60a98898e63b6369aff46fffdd2f8",
+        "sujeto_sha256_antes": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_nexus_channel_acl_v1.py::test_una_identidad_NUEVA_queda_contenida_sin_configurar_nada",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_una_INSTANCIA_no_hereda_los_permisos_de_su_agente_madre"
+      ],
+      "pytest_tail": "\nmessages/tests/test_nexus_channel_acl_v1.py:87: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_una_identidad_NUEVA_queda_contenida_sin_configurar_nada\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_una_INSTANCIA_no_hereda_los_permisos_de_su_agente_madre\n2 failed, 49 passed in 0.04s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "sombra-puede-escribir-general",
+      "subject": "messages/channel_acl.py",
+      "ancla": "    if quien in _ALICE_CUERPOS:\n        return (\n            quien == cuerpo_activo_de_alice()\n            or es_canal_de_sombra(channel)\n        )",
+      "reemplazo": "    if quien in _ALICE_CUERPOS:\n        return True",
+      "why": "ALICE no activa puede publicar en web_chat; la exclusión mutua se pierde",
+      "registro": {
+        "subject": "messages/channel_acl.py",
+        "ancla": "    if quien in _ALICE_CUERPOS:\n        return (\n            quien == cuerpo_activo_de_alice()\n            or es_canal_de_sombra(channel)\n        )",
+        "reemplazo": "    if quien in _ALICE_CUERPOS:\n        return True",
+        "ancla_sha256": "653736b4f4280702bb5c6683c8d351c13fd74b0217c0da8544dbcb0c779a2f55",
+        "sujeto_sha256_antes": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_nexus_channel_acl_v1.py::test_ROJO_el_asiento_sombra_no_publica_fuera_de_su_canal[web_chat]",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_ROJO_el_asiento_sombra_no_publica_fuera_de_su_canal[dm:william:alice-v2]",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_ROJO_el_asiento_sombra_no_publica_fuera_de_su_canal[latidos]",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_el_canal_de_sombra_no_se_puede_falsificar"
+      ],
+      "pytest_tail": "=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_ROJO_el_asiento_sombra_no_publica_fuera_de_su_canal[web_chat]\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_ROJO_el_asiento_sombra_no_publica_fuera_de_su_canal[dm:william:alice-v2]\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_ROJO_el_asiento_sombra_no_publica_fuera_de_su_canal[latidos]\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_el_canal_de_sombra_no_se_puede_falsificar\n4 failed, 47 passed in 0.04s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "canal-prefijo-laxo",
+      "subject": "messages/channel_acl.py",
+      "ancla": "_CANAL_SOMBRA = re.compile(r\"^shadow:[a-z0-9][a-z0-9_.-]{0,63}$\", re.IGNORECASE)",
+      "reemplazo": "_CANAL_SOMBRA = re.compile(r\"^shadow:\", re.IGNORECASE)",
+      "why": "la validación de canal sombra solo comprueba el prefijo; web_chat:shadow:alice se acepta como válido",
+      "registro": {
+        "subject": "messages/channel_acl.py",
+        "ancla": "_CANAL_SOMBRA = re.compile(r\"^shadow:[a-z0-9][a-z0-9_.-]{0,63}$\", re.IGNORECASE)",
+        "reemplazo": "_CANAL_SOMBRA = re.compile(r\"^shadow:\", re.IGNORECASE)",
+        "ancla_sha256": "ab9ff3a720a74154e75f5259650338f430f95873a9f453092d401b13623ee625",
+        "sujeto_sha256_antes": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_nexus_channel_acl_v1.py::test_VERDE_el_asiento_sombra_publica_en_su_propio_canal",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_una_identidad_NUEVA_queda_contenida_sin_configurar_nada",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_el_canal_de_sombra_no_se_puede_falsificar",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_una_INSTANCIA_no_hereda_los_permisos_de_su_agente_madre"
+      ],
+      "pytest_tail": "=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_VERDE_el_asiento_sombra_publica_en_su_propio_canal\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_una_identidad_NUEVA_queda_contenida_sin_configurar_nada\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_el_canal_de_sombra_no_se_puede_falsificar\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_una_INSTANCIA_no_hereda_los_permisos_de_su_agente_madre\n4 failed, 47 passed in 0.04s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "identidad-no-verificada-cuenta-como-propia",
+      "subject": "messages/channel_acl.py",
+      "ancla": "    quien = identidad_efectiva(sender, instance_id)\n    if not quien:\n        return False",
+      "reemplazo": "    quien = identidad_efectiva(sender, instance_id)\n    if not quien:\n        quien = sender",
+      "why": "si la identidad efectiva no se resuelve (instancia/clon no reconocido), el sender crudo pasa a valer como identidad y sigue la evaluación: un clon no reconocido hereda los permisos del nombre que asevera",
+      "registro": {
+        "subject": "messages/channel_acl.py",
+        "ancla": "    quien = identidad_efectiva(sender, instance_id)\n    if not quien:\n        return False",
+        "reemplazo": "    quien = identidad_efectiva(sender, instance_id)\n    if not quien:\n        quien = sender",
+        "ancla_sha256": "055e358b386233845985d9782fe3cb213da1957d8c9ebf7b5c2b1d6f96ec08fb",
+        "sujeto_sha256_antes": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_nexus_channel_acl_v1.py::test_un_nombre_vacio_no_pasa"
+      ],
+      "pytest_tail": "E            +    where <function puede_escribir at 0xe4fc53e8fce0> = acl.puede_escribir\n\nmessages/tests/test_nexus_channel_acl_v1.py:58: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_un_nombre_vacio_no_pasa\n1 failed, 50 passed in 0.04s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "motivo-filtra-lista",
+      "subject": "messages/channel_acl.py",
+      "ancla": "def motivo_del_rechazo(sender: str, channel: str) -> str:\n    \"\"\"Texto para el 403. Dice qué pasó y qué se puede hacer, sin filtrar la lista.\"\"\"\n    return (\n        f\"remitente '{sender}' no habilitado para el canal '{channel}'. \"\n        \"Un asiento en evaluación publica sólo en su canal 'shadow:<nombre>'.\"\n    )",
+      "reemplazo": "def motivo_del_rechazo(sender: str, channel: str) -> str:\n    \"\"\"Texto para el 403. Dice qué pasó y qué se puede hacer, sin filtrar la lista.\"\"\"\n    return (\n        f\"remitente '{sender}' no habilitado para el canal '{channel}'. \"\n        f\"Habilitados: {', '.join(sorted(REMITENTES_PLENOS))}. \"\n        \"Un asiento en evaluación publica sólo en su canal 'shadow:<nombre>'.\"\n    )",
+      "why": "el motivo del rechazo expone la lista de remitentes habilitados; filtra información que se prometió ocultar",
+      "registro": {
+        "subject": "messages/channel_acl.py",
+        "ancla": "def motivo_del_rechazo(sender: str, channel: str) -> str:\n    \"\"\"Texto para el 403. Dice qué pasó y qué se puede hacer, sin filtrar la lista.\"\"\"\n    return (\n        f\"remitente '{sender}' no habilitado para el canal '{channel}'. \"\n        \"Un asiento en evaluación publica sólo en su canal 'shadow:<nombre>'.\"\n    )",
+        "reemplazo": "def motivo_del_rechazo(sender: str, channel: str) -> str:\n    \"\"\"Texto para el 403. Dice qué pasó y qué se puede hacer, sin filtrar la lista.\"\"\"\n    return (\n        f\"remitente '{sender}' no habilitado para el canal '{channel}'. \"\n        f\"Habilitados: {', '.join(sorted(REMITENTES_PLENOS))}. \"\n        \"Un asiento en evaluación publica sólo en su canal 'shadow:<nombre>'.\"\n    )",
+        "ancla_sha256": "41e6fdfae5c9c39f670062b15d34b46994c0dab04b3e33e7c8e9a8c20e18e983",
+        "sujeto_sha256_antes": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_nexus_channel_acl_v1.py::test_el_motivo_del_rechazo_no_filtra_la_lista"
+      ],
+      "pytest_tail": "E             ?           ++++++\n\nmessages/tests/test_nexus_channel_acl_v1.py:75: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_channel_acl_v1.py::test_el_motivo_del_rechazo_no_filtra_la_lista\n1 failed, 50 passed in 0.04s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "instancia-acl-ignorada",
+      "subject": "messages/chat_server.py",
+      "ancla": "    _instancia_acl = instance_id\n    if _es_cuerpo_de_agente(_verificado, sender):\n        _instancia_acl = _verificado",
+      "reemplazo": "    _instancia_acl = \"\"\n    if _es_cuerpo_de_agente(_verificado, sender):\n        _instancia_acl = \"\"",
+      "why": "el ACL nunca recibe la instance_id; los clones (ALICE-u2) pueden aseverar ALICE y publicar sin restricción",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "    _instancia_acl = instance_id\n    if _es_cuerpo_de_agente(_verificado, sender):\n        _instancia_acl = _verificado",
+        "reemplazo": "    _instancia_acl = \"\"\n    if _es_cuerpo_de_agente(_verificado, sender):\n        _instancia_acl = \"\"",
+        "ancla_sha256": "e19a5cd2b2e36461f65aa195e2efcd7b3db7ea2835b5fe887078bce66dca4581",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "...................................................                      [100%]\n51 passed in 0.03s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+    "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+    "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081"
+  }
+}

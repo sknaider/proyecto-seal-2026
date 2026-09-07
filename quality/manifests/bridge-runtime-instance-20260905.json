@@ -2,7 +2,7 @@
   "schema": "seal.quality-manifest.v1",
   "change_id": "bridge-runtime-instance-20260905",
   "owner": "ADA",
-  "independent_reviewer": "NEXUS",
+  "independent_reviewer": "JARVIS",
   "_doc": [
     "El bridge del cuerpo Codex publicaba sus mensajes SIN declarar que cuerpo hablaba.",
     "",
@@ -104,7 +104,7 @@
     "_por_que_es_bajo_y_es_honesto": "el cambio son 14 lineas que adjuntan un campo al payload, sobre un modulo de 1305 sentencias de logica de bridge que estos tests no ejercitan ni pretenden ejercitar (la fila del sujeto esta al 17 %). Lo que gatea este cambio es la mutacion (8/8, dos tandas atribuidas) y el delivery por efecto (4/4 brazos).",
     "_de_donde_sale_este_numero": "1.0 es un PISO por debajo de lo que mide EL GATE (1.033 %), no de lo que mido yo. Puse 2.0 primero leyendo mi propia corrida de `coverage report`, y el gate rechazo con coverage_regression:1.033<2.0. Intente reproducir su numero aplicando los `omit` declarados y me da 1.294 % con y sin ellos: NO consigo igualar su corrida. En vez de disimular la diferencia, declaro que la autoridad es la medicion del GATE y el piso va debajo de esa. Es la tercera variante del mismo error en dos dias: medir con un alcance distinto del que usa quien juzga --primero la FILA del sujeto en vez del TOTAL, ahora MI corrida en vez de la SUYA."
   },
-  "mutation_evidence": "quality/mutation-bridge-runtime-instance-20260905.json",
+  "mutation_evidence": "quality/mutation-bridge-runtime-instance-20260905.v2.json",
   "mutation_baseline_percent": 100.0,
   "mutation_command": [
     "python3",
@@ -115,20 +115,34 @@
   ],
   "review": {
     "status": "approved",
-    "approved_at": "2026-09-05T12:55:04+00:00",
+    "approved_at": "2026-09-07T23:04:20.425058+00:00",
     "_reviewer_cambiado_por": "NEXUS: el manifiesto declaraba ALICE; ella declino por no ejecutar desde su asiento v2 y ADA me lo pidio (_solicitado_a: NEXUS). Cambio mecanico para que el recibo case con el campo.",
     "evidence": "Revision independiente de NEXUS, 5-sep-2026. Owner ADA.\n\nMETODO: copia aislada con `git archive HEAD` + los bytes vivos de sujeto y test;\nPYTHONDONTWRITEBYTECODE=1 y borrado de __pycache__ entre corridas; cada mutante\nverificado por FORMA antes de correr (cambia la linea Y compila con ast.parse),\nlocalizado por CONTENIDO de linea, no por numero.\n\nCONTROL positivo: 8 passed. CONTROL de restauracion: 8 passed.\nEl test IMPORTA ada_codex_remote_bridge e intercepta urlopen -> EJECUTA el sujeto,\nno lee su fuente.\n\nPRIMERA PASADA (6 tests) - 3 mutantes mios, UNO SOBREVIVIO:\n  A quitar el truncado _rt[:40] -> _rt ........ 1 failed  MUERE\n  B invertir la guarda if _rt: ................ 5 failed  MUERE\n  C quitar el .strip() ........................ 6 passed  SOBREVIVIO\n\nEl C NO era equivalente, y lo probe ejecutando las DOS versiones de las tres\nlineas reales en vez de razonarlo:\n  variable '   '        sano -> metadata AUSENTE   mutante -> {'runtime_instance': '   '}\n  variable '  X  '      sano -> 'X'                mutante -> '  X  '\nRompia el propio ARM2 del manifiesto: 'sin variable -> NULL' deja de discriminar\nsi alguien exporta la variable en blancos, y el padding rompe el filtro por\nigualdad exacta que el _doc declara como su uso.\n\nADA agrego dos tests (blancos -> sin firma; padding -> valor limpio).\n\nSEGUNDA PASADA sobre los bytes nuevos (8 tests) - LOS TRES MUEREN:\n  A .... 1 failed   B .... 7 failed   C .... 2 failed\n\nOTROS CHEQUEOS: sujetos y test presentes en el INDEX de git (los 3); los\nfile_sha256 de la evidencia de mutacion coinciden con los bytes en disco.\nLa justificacion de cobertura (2 % y no 17 %) es correcta: el gate compara el\nTOTAL del alcance, no la fila del sujeto.\n\nRE-FIRMA 12:55Z — el owner bajo coverage.baseline_percent de 2.0 a 1.0 y eso\ncaduco el recibo por digest (independent_review_receipt_stale). NINGUN byte de\nsujeto ni de test cambio: los sha256 del recibo anterior son identicos, asi que\nlos mutantes y controles de arriba siguen valiendo tal cual.\nVERIFIQUE EL NUMERO NUEVO en vez de aceptarlo, con el alcance del manifiesto:\n  coverage run --source=messages --omit='messages/tests/*,*/site-packages/*'\n  TOTAL  18160 sentencias  17925 sin cubrir  ->  1 %\n  fila del sujeto  ada_codex_remote_bridge.py  1305/1082  ->  17 %\nEl 2.0 era erroneo y el 1.0 es correcto: bajarlo NO es aflojar el piso, es\ncorregir una linea base mal medida. Queda 0,033 pp de margen contra el 1.033 que\nmide el gate — angosto, pero lo que gatea este cambio es la mutacion y el\ndelivery, como el propio manifiesto argumenta.",
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
-      "reviewer": "NEXUS",
-      "manifest_digest": "eae699b4dd3dfbc82ec8a0064263876704d20e3b0d2f00cafe400f8356261b81",
+      "reviewer": "JARVIS",
+      "evidence": "Relevo de revisor NEXUS→JARVIS (7-sep-2026 18:10; NEXUS sin señal desde 16:19, plazo 18:00 vencido). La firma anterior quedó bytes_stale por el ROOT relativo de ada_codex_remote_bridge.py:32 (commit ed0ee0d, ALICE). Brazos con el venv: unit-bridge-runtime-instance rc=0 :: 8 passed in 0.04s; positive-la-firma-llega-al-payload rc=0 :: 3 passed in 0.04s; negative-sin-variable-no-inventa-firma rc=0 :: 3 passed in 0.04s; control-el-test-anterior-puede-fallar rc=0 :: 1 passed in 0.04s. Re-mutación en arena aprobada con 5 mutantes ejecutables sobre la firma runtime_instance del bridge (variable equivocada, firma inventada por default, asignación bajo if False, lectura desde SESSION_KEY, sin recorte a 40): 5/5 muertos; evidencia quality/mutation-bridge-runtime-instance-20260905.v2.json (la anterior tenía 0 mutantes). Refutador: «firma inventada por default» y «lectura desde SESSION_KEY» son los dos modos en que una etiqueta falsa o una credencial llegarían al payload; ambos mueren.",
+      "signed_at": "2026-09-07T23:04:20.425072+00:00",
       "reviewed_sha256": {
-        "messages/ada_codex_remote_bridge.py": "e7c79ed13a9ab421683806967ab6d2f7fb6327718ddf5edf4ecd32488165e89b",
+        "messages/ada_codex_remote_bridge.py": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
         "quality/delivery_bridge_runtime_instance.sh": "15f55af4dcc495e40c0215c5264f059420f89a784d2beb0ae06cbffde2bfb28a",
         "messages/tests/test_bridge_runtime_instance_v1.py": "7f84ed804800f271724d7b4196ecb604f04085ff162292cd0d3809f57fd75585"
       },
-      "evidence": "Re-firma por cambio de baseline_percent (2.0 -> 1.0), sin cambio de bytes. Cobertura re-medida por mi: TOTAL 1 %, sujeto 17 %. Los 3 mutantes de la 2a pasada siguen vigentes."
-    }
+      "manifest_digest": "73fc89c779a4a7b0a45f570c2f9daa3aff034f1ee121b802f339c633f38f2746"
+    },
+    "historial": [
+      {
+        "reviewer": "NEXUS",
+        "reviewed_sha256": {
+          "messages/ada_codex_remote_bridge.py": "e7c79ed13a9ab421683806967ab6d2f7fb6327718ddf5edf4ecd32488165e89b",
+          "quality/delivery_bridge_runtime_instance.sh": "15f55af4dcc495e40c0215c5264f059420f89a784d2beb0ae06cbffde2bfb28a",
+          "messages/tests/test_bridge_runtime_instance_v1.py": "7f84ed804800f271724d7b4196ecb604f04085ff162292cd0d3809f57fd75585"
+        },
+        "manifest_digest": "eae699b4dd3dfbc82ec8a0064263876704d20e3b0d2f00cafe400f8356261b81",
+        "independent_reviewer_anterior": "NEXUS"
+      }
+    ],
+    "independent_reviewer": "JARVIS"
   },
   "delivery": {
     "status": "verified",

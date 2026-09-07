@@ -1,0 +1,54 @@
+{
+  "change_id": "channel-acl",
+  "reviewer": "JARVIS",
+  "manifest": "quality/manifests/channel-acl.json",
+  "tests": [
+    [
+      "messages/tests/test_nexus_channel_acl_v1.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "desconocido-abierto",
+      "subject": "messages/channel_acl.py",
+      "ancla": "    if quien in REMITENTES_PLENOS:\n        return True\n    # Desconocido: sólo su propio corral.\n    return es_canal_de_sombra(channel)",
+      "reemplazo": "    if quien in REMITENTES_PLENOS:\n        return True\n    # Desconocido: cualquier canal\n    return True",
+      "why": "un desconocido puede publicar en web_chat, no solo en shadow:*; la guarda fail-closed se pierde"
+    },
+    {
+      "id": "sombra-puede-escribir-general",
+      "subject": "messages/channel_acl.py",
+      "ancla": "    if quien in _ALICE_CUERPOS:\n        return (\n            quien == cuerpo_activo_de_alice()\n            or es_canal_de_sombra(channel)\n        )",
+      "reemplazo": "    if quien in _ALICE_CUERPOS:\n        return True",
+      "why": "ALICE no activa puede publicar en web_chat; la exclusión mutua se pierde"
+    },
+    {
+      "id": "canal-prefijo-laxo",
+      "subject": "messages/channel_acl.py",
+      "ancla": "_CANAL_SOMBRA = re.compile(r\"^shadow:[a-z0-9][a-z0-9_.-]{0,63}$\", re.IGNORECASE)",
+      "reemplazo": "_CANAL_SOMBRA = re.compile(r\"^shadow:\", re.IGNORECASE)",
+      "why": "la validación de canal sombra solo comprueba el prefijo; web_chat:shadow:alice se acepta como válido"
+    },
+    {
+      "id": "identidad-no-verificada-cuenta-como-propia",
+      "subject": "messages/channel_acl.py",
+      "ancla": "    quien = identidad_efectiva(sender, instance_id)\n    if not quien:\n        return False",
+      "reemplazo": "    quien = identidad_efectiva(sender, instance_id)\n    if not quien:\n        quien = sender",
+      "why": "si la identidad efectiva no se resuelve (instancia/clon no reconocido), el sender crudo pasa a valer como identidad y sigue la evaluación: un clon no reconocido hereda los permisos del nombre que asevera"
+    },
+    {
+      "id": "motivo-filtra-lista",
+      "subject": "messages/channel_acl.py",
+      "ancla": "def motivo_del_rechazo(sender: str, channel: str) -> str:\n    \"\"\"Texto para el 403. Dice qué pasó y qué se puede hacer, sin filtrar la lista.\"\"\"\n    return (\n        f\"remitente '{sender}' no habilitado para el canal '{channel}'. \"\n        \"Un asiento en evaluación publica sólo en su canal 'shadow:<nombre>'.\"\n    )",
+      "reemplazo": "def motivo_del_rechazo(sender: str, channel: str) -> str:\n    \"\"\"Texto para el 403. Dice qué pasó y qué se puede hacer, sin filtrar la lista.\"\"\"\n    return (\n        f\"remitente '{sender}' no habilitado para el canal '{channel}'. \"\n        f\"Habilitados: {', '.join(sorted(REMITENTES_PLENOS))}. \"\n        \"Un asiento en evaluación publica sólo en su canal 'shadow:<nombre>'.\"\n    )",
+      "why": "el motivo del rechazo expone la lista de remitentes habilitados; filtra información que se prometió ocultar"
+    },
+    {
+      "id": "instancia-acl-ignorada",
+      "subject": "messages/chat_server.py",
+      "ancla": "    _instancia_acl = instance_id\n    if _es_cuerpo_de_agente(_verificado, sender):\n        _instancia_acl = _verificado",
+      "reemplazo": "    _instancia_acl = \"\"\n    if _es_cuerpo_de_agente(_verificado, sender):\n        _instancia_acl = \"\"",
+      "why": "el ACL nunca recibe la instance_id; los clones (ALICE-u2) pueden aseverar ALICE y publicar sin restricción"
+    }
+  ]
+}

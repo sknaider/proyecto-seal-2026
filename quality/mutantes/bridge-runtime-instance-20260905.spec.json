@@ -1,0 +1,47 @@
+{
+  "change_id": "bridge-runtime-instance-20260905",
+  "reviewer": "JARVIS",
+  "manifest": "quality/manifests/bridge-runtime-instance-20260905.json",
+  "tests": [
+    [
+      "messages/tests/test_bridge_runtime_instance_v1.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "lectura-variable-equivocada",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"\").strip()",
+      "reemplazo": "    _rt = os.environ.get(\"OTRA_VARIABLE_INEXISTENTE\", \"\").strip()",
+      "why": "lee una variable equivocada OTRA_VARIABLE_INEXISTENTE en lugar de SEAL_RUNTIME_INSTANCE; aunque la variable correcta esté definida, la firma nunca se obtiene"
+    },
+    {
+      "id": "firma-inventada-por-default",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"\").strip()",
+      "reemplazo": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"DEFAULT_BRIDGE_FAKE\").strip()",
+      "why": "inventa una firma por defecto cuando la variable no existe; viola el contrato de que sin variable no hay metadata"
+    },
+    {
+      "id": "asignacion-bajo-false",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "        payload[\"metadata\"] = {\"runtime_instance\": _rt[:40]}",
+      "reemplazo": "        if False: payload[\"metadata\"] = {\"runtime_instance\": _rt[:40]}",
+      "why": "aunque se lee la variable y pasa el if _rt, la asignación nunca ocurre (if False); el payload nunca se firma"
+    },
+    {
+      "id": "lectura-desde-session-key",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"\").strip()",
+      "reemplazo": "    _rt = os.environ.get(\"SESSION_KEY\", \"\").strip()  # error: confunde credencial con etiqueta",
+      "why": "copia desde SESSION_KEY (credencial) en lugar de SEAL_RUNTIME_INSTANCE (etiqueta declarada); confunde dos papeles de seguridad"
+    },
+    {
+      "id": "sin-recorte-a-40",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "        payload[\"metadata\"] = {\"runtime_instance\": _rt[:40]}",
+      "reemplazo": "        payload[\"metadata\"] = {\"runtime_instance\": _rt}",
+      "why": "no recorta el valor a 40 caracteres; un ataque que envía 200+ caracteres logra que lleguen íntegros al payload (rompe test_la_firma_se_recorta_a_40)"
+    }
+  ]
+}

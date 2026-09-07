@@ -1,0 +1,161 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "bridge-runtime-instance-20260905",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 5,
+  "survived": 0,
+  "total": 5,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "........                                                                 [100%]\n8 passed in 0.07s",
+    "sha_sujetos_antes": {
+      "messages/ada_codex_remote_bridge.py": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "lectura-variable-equivocada",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"\").strip()",
+      "reemplazo": "    _rt = os.environ.get(\"OTRA_VARIABLE_INEXISTENTE\", \"\").strip()",
+      "why": "lee una variable equivocada OTRA_VARIABLE_INEXISTENTE en lugar de SEAL_RUNTIME_INSTANCE; aunque la variable correcta esté definida, la firma nunca se obtiene",
+      "registro": {
+        "subject": "messages/ada_codex_remote_bridge.py",
+        "ancla": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"\").strip()",
+        "reemplazo": "    _rt = os.environ.get(\"OTRA_VARIABLE_INEXISTENTE\", \"\").strip()",
+        "ancla_sha256": "82e0c7b1a6297108f16a771e6e68cfd45025ab0d8a13badfbef390fd5147d122",
+        "sujeto_sha256_antes": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_exportar_la_variable_NO_ALCANZA_hay_que_LEERLA",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_control_no_vacuo_el_test_anterior_puede_fallar",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_viaja_SIN_espacios_alrededor",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_se_recorta_a_40",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_NO_es_una_credencial"
+      ],
+      "pytest_tail": "FAILED messages/tests/test_bridge_runtime_instance_v1.py::test_exportar_la_variable_NO_ALCANZA_hay_que_LEERLA\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_control_no_vacuo_el_test_anterior_puede_fallar\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_viaja_SIN_espacios_alrededor\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_se_recorta_a_40\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_NO_es_una_credencial\n5 failed, 3 passed in 0.08s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "firma-inventada-por-default",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"\").strip()",
+      "reemplazo": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"DEFAULT_BRIDGE_FAKE\").strip()",
+      "why": "inventa una firma por defecto cuando la variable no existe; viola el contrato de que sin variable no hay metadata",
+      "registro": {
+        "subject": "messages/ada_codex_remote_bridge.py",
+        "ancla": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"\").strip()",
+        "reemplazo": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"DEFAULT_BRIDGE_FAKE\").strip()",
+        "ancla_sha256": "82e0c7b1a6297108f16a771e6e68cfd45025ab0d8a13badfbef390fd5147d122",
+        "sujeto_sha256_antes": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_sin_variable_no_inventa_firma"
+      ],
+      "pytest_tail": "E       AssertionError: assert 'metadata' not in {'from': 'ADA', 'to': 'ADA', 'type': 'conversation', 'channel': 'web_chat', ...}\n\nmessages/tests/test_bridge_runtime_instance_v1.py:78: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_sin_variable_no_inventa_firma\n1 failed, 7 passed in 0.08s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "asignacion-bajo-false",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "        payload[\"metadata\"] = {\"runtime_instance\": _rt[:40]}",
+      "reemplazo": "        if False: payload[\"metadata\"] = {\"runtime_instance\": _rt[:40]}",
+      "why": "aunque se lee la variable y pasa el if _rt, la asignación nunca ocurre (if False); el payload nunca se firma",
+      "registro": {
+        "subject": "messages/ada_codex_remote_bridge.py",
+        "ancla": "        payload[\"metadata\"] = {\"runtime_instance\": _rt[:40]}",
+        "reemplazo": "        if False: payload[\"metadata\"] = {\"runtime_instance\": _rt[:40]}",
+        "ancla_sha256": "98ce79bbbb9ce99647a96774bb90c2cc729a3bcf4cffe16b4c3d1f3c49611605",
+        "sujeto_sha256_antes": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_exportar_la_variable_NO_ALCANZA_hay_que_LEERLA",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_control_no_vacuo_el_test_anterior_puede_fallar",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_viaja_SIN_espacios_alrededor",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_se_recorta_a_40",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_NO_es_una_credencial"
+      ],
+      "pytest_tail": "FAILED messages/tests/test_bridge_runtime_instance_v1.py::test_exportar_la_variable_NO_ALCANZA_hay_que_LEERLA\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_control_no_vacuo_el_test_anterior_puede_fallar\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_viaja_SIN_espacios_alrededor\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_se_recorta_a_40\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_NO_es_una_credencial\n5 failed, 3 passed in 0.08s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "lectura-desde-session-key",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"\").strip()",
+      "reemplazo": "    _rt = os.environ.get(\"SESSION_KEY\", \"\").strip()  # error: confunde credencial con etiqueta",
+      "why": "copia desde SESSION_KEY (credencial) en lugar de SEAL_RUNTIME_INSTANCE (etiqueta declarada); confunde dos papeles de seguridad",
+      "registro": {
+        "subject": "messages/ada_codex_remote_bridge.py",
+        "ancla": "    _rt = os.environ.get(\"SEAL_RUNTIME_INSTANCE\", \"\").strip()",
+        "reemplazo": "    _rt = os.environ.get(\"SESSION_KEY\", \"\").strip()  # error: confunde credencial con etiqueta",
+        "ancla_sha256": "82e0c7b1a6297108f16a771e6e68cfd45025ab0d8a13badfbef390fd5147d122",
+        "sujeto_sha256_antes": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_exportar_la_variable_NO_ALCANZA_hay_que_LEERLA",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_control_no_vacuo_el_test_anterior_puede_fallar",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_viaja_SIN_espacios_alrededor",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_se_recorta_a_40",
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_NO_es_una_credencial"
+      ],
+      "pytest_tail": "FAILED messages/tests/test_bridge_runtime_instance_v1.py::test_exportar_la_variable_NO_ALCANZA_hay_que_LEERLA\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_control_no_vacuo_el_test_anterior_puede_fallar\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_viaja_SIN_espacios_alrededor\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_se_recorta_a_40\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_NO_es_una_credencial\n5 failed, 3 passed in 0.08s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "sin-recorte-a-40",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "        payload[\"metadata\"] = {\"runtime_instance\": _rt[:40]}",
+      "reemplazo": "        payload[\"metadata\"] = {\"runtime_instance\": _rt}",
+      "why": "no recorta el valor a 40 caracteres; un ataque que envía 200+ caracteres logra que lleguen íntegros al payload (rompe test_la_firma_se_recorta_a_40)",
+      "registro": {
+        "subject": "messages/ada_codex_remote_bridge.py",
+        "ancla": "        payload[\"metadata\"] = {\"runtime_instance\": _rt[:40]}",
+        "reemplazo": "        payload[\"metadata\"] = {\"runtime_instance\": _rt}",
+        "ancla_sha256": "98ce79bbbb9ce99647a96774bb90c2cc729a3bcf4cffe16b4c3d1f3c49611605",
+        "sujeto_sha256_antes": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_se_recorta_a_40"
+      ],
+      "pytest_tail": "E        +  where 200 = len('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')\n\nmessages/tests/test_bridge_runtime_instance_v1.py:113: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_bridge_runtime_instance_v1.py::test_la_firma_se_recorta_a_40\n1 failed, 7 passed in 0.07s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "messages/ada_codex_remote_bridge.py": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+    "messages/tests/test_bridge_runtime_instance_v1.py": "7f84ed804800f271724d7b4196ecb604f04085ff162292cd0d3809f57fd75585",
+    "quality/delivery_bridge_runtime_instance.sh": "15f55af4dcc495e40c0215c5264f059420f89a784d2beb0ae06cbffde2bfb28a"
+  }
+}
