@@ -128,6 +128,7 @@
     "quality/manifests/rsi-offline-derivatives.json",
     "quality/manifests/runtime-instance-passthrough.json",
     "quality/manifests/seal-lifecycle-manual-state-20260903.json",
+    "quality/manifests/seal-send-message-file-20260907.json",
     "quality/manifests/self-repair-shared-actions-v1.json",
     "quality/manifests/sleep-gate-credencial-20260905.json",
     "quality/manifests/soul-autowire-world-lab.json",
