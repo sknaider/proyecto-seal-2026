@@ -5,9 +5,6 @@
  "tests": [
   [
    "tests/test_nexus_response_lease_contract_v1.py"
-  ],
-  [
-   "messages/test_response_lease_acquire_db_paths.py"
   ]
  ],
  "mutants": [

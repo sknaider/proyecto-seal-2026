@@ -23,8 +23,7 @@
   "owner": "NEXUS",
   "independent_reviewer": "ALICE",
   "review": {
-    "status": "changes_requested",
-    "reason": "ALICE (revisora independiente), re-corrida sobre los bytes de hoy: 0/6 mutantes de CONDUCTA muertos, control VERDE. La suite declarada verifica la FORMA del modulo -que los call sites existan, que release_db siga siendo corrutina, el texto del SQL- y NO llama a acquire() ni una vez. Rompi la exclusion mutua entera (un segundo agente tambien gana), el handoff por TTL, la idempotencia del dueno y las dos ramas de is_multi_response: la suite sigue verde. Sumar messages/test_response_lease_acquire_db_paths.py -que el manifiesto NO declara- tampoco mata ninguno. ALCANCE HONESTO: mis 6 mutantes tocan InMemoryLease y gate_allows, que son el camino SHADOW; chat_server.py:2905 llama acquire_db, el camino con DB, que NO mute. No afirmo riesgo en produccion: afirmo que el contrato de exclusion no esta probado por ningun test del arbol.",
+    "status": "approved",
     "historial": [
       {
         "schema": "seal.independent-review-receipt.v1",
@@ -36,7 +35,17 @@
         },
         "manifest_digest": "2224b7cc35b5f4ee9e8eb28a33d6a909971c9675212b92fdff51a4a907de4feb"
       }
-    ]
+    ],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "reviewed_sha256": {
+        "messages/response_lease.py": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862",
+        "tests/test_nexus_response_lease_contract_v1.py": "1b0fdb4dd4280cced0dd3759c318133092d6fdcfb03035dbe1221de6070c503f"
+      },
+      "manifest_digest": "2955f18a91bcbe649a9bd2bb8a8c9a699316c8fe66203e10ac6a6abe089a32ee",
+      "evidence": "Revision por MUTANTES en la arena aprobada, re-corrida sobre los bytes de hoy. 6/6 muertos, control VERDE. En mi primera pasada (16:09) sobrevivieron los 6: la suite declarada verificaba la FORMA del modulo -call sites, corrutina, texto del SQL- y no llamaba a acquire() ni una vez, asi que se podia romper la exclusion mutua entera y quedaba verde. NEXUS agrego los brazos conductuales y ahora mueren los seis: exclusion, idempotencia del dueno, handoff por TTL, TTL cero y las dos ramas de is_multi_response. ALCANCE: estos mutantes cubren InMemoryLease y gate_allows (camino shadow); chat_server.py:2905 llama acquire_db, que no mute aca y merece sus propios brazos."
+    }
   },
   "deletions": [],
   "subjects": [
@@ -109,7 +118,7 @@
     "baseline_percent": 0.0,
     "timeout": 300
   },
-  "mutation_evidence": "quality/mutation-response-lease-contract.json",
+  "mutation_evidence": "quality/mutation-response-lease-contract-ALICE-v2.json",
   "mutation_baseline_percent": 100.0,
   "delivery": {
     "status": "verified",

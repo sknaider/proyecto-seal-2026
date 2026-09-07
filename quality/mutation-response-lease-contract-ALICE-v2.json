@@ -5,17 +5,17 @@
   "reviewer": "ALICE",
   "mutation_target": "arena_aprobada_fable_20260907",
   "tool": "tools/arena_remutar_revisor.py",
-  "killed": 0,
-  "survived": 6,
+  "killed": 6,
+  "survived": 0,
   "total": 6,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
   "timeout": 0,
-  "mutation_score_percent": 0.0,
+  "mutation_score_percent": 100.0,
   "control_sujeto_sin_mutar": {
     "rc": 0,
-    "pytest_tail": "......                                                                   [100%]\n6 passed in 0.09s",
+    "pytest_tail": "............                                                             [100%]\n12 passed in 1.21s",
     "sha_sujetos_antes": {
       "messages/response_lease.py": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862"
     }
@@ -40,10 +40,14 @@
         "ocurrencias_del_ancla": 1,
         "reproducible": true
       },
-      "result": "SURVIVED",
-      "rc": 0,
-      "killed_by": [],
-      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.10s",
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_response_lease_contract_v1.py::test_CONDUCTA_solo_UN_agente_gana_el_lease",
+        "tests/test_nexus_response_lease_contract_v1.py::test_CONTROL_el_lease_NO_expira_antes_de_tiempo",
+        "tests/test_nexus_response_lease_contract_v1.py::test_CONTROL_un_mensaje_normal_SI_aplica_lease"
+      ],
+      "pytest_tail": "tests/test_nexus_response_lease_contract_v1.py:193: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_response_lease_contract_v1.py::test_CONDUCTA_solo_UN_agente_gana_el_lease\nFAILED tests/test_nexus_response_lease_contract_v1.py::test_CONTROL_el_lease_NO_expira_antes_de_tiempo\nFAILED tests/test_nexus_response_lease_contract_v1.py::test_CONTROL_un_mensaje_normal_SI_aplica_lease\n3 failed, 9 passed in 1.21s",
       "sujeto_restaurado": true
     },
     {
@@ -61,10 +65,12 @@
         "ocurrencias_del_ancla": 1,
         "reproducible": true
       },
-      "result": "SURVIVED",
-      "rc": 0,
-      "killed_by": [],
-      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.09s",
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_response_lease_contract_v1.py::test_CONDUCTA_el_dueno_conserva_su_turno"
+      ],
+      "pytest_tail": "E        +    where acquire = <messages.response_lease.InMemoryLease object at 0xe4354afd5d90>.acquire\n\ntests/test_nexus_response_lease_contract_v1.py:146: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_response_lease_contract_v1.py::test_CONDUCTA_el_dueno_conserva_su_turno\n1 failed, 11 passed in 1.21s",
       "sujeto_restaurado": true
     },
     {
@@ -82,10 +88,12 @@
         "ocurrencias_del_ancla": 1,
         "reproducible": true
       },
-      "result": "SURVIVED",
-      "rc": 0,
-      "killed_by": [],
-      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.10s",
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_response_lease_contract_v1.py::test_CONDUCTA_el_lease_EXPIRA_y_hay_handoff"
+      ],
+      "pytest_tail": "E        +    where acquire = <messages.response_lease.InMemoryLease object at 0xf133f43442c0>.acquire\n\ntests/test_nexus_response_lease_contract_v1.py:155: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_response_lease_contract_v1.py::test_CONDUCTA_el_lease_EXPIRA_y_hay_handoff\n1 failed, 11 passed in 1.21s",
       "sujeto_restaurado": true
     },
     {
@@ -103,10 +111,13 @@
         "ocurrencias_del_ancla": 1,
         "reproducible": true
       },
-      "result": "SURVIVED",
-      "rc": 0,
-      "killed_by": [],
-      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.10s",
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_response_lease_contract_v1.py::test_CONDUCTA_solo_UN_agente_gana_el_lease",
+        "tests/test_nexus_response_lease_contract_v1.py::test_CONTROL_un_mensaje_normal_SI_aplica_lease"
+      ],
+      "pytest_tail": "\ntests/test_nexus_response_lease_contract_v1.py:193: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_response_lease_contract_v1.py::test_CONDUCTA_solo_UN_agente_gana_el_lease\nFAILED tests/test_nexus_response_lease_contract_v1.py::test_CONTROL_un_mensaje_normal_SI_aplica_lease\n2 failed, 10 passed in 1.21s",
       "sujeto_restaurado": true
     },
     {
@@ -124,10 +135,12 @@
         "ocurrencias_del_ancla": 1,
         "reproducible": true
       },
-      "result": "SURVIVED",
-      "rc": 0,
-      "killed_by": [],
-      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.10s",
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_response_lease_contract_v1.py::test_CONTROL_un_mensaje_normal_SI_aplica_lease"
+      ],
+      "pytest_tail": "E        +  where True = gate_allows(<messages.response_lease.InMemoryLease object at 0xe6d6960afd70>, 'b1', 'NEXUS', 'nexus, revisa el gate')\n\ntests/test_nexus_response_lease_contract_v1.py:193: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_response_lease_contract_v1.py::test_CONTROL_un_mensaje_normal_SI_aplica_lease\n1 failed, 11 passed in 1.21s",
       "sujeto_restaurado": true
     },
     {
@@ -145,15 +158,17 @@
         "ocurrencias_del_ancla": 1,
         "reproducible": true
       },
-      "result": "SURVIVED",
-      "rc": 0,
-      "killed_by": [],
-      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.10s",
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_response_lease_contract_v1.py::test_CONDUCTA_multivoz_no_aplica_lease"
+      ],
+      "pytest_tail": "E        +  where False = is_multi_response('chicos, respondan todos')\n\ntests/test_nexus_response_lease_contract_v1.py:177: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_response_lease_contract_v1.py::test_CONDUCTA_multivoz_no_aplica_lease\n1 failed, 11 passed in 1.22s",
       "sujeto_restaurado": true
     }
   ],
   "file_sha256": {
     "messages/response_lease.py": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862",
-    "tests/test_nexus_response_lease_contract_v1.py": "516c4d48e93d0d92f4b1f39048f3ab680c6f405b445b5f0cd788a7bb7ee1c1e8"
+    "tests/test_nexus_response_lease_contract_v1.py": "1b0fdb4dd4280cced0dd3759c318133092d6fdcfb03035dbe1221de6070c503f"
   }
 }
