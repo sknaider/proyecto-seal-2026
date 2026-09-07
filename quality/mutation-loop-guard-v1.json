@@ -1,17 +1,17 @@
 {
   "schema": "seal.mutation-evidence.v1",
   "reviewer": "NEXUS",
-  "tool": "ADA ejecuto scratchpad/mut_loop.py: copia SOLO los .py de scripts/ mas la suite (724 KB) imitando la ESTRUCTURA del repo (<raiz>/scripts y <raiz>/messages), muta la copia y la borra.",
+  "tool": "arnes seal_mutacion_segura + aplicar_y_registrar (contenedor sin privilegios, arena desde el INDICE, venv :ro) — arnes aprobado por FABLE 7-sep 14:48",
   "workspace": "Control positivo primero sobre la copia SIN mutar. Muerte = la suite sale distinto de 0.",
   "note_no_es_independiente": "Evidencia del OWNER. NO es revision independiente; el revisor debe reemplazarla.",
-  "killed": 9,
-  "survived": 0,
+  "killed": 8,
+  "survived": 1,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
   "timeout": 0,
   "total": 9,
-  "mutation_score_percent": 100.0,
+  "mutation_score_percent": 88.88888888888889,
   "mutation_target": "isolated_copy",
   "positive_control_unmutated_copy": {
     "suite": "11 passed, 3 subtests passed in 0.06s",
@@ -19,69 +19,134 @@
   },
   "file_sha256": {
     "scripts/seal_loop_guard.py": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
-    "scripts/seal_send.py": "0cf2e93bbd69f5b6675208da264627a7680420543f849b40541032b8fb7be176",
+    "scripts/seal_send.py": "8794e9f576febf1f6a76700c784bc20f98c78b4916b4674c3b705aa748a019e3",
     "quality/delivery_loop_guard.sh": "ca0037b792f4c9145ce92b66adf63ba787925d5b9ebde873d89c9a1a313626d0",
     "scripts/tests/test_seal_loop_guard_v1.py": "1271b827b6b27e3c39069a48d27d93467044d8ab21bcef4ff3e19b39b09a72f2"
   },
   "detail": [
     {
+      "subject": "scripts/seal_loop_guard.py",
+      "ancla": "if n >= CORTA_DESDE:",
+      "reemplazo": "if False:",
+      "ancla_sha256": "d268f383d1a4c3992edf4550a6e74f46c9de29ead516eccfbb377a417b945dec",
+      "sujeto_sha256_antes": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
       "id": "nunca-corta",
-      "subject": "scripts/seal_loop_guard.py",
       "state": "killed",
-      "observed": "1 failed, 10 deselected in 0.01s"
+      "observed": "4 failed, 6 passed, 1 deselected, 3 subtests passed in 0.04s"
     },
     {
+      "subject": "scripts/seal_loop_guard.py",
+      "ancla": "if n >= AVISO_FUERTE_EN:",
+      "reemplazo": "if n > AVISO_FUERTE_EN:",
+      "ancla_sha256": "b567ea7eacbf8811249309b8b84effdf11970944321b41225efb39e617ea10f3",
+      "sujeto_sha256_antes": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
       "id": "corre-el-borde-una-posicion",
-      "subject": "scripts/seal_loop_guard.py",
-      "state": "killed",
-      "observed": "1 failed, 10 deselected in 0.01s"
+      "state": "survived",
+      "observed": "10 passed, 1 deselected, 3 subtests passed in 0.03s"
     },
     {
+      "subject": "scripts/seal_loop_guard.py",
+      "ancla": "if n >= CORTA_DESDE:",
+      "reemplazo": "if n >= 1:",
+      "ancla_sha256": "d268f383d1a4c3992edf4550a6e74f46c9de29ead516eccfbb377a417b945dec",
+      "sujeto_sha256_antes": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
       "id": "corta-desde-la-primera",
-      "subject": "scripts/seal_loop_guard.py",
       "state": "killed",
-      "observed": "1 failed, 10 deselected in 0.01s"
+      "observed": "10 failed, 3 passed, 1 deselected in 0.05s"
     },
     {
+      "subject": "scripts/seal_loop_guard.py",
+      "ancla": "if os.environ.get(\"SEAL_SEND_NO_LOOP_GUARD\") == \"1\":",
+      "reemplazo": "if False:",
+      "ancla_sha256": "a7707adac8448d6eef10ce4e42093a1812bed180661cf9128997e7173ab98494",
+      "sujeto_sha256_antes": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
       "id": "ignora-la-salida-de-emergencia",
-      "subject": "scripts/seal_loop_guard.py",
       "state": "killed",
-      "observed": "1 failed, 10 deselected in 0.02s"
+      "observed": "1 failed, 9 passed, 1 deselected, 3 subtests passed in 0.15s"
     },
     {
-      "id": "falla-CERRADO",
       "subject": "scripts/seal_loop_guard.py",
-      "state": "killed",
-      "observed": "1 failed, 10 deselected in 0.01s"
-    },
-    {
+      "ancla": "for parte in (destinatario or \"\", canal or \"\", cuerpo or \"\"):",
+      "reemplazo": "for parte in (destinatario or \"\", \"\", cuerpo or \"\"):",
+      "ancla_sha256": "f3bcfa7028a2bb030b9b72632d8ebc50cd417d8cba078f92d1a6f2b413732276",
+      "sujeto_sha256_antes": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
       "id": "la-huella-ignora-el-canal",
-      "subject": "scripts/seal_loop_guard.py",
       "state": "killed",
-      "observed": "1 failed, 10 deselected in 0.01s"
+      "observed": "2 failed, 9 passed, 1 deselected, 2 subtests passed in 0.08s"
     },
     {
+      "subject": "scripts/seal_loop_guard.py",
+      "ancla": "if (t - visto) <= VENTANA_SEG else 1",
+      "reemplazo": "if True else 1",
+      "ancla_sha256": "160f2d5724b17e3b32d074c1f12507eefc957821fa55a02fb2bc767abf688448",
+      "sujeto_sha256_antes": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
       "id": "la-ventana-no-reinicia",
-      "subject": "scripts/seal_loop_guard.py",
       "state": "killed",
-      "observed": "1 failed, 10 deselected in 0.03s"
+      "observed": "1 failed, 9 passed, 1 deselected, 3 subtests passed in 0.03s"
     },
     {
-      "id": "no-separa-agentes",
       "subject": "scripts/seal_loop_guard.py",
+      "ancla": "clave = f\"{agente}:{huella(",
+      "reemplazo": "clave = f\"{huella(",
+      "ancla_sha256": "e72edb8a23f113a47b1fb2506528815d3c01afaa5086ccfddfb2a5d634f980a8",
+      "sujeto_sha256_antes": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "no-separa-agentes",
       "state": "killed",
-      "observed": "1 failed, 10 deselected in 0.01s"
+      "observed": "1 failed, 9 passed, 1 deselected, 3 subtests passed in 0.04s"
+    },
+    {
+      "subject": "scripts/seal_loop_guard.py",
+      "ancla": "return \"enviar\", 0, \"\"        # candado 1: falla ABIERTO, siempre",
+      "reemplazo": "return \"suprimir\", 0, \"\"",
+      "ancla_sha256": "1caa1f285334c2b415c98da3e1a209f8248cf3b7449335a016ac0f3f88bb057e",
+      "sujeto_sha256_antes": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "falla-CERRADO",
+      "state": "killed",
+      "observed": "1 failed, 9 passed, 1 deselected, 3 subtests passed in 0.03s"
+    },
+    {
+      "subject": "scripts/seal_loop_guard.py",
+      "ancla": "if n >= CORTA_DESDE:",
+      "reemplazo": "if n > CORTA_DESDE:",
+      "ancla_sha256": "d268f383d1a4c3992edf4550a6e74f46c9de29ead516eccfbb377a417b945dec",
+      "sujeto_sha256_antes": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "corre-el-borde-del-corte",
+      "state": "killed",
+      "observed": "2 failed, 8 passed, 1 deselected, 3 subtests passed in 0.03s"
     },
     {
       "id": "el-escritor-no-llama-al-guard",
       "subject": "scripts/seal_send.py",
-      "state": "killed",
-      "observed": "1 failed, 10 deselected in 0.09s"
+      "state": "no_evaluado",
+      "reproducible": false,
+      "why": "Lo mata SOLO test_el_escritor_REAL_respeta_la_supresion, que invoca seal_send.py como subproceso y necesita la identidad del asiento. La arena no la tiene y NO debe tenerla. No se declara muerto: no se midio."
     }
   ],
   "control_ROJO_corregido_ANTES_de_concluir": "Mi primera copia dio CONTROL EN ROJO (1 failed): seal_send.py resuelve su credencial como parents[1]/messages/, asi que una copia plana la busca en /tmp/messages y estalla. Complete la copia con la estructura del repo HASTA VERDE antes de mirar un solo mutante. Es la trampa que NEXUS y JARVIS confesaron hoy: con el control roto, los mutantes mueren o sobreviven de mentira.",
   "dos_supervivientes_que_eran_MIS_TESTS": "Primera tanda: 6/8. Los dos sobrevivientes NO eran equivalentes, eran defectos mios. (1) 'ignora-la-salida-de-emergencia': mi test usaba tiempo real y la ventana ya habia expirado, asi que el contador valia 1 y daba 'enviar' con flag o sin flag — pasaba por la razon equivocada. (2) 'falla-CERRADO': ningun caso tocaba el except EXTERNO, porque el json corrupto lo absorbe _leer y la ruta no escribible el write interno. El candado 1 —el que garantiza que un fallo inesperado no silencie a nadie— estaba escrito, documentado y SIN PROBAR. Corregidos los dos, 8/8. Y me equivoque tambien al arreglarlo: intente forzar la excepcion con un NUL en la ruta y ni siquiera entra en una variable de entorno.",
   "mutante_que_hallo_NEXUS": "CORTA_DESDE 6 -> 5 SOBREVIVIA. Mi brazo comprobaba 'antes/despues' y no el escalon exacto, asi que un refactor podia correr el borde una posicion y CALLAR la quinta copia sin que nada fallara — justo donde el modulo decide entre avisar y silenciar, y mi propia especificacion dice que la 5a «avisa fuerte y SALE». Cerrado con un brazo que fija la secuencia COMPLETA.",
   "higiene_de_cache_hallada_por_NEXUS": "Restaurar un archivo mutado con `cp` deja vivo el __pycache__ del MUTANTE: el .pyc sobrevive porque el cp puede dejar un mtime que Python considera valido. NEXUS estuvo midiendo el mutante creyendo medir el original (disco decia CORTA_DESDE=6, el modulo importado tenia 5) y repitio todo con cache limpia antes de darme numeros. El arnes ahora corre con PYTHONDONTWRITEBYTECODE=1. ES LA MISMA FAMILIA que 'un mutante que no llega a escribirse se ve igual que uno que sobrevive': aca el mutante SI se escribe y lo que engaña es el bytecode viejo.",
-  "brazo_de_cableado_parametrizado": "NEXUS no pudo correr test_el_escritor_REAL_respeta_la_supresion porque invocaba seal_send.py como ADA: sin mi credencial da rojo, y con ella el revisor usaria la identidad del OWNER. Lo excluyo Y LO DIJO (control de 9, no de 10). Ahora toma SEAL_TEST_AGENT y cada quien lo corre con la suya. Es el mismo punto que yo le marque a el en su delivery dos horas antes."
+  "brazo_de_cableado_parametrizado": "NEXUS no pudo correr test_el_escritor_REAL_respeta_la_supresion porque invocaba seal_send.py como ADA: sin mi credencial da rojo, y con ella el revisor usaria la identidad del OWNER. Lo excluyo Y LO DIJO (control de 9, no de 10). Ahora toma SEAL_TEST_AGENT y cada quien lo corre con la suya. Es el mismo punto que yo le marque a el en su delivery dos horas antes.",
+  "no_evaluado": 1,
+  "nota_re_corrida_20260907": "Re-corrida por NEXUS (revisor) el 7-sep 15:30. Los mutantes se RE-DERIVARON desde la prosa de la evidencia vieja: ninguna evidencia del repo los guardaba en forma ejecutable (medido: 0 de 65). Ahora SI quedan reproducibles: cada uno lleva ancla, reemplazo y los sha256 del ancla y del sujeto.",
+  "lo_que_costo_re_derivarlos": "1) `nunca-corta` como CORTA_DESDE=10**9 colgo la arena DOS veces (~8 min): los tests hacen range(CORTA_DESDE + 2) importando la constante. Se rehizo desactivando la RAMA. Es la prueba concreta de que un mutante re-derivado NO es el original. 2) `falla-CERRADO` fue FRENADO por la verificacion de ancla unica del propio arnes: `return \"enviar\", 0, \"\"` aparece 2 veces (salida de emergencia y candado fail-open). Sin ese freno habria mutado la linea equivocada y el resultado habria pasado por bueno.",
+  "superviviente": "corre-el-borde-una-posicion (AVISO_FUERTE_EN de >= a >) SOBREVIVE: ningun test fija el borde del escalon 'avisar fuerte'. El borde del CORTE si esta fijado -su mutante muere-. Hallazgo nuevo de esta re-corrida, no estaba en la evidencia anterior."
 }
