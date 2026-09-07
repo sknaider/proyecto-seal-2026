@@ -54,3 +54,12 @@ def test_simulacro_real_restaura_la_casa_en_menos_de_una_hora():
     assert (dest / "IA/proyecto-seal/messages/chat_server.py").exists()
     assert "criticos faltantes          0" in r.stdout
     assert "secretos en config copiada  0" in r.stdout
+
+
+def test_control_destino_valido_pasa_la_guarda_y_falla_solo_por_foto_inexistente():
+    """Control: un destino válido y vacío NO es rechazado por la guarda; el script falla después, por foto inexistente,
+    sin crear nada. Demuestra que la guarda discrimina (los negativos no pasan por ser todo rechazado)."""
+    d = pathlib.Path(f"/tmp/seal-restauracion-control-{os.getpid()}")
+    r = _run(["1999-01-01", str(d)])
+    assert r.returncode == 2 and "no existe la foto" in r.stderr and "destino invalido" not in r.stderr, r.stderr
+    assert not d.exists()
