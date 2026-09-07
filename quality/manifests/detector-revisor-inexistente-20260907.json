@@ -1,0 +1,108 @@
+{
+  "change_id": "detector-revisor-inexistente-20260907",
+  "owner": "ALICE",
+  "independent_reviewer": "NEXUS",
+  "subjects": [
+    "tools/seal_detector_revisor_inexistente.py"
+  ],
+  "tests": [
+    "tools/tests/test_detector_revisor_inexistente_v1.py"
+  ],
+  "source_sha256": {
+    "tools/seal_detector_revisor_inexistente.py": "be4ed944066af0696fc5ced172202700df4cedc7f98ba2a42e78432d5770d54d",
+    "tools/tests/test_detector_revisor_inexistente_v1.py": "43a739ecc0b62367592f978434ef1c7ce6743502bc220545744d9d37b90e1e6f"
+  },
+  "implementation_head": "6d918f6008f3fbd966e46a3969da4fd51b818009",
+  "commands": [
+    {
+      "id": "unit-revisor-inexistente",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_revisor_inexistente_v1.py"
+      ]
+    },
+    {
+      "id": "positive-agrupa-por-nombre",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_revisor_inexistente_v1.py::test_qa_positive_agrupa_varios_manifiestos_bajo_el_mismo_nombre"
+      ]
+    },
+    {
+      "id": "negative-no-marca-revisor-vivo",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_revisor_inexistente_v1.py::test_qa_negative_NO_marca_a_un_revisor_vivo"
+      ]
+    },
+    {
+      "id": "negative-no-marca-manifiesto-sin-campo",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_revisor_inexistente_v1.py::test_qa_negative_NO_marca_un_manifiesto_SIN_revisor_declarado"
+      ]
+    },
+    {
+      "id": "control-sin-lista-de-vivos-no-dice-limpio",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_revisor_inexistente_v1.py::test_qa_control_sin_lista_de_vivos_NO_dice_limpio"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_detector_revisor_inexistente_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 600
+  },
+  "delivery": {
+    "status": "verified",
+    "effect": "Un manifiesto cuyo independent_reviewer no existe NO PUEDE cerrarse: nadie puede firmarlo. JARVIS habia arreglado UNO a mano el 7-sep (F3_HARNESS_AUDIT, 'ya no es un agente') y el mismo nombre seguia en otro manifiesto que nadie miro: el arreglo de a uno no encuentra a los demas.",
+    "evidence": "Corrida de las 16:26 sobre el arbol: 18 manifiestos con revisor inexistente -DARWIN 6, WEGENER 3, PLATFORM_SECURITY_AUDIT 2, y ocho nombres mas con uno cada uno-. JARVIS los reasigno en 6d918f6 y la corrida siguiente da 0: la salida sigue al arbol, no a una lista cableada. LIMITE (ADA): esto NO prueba que esas identidades nunca fueran legitimas -un arnes o una auditoria externa pudo serlo-; prueba que HOY nadie puede asumir esa revision. DEFECTO PROPIO QUE ENCONTRO MI BRAZO DE CONTROL: pasar una lista de vivos VACIA producia {''} -un conjunto no vacio con un nombre falso- y el detector marcaba a TODOS como huerfanos creyendo que tenia lista. Ahora eso sale 2, 'no se pudo mirar'.",
+    "command": {
+      "_doc": "Entrega por EFECTO: con una lista de vivos inyectada, un revisor ausente sale con exit 1.",
+      "expected_exit": 1,
+      "expected_stdout_contains": "NADIE PUEDE FIRMAR COMO",
+      "argv": [
+        "bash",
+        "-c",
+        "d=$(mktemp -d /tmp/seal-senuelo-revisor-XXXXXX); printf '%s' '{\"change_id\":\"x\",\"independent_reviewer\":\"FANTASMA\",\"subjects\":[],\"tests\":[]}' > \"$d/x.json\"; python3 tools/seal_detector_revisor_inexistente.py \"$d\" ADA,ALICE,NEXUS"
+      ]
+    }
+  }
+}
