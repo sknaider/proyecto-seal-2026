@@ -1,0 +1,54 @@
+{
+  "change_id": "ssai-e3-heldout-assurance",
+  "reviewer": "JARVIS",
+  "tests": [
+    [
+      "tests/test_e3_heldout_assurance.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "schema-validation-disabled",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "    if document.get(\"schema\") != \"ssai-e3-heldout-cases-v1\":",
+      "reemplazo": "    if False:",
+      "why": "schema validation guard disabled: wrong schema passes through"
+    },
+    {
+      "id": "case-set-hash-check-disabled",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "    if document.get(\"case_set_sha256\") != observed:",
+      "reemplazo": "    if False:",
+      "why": "case set hash verification disabled: tampered case catalog passes"
+    },
+    {
+      "id": "detector-match-check-disabled",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "    detectors_match = all(outcome.detector == expected[outcome.case_id] for outcome in outcomes)",
+      "reemplazo": "    detectors_match = True",
+      "why": "detector matching guard disabled: mismatched detectors report as correct"
+    },
+    {
+      "id": "detection-check-disabled",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "    all_detected = all(outcome.detected for outcome in outcomes)",
+      "reemplazo": "    all_detected = True",
+      "why": "detection check disabled: missed detections report as detected"
+    },
+    {
+      "id": "honest-control-removed-from-fail-closed",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "            \"fail_closed_pass\": all_detected and detectors_match and honest_ok,",
+      "reemplazo": "            \"fail_closed_pass\": all_detected and detectors_match,",
+      "why": "honest control requirement removed: accepts without verifying honest baseline"
+    },
+    {
+      "id": "case-id-uniqueness-disabled",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "    if len(identifiers) != len(set(identifiers)) or not all(identifiers):",
+      "reemplazo": "    if False:",
+      "why": "case ID uniqueness check disabled: allows duplicate/empty case identifiers"
+    }
+  ],
+  "manifest": "quality/manifests/ssai-e3-heldout-assurance.json"
+}

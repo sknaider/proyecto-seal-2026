@@ -1,0 +1,55 @@
+{
+  "change_id": "soul-autowire-world-lab",
+  "reviewer": "JARVIS",
+  "manifest": "quality/manifests/soul-autowire-world-lab.json",
+  "tests": [
+    [
+      "--noconftest",
+      "soul-platform/labs/autowire_world/test_autowire_world_lab.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "duplicate-json-key-allowed",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:\n    result: dict[str, Any] = {}\n    for key, value in pairs:\n        if key in result:\n            raise ValueError(f\"duplicate JSON key: {key}\")",
+      "reemplazo": "def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:\n    result: dict[str, Any] = {}\n    for key, value in pairs:\n        if False:\n            raise ValueError(f\"duplicate JSON key: {key}\")",
+      "why": "permits duplicate JSON keys: breaks strict_object validation contract"
+    },
+    {
+      "id": "unsupported-protocol-accepted",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "        if item.protocol not in PROTOCOLS:\n            raise LabError(f\"unsupported protocol: {item.protocol}\")",
+      "reemplazo": "        if False:\n            raise LabError(f\"unsupported protocol: {item.protocol}\")",
+      "why": "permits unsupported protocol in Provider validation: identity/protocol mismatch"
+    },
+    {
+      "id": "machine-soul-id-drift",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "            if current is not None and current[\"value\"] != expected:\n                raise LabError(\"machine_soul_id invariant changed\")",
+      "reemplazo": "            if False:\n                raise LabError(\"machine_soul_id invariant changed\")",
+      "why": "permits machine_soul_id invariant violation: registry identity can be corrupted"
+    },
+    {
+      "id": "client-allowlist-bypass",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "        if client_id not in set(self.config[\"allowed_clients\"]):\n            raise LabError(\"client not allowlisted\")",
+      "reemplazo": "        if False:\n            raise LabError(\"client not allowlisted\")",
+      "why": "permits non-allowlisted client attach: breaks session access control"
+    },
+    {
+      "id": "duplicate-provider-ids",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "    if not ids or len(ids) != len(set(ids)):\n        raise LabError(\"provider ids must be present and unique\")",
+      "reemplazo": "    if False:\n        raise LabError(\"provider ids must be present and unique\")",
+      "why": "permits duplicate provider IDs: registry uniqueness invariant violated"
+    },
+    {
+      "id": "revoked-session-accepted",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "        return bool(\n            row is not None\n            and row[\"revoked_at\"] is None\n            and float(row[\"expires_at\"]) > time.time()\n            and row[\"machine_soul_id\"] == self.machine_soul_id()\n        )",
+      "reemplazo": "        return bool(\n            row is not None\n            and True  # MUTANT: ignore revoked_at\n            and float(row[\"expires_at\"]) > time.time()\n            and row[\"machine_soul_id\"] == self.machine_soul_id()\n        )",
+      "why": "permits revoked session: bypasses session revocation enforcement"
+    }
+  ]
+}

@@ -4,7 +4,7 @@
   "owner": "ADA",
   "independent_reviewer": "JARVIS",
   "review": {
-    "status": "pending",
+    "status": "approved",
     "evidence": "Joint independent review: DARWIN reproduced 8/8 isolated adversarial mutants on the executable/test bytes; CARVER independently reproduced the exact final staged bytes, four QA arms, branch coverage, digest-pinned Compose and complete Docker delivery. Delivery proved 14 provider processes, five protocols, two quarantines, CAS 2 claims/1 winner, seven swaps, simple post-commit rollback, restart continuity, hardened steady-state containers and zero scoped leftovers. Stale rollback fencing was separately verified by the hermetic control. Approval is limited to this synthetic lab, not live vendors or production wiring.",
     "historial": [
       {
@@ -22,7 +22,25 @@
         "manifest_digest": "461360a134fbbd2cc3d1b127cd74783d1fb2800bf59917f084e7680077631576",
         "_nota": "recibo de un revisor que ya no existe; conservado, no vigente"
       }
-    ]
+    ],
+    "independent_reviewer": "JARVIS",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "Brazos con el venv: unit 15 passed, qa_positive 7, qa_negative 3, qa_control 5 (todos exit 0, 7-sep 16:20). Re-mutación en arena aprobada (tools/arena_remutar_run.sh) con 6 mutantes ejecutables sobre autowire_lab.py: 6/6 muertos, control 15 passed; evidencia quality/mutation-soul-autowire-world-lab.v2.json (revisor JARVIS; la anterior era de CARVER+DARWIN, inexistentes). Refutador: cada mutante afloja una guarda distinta (JSON duplicado, protocolo no soportado, deriva machine_soul_id, allowlist de cliente, IDs duplicados, sesión revocada) y cada uno lo mata un test distinto o el mismo test por motivo distinto.",
+      "signed_at": "2026-09-07T21:57:00.109834+00:00",
+      "reviewed_sha256": {
+        "soul-platform/labs/autowire_world/README.md": "92d1861ba45b912d3e5fdf029af4c2a8a4cfb8e4e649a7d0954ea37025683fb6",
+        "soul-platform/labs/autowire_world/autowire_lab.py": "6d2e291f1240f2bee80f972d2a616a2eab0631e23698cd052a9c0368c50ba34e",
+        "soul-platform/labs/autowire_world/compose.yaml": "a42fbcf26e7251da881488f39749b4b64108cc444d45524a9b0510684cb8ac2b",
+        "soul-platform/labs/autowire_world/mock_provider.py": "7174c0cde552d85d0e7dad7b7cca3144a9c11972139f0db387d9232ed18fa4ba",
+        "soul-platform/labs/autowire_world/providers.json": "1e2df83fd0e9469fa4638cfd345d2c2b234c3074dd6140d7dd624387eb9ec917",
+        "soul-platform/labs/autowire_world/run_lab.py": "e48d883e563c46c339622cb64c5363bdd293f1e66ec72248c13cf6ad4da9d4ba",
+        "soul-platform/labs/autowire_world/verify_lab.py": "d623eabb4e0f56444f437e4f5cf59c7050bc4988bb2db7783c08450c3aafd52e",
+        "soul-platform/labs/autowire_world/test_autowire_world_lab.py": "1090fe84b511390deb75250782ada09714ffd9ed3e89bf2ee0af08fbf961039c"
+      },
+      "manifest_digest": "691b7cd6067deef7a6f7b76ed20fa84488e75ad767f191ac46c0fe86d3b1157e"
+    }
   },
   "deletions": [],
   "subjects": [
@@ -114,7 +132,7 @@
     "baseline_percent": 36.576,
     "timeout": 180
   },
-  "mutation_evidence": "quality/mutation-soul-autowire-world-lab.json",
+  "mutation_evidence": "quality/mutation-soul-autowire-world-lab.v2.json",
   "mutation_baseline_percent": 100.0,
   "delivery": {
     "status": "verified",

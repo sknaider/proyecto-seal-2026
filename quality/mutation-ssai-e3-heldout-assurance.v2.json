@@ -1,0 +1,167 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "ssai-e3-heldout-assurance",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 3,
+  "survived": 3,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 50.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "......                                                                   [100%]\n6 passed in 1.27s",
+    "sha_sujetos_antes": {
+      "docs/thesis/ssai/experiments/e3_heldout_assurance.py": "1ab2ff2c1e0cd036fc192e3636840f25eeb1af3ef927de064d0ed501d9dd0aea"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "schema-validation-disabled",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "    if document.get(\"schema\") != \"ssai-e3-heldout-cases-v1\":",
+      "reemplazo": "    if False:",
+      "why": "schema validation guard disabled: wrong schema passes through",
+      "registro": {
+        "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+        "ancla": "    if document.get(\"schema\") != \"ssai-e3-heldout-cases-v1\":",
+        "reemplazo": "    if False:",
+        "ancla_sha256": "f33e831b280123532ca9aef5b248225d9d0737c59c4dcd374909f475c70cb6c2",
+        "sujeto_sha256_antes": "1ab2ff2c1e0cd036fc192e3636840f25eeb1af3ef927de064d0ed501d9dd0aea",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "......                                                                   [100%]\n6 passed in 1.28s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "case-set-hash-check-disabled",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "    if document.get(\"case_set_sha256\") != observed:",
+      "reemplazo": "    if False:",
+      "why": "case set hash verification disabled: tampered case catalog passes",
+      "registro": {
+        "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+        "ancla": "    if document.get(\"case_set_sha256\") != observed:",
+        "reemplazo": "    if False:",
+        "ancla_sha256": "cbfd6a20793431a0ed459a6292769e3e170135ab237e0e52e22b9a612e16f867",
+        "sujeto_sha256_antes": "1ab2ff2c1e0cd036fc192e3636840f25eeb1af3ef927de064d0ed501d9dd0aea",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_e3_heldout_assurance.py::test_case_catalog_tamper_fails_closed"
+      ],
+      "pytest_tail": "E       Failed: DID NOT RAISE ValueError\n\ntests/test_e3_heldout_assurance.py:61: Failed\n=========================== short test summary info ============================\nFAILED tests/test_e3_heldout_assurance.py::test_case_catalog_tamper_fails_closed\n1 failed, 5 passed in 1.32s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "detector-match-check-disabled",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "    detectors_match = all(outcome.detector == expected[outcome.case_id] for outcome in outcomes)",
+      "reemplazo": "    detectors_match = True",
+      "why": "detector matching guard disabled: mismatched detectors report as correct",
+      "registro": {
+        "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+        "ancla": "    detectors_match = all(outcome.detector == expected[outcome.case_id] for outcome in outcomes)",
+        "reemplazo": "    detectors_match = True",
+        "ancla_sha256": "a4da385ce5dfb28f5725cc6aee1adec9c08d108a8b8d2bc3f16468b51e4b29b3",
+        "sujeto_sha256_antes": "1ab2ff2c1e0cd036fc192e3636840f25eeb1af3ef927de064d0ed501d9dd0aea",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "......                                                                   [100%]\n6 passed in 1.36s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "detection-check-disabled",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "    all_detected = all(outcome.detected for outcome in outcomes)",
+      "reemplazo": "    all_detected = True",
+      "why": "detection check disabled: missed detections report as detected",
+      "registro": {
+        "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+        "ancla": "    all_detected = all(outcome.detected for outcome in outcomes)",
+        "reemplazo": "    all_detected = True",
+        "ancla_sha256": "7066edce6b387d09c318c5d262b53594f22b2ed0a8986884f7d36a696379d305",
+        "sujeto_sha256_antes": "1ab2ff2c1e0cd036fc192e3636840f25eeb1af3ef927de064d0ed501d9dd0aea",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_e3_heldout_assurance.py::test_cli_writes_evidence_and_returns_nonzero_on_miss"
+      ],
+      "pytest_tail": "----------------------------- Captured stdout call -----------------------------\nE3 held-out: 8/8 detected; honest_control=True; detectors_match=True\nE3 held-out: 7/8 detected; honest_control=True; detectors_match=True\n=========================== short test summary info ============================\nFAILED tests/test_e3_heldout_assurance.py::test_cli_writes_evidence_and_returns_nonzero_on_miss\n1 failed, 5 passed in 1.33s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "honest-control-removed-from-fail-closed",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "            \"fail_closed_pass\": all_detected and detectors_match and honest_ok,",
+      "reemplazo": "            \"fail_closed_pass\": all_detected and detectors_match,",
+      "why": "honest control requirement removed: accepts without verifying honest baseline",
+      "registro": {
+        "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+        "ancla": "            \"fail_closed_pass\": all_detected and detectors_match and honest_ok,",
+        "reemplazo": "            \"fail_closed_pass\": all_detected and detectors_match,",
+        "ancla_sha256": "12ae1405f1f96522ab2b4a50c04e6a3da55a568927e634480c1d7ebed28a0e74",
+        "sujeto_sha256_antes": "1ab2ff2c1e0cd036fc192e3636840f25eeb1af3ef927de064d0ed501d9dd0aea",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_e3_heldout_assurance.py::test_honest_control_is_non_vacuous"
+      ],
+      "pytest_tail": "E       assert True is False\n\ntests/test_e3_heldout_assurance.py:53: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_e3_heldout_assurance.py::test_honest_control_is_non_vacuous\n1 failed, 5 passed in 1.21s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "case-id-uniqueness-disabled",
+      "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+      "ancla": "    if len(identifiers) != len(set(identifiers)) or not all(identifiers):",
+      "reemplazo": "    if False:",
+      "why": "case ID uniqueness check disabled: allows duplicate/empty case identifiers",
+      "registro": {
+        "subject": "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+        "ancla": "    if len(identifiers) != len(set(identifiers)) or not all(identifiers):",
+        "reemplazo": "    if False:",
+        "ancla_sha256": "db3bedbcb8a37481d5c457b95ca99284f42965f096eec468ac6d15626a57cd19",
+        "sujeto_sha256_antes": "1ab2ff2c1e0cd036fc192e3636840f25eeb1af3ef927de064d0ed501d9dd0aea",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "......                                                                   [100%]\n6 passed in 1.21s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "docs/thesis/ssai/experiments/E3_HELDOUT_CASES.json": "26a016530cc426fa0f970757d3998304db87eefe07b768c8737e44bee8bc96a5",
+    "docs/thesis/ssai/experiments/E3_HELDOUT_EVIDENCE.json": "491be2db055901cb1abb51a73c7defe685e9e8526fdcad9a17970c18275c392a",
+    "docs/thesis/ssai/experiments/e3_heldout_assurance.py": "1ab2ff2c1e0cd036fc192e3636840f25eeb1af3ef927de064d0ed501d9dd0aea",
+    "tests/test_e3_heldout_assurance.py": "2649bbe964f7d6b69be938c4424cada95505ee4225ef988100dc1a972628cb46"
+  }
+}

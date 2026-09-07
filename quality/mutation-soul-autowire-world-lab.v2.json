@@ -1,0 +1,177 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "soul-autowire-world-lab",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 6,
+  "survived": 0,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "...............                                                          [100%]\n15 passed in 1.57s",
+    "sha_sujetos_antes": {
+      "soul-platform/labs/autowire_world/autowire_lab.py": "6d2e291f1240f2bee80f972d2a616a2eab0631e23698cd052a9c0368c50ba34e"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "duplicate-json-key-allowed",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:\n    result: dict[str, Any] = {}\n    for key, value in pairs:\n        if key in result:\n            raise ValueError(f\"duplicate JSON key: {key}\")",
+      "reemplazo": "def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:\n    result: dict[str, Any] = {}\n    for key, value in pairs:\n        if False:\n            raise ValueError(f\"duplicate JSON key: {key}\")",
+      "why": "permits duplicate JSON keys: breaks strict_object validation contract",
+      "registro": {
+        "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+        "ancla": "def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:\n    result: dict[str, Any] = {}\n    for key, value in pairs:\n        if key in result:\n            raise ValueError(f\"duplicate JSON key: {key}\")",
+        "reemplazo": "def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:\n    result: dict[str, Any] = {}\n    for key, value in pairs:\n        if False:\n            raise ValueError(f\"duplicate JSON key: {key}\")",
+        "ancla_sha256": "b8d51a2a11781be3260a398d2713fe72f232fda435ac1476f40a1fe0950f715f",
+        "sujeto_sha256_antes": "6d2e291f1240f2bee80f972d2a616a2eab0631e23698cd052a9c0368c50ba34e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_strict_json_rejects_ambiguous_and_nonfinite_input"
+      ],
+      "pytest_tail": "E       Failed: DID NOT RAISE ValueError\n\nsoul-platform/labs/autowire_world/test_autowire_world_lab.py:107: Failed\n=========================== short test summary info ============================\nFAILED soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_strict_json_rejects_ambiguous_and_nonfinite_input\n1 failed, 14 passed in 1.46s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "unsupported-protocol-accepted",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "        if item.protocol not in PROTOCOLS:\n            raise LabError(f\"unsupported protocol: {item.protocol}\")",
+      "reemplazo": "        if False:\n            raise LabError(f\"unsupported protocol: {item.protocol}\")",
+      "why": "permits unsupported protocol in Provider validation: identity/protocol mismatch",
+      "registro": {
+        "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+        "ancla": "        if item.protocol not in PROTOCOLS:\n            raise LabError(f\"unsupported protocol: {item.protocol}\")",
+        "reemplazo": "        if False:\n            raise LabError(f\"unsupported protocol: {item.protocol}\")",
+        "ancla_sha256": "28e524dcabfab971c9d2c651d83d1aacd46c3d989129eedaf880c467ac47c091",
+        "sujeto_sha256_antes": "6d2e291f1240f2bee80f972d2a616a2eab0631e23698cd052a9c0368c50ba34e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_invalid_provider_config_fails_closed"
+      ],
+      "pytest_tail": "E       Failed: DID NOT RAISE LabError\n\nsoul-platform/labs/autowire_world/test_autowire_world_lab.py:121: Failed\n=========================== short test summary info ============================\nFAILED soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_invalid_provider_config_fails_closed\n1 failed, 14 passed in 1.42s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "machine-soul-id-drift",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "            if current is not None and current[\"value\"] != expected:\n                raise LabError(\"machine_soul_id invariant changed\")",
+      "reemplazo": "            if False:\n                raise LabError(\"machine_soul_id invariant changed\")",
+      "why": "permits machine_soul_id invariant violation: registry identity can be corrupted",
+      "registro": {
+        "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+        "ancla": "            if current is not None and current[\"value\"] != expected:\n                raise LabError(\"machine_soul_id invariant changed\")",
+        "reemplazo": "            if False:\n                raise LabError(\"machine_soul_id invariant changed\")",
+        "ancla_sha256": "ca386d3b37ebf057d86fff3409edb095913c88d6d1664c1195648038395ebb86",
+        "sujeto_sha256_antes": "6d2e291f1240f2bee80f972d2a616a2eab0631e23698cd052a9c0368c50ba34e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_registry_rejects_machine_soul_identity_drift"
+      ],
+      "pytest_tail": "E       Failed: DID NOT RAISE LabError\n\nsoul-platform/labs/autowire_world/test_autowire_world_lab.py:183: Failed\n=========================== short test summary info ============================\nFAILED soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_registry_rejects_machine_soul_identity_drift\n1 failed, 14 passed in 1.49s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "client-allowlist-bypass",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "        if client_id not in set(self.config[\"allowed_clients\"]):\n            raise LabError(\"client not allowlisted\")",
+      "reemplazo": "        if False:\n            raise LabError(\"client not allowlisted\")",
+      "why": "permits non-allowlisted client attach: breaks session access control",
+      "registro": {
+        "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+        "ancla": "        if client_id not in set(self.config[\"allowed_clients\"]):\n            raise LabError(\"client not allowlisted\")",
+        "reemplazo": "        if False:\n            raise LabError(\"client not allowlisted\")",
+        "ancla_sha256": "f52dfd23f0a43828b05e48c03ef45c5c73871b78cdf823cbf98b09994bac07bb",
+        "sujeto_sha256_antes": "6d2e291f1240f2bee80f972d2a616a2eab0631e23698cd052a9c0368c50ba34e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_registry_preserves_identity_memory_and_session_policy"
+      ],
+      "pytest_tail": "E       Failed: DID NOT RAISE LabError\n\nsoul-platform/labs/autowire_world/test_autowire_world_lab.py:167: Failed\n=========================== short test summary info ============================\nFAILED soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_registry_preserves_identity_memory_and_session_policy\n1 failed, 14 passed in 1.56s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "duplicate-provider-ids",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "    if not ids or len(ids) != len(set(ids)):\n        raise LabError(\"provider ids must be present and unique\")",
+      "reemplazo": "    if False:\n        raise LabError(\"provider ids must be present and unique\")",
+      "why": "permits duplicate provider IDs: registry uniqueness invariant violated",
+      "registro": {
+        "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+        "ancla": "    if not ids or len(ids) != len(set(ids)):\n        raise LabError(\"provider ids must be present and unique\")",
+        "reemplazo": "    if False:\n        raise LabError(\"provider ids must be present and unique\")",
+        "ancla_sha256": "5770d0e34e7cafebf89442c6ee9fa3f685074dbe5b17edc561eb240f75ca5a41",
+        "sujeto_sha256_antes": "6d2e291f1240f2bee80f972d2a616a2eab0631e23698cd052a9c0368c50ba34e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_invalid_provider_config_fails_closed"
+      ],
+      "pytest_tail": "E       Failed: DID NOT RAISE LabError\n\nsoul-platform/labs/autowire_world/test_autowire_world_lab.py:118: Failed\n=========================== short test summary info ============================\nFAILED soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_invalid_provider_config_fails_closed\n1 failed, 14 passed in 1.45s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "revoked-session-accepted",
+      "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+      "ancla": "        return bool(\n            row is not None\n            and row[\"revoked_at\"] is None\n            and float(row[\"expires_at\"]) > time.time()\n            and row[\"machine_soul_id\"] == self.machine_soul_id()\n        )",
+      "reemplazo": "        return bool(\n            row is not None\n            and True  # MUTANT: ignore revoked_at\n            and float(row[\"expires_at\"]) > time.time()\n            and row[\"machine_soul_id\"] == self.machine_soul_id()\n        )",
+      "why": "permits revoked session: bypasses session revocation enforcement",
+      "registro": {
+        "subject": "soul-platform/labs/autowire_world/autowire_lab.py",
+        "ancla": "        return bool(\n            row is not None\n            and row[\"revoked_at\"] is None\n            and float(row[\"expires_at\"]) > time.time()\n            and row[\"machine_soul_id\"] == self.machine_soul_id()\n        )",
+        "reemplazo": "        return bool(\n            row is not None\n            and True  # MUTANT: ignore revoked_at\n            and float(row[\"expires_at\"]) > time.time()\n            and row[\"machine_soul_id\"] == self.machine_soul_id()\n        )",
+        "ancla_sha256": "7d11ae8738902e01cb4553bf860334af8e00ca6eaca78e27c985607c94511f89",
+        "sujeto_sha256_antes": "6d2e291f1240f2bee80f972d2a616a2eab0631e23698cd052a9c0368c50ba34e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_attach_session_expiry_and_revocation_fail_closed"
+      ],
+      "pytest_tail": "E        +    where valid_session = <autowire_lab.Registry object at 0xea846acab5c0>.valid_session\n\nsoul-platform/labs/autowire_world/test_autowire_world_lab.py:214: AssertionError\n=========================== short test summary info ============================\nFAILED soul-platform/labs/autowire_world/test_autowire_world_lab.py::test_attach_session_expiry_and_revocation_fail_closed\n1 failed, 14 passed in 1.34s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "soul-platform/labs/autowire_world/README.md": "92d1861ba45b912d3e5fdf029af4c2a8a4cfb8e4e649a7d0954ea37025683fb6",
+    "soul-platform/labs/autowire_world/autowire_lab.py": "6d2e291f1240f2bee80f972d2a616a2eab0631e23698cd052a9c0368c50ba34e",
+    "soul-platform/labs/autowire_world/compose.yaml": "a42fbcf26e7251da881488f39749b4b64108cc444d45524a9b0510684cb8ac2b",
+    "soul-platform/labs/autowire_world/mock_provider.py": "7174c0cde552d85d0e7dad7b7cca3144a9c11972139f0db387d9232ed18fa4ba",
+    "soul-platform/labs/autowire_world/providers.json": "1e2df83fd0e9469fa4638cfd345d2c2b234c3074dd6140d7dd624387eb9ec917",
+    "soul-platform/labs/autowire_world/run_lab.py": "e48d883e563c46c339622cb64c5363bdd293f1e66ec72248c13cf6ad4da9d4ba",
+    "soul-platform/labs/autowire_world/test_autowire_world_lab.py": "1090fe84b511390deb75250782ada09714ffd9ed3e89bf2ee0af08fbf961039c",
+    "soul-platform/labs/autowire_world/verify_lab.py": "d623eabb4e0f56444f437e4f5cf59c7050bc4988bb2db7783c08450c3aafd52e"
+  }
+}
