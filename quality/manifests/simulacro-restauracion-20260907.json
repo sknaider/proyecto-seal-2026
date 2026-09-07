@@ -93,7 +93,7 @@
   "mutation_evidence": null,
   "delivery": {
     "status": "verified",
-    "evidence": "Primer simulacro real que pasa, 7-sep 13:11 (pytest -s, salida del script): 19261 archivos, 165 unidades + 87 timers, 0 críticos faltantes, 0 secretos, 264 tablas soul_v3, 182155 memorias, 12 esquemas, 14 tablas orion_exam; tiempo archivos 10 s, dump 32 s, total 42 s; contenedor desechable eliminado (docker ps: 0). Corridas previas fallaron por: rsync sin padres (13:01), arranque doble de la imagen Postgres (13:05), extensión vector fuera de soul_v3 (13:10); cada causa dejó un fix en el script.",
+    "evidence": "Primer simulacro real que pasa, 7-sep 13:11 (pytest -s, salida del script): 19261 archivos, 165 unidades + 87 timers, 0 críticos faltantes, 0 secretos, 264 tablas soul_v3, 182155 memorias, 12 esquemas, 14 tablas orion_exam; tiempo archivos 10 s, dump 32 s, total 42 s; contenedor desechable eliminado (docker ps: 0). Corridas previas fallaron por: rsync sin padres (13:01), arranque doble de la imagen Postgres (13:05), extensión vector fuera de soul_v3 (13:10); cada causa dejó un fix en el script. | RE-CORRIDA 15:08 con el veredicto endurecido (pisos unidades>=100, timers>=50, criticos bajo .config): 19261 archivos, 165 unidades + 87 timers, 0 criticos faltantes, 0 secretos, 264 tablas, 182155 memorias, 12 esquemas (14 orion_exam), 42 s, OK.",
     "command": {
       "id": "delivery-simulacro",
       "kind": "delivery",
