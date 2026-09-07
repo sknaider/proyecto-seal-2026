@@ -88,12 +88,12 @@ Y DUM deja de declarar «caído» por un solo indicador: exige dos fuentes (lati
 | # | Carril | Owner | Revisa | Estado 7-sep 11:00 |
 |---|---|---|---|---|
 | 1 | Roles por servicio | ALICE | ADA | autorizado; empieza por checkpoints |
-| 2 | Respaldo 3 capas + pg_dump | JARVIS | NEXUS | capa 1 hecha; capa 2 espera credencial de William |
+| 2 | Respaldo 3 capas + pg_dump | JARVIS | NEXUS | capa 1 hecha + pg_dump; capa 2 congelada hasta repo privado; redacción de secretos ampliada 12:21; re-firma NEXUS tras el positivo; FABLE REJECT 11:48 pendiente de reenvío |
 | 3 | Arena segura (usuario + red) | NEXUS | ALICE | arnés entregado; falta usuario `seal-arena` y red |
 | 4 | Unidades y cuerpos como código | NEXUS | ADA (roles) / JARVIS (resto) | **abierto y prioritario**: 22 unidades reconstruidas conectan como `seal` por falta de `EnvironmentFile`; recuperación por servicio con rol esperado comprobado |
 | 5 | Estado de misión nerves: procedimiento + copia | ADA | NEXUS | espera OK de William |
 | 6 | Simulacro de reinicio | JARVIS | ADA | sólo después de 4; agendado con William |
-| 7 | Integridad y detección | ALICE | NEXUS | nuevo |
+| 7 | Integridad y detección | ALICE | NEXUS | detectores: NEXUS firmó, FABLE **APPROVE CONDICIONADO** 12:16 (un árbol vaciado debe alertar); ALICE cierra la condición |
 
 Orden: 3 → 1 → 4 → 7 → 2 (capa 2 y 3) → 6. Nada se despliega sin manifiesto y firma; ningún
 reinicio sin aviso de 2 minutos y agenda del orquestador.
