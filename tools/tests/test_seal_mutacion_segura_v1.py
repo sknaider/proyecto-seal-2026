@@ -10,6 +10,7 @@ import sys
 import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+import seal_mutacion_segura as sms  # noqa: E402
 from seal_mutacion_segura import (  # noqa: E402
     ArnesInseguro, MARCA_GUARDA, verificar_entorno, verificar_mutacion, mutar,
 )
@@ -74,8 +75,153 @@ def test_CONTROL_raiz_inexistente_no_bloquea(tmp_path):
 
 def test_mutar_aplica_LOS_DOS_frenos(tmp_path, monkeypatch):
     """La via autorizada no puede saltarse ninguno."""
+    # La lista real incluye el HOME desde el 7-sep 13:43, asi que el freno de
+    # entorno bloquea SIEMPRE en este asiento. Para probar el freno 2 aislado se
+    # sustituye por una raiz inexistente: aca se prueba `mutar`, no `verificar_entorno`
+    # -que tiene sus propios brazos, incluido uno por efecto-.
     monkeypatch.setattr("seal_mutacion_segura._RAICES_PROHIBIDAS", (str(tmp_path / "nada"),))
-    salida = mutar(FUENTE_CON_GUARDA, "echo hola", "echo chau")
+    monkeypatch.setattr("seal_mutacion_segura.verificar_entorno",
+                        lambda raices=(str(tmp_path / "nada"),): None)
+    # Idem con el freno 3: tiene sus propios brazos y en este asiento -el host-
+    # niega siempre, con razon. Aca se prueba que `mutar` los INVOCA a los tres.
+    invocados = []
+    monkeypatch.setattr("seal_mutacion_segura.verificar_montajes",
+                        lambda arena, raices=(): invocados.append(arena))
+    arena = str(tmp_path)
+    salida = mutar(FUENTE_CON_GUARDA, "echo hola", "echo chau", arena)
     assert "echo chau" in salida and "echo hola" not in salida
+    assert invocados == [arena], "mutar() debe pasarle el area de trabajo al freno 3"
     with pytest.raises(ArnesInseguro):
-        mutar(FUENTE_CON_GUARDA, 'case "$ruta" in /tmp/arena-*) : ;; *) exit 2 ;; esac', ":")
+        mutar(FUENTE_CON_GUARDA,
+              'case "$ruta" in /tmp/arena-*) : ;; *) exit 2 ;; esac', ":", arena)
+
+
+# ── El freno debe mirar el HOME REAL, no su padre ──────────────────────────
+# DEFECTO MEDIDO el 7-sep 13:43: la lista decia "/home" -el padre, que nadie
+# puede escribir- y NO el home del usuario, que es lo que se borro a la 01:42.
+# El freno pasaba en verde justo para el caso que existe para frenar.
+def test_la_lista_incluye_el_HOME_DEL_USUARIO_no_solo_su_padre():
+    import seal_mutacion_segura as m
+    home = str(pathlib.Path.home())
+    assert home in m._RAICES_PROHIBIDAS, (
+        f"{home} no esta vigilado. Vigilar '/home' (el padre) no protege nada: "
+        "ningun usuario puede escribir ahi, asi que el freno pasa siempre."
+    )
+
+
+def test_el_freno_BLOQUEA_de_verdad_en_este_asiento():
+    """Por efecto, con el entorno real: si corro donde puedo borrar el home, no corro."""
+    import seal_mutacion_segura as m
+    with pytest.raises(ArnesInseguro, match="ESCRIBIR"):
+        m.verificar_entorno()
+
+
+def test_CONTROL_una_raiz_de_solo_lectura_no_bloquea(tmp_path):
+    """Sin esto, 'arreglarlo' bloqueando siempre pasaria en verde."""
+    ro = tmp_path / "ro"
+    ro.mkdir()
+    ro.chmod(0o500)
+    try:
+        verificar_entorno(raices=(str(ro),))
+    finally:
+        ro.chmod(0o700)
+
+
+# --- FRENO 3: el contenedor NO alcanza si le montaste el host con escritura ---
+#
+# Estos brazos existen porque el 7-sep 13:45 medi que `docker run --user 1000:1000`
+# con el repo montado rw PISO un archivo del host mientras el arnes decia
+# "habilitado". Lo unico que frenaba era el uid, no este codigo.
+
+def _mountinfo(origen: str, montaje: str, opciones: str = "rw,relatime") -> str:
+    return f"36 35 259:2 {origen} {montaje} {opciones} - ext4 /dev/x rw"
+
+
+def test_niega_un_montaje_ESCRIBIBLE_cuyo_origen_esta_bajo_el_home(tmp_path, monkeypatch):
+    contenido = _mountinfo("/home/dadito/IA/proyecto-seal", str(tmp_path))
+    monkeypatch.setattr(sms.pathlib.Path, "read_text", lambda self: contenido)
+    with pytest.raises(sms.ArnesInseguro) as e:
+        sms.verificar_montajes("/tmp/seal-arena-x")
+    assert "/home/dadito/IA/proyecto-seal" in str(e.value)
+
+
+def test_CONTROL_un_montaje_escribible_desde_tmp_NO_bloquea(tmp_path, monkeypatch):
+    """Sin este control, un freno que niega TODO se ve igual que uno que anda."""
+    contenido = _mountinfo("/tmp/seal-arena-x/copia", str(tmp_path))
+    monkeypatch.setattr(sms.pathlib.Path, "read_text", lambda self: contenido)
+    # Con la lista blanca el area se declara donde esta MONTADA, no en el host.
+    sms.verificar_montajes(str(tmp_path))
+
+
+def test_CONTROL_el_mismo_origen_peligroso_montado_ro_NO_bloquea(tmp_path, monkeypatch):
+    contenido = _mountinfo("/home/dadito/IA/proyecto-seal", str(tmp_path), "ro,relatime")
+    monkeypatch.setattr(sms.pathlib.Path, "read_text", lambda self: contenido)
+    sms.verificar_montajes("/tmp/seal-arena-x")
+
+
+def test_un_home_degenerado_NO_convierte_todo_en_prohibido(monkeypatch):
+    """Dentro de un contenedor, `Path.home()` de un uid sin passwd da "/".
+
+    Como raiz, "/" es prefijo de todo y el freno niega hasta el arbol legitimo.
+    """
+    monkeypatch.setattr(sms.pathlib.Path, "home", classmethod(lambda cls: sms.pathlib.Path("/")))
+    assert sms._home_real() == ()
+
+
+def test_la_plomeria_de_docker_no_dispara_el_freno(tmp_path, monkeypatch):
+    """resolv.conf/hosts/hostname vienen de /var/lib/docker y son ARCHIVOS."""
+    archivo = tmp_path / "resolv.conf"
+    archivo.write_text("nameserver 1.1.1.1")
+    contenido = _mountinfo("/var/lib/docker/containers/abc/resolv.conf", str(archivo))
+    monkeypatch.setattr(sms.pathlib.Path, "read_text", lambda self: contenido)
+    sms.verificar_montajes("/tmp/seal-arena-x")
+
+
+# --- LISTA BLANCA: las dos condiciones, cada una necesaria (medido 13:57/13:59) ---
+
+def _parchear(monkeypatch, tmp_path, *lineas):
+    contenido = "\n".join(lineas)
+    monkeypatch.setattr(sms.pathlib.Path, "read_text", lambda self: contenido)
+
+
+def test_niega_un_montaje_ESCRIBIBLE_fuera_del_area(tmp_path, monkeypatch):
+    """El respaldo NFS: no esta bajo ninguna raiz que se me hubiera ocurrido."""
+    _parchear(monkeypatch, tmp_path, _mountinfo("/", "/respaldo"),
+              _mountinfo("/tmp/seal-arena-x", "/trabajo"))
+    monkeypatch.setattr(sms, "_es_directorio", lambda m: True)
+    with pytest.raises(sms.ArnesInseguro) as e:
+        sms.verificar_montajes("/trabajo")
+    assert "/respaldo" in str(e.value)
+
+
+def test_niega_montar_el_ARBOL_VIVO_como_area_de_trabajo(tmp_path, monkeypatch):
+    """Mirar solo el punto de montaje dejaba pasar esto: el area ERA el repo."""
+    _parchear(monkeypatch, tmp_path, _mountinfo("/home/dadito/IA/proyecto-seal", "/trabajo"))
+    monkeypatch.setattr(sms, "_es_directorio", lambda m: True)
+    with pytest.raises(sms.ArnesInseguro) as e:
+        sms.verificar_montajes("/trabajo", ("/home/dadito",))
+    assert "arbol vivo" in str(e.value)
+
+
+def test_CONTROL_area_desde_una_copia_en_tmp_HABILITA(tmp_path, monkeypatch):
+    _parchear(monkeypatch, tmp_path, _mountinfo("/tmp/seal-arena-x", "/trabajo"),
+              _mountinfo("/mnt/spark-2", "/respaldo", "ro,relatime"))
+    monkeypatch.setattr(sms, "_es_directorio", lambda m: True)
+    sms.verificar_montajes("/trabajo", ("/home/dadito",))
+
+
+def test_un_fs_sin_estado_del_host_no_dispara_el_freno(tmp_path, monkeypatch):
+    """La capa efimera y /proc aparecen rw con origen "/" y ahogaban la senal."""
+    virtual = "36 35 0:1 / /proc rw,relatime - proc proc rw"
+    _parchear(monkeypatch, tmp_path, virtual, _mountinfo("/tmp/seal-arena-x", "/trabajo"))
+    monkeypatch.setattr(sms, "_es_directorio", lambda m: True)
+    sms.verificar_montajes("/trabajo", ("/home/dadito",))
+
+
+def test_un_fs_DESCONOCIDO_si_dispara_el_freno(tmp_path, monkeypatch):
+    """Fail-closed: la lista es de excepciones, no de peligros."""
+    raro = "36 35 0:1 /datos /afuera rw,relatime - unfsdesconocido x rw"
+    _parchear(monkeypatch, tmp_path, raro, _mountinfo("/tmp/seal-arena-x", "/trabajo"))
+    monkeypatch.setattr(sms, "_es_directorio", lambda m: True)
+    with pytest.raises(sms.ArnesInseguro):
+        sms.verificar_montajes("/trabajo", ("/home/dadito",))

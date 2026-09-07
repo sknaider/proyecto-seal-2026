@@ -27,7 +27,32 @@ import pathlib
 import tempfile
 
 MARCA_GUARDA = "# GUARDA-DESTRUCTIVA"
-_RAICES_PROHIBIDAS = ("/home", "/etc", "/var", "/usr", "/boot")
+# El HOME DEL USUARIO va primero y por eso existe esta lista.
+#
+# DEFECTO QUE ESTO CORRIGE (medido 13:43, lo destapo una premisa falsa de JARVIS
+# sobre `seal-arena`): la version anterior listaba "/home" -el directorio PADRE,
+# que ningun usuario puede escribir- y NO "/home/dadito", que es EXACTAMENTE lo
+# que se borro el 7-sep 01:42:53. El freno pasaba en verde como `dadito`:
+#
+#     _puede_escribir("/home")        -> False   (por eso "pasaba")
+#     _puede_escribir("/home/dadito") -> True    (lo que habia que frenar)
+#
+# Vigilar el padre de lo que hay que proteger no protege nada. Se resuelve el
+# home REAL en tiempo de ejecucion, sin cablear un nombre de usuario.
+def _home_real() -> tuple[str, ...]:
+    """El home del usuario, DESCARTANDO el valor degenerado.
+
+    DEFECTO QUE ESTO CORRIGE (lo destapo mi propio CONTROL, 7-sep 13:47): dentro
+    de un contenedor, un uid sin entrada en /etc/passwd hace que
+    `pathlib.Path.home()` devuelva "/". Como raiz prohibida, "/" es prefijo de
+    TODO: el freno 3 daba peligroso hasta el arbol legitimo en /tmp. Un freno
+    que niega todo no protege: se lo apaga, y entonces no queda ninguno.
+    """
+    home = str(pathlib.Path.home())
+    return (home,) if home not in ("/", "") else ()
+
+
+_RAICES_PROHIBIDAS = _home_real() + ("/home", "/etc", "/var", "/usr", "/boot")
 
 
 class ArnesInseguro(RuntimeError):
@@ -59,6 +84,134 @@ def verificar_entorno(raices: tuple[str, ...] = _RAICES_PROHIBIDAS) -> None:
         )
 
 
+# FRENO 3 -- por que un contenedor NO alcanza, medido el 7-sep 13:45.
+#
+# ALICE propuso el contenedor como via para habilitar el arnes, y adentro el
+# freno 1 PASA. Pero pasa por el motivo equivocado: `/home/dadito` no EXISTE
+# dentro del contenedor, asi que la lista de raices no encuentra nada que
+# vigilar. Enumerar rutas del host es ciego apenas cambia el namespace.
+#
+# Lo que protegia de verdad era el uid, no este codigo:
+#
+#     docker run --user 65534:65534  -> el montaje NO se pudo escribir  (EACCES)
+#     docker run --user 1000:1000    -> el montaje del host SE PISO      <- real
+#
+# El segundo es el comando natural: se usa el uid del dueno justamente para que
+# el mutante pueda escribir su copia. El contenedor no aisla lo que le montaste.
+#
+# El kernel si expone el origen: el campo 4 de /proc/self/mountinfo trae la ruta
+# DEL HOST y las opciones dicen si es `rw`. Se vigila eso, que es el efecto.
+_CAMPO_ORIGEN, _CAMPO_MONTAJE, _CAMPO_OPCIONES = 3, 4, 5
+
+# Sistemas de archivos que NO exponen estado del host: son la capa efimera
+# del contenedor o interfaces del kernel. Todo lo demas se trata como host.
+# La lista es de EXCEPCIONES y se falla cerrado: un tipo desconocido cuenta
+# como peligroso. Al reves -enumerar lo peligroso- es el error que ALICE
+# senalo a las 13:51 y que ya me costo dos versiones de esta guarda.
+_FS_SIN_ESTADO_DEL_HOST = frozenset({
+    "overlay", "tmpfs", "proc", "sysfs", "devpts", "mqueue", "devtmpfs",
+    "cgroup", "cgroup2", "securityfs", "pstore", "bpf", "tracefs",
+    "debugfs", "hugetlbfs", "configfs", "fusectl", "ramfs", "autofs",
+})
+
+
+def _montajes_rw_del_host() -> list[tuple[str, str]]:
+    """Montajes con escritura que exponen estado persistente DEL HOST.
+
+    Devuelve (origen en el host, punto de montaje). Se excluyen los sistemas de
+    archivos sin estado del host: dentro de un contenedor la capa efimera y
+    /proc, /dev, /sys aparecen todos como `rw` con origen "/" y ahogarian la
+    senal.
+    """
+    try:
+        crudo = pathlib.Path("/proc/self/mountinfo").read_text()
+    except OSError:
+        return []
+    origenes = []
+    for linea in crudo.splitlines():
+        campos = linea.split()
+        if len(campos) <= _CAMPO_OPCIONES:
+            continue
+        opciones = campos[_CAMPO_OPCIONES].split(",")
+        if "rw" not in opciones:
+            continue
+        try:
+            tipo = campos[campos.index("-", _CAMPO_OPCIONES) + 1]
+        except (ValueError, IndexError):
+            tipo = "desconocido"  # fail-closed: si no se pudo leer, cuenta
+        if tipo in _FS_SIN_ESTADO_DEL_HOST:
+            continue
+        origenes.append((campos[_CAMPO_ORIGEN], campos[_CAMPO_MONTAJE]))
+    return origenes
+
+
+def _es_directorio(montaje: str) -> bool:
+    """Fail-closed: si no se puede mirar el montaje, se lo trata como peligroso.
+
+    Un montaje puede estar ROTO y `is_dir()` levanta OSError en vez de devolver
+    False (medido: /mnt/spark-3, "Error de entrada/salida"). No se puede
+    descartar lo que no se pudo mirar.
+    """
+    try:
+        return pathlib.Path(montaje).is_dir()
+    except OSError:
+        return True
+
+
+def verificar_montajes(arena: str, raices: tuple[str, ...] = _RAICES_PROHIBIDAS) -> None:
+    """Freno 3: nada escribible del host fuera del AREA DE TRABAJO.
+
+    POR QUE ES UNA LISTA BLANCA (ALICE, 13:51). La primera version enumeraba
+    raices prohibidas y por eso fallaba dos veces:
+
+      - dentro de un contenedor `/home/dadito` no existe, asi que la lista no
+        vigilaba nada mientras el repo real, montado con otro nombre, se pisaba;
+      - y solo cubria lo que se me ocurrio escribir: un montaje de /mnt/spark-2
+        -la copia de respaldo en NFS- pasaba en verde.
+
+    La pregunta correcta no es "esta ruta esta prohibida" sino "puedo escribir
+    FUERA de mi area de trabajo", que no depende de como se llame la ruta.
+    `raices` queda solo para nombrar la raiz protegida en el mensaje de error.
+    """
+    area = pathlib.Path(arena).resolve()
+
+    def bajo(ruta: str, raiz: str) -> bool:
+        raiz = raiz.rstrip("/")
+        return ruta == raiz or ruta.startswith(raiz + "/")
+
+    # Hacen falta LAS DOS condiciones, y cada una sola deja pasar un caso real
+    # (medido 13:57 y 13:59, los dos con el ensayo vivo):
+    #
+    #   solo el punto de montaje  -> montar el REPO VIVO como area pasaba
+    #   solo el origen en el host -> montar /mnt/spark-2 (respaldo NFS) pasaba
+    #
+    # El area tiene que ser una COPIA: un montaje dentro del area cuyo origen
+    # esta bajo una raiz protegida es el arbol vivo disfrazado de arena.
+    afuera, arbol_vivo = [], []
+    for origen, montaje in _montajes_rw_del_host():
+        if not _es_directorio(montaje):
+            continue  # Docker monta resolv.conf/hosts/hostname como archivos
+        etiqueta = f"{origen} (en {montaje})"
+        if not bajo(montaje, str(area)):
+            afuera.append(etiqueta)
+        elif any(bajo(origen, r) for r in raices):
+            arbol_vivo.append(etiqueta)
+    if arbol_vivo:
+        raise ArnesInseguro(
+            "el area de trabajo ES el arbol vivo, montado con escritura: "
+            + ", ".join(sorted(set(arbol_vivo))[:4])
+            + ". Un mutante escribiria sobre el original. Copia el arbol a "
+            "/tmp/seal-arena-* desde el INDICE y monta esa copia."
+        )
+    if afuera:
+        raise ArnesInseguro(
+            "hay montajes ESCRIBIBLES del host FUERA del area de trabajo "
+            f"({area}): " + ", ".join(sorted(set(afuera))[:4])
+            + ". Un contenedor no aisla lo que le montaste con escritura: "
+            "montalos :ro o no los montes."
+        )
+
+
 def verificar_mutacion(fuente: str, ancla: str) -> None:
     """Freno 2: no se muta una guarda que protege una operacion destructiva.
 
@@ -85,8 +238,14 @@ def verificar_mutacion(fuente: str, ancla: str) -> None:
             )
 
 
-def mutar(fuente: str, ancla: str, reemplazo: str) -> str:
-    """Unica via autorizada: aplica los dos frenos antes de devolver el mutante."""
+def mutar(fuente: str, ancla: str, reemplazo: str, arena: str) -> str:
+    """Unica via autorizada: aplica los TRES frenos antes de devolver el mutante.
+
+    `arena` es obligatorio a proposito: sin declarar el area de trabajo no se
+    puede responder "puedo escribir afuera", y un freno que no se puede evaluar
+    no se salta en silencio.
+    """
     verificar_entorno()
+    verificar_montajes(arena)
     verificar_mutacion(fuente, ancla)
     return fuente.replace(ancla, reemplazo)
