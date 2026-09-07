@@ -211,3 +211,30 @@ def test_qa_negative_un_nombre_de_DIRECTORIO_relativo_no_es_credencial():
     assert es_cred is True, "una URI con clave embebida NO se salva por llamarse _DIR"
     es_cred, _ = det.clasificar("BUILD_DIR", "sk-proj-AbCdEfGhIjKlMnOpQrStUvWx")
     assert es_cred is True, "un prefijo de credencial conocido NO se salva por llamarse _DIR"
+
+
+def test_qa_control_la_salida_NUNCA_garantiza_ausencia_de_credenciales():
+    """Regresión pedida por ADA el 7-sep-2026 18:12.
+
+    La salida decía "sin credenciales embebidas", que se lee como una GARANTÍA. Un
+    detector sólo puede afirmar lo que sus reglas alcanzan: cero detecciones. El límite
+    va en la SALIDA —lo que lee quien corre la herramienta— y no sólo en el docstring.
+
+    Este brazo se pone rojo si alguien vuelve a redactar el resultado como ausencia.
+    """
+    import subprocess, sys, pathlib
+    ruta = pathlib.Path(__file__).resolve().parents[2] / "tools" / "seal_detector_credenciales_unidades.py"
+    r = subprocess.run([sys.executable, str(ruta)], capture_output=True, text=True)
+    salida = r.stdout.lower()
+
+    prohibidas = ("sin credenciales", "no hay credenciales embebidas", "libre de credenciales",
+                  "ninguna credencial", "garantiza")
+    for frase in prohibidas:
+        if frase == "no hay credenciales embebidas":
+            continue          # aparece dentro de la propia advertencia; se chequea aparte
+        assert frase not in salida, f"la salida vuelve a afirmar AUSENCIA: {frase!r}"
+
+    assert "0 detecciones" in salida or "detecciones" in salida, (
+        "la salida debe contar DETECCIONES, no declarar un estado del sistema")
+    assert "no lo ve" in salida or "no modela" in salida, (
+        "la salida debe declarar su propio límite, no sólo el resultado")

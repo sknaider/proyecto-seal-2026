@@ -20,7 +20,7 @@
     "tools/seal_detector_credenciales_unidades.py": "2894429007dcbc7cb6b972848d695e1a8a5ab9fd527e54e42ee075ab03888f66",
     "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
     "tools/seal_chequeo_integridad_recuperacion.sh": "aaf81a0b464ff58e61e32217f829e91861918374c5481b67e9c9c50c23badf6b",
-    "tools/tests/test_detectores_recuperacion_v1.py": "111ffa40aa4c5355a1b221c7ea0378e4c399efb82fdb7d1653dadbdcf8dbb523",
+    "tools/tests/test_detectores_recuperacion_v1.py": "8e227c2db00977ff6a7ebd6b8c191b0cd918b1e5b5278f86b1802514509241bc",
     "tools/seal_detector_existencia.py": "2539e72dcea011607ff3631be264e0bc050aa8d6d7ac5bbb7396d592ae0d9400"
   },
   "implementation_head": "7be9c84a5f2f0127a12acaeab30d2772acadee50",
@@ -156,6 +156,18 @@
         "-q",
         "tools/tests/test_detectores_recuperacion_v1.py::test_qa_negative_existencia_con_lista_VACIA_no_pasa"
       ]
+    },
+    {
+      "id": "control-la-salida-no-garantiza-ausencia",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detectores_recuperacion_v1.py::test_qa_control_la_salida_NUNCA_garantiza_ausencia_de_credenciales"
+      ]
     }
   ],
   "coverage": {
@@ -209,6 +221,6 @@
         "manifest_digest": "c47d0b11634a04d5a76513054c92f7ef1c0a6c0cec67c8b57ea263cf5c7435b9"
       }
     ],
-    "reason": "ALICE (owner): retiro la firma de NEXUS por cambio de bytes, no por defecto suyo. FALSO POSITIVO reportado por ADA el 7-sep 17:53: STUDIO_BUILD_DIR=.next-clipboard-20260907a (25 chars, entropia 4.2) se marcaba como 'valor opaco'; alimenta distDir de Next.js (next.config.ts:4). No empieza con / ni ./ asi que la guarda de rutas no lo veia. Arreglado con un desempate por NOMBRE -la variable declara dir/path/file/root Y el valor tiene forma de archivo-, que es justo el uso que el docstring le reserva al nombre. MI PROPIO CONTROL ATAJO EL ARREGLO: sin acotarlo, un 'sk-proj-...' colgado de una variable llamada BUILD_DIR se salvaba por el nombre; ahora el prefijo de credencial y la URI con clave ganan sobre la exencion. 12 brazos verdes. Barrido: 224 unidades, 0 credenciales. Segundo cambio (18:05, ADA): la SALIDA decia 'sin credenciales embebidas', que se lee como garantia. Ahora dice '0 detecciones ... NO significa no hay credenciales: lo que este detector no modela, no lo ve'. Va en la salida y no solo en la doc, porque lo que se lee es la salida."
+    "reason": "ALICE (owner): retiro la firma de NEXUS por cambio de bytes, no por defecto suyo. FALSO POSITIVO reportado por ADA el 7-sep 17:53: STUDIO_BUILD_DIR=.next-clipboard-20260907a (25 chars, entropia 4.2) se marcaba como 'valor opaco'; alimenta distDir de Next.js (next.config.ts:4). No empieza con / ni ./ asi que la guarda de rutas no lo veia. Arreglado con un desempate por NOMBRE -la variable declara dir/path/file/root Y el valor tiene forma de archivo-, que es justo el uso que el docstring le reserva al nombre. MI PROPIO CONTROL ATAJO EL ARREGLO: sin acotarlo, un 'sk-proj-...' colgado de una variable llamada BUILD_DIR se salvaba por el nombre; ahora el prefijo de credencial y la URI con clave ganan sobre la exencion. 12 brazos verdes. Barrido: 224 unidades, 0 credenciales. Segundo cambio (18:05, ADA): la SALIDA decia 'sin credenciales embebidas', que se lee como garantia. Ahora dice '0 detecciones ... NO significa no hay credenciales: lo que este detector no modela, no lo ve'. Va en la salida y no solo en la doc, porque lo que se lee es la salida. Regresion pedida por ADA y agregada (13 brazos): el brazo falla si la salida vuelve a redactarse como AUSENCIA. Verificado por mutacion de prueba -restaure 'sin credenciales embebidas' y el brazo se puso ROJO; revertido y 13 verdes-. Un brazo de regresion que no se probo contra el defecto que dice cubrir es una declaracion, no una prueba."
   }
 }
