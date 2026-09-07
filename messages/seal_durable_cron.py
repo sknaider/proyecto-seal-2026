@@ -41,7 +41,13 @@ import sys as _sys
 # y tiene razon: **declarar una elevacion de privilegios no la vuelve aceptable.**
 # Si falta la credencial ESPECIFICA del servicio, esto NO arranca. Un servicio
 # caido se ve; uno corriendo con superusuario, no.
-DB_URL = _os.environ.get("SEAL_DB_URL", "").strip()
+# Nombres MEDIDOS de la unidad (no elegidos): SEAL_DURABLE_CRON_DSN, SEAL_DB_URL.
+# ALICE (7-sep 12:54) probo que mi version anterior exigia SEAL_DB_URL y su
+# EnvironmentFile define SEAL_POLLER_DSN: el servicio no habria arrancado.
+for _n in ("SEAL_DURABLE_CRON_DSN", "SEAL_DB_URL"):
+    DB_URL = _os.environ.get(_n, "").strip()
+    if DB_URL:
+        break
 if not DB_URL:
     raise SystemExit(
         "seal_durable_cron.py: sin SEAL_DB_URL. Este servicio debe recibir su credencial de rol "

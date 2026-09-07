@@ -27,7 +27,13 @@ import sys as _sys
 # y tiene razon: **declarar una elevacion de privilegios no la vuelve aceptable.**
 # Si falta la credencial ESPECIFICA del servicio, esto NO arranca. Un servicio
 # caido se ve; uno corriendo con superusuario, no.
-DSN = _os.environ.get("SEAL_DB_URL", "").strip()
+# Nombres MEDIDOS de la unidad (no elegidos): SEAL_POLLER_DSN, SEAL_DB_URL.
+# ALICE (7-sep 12:54) probo que mi version anterior exigia SEAL_DB_URL y su
+# EnvironmentFile define SEAL_POLLER_DSN: el servicio no habria arrancado.
+for _n in ("SEAL_POLLER_DSN", "SEAL_DB_URL"):
+    DSN = _os.environ.get(_n, "").strip()
+    if DSN:
+        break
 if not DSN:
     raise SystemExit(
         "alice_dm_poller.py: sin SEAL_DB_URL. Este servicio debe recibir su credencial de rol "
