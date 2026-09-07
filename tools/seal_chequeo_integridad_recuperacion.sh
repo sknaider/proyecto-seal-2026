@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Corre los tres detectores nacidos del borrado del 7-sep-2026 y AVISA SOLO
+# Corre los cuatro detectores nacidos del borrado del 7-sep-2026 y AVISA SOLO
 # SI HAY HALLAZGO (regla de William, 2-ago: brief por hallazgo, no por reloj).
 #
 # POR QUE ESTE ARCHIVO EXISTE: los tres detectores encontraron perdidas reales
@@ -39,7 +39,7 @@ corre "rutas criticas que faltan (arbol vaciado)" \
       python3 "$REPO/tools/seal_detector_existencia.py"
 
 if [ "$hay" = 0 ]; then
-  echo "sin hallazgos en los tres detectores"
+  echo "sin hallazgos en los cuatro detectores"
   exit 0
 fi
 
