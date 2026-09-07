@@ -12,12 +12,13 @@ Los cuatro brazos, y lo que prueba cada uno:
 Todo corre en arenas bajo /tmp; nada toca el repo ni la maquina.
 """
 from __future__ import annotations
-import ast, pathlib, subprocess, tempfile
+import ast, hashlib, pathlib, subprocess, tempfile
 
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 NO_VERSIONADO = RAIZ / "tools/seal_detector_no_versionado.py"
 CREDENCIALES = RAIZ / "tools/seal_detector_credenciales_unidades.py"
 MUTILADOS = RAIZ / "tools/seal_detector_paquetes_vacios.py"
+EXISTENCIA = RAIZ / "tools/seal_detector_existencia.py"
 CHEQUEO = RAIZ / "tools/seal_chequeo_integridad_recuperacion.sh"
 
 
@@ -36,8 +37,8 @@ def _corre(script: pathlib.Path, *args: str) -> subprocess.CompletedProcess:
 
 
 # ---------------------------------------------------------------- unit
-def test_unit_los_cuatro_scripts_parsean():
-    for py in (NO_VERSIONADO, CREDENCIALES, MUTILADOS):
+def test_unit_los_cinco_scripts_parsean():
+    for py in (NO_VERSIONADO, CREDENCIALES, MUTILADOS, EXISTENCIA):
         ast.parse(py.read_text())          # lanza si hay error de sintaxis
     r = subprocess.run(["bash", "-n", str(CHEQUEO)], capture_output=True)
     assert r.returncode == 0, r.stderr.decode()
@@ -140,3 +141,48 @@ def test_qa_negative_mata_mutante_sin_fuentes_ignora_los_binarios():
     (sp / "datos/tabla.csv").write_text("a,b\n1,2\n")
     r = _corre(MUTILADOS, str(sp))
     assert r.returncode == 0, f"marco un directorio de datos: {r.stdout}"
+
+
+# ------------------------------------------- el detector de EXISTENCIA
+# NEXUS, 7-sep 14:33: "protege el caso mas importante que tenemos y nada lo
+# protege a el". Tenia razon: lo escribi por la condicion de FABLE -los
+# detectores diferenciales dan verde con el arbol vaciado- y lo entregue sin
+# un solo brazo. Estos tres lo cubren.
+def _arena_existencia(rutas: dict[str, str]):
+    """Arma un arbol con el detector, su lista y las rutas que se le pidan."""
+    import json
+    a = _arena()
+    (a / "tools").mkdir(); (a / "quality").mkdir()
+    (a / "tools/seal_detector_existencia.py").write_bytes(EXISTENCIA.read_bytes())
+    lista = {"_doc": "prueba", "rutas": {}}
+    for rel, contenido in rutas.items():
+        p = a / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(contenido)
+        lista["rutas"][rel] = hashlib.sha256(p.read_bytes()).hexdigest()
+    (a / "quality/rutas-criticas.json").write_text(json.dumps(lista))
+    return a
+
+
+def test_qa_positive_existencia_grita_cuando_falta_una_ruta():
+    """El caso del 7-sep 01:42: el arbol se vacia y hay que enterarse."""
+    a = _arena_existencia({"algo/critico.py": "X = 1\n"})
+    (a / "algo/critico.py").unlink()          # se borra lo declarado
+    r = _corre(a / "tools/seal_detector_existencia.py")
+    assert r.returncode == 1 and "FALTAN" in r.stdout and "critico.py" in r.stdout
+
+
+def test_qa_control_existencia_no_grita_cuando_estan_todas():
+    """Control: si gritara siempre, el positivo no probaria nada."""
+    a = _arena_existencia({"algo/critico.py": "X = 1\n"})
+    r = _corre(a / "tools/seal_detector_existencia.py")
+    assert r.returncode == 0, f"grito sin faltantes: {r.stdout}"
+
+
+def test_qa_negative_existencia_con_lista_VACIA_no_pasa():
+    """Su unico modo de fallo silencioso: una lista vacia lo vuelve siempre-verde."""
+    import json
+    a = _arena_existencia({"algo/critico.py": "X = 1\n"})
+    (a / "quality/rutas-criticas.json").write_text(json.dumps({"_doc": "x", "rutas": {}}))
+    r = _corre(a / "tools/seal_detector_existencia.py")
+    assert r.returncode == 2 and "VACIA" in r.stdout

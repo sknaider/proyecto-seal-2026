@@ -20,13 +20,13 @@
     "tools/seal_detector_credenciales_unidades.py": "51c83a43b53f16e9fa1a3d0cb1b4b5358b2e6cf4d6d99457172e18f6ba12c81f",
     "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
     "tools/seal_chequeo_integridad_recuperacion.sh": "2e8bcb7679b9afb6182bd406bd3761299babbb829b559787c14dfe12b2629be0",
-    "tools/tests/test_detectores_recuperacion_v1.py": "566fb8642694561b7d960774a0640e56dcb53d55f8b55c587194e709810cf142",
+    "tools/tests/test_detectores_recuperacion_v1.py": "2115211f9d707bf3fdcb6b92b51bcffb7c93286fe4b12db3bbc15131e935e1d0",
     "tools/seal_detector_existencia.py": "2539e72dcea011607ff3631be264e0bc050aa8d6d7ac5bbb7396d592ae0d9400"
   },
-  "implementation_head": "14219495201eba9d8134b113a213c4d0d21b699f",
+  "implementation_head": "7be9c84a5f2f0127a12acaeab30d2772acadee50",
   "commands": [
     {
-      "id": "unit-los-cuatro-parsean",
+      "id": "unit-los-cinco-parsean",
       "kind": "unit",
       "expected_exit": 0,
       "argv": [
@@ -34,7 +34,7 @@
         "-m",
         "pytest",
         "-q",
-        "tools/tests/test_detectores_recuperacion_v1.py::test_unit_los_cuatro_scripts_parsean"
+        "tools/tests/test_detectores_recuperacion_v1.py::test_unit_los_cinco_scripts_parsean"
       ]
     },
     {
@@ -120,6 +120,42 @@
         "-q",
         "tools/tests/test_detectores_recuperacion_v1.py::test_qa_negative_mata_mutante_sin_fuentes_ignora_los_binarios"
       ]
+    },
+    {
+      "id": "positive-existencia-grita-si-falta",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detectores_recuperacion_v1.py::test_qa_positive_existencia_grita_cuando_falta_una_ruta"
+      ]
+    },
+    {
+      "id": "control-existencia-no-grita-si-estan-todas",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detectores_recuperacion_v1.py::test_qa_control_existencia_no_grita_cuando_estan_todas"
+      ]
+    },
+    {
+      "id": "negative-existencia-lista-vacia-no-pasa",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detectores_recuperacion_v1.py::test_qa_negative_existencia_con_lista_VACIA_no_pasa"
+      ]
     }
   ],
   "coverage": {
@@ -150,22 +186,6 @@
         "-c",
         "n=$(git ls-files seal-studio/frontend/src/app/v2/ChatView.tsx seal-studio/frontend/src/app/v2/MessageContent.tsx seal-studio/frontend/src/app/v2/CaptureControls.tsx seal-studio/frontend/src/app/v2/GmailPanel.tsx seal-studio/frontend/src/app/v2/Productivity.tsx seal-studio/frontend/src/lib/gmail-server.ts | wc -l); echo \"$n de 6 rescatados siguen versionados\"; [ \"$n\" = 6 ]"
       ]
-    }
-  },
-  "review": {
-    "status": "approved",
-    "receipt": {
-      "schema": "seal.independent-review-receipt.v1",
-      "reviewer": "NEXUS",
-      "evidence": "Revision adversarial en arena construida desde el INDICE (`seal_arena.sh new`), CONTROL POSITIVO antes de contar: 8 passed. PRIMERA RONDA (rechazada): con 6 brazos, mute la condicion central `seal_detector_paquetes_vacios.py:66  if sos > 0 and pys == 0` y DOS mutantes SOBREVIVIERON: `if sos > 0:` (marcaria paquetes sanos CON .py) y `if pys == 0:` (marcaria directorios de solo datos), ambos 6 passed. Solo moria `if False:`. Los brazos probaban que DETECTA, no que NO marque lo legitimo. SEGUNDA RONDA (esta): la owner agrego los dos brazos que faltaban y re-corri los TRES mutantes yo mismo, sin tomar su palabra: M1 1 failed, M2 1 failed, M3 1 failed, restauracion 8 passed. 3/3 MUEREN. Ademas, revision manual previa con 6 casos fabricados para REFUTAR el detector: pandas-solo-.so (marca, correcto), namespace legitimo con submodulo, directorio de solo datos, modulo suelto .py, extension C suelta (_brotli...so) y paquete sano __init__.py+_core.so: los cinco legitimos NO se marcan. HALLAZGO MENOR NO BLOQUEANTE: con un dist-info presente pero sin RECORD, el informe imprime `dist-info=0` (cuenta paquetes reclamados leyendo RECORD, :42-49). El veredicto no cambia; el numero puede confundir a quien lo lea. LIMITES: (a) revise a fondo `seal_detector_paquetes_vacios.py`; los otros 3 sujetos los cubri por los brazos del manifiesto, no con mutantes propios; (b) NO verifique el comportamiento sobre un site-packages real de produccion, solo arboles fabricados. RE-FIRMA 12:13: el recibo caduco (`independent_review_receipt_stale`) porque la owner corrigio el campo `mutation_evidence`, que llevaba una nota de texto donde va una RUTA (el gate intentaba abrir el parrafo como archivo: 'File name too long'). VERIFIQUE ANTES DE RE-FIRMAR que los BYTES revisados no cambiaron: los 5 sujetos y el test dan sha256 IDENTICO al recibo anterior. Cambio el manifiesto, no el sujeto: por eso la re-firma es legitima y NO exige repetir los mutantes. Ademas comprobe que la ruta nueva EXISTE y es coherente: quality/mutation-detectores-recuperacion-alice-20260907.json, killed 2/2, survived 0, y sus 4 file_sha256 coinciden con el disco. No basta que el campo apunte a algo: tiene que apuntar a evidencia vigente.",
-      "reviewed_sha256": {
-        "tools/seal_detector_no_versionado.py": "9cace1402fafe39f357cf0355bede2a5195241585848641231b90402365458c8",
-        "tools/seal_detector_credenciales_unidades.py": "51c83a43b53f16e9fa1a3d0cb1b4b5358b2e6cf4d6d99457172e18f6ba12c81f",
-        "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
-        "tools/seal_chequeo_integridad_recuperacion.sh": "bb8ad9b8f14efcb3603ca63097782c089c369f24d2e1eace98ba245c89013af3",
-        "tools/tests/test_detectores_recuperacion_v1.py": "566fb8642694561b7d960774a0640e56dcb53d55f8b55c587194e709810cf142"
-      },
-      "manifest_digest": "df694844796012dc384e02268e8d04e1cab90d196339e2c9a5409cc67f838609"
     }
   },
   "_nota_para_el_revisor": "Hallazgo de NEXUS (revision independiente, 12:04): la condicion central de paquetes_vacios (`if sos > 0 and pys == 0`) sobrevivia a dos mutantes porque mis brazos no separaban sus dos mitades. Cerrado con dos casos negativos y VERIFICADO mutando una COPIA EN ARENA, nunca el archivo del repo (regla del 7-sep): original -> con-fuentes exit 0, solo-datos exit 0 (pasa); M1 `if sos > 0:` -> marca el paquete CON fuentes (exit 1): MUERE; M2 `if pys == 0:` -> marca un directorio de datos (exit 1): MUERE.",
