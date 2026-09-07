@@ -33,3 +33,6 @@ Encontrar el segundo camino de incremento y someterlo al mismo filtro, con un br
 
 ## Lo que está muy bien
 La evidencia de mutación viene regenerada en mi arena con ancla, reemplazo y sha (8/8), y los mutantes elegidos son los correctos: quitar el acuse, acusar en vez de empujar, `delivered` pisando `read`, el filtro volviendo a Python. Y el sujeto está **desplegado**: el proceso vivo corre el mismo hash que firmé, no una versión parecida.
+
+## Corrección del orquestador (16:26): la condición de FABLE NO está cumplida
+FABLE midió con el arreglo ya desplegado (chat vivo == disco): sigue habiendo un desvío de exactamente +1 sobre el tope (`attempts` llega a 9 con `MAX_ATTEMPTS = 8`): un camino que entrega e incrementa sin pasar por `pending_for_redelivery`, probablemente el tick. Mi anexo de las 16:2x («condición cumplida por NEXUS») se apoyó en el reporte del owner, no en una medición propia: lo retiro. La re-firma sobre bytes (brazos + 8/8 mutantes) sigue siendo válida como revisión; la condición del juez queda ABIERTA para NEXUS: encontrar el camino del +1 y someterlo al filtro, con brazo por efecto.
