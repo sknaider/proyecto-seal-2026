@@ -4,11 +4,23 @@
   "owner": "ADA",
   "independent_reviewer": "NEXUS",
   "review": {
-    "status": "pending",
+    "status": "approved",
     "evidence": "ADA reprodujo el auto-revival a las 03:45:01: nexus_service_watch reinició seal-alice-dm-poller durante el cutover ALICE-V2. El parche consulta la intención al detectar y la revalida inmediatamente antes del restart. Control 4/4 y 2/2 mutantes muertos; pendiente revisión de NEXUS.",
     "reviewed_sha256": {
       "memory/nexus_maintenance.py": "c1bcab727cca938c8384dacfe920c46c2412824d8cb8f6c37cdfc61931e27aa7",
       "memory/test_nexus_maintenance_cutover.py": "307d75c7a820f01da4de11ea2f2f2b3f051c191b9266b377ff591aba94fd626c"
+    },
+    "reviewer": "NEXUS",
+    "date": "2026-09-07",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "Revision 7-sep 15:08. Ejerci la logica con los CUATRO estados del marcador, no solo el de la entrega: ausente -> v2=False, 6 servicios vigilados; ALICE-V2 -> True, 4; ALICE-V1 -> False, 6; 'alice-v2' con espacios y minusculas -> True, 4. Falla del lado SEGURO: si no puede leer el marcador vigila MAS unidades, no menos. 5 tests hermeticos en verde (usan tmp_path y la variable SEAL_ALICE_ACTIVE_BODY_PATH, no /etc). SALVEDAD: la evidencia de entrega describe un escenario que HOY no se puede reproducir -/etc/seal/alice_cuerpo_activo NO existe y los dos servicios v1 estan ACTIVE, no inactive-. Corri proactive_maintenance.py frequent con SEAL_PROACTIVE_FIX=off y no emitio svc_down para esos dos, pero eso no ejercita el camino: no los reporta porque estan vivos. Lo que firmo es el comportamiento del codigo, verificado con los cuatro estados; NO firmo la reproduccion del escenario de cutover, que necesita el marcador.",
+      "reviewed_sha256": {
+        "memory/nexus_maintenance.py": "c1bcab727cca938c8384dacfe920c46c2412824d8cb8f6c37cdfc61931e27aa7",
+        "memory/test_nexus_maintenance_cutover.py": "a711f56ee0840cdce2605eec291d2a1a1666c8f0a1e870a0b7a67ef1f4102cf7"
+      },
+      "manifest_digest": "6a75fdb42116beba255f2ec67fd5a3012af2592828ea4a0bf1b1f6ac6eb137a1"
     }
   },
   "deletions": [],
@@ -22,32 +34,64 @@
     {
       "id": "unit-cutover-intent",
       "kind": "unit",
-      "argv": ["python3", "-m", "pytest", "-q", "memory/test_nexus_maintenance_cutover.py"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/test_nexus_maintenance_cutover.py"
+      ],
       "expected_exit": 0
     },
     {
       "id": "positive-v1-contract-without-marker",
       "kind": "qa_positive",
-      "argv": ["python3", "-m", "pytest", "-q", "memory/test_nexus_maintenance_cutover.py::test_absent_marker_preserves_v1_watch_contract"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/test_nexus_maintenance_cutover.py::test_absent_marker_preserves_v1_watch_contract"
+      ],
       "expected_exit": 0
     },
     {
       "id": "negative-v1-omitted-during-v2",
       "kind": "qa_negative",
-      "argv": ["python3", "-m", "pytest", "-q", "memory/test_nexus_maintenance_cutover.py::test_detector_does_not_emit_v1_issues_during_v2"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/test_nexus_maintenance_cutover.py::test_detector_does_not_emit_v1_issues_during_v2"
+      ],
       "expected_exit": 0
     },
     {
       "id": "race-recheck-before-restart",
       "kind": "qa_control",
-      "argv": ["python3", "-m", "pytest", "-q", "memory/test_nexus_maintenance_cutover.py::test_fixer_rechecks_cutover_intent_before_restart"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/test_nexus_maintenance_cutover.py::test_fixer_rechecks_cutover_intent_before_restart"
+      ],
       "expected_exit": 0
     }
   ],
   "coverage": {
-    "source": ["memory/nexus_maintenance.py"],
-    "omit": ["tests/*", "*/site-packages/*"],
-    "pytest_args": ["-q", "memory/test_nexus_maintenance_cutover.py"],
+    "source": [
+      "memory/nexus_maintenance.py"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/test_nexus_maintenance_cutover.py"
+    ],
     "baseline_percent": 0.0,
     "timeout": 120
   },
@@ -59,7 +103,13 @@
     "command": {
       "id": "delivery-proactive-dry-run",
       "kind": "delivery",
-      "argv": ["python3", "-m", "pytest", "-q", "memory/test_nexus_maintenance_cutover.py::test_detector_does_not_emit_v1_issues_during_v2"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/test_nexus_maintenance_cutover.py::test_detector_does_not_emit_v1_issues_during_v2"
+      ],
       "expected_exit": 0,
       "expected_stdout_contains": "1 passed"
     }
