@@ -152,3 +152,26 @@ def test_qa_negative_copiar_la_lista_real_a_otra_ruta_NO_evade_el_freno():
                        env=env, cwd=str(RAIZ), timeout=300)
     assert r.returncode == 2 and "FUERA de /tmp" in r.stderr
     assert not list(dest.glob("*.enc")), "publico pese a apuntar a rutas reales"
+
+
+def test_qa_negative_enlace_bajo_tmp_que_apunta_afuera_NO_evade():
+    """Cuarta evasión de NEXUS (7-sep 14:42), cerrada resolviendo la ruta.
+
+    Un symlink bajo /tmp pasaba el filtro de TEXTO y `cp -p` seguía el enlace:
+    el contenido real viajaba dentro del paquete. Ahora cada ruta se resuelve
+    con readlink -f antes de decidir. El texto de la ruta no es la ruta.
+    """
+    a, lista, clave, dest = _arena()
+    victima = a / "secreto_simulado.txt"
+    victima.write_text("CONTENIDO-QUE-NO-DEBERIA-VIAJAR\n")
+    fuera = pathlib.Path(tempfile.mkdtemp(dir="/var/tmp", prefix="seal-fuera-"))
+    real = fuera / "real.txt"; real.write_text("CONTENIDO-QUE-NO-DEBERIA-VIAJAR\n")
+    enlace = a / "parece_senuelo.txt"
+    enlace.symlink_to(real)                      # bajo /tmp, apunta a /var/tmp
+    lista.write_text(str(enlace) + "\n")
+    env = dict(os.environ, SEAL_SECRETOS_KEYFILE=str(clave), SEAL_SECRETOS_DEST=str(dest),
+               SEAL_SECRETOS_LISTA=str(lista))
+    r = subprocess.run(["bash", str(SCRIPT)], capture_output=True, text=True,
+                       env=env, cwd=str(RAIZ), timeout=300)
+    assert r.returncode == 2 and "FUERA de /tmp" in r.stderr, r.stderr
+    assert not list(dest.glob("*.enc")), "publico siguiendo un enlace hacia afuera"

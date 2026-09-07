@@ -86,7 +86,15 @@ if [ "$CLAVE" != "$CLAVE_DESIGNADA" ]; then
   # anterior con un solo `cp`: una copia de la lista real esta en otra ruta y
   # lleva adentro los mismos 20 secretos. Comparar rutas es comparar el nombre;
   # lo que decide es lo que la lista APUNTA.
-  fuera=$(grep -vE '^\s*(#|$)' "$LISTA" 2>/dev/null | grep -vE '^/tmp/' | head -3)
+  # Se resuelve CADA ruta antes de mirarla: un enlace BAJO /tmp que apunta
+  # afuera pasaba el filtro de texto y `cp -p` seguia el enlace, asi que el
+  # contenido real viajaba igual (cuarta evasion de NEXUS, 7-sep 14:42).
+  # El texto de la ruta no es la ruta: lo que importa es a donde RESUELVE.
+  fuera=$(while IFS= read -r _r; do
+            case "$_r" in ""|\#*) continue ;; esac
+            _real=$(readlink -f -- "$_r" 2>/dev/null || printf '%s' "$_r")
+            case "$_real" in /tmp/*) : ;; *) printf '%s -> %s\n' "$_r" "$_real" ;; esac
+          done < "$LISTA" | head -3)
   if [ -n "$fuera" ]; then
     fatal "clave NO designada y la lista apunta FUERA de /tmp:
 $(printf '        %s\n' $fuera)
