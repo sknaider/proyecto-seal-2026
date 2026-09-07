@@ -116,3 +116,29 @@ def test_qa_control_entorno_ILEGIBLE_no_cuenta_como_sano():
     if os.geteuid() == 0:
         return                      # root lee igual: el caso no se puede montar
     assert "NO PUDE LEER" in r.stdout and "ilegible.service" in r.stdout
+
+
+def test_qa_negative_un_INTERRUPTOR_con_TOKEN_en_el_nombre_no_es_credencial():
+    """ADA, 7-sep 14:48: SEAL_DISABLE_LEGACY_TMP_TOKENS lleva TOKENS y es un flag.
+
+    Su ausencia no rompe nada. Clasificar por el nombre convierte cada
+    interruptor de configuracion en una falsa credencial faltante.
+    """
+    a = _arena()
+    s = _script(a, "flag.py", 'import os\nX = os.environ["SEAL_DISABLE_LEGACY_TMP_TOKENS"]\n')
+    _unidad(a, "flag.service", f"[Service]\nExecStart=/usr/bin/python3 {s}\n")
+    r = _corre(a)
+    assert r.returncode == 0, f"marco un interruptor como credencial: {r.stdout}"
+
+
+def test_qa_negative_CREDENTIALS_DIRECTORY_la_pone_systemd():
+    """ADA: si la unidad usa LoadCredential, systemd provee esa variable.
+
+    Que no figure en Environment= no acredita desajuste.
+    """
+    a = _arena()
+    s = _script(a, "cred.py", 'import os\nX = os.environ["CREDENTIALS_DIRECTORY"]\n')
+    _unidad(a, "cred.service",
+            f"[Service]\nLoadCredential=algo:/tmp/x\nExecStart=/usr/bin/python3 {s}\n")
+    r = _corre(a)
+    assert r.returncode == 0, f"marco CREDENTIALS_DIRECTORY pese a LoadCredential: {r.stdout}"

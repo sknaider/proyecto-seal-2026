@@ -61,6 +61,17 @@ def tiene_otra_fuente(script: pathlib.Path) -> bool:
         return False
 
 
+# ADA, 7-sep 14:48: dos cosas que el nombre NO acredita.
+#  - SEAL_DISABLE_LEGACY_TMP_TOKENS lleva "TOKENS" en el nombre y es un
+#    INTERRUPTOR de configuracion, no una credencial. Su ausencia no rompe nada.
+#  - CREDENTIALS_DIRECTORY lo puede poner systemd por su propio mecanismo de
+#    credenciales (LoadCredential/SetCredential): que no este en Environment=
+#    no acredita desajuste.
+# Es la misma leccion del dia por sexta vez: el nombre es una pista, no la cosa.
+_INTERRUPTOR = re.compile(r"(?i)(^|_)(DISABLE|ENABLE|REQUIRE|ALLOW|USE|SKIP|FORCE|MODE|DEBUG|DRYRUN)(_|$)")
+_LA_PONE_SYSTEMD = ("CREDENTIALS_DIRECTORY",)
+
+
 def variables_que_pide(script: pathlib.Path) -> set[str]:
     try:
         cuerpo = script.read_text(errors="replace")
@@ -68,7 +79,8 @@ def variables_que_pide(script: pathlib.Path) -> set[str]:
         return set()
     pedidas = {next((g for g in fila if g), '') for fila in PIDE.findall(cuerpo)}
     pedidas.discard('')
-    return {v for v in pedidas if any(k in v for k in CLAVES)}
+    pedidas = {v for v in pedidas if any(k in v for k in CLAVES)}
+    return {v for v in pedidas if not _INTERRUPTOR.search(v)}
 
 
 def main() -> int:
@@ -91,6 +103,10 @@ def main() -> int:
         pedidas: set[str] = set()
         for s in scripts:
             pedidas |= variables_que_pide(s)
+        # si la unidad usa el mecanismo de credenciales de systemd, es systemd
+        # quien pone CREDENTIALS_DIRECTORY: no cuenta como faltante
+        if re.search(r"^(Load|Set)Credential", txt, re.M):
+            pedidas -= set(_LA_PONE_SYSTEMD)
         if not pedidas:
             continue
         # La configuracion EFECTIVA incluye los drop-ins .service.d/*.conf, que
