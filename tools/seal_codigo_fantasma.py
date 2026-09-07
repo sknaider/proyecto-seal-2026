@@ -36,6 +36,29 @@ def _borrado(destino: str | None) -> str | None:
     return destino[: -len(" (deleted)")]
 
 
+
+def _paquete_vivo(ruta_so: str) -> bool:
+    """Una `.so` borrada NO es una perdida si su PAQUETE sigue instalado.
+
+    MEDIDO el 7-sep: `pip install` reemplaza los binarios de un paquete, asi que
+    un proceso vivo conserva mapeada la `.so` de la version ANTERIOR y su ruta
+    exacta ya no existe. Eso se ve identico a una perdida y NO lo es.
+
+        av, pandas, pyarrow    el paquete NO importa   -> perdida REAL
+        watchfiles, rpds       el paquete SI importa   -> version reemplazada
+
+    Sin esta distincion la metrica mezcla dos cosas y se vuelve ruido, que es
+    como muere un vigilante.
+    """
+    if "site-packages/" not in ruta_so:
+        return False
+    resto = ruta_so.split("site-packages/", 1)[1]
+    raiz = pathlib.Path(ruta_so.split("site-packages/", 1)[0]) / "site-packages"
+    paquete = resto.split("/", 1)[0].split(".")[0]
+    # El paquete esta vivo si su directorio (o su modulo suelto) sigue en el venv.
+    return (raiz / paquete).exists() or bool(list(raiz.glob(f"{paquete}.*")))
+
+
 def revisar(pid: str) -> dict | None:
     """Un proceso es FANTASMA si su codigo ya no esta en disco.
 
@@ -58,8 +81,11 @@ def revisar(pid: str) -> dict | None:
             if "(deleted)" not in linea:
                 continue
             ruta = linea.split(maxsplit=5)[-1].removesuffix(" (deleted)")
-            if ".so" in ruta and not pathlib.Path(ruta).exists() and ruta not in faltan:
-                faltan.append(ruta)
+            if ".so" not in ruta or pathlib.Path(ruta).exists() or ruta in faltan:
+                continue
+            if _paquete_vivo(ruta):
+                continue
+            faltan.append(ruta)
     except (OSError, IndexError, ValueError):
         pass
 

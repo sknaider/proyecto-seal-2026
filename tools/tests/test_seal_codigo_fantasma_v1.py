@@ -106,3 +106,32 @@ def test_el_codigo_de_salida_ES_la_metrica(tmp_path):
     import json
     d = json.loads(r.stdout)
     assert r.returncode == (1 if d["fantasmas"] else 0)
+
+
+# ── Una .so borrada NO es una perdida si su paquete sigue instalado ──────────
+# MEDIDO el 7-sep: `pip install` reemplaza binarios, asi que un proceso vivo
+# conserva mapeada la .so de la version ANTERIOR y su ruta ya no existe. Eso se
+# ve IDENTICO a una perdida. Sin esta distincion la metrica mezcla dos cosas:
+# de 237 rutas reportadas, 27 eran versiones reemplazadas, no perdidas.
+from seal_codigo_fantasma import _paquete_vivo  # noqa: E402
+
+
+def test_una_so_de_version_REEMPLAZADA_no_cuenta(tmp_path):
+    sp = tmp_path / "lib" / "python3.12" / "site-packages"
+    (sp / "watchfiles").mkdir(parents=True)
+    vieja = sp / "watchfiles" / "_rust.cpython-312-vieja.so"
+    assert not vieja.exists()
+    assert _paquete_vivo(str(vieja)), "el paquete sigue instalado: no es una perdida"
+
+
+def test_CONTROL_una_so_de_paquete_AUSENTE_si_cuenta(tmp_path):
+    """El brazo que impide 'arreglarlo' devolviendo siempre True."""
+    sp = tmp_path / "lib" / "python3.12" / "site-packages"
+    sp.mkdir(parents=True)
+    perdida = sp / "pandas" / "_libs" / "algos.cpython-312.so"
+    assert not _paquete_vivo(str(perdida)), "el paquete NO esta: es una perdida real"
+
+
+def test_CONTROL_una_so_fuera_de_site_packages_siempre_cuenta():
+    """libmtmd.so de llama.cpp no vive en site-packages: no aplica la excepcion."""
+    assert not _paquete_vivo("/home/dadito/IA/llama.cpp/build/bin/libmtmd.so.0")
