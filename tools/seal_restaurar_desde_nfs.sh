@@ -42,7 +42,9 @@ if [ -n "$DUMP" ] && command -v docker >/dev/null; then
   docker run -d --name "$C" -e POSTGRES_PASSWORD=restauracion -e POSTGRES_USER=seal -e POSTGRES_DB=seal_memory "$IMG" >/dev/null || { echo "[restaurar] no pude crear el contenedor" >&2; exit 3; }
   # la imagen oficial arranca, se apaga y vuelve a arrancar durante el init: esperar a que esté lista 3 veces seguidas
   OKS=0; for i in $(seq 1 120); do if docker exec "$C" pg_isready -U seal -d seal_memory >/dev/null 2>&1; then OKS=$((OKS+1)); [ $OKS -ge 3 ] && break; else OKS=0; fi; sleep 2; done
-  docker exec "$C" psql -U seal -d seal_memory -qc 'CREATE EXTENSION IF NOT EXISTS vector' >/dev/null 2>&1
+  # las extensiones viven en el esquema soul_v3 en producción (medido: vector 0.8.2 y pg_trgm 1.6 en soul_v3);
+  # se crean ahí ANTES del restore para que las tablas con columnas vector no fallen con -j
+  docker exec "$C" psql -U seal -d seal_memory -qc 'CREATE SCHEMA IF NOT EXISTS soul_v3; CREATE EXTENSION IF NOT EXISTS vector SCHEMA soul_v3; CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA soul_v3' >/dev/null 2>&1
   docker cp "$DUMP" "$C:/tmp/soul_v3.dump"
   docker exec "$C" pg_restore -U seal -d seal_memory --no-owner --no-privileges -j 4 /tmp/soul_v3.dump >"$DEST/pg_restore.log" 2>&1
   TABLAS=$(docker exec "$C" psql -U seal -d seal_memory -Atc "select count(*) from information_schema.tables where table_schema='soul_v3'" 2>/dev/null || echo -1)

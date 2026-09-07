@@ -33,7 +33,13 @@ rs $RS /home/dadito/.claude/projects/-home-dadito-IA-proyecto-seal/memory/ "$DES
 # volcado diario de la DB (esquema soul_v3, formato custom)
 # TODA la base (todos los esquemas): el 7-sep 13:05 ALICE encontró que orion_exam (exámenes de Henry) no tenía copia
 # porque este volcado era sólo -n soul_v3. Un esquema que no está en el dump no existe tras un borrado.
-docker exec seal-memory-db pg_dump -U seal -d seal_memory -Fc > "$DEST/seal_memory_completa_$DIA.dump" 2>>"$DEST/pg_dump.err" || echo "[snapshot] pg_dump fallo, ver $DEST/pg_dump.err" >&2
+# se escribe como .partial y sólo con rc=0 de pg_dump se publica el nombre definitivo (mv atómico, mismo filesystem):
+# un lector nunca ve un dump a medias con nombre final (ADA, 13:09: tamaño estable o lsof no prueban que terminó)
+if docker exec seal-memory-db pg_dump -U seal -d seal_memory -Fc > "$DEST/seal_memory_completa_$DIA.dump.partial" 2>>"$DEST/pg_dump.err"; then
+  mv "$DEST/seal_memory_completa_$DIA.dump.partial" "$DEST/seal_memory_completa_$DIA.dump"
+else
+  echo "[snapshot] pg_dump fallo (rc distinto de 0), queda .partial sin publicar; ver $DEST/pg_dump.err" >&2
+fi
 # retencion: conservar 14 fotos (solo dentro de DEST_ROOT, ruta literal por construccion)
 ls -1d "$DEST_ROOT"/20* 2>/dev/null | sort | head -n -14 | while read -r old; do case "$old" in /mnt/spark-2/backups_seal/20*) rm -rf "$old" ;; esac; done
 cat > "$DEST/NO_RESPALDADO_Y_COMO_SE_REPONE.md" <<'EOM'

@@ -47,6 +47,7 @@ def test_foto_real_contiene_lo_critico_y_ningun_secreto():
                      "claude_memory/MEMORY.md", "CLAUDE_global.md"]:
             assert (dia / must).exists(), f"falta {must}"
         assert any(p.suffix == ".dump" for p in dia.iterdir()), "falta el pg_dump"
+        assert not any(p.name.endswith(".partial") for p in dia.iterdir()), "quedo un dump parcial publicado"
         assert (dia / "NO_RESPALDADO_Y_COMO_SE_REPONE.md").exists(), "la foto debe declarar lo que no contiene"
         secretos = [str(p) for p in dia.rglob("*") if p.is_file() and (
             p.name.startswith("credentials.env") or p.suffix == ".dsn" or p.name.startswith((".agent_session_token", ".agent_ws_token")) or p.name.endswith("_cred") or p.name == ".db_cred" or (p.suffix == ".env" and "config_seal" in str(p))
@@ -185,3 +186,10 @@ def test_exclusiones_del_repo_por_efecto_con_rsync(tmp_path):
             assert rel not in copiados, (rel, sorted(copiados))
         for rel in legitimos:
             assert rel in copiados, (rel, sorted(copiados))
+
+
+def test_dump_parcial_no_se_publica_con_nombre_final():
+    """Negativo por construcción (ADA 13:09): el script escribe .partial y sólo renombra si pg_dump devuelve 0."""
+    script = (pathlib.Path(__file__).resolve().parents[1] / "seal_snapshot_nfs.sh").read_text()
+    assert '.dump.partial"' in script and 'if docker exec seal-memory-db pg_dump' in script
+    assert script.index('.dump.partial" 2>>') < script.index('mv "$DEST/seal_memory_completa_$DIA.dump.partial"')
