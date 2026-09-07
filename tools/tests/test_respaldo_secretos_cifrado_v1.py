@@ -96,3 +96,38 @@ def test_qa_control_con_la_clave_correcta_descifra_pero_detecta_paquete_invalido
     r = subprocess.run(["bash", str(SCRIPT), "--probar", str(falso)],
                        capture_output=True, text=True, env=env, cwd=str(RAIZ))
     assert r.returncode == 2 and "NO abre" in r.stderr, r.stderr
+
+
+# ---------------------------------------------- el freno de MECANISMO
+# NEXUS, 7-sep 14:37: los brazos de arriba impiden que un TEST toque material
+# real, pero el SCRIPT seguia permitiendo que cualquiera lo hiciera a mano con
+# una clave improvisada — el vector exacto del incidente de las 14:23.
+# "Una regla que deba cumplirse aunque el agente se equivoque va en una capa de
+# MECANISMO, no en un archivo." Estos dos brazos ejercen esa capa.
+def test_qa_negative_clave_no_designada_con_lista_REAL_se_niega():
+    """Repite la invocación del 7-sep 14:23 y exige que hoy se frene sola."""
+    a, lista, clave, dest = _arena()                 # clave propia, NO la designada
+    env = dict(os.environ, SEAL_SECRETOS_KEYFILE=str(clave), SEAL_SECRETOS_DEST=str(dest))
+    env.pop("SEAL_SECRETOS_LISTA", None)             # -> usa la LISTA REAL
+    r = subprocess.run(["bash", str(SCRIPT)], capture_output=True, text=True,
+                       env=env, cwd=str(RAIZ), timeout=300)
+    assert r.returncode == 2, "una clave improvisada con la lista REAL NO fue frenada"
+    assert "lista REAL" in r.stderr
+    assert not list(dest.glob("*.enc")), "publico un paquete pese a frenarse"
+
+
+def test_qa_control_ensayo_legitimo_corre_pero_SIN_roles():
+    """Control: el freno no puede romper el ensayo legítimo.
+
+    Con clave propia Y lista señuelo el script debe correr — y NO volcar los
+    roles reales, porque sus verificadores no tienen por qué estar en un
+    paquete cifrado con una clave improvisada.
+    """
+    a, lista, clave, dest = _arena()
+    env = dict(os.environ, SEAL_SECRETOS_KEYFILE=str(clave), SEAL_SECRETOS_DEST=str(dest),
+               SEAL_SECRETOS_LISTA=str(lista))
+    r = subprocess.run(["bash", str(SCRIPT)], capture_output=True, text=True,
+                       env=env, cwd=str(RAIZ), timeout=300)
+    assert r.returncode == 0, r.stderr
+    assert "0 roles" in r.stdout, f"volco roles en un ensayo: {r.stdout}"
+    assert list(dest.glob("*.enc")), "no publico nada en un ensayo legitimo"

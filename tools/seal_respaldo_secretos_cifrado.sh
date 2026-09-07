@@ -23,9 +23,11 @@
 set -uo pipefail
 
 REPO=/home/dadito/IA/proyecto-seal
-LISTA="$REPO/quality/estado_esencial_rutas.txt"
+CLAVE_DESIGNADA=/home/dadito/.config/seal/respaldo_secretos.key
+LISTA_REAL="$REPO/quality/estado_esencial_rutas.txt"
+LISTA="${SEAL_SECRETOS_LISTA:-$LISTA_REAL}"
 DESTINO="${SEAL_SECRETOS_DEST:-/mnt/spark-2/secretos_cifrados}"
-CLAVE="${SEAL_SECRETOS_KEYFILE:-/home/dadito/.config/seal/respaldo_secretos.key}"
+CLAVE="${SEAL_SECRETOS_KEYFILE:-$CLAVE_DESIGNADA}"
 DIA=$(date +%F)
 
 fatal() { echo "[secretos] $*" >&2; exit 2; }
@@ -63,6 +65,29 @@ fi
 perm=$(stat -c '%a' "$CLAVE")
 [ "$perm" = "600" ] || fatal "la clave tiene permisos $perm; se exige 600"
 [ -s "$CLAVE" ]  || fatal "el archivo de clave esta VACIO: cifrar con clave vacia no cifra"
+
+# FRENO DE MECANISMO (NEXUS, 7-sep 14:37). El 7-sep a las 14:23 ALICE corrio
+# este script con una clave improvisada y la LISTA REAL: empaqueto credenciales
+# reales y los verificadores de 100 roles, y el paquete quedo junto a su clave
+# en /tmp. Nada en el codigo lo impidio: el unico freno era acordarse.
+#
+# "Una regla que deba cumplirse aunque el agente se equivoque va en una capa de
+# MECANISMO, no en un archivo." Esta es esa capa:
+#
+#   clave designada  -> puede empaquetar lo REAL
+#   otra clave       -> SOLO con una lista distinta de la real, y SIN roles
+#
+# Asi, una prueba no puede tocar material real ni queriendo, y la corrida de
+# produccion sigue igual de simple.
+ENSAYO=0
+if [ "$CLAVE" != "$CLAVE_DESIGNADA" ]; then
+  ENSAYO=1
+  if [ "$LISTA" = "$LISTA_REAL" ]; then
+    fatal "clave NO designada + lista REAL: eso empaqueta secretos de produccion
+        con una clave improvisada, que es el incidente del 7-sep 14:23.
+        Para ensayar: SEAL_SECRETOS_LISTA=<lista señuelo> ademas de la clave."
+  fi
+fi
 mkdir -p "$DESTINO" || fatal "no puedo crear el destino $DESTINO"
 
 TMP=$(mktemp -d /tmp/seal-secretos-XXXXXX) || fatal "no pude crear temporal"
@@ -80,7 +105,11 @@ while IFS= read -r ruta; do
 done < "$LISTA"
 
 # Los ROLES: pg_dump no los trae. Sin esto, los datos vuelven y los permisos no.
-if docker exec seal-memory-db pg_dumpall -U seal --globals-only > "$STAGE/roles_globals_$DIA.sql" 2>"$TMP/globals.err"; then
+if [ "$ENSAYO" = 1 ]; then
+  # En ensayo NUNCA se vuelcan los roles reales: sus verificadores son secretos
+  # y no tienen por que existir en un paquete cifrado con clave improvisada.
+  roles=0; echo "OMITIDO pg_dumpall (modo ensayo: clave no designada)" >> "$STAGE/inventario.txt"
+elif docker exec seal-memory-db pg_dumpall -U seal --globals-only > "$STAGE/roles_globals_$DIA.sql" 2>"$TMP/globals.err"; then
   roles=$(grep -c "^CREATE ROLE" "$STAGE/roles_globals_$DIA.sql" || true)
 else
   roles=0; echo "FALLO pg_dumpall --globals-only" >> "$STAGE/inventario.txt"
