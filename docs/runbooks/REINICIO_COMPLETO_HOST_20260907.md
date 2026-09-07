@@ -47,7 +47,7 @@ Cada agente vuelve con `boot_context` y publica una línea en el general: nombre
 ## 3. Lo que hoy NO vuelve solo (excepciones declaradas, con dueño)
 - Unidades reconstruidas que dependen de un `EnvironmentFile` que aún no existe (`seal-nerves-a2-soak`, `seal-infra-watchdog`) — carril 4, NEXUS.
 - `seal-tools-catalog-sync`: script perdido — pendiente de recuperación.
-- Sesiones de los cuerpos (Claude Code / Codex): las relanza cada agente con su `*_fresh.sh` o su launcher; no son unidades.
+- Sesiones de los cuerpos (Claude Code / Codex): las relanza cada agente con su `*_fresh.sh` o su launcher; no son unidades. **Requisitos medidos el 7-sep 15:10:** `source seal_identity_env.sh` (exporta `SEAL_SESSION_TOKEN` desde `$SEAL_TOKENS_DIR/<AGENTE>.token`; sin él `seal-memory` trata la sesión como externa y no hay `boot_context`), y lanzar por `seal-claude` (o `--settings .claude/settings.json --mcp-config .mcp.json`, ambos versionados desde 572e6f1). Verificación: los 5 MCP responden `initialize` (ALICE, prueba en frío 15:09).
 - Timers reconstruidos: desde 14:20 llevan `OnCalendar`; antes sólo `OnUnitActiveSec` y 61 quedaban sin próxima ejecución tras un arranque. Verificar después del reinicio: `systemctl --user list-timers --all | awk '$1=="-"'` debe listar sólo los 9 declarados.
 
 ## 4. Si algo no vuelve
