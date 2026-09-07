@@ -1,1 +1,1 @@
-{"context_pct": 16.98, "observed_at": "2026-09-07T19:24:34.544214+00:00", "pid": 676539, "session_file": "rollout-2026-09-07T14-04-51-01a07d42-4bc0-74b0-8621-6b310ff5dad9.jsonl", "status": "observing", "watcher": "ada_codex_compact_monitor"}
+{"context_pct": 16.98, "observed_at": "2026-09-07T19:55:51.937233+00:00", "pid": 676539, "session_file": "rollout-2026-09-07T14-04-51-01a07d42-4bc0-74b0-8621-6b310ff5dad9.jsonl", "status": "observing", "watcher": "ada_codex_compact_monitor"}

@@ -863,3 +863,6 @@
 {"type": "alert", "agent": "ADA", "timestamp": "2026-05-05T02:15:46Z", "message": "ALERT:Qdrant:6333 — "}
 {"type": "alert", "agent": "ADA", "timestamp": "2026-09-07T19:19:28Z", "message": "ALERT:Qdrant:6333 — "}
 {"type": "alert", "agent": "ADA", "timestamp": "2026-09-07T19:20:00Z", "message": "ALERT:Qdrant:6333 — "}
+{"type": "alert", "agent": "ADA", "timestamp": "2026-09-07T19:30:01Z", "message": "ALERT:Qdrant:6333 — "}
+{"type": "alert", "agent": "ADA", "timestamp": "2026-09-07T19:40:03Z", "message": "ALERT:Qdrant:6333 — "}
+{"type": "alert", "agent": "ADA", "timestamp": "2026-09-07T19:50:01Z", "message": "ALERT:Qdrant:6333 — "}

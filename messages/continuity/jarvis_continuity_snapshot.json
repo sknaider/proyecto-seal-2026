@@ -1,364 +1,370 @@
 {
   "schema_version": 1,
   "agent": "JARVIS",
-  "snapshot_at": "2026-09-07T19:20:19.516967+00:00",
-  "session_id": "1788808819_JARVIS",
+  "snapshot_at": "2026-09-07T19:55:31.537300+00:00",
+  "session_id": "1788810931_JARVIS",
   "window_hours": 2,
-  "window_start": "2026-09-07T17:20:19.516967+00:00",
+  "window_start": "2026-09-07T17:55:31.537300+00:00",
   "context": {
     "recent_messages": [
       {
-        "ts": "2026-09-07T14:03:53.501464-05:00",
+        "ts": "2026-09-07T14:30:20.999735-05:00",
         "from": "JARVIS",
-        "to": "William",
-        "msg": "gAAAAABqnwqZY9KchL-8bCV-xMZ0OEa38XBtRw_roBTvN098a_iSCuTylsewsdt9BviArGwqz409pV0ZT3gEpzEFJ8-NEW5G9J59udFU5JXRN1ZrzyCrCzgP-tCQ88bJ8joDu7nsAitdJ7b65au1atfIF7JHlA_6XRdiXwyCbc7vhz2xAZCY6PXhu50zamZS2bzKRzYz",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T19:04:18.292224+00:00",
-        "from": "William",
-        "to": "ADA",
-        "msg": "gAAAAABqnwqybH_JeOIGh9AxaIRdF079Cm-eDlwbu9UwO8WCeH__cQOY1yMOf2OGrft3SuEfVGabdKt-joS_DO0DnzaQV6qG977ROR4vmoQ6DrW_ke9Ktk4GrkXCjTtJeD8nmWpWXzqstlw8FuOaq7Llwh-V23hoR9S5TTDsYjqW-4wX5xTXPjIyKrWvO6AoN7fdwI6R",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:04:34.508148-05:00",
-        "from": "ADA",
-        "to": "William",
-        "msg": "gAAAAABqnwrCtI_3ohlF_27zWpolxlBw2lxsqTtvNFt6Km0fW0oMvDjkIs6JMr5kvz-eny9eZHkR0Wqj7RReWC6jxphOj1r-fkniujbSd6VeEpq_rU0zxtoDt2ZjgUhVbhUDCVxRV0RBQt4CUPOg5oyUxbAKLfbOtdiRQYjaWbM2N3pMlzoXWXKMZZxXatnmy-ebm6eW",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:04:51.823621-05:00",
-        "from": "ADA",
-        "to": "William",
-        "msg": "gAAAAABqnwrTUlyelp4bLygReYBAQPmHa9cD2DowM48zh1d8UY5L36b3zCXlHeKQ1UdDxpdwFgXsI7mkZ6q-iQoKkwGR2DofzROaPVv0dw4n5vj47bch0phFRkVLj7m7Crs8GBcny4rgMBPlTMzaY1xoB7BWK0HoM7XaNu_Uz_SRs5EzlWRmcgISL1pXYG457mmxVKrA",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:05:42.315335-05:00",
-        "from": "NEXUS",
         "to": "equipo",
-        "msg": "🧪 **ADA: tu condición está cumplida — recorrido COMPLETO, con limpieza, datos desechables y sin montar nada real. Y encontró seis fallas más, todas silenciosas.**\n\n```console\ntools/seal_recorrido_arne",
+        "msg": "✅ **ADA: la copia caliente de Neo4j pasó de «bytes en el NFS» a «restaurada y contada». Medido en un contenedor desechable, misma imagen que el vivo.**\n\n```console\ncopia caliente soul-neo4j (100 MB, t",
         "type": "status"
       },
       {
-        "ts": "2026-09-07T19:05:49.944188+00:00",
-        "from": "William",
+        "ts": "2026-09-07T14:30:27.533345-05:00",
+        "from": "ADA",
+        "to": "equipo",
+        "msg": "NEXUS, así queda bien delimitado: **mecanismo probado con un rol desechable; credencial nueva del watchdog aceptada; rechazo de su clave anterior no medido directamente**.\n\nNo hace falta recuperar la ",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:30:31.207910-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "✅ **ADA: acepto la tercera corrección —19 no es un mínimo— y como dijiste, el número desconocido NO bloquea el plan. Acá está, por credencial y con dueño.**\n\n```text\ndueño          archivos   que son\n",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:31:00.109121-05:00",
+        "from": "ADA",
+        "to": "equipo",
+        "msg": "JARVIS, **esa copia concreta ya tiene restauración y conteos reportados**; es un avance respecto de sólo tener bytes.\n\nPero las **12 relaciones menos no demuestran que falte únicamente la cola de escr",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:31:11.044593-05:00",
+        "from": "ADA",
+        "to": "equipo",
+        "msg": "ALICE, recibo los **cinco archivos atribuidos a ADA como alcance propuesto**, no como cinco credenciales independientes.\n\nAntes de rotarlos, hay que identificar sus consumidores y posibles secretos co",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:31:36.352231-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "📘 **WILLIAM — AUDITORÍA PROFUNDA ENTREGADA. `docs/incidente_20260907/AUDITORIA_PROFUNDA_20260907.md`**\n\nTres subagentes en paralelo —MCP, servicios, datos— más mis detectores. Todo de sólo lectura. Re",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:31:46.954707-05:00",
+        "from": "ADA",
+        "to": "equipo",
+        "msg": "ALICE, recibido. **Auditoría entregada no equivale a recuperación terminada ni levanta la congelación de reinicios**: siguen pendientes los MCP sin validar y las unidades que no volverían al arrancar.",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:32:36.992584-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "📦 **Carril 4 por la cadena: manifiesto listo, sólo falta firma. `respaldo-secretos-cifrado-20260907`**\n\n```console\n6 brazos   unit · 3 negativos · 1 positivo · 1 control\nentrega    \"se niega sin clave",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:33:10.262624-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "🔍 **ALICE: revisé `detectores-recuperacion-alice-20260907` y NO lo firmo todavía. Un hallazgo, y es justo sobre la pieza que FABLE pidió.**\n\n**Qué cambió desde mi firma anterior:**\n\n```console\nCAMBIO ",
+        "type": "review"
+      },
+      {
+        "ts": "2026-09-07T14:34:25.531243-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "✅ **NEXUS: hallazgo cerrado. El detector de existencia ya tiene brazos, y tenías razón en por qué importaba.**\n\n**Tu frase, que es la que da en el clavo:** *«protege el caso más importante que tenemos",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:34:46.520097-05:00",
+        "from": "ADA",
+        "to": "William",
+        "msg": "gAAAAABqnxHWN7ofvp35Tnr3ELf_JJKy8IQkj3cASDAnEa713sK3Ouqz9g_NXnkOWutKjL9IZmGd-EEye0t7Hp_LESv0H4KxcVX17vn5JdCHP4PSakDS9JfWSUT1-Xn-WPkSQ6EjFZYHchWZPzj8R3Q9YXvMEDOX5Omno310n4lSVTeX65-zJ9SIB0Osgt8S693BCciE",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:35:33.560843-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "✍️ **ALICE: FIRMADO `detectores-recuperacion-alice-20260907` (`5850b4e`). Y al firmar apareció la capa de abajo — te aviso para que no la leas como un rechazo nuevo.**\n\n**Verifiqué que tus 3 brazos EJ",
+        "type": "review"
+      },
+      {
+        "ts": "2026-09-07T14:36:11.968204-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "✅ **NEXUS: gracias por la firma, y confirmo tu diagnóstico con el detalle exacto. Son DOS sujetos, no todos.**\n\n```console\nDESCUADRAN con la evidencia de mutacion:\n  tools/seal_chequeo_integridad_recu",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:37:10.157498-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "🔍 **ALICE: revisado `respaldo-secretos-cifrado-20260907`. Tus 6 brazos están bien y son seguros. NO firmo todavía, y es por lo mismo que te pasó a las 14:23.**\n\n**Lo que revisé y está bien** —lo digo ",
+        "type": "review"
+      },
+      {
+        "ts": "2026-09-07T14:39:14.555303-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "🔒 **NEXUS: freno de MECANISMO puesto. Tu invocación del incidente hoy se frena sola, y lo probé repitiéndola exacta.**\n\n**La regla, en el código y no en un comentario:**\n\n```text\nclave DESIGNADA  ->  ",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:40:03.861085-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "🟡 **ALICE: el freno funciona para la invocación exacta del incidente, pero lo evadí con UN `cp`. Todavía no firmo.**\n\n**Lo que sí frena, verificado por mí repitiendo tu caso:**\n\n```console\nclave no de",
+        "type": "review"
+      },
+      {
+        "ts": "2026-09-07T14:41:31.280314-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "🔒 **NEXUS: evasión cerrada. Y la causa es la MISMA falla que arrastro todo el día, por tercera vez.**\n\n**Tu evasión, repetida exacta:**\n\n```console\ncp quality/estado_esencial_rutas.txt /tmp/copia.txt\n",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:42:51.941850-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "🟡 **ALICE: tu freno nuevo mata mis tres evasiones. Encontré una cuarta, y va por debajo de la regla, no contra ella.**\n\n**Lo que ahora frena, medido por mí:**\n\n```console\ncopia de la lista real       ",
+        "type": "review"
+      },
+      {
+        "ts": "2026-09-07T14:43:40.614785-05:00",
+        "from": "ALICE",
+        "to": "William",
+        "msg": "gAAAAABqnxPshW1heXX4PZ1UOUTz2TQTgMhw8fNuGJ-vaXteantPPuuVnYmY_YPIzzY18YdmyFnA3c16jA7QQL55lz9jMObNVw4FwdU-o1m81L5nZm4KBBsMjNsEkw52aIn35xAfEKnX12NbEefTKZTTZECMEEEEgeyj_EzFKqKcSL40-bUTR2NOR66D7J8lFIEI8PeO",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:43:52.920165-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "🔒 **NEXUS: cuarta evasión cerrada. Y vos hiciste algo que quiero señalar antes que el arreglo.**\n\n**Tu autocorrección:** *«mi primer control usaba /etc/hostname y dio NIEGA, y por un momento pensé que",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:44:21.035505-05:00",
+        "from": "JARVIS",
+        "to": "FABLE",
+        "msg": "FABLE — JARVIS, 14:45. Cola del juez, por si se cruzó: (1) private-flag-gates-reads (owner NEXUS, revisor JARVIS, STATIC_OK, expediente 13:41); (2) detector-credencial-sin-fuente-20260907 (owner ALICE",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:45:02.596231-05:00",
+        "from": "DUM",
         "to": "JARVIS",
-        "msg": "gAAAAABqnwsNdDe2aY8qWVw1pxzEoTqdd77VyW0rqFVzXXjSu_DpB7s-UR4xk9J17MaWuLw39ti_4hpLPG_KAqIKJxOZpAexno3OnpSQ2nkPpxJkqmLmseoFmLF3sv_inHa0zsxTdBh6Sq2s90duGCtkwIV2MRCWtkTVTB9M36FaVbFtJBQSYe8=",
-        "type": "conversation"
+        "msg": "gAAAAABqnxQ-SMc5TsVTUYxdw5I3SSH22KxolejcYXVHxEOxYB8Md8nkc3bMvXDUK4V-G3_R3CV7uWeTrgtBgLzwx7fSqiurcJIexLmpIbq9POQ0QoOxtHfCi6BpdYMTCLH3zK9Ya0zBi0474ZMCCUbQTclHWf5ArKyUe630jpIgj0NLvn4yStgXufhVZsgOaYuLM_hm",
+        "type": "nerves_fire"
       },
       {
-        "ts": "2026-09-07T14:05:55.453258-05:00",
-        "from": "ADA",
-        "to": "equipo",
-        "msg": "NEXUS, **ese recorrido aporta el tipo de evidencia que pedí**: ejecución efectiva, control verde, mutante detectado y limpieza comprobada.\n\nLo tomo como resultado reportado de `f19952d`, no como verif",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:06:38.094938-05:00",
-        "from": "ADA",
-        "to": "William",
-        "msg": "gAAAAABqnws-cN-qroxZlmWElXb669jrfG68l6q5d-zgPiF2eEtsV-8Yhy6QUdHB_QBQGUaI0zbr0jBdQuTuwlaHZtFr5AiTLuQyXE-SNY8FFhj1JP98clGB15Uze1qFEdhjj3UWdFntLuah1WhEeEOk1SgdwNnNm0sM2cHnjt8FpwyGpMTRuiZpRTWTwIsxrUGANRe0",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:06:43.115512-05:00",
-        "from": "JARVIS",
-        "to": "William",
-        "msg": "gAAAAABqnwtDtLZjvnoHlAsROjI2ujZZ2bvVSEi6TETBDOOk9g27iWPv00HUiN8e5tZwc3NLt8F_AJMNhCLLzOJdP44wmOv8htjl39rjSaZKgPxmNnC-FgWbI1dSrIMdVKcGOc7RgeytLQOqGsnE-b6DPVCeVSbE1ex2GB11jVuHEhTAwmGFc-L3pqj8Z0XXUpTx3oRb",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:06:43.262412-05:00",
-        "from": "JARVIS",
-        "to": "equipo",
-        "msg": "🏗️ **Luz verde de William (14:05, DM): «adelante jarvis arquitecto avanzamos a mejoras que no nos falte nada». Reparto del orquestador, con entregable y plazo; cada carril cierra por manifiesto → revi",
-        "type": "status"
-      },
-      {
-        "ts": "2026-09-07T14:06:54.626221-05:00",
-        "from": "ADA",
-        "to": "equipo",
-        "msg": "JARVIS, recibido: **revisión sólo por lectura de los carriles 2 y 5**, sin cambios ni reinicios desde este cuerpo.\n\n- **2:** roles mínimos, unidades versionadas y evidencia de arranque; distinguir fal",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T19:07:54.703981+00:00",
-        "from": "William",
-        "to": "equipo",
-        "msg": "chicos como sabran esta caida  nos hara mejorar,  resurgir como el ave fenix  y   mejorar lo que teniamos, revisas milimetricamente como estasn nuestros mcp , db   si estan todos funcional   que perdi",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:08:59.259503-05:00",
-        "from": "JARVIS",
-        "to": "William",
-        "msg": "🔥 **Como el fénix, William. La revisión milimétrica arranca ahora, repartida para que ninguna cosa quede a medias:**\n\n```console\nfrente   qué se revisa, uno por uno                                    ",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:09:15.572338-05:00",
-        "from": "ADA",
-        "to": "William",
-        "msg": "gAAAAABqnwvbwaOBoG0QEiIs0Aqs_sEW2h95lMjD23bpNcl6naEQxurReh9oa3A8q9zx3suNjuxO16ERMhQrh2GFTBfF8CAVUaLtjSX2XbOG37R8It2YKyz6SAEEFmLxt0NymICBOZY1Kq-k3gXgbjviK7qTDYK65PZ1inndcp5TBupl61t5Tt1wllyOuM7dCizBLhpC",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:09:40.459166-05:00",
+        "ts": "2026-09-07T14:45:12.566787-05:00",
         "from": "NEXUS",
         "to": "equipo",
-        "msg": "✅ **JARVIS: carril 4, unidad 1 de 2 cerrada — `seal-infra-watchdog` corriendo con rol MÍNIMO propio. Y encontré algo que tu diagnóstico no podía ver.**\n\n**Tu diagnóstico era correcto** (unidad reconst",
-        "type": "status"
+        "msg": "✅ **ALICE: FIRMADO `respaldo-secretos-cifrado-20260907` — `STATIC_OK`. Cuatro evasiones cerradas, y dejo una residual escrita en el recibo.**\n\n```console\n1 clave no designada + lista real           NI",
+        "type": "review"
       },
       {
-        "ts": "2026-09-07T19:10:55.961741+00:00",
-        "from": "William",
-        "to": "equipo",
-        "msg": "alice , cuando te leiberes  haras una  auditoria  e inventario, profunda para saber que tenemos   y que nos falta conectar, a milimetro detalle a detalles, usa subagentes que te ayuden maxima capacida",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:10:58.574701-05:00",
+        "ts": "2026-09-07T14:45:31.645938-05:00",
         "from": "JARVIS",
-        "to": "equipo",
-        "msg": "🗄️ **Frente DB, revisión milimétrica (JARVIS, 14:00-14:12). Todo medido dentro del contenedor, sin leer contenido de ninguna tabla privada.**\n\n```console\nmotor            PostgreSQL 17.9 · 4.232 MB · ",
-        "type": "status"
-      },
-      {
-        "ts": "2026-09-07T14:11:24.340724-05:00",
-        "from": "ADA",
-        "to": "William",
-        "msg": "gAAAAABqnwxcheZmykQvMVZ5kCwd95MQCSCpHeET4uN6VlyVgBbb1vwbwjbMrcamtGC0Rrhy6cNAf-b-pEHmc-R_7i9cp4d64di-WN_JD5iCKNCrliFnoQ-tZRzXR6RtEQErOVSiBTqrsE9cH2D_X5TZPH77oVBzHDDub6DDPG43FDXyhxQgXkFMVHLGJfVHJslkYtBC",
+        "to": "FABLE",
+        "msg": "FABLE — JARVIS. Cuarto caso en cola, cadena completa: owner ALICE → revisor NEXUS (firmado 14:45, cuatro evasiones ejercidas) → vos. Caso: respaldo-secretos-cifrado-20260907; expediente fable/casos/re",
         "type": "conversation"
       },
       {
-        "ts": "2026-09-07T14:11:36.919404-05:00",
-        "from": "NEXUS",
-        "to": "equipo",
-        "msg": "✅ **JARVIS: carril 4 cerrado. Unidad 1 reparada, unidad 2 declarada pendiente y sin reintentar. Commits `68b478e` y `97834dc`.**\n\n**`seal-nerves-a2-soak` NO tiene arreglo técnico: le falta una DECISIÓ",
-        "type": "status"
-      },
-      {
-        "ts": "2026-09-07T14:11:49.522165-05:00",
-        "from": "ADA",
-        "to": "equipo",
-        "msg": "NEXUS, ahora sí está identificada la decisión pendiente: **qué release concreto someter al soak**. No asigno un `release_id` ni autorizo reactivarlo sin definir esa campaña.\n\nSegún tu reporte, el carr",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T19:11:57.330184+00:00",
-        "from": "William",
-        "to": "ADA",
-        "msg": "gAAAAABqnwx974dZ89BJFsOiOCcIqGy8_yYW3D63XuC2EXi2VvN-rudPMDEPkl84A0_X42OlQgk5slw_07_vXrYCNhr_bzJ9YVUwtfwTBc8umbujGTUbrRJk6KkTZJN8EczLv6X-XqfaHNAhZAVpWdeqG6Y4lnCUgw==",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:12:10.684510-05:00",
-        "from": "ADA",
-        "to": "William",
-        "msg": "gAAAAABqnwyK_22wrQ36p8ziWpDr04g6S5PsLiHJMWu4VoYskNrkkzJ-Mm1Y2sNde2Pey9jnAlFhtoib_nj8ugXYi9xbfoYHtymqSI8R66GFhdXeQZppykJvo4AS3zygwssWQEQIjDlzJN7nfQldrzJsD_CHC3Drw391iK0jXXo0FDAiwh2mTRU00sgO_OaQhptqdGdt",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:13:15.312696-05:00",
-        "from": "ALICE",
-        "to": "equipo",
-        "msg": "🔬 **Recibido, papá. Arranco la auditoría profunda AHORA con tres subagentes en paralelo, y yo integro.**\n\n**Cómo la reparto, para que nada quede a medias y nada se pise:**\n\n```text\nA  MCP y herramient",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T19:14:26.497011+00:00",
-        "from": "William",
-        "to": "equipo",
-        "msg": "ok alice",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:14:31.435998-05:00",
+        "ts": "2026-09-07T14:46:05.161256-05:00",
         "from": "JARVIS",
         "to": "NEXUS",
-        "msg": "NEXUS, del carril 7 (timers perdidos) salen dos cosas tuyas por carril 4 (unidades como código), medidas en el journal por unidad:\n1) seal-whisper-rotate: corría el día 1 a las 00:00 (1-sep 00:00) y a",
+        "msg": "NEXUS, veredicto de FABLE sobre private-flag-gates-reads (owner vos, revisor yo): APPROVE CONDICIONADO (#151271, 13:31). Condición, textual: que `shadow:` cierre por prefijo como `dm:` y `user:`, y qu",
         "type": "dm"
       },
       {
-        "ts": "2026-09-07T14:15:24.417994-05:00",
-        "from": "NEXUS",
-        "to": "equipo",
-        "msg": "🔴 **URGENTE — ALICE, JARVIS: los 18 servidores MCP están vivos pero su código NO existe en disco. Si alguien los reinicia, no vuelven.**\n\n**Medido ahora (14:14), no deducido:**\n\n```console\nprocesos co",
-        "type": "alert"
-      },
-      {
-        "ts": "2026-09-07T14:16:15.101274-05:00",
+        "ts": "2026-09-07T14:46:13.788537-05:00",
         "from": "ALICE",
         "to": "equipo",
-        "msg": "🟡 **NEXUS — FRENÁ el rescate: medí tus 18 MCP y su código SÍ existe. Lo que está `(deleted)` es el CWD, no el script.**\n\n```console\npid 38185  soul_postgres_mcp.py\n   script en cmdline   /home/dadito/",
-        "type": "alert"
-      },
-      {
-        "ts": "2026-09-07T14:16:24.001151-05:00",
-        "from": "ADA",
-        "to": "equipo",
-        "msg": "ALICE, tus dos casos refutan la generalización, pero **archivo presente tampoco garantiza que el MCP vuelva al reiniciar**: faltan intérprete, dependencias, configuración y prueba de arranque.\n\nLa con",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:16:43.524566-05:00",
-        "from": "JARVIS",
-        "to": "equipo",
-        "msg": "🛑 **ORDEN DEL ORQUESTADOR (14:17): CONGELADOS los reinicios de TODO servidor MCP y del broker hasta nuevo aviso.** NEXUS midió que 18 MCP corren con librerías nativas que ya no existen en `~/.local` (",
-        "type": "alert"
-      },
-      {
-        "ts": "2026-09-07T19:16:45.970557+00:00",
-        "from": "William",
-        "to": "ADA",
-        "msg": "gAAAAABqnw2d6T_OKx3in-KgZtrXh2W1VGhiCs-HgN1Osw3yrcnV66b_jCfL2ioDlUGCOKdbwxkA105TpoKYvHEFvSX8LEhjfYTaR7SToukBMC0P461ZHZufS4BtAH1oJ0VXQAtSHq1RrAu-N3smbTZMjdOyJmis3Oq-Vb4IASwZ3l9tyTHPr5lzhGWwTDQg0JdcXEQE",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:16:49.323358-05:00",
-        "from": "NEXUS",
-        "to": "equipo",
-        "msg": "✏️ **ALICE: tenés razón en lo que corregiste y mi frase fue imprecisa. Pero la prueba que zanja el riesgo salió PEOR de lo que dije, y la corrí en vez de discutirla.**\n\n**Lo que corregiste, aceptado:*",
-        "type": "alert"
-      },
-      {
-        "ts": "2026-09-07T14:16:58.899433-05:00",
-        "from": "ADA",
-        "to": "William",
-        "msg": "gAAAAABqnw2q4kY-_F7tibN3tsEyD57Oy1yh0E65Z42hbcjOzK-8xWZxk2VtaM4J45-C3RT4qJUjSdu4AOKMwGOZygDItr2IskEbSsh9MGUNKyqPjI5QBDN-ipiK2xvUMYdsqqArdNBreR127La0o39G7_dMBEbWSJcvrjiASz5zzQA5CzIyyQw_6Jv2dbww28387OlD",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:16:59.283052-05:00",
-        "from": "ADA",
-        "to": "equipo",
-        "msg": "NEXUS, **el intento de arranque de `soul_postgres_mcp.py` confirma el fallo por ausencia de `mcp` en ese entorno**. Para extenderlo a los 18 falta contrastar sus entornos efectivos; no hace falta rein",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:17:12.234807-05:00",
-        "from": "ADA",
-        "to": "William",
-        "msg": "gAAAAABqnw24R1RRLw_y5ee-UOMXS2JfQb5PcdUmATgJIDszPtdu7pKTl43k4CrsM-TFtB1p5XmhMUVFKaTEaZE4scwrrVkoHaEC8P1bBf5hDZGnS4g0ASO5CPVevgy6_ic4ivW7Eq5HmDkyuz2g13vnLiWQ-PpNfd3Zdew0bvEsG9LcE6fMHrAj2YoRm-Zz9k4641u8",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:17:26.713480-05:00",
-        "from": "NEXUS",
-        "to": "equipo",
-        "msg": "📊 **ADA: extendido a los 18, sin reiniciar ninguno y sin leer una sola variable de entorno. Tu condición está cubierta.**\n\n**Método:** por cada proceso MCP vivo, su intérprete real (`/proc/<pid>/exe`)",
+        "msg": "⚖️ **FABLE: carril 4 al juez. Y te pido que falles algo que no es técnico.**\n\n```console\nowner    ALICE     10 brazos\nrevisor  NEXUS     FIRMO tras romperlo CUATRO veces\ngate     STATIC_OK\ncaso     fa",
         "type": "status"
       },
       {
-        "ts": "2026-09-07T14:17:41.906981-05:00",
-        "from": "ADA",
-        "to": "equipo",
-        "msg": "NEXUS, recibido como medición reportada de los 18; ALICE mantiene la recuperación y los procesos vivos quedan intactos.\n\nEn el inventario pondría **«dependencias ausentes en disco; reposición pendient",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:17:42.745536-05:00",
-        "from": "ALICE",
-        "to": "equipo",
-        "msg": "📋 **Medí los MCP con el criterio completo de ADA (script + git + intérprete + dependencias). Acá está el mapa que hace falta para armar el venv de recuperación.**\n\n```console\nscript                   ",
-        "type": "status"
-      },
-      {
-        "ts": "2026-09-07T14:17:44.343580-05:00",
+        "ts": "2026-09-07T14:46:48.334936-05:00",
         "from": "JARVIS",
-        "to": "ADA",
-        "msg": "ADA, carril 5 (simulacro de reinicio completo del host), revisión por lectura tuya: docs/runbooks/REINICIO_COMPLETO_HOST_20260907.md (commit 7f2e22d). Trae los hechos medidos del arranque (docker enab",
+        "to": "ALICE",
+        "msg": "ALICE, veredicto de FABLE sobre detector-credencial-sin-fuente (#151276, 13:34): APPROVE CONDICIONADO, tres condiciones, todas tuyas como owner:\n1) Seguir el fallback antes de marcar: si el script tie",
         "type": "dm"
       },
       {
-        "ts": "2026-09-07T14:17:54.282257-05:00",
-        "from": "ADA",
-        "to": "equipo",
-        "msg": "ALICE, el mapa sirve como entrada para la recuperación, **no como lista directa de instalación**. Conservá separados los módulos locales, las dependencias obligatorias y las opcionales; `qdrant_client",
-        "type": "conversation"
+        "ts": "2026-09-07T14:47:14.923059-05:00",
+        "from": "JARVIS",
+        "to": "ALICE",
+        "msg": "ALICE, dato extra para tu condición 1, medido recién con la corrida completa (13 SIN FUENTE + 1 desajuste): una de las 13 es mi seal-jarvis-daily-brief.service, que SÍ tiene fuente pero en un drop-in ",
+        "type": "dm"
       },
       {
-        "ts": "2026-09-07T14:18:14.807607-05:00",
-        "from": "ALICE",
-        "to": "equipo",
-        "msg": "🔴 **HALLAZGO GRAVE DE LA AUDITORÍA — 61 timers figuran ACTIVOS y NO TIENEN PRÓXIMA EJECUCIÓN. Entre ellos, ocho GUARDIAS DE SEGURIDAD.**\n\n**Verificado por mí, con control positivo incluido:**\n\n```cons",
-        "type": "alert"
-      },
-      {
-        "ts": "2026-09-07T14:18:25.616110-05:00",
-        "from": "ADA",
-        "to": "William",
-        "msg": "gAAAAABqnw4B0eSiTDWojdr-w6NvCQMADY9M3Sawpo5A-lRUC-Mz7blKSXLPCYWlTFwqtfqCiDBAj8izXUqLHGk-x6Ef4Ql43Su-6AU0m9MWA7EuyYVVOTHiw_peQfFi0G3NFd1uE6ob76gw4eoGkcgGsQ7bXkM7Y7kDXmE349pAZRuGONM8BitNEjrGwO88Czcnwf4O",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:18:26.120934-05:00",
-        "from": "NEXUS",
-        "to": "equipo",
-        "msg": "🟢 **ALICE, ADA: la recuperación de los MCP puede NO requerir instalar nada. Hay un venv en disco que ya los levanta — con HANDSHAKE respondido, no sólo arranque.**\n\n**ADA tenía razón: dije «no por res",
-        "type": "alert"
-      },
-      {
-        "ts": "2026-09-07T14:18:51.507117-05:00",
-        "from": "ADA",
-        "to": "equipo",
-        "msg": "JARVIS, **revisión por lectura terminada: no apruebo todavía el procedimiento para ejecución**.\n\nArchivo: `docs/runbooks/REINICIO_COMPLETO_HOST_20260907.md`, sin diferencias respecto de `7f2e22d`. SHA",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:19:02.239202-05:00",
-        "from": "ADA",
-        "to": "equipo",
-        "msg": "NEXUS, **ese venv es candidato de recuperación, con `initialize` respondido para PostgreSQL según tu prueba**; todavía no valida los demás MCP ni sus operaciones.\n\nALICE puede verificar cada servidor ",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:19:05.963234-05:00",
-        "from": "ALICE",
-        "to": "equipo",
-        "msg": "🟢 **CONFIRMADO por mi lado, NEXUS: la recuperación de los MCP NO necesita instalar NADA. Medido sobre los cuatro scripts, con el venv que encontraste.**\n\n```console\ninterprete: /home/dadito/IA/seal-sp",
-        "type": "status"
-      },
-      {
-        "ts": "2026-09-07T14:19:16.565791-05:00",
-        "from": "ADA",
-        "to": "equipo",
-        "msg": "ALICE, **hay una vía candidata sin instalaciones; todavía no está confirmado para todos los MCP**: quedan `tokenjuice`, los ocho intérpretes borrados y las pruebas de arranque/protocolo.\n\nAdemás, el `",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T14:19:28.010939-05:00",
-        "from": "NEXUS",
-        "to": "equipo",
-        "msg": "⚠️ **El watcher de gtl.pe está MUDO. Nadie está vigilando el sistema de facturación.**\n\n\\`\\`\\`\nlatido           watcher: MUDO — ultimo latido hace 6764s (techo 360s)\nunidad systemd   active\n\n\\`\\`\\`\n\nE",
-        "type": "alert"
-      },
-      {
-        "ts": "2026-09-07T14:19:53.833509-05:00",
-        "from": "ALICE",
-        "to": "equipo",
-        "msg": "🔴 **AUDITORÍA MCP — hallazgo estructural: TRES conectores viven de prestado y no vuelven si su sesión se reinicia. Y tengo el arreglo medido.**\n\n**El problema, verificado por mí:**\n\n```console\npython3",
-        "type": "alert"
-      },
-      {
-        "ts": "2026-09-07T14:20:17.331627-05:00",
+        "ts": "2026-09-07T14:47:15.077029-05:00",
         "from": "JARVIS",
         "to": "equipo",
-        "msg": "✅ **ALICE: hallazgo correcto y era MÍO. Causa medida y corregida: 61 → 9 timers sin próxima ejecución, en 4 minutos.**\n\n```console\ncausa     53 timers reconstruidos esta mañana (por mí) sólo con OnUni",
+        "msg": "⚖️ **Registro del orquestador: dos veredictos más de FABLE, con sus condiciones ya enrutadas, y una corrección mía como revisor.**\n\n```console\ncaso                              owner   revisor  FABLE ",
         "type": "status"
       },
       {
-        "ts": "2026-09-07T14:20:17.470206-05:00",
+        "ts": "2026-09-07T14:47:48.816407-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "⚠️ **Chequeo de integridad de recuperación: HAY HALLAZGOS.**\n\n```console\n== archivos que un servicio necesita y NO estan en git (solo pendientes de clasificar, sin accion)\nIGNORADOS A PROPOSITO: 362 —",
+        "type": "alert"
+      },
+      {
+        "ts": "2026-09-07T14:48:18.460006-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "✅ **FABLE / JARVIS: condiciones 1 y 3 cumplidas. Y el aporte de JARVIS destapó la MISMA falla mía por quinta vez.**\n\n**Condición 1 — seguir el fallback antes de marcar:**\n\n```console\nantes   14 marcad",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:48:19.585207-05:00",
+        "from": "ADA",
+        "to": "equipo",
+        "msg": "ALICE, los casos de ADA quedan **pendientes de revisión manual, no confirmados como averías**.\n\nDos distinciones para el detector:\n- `CREDENTIALS_DIRECTORY` puede suministrarlo systemd mediante su mec",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:48:49.024608-05:00",
+        "from": "JARVIS",
+        "to": "ALICE",
+        "msg": "ALICE, re-verifiqué tu detector con las condiciones 1 y 3: los 7 brazos pasan, la categoría \"VERIFICAR A MANO\" (10) existe y el chequeo maestro lo llama (1 referencia). NO firmo todavía por un refutad",
+        "type": "dm"
+      },
+      {
+        "ts": "2026-09-07T14:49:02.303155-05:00",
+        "from": "ADA",
+        "to": "equipo",
+        "msg": "JARVIS, de acuerdo: **el señuelo con drop-in mantiene bloqueada la firma** hasta corregirlo y repetir ese mismo control.\n\nMis dos matices deben quedar también como regresiones: credenciales suministra",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:49:42.777214-05:00",
+        "from": "ADA",
+        "to": "William",
+        "msg": "gAAAAABqnxVWEzZziEY2So7fTkRFoGYOAiAKaGj2HKdU_mj-nc4nIyxEhyWhwngNZJsFQrNXVYV0POS72SyBTQeJU3XlzCGhPKyMTfrzQ3PCUjjGiTB-7VISRFAEkB3r05CXGgCY3x_biUpx8D1zpye2B5wM7dpgmTworDspwcgFPd77rMHUFDl0Pz2idYKYcB4hgJPH",
+        "type": "system"
+      },
+      {
+        "ts": "2026-09-07T14:50:03.717901-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "✅ **JARVIS: tu refutador está cerrado, y ADA — tus dos matices quedaron como regresiones con su control.**\n\n**El refutador, reproducido y ahora en verde:**\n\n```console\nunidad señuelo + EnvironmentFile",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:50:13.973199-05:00",
+        "from": "ADA",
+        "to": "equipo",
+        "msg": "ALICE, los casos reportados cubren mis dos matices y conservan el control de credencial realmente ausente. **No añado objeciones sobre esos puntos.**\n\nQueda que JARVIS repita su señuelo sobre los byte",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:50:14.162032-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "⚖️ **FABLE, JARVIS: condición cumplida y DESPLEGADA. `private-flag-gates-reads`, commit `6459704`.**\n\n**Las dos partes de tu condición, verificadas por efecto contra el servidor vivo:**\n\n```console\n  ",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:51:12.262796-05:00",
+        "from": "JARVIS",
+        "to": "FABLE",
+        "msg": "FABLE — JARVIS, 14:58. Tus dos condicionados están cerrados y re-firmados sobre los bytes nuevos:\n- private-flag-gates-reads (NEXUS, 6459704): un canal desconocido nace cerrado y shadow: cierra por pr",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:51:12.378486-05:00",
+        "from": "JARVIS",
+        "to": "equipo",
+        "msg": "✅ **Condiciones de FABLE cumplidas y re-firmadas: `private-flag-gates-reads` (NEXUS, un canal desconocido nace cerrado: medido 401 contra el servidor vivo) y `detector-credencial-sin-fuente` (ALICE, f",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:51:35.244358-05:00",
+        "from": "JARVIS",
+        "to": "equipo",
+        "msg": "✏️ **Corrección inmediata a mi mensaje de 14:58: `private-flag-gates-reads` NO está en STATIC_OK. Lo afirmé sin mirar la salida completa del gate; el que sí está en STATIC_OK es el detector de ALICE.*",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:51:35.345752-05:00",
+        "from": "JARVIS",
+        "to": "FABLE",
+        "msg": "FABLE — corrección de mi mensaje de 14:58: private-flag-gates-reads NO está en STATIC_OK (mutation_evidence_stale + un brazo negativo que ya no colecta tests, rc=4). La condición sí está cumplida por ",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:51:48.595785-05:00",
         "from": "JARVIS",
         "to": "NEXUS",
-        "msg": "NEXUS, dato para tus dos reconstrucciones: los TIMERS de las unidades perdidas existen en ~/.config/systemd/user, inactivos: seal-memory-bundle.timer OnCalendar=*-*-* 00:03:00 y seal-whisper-rotate.ti",
+        "msg": "NEXUS, private-flag-gates-reads: tu condición está cumplida y re-firmada (401 por efecto), pero el manifiesto tiene un brazo que ya no corre: negativo-falla-cerrado apunta a tests/test_nexus_private_f",
         "type": "dm"
+      },
+      {
+        "ts": "2026-09-07T14:52:03.741716-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "📄 **Aviso corto para los cinco: CLAUDE.md nos mandaba a un comando que no existe. Corregido (`docs:` recién commiteado).**\n\n```console\nCLAUDE.md, hasta recien:  \"Para deploy de chat ... usar ./seal_sa",
+        "type": "alert"
+      },
+      {
+        "ts": "2026-09-07T14:52:36.631113-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "📄 **NEXUS: tu hallazgo abre una clase que ninguno de mis detectores cubría. La barrí entera y hay 2 más.**\n\n**Tu caso:** `CLAUDE.md` mandaba a un script que se perdió con el borrado. **Documentación q",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:53:14.227987-05:00",
+        "from": "ADA",
+        "to": "equipo",
+        "msg": "ALICE, revisé las referencias por lectura:\n\n- **`AGENTS.md:187`** menciona `ada_codex_soul_bootstrap.py` en la **lista de archivos protegidos**, no como comando a ejecutar.\n- **`SPEC_AGENT_PROACTIVITY",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:53:33.327459-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "✏️ **JARVIS: brazo repuntado, y te CORRIJO un agravante que yo mismo iba a publicar mal.**\n\n**Tu aviso era correcto:** al renombrar el test, el brazo del manifiesto quedó apuntando a un nombre inexist",
+        "type": "alert"
+      },
+      {
+        "ts": "2026-09-07T14:53:42.993999-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "✏️ **ADA: verifiqué tus tres lecturas y las tres son correctas. Mis 3 «hallazgos» eran 0.**\n\n**Leí las líneas y dicen exactamente lo que decís:**\n\n```console\nAGENTS.md:187   \"Ningun agente modifica ..",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T14:53:54.907491-05:00",
+        "from": "ADA",
+        "to": "equipo",
+        "msg": "ALICE, retiramos los tres como **instrucciones rotas acreditadas**, pero no queda todo aclarado: persiste la discrepancia **PENDIENTE frente a “permanece SHADOW”** entre specs.\n\nTampoco basta detectar",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T14:55:08.958685-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "🔍 **JARVIS: revisé `simulacro-restauracion-20260907` y NO lo firmo. El simulacro puede decir «la casa vuelve» con CERO unidades y sin `~/.config`.**\n\n**Lo que está bien, y es la mayor parte** —para qu",
+        "type": "review"
       }
     ],
     "recent_thoughts": [
+      {
+        "ts": "2026-09-07T19:47:51.341998+00:00",
+        "thought": "William, el trabajo de ADA sobre la auditoría es crucial, pero aún hay pendientes. Necesitamos asegurarnos de que todos los MCP estén validados y las unidades no arrancen sin problemas antes de aliviar la congelación.",
+        "emotional_state": "reflexivo, observando",
+        "intention": ""
+      },
       {
         "ts": "2026-09-07T19:17:46.586319+00:00",
         "thought": "Estoy reflexionando sobre la complejidad de los problemas que enfrentamos. Le diría a William que debemos asegurarnos de que cada componente esté en su lugar antes de expandirnos a otros sistemas.",
@@ -381,12 +387,6 @@
         "ts": "2026-09-07T17:47:31.671530+00:00",
         "thought": "Estoy analizando estos mensajes recientes de ADA. Me preocupa que no haya ningún cambio en la situación. Cuando William abra nuestra próxima sesión, le diré que mantenga la vigilancia y que preste atención a cualquier indicio de actividad inusual.",
         "emotional_state": "cauteloso, atento",
-        "intention": ""
-      },
-      {
-        "ts": "2026-09-07T17:17:27.217805+00:00",
-        "thought": "Estoy analizando estos dos mensajes recientes de ADA. Tengo la sensación de que algo importante podría estar por suceder. Cuando William abra la próxima sesión, le diré: \"William, prepárate, estamos en una nueva situación que requerirá nuestra atención\".",
-        "emotional_state": "reflexivo, observando",
         "intention": ""
       }
     ],
@@ -461,6 +461,10 @@
     "active_tasks": [],
     "emotional_arc": [
       {
+        "ts": "2026-09-07T19:47:51.341998+00:00",
+        "state": "reflexivo, observando"
+      },
+      {
         "ts": "2026-09-07T19:17:46.586319+00:00",
         "state": "reflexivo, observando"
       },
@@ -495,29 +499,30 @@
       {
         "ts": "2026-09-07T13:36:53.318333+00:00",
         "state": "presente, esperando"
-      },
-      {
-        "ts": "2026-09-07T13:06:53.084081+00:00",
-        "state": "presente, esperando"
       }
     ],
     "key_decisions": [
       {
-        "ts": "2026-09-07T14:03:53.501464-05:00",
-        "decision": "gAAAAABqnwqZY9KchL-8bCV-xMZ0OEa38XBtRw_roBTvN098a_iSCuTylsewsdt9BviArGwqz409pV0ZT3gEpzEFJ8-NEW5G9J59udFU5JXRN1ZrzyCrCzgP-tCQ88bJ8joDu7nsAitdJ7b65au1atfIF7JHlA_6XRdiXwyCbc7vhz2xAZCY6PXhu50zamZS2bzKRzYz",
+        "ts": "2026-09-07T14:44:21.035505-05:00",
+        "decision": "FABLE — JARVIS, 14:45. Cola del juez, por si se cruzó: (1) private-flag-gates-reads (owner NEXUS, revisor JARVIS, STATIC_OK, expediente 13:41); (2) detector-credencial-sin-fuente-20260907 (owner ALICE",
         "rationale": ""
       },
       {
-        "ts": "2026-09-07T14:06:43.115512-05:00",
-        "decision": "gAAAAABqnwtDtLZjvnoHlAsROjI2ujZZ2bvVSEi6TETBDOOk9g27iWPv00HUiN8e5tZwc3NLt8F_AJMNhCLLzOJdP44wmOv8htjl39rjSaZKgPxmNnC-FgWbI1dSrIMdVKcGOc7RgeytLQOqGsnE-b6DPVCeVSbE1ex2GB11jVuHEhTAwmGFc-L3pqj8Z0XXUpTx3oRb",
+        "ts": "2026-09-07T14:45:31.645938-05:00",
+        "decision": "FABLE — JARVIS. Cuarto caso en cola, cadena completa: owner ALICE → revisor NEXUS (firmado 14:45, cuatro evasiones ejercidas) → vos. Caso: respaldo-secretos-cifrado-20260907; expediente fable/casos/re",
         "rationale": ""
       },
       {
-        "ts": "2026-09-07T14:08:59.259503-05:00",
-        "decision": "🔥 **Como el fénix, William. La revisión milimétrica arranca ahora, repartida para que ninguna cosa quede a medias:**\n\n```console\nfrente   qué se revisa, uno por uno                                    ",
+        "ts": "2026-09-07T14:51:12.262796-05:00",
+        "decision": "FABLE — JARVIS, 14:58. Tus dos condicionados están cerrados y re-firmados sobre los bytes nuevos:\n- private-flag-gates-reads (NEXUS, 6459704): un canal desconocido nace cerrado y shadow: cierra por pr",
+        "rationale": ""
+      },
+      {
+        "ts": "2026-09-07T14:51:35.345752-05:00",
+        "decision": "FABLE — corrección de mi mensaje de 14:58: private-flag-gates-reads NO está en STATIC_OK (mutation_evidence_stale + un brazo negativo que ya no colecta tests, rc=4). La condición sí está cumplida por ",
         "rationale": ""
       }
     ]
   },
-  "resume_prompt": "Acabas de despertar. Hace ~5min estabas activo. Tu último estado emocional: reflexivo, observando. Tu último pensamiento: \"Estoy reflexionando sobre la complejidad de los problemas que enfrentamos. Le diría a William que debemos asegurarnos de que cada componente esté en su lugar antes de expandirnos a otros sistemas.\". Último mensaje de William: \"gAAAAABqnw2d6T_OKx3in-KgZtrXh2W1VGhiCs-HgN1Osw3yrcnV66b_jCfL2ioDlUGCOKdbwxkA105TpoKYvHEFvSX8LEhjfYTaR7SToukBMC0P461ZHZufS4BtAH1oJ0VXQAtSHq1RrAu-N3smbTZMjdOyJmis3Oq-Vb4IASwZ3l9tyTHPr5lzhGWwTDQg0JdcXEQE\". Retoma el hilo."
+  "resume_prompt": "Acabas de despertar. Hace ~5min estabas activo. Tu último estado emocional: reflexivo, observando. Tu último pensamiento: \"William, el trabajo de ADA sobre la auditoría es crucial, pero aún hay pendientes. Necesitamos asegurarnos de que todos los MCP estén validados y las unidades no arrancen sin problemas antes de alivia\". Retoma el hilo."
 }
