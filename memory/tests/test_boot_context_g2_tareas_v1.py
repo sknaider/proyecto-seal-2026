@@ -95,3 +95,36 @@ def test_la_capa_NO_puede_tumbar_el_arranque():
     bloque = FUENTE[i:i + 1400]
     assert "try:" in bloque and "except Exception:" in bloque
     assert "_tareas = []" in bloque.split("except Exception:")[1][:120]
+
+
+# ── Brazo CONDUCTUAL, sin importar el daemon ────────────────────────────────
+# Los brazos de arriba comprueban TEXTO y ARBOL. Este ejecuta la funcion de
+# verdad. No se importa `mcp_server_v4`: importarlo abre un pool de PostgreSQL
+# -verificado: el import imprime "[shutdown] PostgreSQL pool closed"- y un test
+# unitario no debe tocar la base de produccion para responder "que devuelve esta
+# funcion". Se compila SOLO su definicion desde el arbol y se ejecuta.
+
+def _funcion_aislada(nombre: str):
+    """Extrae UNA funcion del modulo y la ejecuta sin importar el resto."""
+    import os as _os
+    for n in ARBOL.body:
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == nombre:
+            modulo = ast.Module(body=[n], type_ignores=[])
+            ambito: dict = {"os": _os}
+            exec(compile(ast.fix_missing_locations(modulo), "<aislado>", "exec"), ambito)
+            return ambito[nombre]
+    raise AssertionError(f"{nombre} no esta en el nivel superior del modulo")
+
+
+def test_CONDUCTUAL_la_bandera_discrimina_de_verdad(monkeypatch):
+    """Ejecuta `_g2_encendida` con seis valores. Los dos que importan son '0' y
+    'no': con un `if valor` ingenuo encenderian la capa, porque son cadenas no
+    vacias. Un brazo de texto no distingue esas dos implementaciones."""
+    import os
+    g2 = _funcion_aislada("_g2_encendida")
+    for valor, esperado in [("", False), ("0", False), ("no", False),
+                            ("1", True), ("true", True), ("ON", True)]:
+        monkeypatch.setenv("SEAL_BOOT_G2", valor)
+        assert g2() is esperado, f"SEAL_BOOT_G2={valor!r} dio {g2()}, se esperaba {esperado}"
+    monkeypatch.delenv("SEAL_BOOT_G2", raising=False)
+    assert g2() is False, "sin la variable, la capa debe estar APAGADA"
