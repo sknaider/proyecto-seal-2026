@@ -20,6 +20,8 @@ rs $RS --exclude='.agent_session_token_*' --exclude='.agent_ws_token' --exclude=
 rs $RS --exclude=".venv" --exclude="__pycache__" /home/dadito/IA/soul-v2-lab/ "$DEST/soul-v2-lab/"
 rs $RS --exclude="node_modules" /home/dadito/IA/soul-infra/ "$DEST/soul-infra/"
 rs $RS /home/dadito/.config/systemd/user/ "$DEST/systemd_user/"
+# las unidades reconstruidas el 7-sep llevan DSN embebidos: se redacta la clave en la COPIA (hallazgo NEXUS 11:24)
+find "$DEST/systemd_user" -type f -exec sed -i -E 's#(postgres(ql)?://[^:]+:)[^@]+@#\1REDACTADO@#g' {} +
 rs $RS /home/dadito/.claude/projects/-home-dadito-IA-proyecto-seal/memory/ "$DEST/claude_memory/"
 [ -f /home/dadito/.claude/CLAUDE.md ] && cp --no-preserve=mode /home/dadito/.claude/CLAUDE.md "$DEST/CLAUDE_global.md"
 [ -d /home/dadito/.codex ] && rs $RS --exclude='*.log' --exclude='auth.json' /home/dadito/.codex/ "$DEST/codex/"
