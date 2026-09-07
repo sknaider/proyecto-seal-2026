@@ -27,6 +27,15 @@ RAIZ = pathlib.Path(__file__).resolve().parents[1]
 EXT = ("*.sh", "*.py", "*.bash")
 # rm/find -delete cuyo objetivo es  "$VAR"/*  o  $VAR/*  (con o sin comillas)
 CONGELA = re.compile(r'\brm\b[^|;#\n]*?"?\$\{?[A-Za-z_][A-Za-z0-9_]*\}?"?/\*')
+# SEGUNDA forma, que me paso NEXUS el 7-sep tras escribir el mismo detector en paralelo y
+# borrar el suyo: `rm -rf "$T"` sin guarda. Es la otra mitad de su comando congelado y es
+# EXACTAMENTE la forma que casi borra /home/dadito el 9-ago (`rm -rf "$HOME"`, un typo).
+BORRA_VARIABLE = re.compile(r'\brm\b[^|;#\n]*?-[a-zA-Z]*r[a-zA-Z]*f?\b[^|;#\n]*?"?\$\{?([A-Za-z_][A-Za-z0-9_]*)')
+# `${VAR:?}` aborta si la variable esta vacia: es un idioma SEGURO, mas fuerte que el `case`.
+# NEXUS lo encontro como falso positivo en su propia version -2 de sus 17-. Un detector que
+# cobra ruido donde alguien YA hizo lo correcto se apaga, y apagado es peor que no existir.
+SEGURA_ABORTA = re.compile(r'\$\{[A-Za-z_][A-Za-z0-9_]*:\?')
+GUARDA_CASE = re.compile(r'case\s+"?\$\{?([A-Za-z_][A-Za-z0-9_]*)')
 TMP = re.compile(r'mktemp\s+-d')
 LIMPIA = re.compile(r'\brm\s+-rf\b')
 
@@ -49,8 +58,8 @@ def _lineas_de_texto_python(ruta: pathlib.Path) -> set[int]:
     return dentro
 
 
-def revisar(rutas: list[pathlib.Path]) -> tuple[list[str], list[str]]:
-    congelan, innecesarias = [], []
+def revisar(rutas: list[pathlib.Path]) -> tuple[list[str], list[str], list[str]]:
+    congelan, sin_guarda, innecesarias = [], [], []
     for r in rutas:
         try:
             texto = r.read_text(encoding="utf-8", errors="replace")
@@ -66,9 +75,18 @@ def revisar(rutas: list[pathlib.Path]) -> tuple[list[str], list[str]]:
                 continue          # un comentario no ejecuta; documentarlo esta permitido
             if CONGELA.search(linea):
                 congelan.append(f"{rel}:{n}  {limpia[:88]}")
+                continue
+            m = BORRA_VARIABLE.search(linea)
+            if m and not SEGURA_ABORTA.search(linea):
+                var = m.group(1)
+                # guarda `case "$VAR" in /tmp/*)` en la MISMA linea o en las 3 anteriores
+                contexto = "\n".join(texto.splitlines()[max(0, n - 4):n])
+                guardada = any(g == var for g in GUARDA_CASE.findall(contexto))
+                if not guardada:
+                    sin_guarda.append(f"{rel}:{n}  {limpia[:88]}")
         if TMP.search(texto) and LIMPIA.search(texto):
             innecesarias.append(str(rel))
-    return congelan, innecesarias
+    return congelan, sin_guarda, innecesarias
 
 
 def main(argv: list[str]) -> int:
@@ -80,16 +98,19 @@ def main(argv: list[str]) -> int:
     if not rutas:
         print("SIN MIRAR: no se encontro ningun script. Un detector sin sujetos no dice 'limpio'.")
         return 2
-    congelan, innecesarias = revisar(rutas)
+    congelan, sin_guarda, innecesarias = revisar(rutas)
     for c in congelan:
         print(f"CONGELA LA SESION  {c}")
+    for s in sin_guarda:
+        print(f"BORRA UNA VARIABLE SIN GUARDA  {s}")
     if innecesarias:
         print(f"\n-- limpieza probablemente INNECESARIA ({len(innecesarias)} scripts con mktemp -d "
               f"bajo /tmp y rm -rf propio; /tmp se vacia solo) --")
         for i in innecesarias[:10]:
             print(f"  {i}")
-    print(f"\n{len(rutas)} scripts mirados · {len(congelan)} formas que CONGELAN")
-    return 1 if congelan else 0
+    print(f"\n{len(rutas)} scripts mirados · {len(congelan)} con GLOB sobre variable "
+          f"· {len(sin_guarda)} con rm -rf sobre variable SIN guarda")
+    return 1 if (congelan or sin_guarda) else 0
 
 
 if __name__ == "__main__":

@@ -89,3 +89,44 @@ def test_qa_control_sin_scripts_NO_dice_limpio(tmp_path):
     r = _correr(tmp_path / "no_existe.sh")
     assert r.returncode == 2, r.stdout
     assert "SIN MIRAR" in r.stdout
+
+
+def test_qa_positive_marca_rm_rf_sobre_variable_SIN_guarda(tmp_path):
+    """Segunda forma, aportada por NEXUS el 7-sep tras borrar su detector duplicado.
+
+    `rm -rf "$T"` es la otra mitad de su comando congelado y es EXACTAMENTE la forma que
+    casi borra /home/dadito el 9-ago (`rm -rf "$HOME"`, un typo).
+    """
+    s = _script(tmp_path, "sin_guarda.sh", '''
+        T=$(mktemp -d /tmp/senuelo-XXXXXX)
+        rm -rf "$T"
+    ''')
+    r = _correr(s)
+    assert r.returncode == 1
+    assert "BORRA UNA VARIABLE SIN GUARDA" in r.stdout
+
+
+def test_qa_negative_NO_marca_la_variable_con_ABORTO_si_esta_vacia(tmp_path):
+    """`${VAR:?}` aborta cuando la variable está vacía: es más fuerte que el `case`.
+
+    NEXUS lo encontró como falso positivo en su propia versión —2 de sus 17—. Un detector
+    que cobra ruido donde alguien YA hizo lo correcto termina apagado, y apagado es peor
+    que inexistente.
+    """
+    s = _script(tmp_path, "aborta.sh", '''
+        rm -rf "${ROOT:?}/${name:?}"
+    ''')
+    r = _correr(s)
+    assert r.returncode == 0, r.stdout
+    assert "SIN GUARDA" not in r.stdout
+
+
+def test_qa_negative_NO_marca_el_rm_rf_dentro_de_su_guarda_case(tmp_path):
+    """La forma que la regla de oro manda escribir no puede aparecer marcada."""
+    s = _script(tmp_path, "con_guarda.sh", '''
+        D=$(mktemp -d /tmp/senuelo-XXXXXX)
+        case "$D" in /tmp/*) rm -rf "$D" ;; esac
+    ''')
+    r = _correr(s)
+    assert r.returncode == 0, r.stdout
+    assert "SIN GUARDA" not in r.stdout
