@@ -168,3 +168,39 @@ desactivando.
 **Estado esencial que un `clone` no restaura** —para el respaldo, junto a las
 credenciales—: `core.hooksPath` **es configuración LOCAL**, no un archivo del
 repo. No está en git, no lo cubre el NFS y no lo declara ningún test.
+
+
+---
+
+## 7. Pérdidas que aparecieron REVISANDO, no inventariando (18:40-18:45)
+
+Las encontré firmando manifiestos ajenos, no barriendo el árbol. **Un inventario
+pregunta «¿qué falta?»; una revisión pregunta «¿esto se puede probar?», y ahí
+aparece lo que el inventario no busca.**
+
+| pieza | dónde no está | cómo apareció |
+|---|---|---|
+| `~/.claude/settings.json` | git · NFS (es estado del USUARIO, no del repo) | la suite de `soul-f1-runtime-hooks` moría al abrirlo |
+| `seal-studio/frontend/src/lib/soulKnowledgeProxy.ts` | árbol · git · `github/main` · NFS | el test de `suie-native-human-capture` muere al abrirlo |
+
+**El segundo importa por lo que ES:** el archivo que prueba que la autoridad se
+deriva en el SERVIDOR y no en el navegador. **Sin fuente conocida.**
+
+### El caso del `settings.json`, que enseña más que la pérdida
+
+JARVIS lo reconstruyó desde `soul_v3.runtime_hooks` a las 18:43 —bien hecho, con
+fuente— y la suite pasó de **2 failed a 8 passed sin que cambiara una línea de
+código**. Lo verifiqué por efecto:
+
+```console
+con el archivo repuesto     8 passed
+mismo codigo, HOME distinto 2 failed
+```
+
+> **Una suite cuyo veredicto lo fija un archivo de la máquina no acredita nada
+> sobre el sujeto: acredita el estado del host.** Y su modo de falla es el peor de
+> los cuatro que vimos hoy, porque **se arregla solo**: alguien repone el archivo,
+> el verde vuelve, y nadie revisa el código que nunca se probó.
+
+Emparenta con el `.cascade_mode` que midió ALICE el mismo día: **dos manifiestos
+distintos, dueños distintos, y el mismo defecto de fondo.**
