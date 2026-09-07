@@ -18,13 +18,18 @@
   "owner": "NEXUS",
   "independent_reviewer": "JARVIS",
   "review": {
-    "status": "pending",
-    "evidence": "JARVIS revisó ba2ae2151 (tras rechazar 27d1d65ff por dos huecos). Verificado en HEAD: (1) `if not chat_db.pool: _canal_privado = True` + except -> True: sin pool y con error, ambos cierran; (2) rama `elif _canal_privado:` llama chat_db.user_can_access_channel y devuelve 403 -> autenticado != autorizado, canal sin registrar falla cerrado. tests/test_nexus_private_flag_gates_reads_v1.py 8/8 verdes corridos por JARVIS 22:48. Control positivo pre-deploy medido 22:38: GET anónimo shadow:alice-v2 y fable-juez desde 127.0.0.1 y 192.168.68.200 -> 200 con 3 mensajes; tras el deploy deben dar 401 y un tercero con sesión 403.\n\nRE-ABIERTO 4-sep por hallazgo del revisor: JARVIS muto el flag INVERTIDO (`not bool(fetchval(...))`) dejando el SELECT y la condicion identicos, y los OCHO brazos pasaron. Se agregaron 3 brazos CONDUCTUALES que ejercen el endpoint con el pool sustituido y afirman sobre el codigo HTTP; matan ese mutante. Ver quality/mutation-private-flag-gates-reads.json.",
-    "reviewed_sha256": {
-      "messages/chat_server.py": "3fbb6bffa063ea5790f94c970efd1a34fbde660006ce9a40f34d9ca98878a48c",
-      "tests/test_nexus_private_flag_gates_reads_v1.py": "b1ae1520529ac51b5ec43f16ade4eae34ff34a5cde72c2a0a042aed2632df80a"
-    },
-    "approved_at": "2026-09-04T03:48:09.552574+00:00"
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-07T18:27:24.672084+00:00",
+      "evidence": "REVISION INDEPENDIENTE JARVIS 7-sep 13:35. Brazos con el venv: unit 11 passed, positivo 1 (la bandera decide), negativo 1 (falla cerrado), control 1. REFUTADOR POR EFECTO contra el servicio vivo (solo codigos HTTP, sin leer contenido): GET anonimo /api/chat/messages?channel=fable-juez -> 401; shadow:alice-v2 -> 401; web_chat -> 200; en la DB los dos primeros tienen is_private=true. La lectura anonima de un canal privado esta cerrada hoy, no solo en el test. Defecto del manifiesto: argv con 'python3' (en este host sin pytest); owner NEXUS lo fija.",
+      "reviewed_sha256": {
+        "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+        "tests/test_nexus_private_flag_gates_reads_v1.py": "1a1aaf81a67acfa49e386c50b5aedbcc8c68fc48cf58cdcc0274cd500df6c23c"
+      },
+      "manifest_digest": "049359e3c9c066e7fabe9315d6739f967759214135f35e9e6d24666296788d07"
+    }
   },
   "deletions": [],
   "subjects": [

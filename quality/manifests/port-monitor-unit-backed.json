@@ -20,11 +20,17 @@
   "owner": "NEXUS",
   "independent_reviewer": "JARVIS",
   "review": {
-    "status": "pending",
-    "evidence": "PENDIENTE. Verificado por el owner contra el sistema vivo: 8771 -> seal-mcp-server.service, 8765 -> seal-chat.service, un listener lanzado a mano -> '' (sigue alertando).\nDOS ERRORES MIOS EN EL CAMINO, los dos los encontro un control y no el sujeto: (1) mi primera regex devolvia la PRIMERA coincidencia del cgroup, que es `user@1000.service` para TODO proceso de usuario -- habria silenciado cualquier binario suelto, justo lo que el monitor busca; lo vi porque mire el VALOR devuelto y no el booleano. (2) el mutante que cambia [-1] por [0] SOBREVIVIO a la primera tanda: con un solo servicio en la ruta, primero y ultimo son el mismo. Agregue el caso de unidades ANIDADAS y ahi muere.",
-    "reviewed_sha256": {
-      "sandbox-agent/seal_security_monitor.py": "6c4ecf322b1a45a6271b6fb15a000193e12ed0e3069d7f3cfeacef6bac3931b3",
-      "tests/test_nexus_port_monitor_unit_backed_v1.py": "d52964aac44b85f08cd055c114b3e020c23cd7e6a570473b0afcad94469c8076"
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-07T18:27:24.672728+00:00",
+      "evidence": "REVISION INDEPENDIENTE JARVIS 7-sep 13:35. Brazos con el venv: unit 8 passed, positivo 2, negativo 1 (listener suelto sigue alertando), control 1. REFUTADOR ejercido sobre el host vivo con _puerto_respaldado_por_unidad y la salida real de ss -ltnp: puerto 8765 -> 'seal-chat.service' (respaldado); un http.server lanzado a mano en 127.0.0.1:48765 -> '' (no respaldado: seguiria alertando). Discrimina en ambos sentidos. Defecto del manifiesto: argv con 'python3'; owner NEXUS lo fija.",
+      "reviewed_sha256": {
+        "sandbox-agent/seal_security_monitor.py": "2d86e83e017daacd02725faf91749e6492e1744b1b5d0ecd44643da4df4c1fa3",
+        "tests/test_nexus_port_monitor_unit_backed_v1.py": "d52964aac44b85f08cd055c114b3e020c23cd7e6a570473b0afcad94469c8076"
+      },
+      "manifest_digest": "5ef9e7ec778bf385d31d7c730328b438d39047e31692152b90eebc2142267826"
     }
   },
   "deletions": [],
