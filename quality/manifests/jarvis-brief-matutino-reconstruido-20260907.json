@@ -106,9 +106,19 @@
       "expected_stdout_contains": "JARVIS — brief matutino"
     }
   },
-  "review": {
-    "status": "pending"
-  },
   "_nota_para_el_revisor": "Refutadores: (1) sin SEAL_BRIEF_DSN el brief NO debe conectar con ninguna otra credencial (grep de seal_secrets/credentials.env en el script: 0); (2) una foto de hoy con dump y sin .partial no debe generar hallazgo; (3) un .partial colgado sí. Límite: no mide MCP ni latencia; eso es del frente de ALICE.",
-  "file_sha256": {}
+  "file_sha256": {},
+  "review": {
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "reviewed_sha256": {
+        "agents/JARVIS/jarvis_daily_brief.py": "7245cfc9b002732cd8be9663fbf67e9fba966ba2640f785fb540cc07708873ab",
+        "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py": "854c33bb4375582c19c66519e713f63cbfcd576e204f275129ad22d629a868f9"
+      },
+      "manifest_digest": "3192c0f23da7fdd41c4fdb68332d42dce4ce9f2fee780299cea93990b953931d",
+      "evidence": "Revision por REFUTADORES, no corriendo los ejemplos del owner. Los 7 brazos pasan. R1 -el que crei un hallazgo y me REFUTO-: con 0 hallazgos el brief publica igual un 'sin hallazgos'. Fui a la regla de William del 2-ago esperando confirmar el defecto y dice, textual: 'si no hay hallazgo, se dice hoy no hay nada y se acabo'. El comportamiento CUMPLE la instruccion literal. Queda la tension con su derivada -'emision condicionada al hallazgo, no al reloj'- que anoto como decision de diseño del owner, NO como defecto. R2 filtracion: con 16 hallazgos reales, 0 patrones de secreto en el texto renderizado. R3 sin credencial: falla cerrado y lo DICE - 'NO_MEDIBLE db · SEAL_BRIEF_DSN ausente (fail-closed: no se usa otra credencial)'-, que es lo correcto: no cae al DSN compartido. R4 publicacion: publicar() usa scripts/seal_send.py con --message-file y clave de idempotencia por dia; no hay curl crudo ni ruta que mande sin pasar por el writer. LIMITE DE MI REVISION: no ejerci el timer de las 06:00 ni una publicacion real; mi prueba llega hasta el render y las funciones de hallazgo."
+    }
+  }
 }
