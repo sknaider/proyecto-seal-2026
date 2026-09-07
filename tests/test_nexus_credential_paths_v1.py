@@ -200,13 +200,27 @@ import tempfile
 from pathlib import Path
 
 
+def _pythonpath(sombra: str, ruta_modulo: str) -> str:
+    """La sombra PRIMERO, y despues el sys.path del interprete que corre el test.
+
+    Armar el PYTHONPATH desde cero perdia las dependencias reales -en la arena,
+    `import asyncpg` fallaba en la linea 16 y el modulo moria por dependencia, no
+    por el fail-closed-. Lo detecto ALICE corriendo mi brazo en la arena, y lo
+    delato mi propio segundo assert: "fallo por otra cosa, no por exigir la
+    credencial". Ese assert existe justamente para que un verde -o un rojo- por
+    el motivo equivocado no pase por medicion.
+    """
+    import os as _os
+    return _os.pathsep.join([sombra, str(RAIZ / ruta_modulo), *sys.path])
+
+
 def _importa_sin_secretos(modulo: str, ruta_modulo: str, entorno_extra: dict) -> subprocess.CompletedProcess:
     """Importa `modulo` con un seal_secrets que falla, y devuelve el resultado."""
     with tempfile.TemporaryDirectory(dir="/tmp") as sombra:
         (Path(sombra) / "seal_secrets.py").write_text(
             "raise RuntimeError('seal_secrets no disponible (doble de prueba)')\n")
         env = {"PATH": "/usr/bin:/bin", "HOME": sombra,
-               "PYTHONPATH": f"{sombra}:{RAIZ / ruta_modulo}",
+               "PYTHONPATH": _pythonpath(sombra, ruta_modulo),
                "PYTHONDONTWRITEBYTECODE": "1", **entorno_extra}
         return subprocess.run([sys.executable, "-c", f"import {modulo}"],
                               capture_output=True, text=True, timeout=60, env=env)
@@ -249,7 +263,7 @@ def _importa_con_pg_dsn_falso(modulo: str, ruta_modulo: str) -> subprocess.Compl
             "        raise RuntimeError('sin secreto (doble de prueba)')\n"
             "    return ''\n")
         env = {"PATH": "/usr/bin:/bin", "HOME": sombra,
-               "PYTHONPATH": f"{sombra}:{RAIZ / ruta_modulo}",
+               "PYTHONPATH": _pythonpath(sombra, ruta_modulo),
                "PYTHONDONTWRITEBYTECODE": "1"}
         return subprocess.run([sys.executable, "-c", f"import {modulo}"],
                               capture_output=True, text=True, timeout=60, env=env)
