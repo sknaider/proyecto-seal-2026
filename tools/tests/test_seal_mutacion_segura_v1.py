@@ -109,11 +109,27 @@ def test_la_lista_incluye_el_HOME_DEL_USUARIO_no_solo_su_padre():
     )
 
 
-def test_el_freno_BLOQUEA_de_verdad_en_este_asiento():
-    """Por efecto, con el entorno real: si corro donde puedo borrar el home, no corro."""
+def test_el_freno_SIGUE_al_entorno_real_sea_cual_sea_el_asiento():
+    """Por efecto, contra el entorno real, y valido en CUALQUIER asiento.
+
+    Antes esto afirmaba "en este asiento BLOQUEA", que es cierto en el host y
+    falso dentro de la arena -donde no hay ninguna raiz protegida escribible y
+    el freno debe dejar pasar-. Ese brazo ponia el control en rojo justo en el
+    lugar donde el arnes tiene que correr (medido 14:04), o sea prohibia su
+    unico uso legitimo.
+
+    El contrato no es un veredicto fijo: es que el veredicto SIGA al entorno.
+    Asi conserva los dientes en los dos lados, y ademas es mas fuerte -detecta
+    tanto un freno que nunca bloquea como uno que bloquea siempre-.
+    """
     import seal_mutacion_segura as m
-    with pytest.raises(ArnesInseguro, match="ESCRIBIR"):
-        m._verificar_entorno()
+    escribibles = [r for r in m._RAICES_PROHIBIDAS
+                   if pathlib.Path(r).is_dir() and m._puede_escribir(r)]
+    if escribibles:
+        with pytest.raises(ArnesInseguro, match="ESCRIBIR"):
+            m._verificar_entorno()
+    else:
+        m._verificar_entorno()  # no hay nada que proteger: debe dejar pasar
 
 
 def test_CONTROL_una_raiz_de_solo_lectura_no_bloquea(tmp_path):

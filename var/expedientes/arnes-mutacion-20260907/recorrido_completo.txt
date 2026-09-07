@@ -1,0 +1,13 @@
+arena:  /tmp/seal-arena-vRn2IE  (desde el INDICE, 7565 archivos, legible por el uid sin privilegios)
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.1
+[notice] To update, run: pip install --upgrade pip
+  [1] guarda: HABILITA (arena aislada)
+  [2] control: VERDE
+  [3] mutante aplicado: se ignora el tipo de fs (todo montaje se descarta)
+  [4] con el mutante los tests dan rc=1 -> MUERTO, el test lo detecta
+  RECORRIDO INTERNO OK
+limpieza:
+  arena borrada: /tmp/seal-arena-vRn2IE
+  arbol vivo intacto: sha256 248d6d9e6dd1f623 == 248d6d9e6dd1f623
+RECORRIDO COMPLETO OK
