@@ -48,6 +48,9 @@ def test_foto_real_contiene_lo_critico_y_ningun_secreto():
             assert (dia / must).exists(), f"falta {must}"
         assert any(p.suffix == ".dump" for p in dia.iterdir()), "falta el pg_dump"
         assert not any(p.name.endswith(".partial") for p in dia.iterdir()), "quedo un dump parcial publicado"
+        assert any(p.name.startswith("db_glt_financiero_") for p in dia.iterdir()), "falta el dump de glt_financiero (facturas reales)"
+        g = next((p for p in dia.iterdir() if p.name.startswith("globals_roles_sin_claves_")), None)
+        assert g is not None and "CREATE ROLE" in g.read_text() and "PASSWORD" not in g.read_text(), "globals sin roles o con claves"
         assert (dia / "NO_RESPALDADO_Y_COMO_SE_REPONE.md").exists(), "la foto debe declarar lo que no contiene"
         secretos = [str(p) for p in dia.rglob("*") if p.is_file() and (
             p.name.startswith("credentials.env") or p.suffix == ".dsn" or p.name.startswith((".agent_session_token", ".agent_ws_token")) or p.name.endswith("_cred") or p.name == ".db_cred" or (p.suffix == ".env" and "config_seal" in str(p))
@@ -193,3 +196,21 @@ def test_dump_parcial_no_se_publica_con_nombre_final():
     script = (pathlib.Path(__file__).resolve().parents[1] / "seal_snapshot_nfs.sh").read_text()
     assert '.dump.partial"' in script and 'if docker exec seal-memory-db pg_dump' in script
     assert script.index('.dump.partial" 2>>') < script.index('mv "$DEST/seal_memory_completa_$DIA.dump.partial"')
+
+
+def test_snapshot_vuelca_todas_las_bases_y_globals_sin_claves():
+    """Negativo por construcción (hallazgo ALICE 14:22): el script recorre pg_database (no una lista fija) y
+    vuelca globals con --no-role-passwords (roles y grants sí; hashes de contraseña NO van al NFS)."""
+    script = (pathlib.Path(__file__).resolve().parents[1] / "seal_snapshot_nfs.sh").read_text()
+    assert "from pg_database where not datistemplate" in script
+    assert "pg_dumpall -U seal --globals-only --no-role-passwords" in script
+    assert script.count(".partial") >= 6, "cada volcado debe publicarse por .partial + mv"
+
+
+def test_snapshot_respalda_los_neo4j_vivos_y_reinicia_siempre():
+    """Negativo por construcción (ALICE 14:22): los grafos vivos están en volúmenes docker, no en soul-infra/neo4j.
+    El script intenta dump consistente con STOP/START y, si no, copia caliente etiquetada; el START no depende del rc del dump."""
+    script = (pathlib.Path(__file__).resolve().parents[1] / "seal_snapshot_nfs.sh").read_text()
+    assert "STOP DATABASE neo4j WAIT" in script and "START DATABASE neo4j WAIT" in script
+    assert script.index("START DATABASE neo4j WAIT") > script.index("neo4j-admin database dump")
+    assert "_data_CALIENTE_" in script and "soul-portable-neo4j-def879a7f388" in script

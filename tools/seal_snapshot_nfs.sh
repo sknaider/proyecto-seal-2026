@@ -40,6 +40,37 @@ if docker exec seal-memory-db pg_dump -U seal -d seal_memory -Fc > "$DEST/seal_m
 else
   echo "[snapshot] pg_dump fallo (rc distinto de 0), queda .partial sin publicar; ver $DEST/pg_dump.err" >&2
 fi
+# TODAS las demás bases del mismo servidor (hallazgo ALICE 7-sep 14:22: glt_financiero con facturas reales,
+# soul_standalone, soul_v3_sandbox, valeria_memory no estaban en ninguna copia) + roles y grants SIN claves
+# (pg_dump nunca incluye roles; sin esto, tras un desastre los 115 roles se reconstruyen a mano)
+for db in $(docker exec seal-memory-db psql -U seal -d postgres -Atc "select datname from pg_database where not datistemplate and datname<>'seal_memory'" 2>>"$DEST/pg_dump.err"); do
+  if docker exec seal-memory-db pg_dump -U seal -d "$db" -Fc > "$DEST/db_${db}_$DIA.dump.partial" 2>>"$DEST/pg_dump.err"; then
+    mv "$DEST/db_${db}_$DIA.dump.partial" "$DEST/db_${db}_$DIA.dump"
+  else
+    echo "[snapshot] pg_dump de $db fallo, queda .partial sin publicar" >&2
+  fi
+done
+if docker exec seal-memory-db pg_dumpall -U seal --globals-only --no-role-passwords > "$DEST/globals_roles_sin_claves_$DIA.sql.partial" 2>>"$DEST/pg_dump.err"; then
+  mv "$DEST/globals_roles_sin_claves_$DIA.sql.partial" "$DEST/globals_roles_sin_claves_$DIA.sql"
+else
+  echo "[snapshot] pg_dumpall --globals-only fallo" >&2
+fi
+
+# NEO4J VIVO (hallazgo ALICE 7-sep 14:22): la foto copiaba /home/dadito/IA/soul-infra/neo4j, un directorio muerto desde marzo;
+# los grafos vivos (96.196 nodos en soul-neo4j) están en volúmenes docker que nadie copiaba. Community no dumpea en caliente:
+# 1) intento consistente: STOP DATABASE -> neo4j-admin database dump -> START DATABASE (ventana ~1 min, a las 03:30)
+# 2) si falla, copia CALIENTE del volumen (tar), etiquetada como tal (consistencia no garantizada, mejor que nada)
+mkdir -p "$DEST/neo4j"
+for C in soul-neo4j soul-portable-neo4j-def879a7f388; do
+  docker ps --format '{{.Names}}' | grep -qx "$C" || { echo "[snapshot] neo4j $C no corre; se omite" >&2; continue; }
+  PW=$(docker exec "$C" sh -c 'echo "${NEO4J_AUTH#neo4j/}"' 2>/dev/null)
+  if [ -n "$PW" ] && docker exec "$C" cypher-shell -d system -u neo4j -p "$PW" "STOP DATABASE neo4j WAIT" >/dev/null 2>&1; then
+    docker exec "$C" sh -c 'rm -rf /tmp/neo4j-dump-seal && mkdir -p /tmp/neo4j-dump-seal && neo4j-admin database dump neo4j --to-path=/tmp/neo4j-dump-seal' >>"$DEST/neo4j/dump.log" 2>&1; RC=$?
+    docker exec "$C" cypher-shell -d system -u neo4j -p "$PW" "START DATABASE neo4j WAIT" >/dev/null 2>&1 || echo "[snapshot] ALERTA: $C no volvió a START; revisar YA" >&2
+    if [ $RC -eq 0 ]; then docker cp "$C:/tmp/neo4j-dump-seal/neo4j.dump" "$DEST/neo4j/${C}_neo4j_$DIA.dump.partial" && mv "$DEST/neo4j/${C}_neo4j_$DIA.dump.partial" "$DEST/neo4j/${C}_neo4j_$DIA.dump" && continue; fi
+  fi
+  docker run --rm --volumes-from "$C" -v "$DEST/neo4j":/out alpine:3.20 sh -c "tar czf /out/${C}_data_CALIENTE_$DIA.tgz.partial -C / data && mv /out/${C}_data_CALIENTE_$DIA.tgz.partial /out/${C}_data_CALIENTE_$DIA.tgz" >>"$DEST/neo4j/dump.log" 2>&1 || echo "[snapshot] neo4j $C: ni dump ni copia caliente" >&2
+done
 # retencion: conservar 14 fotos (solo dentro de DEST_ROOT, ruta literal por construccion)
 ls -1d "$DEST_ROOT"/20* 2>/dev/null | sort | head -n -14 | while read -r old; do case "$old" in /mnt/spark-2/backups_seal/20*) rm -rf "$old" ;; esac; done
 cat > "$DEST/NO_RESPALDADO_Y_COMO_SE_REPONE.md" <<'EOM'
