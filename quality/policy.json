@@ -103,6 +103,7 @@
     "quality/manifests/heartbeat-reset-recovery-20260903.json",
     "quality/manifests/hook-identity-failclosed.json",
     "quality/manifests/jarvis-bajo-firma-v1.json",
+    "quality/manifests/jarvis-brief-matutino-reconstruido-20260907.json",
     "quality/manifests/jarvis-dm-poller-env-dsn-20260905.json",
     "quality/manifests/jarvis-gx-v1.json",
     "quality/manifests/jarvis-heartbeat-writer-v1.json",
@@ -126,6 +127,7 @@
     "quality/manifests/recall-router-bm25-fallback-20260902.json",
     "quality/manifests/recall-vector-and-impgate-fix-20260901.json",
     "quality/manifests/respaldo-nfs-github-20260907.json",
+    "quality/manifests/respaldo-secretos-cifrado-20260907.json",
     "quality/manifests/response-lease-contract.json",
     "quality/manifests/rsi-offline-derivatives.json",
     "quality/manifests/runtime-instance-passthrough.json",
@@ -152,7 +154,6 @@
     "quality/manifests/tool-result-budget-inert-v1.json",
     "quality/manifests/u116-isolated-claude-transport.json",
     "quality/manifests/unit-failed-notify-20260905.json",
-    "quality/manifests/validador-candado-v1.json",
-    "quality/manifests/jarvis-brief-matutino-reconstruido-20260907.json"
+    "quality/manifests/validador-candado-v1.json"
   ]
 }
