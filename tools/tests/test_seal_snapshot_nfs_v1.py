@@ -83,10 +83,16 @@ def test_redaccion_de_unidades_borra_dsn_y_tokens_en_linea(tmp_path):
     assert len(exprs) >= 2, exprs
     unidad = tmp_path / "x.service"
     unidad.write_text('Environment=SEAL_SIDECAR_TOKEN=abcdef0123456789abcdef0123456789 PG_PASSWORD=x9y8z7\n'
-                      'Environment="SEAL_DB_URL=postgres://u:p4ss@h/db"\n')
+                      'Environment="SEAL_DB_URL=postgres://u:p4ss@h/db"\n'
+                      'Environment="QUOTED_TOKEN=frase con espacios"\n'
+                      'ExecStart=/usr/bin/prog --token argsecreto --api-key=otrosecreto --port 8080\n'
+                      'Environment=SEAL_TOKENS_DIR=%t/seal PYTHONUNBUFFERED=1\n')
     for e in exprs:
         subprocess.run(["sed", "-i", "-E", e, str(unidad)], check=True)
     out = unidad.read_text()
-    for valor in ("abcdef0123456789", "x9y8z7", "p4ss"):
+    for valor in ("abcdef0123456789", "x9y8z7", "p4ss", "frase con espacios", "con espacios", "argsecreto", "otrosecreto"):
         assert valor not in out, out
-    assert out.count("REDACTADO") == 3, out
+    assert out.count("REDACTADO") == 6, out
+    # controles: lo que NO es secreto queda intacto
+    for intacto in ("SEAL_TOKENS_DIR=%t/seal", "PYTHONUNBUFFERED=1", "--port 8080"):
+        assert intacto in out, out

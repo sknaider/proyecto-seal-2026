@@ -23,7 +23,8 @@ rs $RS /home/dadito/.config/systemd/user/ "$DEST/systemd_user/"
 # las unidades reconstruidas el 7-sep llevan DSN embebidos: se redacta la clave en la COPIA (hallazgo NEXUS 11:24)
 find "$DEST/systemd_user" -type f -exec sed -i -E 's#(postgres(ql)?://[^:]+:)[^@]+@#\1REDACTADO@#g' {} +
 # y cualquier token/clave/secreto/password en linea (hallazgo ALICE 12:15: SEAL_SIDECAR_TOKEN en seal-companion-core.service)
-find "$DEST/systemd_user" -type f -exec sed -i -E 's#([A-Z0-9_]*(TOKEN|KEY|SECRET|PASSWORD|PASS)=)[^ "]+#\1REDACTADO#g' {} +
+# tres formas (refutadores de NEXUS 12:21): valor entre comillas con espacios, valor suelto, y argumento --token/--api-key/--password
+find "$DEST/systemd_user" -type f -exec sed -i -E 's#("[A-Z0-9_]*(TOKEN|KEY|SECRET|PASSWORD|PASS)=)[^"]+#\1REDACTADO#g; s#([A-Z0-9_]*(TOKEN|KEY|SECRET|PASSWORD|PASS)=)[^ "]+#\1REDACTADO#g; s#(--[a-z-]*(token|key|secret|password|pass)[= ])[^ "]+#\1REDACTADO#gI' {} +
 rs $RS /home/dadito/.claude/projects/-home-dadito-IA-proyecto-seal/memory/ "$DEST/claude_memory/"
 [ -f /home/dadito/.claude/CLAUDE.md ] && cp --no-preserve=mode /home/dadito/.claude/CLAUDE.md "$DEST/CLAUDE_global.md"
 [ -d /home/dadito/.codex ] && rs $RS --exclude='*.log' --exclude='auth.json' /home/dadito/.codex/ "$DEST/codex/"
