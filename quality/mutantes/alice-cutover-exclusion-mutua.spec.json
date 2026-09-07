@@ -7,6 +7,9 @@
   ],
   [
    "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py"
+  ],
+  [
+   "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py"
   ]
  ],
  "mutants": [

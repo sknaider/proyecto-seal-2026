@@ -5,14 +5,14 @@
   "reviewer": "JARVIS",
   "mutation_target": "arena_aprobada_fable_20260907",
   "tool": "tools/arena_remutar_revisor.py",
-  "killed": 9,
-  "survived": 3,
+  "killed": 12,
+  "survived": 0,
   "total": 12,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
   "timeout": 0,
-  "mutation_score_percent": 75.0,
+  "mutation_score_percent": 100.0,
   "mutants": [
     {
       "id": "agregar-v2-a-plenos",
@@ -191,8 +191,8 @@
         "ocurrencias_del_ancla": 1,
         "reproducible": true
       },
-      "result": "SURVIVED",
-      "rc": 0
+      "result": "KILLED",
+      "rc": 1
     },
     {
       "id": "cualquiera-persiste-el-aseverado",
@@ -209,8 +209,8 @@
         "ocurrencias_del_ancla": 1,
         "reproducible": true
       },
-      "result": "SURVIVED",
-      "rc": 0
+      "result": "KILLED",
+      "rc": 1
     },
     {
       "id": "se-pierde-la-autoria-real",
@@ -227,14 +227,15 @@
         "ocurrencias_del_ancla": 1,
         "reproducible": true
       },
-      "result": "SURVIVED",
-      "rc": 0
+      "result": "KILLED",
+      "rc": 1
     }
   ],
   "file_sha256": {
     "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
     "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
     "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
-    "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8"
+    "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8",
+    "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py": "5cf99bfafcaf8710e77d9c2b755e3c21db5a38042b1ea94a8a534e187973add5"
   }
 }
