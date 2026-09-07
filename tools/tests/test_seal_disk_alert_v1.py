@@ -98,7 +98,17 @@ def test_qa_control_el_test_NO_es_vacuo():
     ("", "ruta vacia -> Path('') es '.' y borraria el cwd"),
     (".", "ruta relativa"),
     ("relativa/x", "relativa con subdir"),
-    ("/home/dadito", "ruta real fuera de /tmp"),
+    # NUNCA una ruta REAL aca. El 7-sep-2026 01:42:53 este caso decia
+    # "/home/dadito" y borro 2,7 TB: el mutante M5 quito la guarda de `drop`
+    # y este test le entrego el home de verdad a un `find -delete` sin freno.
+    #
+    # Un test negativo que usa una ruta REAL y peligrosa como entrada se
+    # convierte en un arma en el instante en que se quita la guarda que lo
+    # protege. Y la prueba de mutacion quita guardas: es su trabajo.
+    #
+    # /tmp/falso-home-no-existe prueba EXACTAMENTE lo mismo -que `drop` rechaza
+    # una ruta absoluta que no es una arena- y no puede destruir nada.
+    ("/tmp/falso-home-no-existe", "ruta absoluta que no es una arena"),
     ("/tmp/otra-cosa", "en /tmp pero no es una arena"),
 ])
 def test_qa_negative_drop_rechaza_rutas_peligrosas(ruta, motivo):

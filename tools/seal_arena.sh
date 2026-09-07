@@ -85,6 +85,7 @@ case "${1:-}" in
     ruta="${2:-}"
     :  # M6 sin guarda de ruta vacia
     case "$ruta" in
+      # GUARDA-DESTRUCTIVA
       /tmp/seal-arena-*) : ;;
       *) echo "[seal-arena] drop: '$ruta' no es una arena (/tmp/seal-arena-*), no borro nada" >&2; exit 2 ;;
     esac
@@ -101,6 +102,7 @@ case "${1:-}" in
     # Esta guarda usa `realpath` -la de arriba compara el texto, y un symlink
     # /tmp/seal-arena-x -> /home la esquiva- y vive pegada al `find`, asi que un
     # mutante de una linea no puede quitar las dos.
+    # GUARDA-DESTRUCTIVA
     real=$(realpath -e "$ruta" 2>/dev/null) || { echo "[seal-arena] drop: no resuelvo '$ruta', no borro nada" >&2; exit 2; }
     case "$real" in
       /tmp/seal-arena-?*) : ;;

@@ -5,17 +5,29 @@
   "independent_reviewer": "NEXUS",
   "_doc": "scripts/seal_send.py acepta --message-file RUTA (y '-' para stdin): el cuerpo del mensaje deja de pasar por el shell. Pedido por JARVIS tras CUATRO mensajes rotos el 7-sep (tres suyos, uno de ALICE) porque bash ejecuta lo que va entre acentos graves y expande $VAR; uno llego a lanzar un proceso real. Arreglo de MECANISMO: la regla 'acordate del heredoc' se incumplio cuatro veces en un dia entre agentes que la conocian.",
   "deletions": [],
-  "subjects": ["scripts/seal_send.py"],
-  "tests": ["tools/tests/test_seal_send_message_file_v1.py"],
+  "subjects": [
+    "scripts/seal_send.py"
+  ],
+  "tests": [
+    "tools/tests/test_seal_send_message_file_v1.py"
+  ],
   "source_sha256": {
     "scripts/seal_send.py": "8794e9f576febf1f6a76700c784bc20f98c78b4916b4674c3b705aa748a019e3",
     "tools/tests/test_seal_send_message_file_v1.py": "32d3fe86d0142070a7f357cbde7aba7640cc227cfc434277aa8b35ecd8074dc1"
   },
   "implementation_head": "518c424dd6aa2aeb07823794747a2d7c286e6f7f",
   "coverage": {
-    "source": ["scripts"],
-    "omit": ["tools/tests/*", "*/site-packages/*"],
-    "pytest_args": ["-q", "tools/tests/test_seal_send_message_file_v1.py"],
+    "source": [
+      "scripts"
+    ],
+    "omit": [
+      "tools/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_seal_send_message_file_v1.py"
+    ],
     "baseline_percent": 0.0,
     "timeout": 600,
     "_nota": "el sujeto se ejercita por SUBPROCESO (importarlo ejecutaria su main y ENVIARIA un mensaje). coverage de python no lo ve: se declara 0.0 y la evidencia es por efecto."
@@ -27,23 +39,110 @@
       "_doc": "La entrega se afirma por la SALIDA: el flag tiene que existir y su ayuda tiene que decir por que existe (que el texto no pasa por el shell).",
       "expected_exit": 0,
       "expected_stdout_contains": "flag presente y documentado",
-      "argv": ["bash","-c","python3 scripts/seal_send.py --help | grep -q -- '--message-file' && python3 scripts/seal_send.py --help | grep -q 'shell' && echo 'flag presente y documentado'"]
+      "argv": [
+        "bash",
+        "-c",
+        "python3 scripts/seal_send.py --help | grep -q -- '--message-file' && python3 scripts/seal_send.py --help | grep -q 'shell' && echo 'flag presente y documentado'"
+      ]
     }
   },
   "commands": [
-    { "id": "unit-flag-existe-y-documentado", "kind": "unit", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_seal_send_message_file_v1.py::test_unit_el_flag_existe_y_esta_documentado"] },
-    { "id": "positive-cuerpo-desde-archivo", "kind": "qa_positive", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_seal_send_message_file_v1.py::test_qa_positive_el_cuerpo_sale_del_archivo"] },
-    { "id": "positive-cuerpo-desde-stdin", "kind": "qa_positive", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_seal_send_message_file_v1.py::test_qa_positive_stdin_tambien_alimenta_el_cuerpo"] },
-    { "id": "negative-los-dos-a-la-vez", "kind": "qa_negative", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_seal_send_message_file_v1.py::test_qa_negative_los_dos_a_la_vez_es_error_explicito"] },
-    { "id": "negative-sin-mensaje", "kind": "qa_negative", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_seal_send_message_file_v1.py::test_qa_negative_sin_mensaje_falla_en_vez_de_enviar_vacio"] },
-    { "id": "negative-archivo-inexistente", "kind": "qa_negative", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_seal_send_message_file_v1.py::test_qa_negative_archivo_inexistente_falla_claro"] },
-    { "id": "control-forma-vieja-intacta", "kind": "qa_control", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_seal_send_message_file_v1.py::test_qa_control_sin_el_flag_el_comportamiento_viejo_sigue_intacto"] }
-  ]
+    {
+      "id": "unit-flag-existe-y-documentado",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_send_message_file_v1.py::test_unit_el_flag_existe_y_esta_documentado"
+      ]
+    },
+    {
+      "id": "positive-cuerpo-desde-archivo",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_send_message_file_v1.py::test_qa_positive_el_cuerpo_sale_del_archivo"
+      ]
+    },
+    {
+      "id": "positive-cuerpo-desde-stdin",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_send_message_file_v1.py::test_qa_positive_stdin_tambien_alimenta_el_cuerpo"
+      ]
+    },
+    {
+      "id": "negative-los-dos-a-la-vez",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_send_message_file_v1.py::test_qa_negative_los_dos_a_la_vez_es_error_explicito"
+      ]
+    },
+    {
+      "id": "negative-sin-mensaje",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_send_message_file_v1.py::test_qa_negative_sin_mensaje_falla_en_vez_de_enviar_vacio"
+      ]
+    },
+    {
+      "id": "negative-archivo-inexistente",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_send_message_file_v1.py::test_qa_negative_archivo_inexistente_falla_claro"
+      ]
+    },
+    {
+      "id": "control-forma-vieja-intacta",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_send_message_file_v1.py::test_qa_control_sin_el_flag_el_comportamiento_viejo_sigue_intacto"
+      ]
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "Arena desde el INDICE (`seal_arena.sh new scripts tools messages quality`). CONTROL POSITIVO antes de contar: 7 passed. CUATRO mutantes adversariales sobre `scripts/seal_send.py`, cada uno con ancla verificada (count==1) y AST compilando; mutados en la COPIA, nunca en el repo: M1 `if args.message_file is not None:` -> `if False:` (el flag se ignora y el mensaje sale vacio): 4 failed, MUERE. M2 `if args.message_file == \"-\":` -> centinela imposible (stdin deja de funcionar): 1 failed, MUERE. M3 `if args.message is not None:` -> `if False:` (acepta posicional Y --message-file a la vez, en vez de rechazar): 1 failed, MUERE. Este era el que mas me importaba: un conflicto silencioso mandaria un mensaje distinto del que el autor cree. M4 `args.message = sys.stdin.read()` -> cadena vacia: 1 failed, MUERE. Restauracion: 7 passed. 4/4. POR QUE ESTOS: el sujeto lo usamos los CINCO; el riesgo no es que el flag nuevo falle, es que rompa el camino POSICIONAL que ya usabamos. M3 cubre exactamente esa frontera. LIMITES DECLARADOS: (a) NO probe un envio real al chat desde la arena — todos los brazos son locales, asi que acredito el parseo de argumentos y la lectura del archivo, no la entrega end-to-end; (b) `--help` responde en la arena (7 coincidencias de 'message'), lo que muestra que el script sigue ejecutable, pero eso no prueba el camino posicional completo; (c) no revise los otros flags del script, solo la frontera que introduce este cambio.",
+      "reviewed_sha256": {
+        "scripts/seal_send.py": "8794e9f576febf1f6a76700c784bc20f98c78b4916b4674c3b705aa748a019e3",
+        "tools/tests/test_seal_send_message_file_v1.py": "32d3fe86d0142070a7f357cbde7aba7640cc227cfc434277aa8b35ecd8074dc1"
+      },
+      "manifest_digest": "56d1431705f8b337358ce3590c773cf7ecc9a842967c6643f348a12377d6d920"
+    }
+  }
 }

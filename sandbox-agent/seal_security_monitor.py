@@ -13,6 +13,7 @@ Defends against:
 
 import json
 import os
+import pathlib
 import re
 import time
 import hashlib
@@ -243,6 +244,57 @@ def _unidad_de_cgroup(contenido: str) -> str:
     unidades = [u for u in re.findall(r"([A-Za-z0-9@._-]+\.service)", contenido)
                 if not re.fullmatch(r"user@\d+\.service", u)]
     return unidades[-1] if unidades else ""
+
+
+# ── Excepciones ACOTADAS de puerto (NEXUS, 7-sep-2026) ──────────────────────
+# Pedido de ADA: "una excepcion acotada y confirmada: servicio, puerto,
+# interfaz de escucha y vencimiento. Conservar la alerta si cambia esa
+# exposicion". NO es una allowlist por numero de puerto: si el proceso deja de
+# ser el declarado, o pasa a escuchar en otra interfaz, o vence el plazo, el
+# puerto VUELVE a alertar.
+#
+# POR QUE: este monitor le repitio a William "3002 posible backdoor" cada ~8 min
+# con el origen ya identificado (el next-server del cuerpo Codex de ADA). Un
+# vigilante que repite lo ya resuelto se vuelve ruido y deja de leerse.
+_EXCEPCIONES_PUERTO = {
+    3002: {
+        "servicio": "next-server",          # subcadena que debe estar en el cmdline
+        "interfaz": "*",                    # como aparece en `ss` (LISTEN ... *:3002)
+        "vence": "2026-09-08T12:00:00",     # 24 h; despues vuelve a alertar
+        "motivo": "Studio v2 del cuerpo Codex de ADA (traza: ALICE 11:31, JARVIS 11:34)",
+    },
+}
+
+
+def _puerto_exceptuado(puerto: int, ss_lines: list) -> str:
+    """-> motivo si el puerto esta exceptuado AHORA, o "" si debe alertar."""
+    import datetime as _dt
+    e = _EXCEPCIONES_PUERTO.get(puerto)
+    if not e:
+        return ""
+    try:
+        if _dt.datetime.now() > _dt.datetime.fromisoformat(e["vence"]):
+            return ""                                   # vencida: vuelve a alertar
+    except Exception:
+        return ""                                       # fecha ilegible: no exime
+    binds = [ln for ln in ss_lines if f":{puerto} " in ln and ln.startswith("LISTEN")]
+    if not binds:
+        return ""
+    # La interfaz declarada debe coincidir EXACTA con la real.
+    #
+    # DEFECTO QUE ESTO CORRIGE (lo encontro ADA pidiendo el control por efecto,
+    # 7-sep 11:57): la version anterior tenia `or e["interfaz"] == "*"`, asi que
+    # con interfaz "*" aceptaba CUALQUIER interfaz. Un servicio que pasara de
+    # loopback a 0.0.0.0 -mas expuesto- habria seguido exento. La condicion de
+    # ADA es "conservar la alerta si cambia esa exposicion", y cambiar de
+    # interfaz ES cambiar la exposicion.
+    reales = {ln.split()[3].rsplit(":", 1)[0] for ln in binds}
+    if reales != {e["interfaz"]}:
+        return ""
+    # y el proceso declarado debe seguir siendo el que escucha
+    if not any(e["servicio"] in ln for ln in binds):
+        return ""
+    return e["motivo"]
 
 
 def _puerto_respaldado_por_unidad(puerto: int, ss_lines: list) -> str:
@@ -821,6 +873,16 @@ def port_scan_monitor():
                     log("[port-monitor] Puertos con unidad systemd detras (no alerto): "
                         + ", ".join(f"{k} -> {v}" for k, v in _respaldados.items()))
                     new_ports -= set(_respaldados)
+                # Excepciones acotadas y con vencimiento (ver _puerto_exceptuado)
+                _exc = {}
+                for _p in sorted(new_ports):
+                    _m = _puerto_exceptuado(_p, _ss_lines)
+                    if _m:
+                        _exc[_p] = _m
+                if _exc:
+                    log("[port-monitor] Puertos con excepcion vigente (no alerto): "
+                        + ", ".join(f"{k} -> {v}" for k, v in _exc.items()))
+                    new_ports -= set(_exc)
             if new_ports:
                 alert(
                     "MEDIUM",
@@ -918,7 +980,30 @@ if __name__ == "__main__":
     
     log("[NEXUS Security Monitor] ACTIVO — todas las defensas en línea.")
     
-    # Send startup confirmation
+    # Aviso de arranque a William — CON FRENO (NEXUS, 7-sep-2026)
+    #
+    # POR QUE: hoy reinicie este servicio varias veces arreglandolo y cada
+    # arranque le mando a William "Sistema de defensas ACTIVO". JARVIS tuvo que
+    # pararlo: 8 reinicios en bucle, 2 avisos ya entregados. Un aviso de arranque
+    # es util UNA vez; repetido es ruido, y el ruido hace que se deje de leer al
+    # vigilante justo cuando importa.
+    #
+    # Se avisa como mucho una vez cada 6 h. El sello vive fuera de /tmp para que
+    # sobreviva a un reinicio de la maquina.
+    _sello = pathlib.Path.home() / ".config" / "seal" / ".nexus_sec_ultimo_arranque"
+    _avisar = True
+    try:
+        if _sello.exists() and (time.time() - _sello.stat().st_mtime) < 6 * 3600:
+            _avisar = False
+            log("[NEXUS-SEC] arranque reciente ya avisado (<6h): no repito el mensaje")
+    except OSError:
+        pass
+    try:
+        if _avisar:
+            _sello.parent.mkdir(parents=True, exist_ok=True)
+            _sello.write_text(str(time.time()))
+    except OSError:
+        pass
     try:
         startup_msg = (
             "🛡️ [NEXUS-SEC] Sistema de defensas automáticas ACTIVO.\n"
@@ -931,9 +1016,10 @@ if __name__ == "__main__":
             "• Reporte automático cada 30 min\n"
             "• Secret Scanner (30+ regex) — mensajes + archivos (OWASP A02:2021)"
         )
-        send_agent_message_sync(
-            "NEXUS", "William", startup_msg, message_type="status", proactive=True
-        )
+        if _avisar:
+            send_agent_message_sync(
+                "NEXUS", "William", startup_msg, message_type="status", proactive=True
+            )
     except Exception:
         pass
     

@@ -3,9 +3,11 @@ Description=NEXUS SEAL Security Monitor — automatic defenses daemon
 After=network.target
 
 [Service]
+# Usa el venv: httpx no esta en el python del sistema tras el borrado
+# del 7-sep (site-packages vacio). Medido: /usr/bin/python3 -> ModuleNotFoundError.
 Type=simple
 WorkingDirectory=/home/dadito/IA/proyecto-seal/sandbox-agent
-ExecStart=/usr/bin/python3 /home/dadito/IA/proyecto-seal/sandbox-agent/seal_security_monitor.py
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/sandbox-agent/seal_security_monitor.py
 Restart=always
 RestartSec=10
 Environment=PYTHONUNBUFFERED=1
