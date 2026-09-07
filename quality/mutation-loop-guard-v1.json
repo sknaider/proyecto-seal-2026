@@ -11,7 +11,7 @@
   "suspicious": 0,
   "timeout": 0,
   "total": 9,
-  "mutation_score_percent": 88.88888888888889,
+  "mutation_score_percent": 88.889,
   "mutation_target": "isolated_copy",
   "positive_control_unmutated_copy": {
     "suite": "11 passed, 3 subtests passed in 0.06s",
