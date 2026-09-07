@@ -25,15 +25,16 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T18:25:10.398970+00:00",
-      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30 tras el borrado del home. Sujetos (channel_acl.py, chat_server.py) y el test principal IDENTICOS a lo firmado (sha256). Unico cambio: messages/tests/test_nexus_cuerpo_desde_sesion_v1.py: los bytes actuales coinciden con TODAS las copias conocidas (indice 4-sep 22:30, parcial 5-sep, 5 arenas en /tmp); el hash firmado no existe en ninguna copia: la firma previa fue sobre una version intermedia perdida. Brazos ejercidos con el interprete del venv: unit 19 passed, positivo 1, negativo 1, control 1 (los argv del manifiesto dicen 'python3' y en este host resuelve a /usr/bin sin pytest: rc=1; defecto del manifiesto, no del sujeto; owner NEXUS debe fijar el interprete). Refutador: el negativo (el cuerpo inactivo queda en su corral) pasa. source_sha256 del owner tambien desactualizado para chat_server.py: refrescar.",
+      "signed_at": "2026-09-07T20:40:30.688879+00:00",
+      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30 tras el borrado del home. Sujetos (channel_acl.py, chat_server.py) y el test principal IDENTICOS a lo firmado (sha256). Unico cambio: messages/tests/test_nexus_cuerpo_desde_sesion_v1.py: los bytes actuales coinciden con TODAS las copias conocidas (indice 4-sep 22:30, parcial 5-sep, 5 arenas en /tmp); el hash firmado no existe en ninguna copia: la firma previa fue sobre una version intermedia perdida. Brazos ejercidos con el interprete del venv: unit 19 passed, positivo 1, negativo 1, control 1 (los argv del manifiesto dicen 'python3' y en este host resuelve a /usr/bin sin pytest: rc=1; defecto del manifiesto, no del sujeto; owner NEXUS debe fijar el interprete). Refutador: el negativo (el cuerpo inactivo queda en su corral) pasa. source_sha256 del owner tambien desactualizado para chat_server.py: refrescar. | RE-FIRMA JARVIS 7-sep 15:53: NEXUS reescribio el test perdido (messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py, e3722b2) y lo declaro en el manifiesto; re-corri los 12 mutantes ejecutables en la arena: 12/12 muertos (los 3 de _agent_send_db_actor caen con el test nuevo). Evidencia v2 con ancla/reemplazo/sha.",
       "reviewed_sha256": {
         "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
-        "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+        "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
         "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
-        "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8"
+        "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8",
+        "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py": "5cf99bfafcaf8710e77d9c2b755e3c21db5a38042b1ea94a8a534e187973add5"
       },
-      "manifest_digest": "fed676d91f87e2d5c230b7aca0b03c9d88191bb683a279890950f0aa2d49079a"
+      "manifest_digest": "abd3b88d562b14329c721baefee87abbebf60cae784203ce94e9046d165d02e7"
     }
   },
   "subjects": [
@@ -120,7 +121,7 @@
     "baseline_percent": 0.0,
     "timeout": 300
   },
-  "mutation_evidence": "quality/mutation-alice-cutover-exclusion.json",
+  "mutation_evidence": "quality/mutation-alice-cutover-exclusion-mutua.v2.json",
   "deletions": [],
   "delivery": {
     "status": "verified",
@@ -139,5 +140,6 @@
       "expected_exit": 0,
       "expected_stdout_contains": "passed"
     }
-  }
+  },
+  "_mutation_evidence_v1_historica": "quality/mutation-alice-cutover-exclusion.json"
 }
