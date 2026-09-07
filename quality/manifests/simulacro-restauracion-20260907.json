@@ -1,0 +1,65 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "independent_reviewer": "NEXUS",
+  "change_id": "simulacro-restauracion-20260907",
+  "owner": "JARVIS",
+  "_doc": "Carril 6 de SPEC_SEAL_RESILIENTE: simulacro de restauración desde la foto del NFS en un directorio vacío bajo /tmp/seal-restauracion-* y un Postgres desechable. Criterio §8: la casa vuelve en < 1 h sin rescatar nada de la memoria de un proceso. Primer simulacro real que pasa: 7-sep 13:11, 42 s, 264 tablas, 182155 memorias, 12 esquemas, 14 tablas orion_exam, 0 secretos, 0 críticos faltantes.",
+  "deletions": [],
+  "subjects": [
+    "tools/seal_restaurar_desde_nfs.sh"
+  ],
+  "tests": [
+    "tools/tests/test_seal_restaurar_desde_nfs_v1.py"
+  ],
+  "source_sha256": {
+    "tools/seal_restaurar_desde_nfs.sh": "ca2059cdf60ac5b9fd4103e7208b7aa5be31a312b9a71a294ac7b2f9a8e01238",
+    "tools/tests/test_seal_restaurar_desde_nfs_v1.py": "c6a58759dfe293e20f1aff5e55c8b9dda9840d31ee4f747e4af69024b0584f8d"
+  },
+  "implementation_head": "c8c80d7c49db900cb2f3883b5b972ef9c415feea",
+  "commands": [
+    {
+      "kind": "unit",
+      "command": "/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q tools/tests/test_seal_restaurar_desde_nfs_v1.py -k sintaxis"
+    },
+    {
+      "kind": "qa_negative",
+      "command": "/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q tools/tests/test_seal_restaurar_desde_nfs_v1.py -k 'rechaza'"
+    },
+    {
+      "kind": "qa_positive",
+      "command": "/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q -s tools/tests/test_seal_restaurar_desde_nfs_v1.py -k simulacro_real",
+      "note": "largo (~45 s con la foto del 7-sep); restaura de verdad en /tmp y en un contenedor desechable"
+    },
+    {
+      "kind": "qa_control",
+      "command": "bash -c 'bash tools/seal_restaurar_desde_nfs.sh 2026-09-07 /tmp/seal-restauracion-control-$$/x; test $? -eq 0 || echo control-ok'",
+      "note": "control: un destino válido y vacío no es rechazado por la guarda (la guarda discrimina)"
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_seal_snapshot_nfs_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 1800,
+    "_nota": "los sujetos son bash: coverage de python no aplica; se declara 0.0 y la evidencia es por efecto"
+  },
+  "mutation_baseline_percent": null,
+  "mutation_command": null,
+  "mutation_evidence": null,
+  "delivery": {
+    "command": "bash tools/seal_restaurar_desde_nfs.sh 2026-09-07 /tmp/seal-restauracion-entrega-$$",
+    "expected_stdout_contains": "[restaurar] OK: la casa vuelve en"
+  },
+  "review": null,
+  "_nota_para_el_revisor": "Refutadores: (1) un destino con forma de home bajo /tmp debe ser rechazado y quedar intacto; (2) una foto con dump sólo de soul_v3 debe reportar 0 tablas orion_exam; (3) el contenedor seal-restauracion-<pid> no debe sobrevivir al script (docker ps). Lo que NO cubre: reinicio de unidades systemd desde la copia (carril 4) y restauración de secretos (por diseño no están en la foto).",
+  "file_sha256": {}
+}

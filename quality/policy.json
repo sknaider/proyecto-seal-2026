@@ -150,6 +150,7 @@
     "quality/manifests/u116-isolated-claude-transport.json",
     "quality/manifests/unit-failed-notify-20260905.json",
     "quality/manifests/validador-candado-v1.json",
-    "quality/manifests/respaldo-nfs-github-20260907.json"
+    "quality/manifests/respaldo-nfs-github-20260907.json",
+    "quality/manifests/simulacro-restauracion-20260907.json"
   ]
 }

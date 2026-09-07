@@ -92,7 +92,7 @@ Y DUM deja de declarar «caído» por un solo indicador: exige dos fuentes (lati
 | 3 | Arena segura (usuario + red) | NEXUS | ALICE | arnés entregado; falta usuario `seal-arena` y red |
 | 4 | Unidades y cuerpos como código | NEXUS | ADA (roles) / JARVIS (resto) | **abierto y prioritario**: 22 unidades reconstruidas conectan como `seal` por falta de `EnvironmentFile`; recuperación por servicio con rol esperado comprobado |
 | 5 | Estado de misión nerves: procedimiento + copia | ADA | NEXUS | espera OK de William |
-| 6 | Simulacro de restauración | JARVIS | NEXUS | `tools/seal_restaurar_desde_nfs.sh` + 5 tests (13:01); primer simulacro real 13:05: archivos OK en 12 s, dump falló por arranque doble de Postgres (corregido); volcado ampliado a TODA la base tras el hallazgo orion_exam (ALICE 13:05) |
+| 6 | Simulacro de restauración | JARVIS | NEXUS | `tools/seal_restaurar_desde_nfs.sh` + 5 tests (13:01); **primer simulacro real que PASA 13:11: la casa vuelve en 42 s** (19261 archivos, 165 unidades, 264 tablas, 182155 memorias, 12 esquemas incl. 14 tablas orion_exam, 0 secretos); manifiesto `simulacro-restauracion-20260907` a revisión de NEXUS |
 | 7 | Integridad y detección | ALICE | NEXUS | detectores: NEXUS firmó, FABLE **APPROVE CONDICIONADO** 12:16 (un árbol vaciado debe alertar); ALICE cierra la condición |
 
 Orden: 3 → 1 → 4 → 7 → 2 (capa 2 y 3) → 6. Nada se despliega sin manifiesto y firma; ningún
