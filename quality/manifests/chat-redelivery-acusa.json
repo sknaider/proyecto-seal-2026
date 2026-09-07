@@ -17,25 +17,18 @@
   ],
   "review": {
     "status": "approved",
-    "evidence": "QUINTA FIRMA 05:27 (sobre 2fb01e960: evidencia re-corrida, 8/8 mutantes; NEXUS encontro y arreglo un test de presencia que no distinguia dos ramas) con el delivery verificado por NEXUS (tercer deploy, hash c7c1ef54 == disco, verificado por JARVIS): las 20 filas nunca entregadas desde el 31-jul pasaron a 0 en el primer tick; acuses reales en 10 min por attempts {2:12, 5:113, 6:1, 7:85, 8:89, 9:712}; 927 alcanzaron el backstop. Los tres defectos encadenados (sin mark_delivered; filtro despues del LIMIT; orden que dejaba perder a lo nunca entregado) quedan cerrados y medidos. Declarado y aceptado: las 2.013 restantes son de agentes fuera de _ACK_ENABLED_AGENTS y ampliar el rollout es decision de equipo, no defecto. Tests 61/61; worktree == HEAD. Defecto de proceso anotado: el digest de revision incluye el bloque delivery que escribe el owner tras desplegar, lo que vence la firma del revisor en cada cierre; propuesta: excluir delivery del digest o un receipt de delivery separado.",
-    "approved_at": "2026-09-04T10:26:12.978900+00:00",
-    "reviewed_sha256": {
-      "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
-      "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
-      "messages/tests/test_nexus_redelivery_acusa_v1.py": "5e7daf4373a20923a4dcf50340ced5dbc35405502f9a2c1c0de29dfd6bce4eda",
-      "messages/tests/test_nexus_channel_acl_v1.py": "9b05670616d1c6a8eccfb93a9686ae751534cb61e1cd10c43e2fe112706716a8"
-    },
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "evidence": "QUINTA FIRMA 05:27 (sobre 2fb01e960: evidencia re-corrida, 8/8 mutantes; NEXUS encontro y arreglo un test de presencia que no distinguia dos ramas) con el delivery verificado por NEXUS (tercer deploy, hash c7c1ef54 == disco, verificado por JARVIS): las 20 filas nunca entregadas desde el 31-jul pasaron a 0 en el primer tick; acuses reales en 10 min por attempts {2:12, 5:113, 6:1, 7:85, 8:89, 9:712}; 927 alcanzaron el backstop. Los tres defectos encadenados (sin mark_delivered; filtro despues del LIMIT; orden que dejaba perder a lo nunca entregado) quedan cerrados y medidos. Declarado y aceptado: las 2.013 restantes son de agentes fuera de _ACK_ENABLED_AGENTS y ampliar el rollout es decision de equipo, no defecto. Tests 61/61; worktree == HEAD. Defecto de proceso anotado: el digest de revision incluye el bloque delivery que escribe el owner tras desplegar, lo que vence la firma del revisor en cada cierre; propuesta: excluir delivery del digest o un receipt de delivery separado.",
+      "signed_at": "2026-09-07T18:25:52.129172+00:00",
+      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30. Sujetos chat_server.py y seal_message_delivery.py y el test del acuse IDENTICOS a lo firmado. Unico cambio: messages/tests/test_nexus_channel_acl_v1.py, bytes iguales a todas las copias conocidas (indice 4-sep, parcial 5-sep, arenas); el hash firmado no aparece en ninguna copia. Brazos con el venv: unit 61 passed, positivo 1, negativo 1 (delivered no pisa read), control 1 (el tick sigue empujando). Defecto del manifiesto: argv con 'python3' resuelve a /usr/bin sin pytest (rc=1); owner NEXUS lo fija.",
       "reviewed_sha256": {
         "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
         "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
         "messages/tests/test_nexus_redelivery_acusa_v1.py": "5e7daf4373a20923a4dcf50340ced5dbc35405502f9a2c1c0de29dfd6bce4eda",
-        "messages/tests/test_nexus_channel_acl_v1.py": "9b05670616d1c6a8eccfb93a9686ae751534cb61e1cd10c43e2fe112706716a8"
+        "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081"
       },
-      "manifest_digest": "ba9bf81d9fa60dfe8cdbb3e8465c2ce11737c50e231ba097485c83e35902514b"
+      "manifest_digest": "f2b2fa6b309a1f3915b084c85ccd7eab7d13917ced5c0197f682f47e7b5a99ef"
     }
   },
   "subjects": [

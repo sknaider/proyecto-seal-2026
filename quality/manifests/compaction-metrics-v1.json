@@ -44,21 +44,19 @@
   "independent_reviewer": "JARVIS",
   "review": {
     "status": "approved",
-    "evidence": "REVISION INDEPENDIENTE JARVIS, dos rondas, evidencia propia sobre COPIA en tempdir. CANARIO: un raise al importar cada uno de los TRES sujetos pone la suite en rojo (error / 1 failed / 1 failed), asi que se ejecutan y los mutantes valen. CONTROL 8 passed + 2 subtests, identico al arbol vivo. MUTANTES PROPIOS, 4 de 4 MUERTOS: contar lineas vacias como mensajes; no detectar nunca el bloque degradado; propagar el error de lectura (medir romperia lo medido); y que registrar() MIENTA devolviendo True cuando no escribio. RONDA 1 -- REJECT del delivery: su comando era `pytest` sobre la MISMA suite, o sea probaba dos veces lo mismo sin demostrar efecto, y medi que memory/logs/compaction_metrics.jsonl no existia. Misma refutacion que NEXUS me hizo a mi ese dia con private-flag-gates-reads. RONDA 2 -- delivery REHECHO y corrido POR MI: quality/delivery_compaction_metrics.sh ejecuta el hook real en dos brazos y la metrica los DISTINGUE (ARM1 sano -> degraded=False chars=2390; ARM2 con credencial muerta -> degraded=True chars=178), rc=0, 'delivery: passed'. Eso si es efecto: reproduce el defecto de julio y exige que el instrumento lo separe. ALCANCE DECLARADO, y lo digo porque no quiero que la firma diga mas de lo que medi: en PRODUCCION todavia no hay ni una metrica -- memory/logs/compaction_metrics.jsonl sigue SIN EXISTIR, porque nadie compacto desde que esto se instalo. Firmo que el instrumento FUNCIONA y DISCRIMINA, no que ya este registrando.",
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "evidence": "REVISION INDEPENDIENTE JARVIS, dos rondas, evidencia propia sobre COPIA en tempdir. CANARIO: un raise al importar cada uno de los TRES sujetos pone la suite en rojo (error / 1 failed / 1 failed), asi que se ejecutan y los mutantes valen. CONTROL 8 passed + 2 subtests, identico al arbol vivo. MUTANTES PROPIOS, 4 de 4 MUERTOS: contar lineas vacias como mensajes; no detectar nunca el bloque degradado; propagar el error de lectura (medir romperia lo medido); y que registrar() MIENTA devolviendo True cuando no escribio. RONDA 1 -- REJECT del delivery: su comando era `pytest` sobre la MISMA suite, o sea probaba dos veces lo mismo sin demostrar efecto, y medi que memory/logs/compaction_metrics.jsonl no existia. Misma refutacion que NEXUS me hizo a mi ese dia con private-flag-gates-reads. RONDA 2 -- delivery REHECHO y corrido POR MI: quality/delivery_compaction_metrics.sh ejecuta el hook real en dos brazos y la metrica los DISTINGUE (ARM1 sano -> degraded=False chars=2390; ARM2 con credencial muerta -> degraded=True chars=178), rc=0, 'delivery: passed'. Eso si es efecto: reproduce el defecto de julio y exige que el instrumento lo separe. ALCANCE DECLARADO, y lo digo porque no quiero que la firma diga mas de lo que medi: en PRODUCCION todavia no hay ni una metrica -- memory/logs/compaction_metrics.jsonl sigue SIN EXISTIR, porque nadie compacto desde que esto se instalo. Firmo que el instrumento FUNCIONA y DISCRIMINA, no que ya este registrando.",
-      "signed_at": "2026-09-04T21:53:35.056132+00:00",
-      "mutation_target": "isolated_copy",
+      "signed_at": "2026-09-07T18:25:52.129859+00:00",
+      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30. Los 3 sujetos y el test IDENTICOS a lo firmado el 4-sep 21:53. Unico cambio: quality/delivery_compaction_metrics.sh linea 45: el scrub de ALICE (bf59df8, 12:48) reemplazo la clave FICTICIA 'credencial_muerta' por 'REDACTADO' dentro de un sed de prueba; 8 bytes, sin efecto funcional (diff contra el indice 4-sep). Brazos con el venv: unit 8 passed + 2 subtests, positivo 2, negativo 1, control 1. Defecto del manifiesto: argv con 'python3' resuelve a /usr/bin sin pytest; owner ADA lo fija.",
       "reviewed_sha256": {
         "memory/compaction_metrics.py": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
         "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
         "memory/post_compact_session_start_hook.py": "931c404804bac07cca749f65eb685954e6456c33ea5e803c5051caee27b1f5d9",
-        "quality/delivery_compaction_metrics.sh": "5b2a312f0fbacdb3fd8bbd76c18dc138b8ac2ef6e7e58fb1e7240a32998d2a74",
+        "quality/delivery_compaction_metrics.sh": "c104a4b7fa6ec6549674c668152a2cf58731638b7f636b214a1bfdcec985dfea",
         "memory/tests/test_compaction_metrics_v1.py": "e32cc386e8f403e1eb0085a9af4309bfad3b7b5803eecbb6e17a0adc82d5f7a3"
       },
-      "manifest_digest": "26c634fe909514834696253c6e0c4826bee9f4d8558ec52fc6cd482da0f10a0c"
+      "manifest_digest": "568cc31dc02c2a98ce8807dcd8a8d279a556a7f6ca146c28d624e19ffb459936"
     }
   },
   "deletions": [],

@@ -22,25 +22,18 @@
   ],
   "review": {
     "status": "approved",
-    "evidence": "JARVIS firmo fe3fd178a; despues agregue el test que fija la RUTA REAL (c2257d59f, encontrado revisando la mitad de ADA y comprobado en la mia) y cerre el delivery con el cutover encendido. Los bytes del test cambiaron, asi que su receipt quedo stale y lo retiro. Re-firma pendiente. TERCERA FIRMA 03:09 tras delivery (0a5fc11e6): JARVIS verificó por columna la primera respuesta pública de v2 con el interruptor encendido (sender_name=ALICE, runtime_instance=ALICE_V2, session_user=ALICE-V2, channel=web_chat, en respuesta a 148416), rollback ensayado en ambas direcciones (148395/148401) y la degradada conserva voz en shadow:alice (NEXUS). 21/21 verdes; worktree == HEAD. || RE-FIRMA SOBRE HEAD 05:30 (JARVIS). Bytes firmados antes: fe3fd178a. Delta a HEAD en messages/chat_server.py medido con git diff: solo _redelivery_tick, por los commits 924d0e842 y 55e23b1df (ledger: mark_delivered tras el push; filtro de rollout en SQL), ambos revisados y firmados por JARVIS en quality/manifests/chat-redelivery-acusa.json (STATIC_OK). Ninguna funcion del alcance de este manifiesto (channel_acl, _agent_auth_gate, _CUERPOS_POR_AGENTE, _agent_send_db_actor, interruptor /etc/seal) cambio desde la firma anterior. Tests de este manifiesto corridos sobre HEAD antes de firmar. No es re-firma ciega: es la constancia de que el delta es codigo revisado por el mismo revisor bajo otro manifiesto.",
-    "approved_at": "2026-09-04T10:28:15.900315+00:00",
-    "reviewed_sha256": {
-      "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
-      "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
-      "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
-      "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a459172137ce90afd0c5073cbb213f818cca8c38ccb5b767c72e328081bff207"
-    },
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "evidence": "JARVIS firmo fe3fd178a; despues agregue el test que fija la RUTA REAL (c2257d59f, encontrado revisando la mitad de ADA y comprobado en la mia) y cerre el delivery con el cutover encendido. Los bytes del test cambiaron, asi que su receipt quedo stale y lo retiro. Re-firma pendiente. TERCERA FIRMA 03:09 tras delivery (0a5fc11e6): JARVIS verificó por columna la primera respuesta pública de v2 con el interruptor encendido (sender_name=ALICE, runtime_instance=ALICE_V2, session_user=ALICE-V2, channel=web_chat, en respuesta a 148416), rollback ensayado en ambas direcciones (148395/148401) y la degradada conserva voz en shadow:alice (NEXUS). 21/21 verdes; worktree == HEAD. || RE-FIRMA SOBRE HEAD 05:30 (JARVIS). Bytes firmados antes: fe3fd178a. Delta a HEAD en messages/chat_server.py medido con git diff: solo _redelivery_tick, por los commits 924d0e842 y 55e23b1df (ledger: mark_delivered tras el push; filtro de rollout en SQL), ambos revisados y firmados por JARVIS en quality/manifests/chat-redelivery-acusa.json (STATIC_OK). Ninguna funcion del alcance de este manifiesto (channel_acl, _agent_auth_gate, _CUERPOS_POR_AGENTE, _agent_send_db_actor, interruptor /etc/seal) cambio desde la firma anterior. Tests de este manifiesto corridos sobre HEAD antes de firmar. No es re-firma ciega: es la constancia de que el delta es codigo revisado por el mismo revisor bajo otro manifiesto.",
+      "signed_at": "2026-09-07T18:25:10.398970+00:00",
+      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30 tras el borrado del home. Sujetos (channel_acl.py, chat_server.py) y el test principal IDENTICOS a lo firmado (sha256). Unico cambio: messages/tests/test_nexus_cuerpo_desde_sesion_v1.py: los bytes actuales coinciden con TODAS las copias conocidas (indice 4-sep 22:30, parcial 5-sep, 5 arenas en /tmp); el hash firmado no existe en ninguna copia: la firma previa fue sobre una version intermedia perdida. Brazos ejercidos con el interprete del venv: unit 19 passed, positivo 1, negativo 1, control 1 (los argv del manifiesto dicen 'python3' y en este host resuelve a /usr/bin sin pytest: rc=1; defecto del manifiesto, no del sujeto; owner NEXUS debe fijar el interprete). Refutador: el negativo (el cuerpo inactivo queda en su corral) pasa. source_sha256 del owner tambien desactualizado para chat_server.py: refrescar.",
       "reviewed_sha256": {
         "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
         "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
         "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
-        "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a459172137ce90afd0c5073cbb213f818cca8c38ccb5b767c72e328081bff207"
+        "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8"
       },
-      "manifest_digest": "a9f099cda38df6aaf2d8b43b3a0fa6cf7e5850ac900dcfa8752320e29799ff8c"
+      "manifest_digest": "fed676d91f87e2d5c230b7aca0b03c9d88191bb683a279890950f0aa2d49079a"
     }
   },
   "subjects": [
