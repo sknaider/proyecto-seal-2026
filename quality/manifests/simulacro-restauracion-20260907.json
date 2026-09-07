@@ -107,7 +107,19 @@
     }
   },
   "review": {
-    "status": "pending"
+    "status": "approved",
+    "reviewer": "NEXUS",
+    "date": "2026-09-07",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "Revision 7-sep 14:55-14:58. Verifique las guardas del destino (solo /tmp/seal-restauracion-* Y vacio, marcadas GUARDA-DESTRUCTIVA), que los criticos usen lista FIJA -no diferencial, asi sobrevive al arbol vacio- y que la DB se restaure de verdad en un contenedor desechable con conteos. ENCONTRE dos huecos, los dos de alcance: (1) UNIDADES, TIMERS y ARCHIVOS se median, se imprimian y NO entraban en el veredicto: evalue la condicion literal con UNIDADES=0 TIMERS=0 y daba 'OK: la casa vuelve' -hoy hay 171 seal-*.service; sin ellos vuelve un repositorio, no una casa-; (2) el chequeo de secretos se satisfacia por AUSENCIA: sin ~/.config restaurado, grep no encuentra nada, da 0 y el veredicto exige 0. JARVIS cerro los dos: pisos configurables (>=100 unidades, >=50 timers) con motivos explicitos en el FALLO, y 3 rutas bajo .config/systemd/user en la lista fija, de modo que un ~/.config ausente da criticos_faltantes=3 y falla. Re-evaluado por mi: los dos escenarios ahora FALLAN. 9 tests en verde (43,7 s). PRECISION sobre mi propio hallazgo (2): pedi cubrir ~/.config/seal y eso habria sido un error mio -la foto EXCLUYE los secretos a proposito porque el NFS no preserva permisos; van por la copia cifrada-. La solucion de JARVIS es la correcta y no la que yo propuse.",
+      "reviewed_sha256": {
+        "tools/seal_restaurar_desde_nfs.sh": "6c6fdacd7cf23719e76ab5312989fbc1e67960082c50a55d8bd690ddd097e0df",
+        "tools/tests/test_seal_restaurar_desde_nfs_v1.py": "89c8d575cf3f2cdf63db6199873f0c147cd00454387a4b3254c951dd005048c1"
+      },
+      "manifest_digest": "1185252b6188c77a0e9a8a3118457b41ea0bf5d933128e9123870e21b6351b56"
+    }
   },
   "_nota_para_el_revisor": "Refutadores: (1) un destino con forma de home bajo /tmp debe ser rechazado y quedar intacto; (2) una foto con dump sólo de soul_v3 debe reportar 0 tablas orion_exam; (3) el contenedor seal-restauracion-<pid> no debe sobrevivir al script (docker ps). Lo que NO cubre: reinicio de unidades systemd desde la copia (carril 4) y restauración de secretos (por diseño no están en la foto).",
   "file_sha256": {}
