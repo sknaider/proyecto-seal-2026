@@ -133,6 +133,41 @@ async def capture_checkpoint(agent: str, is_final: bool = False):
     except:
         active_agents = []
 
+    # 7. G2 (§12 de la spec de William): TAREA y DECISIONES, no solo identidad.
+    #
+    # POR QUE VUELVE A ESCRIBIRSE (7-sep-2026): esta capa existia, se perdio con
+    # el borrado del home -ni el codigo ni su test estan en el arbol recuperado,
+    # ni en github/main, ni en el NFS- y el manifiesto seguia declarandola. Lo
+    # detecto ALICE revisando: el manifiesto describia una capacidad que ya no
+    # existia en el codigo.
+    #
+    # Y el dia lo demostro: tras el reinicio, un agente sabe QUIEN es -ocean,
+    # estado emocional, memorias- y NO sabe QUE estaba haciendo. G2 quedaba en
+    # 1 de 3 por AUSENCIA, no por error.
+    #
+    # Va DETRAS DE UNA BANDERA APAGADA POR DEFECTO, como exige la spec: encender
+    # una capa nueva en el camino de todos los checkpoints sin pedirlo es
+    # cambiarle el contrato a los cinco agentes.
+    tareas_activas, decisiones_recientes = [], []
+    if os.environ.get("SEAL_CHECKPOINT_G2", "").strip().lower() in {"1", "true", "yes", "on"}:
+        tareas_activas = [
+            {"id": t["id"], "title": t["title"], "status": t["status"],
+             "priority": t["priority"]}
+            for t in await conn.fetch(
+                "SELECT id, title, status, priority FROM agent_tasks "
+                "WHERE agent = $1 AND status = 'in_progress' "
+                "ORDER BY priority DESC, id DESC LIMIT 20", agent)
+        ]
+        decisiones_recientes = [
+            {"id": d["id"], "content": d["content"][:200],
+             "created_at": d["created_at"].isoformat() if d["created_at"] else ""}
+            for d in await conn.fetch(
+                "SELECT id, content, created_at FROM memories "
+                "WHERE agent = $1 AND category = 'decision' "
+                "AND created_at > NOW() - INTERVAL '24 hours' "
+                "ORDER BY created_at DESC LIMIT 20", agent)
+        ]
+
     checkpoint = {
         "agent": agent,
         "timestamp": now.isoformat(),
@@ -162,6 +197,13 @@ async def capture_checkpoint(agent: str, is_final: bool = False):
             "entry": diary["entry"][:300] if diary else "",
             "mood": diary["mood"] if diary else "",
         },
+        # G2: las dos listas van SIEMPRE, vacias si la bandera esta apagada. Que
+        # la CLAVE exista siempre y el CONTENIDO dependa de la bandera es lo que
+        # permite distinguir "apagada" de "encendida y sin tareas" -si la clave
+        # apareciera solo al encender, un consumidor no podria notar la
+        # diferencia entre las dos-.
+        "tareas_activas": tareas_activas,
+        "decisiones_recientes": decisiones_recientes,
         "recent_team_messages": recent_messages[-20:],
         "active_agents": active_agents,
         "summary": f"{'CIERRE FINAL' if is_final else 'Checkpoint'} de {agent} a las {now.strftime('%H:%M')} Lima. "
