@@ -50,7 +50,7 @@ capa 3  simulacro de restauración mensual: restaurar la foto en un directorio v
         chat + MCP contra una DB de prueba; si no arranca, el respaldo no existe
 ```
 
-Además: **`pg_dump` diario de TODA la base** (no sólo `soul_v3`: `orion_exam` de Henry y `fable` no tenían copia hasta el 7-sep 13:07) al NFS (hoy la DB vive sólo en el volumen docker; el
+Además: **`pg_dump` diario de TODAS las bases del servidor** (`seal_memory` completa; `glt_financiero`, `soul_standalone`, `soul_v3_sandbox`, `valeria_memory` no tenían copia hasta el 7-sep 14:30), **roles y grants sin claves** (`pg_dumpall --globals-only --no-role-passwords`) y **Neo4j vivo** (dump consistente con STOP/START a las 03:30; copia caliente del volumen como fallback, restaurada y contada el 7-sep: 96.196/96.196 nodos) al NFS (hoy la DB vive sólo en el volumen docker; el
 contenedor sobrevivió por suerte). Cifrado de los secretos en el NFS con una clave que guarda William.
 
 ## 3. Secretos y credenciales (carril 1, ALICE; revisa ADA)
