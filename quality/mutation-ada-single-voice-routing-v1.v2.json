@@ -1,0 +1,178 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "ada-single-voice-routing-v1",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 6,
+  "survived": 0,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "............                                                             [100%]\n84 passed in 0.42s\n..                                                                       [100%]\n2 passed in 0.26s",
+    "sha_sujetos_antes": {
+      "messages/routing.yaml": "c59495a05ffd3de1fd628b49502822687d8a3d432bfeea957287066884994d65",
+      "messages/ada_codex_remote_bridge.py": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "routing-sin-terminal-log",
+      "subject": "messages/routing.yaml",
+      "ancla": "    deliver_to: [terminal_log, trigger_ada, web_api]",
+      "reemplazo": "    deliver_to: [trigger_ada, web_api]",
+      "why": "agent_to:ADA vuelve a omitir terminal_log: el DM a ADA no llega al log de su terminal",
+      "registro": {
+        "subject": "messages/routing.yaml",
+        "ancla": "    deliver_to: [terminal_log, trigger_ada, web_api]",
+        "reemplazo": "    deliver_to: [trigger_ada, web_api]",
+        "ancla_sha256": "c4e37e2abd74703cf9f1575462ad16eb6bcff3ded3b8da855f71949d729e46c4",
+        "sujeto_sha256_antes": "c59495a05ffd3de1fd628b49502822687d8a3d432bfeea957287066884994d65",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_directed_routing.py::test_message_directed_to_ada_reaches_her_terminal_feed"
+      ],
+      "pytest_tail": "E       AssertionError: assert (PosixPath('/trabajo/messages') / 'terminal_log.jsonl') in {PosixPath('/trabajo/messages/william_channel.jsonl')}\n\nmessages/tests/test_ada_directed_routing.py:40: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_ada_directed_routing.py::test_message_directed_to_ada_reaches_her_terminal_feed\n1 failed, 1 passed in 0.28s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "ack-sin-gracia",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "    0.0, _env_float(\"ADA_BRIDGE_DM_ACK_GRACE_SECONDS\", 10.0)",
+      "reemplazo": "    0.0, _env_float(\"ADA_BRIDGE_DM_ACK_GRACE_SECONDS\", 0.0)",
+      "why": "el ACK sale sin gracia: duplica cuando la respuesta rápida llega",
+      "registro": {
+        "subject": "messages/ada_codex_remote_bridge.py",
+        "ancla": "    0.0, _env_float(\"ADA_BRIDGE_DM_ACK_GRACE_SECONDS\", 10.0)",
+        "reemplazo": "    0.0, _env_float(\"ADA_BRIDGE_DM_ACK_GRACE_SECONDS\", 0.0)",
+        "ancla_sha256": "177a8c3c9f772b500a7203d8850d6f8d59615b58809e679be0f823f887691623",
+        "sujeto_sha256_antes": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_codex_remote_bridge_silence.py::test_dm_busy_ack_defaults_preserve_one_voice_and_visible_liveness",
+        "messages/tests/test_ada_codex_remote_bridge_silence.py::test_busy_terminal_gives_quick_dm_time_to_receive_one_real_answer"
+      ],
+      "pytest_tail": "=========================== short test summary info ============================\nFAILED messages/tests/test_ada_codex_remote_bridge_silence.py::test_dm_busy_ack_defaults_preserve_one_voice_and_visible_liveness\nFAILED messages/tests/test_ada_codex_remote_bridge_silence.py::test_busy_terminal_gives_quick_dm_time_to_receive_one_real_answer\n2 failed, 82 passed in 0.46s\n..                                                                       [100%]\n2 passed in 0.26s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "ack-dm-apagado-por-default",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "DM_LIVE_ACK_ENABLED = os.environ.get(\"ADA_BRIDGE_DM_DURABLE_ACK\", \"true\").lower() in {\"1\", \"true\", \"yes\"}",
+      "reemplazo": "DM_LIVE_ACK_ENABLED = os.environ.get(\"ADA_BRIDGE_DM_DURABLE_ACK\", \"false\").lower() in {\"1\", \"true\", \"yes\"}",
+      "why": "el ACK durable vuelve a apagado por defecto",
+      "registro": {
+        "subject": "messages/ada_codex_remote_bridge.py",
+        "ancla": "DM_LIVE_ACK_ENABLED = os.environ.get(\"ADA_BRIDGE_DM_DURABLE_ACK\", \"true\").lower() in {\"1\", \"true\", \"yes\"}",
+        "reemplazo": "DM_LIVE_ACK_ENABLED = os.environ.get(\"ADA_BRIDGE_DM_DURABLE_ACK\", \"false\").lower() in {\"1\", \"true\", \"yes\"}",
+        "ancla_sha256": "19b09eaa7965cd3a2c25eeb25008351d55efffc8672dfb508f46d62a7c7263d5",
+        "sujeto_sha256_antes": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_codex_remote_bridge_silence.py::test_dm_busy_ack_defaults_preserve_one_voice_and_visible_liveness",
+        "messages/tests/test_ada_codex_remote_bridge_silence.py::test_busy_terminal_durably_acks_william_without_consuming_dm"
+      ],
+      "pytest_tail": "=========================== short test summary info ============================\nFAILED messages/tests/test_ada_codex_remote_bridge_silence.py::test_dm_busy_ack_defaults_preserve_one_voice_and_visible_liveness\nFAILED messages/tests/test_ada_codex_remote_bridge_silence.py::test_busy_terminal_durably_acks_william_without_consuming_dm\n2 failed, 82 passed in 0.43s\n..                                                                       [100%]\n2 passed in 0.25s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "ada-filtra-a-jarvis",
+      "subject": "messages/routing.yaml",
+      "ancla": "    deliver_to: [terminal_log, trigger_ada, web_api]",
+      "reemplazo": "    deliver_to: [terminal_log, trigger_ada, vscode_commands, web_api]",
+      "why": "agent_to:ADA agrega vscode_commands (el canal de JARVIS)",
+      "registro": {
+        "subject": "messages/routing.yaml",
+        "ancla": "    deliver_to: [terminal_log, trigger_ada, web_api]",
+        "reemplazo": "    deliver_to: [terminal_log, trigger_ada, vscode_commands, web_api]",
+        "ancla_sha256": "c4e37e2abd74703cf9f1575462ad16eb6bcff3ded3b8da855f71949d729e46c4",
+        "sujeto_sha256_antes": "c59495a05ffd3de1fd628b49502822687d8a3d432bfeea957287066884994d65",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_directed_routing.py::test_message_directed_to_ada_reaches_her_terminal_feed"
+      ],
+      "pytest_tail": "E       AssertionError: assert (PosixPath('/trabajo/messages') / 'vscode_commands.jsonl') not in {PosixPath('/trabajo/messages/terminal_log.jsonl'), PosixPath('/trabajo/messages/vscode_commands.jsonl'), PosixPath('/trabajo/messages/william_channel.jsonl')}\n\nmessages/tests/test_ada_directed_routing.py:41: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_ada_directed_routing.py::test_message_directed_to_ada_reaches_her_terminal_feed\n1 failed, 1 passed in 0.26s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "jarvis-filtra-a-ada",
+      "subject": "messages/routing.yaml",
+      "ancla": "    deliver_to: [vscode_commands, web_api]\n",
+      "reemplazo": "    deliver_to: [vscode_commands, trigger_ada, web_api]\n",
+      "why": "agent_to:JARVIS agrega trigger_ada: un mensaje a JARVIS dispara a ADA",
+      "registro": {
+        "subject": "messages/routing.yaml",
+        "ancla": "    deliver_to: [vscode_commands, web_api]\n",
+        "reemplazo": "    deliver_to: [vscode_commands, trigger_ada, web_api]\n",
+        "ancla_sha256": "244509bfb7f508ae3751789cd5c3c0673d7885b0163b8080fa7b4470007a7450",
+        "sujeto_sha256_antes": "c59495a05ffd3de1fd628b49502822687d8a3d432bfeea957287066884994d65",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_directed_routing.py::test_message_directed_to_other_agent_does_not_leak_to_ada_terminal_feed"
+      ],
+      "pytest_tail": "E         Use -v to get more diff\n\nmessages/tests/test_ada_directed_routing.py:48: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_ada_directed_routing.py::test_message_directed_to_other_agent_does_not_leak_to_ada_terminal_feed\n1 failed, 1 passed in 0.27s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "reply-id-solo-numerico",
+      "subject": "messages/ada_codex_remote_bridge.py",
+      "ancla": "    references = {str(msg.id), f\"db_{msg.id}\", response_source_id(msg)}",
+      "reemplazo": "    references = {str(msg.id)}",
+      "why": "response_source_ids devuelve solo el id numérico: el in_reply_to db_<id> deja de reconocerse",
+      "registro": {
+        "subject": "messages/ada_codex_remote_bridge.py",
+        "ancla": "    references = {str(msg.id), f\"db_{msg.id}\", response_source_id(msg)}",
+        "reemplazo": "    references = {str(msg.id)}",
+        "ancla_sha256": "1498eaa8662b473fd283fecca417d453834268041f13ea2328edab3782501f8e",
+        "sujeto_sha256_antes": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_codex_remote_bridge_silence.py::test_busy_terminal_durably_acks_william_without_consuming_dm",
+        "messages/tests/test_ada_codex_remote_bridge_silence.py::test_busy_terminal_does_not_ack_after_any_existing_reply",
+        "messages/tests/test_ada_codex_remote_bridge_silence.py::test_response_source_ids_include_api_numeric_and_db_spellings"
+      ],
+      "pytest_tail": "FAILED messages/tests/test_ada_codex_remote_bridge_silence.py::test_busy_terminal_durably_acks_william_without_consuming_dm\nFAILED messages/tests/test_ada_codex_remote_bridge_silence.py::test_busy_terminal_does_not_ack_after_any_existing_reply\nFAILED messages/tests/test_ada_codex_remote_bridge_silence.py::test_response_source_ids_include_api_numeric_and_db_spellings\n3 failed, 81 passed in 0.51s\n..                                                                       [100%]\n2 passed in 0.27s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "messages/ada_codex_remote_bridge.py": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+    "messages/routing.yaml": "c59495a05ffd3de1fd628b49502822687d8a3d432bfeea957287066884994d65",
+    "messages/tests/test_ada_codex_remote_bridge_silence.py": "bd22dfa6b8410099afffd25d75f2d9b20d483a40623cc83545da6b42aae2aced",
+    "messages/tests/test_ada_directed_routing.py": "11bb5fc68dcbe9a3637e4ac49026b13632fd8667b4e93f402464b92d0b001ae4"
+  }
+}

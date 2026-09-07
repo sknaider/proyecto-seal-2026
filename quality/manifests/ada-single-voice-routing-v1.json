@@ -23,16 +23,16 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "evidence": "REVISION INDEPENDIENTE JARVIS, tres rondas, con mutantes propios sobre COPIAS en tempdir (control completado con memory/operational_db_credentials.py, seal_secrets.py y config.py hasta VERDE antes de medir). CANARIOS: destruir routing.yaml -> 2 failed; raise al importar el bridge -> error de coleccion. Los tests leen los sujetos. RONDA 1 (REJECT): los 4 invariantes declarados SOBREVIVIAN; destruir routing.yaml entero tumbaba solo 2 de 85 tests. RONDA 2: 1 de 4. RONDA 3, sobre los bytes actuales: los CINCO mueren -- gracia de ACK 10->0 (2 failed); DM ACK default true->false (2 failed); a ADA + vscode_commands (1 failed); a JARVIS + trigger_ada (1 failed); a JARVIS + terminal_log (1 failed). ERROR MIO RETIRADO: en la ronda 2 afirme que la proteccion era asimetrica y que el mutante del owner no medía; MI mutante apuntaba a la regla `agent_to: equipo` creyendo que era la de JARVIS, dos lineas mas arriba. El reemplazo aplicaba (dif=1) sobre la linea equivocada: `dif>0` no alcanza como control. Con la regla correcta mueren. DELIVERY: corri yo el comando del owner. El PRIMERO fallaba (rc=1) y NO por fuga: buscaba el id del canario en cualquier texto, y el mensaje en que el owner me comunicaba el id -dirigido a mi, ruteado correctamente a vscode_commands- lo hacia aparecer. La evidencia se autodestruia al comunicarse. Corregido a comparar el sobre JSON (idempotency_key + from=NEXUS + to=ADA): rc=0 y DELIVERY_OK con los dos servicios activos, verificado por mi. || RE-FIRMA 5-sep 08:0x (JARVIS): ADA agrego 14 lineas a messages/ada_codex_remote_bridge.py (etiqueta runtime_instance en el payload, sujeto compartido con su manifiesto del dia); bytes dac5a4bb -> e7c79ed1. Re-corrido en copia aislada (git archive + memory/*.py): control 86 passed; canario bridge 1 error; canario routing.yaml 2 failed; M1 gracia ACK 10->0 2 failed; M2 agent_to ADA + vscode_commands 1 failed; M3 agent_to JARVIS + trigger_ada 1 failed; M4 agent_to JARVIS sin vscode_commands 1 failed. M5 sobre las lineas NUEVAS (etiquetar aunque falte la variable) SOBREVIVE a estas suites: fuera del alcance de este manifiesto, le toca al de ADA de hoy. | RE-VERIFICACION JARVIS 7-sep 16:25 sobre bytes actuales. Unico sujeto cambiado: messages/ada_codex_remote_bridge.py (+19/-4): interruptores ADA_TERMINAL_ROUTE_WEB_CHAT y ADA_BRIDGE_ROUTE_DM y bridge_channel_enabled(); el cambio llego al repo arrastrado por mi 'commit -a' 8e7c9a6 (disclosure 16:03) y ADA asumio la propiedad por lectura (15:48/15:50). Brazos con el venv: unit 86 passed, positivo 1, negativo 2, control 2. REFUTADOR por efecto sobre el modulo real: default web_chat=True, dm:ada:william=True, dm:alice:william=False (no rutea canales ajenos); con ADA_BRIDGE_ROUTE_DM=false: web_chat=True, dm=False (el interruptor apaga solo el DM). Limite: la autoria linea a linea no es certificable por ese commit; la revision es de los bytes, no de la autoria. | 17:10: re-firma por digest (mi propia nota _re_mutacion_arena cambio el manifiesto tras firmar); sujetos y tests identicos a la firma de 16:25 (hashes iguales). | RE-VERIFICACION JARVIS 07-Sep 17:04 (ronda unica tras el corte de ediciones en sujetos compartidos): brazos verdes con el venv",
-      "signed_at": "2026-09-07T22:04:25.672183+00:00",
+      "evidence": "REVISION INDEPENDIENTE JARVIS, tres rondas, con mutantes propios sobre COPIAS en tempdir (control completado con memory/operational_db_credentials.py, seal_secrets.py y config.py hasta VERDE antes de medir). CANARIOS: destruir routing.yaml -> 2 failed; raise al importar el bridge -> error de coleccion. Los tests leen los sujetos. RONDA 1 (REJECT): los 4 invariantes declarados SOBREVIVIAN; destruir routing.yaml entero tumbaba solo 2 de 85 tests. RONDA 2: 1 de 4. RONDA 3, sobre los bytes actuales: los CINCO mueren -- gracia de ACK 10->0 (2 failed); DM ACK default true->false (2 failed); a ADA + vscode_commands (1 failed); a JARVIS + trigger_ada (1 failed); a JARVIS + terminal_log (1 failed). ERROR MIO RETIRADO: en la ronda 2 afirme que la proteccion era asimetrica y que el mutante del owner no medía; MI mutante apuntaba a la regla `agent_to: equipo` creyendo que era la de JARVIS, dos lineas mas arriba. El reemplazo aplicaba (dif=1) sobre la linea equivocada: `dif>0` no alcanza como control. Con la regla correcta mueren. DELIVERY: corri yo el comando del owner. El PRIMERO fallaba (rc=1) y NO por fuga: buscaba el id del canario en cualquier texto, y el mensaje en que el owner me comunicaba el id -dirigido a mi, ruteado correctamente a vscode_commands- lo hacia aparecer. La evidencia se autodestruia al comunicarse. Corregido a comparar el sobre JSON (idempotency_key + from=NEXUS + to=ADA): rc=0 y DELIVERY_OK con los dos servicios activos, verificado por mi. || RE-FIRMA 5-sep 08:0x (JARVIS): ADA agrego 14 lineas a messages/ada_codex_remote_bridge.py (etiqueta runtime_instance en el payload, sujeto compartido con su manifiesto del dia); bytes dac5a4bb -> e7c79ed1. Re-corrido en copia aislada (git archive + memory/*.py): control 86 passed; canario bridge 1 error; canario routing.yaml 2 failed; M1 gracia ACK 10->0 2 failed; M2 agent_to ADA + vscode_commands 1 failed; M3 agent_to JARVIS + trigger_ada 1 failed; M4 agent_to JARVIS sin vscode_commands 1 failed. M5 sobre las lineas NUEVAS (etiquetar aunque falte la variable) SOBREVIVE a estas suites: fuera del alcance de este manifiesto, le toca al de ADA de hoy. | RE-VERIFICACION JARVIS 7-sep 16:25 sobre bytes actuales. Unico sujeto cambiado: messages/ada_codex_remote_bridge.py (+19/-4): interruptores ADA_TERMINAL_ROUTE_WEB_CHAT y ADA_BRIDGE_ROUTE_DM y bridge_channel_enabled(); el cambio llego al repo arrastrado por mi 'commit -a' 8e7c9a6 (disclosure 16:03) y ADA asumio la propiedad por lectura (15:48/15:50). Brazos con el venv: unit 86 passed, positivo 1, negativo 2, control 2. REFUTADOR por efecto sobre el modulo real: default web_chat=True, dm:ada:william=True, dm:alice:william=False (no rutea canales ajenos); con ADA_BRIDGE_ROUTE_DM=false: web_chat=True, dm=False (el interruptor apaga solo el DM). Limite: la autoria linea a linea no es certificable por ese commit; la revision es de los bytes, no de la autoria. | 17:10: re-firma por digest (mi propia nota _re_mutacion_arena cambio el manifiesto tras firmar); sujetos y tests identicos a la firma de 16:25 (hashes iguales). | RE-VERIFICACION JARVIS 07-Sep 17:04 (ronda unica tras el corte de ediciones en sujetos compartidos): brazos verdes con el venv | RE-VERIFICACION JARVIS 07-Sep 18:02 (ronda unica tras el corte de ediciones en sujetos compartidos): brazos verdes con el venv; mutacion re-corrida en la arena 6/6",
+      "signed_at": "2026-09-07T23:02:59.217276+00:00",
       "mutation_target": "isolated_copy",
       "reviewed_sha256": {
-        "messages/ada_codex_remote_bridge.py": "1cb3d9df77d71e846523f942e683830fa13c4b6729b03304dd27787e57a75b5e",
+        "messages/ada_codex_remote_bridge.py": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
         "messages/routing.yaml": "c59495a05ffd3de1fd628b49502822687d8a3d432bfeea957287066884994d65",
         "messages/tests/test_ada_codex_remote_bridge_silence.py": "bd22dfa6b8410099afffd25d75f2d9b20d483a40623cc83545da6b42aae2aced",
         "messages/tests/test_ada_directed_routing.py": "11bb5fc68dcbe9a3637e4ac49026b13632fd8667b4e93f402464b92d0b001ae4"
       },
-      "manifest_digest": "1788c254c5f541b661459f2b03499ba13a70189d1f37ab8b52d1b3e454b3786f",
+      "manifest_digest": "2ec954f08352c0f182cfdbc3e7e257a2a3c9f076609794c8b118429beb3ec2b5",
       "resigned_at": "2026-09-05T12:59:14.027851+00:00"
     },
     "historial": [
@@ -57,6 +57,17 @@
           "messages/tests/test_ada_directed_routing.py": "11bb5fc68dcbe9a3637e4ac49026b13632fd8667b4e93f402464b92d0b001ae4"
         },
         "manifest_digest": "91bbbcf1679757f940430cd411ac71bdd52f9ab51c43a09d3b10042685f05bb1"
+      },
+      {
+        "reviewer": "JARVIS",
+        "signed_at": "2026-09-07T22:04:25.672183+00:00",
+        "reviewed_sha256": {
+          "messages/ada_codex_remote_bridge.py": "1cb3d9df77d71e846523f942e683830fa13c4b6729b03304dd27787e57a75b5e",
+          "messages/routing.yaml": "c59495a05ffd3de1fd628b49502822687d8a3d432bfeea957287066884994d65",
+          "messages/tests/test_ada_codex_remote_bridge_silence.py": "bd22dfa6b8410099afffd25d75f2d9b20d483a40623cc83545da6b42aae2aced",
+          "messages/tests/test_ada_directed_routing.py": "11bb5fc68dcbe9a3637e4ac49026b13632fd8667b4e93f402464b92d0b001ae4"
+        },
+        "manifest_digest": "1788c254c5f541b661459f2b03499ba13a70189d1f37ab8b52d1b3e454b3786f"
       }
     ]
   },
@@ -142,7 +153,7 @@
     "baseline_percent": 0.0,
     "timeout": 300
   },
-  "mutation_evidence": "quality/mutation-ada-single-voice-routing-v1.json",
+  "mutation_evidence": "quality/mutation-ada-single-voice-routing-v1.v2.json",
   "mutation_target": "isolated_copy",
   "mutation_baseline_percent": 100.0,
   "deletions": [],
@@ -161,5 +172,6 @@
       "expected_stdout_contains": "DELIVERY_OK"
     }
   },
-  "_re_mutacion_arena_20260907": "PENDIENTE (JARVIS, revisor, 16:32): el spec ejecutable con los 6 mutantes existe (quality/mutantes/ada-single-voice-routing-v1.spec.json) pero el control es ROJO en la arena: messages/ada_codex_remote_bridge.py fija ROOT = Path('/home/dadito/IA/proyecto-seal') y en la arena el repo vive en /trabajo -> ModuleNotFoundError working_state_journal. No es un defecto del test ni de la arena: es una ruta absoluta cableada en el sujeto. Owner ADA (bloqueada por su guardian): NEXUS aplica el cambio de una linea (ROOT = Path(__file__).resolve().parents[1]) como worker y ADA valida por lectura; despues el revisor re-corre."
+  "_re_mutacion_arena_20260907": "PENDIENTE (JARVIS, revisor, 16:32): el spec ejecutable con los 6 mutantes existe (quality/mutantes/ada-single-voice-routing-v1.spec.json) pero el control es ROJO en la arena: messages/ada_codex_remote_bridge.py fija ROOT = Path('/home/dadito/IA/proyecto-seal') y en la arena el repo vive en /trabajo -> ModuleNotFoundError working_state_journal. No es un defecto del test ni de la arena: es una ruta absoluta cableada en el sujeto. Owner ADA (bloqueada por su guardian): NEXUS aplica el cambio de una linea (ROOT = Path(__file__).resolve().parents[1]) como worker y ADA valida por lectura; despues el revisor re-corre.",
+  "_mutation_evidence_v1_historica": "quality/mutation-ada-single-voice-routing-v1.json"
 }
