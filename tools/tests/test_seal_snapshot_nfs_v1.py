@@ -107,10 +107,10 @@ def test_redaccion_de_unidades_borra_dsn_y_tokens_en_linea(tmp_path):
 def test_exclusiones_del_repo_cubren_los_secretos_conocidos():
     """Negativo por construccion: la linea de rsync del repo excluye cada nombre de secreto que hoy vive en el arbol
     (hallazgo NEXUS 12:48: fable/.db_cred no estaba excluido y el respaldo se lo llevaba al NFS)."""
-    script = (pathlib.Path(__file__).resolve().parents[1] / "seal_snapshot_nfs.sh").read_text()
-    linea = next(l for l in script.splitlines() if "/home/dadito/IA/proyecto-seal/" in l and "--exclude" in l) if any("/home/dadito/IA/proyecto-seal/" in l and "--exclude" in l for l in script.splitlines()) else script
+    script = (pathlib.Path(__file__).resolve().parents[1] / "seal_snapshot_nfs.sh").read_text().replace("\\\n", " ")
+    linea = next(l for l in script.splitlines() if "/home/dadito/IA/proyecto-seal/" in l and "--exclude" in l)
     for patron in (".db_cred", "*_cred", "*.dsn", "credentials.env*", ".agent_session_token_*", ".agent_ws_token"):
-        assert f"--exclude='{patron}'" in script, patron
+        assert f"--exclude='{patron}'" in linea, patron
     # config_seal: todo .env (seal_studio_db.env, ada_bridge_db_runtime.env) y env/ llevan DSN; hallazgo JARVIS 12:53
     linea_cfg = next(l for l in script.splitlines() if "/home/dadito/.config/seal/" in l and "--exclude" in l)
     for patron in ("*.env", "env", "*.dsn", "credentials.env*", "*_cred"):
@@ -151,3 +151,37 @@ def test_puerta_push_deja_pasar_plantillas(tmp_path):
     """Control: sólo placeholders y REDACTADO -> la puerta no bloquea."""
     repo = _repo_senuelo(tmp_path, {"cfg.py": 'A = "postgresql://rol:REDACTADO@h/db"\nB = "postgresql://{ROLE}:{clave}@h/db"\nC = "postgresql://rol:${PGPASSWORD}@h/db"\n', "doc.md": "postgresql://user:<clave>@host/db\n"})
     assert _gate_push(repo) == 0
+
+
+def _exclusiones_de(linea: str) -> list[str]:
+    import re
+    return re.findall(r"--exclude=\'([^\']+)\'", linea) + re.findall(r'--exclude="([^"]+)"', linea)
+
+
+def test_exclusiones_del_repo_por_efecto_con_rsync(tmp_path):
+    """Residual de FABLE (12:57): el brazo de exclusiones era por TEXTO. Este EJERCE las exclusiones reales del script
+    con rsync sobre un árbol señuelo: ningún secreto conocido cruza; los archivos legítimos sí (control)."""
+    import subprocess
+    script = (pathlib.Path(__file__).resolve().parents[1] / "seal_snapshot_nfs.sh").read_text().replace("\\\n", " ")
+    linea_repo = next(l for l in script.splitlines() if "/home/dadito/IA/proyecto-seal/" in l and "--exclude" in l)
+    linea_cfg = next(l for l in script.splitlines() if "/home/dadito/.config/seal/" in l and "--exclude" in l)
+    casos = {
+        linea_repo: (["fable/.db_cred", "x/algo_cred", "messages/.agent_session_token_ADA", "messages/.agent_ws_token",
+                      "memory/seal_secrets.py", "k.pem", "k.key", "m.dsn", "credentials.env.previo"],
+                     ["README.md", "tools/x.sh", "fable/casos/c.md"]),
+        linea_cfg: (["credentials.env", "credentials.env.bak", "mcp_broker.dsn", "seal_studio_db.env", "env/x.env",
+                     "fable_token", "un_secreto", "algo_cred"],
+                    ["state/ok.json", "bin/x"]),
+    }
+    for linea, (secretos, legitimos) in casos.items():
+        src = tmp_path / ("src" + str(abs(hash(linea)) % 1000)); dst = tmp_path / ("dst" + str(abs(hash(linea)) % 1000))
+        for rel in secretos + legitimos:
+            f = src / rel; f.parent.mkdir(parents=True, exist_ok=True); f.write_text("postgresql://rol:" + "clave" * 3 + "@h/db\n")
+        excl = [f"--exclude={e}" for e in _exclusiones_de(linea)]
+        assert len(excl) >= 5, linea
+        subprocess.run(["rsync", "-a", *excl, str(src) + "/", str(dst) + "/"], check=True)
+        copiados = {str(p.relative_to(dst)) for p in dst.rglob("*") if p.is_file()}
+        for rel in secretos:
+            assert rel not in copiados, (rel, sorted(copiados))
+        for rel in legitimos:
+            assert rel in copiados, (rel, sorted(copiados))
