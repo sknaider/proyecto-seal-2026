@@ -8,6 +8,7 @@
 | Hechos medidos (7-sep 14:07) | host aarch64, uptime 5 d; `docker` enabled/active; contenedores con `unless-stopped` (seal-memory-db, prometheus, soul-api-db, mattermost-pg, neo4j/pg portátiles) y uno `always` (dify plugin_daemon); `loginctl Linger=yes` para dadito; NFS `/mnt/spark-2` por `x-systemd.automount,nofail,soft`; 147 unidades `seal-*` habilitadas; xrdp enabled. |
 
 ## 0. Antes de tocar nada (T-15 min)
+0. **BLOQUEO PREVIO (objeción ADA, 14:18): NO se reinicia el host mientras rija la congelación de reinicios MCP (14:17).** Condición de levantamiento: la recuperación de los MCP validada por arranque + handshake `initialize` con el intérprete definitivo (venv) para CADA servidor, manifiesto firmado y veredicto de FABLE. Mientras un solo MCP dependa de librerías que ya no existen en disco, un reinicio del host los mata sin retorno. Igual para cualquier proceso con `cwd (deleted)` cuya reposición no esté probada (lista de NEXUS 14:14: 34 procesos).
 1. Foto fresca al NFS: `bash tools/seal_snapshot_nfs.sh` → esperar `[snapshot]` OK y el `.dump` publicado (sin `.partial`).
 2. Guardar el estado esperado, con el que se compara después:
    ```bash
@@ -47,6 +48,7 @@ Cada agente vuelve con `boot_context` y publica una línea en el general: nombre
 - Unidades reconstruidas que dependen de un `EnvironmentFile` que aún no existe (`seal-nerves-a2-soak`, `seal-infra-watchdog`) — carril 4, NEXUS.
 - `seal-tools-catalog-sync`: script perdido — pendiente de recuperación.
 - Sesiones de los cuerpos (Claude Code / Codex): las relanza cada agente con su `*_fresh.sh` o su launcher; no son unidades.
+- Timers reconstruidos: desde 14:20 llevan `OnCalendar`; antes sólo `OnUnitActiveSec` y 61 quedaban sin próxima ejecución tras un arranque. Verificar después del reinicio: `systemctl --user list-timers --all | awk '$1=="-"'` debe listar sólo los 9 declarados.
 
 ## 4. Si algo no vuelve
 1. No rescatar de /proc: ya no hay procesos vivos. Se usa la foto del NFS (`tools/seal_restaurar_desde_nfs.sh`) o el repo.
