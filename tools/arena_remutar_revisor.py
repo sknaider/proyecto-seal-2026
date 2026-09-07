@@ -74,7 +74,7 @@ def main(spec_path: str, salida: str) -> int:
         man = json.loads((RAIZ / spec["manifest"]).read_text()); files = sorted(set(files) | set(man.get("subjects", [])) | set(man.get("tests", [])))
     ev = {"schema": "seal.mutation-evidence.v1", "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)", "change_id": spec["change_id"], "reviewer": spec["reviewer"], "mutation_target": "arena_aprobada_fable_20260907",
           "tool": "tools/arena_remutar_revisor.py", "killed": killed, "survived": len(resultados) - killed, "total": len(resultados), "no_tests": 0, "skipped": 0, "suspicious": 0, "timeout": 0,
-          "mutation_score_percent": round(100.0 * killed / max(1, len(resultados)), 1), "mutants": resultados,
+          "mutation_score_percent": round(100.0 * killed / max(1, len(resultados)), 3), "mutants": resultados,
           "file_sha256": {f: sha(RAIZ / f) for f in files if (RAIZ / f).is_file()}}
     pathlib.Path(salida).write_text(json.dumps(ev, indent=2, ensure_ascii=False) + "\n")
     print(f"[arena] evidencia v2 -> {salida}: {killed}/{len(resultados)} muertos")

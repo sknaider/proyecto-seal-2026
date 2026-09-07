@@ -12,7 +12,7 @@
   "skipped": 0,
   "suspicious": 0,
   "timeout": 0,
-  "mutation_score_percent": 83.3,
+  "mutation_score_percent": 83.333,
   "mutants": [
     {
       "id": "helper-que-miente",
