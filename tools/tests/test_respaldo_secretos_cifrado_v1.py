@@ -175,3 +175,47 @@ def test_qa_negative_enlace_bajo_tmp_que_apunta_afuera_NO_evade():
                        env=env, cwd=str(RAIZ), timeout=300)
     assert r.returncode == 2 and "FUERA de /tmp" in r.stderr, r.stderr
     assert not list(dest.glob("*.enc")), "publico siguiendo un enlace hacia afuera"
+
+
+def test_qa_negative_enlace_DURO_no_evade_el_freno():
+    """Condición de FABLE (7-sep 15:34), la residual que NEXUS dejó declarada.
+
+    Un enlace DURO no tiene destino: ES el archivo, así que `readlink -f` no lo
+    delata. Se mira `st_nlink`: más de un nombre para el mismo inodo puede ser
+    un secreto real bajo otra ruta.
+    """
+    a, lista, clave, dest = _arena()
+    original = a / "original.txt"; original.write_text("SECRETO-SIMULADO\n")
+    duro = a / "parece_senuelo.txt"
+    os.link(original, duro)
+    lista.write_text(str(duro) + "\n")
+    env = dict(os.environ, SEAL_SECRETOS_KEYFILE=str(clave), SEAL_SECRETOS_DEST=str(dest),
+               SEAL_SECRETOS_LISTA=str(lista))
+    r = subprocess.run(["bash", str(SCRIPT)], capture_output=True, text=True,
+                       env=env, cwd=str(RAIZ), timeout=300)
+    assert r.returncode == 2, "un enlace duro evadio el freno"
+    # ADA (15:48): un negativo debe alcanzar LA GUARDA QUE VERIFICA, no fallar
+    # antes por otro motivo. Por eso se exige el mensaje del enlace duro, no
+    # cualquier rechazo.
+    assert "enlace DURO" in r.stderr, r.stderr
+    assert not list(dest.glob("*.enc"))
+
+
+def test_qa_control_el_script_corre_desde_una_COPIA_fuera_de_su_ruta():
+    """Regresión permanente pedida por ADA (15:48).
+
+    El 7-sep el script cableaba REPO=/home/dadito/IA/proyecto-seal y moría en
+    "no existe la lista" al correr desde cualquier otro lado — justo el caso
+    para el que un script de recuperación existe. Este control lo fija.
+    """
+    a, lista, clave, dest = _arena()
+    copia_dir = a / "copia" / "tools"; copia_dir.mkdir(parents=True)
+    (copia_dir / SCRIPT.name).write_bytes(SCRIPT.read_bytes())
+    (a / "copia" / "quality").mkdir()
+    (a / "copia" / "quality" / "estado_esencial_rutas.txt").write_text("")
+    env = dict(os.environ, SEAL_SECRETOS_KEYFILE=str(clave), SEAL_SECRETOS_DEST=str(dest),
+               SEAL_SECRETOS_LISTA=str(lista))
+    r = subprocess.run(["bash", str(copia_dir / SCRIPT.name)], capture_output=True, text=True,
+                       env=env, cwd=str(a), timeout=300)
+    assert r.returncode == 0, f"desde una copia no corre: {r.stderr}"
+    assert list(dest.glob("*.enc")), "no publico corriendo desde la copia"

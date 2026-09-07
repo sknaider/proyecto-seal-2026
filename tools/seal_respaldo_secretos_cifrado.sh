@@ -99,11 +99,29 @@ if [ "$CLAVE" != "$CLAVE_DESIGNADA" ]; then
   fuera=$(while IFS= read -r _r; do
             case "$_r" in ""|\#*) continue ;; esac
             _real=$(readlink -f -- "$_r" 2>/dev/null || printf '%s' "$_r")
-            case "$_real" in /tmp/*) : ;; *) printf '%s -> %s\n' "$_r" "$_real" ;; esac
+            # ENLACE DURO: no tiene destino, ES el archivo, asi que readlink no
+            # lo delata. Se mira st_nlink: un archivo con mas de un nombre puede
+            # ser el mismo inodo que un secreto real bajo otra ruta.
+            # Condicion de FABLE (7-sep 15:34): "una condicion de una linea que
+            # cierra la clase entera". NEXUS la habia declarado como residual.
+            _nl=$(stat -c '%h' -- "$_real" 2>/dev/null || echo 1)
+            if [ "${_nl:-1}" -gt 1 ]; then
+              printf '%s -> enlace DURO (%s nombres): puede ser un secreto real\n' "$_r" "$_nl"
+              continue
+            fi
+            # cada entrada dice SU motivo: un negativo tiene que poder afirmar
+            # la guarda que verifica, no un rechazo cualquiera (ADA, 15:48).
+            case "$_real" in
+              /tmp/*) : ;;
+              *) printf '%s -> FUERA de /tmp (%s)\n' "$_r" "$_real" ;;
+            esac
           done < "$LISTA" | head -3)
   if [ -n "$fuera" ]; then
-    fatal "clave NO designada y la lista apunta FUERA de /tmp:
-$(printf '        %s\n' $fuera)
+    # $fuera va ENTRE COMILLAS: sin ellas bash parte por palabras y el motivo
+    # sale despedazado en varias lineas -medido 15:49-. Un mensaje de guarda
+    # que no se entiende obliga a leer el codigo para saber por que freno.
+    fatal "clave NO designada y la lista tiene entradas NO PERMITIDAS:
+$(printf '        %s\n' "$fuera")
         Con una clave improvisada solo se empaquetan rutas señuelo bajo /tmp.
         Copiar la lista real a otra ruta NO la vuelve señuelo (evasion medida
         por NEXUS el 7-sep 14:40)."
