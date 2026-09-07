@@ -29,7 +29,11 @@ import asyncpg
 import websockets
 
 
-ROOT = Path("/home/dadito/IA/proyecto-seal")
+# La raiz sale del PROPIO archivo: este modulo vive en messages/, asi que parents[1]
+# es la raiz del repo. Verificado antes de editar: resuelve al mismo valor que la
+# literal anterior en este host. Una ruta absoluta cableada ata el puente a UNA
+# maquina y a UN usuario -es la quinta que aparece hoy, 7-sep-2026-.
+ROOT = Path(__file__).resolve().parents[1]
 MEMORY_DIR = ROOT / "memory"
 if str(MEMORY_DIR) not in sys.path:
     sys.path.insert(0, str(MEMORY_DIR))
