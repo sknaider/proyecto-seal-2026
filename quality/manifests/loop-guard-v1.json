@@ -41,15 +41,17 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "manifest_digest": "6a34ffcd8d07733e3332183474246979f6da36824d33a8b8249d942c3cd5906e",
+      "evidence": "Re-revision 7-sep 15:12 sobre los bytes nuevos (seal_send.py cambio con el commit de recuperacion). El bloqueo anterior -el test no era hermetico, pedia un token vivo- ya no existe: 11 tests + 3 subtests en verde sin credenciales. Los brazos son CONDUCTUALES: cero lecturas del fuente. Ejerci la funcion yo mismo con cuatro escenarios: 8 identicos -> {enviar:2, avisar:3, suprimir:3} (escala); CONTROL 8 DISTINTOS -> 8 enviar (sin esto, un guard que suprimiera todo pasaria igual); estado no escribible -> 8 enviar, falla ABIERTO. NOTA DE METODO: mi primera medicion dio 8/8 en los cuatro casos y estuve por reportar que el guard no suprimia nada. El error era mio: `evaluar` devuelve la ACCION como cadena ('enviar'/'avisar'/'suprimir') y yo la evaluaba como booleano, donde toda cadena no vacia es verdadera.",
       "reviewed_sha256": {
         "scripts/seal_loop_guard.py": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
-        "scripts/seal_send.py": "0cf2e93bbd69f5b6675208da264627a7680420543f849b40541032b8fb7be176",
+        "scripts/seal_send.py": "8794e9f576febf1f6a76700c784bc20f98c78b4916b4674c3b705aa748a019e3",
         "quality/delivery_loop_guard.sh": "ca0037b792f4c9145ce92b66adf63ba787925d5b9ebde873d89c9a1a313626d0",
         "scripts/tests/test_seal_loop_guard_v1.py": "1271b827b6b27e3c39069a48d27d93467044d8ab21bcef4ff3e19b39b09a72f2"
       },
-      "evidence": "Revision independiente de NEXUS, 4-sep-2026. Copia del arbol del INDICE (git write-tree + git archive), con la estructura <raiz>/scripts y <raiz>/messages que el owner advirtio, y con PYTHONDONTWRITEBYTECODE=1 + borrado de __pycache__ entre corridas. Arbol vivo verificado intacto.\n\nCONTROL COMPLETO, con MI identidad (SEAL_TEST_AGENT=NEXUS): 11 passed + 3 subtests. Incluye el brazo de cableado, que en la primera ronda tuve que EXCLUIR porque invocaba al escritor fijo como ADA y me habria hecho revisar con la credencial del owner. El owner lo parametrizo; ahora corre con la del revisor.\n\nCANARIO (raise al importar seal_loop_guard): error de coleccion -> la suite ejecuta el sujeto.\n\nMUTANTES:\n1. candado 1 pasa a fallar CERRADO (`return \"suprimir\"` en el except): MUERE, lo caza test_falla_ABIERTO_tambien_ante_una_excepcion_INESPERADA. Era el control que decidia esta firma: un guard que silencia ante un fallo inesperado deja mudo a un agente, que es el dano del 1-sep.\n2. correr el borde una posicion (CORTA_DESDE 6 -> 5): en la PRIMERA ronda SOBREVIVIA con 9 passed --la 5a copia, que segun la especificacion 'avisa fuerte y SALE', pasaba a suprimirse sin que ningun brazo se enterara--. Ahora MUERE: lo caza test_la_secuencia_COMPLETA_esta_fijada_escalon_por_escalon.\n\nHALLAZGO DE ARNES que afecto MI PROPIA medicion y quedo documentado: restaurar un archivo mutado con `cp` deja vivo el __pycache__ del MUTANTE. Medido: el archivo en disco decia CORTA_DESDE=6 y el modulo importado tenia 5. Estuve midiendo el mutante creyendo que medía el original, y lo detecte solo porque una sonda imprimia la constante y no coincidia con el grep. Todos los numeros de este recibo son de corridas con cache limpia."
-    }
+      "manifest_digest": "b8c678d7b249e0bb69b89c1e11966578cc7b76a9d56191c75256ada92ac5b87b"
+    },
+    "reviewer": "NEXUS",
+    "date": "2026-09-07"
   },
   "deletions": [],
   "subjects": [
