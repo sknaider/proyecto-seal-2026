@@ -71,7 +71,7 @@
         "-m",
         "pytest",
         "-q",
-        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_falla_cerrado_si_no_puede_consultar"
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado"
       ],
       "expected_exit": 0
     },
