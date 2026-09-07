@@ -1,0 +1,43 @@
+{
+ "change_id": "soul-f3-runtime-parity",
+ "reviewer": "ALICE",
+ "manifest": "quality/manifests/soul-f3-runtime-parity.json",
+ "tests": [["tests/test_soul_parity_harness.py"], ["tests/test_soul_parity_runner.py"]],
+ "mutants": [
+  {
+   "id": "el-verificador-acepta-otra-identidad",
+   "subject": "memory/soul_parity_runner.py",
+   "ancla": "            raise RuntimeError(f\"sandbox verifier identity mismatch: {dict(row)}\")",
+   "reemplazo": "            pass",
+   "why": "el verificador de paridad puede correr como cualquier rol, incluido uno privilegiado: la evidencia deja de ser del sandbox"
+  },
+  {
+   "id": "el-verificador-corre-fuera-del-sandbox",
+   "subject": "memory/soul_parity_runner.py",
+   "ancla": "            \"db\": \"soul_v3_sandbox\", \"session_user\": expected,",
+   "reemplazo": "            \"db\": dict(row).get(\"db\"), \"session_user\": expected,",
+   "why": "la base deja de fijarse: la paridad se puede verificar contra PRODUCCION en vez del sandbox"
+  },
+  {
+   "id": "el-superusuario-deja-de-rechazarse",
+   "subject": "memory/soul_parity_runner.py",
+   "ancla": "            \"current_user\": expected, \"resolved_agent\": self.agent, \"superuser\": False,",
+   "reemplazo": "            \"current_user\": expected, \"resolved_agent\": self.agent, \"superuser\": dict(row).get(\"superuser\"),",
+   "why": "un rol SUPERUSUARIO verifica su propia evidencia: RLS deja de acotar lo que ve"
+  },
+  {
+   "id": "la-evidencia-vale-sin-el-hash-del-script",
+   "subject": "memory/soul_parity_runner.py",
+   "ancla": "                   AND native_event=$8 AND script_sha256=$9 AND runtime_pid=$10",
+   "reemplazo": "                   AND native_event=$8 AND $9 IS NOT NULL AND runtime_pid=$10",
+   "why": "la paridad se declara con OTRO script: el hash deja de atar la evidencia al codigo que corrio"
+  },
+  {
+   "id": "la-evidencia-vale-sin-el-nonce",
+   "subject": "memory/soul_parity_runner.py",
+   "ancla": "                   AND script_path=$4 AND agent=$5 AND nonce=$6 AND token_sha256=$7",
+   "reemplazo": "                   AND script_path=$4 AND agent=$5 AND $6 IS NOT NULL AND token_sha256=$7",
+   "why": "una evidencia de una corrida ANTERIOR cuenta como la de esta: el nonce era lo que impedia reusarla"
+  }
+ ]
+}

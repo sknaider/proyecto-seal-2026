@@ -1,0 +1,50 @@
+{
+ "change_id": "quality-gate-bootstrap",
+ "reviewer": "ALICE",
+ "manifest": "quality/manifests/quality-gate-bootstrap.json",
+ "tests": [["quality_gate/tests/test_gate.py"]],
+ "mutants": [
+  {
+   "id": "el-dueno-puede-ser-su-propio-revisor",
+   "subject": "quality_gate/gate.py",
+   "ancla": "    elif owner == reviewer:\n        errors.append(\"reviewer_must_differ_from_owner\")",
+   "reemplazo": "    elif False:\n        errors.append(\"reviewer_must_differ_from_owner\")",
+   "why": "se cae la independencia entera: cualquiera firma su propio trabajo y el gate lo aprueba"
+  },
+  {
+   "id": "firma-cualquier-agente-no-el-designado",
+   "subject": "quality_gate/gate.py",
+   "ancla": "        if str(receipt.get(\"reviewer\", \"\")).strip().upper() != reviewer:\n            errors.append(\"independent_review_receipt_reviewer_mismatch\")",
+   "reemplazo": "        if False:\n            errors.append(\"independent_review_receipt_reviewer_mismatch\")",
+   "why": "un recibo firmado por OTRO -o por un arnes que ya no existe- pasa como revision valida"
+  },
+  {
+   "id": "la-firma-vieja-sigue-valiendo",
+   "subject": "quality_gate/gate.py",
+   "ancla": "        if review[\"receipt\"].get(\"reviewed_sha256\") != expected_hashes:\n            errors.append(\"independent_review_bytes_stale\")",
+   "reemplazo": "        if False:\n            errors.append(\"independent_review_bytes_stale\")",
+   "why": "una firma sobre bytes viejos aprueba codigo que cambio despues: es todo el mecanismo de caducidad"
+  },
+  {
+   "id": "el-piso-de-mutacion-deja-de-regir",
+   "subject": "quality_gate/gate.py",
+   "ancla": "    if score + 1e-9 < floor:\n        errors.append(f\"mutation_score_below_floor:{score}<{floor}\")",
+   "reemplazo": "    if False:\n        errors.append(f\"mutation_score_below_floor:{score}<{floor}\")",
+   "why": "con mutantes vivos igual aprueba: hoy mismo este piso freno dos carriles mios"
+  },
+  {
+   "id": "la-mutacion-la-puede-correr-el-dueno",
+   "subject": "quality_gate/gate.py",
+   "ancla": "    if payload.get(\"reviewer\") != manifest.get(\"independent_reviewer\"):\n        errors.append(\"mutation_reviewer_mismatch\")",
+   "reemplazo": "    if False:\n        errors.append(\"mutation_reviewer_mismatch\")",
+   "why": "el dueno puede fabricar su propia evidencia de mutacion: esta guarda me freno a MI esta manana"
+  },
+  {
+   "id": "la-evidencia-vieja-de-mutacion-vale",
+   "subject": "quality_gate/gate.py",
+   "ancla": "    if payload.get(\"file_sha256\") != current:\n        errors.append(\"mutation_evidence_stale\")",
+   "reemplazo": "    if False:\n        errors.append(\"mutation_evidence_stale\")",
+   "why": "una corrida de mutantes de otro dia, sobre otro codigo, sigue contando como prueba de hoy"
+  }
+ ]
+}

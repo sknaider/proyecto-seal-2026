@@ -1,0 +1,49 @@
+{
+ "change_id": "t5-memory-egress-policy",
+ "reviewer": "ALICE",
+ "manifest": "quality/manifests/t5-memory-egress-policy.json",
+ "tests": [
+  ["soul-platform/tests/test_t5_principal_auth_v1.py"],
+  ["soul-platform/tests/test_t5_memory_egress_v1.py"],
+  ["soul-platform/tests/test_t5_memory_egress_store_v1.py"],
+  ["soul-platform/tests/test_proxy_v1.py"],
+  ["soul-platform/tests/test_bootstrap_v1.py"]
+ ],
+ "mutants": [
+  {
+   "id": "la-firma-del-token-deja-de-verificarse",
+   "subject": "soul-platform/src/soul_platform/auth.py",
+   "ancla": "            key.verify(signature, data)",
+   "reemplazo": "            pass",
+   "why": "cualquiera fabrica un token: la firma Ed25519 ya no se comprueba y la identidad es lo que el token diga"
+  },
+  {
+   "id": "una-llave-desconocida-pasa-a-ser-de-confianza",
+   "subject": "soul-platform/src/soul_platform/auth.py",
+   "ancla": "        if key is None:\n            raise AuthenticationDenied(\"token key is not trusted\")",
+   "reemplazo": "        if False:\n            raise AuthenticationDenied(\"token key is not trusted\")",
+   "why": "un key_id que no esta en el trust store deja de rechazarse antes de verificar"
+  },
+  {
+   "id": "el-token-vencido-sigue-sirviendo",
+   "subject": "soul-platform/src/soul_platform/auth.py",
+   "ancla": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] <= now or payload[\"exp\"] - payload[\"iat\"] > 3600:",
+   "reemplazo": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] - payload[\"iat\"] > 3600:",
+   "why": "se cae el vencimiento: un token viejo vale para siempre mientras su ventana declarada sea corta"
+  },
+  {
+   "id": "la-ventana-del-token-deja-de-tener-tope",
+   "subject": "soul-platform/src/soul_platform/auth.py",
+   "ancla": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] <= now or payload[\"exp\"] - payload[\"iat\"] > 3600:",
+   "reemplazo": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] <= now:",
+   "why": "un token puede emitirse por diez anios: el tope de una hora era la politica"
+  },
+  {
+   "id": "el-payload-no-canonico-se-acepta",
+   "subject": "soul-platform/src/soul_platform/auth.py",
+   "ancla": "            raise AuthenticationDenied(\"token payload is not canonical\")",
+   "reemplazo": "            pass",
+   "why": "se abre la puerta a payloads con claves repetidas o reordenadas: dos lecturas distintas del mismo token"
+  }
+ ]
+}

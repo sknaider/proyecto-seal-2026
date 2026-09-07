@@ -1,0 +1,37 @@
+{
+ "change_id": "coordinator-cutover",
+ "reviewer": "ALICE",
+ "manifest": "quality/manifests/coordinator-cutover.json",
+ "_pendiente": "NO CORRER antes del corte de ediciones de las 17:04: messages/chat_server.py es sujeto de OCHO manifiestos y esta congelado. Los tests se completan al correr.",
+ "tests": [],
+ "mutants": [
+  {
+   "id": "borrar-el-archivo-vuelve-a-apagar-el-control",
+   "subject": "messages/chat_server.py",
+   "ancla": "        mode = os.environ.get(value_env, \"ENFORCE\").strip().upper()",
+   "reemplazo": "        mode = os.environ.get(value_env, \"OFF\").strip().upper()",
+   "why": "vuelve el defecto que FABLE listo dos veces: un rm de ocho bytes apaga la autenticacion de agentes sin reiniciar el daemon"
+  },
+  {
+   "id": "un-typo-en-el-modo-abre-la-puerta",
+   "subject": "messages/chat_server.py",
+   "ancla": "    return mode if mode in _ROLLOUT_MODES else \"ENFORCE\"",
+   "reemplazo": "    return mode if mode in _ROLLOUT_MODES else \"OFF\"",
+   "why": "un valor invalido degrada a OFF: escribir 'ENFROCE' apaga el control en vez de fallar cerrado"
+  },
+  {
+   "id": "SHADOW-se-cuela-como-modo-que-hace-cumplir",
+   "subject": "messages/chat_server.py",
+   "ancla": "        if rollout == \"ENFORCE\":",
+   "reemplazo": "        if rollout in (\"ENFORCE\", \"SHADOW\"):",
+   "why": "el modo de observacion empieza a bloquear: un rollout de prueba se vuelve un corte real de trafico"
+  },
+  {
+   "id": "el-plan-se-declara-enforced-siempre",
+   "subject": "messages/chat_server.py",
+   "ancla": "        plan[\"enforced\"] = rollout == \"ENFORCE\"",
+   "reemplazo": "        plan[\"enforced\"] = True",
+   "why": "el plan MIENTE sobre si se hizo cumplir: en SHADOW dice enforced y nadie distingue observar de bloquear"
+  }
+ ]
+}
