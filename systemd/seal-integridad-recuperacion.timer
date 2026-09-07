@@ -1,0 +1,13 @@
+[Unit]
+Description=SEAL — corre el chequeo de integridad cada hora
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+# Sin persistencia el chequeo se saltea los reinicios, que es justo cuando
+# mas probable es que falte algo.
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

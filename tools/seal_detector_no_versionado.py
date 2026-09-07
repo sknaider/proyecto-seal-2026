@@ -172,12 +172,19 @@ def main() -> int:
             print(f"  {raiz}/  — {len(files)} archivos. Ej: {files[0]}")
         print()
 
+    # CODIGOS DE SALIDA, y la distincion no es cosmetica:
+    #   0  nada que decir
+    #   1  BOMBAS: hay que actuar  -> el chequeo maestro AVISA
+    #   3  solo IGNORADOS: hay que clasificarlos algun dia, no hoy
+    #      -> el chequeo NO avisa. Con 362 ignorados en el repo, un timer
+    #         mandaria la misma alerta cada hora y el equipo la silenciaria.
+    #         Una alarma que suena siempre es una alarma apagada.
     if not bombas:
         print("sin bombas: todo lo que se importa, existe y no esta ignorado,")
         print("esta versionado. Alcance: imports de Python del mismo directorio,")
         print("imports relativos de JS/TS y manifiestos de dependencias. NO ve")
         print("imports armados en tiempo de ejecucion ni rutas en configuracion.")
-        return 1 if ign else 0
+        return 3 if ign else 0
     print(f"BOMBAS DE TIEMPO: {len(bombas)} archivos existen en disco y NO en git\n")
     for quien, que in sorted(set(bombas))[:40]:
         print(f"  {que}\n      lo necesita: {quien}")

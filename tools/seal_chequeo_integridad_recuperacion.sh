@@ -14,6 +14,12 @@ hay=0
 corre() {  # corre <titulo> <comando...>
   local t="$1"; shift
   local out; out=$("$@" 2>&1); local rc=$?
+  # rc=3 significa "hay pendientes de clasificar", no "hay un hallazgo".
+  # No dispara aviso: una alarma que suena en cada corrida se silencia.
+  if [ $rc -eq 3 ]; then
+    { echo "== $t (solo pendientes de clasificar, sin accion)"; echo "$out"; echo; } >> "$salida"
+    return 0
+  fi
   if [ $rc -ne 0 ]; then
     hay=1
     { echo "== $t"; echo "$out"; echo; } >> "$salida"

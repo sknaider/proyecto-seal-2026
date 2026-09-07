@@ -99,18 +99,40 @@ def revisar(pid: str) -> dict | None:
 
 
 def barrer() -> dict:
+    """Barre /proc y ademas comprueba que HUBO ALGO QUE BARRER.
+
+    HALLAZGO DE FABLE (7-sep 12:22, juzgando el detector de ALICE): un arbol
+    VACIADO le parecia sano a su chequeo -sin hallazgos, exit 0-. Aplique su
+    caso a esta metrica y tenia el MISMO defecto: con cero procesos devolvia
+    "fantasmas: 0" y salida 0, o sea "sistema sano".
+
+        cero fantasmas porque todo esta bien       != cero fantasmas porque
+        cero fantasmas porque no mire nada            no habia nada que mirar
+
+    Un vigilante que no distingue "no encontre nada" de "no busque" reporta
+    salud justo cuando el sistema desaparecio. Por eso `revisados` viaja en el
+    informe y `barrido_vacio` lo marca explicito.
+    """
     fantasmas = []
+    revisados = 0
     for pid in os.listdir("/proc"):
         if not pid.isdigit():
             continue
+        revisados += 1
         r = revisar(pid)
         if r:
             fantasmas.append(r)
-    return {"fantasmas": len(fantasmas), "detalle": fantasmas}
+    return {
+        "fantasmas": len(fantasmas),
+        "revisados": revisados,
+        "barrido_vacio": revisados == 0,
+        "detalle": fantasmas,
+    }
 
 
 if __name__ == "__main__":
     informe = barrer()
     print(json.dumps(informe, indent=2, ensure_ascii=False))
     # Codigo de salida = la metrica. 0 fantasmas = sano.
-    sys.exit(1 if informe["fantasmas"] else 0)
+    # Un barrido vacio NO es salud: es un oraculo ciego. Sale != 0 igual.
+    sys.exit(2 if informe["barrido_vacio"] else (1 if informe["fantasmas"] else 0))

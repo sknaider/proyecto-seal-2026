@@ -1,0 +1,11 @@
+[Unit]
+Description=SEAL — chequeo de integridad de recuperacion (4 detectores, avisa solo si hay hallazgo)
+Documentation=file:///home/dadito/IA/proyecto-seal/fable/casos/detectores-recuperacion-alice-20260907.md
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+ExecStart=/bin/bash /home/dadito/IA/proyecto-seal/tools/seal_chequeo_integridad_recuperacion.sh
+# exit 1 = hubo hallazgo y ya se aviso al canal; no es una falla de la unidad.
+SuccessExitStatus=0 1
+Environment=SEAL_AGENT=ALICE

@@ -94,7 +94,9 @@ def test_un_pid_que_no_existe_no_rompe():
 
 def test_barrer_devuelve_la_METRICA_y_su_detalle():
     r = barrer()
-    assert set(r) == {"fantasmas", "detalle"}
+    # `revisados` y `barrido_vacio` se agregaron el 7-sep por el hallazgo de FABLE:
+    # sin ellos, cero fantasmas con cero procesos se leia como "sistema sano".
+    assert set(r) == {"fantasmas", "revisados", "barrido_vacio", "detalle"}
     assert r["fantasmas"] == len(r["detalle"])
     assert isinstance(r["fantasmas"], int)
 
@@ -135,3 +137,44 @@ def test_CONTROL_una_so_de_paquete_AUSENTE_si_cuenta(tmp_path):
 def test_CONTROL_una_so_fuera_de_site_packages_siempre_cuenta():
     """libmtmd.so de llama.cpp no vive en site-packages: no aplica la excepcion."""
     assert not _paquete_vivo("/home/dadito/IA/llama.cpp/build/bin/libmtmd.so.0")
+
+
+# ── Un barrido VACIO no es salud (hallazgo de FABLE, 7-sep 12:22) ───────────
+# FABLE juzgando el detector de ALICE: un arbol VACIADO le parecia sano
+# (sin hallazgos, exit 0). Aplique su caso a esta metrica y tenia el MISMO
+# defecto. Estos brazos fijan la distincion:
+#     "no encontre nada"  !=  "no busque nada"
+import unittest.mock as _mock  # noqa: E402
+
+
+def test_un_barrido_SIN_PROCESOS_no_se_reporta_como_sano():
+    with _mock.patch("os.listdir", return_value=[]):
+        r = barrer()
+    assert r["revisados"] == 0
+    assert r["barrido_vacio"] is True, (
+        "cero fantasmas con cero procesos revisados NO es un sistema sano: "
+        "es un oraculo ciego, y asi reporta salud cuando el sistema desaparecio"
+    )
+
+
+def test_CONTROL_un_barrido_REAL_no_se_marca_como_vacio():
+    """Sin este brazo, 'barrido_vacio = True' siempre pasaria en verde."""
+    r = barrer()
+    assert r["revisados"] > 0
+    assert r["barrido_vacio"] is False
+
+
+def test_el_codigo_de_salida_distingue_ciego_de_sano(tmp_path):
+    """exit 2 = no revise nada · exit 1 = hay fantasmas · exit 0 = sano de verdad."""
+    import subprocess, textwrap
+    guion = tmp_path / "g.py"
+    guion.write_text(textwrap.dedent(f"""
+        import sys, unittest.mock as mock
+        sys.path.insert(0, {str(RAIZ)!r})
+        import os
+        with mock.patch.object(os, "listdir", return_value=[]):
+            import runpy
+            runpy.run_path({str(RAIZ / "seal_codigo_fantasma.py")!r}, run_name="__main__")
+    """))
+    r = subprocess.run([sys.executable, str(guion)], capture_output=True, text=True, timeout=60)
+    assert r.returncode == 2, f"un barrido ciego debe salir 2, salio {r.returncode}"
