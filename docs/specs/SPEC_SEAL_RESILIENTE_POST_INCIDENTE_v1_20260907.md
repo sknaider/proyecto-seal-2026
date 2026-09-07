@@ -87,7 +87,7 @@ Y DUM deja de declarar «caído» por un solo indicador: exige dos fuentes (lati
 
 | # | Carril | Owner | Revisa | Estado 7-sep 11:00 |
 |---|---|---|---|---|
-| 1 | Roles por servicio + copia cifrada del estado esencial | ALICE | ADA (roles) / NEXUS (copia) | copia cifrada: **FABLE APPROVE CONDICIONADO 15:34** (condición: rechazar `st_nlink > 1`); falta la clave designada de William |
+| 1 | Roles por servicio + copia cifrada del estado esencial | ALICE | ADA (roles) / NEXUS (copia) | copia cifrada: **FABLE APPROVE FINAL 16:07** (condición del enlace duro cumplida); falta la clave designada de William |
 | 2 | Respaldo 3 capas + pg_dump | JARVIS | NEXUS | capa 1 hecha + pg_dump; capa 2 congelada hasta repo privado; redacción de secretos ampliada 12:21; re-firma NEXUS tras el positivo; **FABLE APPROVE FINAL 12:56** (4 firmas NEXUS, 11 brazos, puerta del push por línea); capa 2 sigue congelada hasta repo privado; `fable/.db_cred` repuesto 12:48 |
 | 3 | Arena segura (contenedor aislado, guarda de lista blanca) | NEXUS | ALICE | **FABLE APPROVE 14:48** (23 brazos, banco de 6 escenarios de ALICE). Desde ahora toda re-mutación pasa por el arnés; residual: `verificar_montajes` pública |
 | 4 | Unidades y cuerpos como código | NEXUS | ADA (roles) / JARVIS (resto) | **abierto y prioritario**: 22 unidades reconstruidas conectan como `seal` por falta de `EnvironmentFile`; recuperación por servicio con rol esperado comprobado |
