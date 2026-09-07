@@ -25,7 +25,7 @@ NO EJECUTA NADA: solo lee y parsea. La objecion de ADA (7-sep 10:54) es que
 importar ejecuta codigo; este detector no importa nada.
 """
 from __future__ import annotations
-import ast, pathlib, subprocess, sys
+import ast, pathlib, subprocess, sys, warnings
 
 
 def versionados(repo: pathlib.Path) -> set[str]:
@@ -34,6 +34,8 @@ def versionados(repo: pathlib.Path) -> set[str]:
 
 
 def imports_relativos(archivo: pathlib.Path) -> list[str]:
+    # ast.parse emite SyntaxWarning por escapes invalidos del archivo LEIDO
+    # (p.ej. "\\*" en un docstring ajeno). Es ruido del sujeto, no un hallazgo.
     """Modulos que el archivo importa desde SU MISMO directorio."""
     try:
         arbol = ast.parse(archivo.read_text(encoding="utf-8", errors="replace"))
@@ -49,20 +51,13 @@ def imports_relativos(archivo: pathlib.Path) -> list[str]:
 
 
 def main() -> int:
+    warnings.simplefilter("ignore", SyntaxWarning)
     repo = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     en_git = versionados(repo)
     bombas = []
+    ignorados = []
     for py in repo.rglob("*.py"):
         if ".git" in py.parts or "node_modules" in py.parts:
-            continue
-        # Un archivo IGNORADO a proposito no es una bomba: es una decision.
-        # Sin esto el detector marcaba 48 "bombas" en soul-v2-lab que eran
-        # todas de build/ — artefacto compilado, ignorado adrede. Un detector
-        # que no distingue "falta" de "no corresponde" produce ruido, y el
-        # ruido hace que nadie lo lea (mi propio baseline del Pilar III:
-        # 77 % de mis alertas no eran ni auditables).
-        if subprocess.run(["git", "check-ignore", "-q", str(py.relative_to(repo))],
-                          cwd=repo).returncode == 0:
             continue
         d = py.parent
         for mod in set(imports_relativos(py)):
@@ -70,14 +65,39 @@ def main() -> int:
             if not cand.exists():
                 continue
             rel = str(cand.relative_to(repo))
+            if rel in en_git:
+                continue
+            # ADA, 7-sep 11:08: ".gitignore no demuestra que un archivo sea
+            # prescindible o reproducible: el estado de nerves perdido estaba
+            # ignorado precisamente". Tiene razon y mi version anterior
+            # SALTABA estos en silencio, que es peor que marcarlos mal:
+            # un hallazgo mal clasificado se discute, uno invisible no.
+            # .gitignore prueba que ALGUIEN lo excluyo a proposito; NO prueba
+            # que sepa regenerarlo. Por eso ahora son una categoria propia
+            # que pide una respuesta humana, no un descarte automatico.
             if subprocess.run(["git", "check-ignore", "-q", rel],
                               cwd=repo).returncode == 0:
+                ignorados.append((str(py.relative_to(repo)), rel))
                 continue
-            if rel not in en_git:
-                bombas.append((str(py.relative_to(repo)), rel))
+            bombas.append((str(py.relative_to(repo)), rel))
+    ign = sorted(set(ignorados))
+    if ign:
+        print(f"IGNORADOS A PROPOSITO: {len(ign)} — se importan, existen en disco,")
+        print("  no estan en git y .gitignore los excluye. NO son automaticamente")
+        print("  prescindibles: hay que decir de cada uno si es artefacto")
+        print("  REGENERABLE (que comando lo regenera) o ESTADO ESENCIAL (que")
+        print("  necesita respaldo fuera de git, sin versionar secretos).\n")
+        grupos: dict[str, list[str]] = {}
+        for _quien, que in ign:
+            grupos.setdefault(que.split("/")[0], []).append(que)
+        for raiz, files in sorted(grupos.items(), key=lambda g: -len(g[1])):
+            print(f"  {raiz}/  — {len(files)} archivos. Ej: {files[0]}")
+        print()
+
     if not bombas:
-        print("sin hallazgos: todo lo que se importa y existe, esta versionado")
-        return 0
+        print("sin bombas: todo lo que se importa, existe y no esta ignorado,")
+        print("esta versionado. Alcance: imports de Python del mismo directorio.")
+        return 1 if ign else 0
     print(f"BOMBAS DE TIEMPO: {len(bombas)} archivos existen en disco y NO en git\n")
     for quien, que in sorted(set(bombas))[:40]:
         print(f"  {que}\n      lo necesita: {quien}")
