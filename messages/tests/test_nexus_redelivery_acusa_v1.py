@@ -145,3 +145,59 @@ def test_positivo_lo_NUNCA_entregado_va_antes_que_un_reintento():
         f"las DOS ramas de pending_for_redelivery deben priorizar lo nunca "
         f"entregado; encontradas {fuente.count(linea)}"
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# CONDICION DE FABLE (7-sep-2026, #151605): "el tope declarado no es el tope
+# efectivo". Lo midio en la base real y lo confirme yo:
+#
+#     attempts  8 -> 234 filas    9 -> 2910    10 -> 4    11 -> 84
+#     de esas 3226, TODAS con status='delivered'; ninguna atascada
+#
+# LA CAUSA, ubicada: `attempts` lo incrementan DOS caminos y solo uno esta
+# acotado.
+#
+#     camino 1  el lazo de reintento (seal_message_delivery:148)
+#               SELECT ... WHERE status <> 'read' AND attempts < MAX
+#               -> un mensaje con attempts >= MAX ya NO se vuelve a elegir
+#
+#     camino 2  la entrega EN VIVO por WebSocket (chat_server:806)
+#               llama mark_delivered() -> attempts = attempts + 1 SIN tope
+#
+# O sea: MAX_ATTEMPTS acota A QUIEN SE REINTENTA, no cuanto puede crecer el
+# contador. `attempts` cuenta ENTREGAS, no fracasos.
+#
+# NO se "arregla" poniendo un tope en mark_delivered: eso haria que el contador
+# mienta sobre cuantas veces se entrego. Lo que estaba mal era la AFIRMACION del
+# manifiesto, no el codigo. Estos brazos fijan la conducta real para que nadie
+# vuelva a leer el tope como una cota del contador.
+# ══════════════════════════════════════════════════════════════════════════
+
+RAIZ = Path(__file__).resolve().parents[2]
+
+
+def test_el_tope_acota_A_QUIEN_SE_REINTENTA_no_al_contador():
+    """El filtro vive en el SELECT del lazo, no en el UPDATE del contador."""
+    entrega = (RAIZ / "messages/seal_message_delivery.py").read_text()
+    i = entrega.index("async def mark_delivered")
+    cuerpo = entrega[i:i + 420]
+    assert "attempts = attempts + 1" in cuerpo
+    assert "attempts <" not in cuerpo, (
+        "si mark_delivered acotara el contador, `attempts` dejaria de contar "
+        "entregas reales y el numero mentiria")
+    assert "attempts < $2" in entrega.split("async def mark_delivered")[0], (
+        "el tope debe seguir estando en el SELECT del lazo de reintento")
+
+
+def test_el_SEGUNDO_camino_existe_y_esta_declarado():
+    """La entrega en vivo por WS tambien incrementa: es el camino que hace que
+    el contador supere el tope, y tiene que quedar VISIBLE en el codigo."""
+    chat = (RAIZ / "messages/chat_server.py").read_text()
+    assert "_msgdelivery.mark_delivered" in chat, (
+        "el camino en vivo ya no llama a mark_delivered: si desaparece, el "
+        "outbox deja de saber que el mensaje llego por WS")
+    i = chat.index("_msgdelivery.mark_delivered")
+    contexto = chat[max(0, i - 500): i]
+    assert "attempts++" in contexto or "attempts" in contexto, (
+        "el efecto sobre attempts debe estar dicho donde se llama, no descubrirse "
+        "midiendo la base seis meses despues")
