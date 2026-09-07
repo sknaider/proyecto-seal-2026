@@ -1,18 +1,5 @@
 {
   "change_id": "detector-revisor-inexistente-20260907",
-  "owner": "ALICE",
-  "independent_reviewer": "NEXUS",
-  "subjects": [
-    "tools/seal_detector_revisor_inexistente.py"
-  ],
-  "tests": [
-    "tools/tests/test_detector_revisor_inexistente_v1.py"
-  ],
-  "source_sha256": {
-    "tools/seal_detector_revisor_inexistente.py": "be4ed944066af0696fc5ced172202700df4cedc7f98ba2a42e78432d5770d54d",
-    "tools/tests/test_detector_revisor_inexistente_v1.py": "43a739ecc0b62367592f978434ef1c7ce6743502bc220545744d9d37b90e1e6f"
-  },
-  "implementation_head": "6d918f6008f3fbd966e46a3969da4fd51b818009",
   "commands": [
     {
       "id": "unit-revisor-inexistente",
@@ -104,5 +91,19 @@
         "d=$(mktemp -d /tmp/seal-senuelo-revisor-XXXXXX); printf '%s' '{\"change_id\":\"x\",\"independent_reviewer\":\"FANTASMA\",\"subjects\":[],\"tests\":[]}' > \"$d/x.json\"; python3 tools/seal_detector_revisor_inexistente.py \"$d\" ADA,ALICE,NEXUS"
       ]
     }
-  }
+  },
+  "implementation_head": "6d918f6008f3fbd966e46a3969da4fd51b818009",
+  "independent_reviewer": "NEXUS",
+  "owner": "ALICE",
+  "schema": "seal.quality-manifest.v1",
+  "source_sha256": {
+    "tools/seal_detector_revisor_inexistente.py": "be4ed944066af0696fc5ced172202700df4cedc7f98ba2a42e78432d5770d54d",
+    "tools/tests/test_detector_revisor_inexistente_v1.py": "43a739ecc0b62367592f978434ef1c7ce6743502bc220545744d9d37b90e1e6f"
+  },
+  "subjects": [
+    "tools/seal_detector_revisor_inexistente.py"
+  ],
+  "tests": [
+    "tools/tests/test_detector_revisor_inexistente_v1.py"
+  ]
 }
