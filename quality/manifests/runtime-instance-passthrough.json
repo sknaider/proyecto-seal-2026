@@ -17,23 +17,39 @@
   "schema": "seal.quality-manifest.v1",
   "change_id": "runtime-instance-passthrough-20260903",
   "owner": "NEXUS",
-  "independent_reviewer": "ADA",
+  "independent_reviewer": "JARVIS",
   "review": {
     "status": "approved",
-    "approved_at": "2026-09-05T05:31:00+00:00",
-    "evidence": "Firma de ADA caducada por este cambio de coverage.source, que ella misma diagnostico. Los bytes de sujetos y tests NO se movieron.\n\nRE-SELLO (ADA, 5-sep-2026 00:31). NO se re-reviso: los CUATRO archivos revisados estan byte por byte iguales a los de mi aprobacion (digest e8e7ddfdd310), verificado por hash uno por uno. Lo unico que se movio es coverage.source, de la ruta de archivo 'messages/chat_server.py' --que no recolecta nada y cortaba con coverage_report_failed-- al nombre de modulo 'chat_server', que es el arreglo que yo misma diagnostique al revisar. Cambiar el bloque de cobertura no toca ninguna propiedad del sujeto, asi que re-sellar es lo correcto y re-revisar seria teatro.",
+    "approved_at": "2026-09-07T22:23:41.041878+00:00",
+    "evidence": "Reasignación de revisor ADA→JARVIS (7-sep-2026 17:25): chat_server.py cambió (commit 6459704) y ADA no tiene ejecución; el recibo anterior queda en historial. Ver review.receipt.evidence.",
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
-      "reviewer": "ADA",
-      "manifest_digest": "ed814399de1ef4fcac83c70cd505eec9c8e868899b8718ff641958df46ca936b",
+      "reviewer": "JARVIS",
+      "evidence": "Re-verificación tras cambio de chat_server.py (commit 6459704, 14:49): la firma de ADA quedó bytes_stale y ADA no tiene ejecución. Brazos con el venv (7-sep 17:23): unit 9 passed, qa_positive 1, qa_negative 1, qa_control 1, exit 0 los cuatro. Re-mutación en arena aprobada con 5 mutantes ejecutables sobre el passthrough de runtime_instance (copiar metadata entera, sin recorte/strip, asignación inalcanzable, campo equivocado, sin validación de tipo): 5/5 muertos, control 9 passed; evidencia quality/mutation-runtime-instance-passthrough.v2.json. Refutador: el mutante «asignación presente pero inalcanzable» conserva todos los literales que un test textual buscaría; lo mata el test conductual que lee la fila persistida.",
+      "signed_at": "2026-09-07T22:23:21.196422+00:00",
       "reviewed_sha256": {
-        "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+        "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
         "quality/delivery_runtime_instance_passthrough.sh": "92461b53d6255b407a9c1e0748d7ad81fadfb465695795926f9ab7ea087a7f98",
         "quality/delivery_runtime_instance_arm3.py": "2dcd6d28359f537b79d612e8b27c36065ea9a9d3e311a9eb49fd380395d0e972",
         "tests/test_nexus_runtime_instance_passthrough_v1.py": "964f11d61c5f2c36760301e30e613eba86cd6c9999ed3c0f149cf18f0db73d94"
       },
-      "evidence": "Firma de ADA caducada por este cambio de coverage.source, que ella misma diagnostico. Los bytes de sujetos y tests NO se movieron.\n\nRE-SELLO (ADA, 5-sep-2026 00:31). NO se re-reviso: los CUATRO archivos revisados estan byte por byte iguales a los de mi aprobacion (digest e8e7ddfdd310), verificado por hash uno por uno. Lo unico que se movio es coverage.source, de la ruta de archivo 'messages/chat_server.py' --que no recolecta nada y cortaba con coverage_report_failed-- al nombre de modulo 'chat_server', que es el arreglo que yo misma diagnostique al revisar. Cambiar el bloque de cobertura no toca ninguna propiedad del sujeto, asi que re-sellar es lo correcto y re-revisar seria teatro."
-    }
+      "manifest_digest": "428b8cca436bf2a2e6b0526fb7e3fe0eb541a00262c28e7bdd527ca1598b5bf6"
+    },
+    "historial": [
+      {
+        "reviewer": "ADA",
+        "reviewed_sha256": {
+          "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+          "quality/delivery_runtime_instance_passthrough.sh": "92461b53d6255b407a9c1e0748d7ad81fadfb465695795926f9ab7ea087a7f98",
+          "quality/delivery_runtime_instance_arm3.py": "2dcd6d28359f537b79d612e8b27c36065ea9a9d3e311a9eb49fd380395d0e972",
+          "tests/test_nexus_runtime_instance_passthrough_v1.py": "964f11d61c5f2c36760301e30e613eba86cd6c9999ed3c0f149cf18f0db73d94"
+        },
+        "manifest_digest": "ed814399de1ef4fcac83c70cd505eec9c8e868899b8718ff641958df46ca936b",
+        "independent_reviewer_anterior": "ADA",
+        "evidence_anterior": "Firma de ADA caducada por este cambio de coverage.source, que ella misma diagnostico. Los bytes de sujetos y tests NO se movieron.\n\nRE-SELLO (ADA, 5-sep-2026 00:31). NO se re-reviso: los CUATRO archivos revisados estan byte por byte iguales a los de mi aprobacion (digest e8e7ddfdd310), verificado por hash uno por uno. Lo unico que se movio es coverage.source, de la ruta de archivo 'messages/chat_server.py' --que no recolecta nada y cortaba con coverage_report_failed-- al nombre de modulo 'chat_server', que es el arreglo que yo misma diagnostique al revisar. Cambiar el bloque de cobertura no toca ninguna propiedad del sujeto, asi que re-sellar es lo correcto y re-revisar seria teatro."
+      }
+    ],
+    "independent_reviewer": "JARVIS"
   },
   "deletions": [],
   "subjects": [
@@ -109,7 +125,7 @@
     "timeout": 300,
     "_source": "NOMBRE DE MODULO, no la ruta del archivo. Medido el 4-sep con las tres formas sobre esta misma suite: 'messages/chat_server.py' -> coverage NO produce reporte y el gate corta; 'chat_server' -> 19,6 % sobre 1 archivo; 'messages' -> 4,6 % sobre 125, que diluye la medicion en todo el directorio. Lo diagnostico ADA revisando y lo reproduje antes de aplicarlo. OJO: la forma correcta NO es universal --en un paquete con __init__.py gana la ruta de DIRECTORIO-- y lo unico que no funciona nunca es la ruta de ARCHIVO."
   },
-  "mutation_evidence": "quality/mutation-runtime-instance-passthrough.json",
+  "mutation_evidence": "quality/mutation-runtime-instance-passthrough.v2.json",
   "mutation_baseline_percent": 100.0,
   "delivery": {
     "status": "verified",

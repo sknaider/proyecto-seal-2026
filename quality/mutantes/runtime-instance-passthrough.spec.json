@@ -1,0 +1,48 @@
+{
+  "change_id": "runtime-instance-passthrough",
+  "reviewer": "JARVIS",
+  "manifest": "quality/manifests/runtime-instance-passthrough.json",
+  "tests": [
+    [
+      "tests/test_nexus_runtime_instance_passthrough_v1.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "copiar-el-metadata-entero-via-bucle",
+      "subject": "messages/chat_server.py",
+      "ancla": "            _rt = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            _rt = _rt.get(\"runtime_instance\")\n            if isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+      "reemplazo": "            _md_entrante = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            for _k, _v in _md_entrante.items():\n                if isinstance(_v, (str, int, float, bool, type(None))):\n                    metadata[_k] = _v",
+      "why": "Copia todas las claves del metadata del body: permite que el emisor pise session_user, legacy_id, el hash del token"
+    },
+    {
+      "id": "sin-recorte-ni-strip",
+      "subject": "messages/chat_server.py",
+      "ancla": "                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+      "reemplazo": "                metadata[\"runtime_instance\"] = _rt",
+      "why": "Sin strip ni [:40], un valor arbitrariamente largo entra a la metadata persistida"
+    },
+    {
+      "id": "asignacion-presente-pero-inalcanzable",
+      "subject": "messages/chat_server.py",
+      "ancla": "            if isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+      "reemplazo": "            if False and isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+      "why": "La asignación existe pero nunca se ejecuta: todos los literales vigentes pero runtime_instance no llega a la fila"
+    },
+    {
+      "id": "extraer-de-campo-equivocado",
+      "subject": "messages/chat_server.py",
+      "ancla": "            _rt = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            _rt = _rt.get(\"runtime_instance\")",
+      "reemplazo": "            _rt = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            _rt = body.get(\"runtime_instance\")",
+      "why": "Busca runtime_instance en el nivel equivocado (body directamente, no body[metadata]): el valor no existe ahí, así que nunca se asigna"
+    },
+    {
+      "id": "sin-validacion-de-tipo",
+      "subject": "messages/chat_server.py",
+      "ancla": "            if isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+      "reemplazo": "            if _rt:\n                metadata[\"runtime_instance\"] = _rt[:40]",
+      "why": "Sin check de tipo, valores no-string llegan a metadata; sin strip, espacios de más; [:40] aun aplica"
+    }
+  ],
+  "_nota": "5 mutantes ejecutables; el brazo conductual del test v1 vigila que (1) `runtime_instance` llegue a la fila, (2) no haya claves extras del cliente, (3) el cliente no pise `legacy_id`. El mutante 1 falla el test conductual (clave_extra persiste). El mutante 2 pasa los textuales pero puede fallar si el test vigila longitud. El mutante 3 pasa todos los textuales (literales intactos) y muere en los conductuales (etiqueta no llega). El mutante 4 evita el problema siendo sintácticamente válido pero semánticamente inerte. El mutante 5 quita validación pero sigue con cap [:40]."
+}

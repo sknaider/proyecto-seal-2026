@@ -1,0 +1,157 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "runtime-instance-passthrough",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 5,
+  "survived": 0,
+  "total": 5,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": ".........                                                                [100%]\n9 passed in 0.34s",
+    "sha_sujetos_antes": {
+      "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "copiar-el-metadata-entero-via-bucle",
+      "subject": "messages/chat_server.py",
+      "ancla": "            _rt = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            _rt = _rt.get(\"runtime_instance\")\n            if isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+      "reemplazo": "            _md_entrante = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            for _k, _v in _md_entrante.items():\n                if isinstance(_v, (str, int, float, bool, type(None))):\n                    metadata[_k] = _v",
+      "why": "Copia todas las claves del metadata del body: permite que el emisor pise session_user, legacy_id, el hash del token",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "            _rt = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            _rt = _rt.get(\"runtime_instance\")\n            if isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+        "reemplazo": "            _md_entrante = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            for _k, _v in _md_entrante.items():\n                if isinstance(_v, (str, int, float, bool, type(None))):\n                    metadata[_k] = _v",
+        "ancla_sha256": "3415888a11a9ad8ff9d082810a38a3a9a15d05df7c6103aaa1d529901edd7efc",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_la_etiqueta_de_cuerpo_se_copia_del_body",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_se_recorta_y_se_exige_string",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_negative_conductual_solo_esa_clave_del_cliente_persiste",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_negative_conductual_el_cliente_no_pisa_la_procedencia"
+      ],
+      "pytest_tail": "=========================== short test summary info ============================\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_la_etiqueta_de_cuerpo_se_copia_del_body\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_se_recorta_y_se_exige_string\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_negative_conductual_solo_esa_clave_del_cliente_persiste\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_negative_conductual_el_cliente_no_pisa_la_procedencia\n4 failed, 5 passed in 0.34s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "sin-recorte-ni-strip",
+      "subject": "messages/chat_server.py",
+      "ancla": "                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+      "reemplazo": "                metadata[\"runtime_instance\"] = _rt",
+      "why": "Sin strip ni [:40], un valor arbitrariamente largo entra a la metadata persistida",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+        "reemplazo": "                metadata[\"runtime_instance\"] = _rt",
+        "ancla_sha256": "74f2328691da0e1c03d74a65142816e17ae7e0618e47b71ce59401aa14055743",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_la_etiqueta_de_cuerpo_se_copia_del_body",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_se_recorta_y_se_exige_string"
+      ],
+      "pytest_tail": "\ntests/test_nexus_runtime_instance_passthrough_v1.py:48: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_la_etiqueta_de_cuerpo_se_copia_del_body\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_se_recorta_y_se_exige_string\n2 failed, 7 passed in 0.36s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "asignacion-presente-pero-inalcanzable",
+      "subject": "messages/chat_server.py",
+      "ancla": "            if isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+      "reemplazo": "            if False and isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+      "why": "La asignación existe pero nunca se ejecuta: todos los literales vigentes pero runtime_instance no llega a la fila",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "            if isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+        "reemplazo": "            if False and isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+        "ancla_sha256": "33b729c84a60c8eff40cf77a5cf04eff06df0f029cc60762bc1b828d8ba4c098",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_conductual_la_etiqueta_llega_a_la_fila",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_negative_conductual_solo_esa_clave_del_cliente_persiste"
+      ],
+      "pytest_tail": "\ntests/test_nexus_runtime_instance_passthrough_v1.py:195: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_conductual_la_etiqueta_llega_a_la_fila\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_negative_conductual_solo_esa_clave_del_cliente_persiste\n2 failed, 7 passed in 0.37s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "extraer-de-campo-equivocado",
+      "subject": "messages/chat_server.py",
+      "ancla": "            _rt = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            _rt = _rt.get(\"runtime_instance\")",
+      "reemplazo": "            _rt = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            _rt = body.get(\"runtime_instance\")",
+      "why": "Busca runtime_instance en el nivel equivocado (body directamente, no body[metadata]): el valor no existe ahí, así que nunca se asigna",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "            _rt = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            _rt = _rt.get(\"runtime_instance\")",
+        "reemplazo": "            _rt = (body.get(\"metadata\") or {}) if isinstance(body.get(\"metadata\"), dict) else {}\n            _rt = body.get(\"runtime_instance\")",
+        "ancla_sha256": "1ecfd85c51b524cddcb9351322adaabceb11e5a1288f5aea5f176ff175a65d10",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_conductual_la_etiqueta_llega_a_la_fila",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_negative_conductual_solo_esa_clave_del_cliente_persiste"
+      ],
+      "pytest_tail": "\ntests/test_nexus_runtime_instance_passthrough_v1.py:195: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_conductual_la_etiqueta_llega_a_la_fila\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_negative_conductual_solo_esa_clave_del_cliente_persiste\n2 failed, 7 passed in 0.38s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "sin-validacion-de-tipo",
+      "subject": "messages/chat_server.py",
+      "ancla": "            if isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+      "reemplazo": "            if _rt:\n                metadata[\"runtime_instance\"] = _rt[:40]",
+      "why": "Sin check de tipo, valores no-string llegan a metadata; sin strip, espacios de más; [:40] aun aplica",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "            if isinstance(_rt, str) and _rt.strip():\n                metadata[\"runtime_instance\"] = _rt.strip()[:40]",
+        "reemplazo": "            if _rt:\n                metadata[\"runtime_instance\"] = _rt[:40]",
+        "ancla_sha256": "33b729c84a60c8eff40cf77a5cf04eff06df0f029cc60762bc1b828d8ba4c098",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_la_etiqueta_de_cuerpo_se_copia_del_body",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_se_recorta_y_se_exige_string"
+      ],
+      "pytest_tail": "\ntests/test_nexus_runtime_instance_passthrough_v1.py:47: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_la_etiqueta_de_cuerpo_se_copia_del_body\nFAILED tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_se_recorta_y_se_exige_string\n2 failed, 7 passed in 0.37s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+    "quality/delivery_runtime_instance_arm3.py": "2dcd6d28359f537b79d612e8b27c36065ea9a9d3e311a9eb49fd380395d0e972",
+    "quality/delivery_runtime_instance_passthrough.sh": "92461b53d6255b407a9c1e0748d7ad81fadfb465695795926f9ab7ea087a7f98",
+    "tests/test_nexus_runtime_instance_passthrough_v1.py": "964f11d61c5f2c36760301e30e613eba86cd6c9999ed3c0f149cf18f0db73d94"
+  }
+}
