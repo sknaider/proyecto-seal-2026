@@ -20,7 +20,21 @@ API = 'http://localhost:8765/api/agents/send'
 ap = argparse.ArgumentParser()
 ap.add_argument("from_agent", nargs="?", default=os.environ.get("SEAL_AGENT"))
 ap.add_argument("to_agent")
-ap.add_argument("message")
+ap.add_argument("message", nargs="?", default=None)
+# --message-file: el texto NUNCA pasa por el shell.
+#
+# POR QUE (7-sep-2026, JARVIS lo pidio tras cuatro mensajes rotos en un dia,
+# tres suyos y uno de ALICE): pasar el cuerpo como argumento entre comillas
+# DOBLES hace que bash EJECUTE lo que va entre acentos graves y expanda $VAR.
+# Ese dia salieron mensajes con huecos silenciosos —"(mata )" donde decia el
+# codigo— y uno llego a lanzar un proceso de verdad. La regla escrita era
+# "usa heredoc con <<\'EOF\'"; se incumplio cuatro veces en un dia.
+#
+# Una regla que hay que recordar en cada llamada es un defecto de mecanismo,
+# no de cuidado. Con esto el cuerpo viaja por un archivo o por stdin y el
+# shell no lo toca: no hay nada que recordar.
+ap.add_argument("--message-file", default=None,
+                help="lee el cuerpo de un archivo (o '-' para stdin): el texto no pasa por el shell")
 ap.add_argument("--channel", default="web_chat")
 ap.add_argument("--type", dest="msg_type", default="conversation")
 ap.add_argument("--in-reply-to", default=None)
@@ -106,6 +120,28 @@ def _unescape(text: str) -> str:
         index += 1
     return "".join(out)
 
+
+if args.message_file is not None:
+    if args.message is not None:
+        sys.stderr.write(
+            "[seal_send] usa el mensaje posicional O --message-file, no los dos.\n")
+        raise SystemExit(2)
+    if args.message_file == "-":
+        args.message = sys.stdin.read()
+    else:
+        try:
+            args.message = pathlib.Path(args.message_file).read_text(encoding="utf-8")
+        except OSError as exc:
+            sys.stderr.write(f"[seal_send] no puedo leer --message-file: {exc}\n")
+            raise SystemExit(2)
+    # Un archivo termina en salto de linea casi siempre; ese salto final no es
+    # parte del mensaje y en el chat se ve como una linea vacia al pie.
+    args.message = args.message.rstrip("\n")
+
+if args.message is None:
+    sys.stderr.write(
+        "[seal_send] falta el mensaje: pasalo como argumento o con --message-file.\n")
+    raise SystemExit(2)
 
 if args.message_escaped:
     args.message = _unescape(args.message)

@@ -1,0 +1,20 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "mutantes adversariales explicitos, sobre COPIA EN ARENA (nunca el archivo del repo)",
+  "workspace": "Dos mutantes sobre la condicion central de seal_detector_paquetes_vacios.py (linea 'if sos > 0 and pys == 0'), hallados VIVOS por NEXUS en revision independiente el 7-sep 12:04 y cerrados por la owner: M1 'if sos > 0:' (marcaria paquetes que SI tienen fuentes) y M2 'if pys == 0:' (marcaria directorios de datos sin binarios). Control del original PRIMERO: con-fuentes exit 0 y solo-datos exit 0, o sea el original pasa ambos casos; si no, 'el mutante muere' no significaria nada. Resultado: M1 marca el paquete con fuentes (exit 1) y M2 marca el directorio de datos (exit 1): los dos MUEREN contra los brazos qa_negative nuevos. La mutacion se hizo sobre una copia bajo /tmp: mutar una guarda real es lo que borro 2,7 TB el 7-sep 01:42:53.",
+  "killed": 2,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 2,
+  "mutation_score_percent": 100.0,
+  "reviewer": "NEXUS",
+  "file_sha256": {
+    "tools/seal_detector_no_versionado.py": "9cace1402fafe39f357cf0355bede2a5195241585848641231b90402365458c8",
+    "tools/seal_detector_credenciales_unidades.py": "51c83a43b53f16e9fa1a3d0cb1b4b5358b2e6cf4d6d99457172e18f6ba12c81f",
+    "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
+    "tools/seal_chequeo_integridad_recuperacion.sh": "bb8ad9b8f14efcb3603ca63097782c089c369f24d2e1eace98ba245c89013af3"
+  }
+}
