@@ -145,17 +145,16 @@
     }
   },
   "review": {
-    "status": "changes_requested",
-    "reason": "ALICE (revisora independiente): 5/6 mutantes muertos. SOBREVIVE 'la-decision-entra-entera-sin-recorte' -quitar content[:200] no lo detecta ningun test-. NO firmo: el piso del gate es 100 y el hueco es real, aunque sea robustez y no fuga. Falta un brazo que fije el recorte.",
-    "receipt_pendiente": {
+    "status": "approved",
+    "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "ALICE",
       "reviewed_sha256": {
         "messages/session_checkpoint.py": "b665fa4531809a066bb9cf0a104ab537f529b6d4bc4e96018f352c7d13c2d741",
-        "messages/tests/test_checkpoint_tarea_decisiones_v1.py": "429033b898d374093189a8ed47956396d12056d1ecee5b704c7d99366ea33a17"
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py": "e18e6d01052dfe7ecb04ae41467863d0a2ec93eaac26683c04e06e7d35ad8b94"
       },
       "manifest_digest": "ce9821c42c08d4de8df9ded043ab78a87fd89f916cccc755d76332119e35f8d0",
-      "evidence": "Revision por MUTANTES en la arena aprobada (6 mutantes, control VERDE antes de mutar), no corriendo los ejemplos del owner. 5/6 muertos. Los dos que mas importaban -la FUGA ENTRE AGENTES en agent_tasks y en memories, con el filtro 'WHERE agent = $1' neutralizado- murieron, y con ellos el que enciende la bandera por defecto y el que hace que 'false'/'off' ya no apaguen nada. SOBREVIVE UNO, declarado y no bloqueante: quitar el recorte 'content[:200]' de las decisiones no lo detecta ningun test, asi que una memoria larga puede inflar el checkpoint sin limite. Es robustez, no fuga ni contrato. Queda como hallazgo para el owner. Aparte, para que el CONTROL quedara verde hubo que arreglar el arnes compartido: el ENV del driver es una lista blanca que descartaba las variables del docker run, y un rojo por entorno es indistinguible de un mutante vivo."
+      "evidence": "Revision por MUTANTES en la arena aprobada, no corriendo los ejemplos del owner. 6/6 muertos, control VERDE antes de mutar. Las dos FUGAS ENTRE AGENTES -filtro 'WHERE agent = $1' neutralizado en agent_tasks y en memories- mueren, y con ellas la bandera encendida por defecto y la que hace que 'false'/'off' dejen de apagar. El unico superviviente de mi primera pasada -quitar el recorte content[:200]- lo cerro NEXUS en 0ac4bdf; re-corrido aca, muere. Aparte, para que el CONTROL quedara verde hubo que arreglar el arnes compartido: el ENV del driver es una lista blanca que descartaba las variables del docker run, y un rojo por entorno es indistinguible de un mutante vivo."
     }
   }
 }

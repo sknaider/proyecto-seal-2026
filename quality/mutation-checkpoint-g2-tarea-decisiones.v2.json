@@ -5,17 +5,17 @@
   "reviewer": "ALICE",
   "mutation_target": "arena_aprobada_fable_20260907",
   "tool": "tools/arena_remutar_revisor.py",
-  "killed": 5,
-  "survived": 1,
+  "killed": 6,
+  "survived": 0,
   "total": 6,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
   "timeout": 0,
-  "mutation_score_percent": 83.333,
+  "mutation_score_percent": 100.0,
   "control_sujeto_sin_mutar": {
     "rc": 0,
-    "pytest_tail": "......                                                                   [100%]\n6 passed in 0.02s",
+    "pytest_tail": ".......                                                                  [100%]\n7 passed in 0.02s",
     "sha_sujetos_antes": {
       "messages/session_checkpoint.py": "b665fa4531809a066bb9cf0a104ab537f529b6d4bc4e96018f352c7d13c2d741"
     }
@@ -45,7 +45,7 @@
       "killed_by": [
         "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_bandera_esta_APAGADA_por_defecto"
       ],
-      "pytest_tail": "E       assert 'os.environ.get(\"SEAL_CHECKPOINT_G2\", \"\")' in '#!/usr/bin/env python3\\n\"\"\"SEAL Session Checkpoint — Guarda estado de sesión periódicamente.\\n\\nSi la sesión muere si...asyncio.run(read_checkpoint(args.agent))\\n    else:\\n        asyncio.run(capture_checkpoint(args.agent, args.final))\\n'\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:31: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_bandera_esta_APAGADA_por_defecto\n1 failed, 5 passed in 0.03s",
+      "pytest_tail": "E       assert 'os.environ.get(\"SEAL_CHECKPOINT_G2\", \"\")' in '#!/usr/bin/env python3\\n\"\"\"SEAL Session Checkpoint — Guarda estado de sesión periódicamente.\\n\\nSi la sesión muere si...asyncio.run(read_checkpoint(args.agent))\\n    else:\\n        asyncio.run(capture_checkpoint(args.agent, args.final))\\n'\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:31: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_bandera_esta_APAGADA_por_defecto\n1 failed, 6 passed in 0.03s",
       "sujeto_restaurado": true
     },
     {
@@ -68,7 +68,7 @@
       "killed_by": [
         "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_bandera_esta_APAGADA_por_defecto"
       ],
-      "pytest_tail": "E       assert 'in {\"1\", \"true\", \"yes\", \"on\"}' in 'SEAL_CHECKPOINT_G2\", \"\").strip().lower() not in {\"no\"}:\\n        tareas_activas = [\\n            {\"id\": t[\"id\"], \"title\": t[\"title\"], \"status\": t[\"status\"],\\n             \"priority\": t[\"priority\"]}\\n            for t in awai'\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:36: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_bandera_esta_APAGADA_por_defecto\n1 failed, 5 passed in 0.03s",
+      "pytest_tail": "E       assert 'in {\"1\", \"true\", \"yes\", \"on\"}' in 'SEAL_CHECKPOINT_G2\", \"\").strip().lower() not in {\"no\"}:\\n        tareas_activas = [\\n            {\"id\": t[\"id\"], \"title\": t[\"title\"], \"status\": t[\"status\"],\\n             \"priority\": t[\"priority\"]}\\n            for t in awai'\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:36: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_bandera_esta_APAGADA_por_defecto\n1 failed, 6 passed in 0.03s",
       "sujeto_restaurado": true
     },
     {
@@ -91,7 +91,7 @@
       "killed_by": [
         "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_las_tareas_son_SOLO_del_agente_del_checkpoint"
       ],
-      "pytest_tail": "E           assert 'agent = $1' in 'reas_activas = [\\n            {\"id\": t[\"id\"], \"title\": t[\"title\"], \"status\": t[\"status\"],\\n             \"priority\": t...\", agent)\\n        ]\\n        decisiones_recientes = [\\n            {\"id\": d[\"id\"], \"content\": d[\"content\"][:200],\\n  '\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:57: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_las_tareas_son_SOLO_del_agente_del_checkpoint\n1 failed, 5 passed in 0.03s",
+      "pytest_tail": "E           assert 'agent = $1' in 'reas_activas = [\\n            {\"id\": t[\"id\"], \"title\": t[\"title\"], \"status\": t[\"status\"],\\n             \"priority\": t...\", agent)\\n        ]\\n        decisiones_recientes = [\\n            {\"id\": d[\"id\"], \"content\": d[\"content\"][:200],\\n  '\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:57: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_las_tareas_son_SOLO_del_agente_del_checkpoint\n1 failed, 6 passed in 0.03s",
       "sujeto_restaurado": true
     },
     {
@@ -114,7 +114,7 @@
       "killed_by": [
         "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_las_tareas_son_SOLO_del_agente_del_checkpoint"
       ],
-      "pytest_tail": "E           assert 'agent = $1' in '  \"created_at\": d[\"created_at\"].isoformat() if d[\"created_at\"] else \"\"}\\n            for d in await conn.fetch(\\n    ...n        ]\\n\\n    checkpoint = {\\n        \"agent\": agent,\\n        \"timestamp\": now.isoformat(),\\n        \"is_final\": '\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:57: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_las_tareas_son_SOLO_del_agente_del_checkpoint\n1 failed, 5 passed in 0.03s",
+      "pytest_tail": "E           assert 'agent = $1' in '  \"created_at\": d[\"created_at\"].isoformat() if d[\"created_at\"] else \"\"}\\n            for d in await conn.fetch(\\n    ...n        ]\\n\\n    checkpoint = {\\n        \"agent\": agent,\\n        \"timestamp\": now.isoformat(),\\n        \"is_final\": '\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:57: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_las_tareas_son_SOLO_del_agente_del_checkpoint\n1 failed, 6 passed in 0.03s",
       "sujeto_restaurado": true
     },
     {
@@ -137,7 +137,7 @@
       "killed_by": [
         "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_el_checkpoint_guarda_QUE_ESTABA_HACIENDO"
       ],
-      "pytest_tail": "E       assert ('FROM agent_tasks' in '#!/usr/bin/env python3\\n\"\"\"SEAL Session Checkpoint — Guarda estado de sesión periódicamente.\\n\\nSi la sesión muere si...asyncio.run(read_checkpoint(args.agent))\\n    else:\\n        asyncio.run(capture_checkpoint(args.agent, args.final))\\n' and \"status = 'in_progress'\" in '#!/usr/bin/env python3\\n\"\"\"SEAL Session Checkpoint — Guarda estado de sesión periódicamente.\\n\\nSi la sesión muere si...asyncio.run(read_checkpoint(args.agent))\\n    else:\\n        asyncio.run(capture_checkpoint(args.agent, args.final))\\n')\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:43: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_el_checkpoint_guarda_QUE_ESTABA_HACIENDO\n1 failed, 5 passed in 0.03s",
+      "pytest_tail": "E       assert ('FROM agent_tasks' in '#!/usr/bin/env python3\\n\"\"\"SEAL Session Checkpoint — Guarda estado de sesión periódicamente.\\n\\nSi la sesión muere si...asyncio.run(read_checkpoint(args.agent))\\n    else:\\n        asyncio.run(capture_checkpoint(args.agent, args.final))\\n' and \"status = 'in_progress'\" in '#!/usr/bin/env python3\\n\"\"\"SEAL Session Checkpoint — Guarda estado de sesión periódicamente.\\n\\nSi la sesión muere si...asyncio.run(read_checkpoint(args.agent))\\n    else:\\n        asyncio.run(capture_checkpoint(args.agent, args.final))\\n')\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:43: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_el_checkpoint_guarda_QUE_ESTABA_HACIENDO\n1 failed, 6 passed in 0.03s",
       "sujeto_restaurado": true
     },
     {
@@ -155,15 +155,17 @@
         "ocurrencias_del_ancla": 1,
         "reproducible": true
       },
-      "result": "SURVIVED",
-      "rc": 0,
-      "killed_by": [],
-      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.02s",
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_decision_entra_RECORTADA"
+      ],
+      "pytest_tail": "E        +  where False = any(<generator object test_la_decision_entra_RECORTADA.<locals>.<genexpr> at 0xe2f140fa93c0>)\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:116: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_decision_entra_RECORTADA\n1 failed, 6 passed in 0.03s",
       "sujeto_restaurado": true
     }
   ],
   "file_sha256": {
     "messages/session_checkpoint.py": "b665fa4531809a066bb9cf0a104ab537f529b6d4bc4e96018f352c7d13c2d741",
-    "messages/tests/test_checkpoint_tarea_decisiones_v1.py": "429033b898d374093189a8ed47956396d12056d1ecee5b704c7d99366ea33a17"
+    "messages/tests/test_checkpoint_tarea_decisiones_v1.py": "e18e6d01052dfe7ecb04ae41467863d0a2ec93eaac26683c04e06e7d35ad8b94"
   }
 }
