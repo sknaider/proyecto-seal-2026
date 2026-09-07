@@ -1,0 +1,159 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "response-lease-contract",
+  "reviewer": "ALICE",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 0,
+  "survived": 6,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 0.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "......                                                                   [100%]\n6 passed in 0.09s",
+    "sha_sujetos_antes": {
+      "messages/response_lease.py": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "el-segundo-agente-tambien-gana",
+      "subject": "messages/response_lease.py",
+      "ancla": "        return False  # otro agente lo tiene vigente → rechazar (409)",
+      "reemplazo": "        return True  # otro agente lo tiene vigente → rechazar (409)",
+      "why": "el lease deja de excluir: dos agentes publican a la vez y vuelve el flood que William mando a arreglar",
+      "registro": {
+        "subject": "messages/response_lease.py",
+        "ancla": "        return False  # otro agente lo tiene vigente → rechazar (409)",
+        "reemplazo": "        return True  # otro agente lo tiene vigente → rechazar (409)",
+        "ancla_sha256": "ab00853d2559e463f2f6e5266aa62355fbe4dbae306b3ced22e04173a62b9fe2",
+        "sujeto_sha256_antes": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.10s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "el-dueno-pierde-su-propio-turno",
+      "subject": "messages/response_lease.py",
+      "ancla": "            return True  # idempotente: el owner puede re-postear",
+      "reemplazo": "            return False  # idempotente: el owner puede re-postear",
+      "why": "el dueno del turno se bloquea a si mismo al reintentar: deja de ser idempotente",
+      "registro": {
+        "subject": "messages/response_lease.py",
+        "ancla": "            return True  # idempotente: el owner puede re-postear",
+        "reemplazo": "            return False  # idempotente: el owner puede re-postear",
+        "ancla_sha256": "46ec5ba1035404cde388a4bf2f7d296365acaa355d47802910441040d2121109",
+        "sujeto_sha256_antes": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.09s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "el-lease-no-expira-nunca",
+      "subject": "messages/response_lease.py",
+      "ancla": "        if now - at > t:  # lease expirado → handoff: el nuevo lo toma",
+      "reemplazo": "        if False:  # lease expirado → handoff: el nuevo lo toma",
+      "why": "sin handoff por TTL, un agente que se cuelga deja el turno trabado y NADIE le contesta a William",
+      "registro": {
+        "subject": "messages/response_lease.py",
+        "ancla": "        if now - at > t:  # lease expirado → handoff: el nuevo lo toma",
+        "reemplazo": "        if False:  # lease expirado → handoff: el nuevo lo toma",
+        "ancla_sha256": "2049028f2146324f65fbc24494d56f92f6dfb9b84a384e83d130f95009f77edf",
+        "sujeto_sha256_antes": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.10s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "el-lease-expira-al-instante",
+      "subject": "messages/response_lease.py",
+      "ancla": "DEFAULT_TTL = 45  # segundos; owner debe postear dentro de este plazo o se hace handoff",
+      "reemplazo": "DEFAULT_TTL = 0  # segundos; owner debe postear dentro de este plazo o se hace handoff",
+      "why": "TTL cero: el turno se suelta antes de que el dueno alcance a publicar, y la exclusion no existe",
+      "registro": {
+        "subject": "messages/response_lease.py",
+        "ancla": "DEFAULT_TTL = 45  # segundos; owner debe postear dentro de este plazo o se hace handoff",
+        "reemplazo": "DEFAULT_TTL = 0  # segundos; owner debe postear dentro de este plazo o se hace handoff",
+        "ancla_sha256": "680d116821daa1ee74eca0037fe6d81294a53678605ab60a754be0de3270da06",
+        "sujeto_sha256_antes": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.10s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "todo-mensaje-se-declara-multivoz",
+      "subject": "messages/response_lease.py",
+      "ancla": "    if is_multi_response(william_text):",
+      "reemplazo": "    if True:",
+      "why": "el gate se abre para TODO: el lease deja de aplicarse aunque el mensaje no pida varias voces",
+      "registro": {
+        "subject": "messages/response_lease.py",
+        "ancla": "    if is_multi_response(william_text):",
+        "reemplazo": "    if True:",
+        "ancla_sha256": "4001eb5662fd7d25cd7d4bb8c0b7d83d4d65c0ce8906abbaba576697e6c26f70",
+        "sujeto_sha256_antes": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.10s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "ningun-mensaje-es-multivoz",
+      "subject": "messages/response_lease.py",
+      "ancla": "    return bool(_MULTI.search(text or \"\"))",
+      "reemplazo": "    return False",
+      "why": "cuando William pide EXPLICITAMENTE varias voces, el lease igual calla a cuatro: es el caso del saludo bloqueado",
+      "registro": {
+        "subject": "messages/response_lease.py",
+        "ancla": "    return bool(_MULTI.search(text or \"\"))",
+        "reemplazo": "    return False",
+        "ancla_sha256": "6175e5577c142099f43e06005cca239a39eb3ed17fdff954656444c2b13c0c83",
+        "sujeto_sha256_antes": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.10s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "messages/response_lease.py": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862",
+    "tests/test_nexus_response_lease_contract_v1.py": "516c4d48e93d0d92f4b1f39048f3ab680c6f405b445b5f0cd788a7bb7ee1c1e8"
+  }
+}

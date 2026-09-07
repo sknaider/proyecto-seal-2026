@@ -1,0 +1,58 @@
+{
+ "change_id": "response-lease-contract",
+ "reviewer": "ALICE",
+ "manifest": "quality/manifests/response-lease-contract.json",
+ "tests": [
+  [
+   "tests/test_nexus_response_lease_contract_v1.py"
+  ],
+  [
+   "messages/test_response_lease_acquire_db_paths.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "el-segundo-agente-tambien-gana",
+   "subject": "messages/response_lease.py",
+   "ancla": "        return False  # otro agente lo tiene vigente → rechazar (409)",
+   "reemplazo": "        return True  # otro agente lo tiene vigente → rechazar (409)",
+   "why": "el lease deja de excluir: dos agentes publican a la vez y vuelve el flood que William mando a arreglar"
+  },
+  {
+   "id": "el-dueno-pierde-su-propio-turno",
+   "subject": "messages/response_lease.py",
+   "ancla": "            return True  # idempotente: el owner puede re-postear",
+   "reemplazo": "            return False  # idempotente: el owner puede re-postear",
+   "why": "el dueno del turno se bloquea a si mismo al reintentar: deja de ser idempotente"
+  },
+  {
+   "id": "el-lease-no-expira-nunca",
+   "subject": "messages/response_lease.py",
+   "ancla": "        if now - at > t:  # lease expirado → handoff: el nuevo lo toma",
+   "reemplazo": "        if False:  # lease expirado → handoff: el nuevo lo toma",
+   "why": "sin handoff por TTL, un agente que se cuelga deja el turno trabado y NADIE le contesta a William"
+  },
+  {
+   "id": "el-lease-expira-al-instante",
+   "subject": "messages/response_lease.py",
+   "ancla": "DEFAULT_TTL = 45  # segundos; owner debe postear dentro de este plazo o se hace handoff",
+   "reemplazo": "DEFAULT_TTL = 0  # segundos; owner debe postear dentro de este plazo o se hace handoff",
+   "why": "TTL cero: el turno se suelta antes de que el dueno alcance a publicar, y la exclusion no existe"
+  },
+  {
+   "id": "todo-mensaje-se-declara-multivoz",
+   "subject": "messages/response_lease.py",
+   "ancla": "    if is_multi_response(william_text):",
+   "reemplazo": "    if True:",
+   "why": "el gate se abre para TODO: el lease deja de aplicarse aunque el mensaje no pida varias voces"
+  },
+  {
+   "id": "ningun-mensaje-es-multivoz",
+   "subject": "messages/response_lease.py",
+   "ancla": "    return bool(_MULTI.search(text or \"\"))",
+   "reemplazo": "    return False",
+   "why": "cuando William pide EXPLICITAMENTE varias voces, el lease igual calla a cuatro: es el caso del saludo bloqueado"
+  }
+ ],
+ "_nota": "Segunda pasada: se suma messages/test_response_lease_acquire_db_paths.py, que el manifiesto NO declara, para medir si la conducta esta cubierta por ALGUN test del arbol o por ninguno."
+}
