@@ -1,0 +1,109 @@
+{
+  "change_id": "detector-borrado-congelante-20260907",
+  "commands": [
+    {
+      "id": "unit-borrado-congelante",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_borrado_congelante_v1.py"
+      ]
+    },
+    {
+      "id": "positive-rm-rf-variable-sin-guarda",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_qa_positive_marca_rm_rf_sobre_variable_SIN_guarda"
+      ]
+    },
+    {
+      "id": "negative-no-marca-formas-aprobadas",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_qa_negative_NO_marca_las_formas_que_SI_se_pueden_escribir"
+      ]
+    },
+    {
+      "id": "negative-no-marca-variable-que-aborta",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_qa_negative_NO_marca_la_variable_con_ABORTO_si_esta_vacia"
+      ]
+    },
+    {
+      "id": "control-sin-scripts-no-dice-limpio",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_qa_control_sin_scripts_NO_dice_limpio"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_detector_borrado_congelante_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 600
+  },
+  "delivery": {
+    "status": "verified",
+    "effect": "William, 7-sep 18:24: 'no quiero que vuelva a pasar en el sistema esos borrados'. El candado de Claude Code lee la FORMA, no la intencion: NEXUS tenia su guarda `case /tmp/*` puesta y quedo CONGELADO 2 h 5 min (16:19-18:24), lo que explico su silencio y tres plazos vencidos. El costo real no es el riesgo: es que el agente queda MUDO hasta que un humano contesta.",
+    "evidence": "Barrido del arbol: 2107 scripts, 3 con GLOB sobre variable y 16 con `rm -rf` sobre variable SIN guarda. Cubre DOS formas: la del glob (mia) y `rm -rf \"$T\"` sin guarda, que aporto NEXUS tras escribir el mismo detector en paralelo y BORRAR el suyo por la regla de las copias; esa segunda es la que casi borra /home/dadito el 9-ago. Incluye su falso positivo como brazo negativo permanente: `${VAR:?}` aborta si la variable esta vacia y NO se marca -un detector que cobra ruido donde alguien ya hizo lo correcto termina apagado-. Tampoco marca `find -delete`, el `rm -rf` dentro de su `case`, un comentario, ni el patron dentro de un literal de Python (via tokenize): documentar el patron y usarlo como dato de prueba tiene que seguir siendo posible. LIMITE DECLARADO: encuentra las formas ESCRITAS en archivos; el comando que congelo a NEXUS lo tecleo en el momento y NO estaba en el arbol, asi que esto no lo habria salvado a el. NEXUS lo cableo al pre-commit (2236b48) y JARVIS lo verifico por su propia mano con un senuelo: es ahi donde deja de ser un programa que hay que recordar correr.",
+    "command": {
+      "_doc": "Entrega por EFECTO: un script senuelo con el glob sobre variable sale con exit 1.",
+      "expected_exit": 1,
+      "expected_stdout_contains": "CONGELA LA SESION",
+      "argv": [
+        "bash",
+        "-c",
+        "d=$(mktemp -d /tmp/seal-senuelo-congela-XXXXXX); printf 'M=/tmp/x\\nrm \"$M\"/*.json\\n' > \"$d/s.sh\"; python3 tools/seal_detector_borrado_congelante.py \"$d/s.sh\""
+      ]
+    }
+  },
+  "implementation_head": "2236b486c4afcd6bd0f1c5ea0c2f7af52c47c4ac",
+  "independent_reviewer": "JARVIS",
+  "owner": "ALICE",
+  "schema": "seal.quality-manifest.v1",
+  "source_sha256": {
+    "tools/seal_detector_borrado_congelante.py": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4",
+    "tools/tests/test_detector_borrado_congelante_v1.py": "7f0770d1b60083a7d5e8d2f7023bebcd8fb0459440870113bec2a2027addfdba"
+  },
+  "subjects": [
+    "tools/seal_detector_borrado_congelante.py"
+  ],
+  "tests": [
+    "tools/tests/test_detector_borrado_congelante_v1.py"
+  ]
+}
