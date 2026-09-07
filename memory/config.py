@@ -89,7 +89,21 @@ class SealSettings(BaseSettings):
     pg_host: str = "localhost"
     pg_port: int = 5433
     pg_user: str = "seal"
-    pg_password: str = "seal_memory_2026"
+    # SIN DEFAULT, a proposito (NEXUS, 7-sep-2026; mutante de ALICE 13:23).
+    #
+    # Aca vivia la contrasena literal `seal_memory_<anio>` como valor por defecto
+    # de BaseSettings. Esa clave MURIO en la rotacion de las 11:44 (fuga del repo
+    # publico), asi que el default ya no abre nada: solo hace que un proceso sin
+    # PG_PASSWORD arranque y falle DESPUES, en la primera consulta, con un error
+    # que no nombra la causa.
+    #
+    # Es la misma clase que el 3-sep dejo a los CINCO sin checkpoints: un
+    # `git reset --hard` devolvio el archivo a HEAD y con el la clave vieja.
+    # Opcion A de FABLE, que el manifiesto `nexus-credential-paths` ya aplica en
+    # session_checkpoint.py y seal_heartbeat.py: el literal se ELIMINA, no se
+    # degrada a ultimo recurso. Un campo obligatorio falla al ARRANCAR y dice
+    # que falta.
+    pg_password: str
     pg_database: str = "seal_memory"
     pg_pool_min: int = 1
     pg_pool_max: int = 3

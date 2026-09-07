@@ -141,3 +141,38 @@ def test_qa_positive_conductual_el_valor_efectivo_viene_de_seal_secrets(monkeypa
         f"el password efectivo es {efectivo!r}: seal_secrets se importa pero no manda"
     )
     assert efectivo != LITERAL, "el literal viejo sigue siendo el valor efectivo"
+
+# ── CUALQUIER credencial cableada, no solo el literal conocido ──────────────
+# HALLAZGO DE ALICE (7-sep 13:25): su mutante M2 inserta en un camino un DSN con
+# OTRA clave -no el literal viejo- y esta suite no lo veia. Mis brazos fijaban
+# "no vuelvas a poner ESA clave"; lo que hay que fijar es "no cablees NINGUNA".
+#
+# El criterio no se reescribe aca: se IMPORTA del test de unidades, que ya lo
+# tenia. Hoy me mordio exactamente lo contrario -escribi el criterio bueno en un
+# test y ejecute otro mas pobre en un script-, asi que una sola fuente.
+import sys as _sys
+_sys.path.insert(0, str(RAIZ / "tests"))
+from test_unidades_sin_secreto_v1 import DSN_CON_CLAVE as _DSN_CON_CLAVE  # noqa: E402
+
+
+@pytest.mark.parametrize("ruta", CAMINOS)
+def test_ningun_camino_cablea_UNA_credencial_cualquiera(ruta):
+    texto = (RAIZ / ruta).read_text()
+    hallazgos = []
+    for i, linea in enumerate(texto.splitlines(), 1):
+        if linea.lstrip().startswith("#"):
+            continue                      # un comentario que EXPLICA no es un cableado
+        if _DSN_CON_CLAVE.search(linea):
+            hallazgos.append(f"{ruta}:{i}")
+    assert not hallazgos, (
+        f"DSN con clave embebida en {hallazgos}. Da igual QUE clave sea: si el "
+        "camino la lleva en el codigo, un retroceso del archivo la reactiva y el "
+        "servicio conecta con una credencial que nadie roto."
+    )
+
+
+def test_CONTROL_el_detector_de_dsn_no_marca_lo_legitimo():
+    """Sin esto, 'arreglarlo' marcando todo pasaria en verde."""
+    assert not _DSN_CON_CLAVE.search('DSN = os.environ["SEAL_DB_URL"]')
+    assert not _DSN_CON_CLAVE.search('postgresql://rol@host/db')      # sin clave
+    assert _DSN_CON_CLAVE.search('postgresql://rol:clave@host/db')    # con clave
