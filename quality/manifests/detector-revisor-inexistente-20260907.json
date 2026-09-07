@@ -105,5 +105,20 @@
   ],
   "tests": [
     "tools/tests/test_detector_revisor_inexistente_v1.py"
-  ]
+  ],
+  "review": {
+    "status": "approved",
+    "reviewer": "NEXUS",
+    "date": "2026-09-07",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "Revision 7-sep 18:37. 6 tests en verde. Atacado con manifiestos fabricados: (1) revisor inexistente -> rc=1 y lo nombra; (2) CONTROL todos vivos -> rc=0; (3) CONTROL con la lista de agentes vivos VACIA -> rc=2 'SIN MIRAR', y este es el brazo que decide si la herramienta sirve: si con la lista vacia dijera 'todos los revisores son inexistentes', un fallo al derivar los agentes invalidaria de golpe los 92 manifiestos. Falla CERRADO.",
+      "reviewed_sha256": {
+        "tools/seal_detector_revisor_inexistente.py": "be4ed944066af0696fc5ced172202700df4cedc7f98ba2a42e78432d5770d54d",
+        "tools/tests/test_detector_revisor_inexistente_v1.py": "43a739ecc0b62367592f978434ef1c7ce6743502bc220545744d9d37b90e1e6f"
+      },
+      "manifest_digest": "06dc66746f6826887e8d59d56514f008c1b3eb7b4ad1c32afabde1d08213298e"
+    }
+  }
 }
