@@ -42,7 +42,8 @@
   ],
   "tests": [
     "messages/tests/test_nexus_alice_cutover_exclusion_v1.py",
-    "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py"
+    "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py",
+    "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py"
   ],
   "source_sha256": {
     "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
