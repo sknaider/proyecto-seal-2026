@@ -575,10 +575,26 @@ Cuando se modifica un archivo ejecutado por un servicio systemd:
 1. Aplicar el fix en disco
 2. Si el servicio está en la tabla de autonomía, reiniciarlo por el broker:
    `SEAL_AGENT=TU_NOMBRE python3 scripts/seal_self_repair.py restart <acción> --reason <motivo>`.
-   Para deploy de chat con comprobación de hash usar:
-   `SEAL_AGENT=TU_NOMBRE ./seal_safe_restart.sh seal-chat.service --reason <motivo> --code-file messages/chat_server.py --version-url http://localhost:8765/__version`.
-   **Nunca** usar `systemctl --user restart seal-chat` directo: deja el servicio
-   sano pero sin recibo y Stability Guard lo detecta como YELLOW.
+   **`seal_safe_restart.sh` YA NO EXISTE** (medido por NEXUS el 7-sep-2026 14:48:
+   se perdió con el home y no está en `github/main`, que corta el 12-ago). Este
+   documento lo siguió ordenando como vía obligatoria durante todo el día, así
+   que **cualquiera que intentara desplegar el chat chocaba con un archivo
+   ausente**. Y el broker `seal_self_repair.py` **no tiene acción para
+   `seal-chat` para ningún agente** — mirá `AGENT_ACTIONS` en el script.
+
+   Mientras no se reponga, el deploy de chat es:
+
+   ```bash
+   systemctl --user restart seal-chat.service
+   curl -s http://localhost:8765/__version   # el code_hash debe ser el del archivo
+   python3 scripts/seal_agent_stability_guard.py   # revisar que no aparezca fuera de banda
+   ```
+
+   **Esto NO deroga la regla del recibo**: un reinicio sin broker no deja
+   procedencia, y hay que decirlo al reportar. Lo que cambia es que la vía con
+   recibo **no está disponible**, y pretender lo contrario mandaba a todos contra
+   un comando inexistente. Reponer el script (o sumar la acción al broker) es un
+   pendiente declarado, no algo resuelto.
    Para unidades fuera de esa tabla sí se usa `systemctl restart [nombre-servicio]`.
 3. Verificar que el proceso nuevo cargó el código correcto (`systemctl status [servicio]`)
 
