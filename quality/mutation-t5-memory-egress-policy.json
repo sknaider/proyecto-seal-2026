@@ -1,0 +1,155 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "t5-memory-egress-policy",
+  "reviewer": "ALICE",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 4,
+  "survived": 1,
+  "total": 5,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 80.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "............................                                             [100%]\n28 passed in 8.09s\n.......                                                                  [100%]\n7 passed in 0.34s",
+    "sha_sujetos_antes": {
+      "soul-platform/src/soul_platform/auth.py": "7802a403d91d0316caecf9c9bf42002a9eac805275f331aee336956ef948b054"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "la-firma-del-token-deja-de-verificarse",
+      "subject": "soul-platform/src/soul_platform/auth.py",
+      "ancla": "            key.verify(signature, data)",
+      "reemplazo": "            pass",
+      "why": "cualquiera fabrica un token: la firma Ed25519 ya no se comprueba y la identidad es lo que el token diga",
+      "registro": {
+        "subject": "soul-platform/src/soul_platform/auth.py",
+        "ancla": "            key.verify(signature, data)",
+        "reemplazo": "            pass",
+        "ancla_sha256": "c09d35ab419f6195e84c25f93c0884bd819463befd1e050f9a4731527ac099db",
+        "sujeto_sha256_antes": "7802a403d91d0316caecf9c9bf42002a9eac805275f331aee336956ef948b054",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "soul-platform/tests/test_t5_principal_auth_v1.py::test_session_tamper_is_rejected_even_if_payload_remains_canonical",
+        "soul-platform/tests/test_t5_principal_auth_v1.py::test_unknown_key_and_wrong_signature_are_rejected"
+      ],
+      "pytest_tail": "..........                                                               [100%]\n10 passed in 1.33s\n............................                                             [100%]\n28 passed in 8.57s\n.......                                                                  [100%]\n7 passed in 0.34s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "una-llave-desconocida-pasa-a-ser-de-confianza",
+      "subject": "soul-platform/src/soul_platform/auth.py",
+      "ancla": "        if key is None:\n            raise AuthenticationDenied(\"token key is not trusted\")",
+      "reemplazo": "        if False:\n            raise AuthenticationDenied(\"token key is not trusted\")",
+      "why": "un key_id que no esta en el trust store deja de rechazarse antes de verificar",
+      "registro": {
+        "subject": "soul-platform/src/soul_platform/auth.py",
+        "ancla": "        if key is None:\n            raise AuthenticationDenied(\"token key is not trusted\")",
+        "reemplazo": "        if False:\n            raise AuthenticationDenied(\"token key is not trusted\")",
+        "ancla_sha256": "28247e54e13819b990fe1c729024630284e51437e0edd939db1319e983a0cd45",
+        "sujeto_sha256_antes": "7802a403d91d0316caecf9c9bf42002a9eac805275f331aee336956ef948b054",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "soul-platform/tests/test_t5_principal_auth_v1.py::test_unknown_key_and_wrong_signature_are_rejected"
+      ],
+      "pytest_tail": "..........                                                               [100%]\n10 passed in 1.37s\n............................                                             [100%]\n28 passed in 8.43s\n.......                                                                  [100%]\n7 passed in 0.34s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "el-token-vencido-sigue-sirviendo",
+      "subject": "soul-platform/src/soul_platform/auth.py",
+      "ancla": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] <= now or payload[\"exp\"] - payload[\"iat\"] > 3600:",
+      "reemplazo": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] - payload[\"iat\"] > 3600:",
+      "why": "se cae el vencimiento: un token viejo vale para siempre mientras su ventana declarada sea corta",
+      "registro": {
+        "subject": "soul-platform/src/soul_platform/auth.py",
+        "ancla": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] <= now or payload[\"exp\"] - payload[\"iat\"] > 3600:",
+        "reemplazo": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] - payload[\"iat\"] > 3600:",
+        "ancla_sha256": "abe92f2911d1b82eb1b83e24049870b5f2010586d192a27ba35aff3bb63bdc90",
+        "sujeto_sha256_antes": "7802a403d91d0316caecf9c9bf42002a9eac805275f331aee336956ef948b054",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "soul-platform/tests/test_t5_principal_auth_v1.py::test_invalid_expiry_timestamp_and_ttl_fail_closed[1-2]"
+      ],
+      "pytest_tail": "..........                                                               [100%]\n10 passed in 1.32s\n............................                                             [100%]\n28 passed in 7.99s\n.......                                                                  [100%]\n7 passed in 0.35s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "la-ventana-del-token-deja-de-tener-tope",
+      "subject": "soul-platform/src/soul_platform/auth.py",
+      "ancla": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] <= now or payload[\"exp\"] - payload[\"iat\"] > 3600:",
+      "reemplazo": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] <= now:",
+      "why": "un token puede emitirse por diez anios: el tope de una hora era la politica",
+      "registro": {
+        "subject": "soul-platform/src/soul_platform/auth.py",
+        "ancla": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] <= now or payload[\"exp\"] - payload[\"iat\"] > 3600:",
+        "reemplazo": "        if payload[\"iat\"] > now + 30 or payload[\"exp\"] <= now:",
+        "ancla_sha256": "abe92f2911d1b82eb1b83e24049870b5f2010586d192a27ba35aff3bb63bdc90",
+        "sujeto_sha256_antes": "7802a403d91d0316caecf9c9bf42002a9eac805275f331aee336956ef948b054",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "..........                                                               [100%]\n10 passed in 1.30s\n............................                                             [100%]\n28 passed in 8.11s\n.......                                                                  [100%]\n7 passed in 0.32s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "el-payload-no-canonico-se-acepta",
+      "subject": "soul-platform/src/soul_platform/auth.py",
+      "ancla": "            raise AuthenticationDenied(\"token payload is not canonical\")",
+      "reemplazo": "            pass",
+      "why": "se abre la puerta a payloads con claves repetidas o reordenadas: dos lecturas distintas del mismo token",
+      "registro": {
+        "subject": "soul-platform/src/soul_platform/auth.py",
+        "ancla": "            raise AuthenticationDenied(\"token payload is not canonical\")",
+        "reemplazo": "            pass",
+        "ancla_sha256": "a4c259674170ff38e0aba1a5f232b8a993029a59833d5588f6e0068cd8898790",
+        "sujeto_sha256_antes": "7802a403d91d0316caecf9c9bf42002a9eac805275f331aee336956ef948b054",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "soul-platform/tests/test_t5_principal_auth_v1.py::test_noncanonical_payload_and_unknown_claim_are_rejected_before_signature_trust"
+      ],
+      "pytest_tail": "..........                                                               [100%]\n10 passed in 1.30s\n............................                                             [100%]\n28 passed in 7.80s\n.......                                                                  [100%]\n7 passed in 0.34s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "soul-platform/docs/t5-production-cutover.md": "0523eda7fcd9b3133fea0869c9d73102449ee091f7073be906e9d7dab6c22646",
+    "soul-platform/src/soul_platform/auth.py": "7802a403d91d0316caecf9c9bf42002a9eac805275f331aee336956ef948b054",
+    "soul-platform/src/soul_platform/bootstrap.py": "a361c2a97d2ba1d661073837ababe375cecd2e3fa6bb9726de0f3fca7988ac02",
+    "soul-platform/src/soul_platform/proxy.py": "adab6c8ba363c4e69ffb988e89e5f66b4604244e380e0e5dc449d8434728e886",
+    "soul-platform/src/soul_platform/t5_memory_egress.py": "39cc539389d0006b7f4090ef3e0e82539354afb80b5c4edd01affdd7dfbafebc",
+    "soul-platform/tests/test_bootstrap_v1.py": "86eb786409d14389f6d521991126c320d1f5ccba87d0cf66f33072bbc26fb597",
+    "soul-platform/tests/test_proxy_v1.py": "ec63277138b0c3eb2633410e3b423aad70bd356260d8ba5671a3f28b8c9366dc",
+    "soul-platform/tests/test_t5_memory_egress_store_v1.py": "4a04a718d84e5e7ce850b7c9fc8bffd5f1f81ea9409a7aa9107cbe469519be56",
+    "soul-platform/tests/test_t5_memory_egress_v1.py": "aa8e984ac083a690608bd1c5455b729f12026305b37fa0dce029054191c4ccb8",
+    "soul-platform/tests/test_t5_principal_auth_v1.py": "5fa2227c3f14ff17140fa748ae1ede641d9daeb666b52a58978d6040fd7d00aa"
+  }
+}

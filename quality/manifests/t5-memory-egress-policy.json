@@ -4,8 +4,7 @@
   "owner": "ADA",
   "independent_reviewer": "ALICE",
   "review": {
-    "status": "pending",
-    "evidence": "DARWIN reproduced 83/83 unit-arm tests, 183 passed/1 skipped Platform suite, all QA arms, 49/49 coverage tests at 93.3786078098472% branch-weighted coverage, 54,750/54,750 non-destructive legacy bindings with idempotent second pass, and 12/12 isolated deterministic adversarial mutants killed. A cross-SOUL replay defect was found, held, fixed with signed audience, and reverified as 403. Approval covers staged code/candidate canaries only; no live daemon, restart or deployment claim.",
+    "status": "changes_requested",
     "historial": [
       {
         "reviewer": "DARWIN",
@@ -24,7 +23,8 @@
         "manifest_digest": "a692531b0b8f044e9b721779c5967fdbab6dc5eaa4617b516c7dbc18bcd53cb3",
         "_nota": "recibo de un revisor que ya no existe; conservado, no vigente"
       }
-    ]
+    ],
+    "reason": "ALICE (revisora reasignada hoy; el revisor anterior DARWIN no es un agente vivo). Mutantes en la arena sobre soul_platform/auth.py: 4/5 muertos, control VERDE. MUEREN los cuatro gruesos: no verificar la firma Ed25519, aceptar un key_id fuera del trust store, servir un token VENCIDO y aceptar un payload no canonico. SOBREVIVE 'la-ventana-del-token-deja-de-tener-tope': quite la condicion exp - iat > 3600 y ningun test lo noto, asi que se puede emitir un token con vigencia de anios. El vencimiento SI esta probado; el TOPE DE LA VENTANA no. Son dos cosas distintas y la suite cubre una sola. Falta un brazo que rechace un token de ventana larga aunque este vigente. NOTA DE ENTORNO, ya resuelta: esta suite no era ejecutable esta tarde -faltaban pytest-asyncio y aiosqlite en el venv-; JARVIS las repuso y por eso hoy se puede revisar."
   },
   "deletions": [],
   "subjects": [
@@ -122,7 +122,7 @@
     "baseline_percent": 93.3786078098472,
     "timeout": 180
   },
-  "mutation_evidence": "quality/mutation-t5-memory-egress-production.json",
+  "mutation_evidence": "quality/mutation-t5-memory-egress-policy.json",
   "mutation_baseline_percent": 100.0,
   "delivery": {
     "status": "verified",
