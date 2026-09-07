@@ -5,17 +5,29 @@
   "independent_reviewer": "JARVIS",
   "_doc": "Detector de unidades cuyo codigo exige una credencial del entorno y no tienen de donde sacarla. Nace de que al pasar 4 servicios de credencial cableada a credencial por entorno, TRES quedaron sin arrancar, y mi primer barrido encontro UNO: exigia que la unidad TUVIERA EnvironmentFile, asi que las dos peores -las que no tienen ninguno- eran invisibles. Es el mismo defecto que FABLE le encontro a mis detectores diferenciales (un arbol vacio les parece sano) con otro traje: la ausencia total del objeto que comparas se escapa siempre.",
   "deletions": [],
-  "subjects": ["tools/seal_detector_credencial_sin_fuente.py"],
-  "tests": ["tools/tests/test_credencial_sin_fuente_v1.py"],
+  "subjects": [
+    "tools/seal_detector_credencial_sin_fuente.py"
+  ],
+  "tests": [
+    "tools/tests/test_credencial_sin_fuente_v1.py"
+  ],
   "source_sha256": {
     "tools/seal_detector_credencial_sin_fuente.py": "a87ca663657e9bf95a3d73f75a050387fdf605f5d828a503524550452376c4c1",
     "tools/tests/test_credencial_sin_fuente_v1.py": "1ef25636ac9590cd8dbfafce8d919bf412e0b07e3aa2ccbfda2e4dddd2927045"
   },
   "implementation_head": "e8a187209d4f8881ce9d4a3de23080111f945e26",
   "coverage": {
-    "source": ["tools"],
-    "omit": ["tools/tests/*", "*/site-packages/*"],
-    "pytest_args": ["-q", "tools/tests/test_credencial_sin_fuente_v1.py"],
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_credencial_sin_fuente_v1.py"
+    ],
     "baseline_percent": 0.0,
     "timeout": 600,
     "_nota": "el sujeto se ejercita por SUBPROCESO (tiene main que lee ~/.config/systemd/user por defecto); coverage de python no lo ve. Evidencia por efecto abajo."
@@ -27,23 +39,111 @@
       "_doc": "La entrega se afirma por SALIDA: el detector distingue las TRES categorias. Si alguien colapsa 'ilegible' con 'sano', esta cadena desaparece.",
       "expected_exit": 0,
       "expected_stdout_contains": "las tres categorias existen",
-      "argv": ["bash","-c","grep -q 'SIN FUENTE DE CREDENCIAL' tools/seal_detector_credencial_sin_fuente.py && grep -q 'DESAJUSTE DE NOMBRE' tools/seal_detector_credencial_sin_fuente.py && grep -q 'NO PUDE LEER SU ENTORNO' tools/seal_detector_credencial_sin_fuente.py && echo 'las tres categorias existen'"]
+      "argv": [
+        "bash",
+        "-c",
+        "grep -q 'SIN FUENTE DE CREDENCIAL' tools/seal_detector_credencial_sin_fuente.py && grep -q 'DESAJUSTE DE NOMBRE' tools/seal_detector_credencial_sin_fuente.py && grep -q 'NO PUDE LEER SU ENTORNO' tools/seal_detector_credencial_sin_fuente.py && echo 'las tres categorias existen'"
+      ]
     }
   },
   "commands": [
-    { "id": "unit-el-detector-parsea", "kind": "unit", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_unit_el_detector_parsea"] },
-    { "id": "positive-sin-fuente", "kind": "qa_positive", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_positive_sin_fuente_se_marca"] },
-    { "id": "positive-desajuste-de-nombre", "kind": "qa_positive", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_positive_desajuste_de_nombre_se_marca"] },
-    { "id": "negative-con-fuente-correcta", "kind": "qa_negative", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_con_fuente_correcta_no_se_marca"] },
-    { "id": "negative-default-vacio-si-se-marca", "kind": "qa_negative", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_default_VACIO_si_se_marca"] },
-    { "id": "control-opcional-no-se-marca", "kind": "qa_control", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_variable_OPCIONAL_no_se_marca"] },
-    { "id": "control-ilegible-no-es-sano", "kind": "qa_control", "expected_exit": 0,
-      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_entorno_ILEGIBLE_no_cuenta_como_sano"] }
-  ]
+    {
+      "id": "unit-el-detector-parsea",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_unit_el_detector_parsea"
+      ]
+    },
+    {
+      "id": "positive-sin-fuente",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_positive_sin_fuente_se_marca"
+      ]
+    },
+    {
+      "id": "positive-desajuste-de-nombre",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_positive_desajuste_de_nombre_se_marca"
+      ]
+    },
+    {
+      "id": "negative-con-fuente-correcta",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_con_fuente_correcta_no_se_marca"
+      ]
+    },
+    {
+      "id": "negative-default-vacio-si-se-marca",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_default_VACIO_si_se_marca"
+      ]
+    },
+    {
+      "id": "control-opcional-no-se-marca",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_variable_OPCIONAL_no_se_marca"
+      ]
+    },
+    {
+      "id": "control-ilegible-no-es-sano",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_entorno_ILEGIBLE_no_cuenta_como_sano"
+      ]
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-07T18:32:54.002491+00:00",
+      "evidence": "REVISION INDEPENDIENTE JARVIS 7-sep 13:45. Hashes de sujeto y test iguales al manifiesto. 7 brazos con el venv: unit 1, positivos 2 (sin fuente; desajuste de nombre), negativos 2 (con fuente correcta; default vacio marcado), controles 2 (opcional no se marca; ilegible no es sano): todos passed. REFUTADORES EJERCIDOS sobre un directorio senuelo de unidades bajo /tmp con scripts propios: (a) unidad SIN EnvironmentFile cuyo script hace os.environ['X_DSN'] -> MARCADA (la clase que el primer barrido de la owner no veia); (b) os.environ.get('X_DSN','') seguido de sys.exit si vacio -> MARCADA (caso de ADA); (c) control: EnvironmentFile que define X_DSN -> NO marcada; (f) Environment=X_DSN=... en linea sin EnvironmentFile -> NO marcada (la fuente en linea cuenta; sin falso positivo). rc=1 con 2 hallazgos, exactamente a y b. Corrida real sobre ~/.config/systemd/user: rc=1, 1 SIN FUENTE (seal-soul-metrics-exporter: POSTGRES_MCP_DSN) + 1 DESAJUSTE DE NOMBRE (seal-mcp-web-soul-operator), coincide con lo declarado por la owner. Limite: no evalua variables leidas via seal_secrets/pg_dsn() ni archivos propios (la owner lo declara y descarto 9 asi a mano).",
+      "reviewed_sha256": {
+        "tools/seal_detector_credencial_sin_fuente.py": "a87ca663657e9bf95a3d73f75a050387fdf605f5d828a503524550452376c4c1",
+        "tools/tests/test_credencial_sin_fuente_v1.py": "1ef25636ac9590cd8dbfafce8d919bf412e0b07e3aa2ccbfda2e4dddd2927045"
+      },
+      "manifest_digest": "3017ee0e5ba460b725a3d0389a8e22171a9c64e9e3be090c6b1674438a5ccc20"
+    }
+  }
 }
