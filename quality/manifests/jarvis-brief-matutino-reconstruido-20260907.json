@@ -1,0 +1,114 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "jarvis-brief-matutino-reconstruido-20260907",
+  "owner": "JARVIS",
+  "independent_reviewer": "ALICE",
+  "_doc": "Carril 7: el brief matutino de JARVIS (timer 06:00) se perdió con el home el 7-sep. Reconstruido por hallazgo (regla William 2-ago): unidades en failed, foto NFS/dump/.partial, disco, tareas in_progress > 3 días, silencio del general. Rol mínimo login_poller_jarvis vía EnvironmentFile (+GRANT SELECT en agent_tasks); si falta la credencial reporta NO_MEDIABLE en vez de usar otra (fail-closed). Publica sólo por seal_send.py.",
+  "deletions": [],
+  "subjects": [
+    "agents/JARVIS/jarvis_daily_brief.py"
+  ],
+  "tests": [
+    "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py"
+  ],
+  "source_sha256": {
+    "agents/JARVIS/jarvis_daily_brief.py": "7245cfc9b002732cd8be9663fbf67e9fba966ba2640f785fb540cc07708873ab",
+    "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py": "854c33bb4375582c19c66519e713f63cbfcd576e204f275129ad22d629a868f9"
+  },
+  "implementation_head": "54bd56551737bab4080c57a34e83316a761e2a0d",
+  "commands": [
+    {
+      "id": "unit-brief-parsea-y-no-publica",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py::test_unit_parsea_y_no_publica_con_flag"
+      ]
+    },
+    {
+      "id": "pos-brief-sin-dump-y-partial",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py",
+        "-k",
+        "positivo"
+      ]
+    },
+    {
+      "id": "neg-brief-sin-dsn-y-sin-hallazgos",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py",
+        "-k",
+        "negativo"
+      ]
+    },
+    {
+      "id": "ctrl-brief-foto-sana-y-render",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py",
+        "-k",
+        "control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_seal_snapshot_nfs_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 1800,
+    "_nota": "los sujetos son bash: coverage de python no aplica; se declara 0.0 y la evidencia es por efecto"
+  },
+  "mutation_baseline_percent": null,
+  "mutation_command": null,
+  "mutation_evidence": null,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Ensayo real 7-sep 14:18 con --no-publicar y el EnvironmentFile de la unidad: 2 hallazgos (unidad en failed declarada; 4 tareas in_progress > 3 días tras el GRANT). systemd-analyze verify sin errores en la unidad; timer agendado 2026-09-08 06:00:00; EnvironmentFiles cargado.",
+    "command": {
+      "id": "delivery-brief-ensayo",
+      "kind": "delivery",
+      "expected_exit": 0,
+      "argv": [
+        "bash",
+        "-c",
+        "set -a; . /home/dadito/.config/seal/env/seal-jarvis-daily-brief.env; set +a; /home/dadito/IA/seal-spark/.venv/bin/python3 agents/JARVIS/jarvis_daily_brief.py --no-publicar"
+      ],
+      "expected_stdout_contains": "JARVIS — brief matutino"
+    }
+  },
+  "review": {
+    "status": "pending"
+  },
+  "_nota_para_el_revisor": "Refutadores: (1) sin SEAL_BRIEF_DSN el brief NO debe conectar con ninguna otra credencial (grep de seal_secrets/credentials.env en el script: 0); (2) una foto de hoy con dump y sin .partial no debe generar hallazgo; (3) un .partial colgado sí. Límite: no mide MCP ni latencia; eso es del frente de ALICE.",
+  "file_sha256": {}
+}
