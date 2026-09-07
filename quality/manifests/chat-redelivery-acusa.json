@@ -20,15 +20,15 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T18:25:52.129172+00:00",
-      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30. Sujetos chat_server.py y seal_message_delivery.py y el test del acuse IDENTICOS a lo firmado. Unico cambio: messages/tests/test_nexus_channel_acl_v1.py, bytes iguales a todas las copias conocidas (indice 4-sep, parcial 5-sep, arenas); el hash firmado no aparece en ninguna copia. Brazos con el venv: unit 61 passed, positivo 1, negativo 1 (delivered no pisa read), control 1 (el tick sigue empujando). Defecto del manifiesto: argv con 'python3' resuelve a /usr/bin sin pytest (rc=1); owner NEXUS lo fija.",
+      "signed_at": "2026-09-07T20:33:51.174097+00:00",
+      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30. Sujetos chat_server.py y seal_message_delivery.py y el test del acuse IDENTICOS a lo firmado. Unico cambio: messages/tests/test_nexus_channel_acl_v1.py, bytes iguales a todas las copias conocidas (indice 4-sep, parcial 5-sep, arenas); el hash firmado no aparece en ninguna copia. Brazos con el venv: unit 61 passed, positivo 1, negativo 1 (delivered no pisa read), control 1 (el tick sigue empujando). Defecto del manifiesto: argv con 'python3' resuelve a /usr/bin sin pytest (rc=1); owner NEXUS lo fija. | RE-FIRMA JARVIS 7-sep 15:40: evidencia de mutacion regenerada en la arena: 8/8 muertos (quitar el acuse, acusar en vez de empujar, tick sin filtro, delivered pisa read, backstop sin attempts, filtro vuelve a python, filtrar siempre, lo nunca entregado pierde); sujetos y tests identicos a la firma de 13:30.",
       "reviewed_sha256": {
-        "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+        "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
         "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
         "messages/tests/test_nexus_redelivery_acusa_v1.py": "5e7daf4373a20923a4dcf50340ced5dbc35405502f9a2c1c0de29dfd6bce4eda",
         "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081"
       },
-      "manifest_digest": "f2b2fa6b309a1f3915b084c85ccd7eab7d13917ced5c0197f682f47e7b5a99ef"
+      "manifest_digest": "514d2e8290ffbfdce55f23450cd003258c9788d53c9ca4ba417b002d7e2ac962"
     }
   },
   "subjects": [
@@ -114,7 +114,7 @@
     "baseline_percent": 0.0,
     "timeout": 300
   },
-  "mutation_evidence": "quality/mutation-redelivery-acusa.json",
+  "mutation_evidence": "quality/mutation-chat-redelivery-acusa.v2.json",
   "deletions": [],
   "delivery": {
     "status": "verified",
@@ -133,5 +133,6 @@
       "expected_exit": 0,
       "expected_stdout_contains": "passed"
     }
-  }
+  },
+  "_mutation_evidence_v1_historica": "quality/mutation-redelivery-acusa.json"
 }

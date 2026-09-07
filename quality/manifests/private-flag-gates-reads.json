@@ -22,13 +22,13 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T19:53:54.282036+00:00",
-      "evidence": "RE-FIRMA JARVIS 7-sep 15:05: NEXUS repunto el brazo negativo a test_qa_negative_conductual_sin_pool_falla_cerrado; los 4 brazos pasan con el venv (unit-compila rc=0 11 passed in 0.22s; positivo-la-bandera-decide rc=0 1 passed in 0.01s; negativo-falla-cerrado rc=0 1 passed in 0.18s; control-no-vacuo rc=0 1 passed in 0.02s). Condicion de FABLE verificada por efecto contra seal-chat vivo a las 14:57: canal desconocido 401, shadow:nuevo 401, web_chat/general 200, fable-juez 401. Mutacion caducada: espera arena.",
+      "signed_at": "2026-09-07T20:33:51.173415+00:00",
+      "evidence": "RE-FIRMA JARVIS 7-sep 15:05: NEXUS repunto el brazo negativo a test_qa_negative_conductual_sin_pool_falla_cerrado; los 4 brazos pasan con el venv (unit-compila rc=0 11 passed in 0.22s; positivo-la-bandera-decide rc=0 1 passed in 0.01s; negativo-falla-cerrado rc=0 1 passed in 0.18s; control-no-vacuo rc=0 1 passed in 0.02s). Condicion de FABLE verificada por efecto contra seal-chat vivo a las 14:57: canal desconocido 401, shadow:nuevo 401, web_chat/general 200, fable-juez 401. Mutacion caducada: espera arena. | RE-FIRMA JARVIS 7-sep 15:40: evidencia de mutacion regenerada por el revisor en la arena aprobada: 3/3 muertos (canal desconocido nace abierto; todo es publico; la bandera no entra en auth), ancla/reemplazo/sha por mutante; sujetos y test sin cambio desde la re-firma de 15:05.",
       "reviewed_sha256": {
         "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
         "tests/test_nexus_private_flag_gates_reads_v1.py": "0b95aaf1b4a3a3a480f19fa93c7886e2968086a7c82796e002ed2f0b0ca443f8"
       },
-      "manifest_digest": "6e5d23d20358d2e4ab75b3406e0d0f50af3aeffcdefd6044d1fb67756b9329e6"
+      "manifest_digest": "801405bcdf29673c7ad988973576449f81d9dbf6250a685208ffa7aa145d1190"
     }
   },
   "deletions": [],
@@ -102,7 +102,7 @@
     "baseline_percent": 0.0,
     "timeout": 300
   },
-  "mutation_evidence": "quality/mutation-private-flag-gates-reads.json",
+  "mutation_evidence": "quality/mutation-private-flag-gates-reads.v2.json",
   "mutation_baseline_percent": 100.0,
   "delivery": {
     "status": "verified",
@@ -117,5 +117,6 @@
       "expected_exit": 0,
       "expected_stdout_contains": "delivery: passed"
     }
-  }
+  },
+  "_mutation_evidence_v1_historica": "quality/mutation-private-flag-gates-reads.json"
 }

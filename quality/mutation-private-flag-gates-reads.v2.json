@@ -1,0 +1,76 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "private-flag-gates-reads",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 3,
+  "survived": 0,
+  "total": 3,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "mutants": [
+    {
+      "id": "canal-desconocido-nace-abierto",
+      "subject": "messages/chat_server.py",
+      "ancla": "        _canal_privado = True   # NACE CERRADO: el olvido cierra, no abre",
+      "reemplazo": "        _canal_privado = False  # MUTANTE: el olvido abre",
+      "why": "la condición de FABLE: un canal que no está en la lista pública debe nacer cerrado",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "        _canal_privado = True   # NACE CERRADO: el olvido cierra, no abre",
+        "reemplazo": "        _canal_privado = False  # MUTANTE: el olvido abre",
+        "ancla_sha256": "42757c9112ca5ddf7cb39de3d8e8333c16082375a9f8600623a9efb20d8998c4",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "todo-es-publico",
+      "subject": "messages/chat_server.py",
+      "ancla": "    elif channel in _CANALES_PUBLICOS:",
+      "reemplazo": "    elif True:",
+      "why": "la lista pública explícita deja de acotar: shadow: y fable-juez quedarían abiertos",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "    elif channel in _CANALES_PUBLICOS:",
+        "reemplazo": "    elif True:",
+        "ancla_sha256": "d31d311cf1bd8c50a7f28a8decdf6f6e35e8710f5567586def56d9a7b84da3e8",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "la-bandera-no-entra-en-auth",
+      "subject": "messages/chat_server.py",
+      "ancla": "    if channel.startswith(\"dm:\") or channel.startswith(\"user:\") or _canal_privado:",
+      "reemplazo": "    if channel.startswith(\"dm:\") or channel.startswith(\"user:\"):",
+      "why": "el mutante que JARVIS construyó en la revisión original: la decisión de auth ignora el flag",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "    if channel.startswith(\"dm:\") or channel.startswith(\"user:\") or _canal_privado:",
+        "reemplazo": "    if channel.startswith(\"dm:\") or channel.startswith(\"user:\"):",
+        "ancla_sha256": "9e9f9773e4fa833e6ae83600641895360d786d3300ec88335d8c3f77a73668e5",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    }
+  ],
+  "file_sha256": {
+    "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+    "tests/test_nexus_private_flag_gates_reads_v1.py": "0b95aaf1b4a3a3a480f19fa93c7886e2968086a7c82796e002ed2f0b0ca443f8"
+  }
+}

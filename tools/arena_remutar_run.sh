@@ -2,7 +2,7 @@
 # Corre tools/arena_remutar_revisor.py DENTRO de la arena aprobada por FABLE (7-sep 14:48), igual que seal_recorrido_arnes.sh:
 # copia del índice por git archive en /tmp/seal-arena-*, contenedor sin privilegios (uid 65534), venv montado SOLO LECTURA.
 # Uso: tools/arena_remutar_run.sh quality/mutantes/<caso>.spec.json quality/mutation-<caso>.v2.json
-set -eu
+set -u
 SPEC="$1"; SALIDA="$2"; REPO=/home/dadito/IA/proyecto-seal
 cd "$REPO"
 ARENA=$(mktemp -d /tmp/seal-arena-remut-XXXXXX); chmod 755 "$ARENA"
@@ -21,8 +21,7 @@ mkdir -p "$ARENA/.home"; printf '%s' "arena-senuelo-jwt-no-es-el-secreto-real-01
 chmod 444 "$ARENA/.home/.seal_chat_jwt_secret"; chmod 555 "$ARENA/.home"
 docker run --rm -i --user 65534:65534 -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/venv/lib/python3.12/site-packages -e HOME=/trabajo/.home \
   -v "$ARENA":/trabajo -v /home/dadito/IA/seal-spark/.venv:/venv:ro -w /trabajo python:3.12-slim \
-  python3 tools/arena_remutar_revisor.py quality/mutantes/spec.json quality/mutantes/salida.json
-RC=$?
+  python3 tools/arena_remutar_revisor.py quality/mutantes/spec.json quality/mutantes/salida.json; RC=$?
 cp "$ARENA/quality/mutantes/salida.json" "$SALIDA"
 echo "[arena] salida copiada a $SALIDA (arena $ARENA queda para inspección; /tmp la limpia)"
 exit $RC

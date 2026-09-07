@@ -1,0 +1,168 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "chat-redelivery-acusa",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 8,
+  "survived": 0,
+  "total": 8,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "mutants": [
+    {
+      "id": "quitar-el-acuse",
+      "subject": "messages/chat_server.py",
+      "ancla": "                        await _msgdelivery.mark_delivered(_ack, row[\"msg_id\"])",
+      "reemplazo": "                        pass  # MUTANTE: sin acuse (el bug ORIGINAL)",
+      "why": "sin acuse el bucle de reentrega es infinito",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "                        await _msgdelivery.mark_delivered(_ack, row[\"msg_id\"])",
+        "reemplazo": "                        pass  # MUTANTE: sin acuse (el bug ORIGINAL)",
+        "ancla_sha256": "a36139c286b69d623a9786b402afa69cd2637830dc6d349d7a8650c9092e4839",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "acusar-en-vez-de-empujar",
+      "subject": "messages/chat_server.py",
+      "ancla": "                    await _push_to_agents(payload)",
+      "reemplazo": "                    async with chat_db.pool.acquire() as _ack0:\n                        await _msgdelivery.mark_delivered(_ack0, row[\"msg_id\"])",
+      "why": "acusa sin haber empujado",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "                    await _push_to_agents(payload)",
+        "reemplazo": "                    async with chat_db.pool.acquire() as _ack0:\n                        await _msgdelivery.mark_delivered(_ack0, row[\"msg_id\"])",
+        "ancla_sha256": "04c55138164156f3e2b23d7876224d8f43b7bf5bd108ab6466c2610449da29fa",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "el-tick-no-pasa-el-filtro",
+      "subject": "messages/chat_server.py",
+      "ancla": "                    _c, solo_agentes=_ACK_ENABLED_AGENTS",
+      "reemplazo": "                    _c",
+      "why": "reentrega a agentes que no ackean: amplifica ruido",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "                    _c, solo_agentes=_ACK_ENABLED_AGENTS",
+        "reemplazo": "                    _c",
+        "ancla_sha256": "ecfb31c37674ab28e5ca0e5314730ff09c1d9c1fddfaa70f464940c7a479081e",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "delivered-pisa-read",
+      "subject": "messages/seal_message_delivery.py",
+      "ancla": "           SET status = CASE WHEN status='read' THEN status ELSE 'delivered' END,",
+      "reemplazo": "           SET status = 'delivered',",
+      "why": "delivered no puede pisar read",
+      "registro": {
+        "subject": "messages/seal_message_delivery.py",
+        "ancla": "           SET status = CASE WHEN status='read' THEN status ELSE 'delivered' END,",
+        "reemplazo": "           SET status = 'delivered',",
+        "ancla_sha256": "4d1a314f4c75fe4783bd52bc80b9c1af28d0fed2ad85087c5d2364d1bdaa97af",
+        "sujeto_sha256_antes": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "backstop-sin-attempts",
+      "subject": "messages/seal_message_delivery.py",
+      "ancla": "               WHERE status <> 'read' AND attempts < $2\n                 AND upper(to_agent) = ANY($4::text[])",
+      "reemplazo": "               WHERE status <> 'read' AND TRUE\n                 AND upper(to_agent) = ANY($4::text[])",
+      "why": "sin tope de intentos",
+      "registro": {
+        "subject": "messages/seal_message_delivery.py",
+        "ancla": "               WHERE status <> 'read' AND attempts < $2\n                 AND upper(to_agent) = ANY($4::text[])",
+        "reemplazo": "               WHERE status <> 'read' AND TRUE\n                 AND upper(to_agent) = ANY($4::text[])",
+        "ancla_sha256": "5aea9bb554bf107c2ff6d71dd6582fe7179cc63fd8d3442c4794e7bfde30a7f7",
+        "sujeto_sha256_antes": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "el-filtro-vuelve-a-python",
+      "subject": "messages/seal_message_delivery.py",
+      "ancla": "                 AND upper(to_agent) = ANY($4::text[])\n",
+      "reemplazo": "                 AND TRUE\n",
+      "why": "el filtro por agente deja de estar en el SQL",
+      "registro": {
+        "subject": "messages/seal_message_delivery.py",
+        "ancla": "                 AND upper(to_agent) = ANY($4::text[])\n",
+        "reemplazo": "                 AND TRUE\n",
+        "ancla_sha256": "e2f902486a3d424fdad641fa140288cfde3dd6aca7feb6fc040d287a15fd782f",
+        "sujeto_sha256_antes": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "filtrar-siempre",
+      "subject": "messages/seal_message_delivery.py",
+      "ancla": "                                 solo_agentes: set | None = None) -> list:",
+      "reemplazo": "                                 solo_agentes: set | None = frozenset()) -> list:",
+      "why": "default distinto de None cambia el comportamiento histórico",
+      "registro": {
+        "subject": "messages/seal_message_delivery.py",
+        "ancla": "                                 solo_agentes: set | None = None) -> list:",
+        "reemplazo": "                                 solo_agentes: set | None = frozenset()) -> list:",
+        "ancla_sha256": "36718c3d3dcdd32c3559fde900a434b9ebdaed2b3d480bc4a67d7203ce461a05",
+        "sujeto_sha256_antes": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "lo-nunca-entregado-pierde",
+      "subject": "messages/seal_message_delivery.py",
+      "ancla": "           ORDER BY priority ASC, (delivered_at IS NOT NULL) ASC, created_at ASC\n           LIMIT $3\"\"\",\n        retry_after_sec, MAX_ATTEMPTS, limit,\n    )",
+      "reemplazo": "           ORDER BY priority ASC, created_at ASC\n           LIMIT $3\"\"\",\n        retry_after_sec, MAX_ATTEMPTS, limit,\n    )",
+      "why": "los NULL (nunca entregados) dejan de ir primero",
+      "registro": {
+        "subject": "messages/seal_message_delivery.py",
+        "ancla": "           ORDER BY priority ASC, (delivered_at IS NOT NULL) ASC, created_at ASC\n           LIMIT $3\"\"\",\n        retry_after_sec, MAX_ATTEMPTS, limit,\n    )",
+        "reemplazo": "           ORDER BY priority ASC, created_at ASC\n           LIMIT $3\"\"\",\n        retry_after_sec, MAX_ATTEMPTS, limit,\n    )",
+        "ancla_sha256": "30fe4d27c576140db9ed712cb07fd130e5c6df72b216717cc697be35b74f5c8f",
+        "sujeto_sha256_antes": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    }
+  ],
+  "file_sha256": {
+    "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+    "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
+    "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081",
+    "messages/tests/test_nexus_redelivery_acusa_v1.py": "5e7daf4373a20923a4dcf50340ced5dbc35405502f9a2c1c0de29dfd6bce4eda"
+  }
+}
