@@ -176,3 +176,95 @@ def test_CONTROL_el_detector_de_dsn_no_marca_lo_legitimo():
     assert not _DSN_CON_CLAVE.search('DSN = os.environ["SEAL_DB_URL"]')
     assert not _DSN_CON_CLAVE.search('postgresql://rol@host/db')      # sin clave
     assert _DSN_CON_CLAVE.search('postgresql://rol:clave@host/db')    # con clave
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# BRAZOS DE CONDUCTA DEL CIERRE — agregados el 7-sep-2026 por el hallazgo de ALICE.
+#
+# Re-corrio 4 mutantes: murieron los dos que vuelven a cablear una credencial
+# -la clase que FABLE hizo eliminar- y SOBREVIVIERON los dos del FAIL-CLOSED.
+# Mis brazos comprobaban que el literal NO ESTE; ninguno comprobaba que, sin
+# credencial, el modulo se NIEGUE A ARRANCAR.
+#
+# Son dos cosas distintas: "no hay literal" es la ausencia de un defecto viejo;
+# "falla cerrado" es la conducta que lo reemplaza. Probar solo la primera deja
+# que alguien convierta el raise en un `pass` y la suite no se entera.
+#
+# El fail-closed ocurre AL IMPORTAR, asi que se prueba en un SUBPROCESO con un
+# `seal_secrets` que revienta, puesto primero en el PYTHONPATH. Nada de mocks:
+# se ejecuta el camino real.
+# ══════════════════════════════════════════════════════════════════════════
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+
+def _importa_sin_secretos(modulo: str, ruta_modulo: str, entorno_extra: dict) -> subprocess.CompletedProcess:
+    """Importa `modulo` con un seal_secrets que falla, y devuelve el resultado."""
+    with tempfile.TemporaryDirectory(dir="/tmp") as sombra:
+        (Path(sombra) / "seal_secrets.py").write_text(
+            "raise RuntimeError('seal_secrets no disponible (doble de prueba)')\n")
+        env = {"PATH": "/usr/bin:/bin", "HOME": sombra,
+               "PYTHONPATH": f"{sombra}:{RAIZ / ruta_modulo}",
+               "PYTHONDONTWRITEBYTECODE": "1", **entorno_extra}
+        return subprocess.run([sys.executable, "-c", f"import {modulo}"],
+                              capture_output=True, text=True, timeout=60, env=env)
+
+
+def test_CONDUCTA_el_checkpoint_falla_CERRADO_sin_credencial():
+    """Mata `el-checkpoint-deja-de-fallar-cerrado`, que sobrevivio.
+
+    Sin `seal_secrets` y sin SEAL_DB_URL el modulo debe NEGARSE A CARGAR. Un
+    checkpoint que no guarda y lo dice fuerte es mejor que uno que arranca sin
+    credencial y falla despues, dejando la sospecha de que el problema es la base.
+    """
+    r = _importa_sin_secretos("session_checkpoint", "messages", {"SEAL_DB_URL": ""})
+    assert r.returncode != 0, "el modulo cargo SIN credencial: el fail-closed no existe"
+    assert "sin credencial" in (r.stderr or ""), (
+        f"fallo por otra cosa, no por el fail-closed: {r.stderr[-200:]}")
+
+
+def test_CONTROL_con_SEAL_DB_URL_el_checkpoint_SI_carga():
+    """Sin este control, un modulo que NUNCA carga pasaria el brazo de arriba."""
+    r = _importa_sin_secretos("session_checkpoint", "messages",
+                              {"SEAL_DB_URL": "postgresql://u:p@127.0.0.1:1/x"})
+    assert r.returncode == 0, (
+        f"con credencial en el entorno el modulo deberia cargar: {r.stderr[-200:]}")
+
+
+def _importa_con_pg_dsn_falso(modulo: str, ruta_modulo: str) -> subprocess.CompletedProcess:
+    """Doble de `seal_secrets` que IMPORTA BIEN y respeta `required`.
+
+    El doble que revienta al importar NO sirve para este mutante: el modulo
+    fallaria igual por el import, o sea el brazo pasaria por el motivo
+    equivocado. Lo comprobe: con `pg_dsn(required=False)` el test seguia verde.
+    Para que el brazo mida el CONTRATO, el doble tiene que dejar pasar el import
+    y devolver vacio cuando no se exige.
+    """
+    with tempfile.TemporaryDirectory(dir="/tmp") as sombra:
+        (Path(sombra) / "seal_secrets.py").write_text(
+            "def pg_dsn(required=False):\n"
+            "    if required:\n"
+            "        raise RuntimeError('sin secreto (doble de prueba)')\n"
+            "    return ''\n")
+        env = {"PATH": "/usr/bin:/bin", "HOME": sombra,
+               "PYTHONPATH": f"{sombra}:{RAIZ / ruta_modulo}",
+               "PYTHONDONTWRITEBYTECODE": "1"}
+        return subprocess.run([sys.executable, "-c", f"import {modulo}"],
+                              capture_output=True, text=True, timeout=60, env=env)
+
+
+def test_CONDUCTA_el_heartbeat_EXIGE_la_credencial():
+    """Mata `el-heartbeat-acepta-una-credencial-vacia`, que sobrevivio.
+
+    `pg_dsn(required=True)` es el contrato: sin secreto, el latido NO arranca.
+    Un latido que arranca sin credencial publicaria silencio y se leeria como
+    "el agente vive" — la misma clase que las unidades de latido congeladas que
+    encontramos hoy, que publicaban un PID muerto cada 5 minutos.
+    """
+    r = _importa_con_pg_dsn_falso("seal_heartbeat", "memory")
+    assert r.returncode != 0, (
+        "el heartbeat cargo con una credencial VACIA: pide pg_dsn sin required")
+    assert "sin secreto" in (r.stderr or ""), (
+        f"fallo por otra cosa, no por exigir la credencial: {r.stderr[-200:]}")
