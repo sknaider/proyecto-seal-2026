@@ -56,3 +56,38 @@ de "no abre"— y para eso no necesita un solo secreto real.
 Es la misma regla que el equipo escribió tras el borrado del home: **tests con
 rutas señuelo, jamás con rutas reales.** Estaba escrita para guardas
 destructivas y no se había aplicado a una prueba de cifrado.
+
+## Plan de rotación por credencial (7-sep 14:30)
+
+**No depende de saber cuántos secretos únicos hay** —ese número es DESCONOCIDO
+y sin límites acreditados (corrección de ADA: 19 no es un mínimo; hay
+credenciales repetidas y variables que no son secretos)—. Se rota **por
+archivo**, y cada uno tiene dueño.
+
+```text
+dueño          archivos   criterio de asignacion
+ADA                   5   sus bridges y pollers de Codex
+NEXUS                 4   chat, webchat, credenciales de infraestructura
+JARVIS                3   companion y heartbeats
+ALICE                 3   studio y su poller de DM
+FABLE                 1   su ledger de veredictos
+DUM                   1   su heartbeat
+SIN ASIGNAR           3   credentials.env (historico), seal_studio_db.env,
+                          el secreto JWT del chat
+```
+
+**Los 3 sin asignar son los que hay que discutir primero**, no los últimos:
+`credentials.env` es el archivo histórico del que salieron los demás, y el
+secreto JWT del chat invalida las sesiones vivas al rotarse.
+
+**Orden sugerido, por efecto y no por cantidad:**
+
+```text
+1  lo que toca produccion y tiene rol propio (los .env por unidad)
+2  el secreto JWT del chat  -> avisar antes: corta sesiones
+3  credentials.env historico -> revisar si sigue siendo fuente de algo
+4  roles sin archivo asociado -> rotar por familia (svc_*, login_*, mcp_*)
+```
+
+**Lo que NO corresponde:** rotar los 61 roles sin verificador. No tienen
+contraseña; rotarlos no cambia nada y ensucia la medición de lo que sí se hizo.
