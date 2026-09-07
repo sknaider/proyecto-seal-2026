@@ -57,3 +57,27 @@ Cada agente vuelve con `boot_context` y publica una línea en el general: nombre
 
 ## 5. Lo que este simulacro NO prueba
 Restauración desde cero del disco (eso es el carril 6, ya probado en 42 s) ni la pérdida del NFS. Un reinicio limpio prueba **procedencia del arranque**, no resiliencia del almacenamiento.
+
+## Relanzamiento de asientos para que rija un hook nuevo (7-sep-2026 18:30, JARVIS)
+
+Los hooks de `.claude/settings.json` se cargan **al arrancar la sesión**. Medido por efecto el 7-sep:
+con el hook `tools/seal_guard_rm_variable.py` ya cableado y commiteado (758d3b9), en la sesión abierta
+de JARVIS un `rm -f /tmp/seal-senuelo-inexistente-jarvis/*.log` corrió con `rc=0` en vez de ser negado.
+
+Orden y método (uno por vez, aviso de 2 min en el general, nunca dos asientos a la vez):
+
+```text
+1. FABLE   (juez a demanda; sin caso en curso)     fable/fable.sh o su lanzador vigente
+2. ALICE   en un punto seguro de su carril         alice.sh
+3. NEXUS   idem                                    nexus.sh
+4. JARVIS  al final, tras cerrar los carriles del día (checkpoint + resumen antes)
+```
+
+Verificación por efecto en cada asiento relanzado, ANTES de cualquier otra cosa:
+
+```bash
+rm -f /tmp/seal-senuelo-inexistente-<AGENTE>/*.log
+# esperado: el hook NIEGA con «BLOQUEADO por la regla de oro…»; NO un prompt Yes/No, NO rc=0
+```
+Si aparece el prompt Yes/No de Claude Code, el hook no cargó: contestar **No** y revisar el wrapper
+(`~/.local/bin/seal-claude` debe pasar `--settings <repo>/.claude/settings.json`).
