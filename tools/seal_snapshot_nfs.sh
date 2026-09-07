@@ -29,7 +29,7 @@ rs $RS /home/dadito/.claude/projects/-home-dadito-IA-proyecto-seal/memory/ "$DES
 [ -f /home/dadito/.claude/CLAUDE.md ] && cp --no-preserve=mode /home/dadito/.claude/CLAUDE.md "$DEST/CLAUDE_global.md"
 [ -d /home/dadito/.codex ] && rs $RS --exclude='*.log' --exclude='auth.json' /home/dadito/.codex/ "$DEST/codex/"
 # SECRETOS NUNCA al NFS (no preserva permisos): se excluyen credentials.env, *.dsn, tokens
-[ -d /home/dadito/.config/seal ] && rs $RS --exclude='credentials.env*' --exclude='*.dsn' --exclude='*token*' --exclude='*secret*' /home/dadito/.config/seal/ "$DEST/config_seal/"
+[ -d /home/dadito/.config/seal ] && rs $RS --exclude='credentials.env*' --exclude='*.dsn' --exclude='*.env' --exclude='env' --exclude='*token*' --exclude='*secret*' --exclude='*_cred' /home/dadito/.config/seal/ "$DEST/config_seal/"
 # volcado diario de la DB (esquema soul_v3, formato custom)
 docker exec seal-memory-db pg_dump -U seal -d seal_memory -n soul_v3 -Fc > "$DEST/soul_v3_$DIA.dump" 2>>"$DEST/pg_dump.err" || echo "[snapshot] pg_dump fallo, ver $DEST/pg_dump.err" >&2
 # retencion: conservar 14 fotos (solo dentro de DEST_ROOT, ruta literal por construccion)

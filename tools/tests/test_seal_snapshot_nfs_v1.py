@@ -43,7 +43,7 @@ def test_foto_real_contiene_lo_critico_y_ningun_secreto():
         assert any(p.suffix == ".dump" for p in dia.iterdir()), "falta el pg_dump"
         assert (dia / "NO_RESPALDADO_Y_COMO_SE_REPONE.md").exists(), "la foto debe declarar lo que no contiene"
         secretos = [str(p) for p in dia.rglob("*") if p.is_file() and (
-            p.name.startswith("credentials.env") or p.suffix == ".dsn" or p.name.startswith((".agent_session_token", ".agent_ws_token")) or p.name.endswith("_cred") or p.name == ".db_cred"
+            p.name.startswith("credentials.env") or p.suffix == ".dsn" or p.name.startswith((".agent_session_token", ".agent_ws_token")) or p.name.endswith("_cred") or p.name == ".db_cred" or (p.suffix == ".env" and "config_seal" in str(p))
             or p.name in ("auth.json", "seal_secrets.py") or p.suffix in (".pem", ".key"))]
         assert secretos == [], secretos
         assert not any((dia / "proyecto-seal").rglob("*.gguf")), "ningun modelo GGUF en la foto"
@@ -105,3 +105,7 @@ def test_exclusiones_del_repo_cubren_los_secretos_conocidos():
     linea = next(l for l in script.splitlines() if "/home/dadito/IA/proyecto-seal/" in l and "--exclude" in l) if any("/home/dadito/IA/proyecto-seal/" in l and "--exclude" in l for l in script.splitlines()) else script
     for patron in (".db_cred", "*_cred", "*.dsn", "credentials.env*", ".agent_session_token_*", ".agent_ws_token"):
         assert f"--exclude='{patron}'" in script, patron
+    # config_seal: todo .env (seal_studio_db.env, ada_bridge_db_runtime.env) y env/ llevan DSN; hallazgo JARVIS 12:53
+    linea_cfg = next(l for l in script.splitlines() if "/home/dadito/.config/seal/" in l and "--exclude" in l)
+    for patron in ("*.env", "env", "*.dsn", "credentials.env*", "*_cred"):
+        assert f"--exclude='{patron}'" in linea_cfg, patron
