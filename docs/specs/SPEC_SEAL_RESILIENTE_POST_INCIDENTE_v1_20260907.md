@@ -50,7 +50,7 @@ capa 3  simulacro de restauración mensual: restaurar la foto en un directorio v
         chat + MCP contra una DB de prueba; si no arranca, el respaldo no existe
 ```
 
-Además: **`pg_dump` diario de `soul_v3`** al NFS (hoy la DB vive sólo en el volumen docker; el
+Además: **`pg_dump` diario de TODA la base** (no sólo `soul_v3`: `orion_exam` de Henry y `fable` no tenían copia hasta el 7-sep 13:07) al NFS (hoy la DB vive sólo en el volumen docker; el
 contenedor sobrevivió por suerte). Cifrado de los secretos en el NFS con una clave que guarda William.
 
 ## 3. Secretos y credenciales (carril 1, ALICE; revisa ADA)
@@ -92,7 +92,7 @@ Y DUM deja de declarar «caído» por un solo indicador: exige dos fuentes (lati
 | 3 | Arena segura (usuario + red) | NEXUS | ALICE | arnés entregado; falta usuario `seal-arena` y red |
 | 4 | Unidades y cuerpos como código | NEXUS | ADA (roles) / JARVIS (resto) | **abierto y prioritario**: 22 unidades reconstruidas conectan como `seal` por falta de `EnvironmentFile`; recuperación por servicio con rol esperado comprobado |
 | 5 | Estado de misión nerves: procedimiento + copia | ADA | NEXUS | espera OK de William |
-| 6 | Simulacro de reinicio | JARVIS | ADA | sólo después de 4; agendado con William |
+| 6 | Simulacro de restauración | JARVIS | NEXUS | `tools/seal_restaurar_desde_nfs.sh` + 5 tests (13:01); primer simulacro real 13:05: archivos OK en 12 s, dump falló por arranque doble de Postgres (corregido); volcado ampliado a TODA la base tras el hallazgo orion_exam (ALICE 13:05) |
 | 7 | Integridad y detección | ALICE | NEXUS | detectores: NEXUS firmó, FABLE **APPROVE CONDICIONADO** 12:16 (un árbol vaciado debe alertar); ALICE cierra la condición |
 
 Orden: 3 → 1 → 4 → 7 → 2 (capa 2 y 3) → 6. Nada se despliega sin manifiesto y firma; ningún
