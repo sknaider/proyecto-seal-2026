@@ -186,3 +186,28 @@ def test_qa_negative_existencia_con_lista_VACIA_no_pasa():
     (a / "quality/rutas-criticas.json").write_text(json.dumps({"_doc": "x", "rutas": {}}))
     r = _corre(a / "tools/seal_detector_existencia.py")
     assert r.returncode == 2 and "VACIA" in r.stdout
+
+
+def test_qa_negative_un_nombre_de_DIRECTORIO_relativo_no_es_credencial():
+    """Falso positivo real, reportado por ADA el 7-sep-2026 leyendo next.config.ts.
+
+    `STUDIO_BUILD_DIR=.next-clipboard-20260907a` mide 25 chars y da entropia 4.2, asi
+    que caia en la regla de "valor opaco". No empieza con "/" ni "./", asi que la guarda
+    de rutas no lo veia. Alimenta `distDir` de Next.js: es un nombre de carpeta de build.
+
+    Un detector de credenciales que grita por un directorio ensena a ignorarlo.
+    """
+    import importlib.util, pathlib
+    ruta = pathlib.Path(__file__).resolve().parents[2] / "tools" / "seal_detector_credenciales_unidades.py"
+    spec = importlib.util.spec_from_file_location("det_cred", ruta)
+    det = importlib.util.module_from_spec(spec); spec.loader.exec_module(det)
+
+    es_cred, por_que = det.clasificar("STUDIO_BUILD_DIR", ".next-clipboard-20260907a")
+    assert es_cred is False, f"marco un directorio como credencial: {por_que}"
+
+    # CONTROL: la exencion se apoya en el nombre, asi que no debe tapar un secreto real
+    # colgado de una variable que diga DIR. El valor manda; el nombre solo desempata.
+    es_cred, _ = det.clasificar("STUDIO_BUILD_DIR", "postgresql://seal:clavereal@localhost/db")
+    assert es_cred is True, "una URI con clave embebida NO se salva por llamarse _DIR"
+    es_cred, _ = det.clasificar("BUILD_DIR", "sk-proj-AbCdEfGhIjKlMnOpQrStUvWx")
+    assert es_cred is True, "un prefijo de credencial conocido NO se salva por llamarse _DIR"

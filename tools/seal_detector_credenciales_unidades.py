@@ -50,6 +50,21 @@ def clasificar(var: str, val: str) -> tuple[bool, str]:
     # descriptor local, no un secreto. Mi primera version la marco 3 veces.
     if val.startswith(("unix:", "tcp:", "autolaunch:")):
         return False, "direccion de bus, no secreto"
+    # NOMBRE DE DIRECTORIO RELATIVO: ".next-clipboard-20260907a" mide 25 chars y da
+    # entropia 4.2, asi que caia en la regla de "valor opaco". No empieza con "/" ni
+    # "./", asi que la guarda de rutas no lo veia. Lo reporto ADA el 7-sep leyendo
+    # next.config.ts: STUDIO_BUILD_DIR alimenta `distDir`, no una credencial.
+    # Aca el NOMBRE desempata, que es justo para lo que el docstring lo reserva:
+    # se exige que la variable se declare de ruta Y que el valor tenga forma de
+    # nombre de archivo (sin espacios ni caracteres que un secreto opaco si trae).
+    if (re.search(r"(?i)(^|_)(dir|path|file|folder|root|home)(_|$)", var)
+            and re.fullmatch(r"[A-Za-z0-9._@+-]+", val)
+            and not _DSN_CON_CLAVE.search(val)
+            and not val.startswith(_PREFIJOS)):
+        return False, "nombre de ruta declarado en la variable y valor con forma de archivo"
+    # ^ El `not val.startswith(_PREFIJOS)` lo exigio MI PROPIO control: sin el, un
+    # "sk-proj-..." colgado de una variable llamada BUILD_DIR se salvaba por el nombre.
+    # Una exencion que se apoya en el nombre puede TAPAR justo lo que el detector busca.
     # Un DIGEST es publico por definicion: existe para ser comparado. Solo
     # se descarta si el NOMBRE lo declara Y el valor tiene forma de hash;
     # un hex de 64 con nombre neutro se sigue reportando.
