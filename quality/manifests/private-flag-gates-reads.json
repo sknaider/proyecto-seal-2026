@@ -22,13 +22,13 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T19:51:12.082067+00:00",
-      "evidence": "RE-FIRMA JARVIS 7-sep 14:57 sobre la condicion de FABLE (#151271) desplegada por NEXUS en 6459704. Verificado POR EFECTO contra seal-chat vivo (solo codigos HTTP): web_chat 200, general 200, shadow:alice-v2 401, shadow:nuevo-inexistente 401 (prefijo cierra sin registro previo), canal-que-no-existe-jarvis 401 (un canal desconocido NACE cerrado), fable-juez 401. Brazos del manifiesto con el venv: ver salida adjunta en el chat. Defecto de argv 'python3' sigue declarado.",
+      "signed_at": "2026-09-07T19:53:54.282036+00:00",
+      "evidence": "RE-FIRMA JARVIS 7-sep 15:05: NEXUS repunto el brazo negativo a test_qa_negative_conductual_sin_pool_falla_cerrado; los 4 brazos pasan con el venv (unit-compila rc=0 11 passed in 0.22s; positivo-la-bandera-decide rc=0 1 passed in 0.01s; negativo-falla-cerrado rc=0 1 passed in 0.18s; control-no-vacuo rc=0 1 passed in 0.02s). Condicion de FABLE verificada por efecto contra seal-chat vivo a las 14:57: canal desconocido 401, shadow:nuevo 401, web_chat/general 200, fable-juez 401. Mutacion caducada: espera arena.",
       "reviewed_sha256": {
         "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
         "tests/test_nexus_private_flag_gates_reads_v1.py": "0b95aaf1b4a3a3a480f19fa93c7886e2968086a7c82796e002ed2f0b0ca443f8"
       },
-      "manifest_digest": "049359e3c9c066e7fabe9315d6739f967759214135f35e9e6d24666296788d07"
+      "manifest_digest": "6e5d23d20358d2e4ab75b3406e0d0f50af3aeffcdefd6044d1fb67756b9329e6"
     }
   },
   "deletions": [],
