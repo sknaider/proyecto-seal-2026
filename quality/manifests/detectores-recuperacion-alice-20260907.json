@@ -190,5 +190,24 @@
   },
   "_nota_para_el_revisor": "Hallazgo de NEXUS (revision independiente, 12:04): la condicion central de paquetes_vacios (`if sos > 0 and pys == 0`) sobrevivia a dos mutantes porque mis brazos no separaban sus dos mitades. Cerrado con dos casos negativos y VERIFICADO mutando una COPIA EN ARENA, nunca el archivo del repo (regla del 7-sep): original -> con-fuentes exit 0, solo-datos exit 0 (pasa); M1 `if sos > 0:` -> marca el paquete CON fuentes (exit 1): MUERE; M2 `if pys == 0:` -> marca un directorio de datos (exit 1): MUERE.",
   "mutation_evidence": "quality/mutation-detectores-recuperacion-alice-20260907.json",
-  "_condicion_fable": "APPROVE CONDICIONADO del 7-sep 17:16. (1) detector de EXISTENCIA: hecho, tools/seal_detector_existencia.py, probado contra un arbol vaciado (17 de 18 faltantes, exit 1) y contra una lista vacia (exit 2, no pasa). (2) espacio libre: ya existia, tools/seal_disk_alert.sh, verificado en git y corriendo. (3) timer: instalado y agendado (seal-integridad-recuperacion.timer, proxima corrida 13:29; el servicio corrio con exit 0). (4) frase corregida: los tres detectores diferenciales detectan el ESTADO QUE DEJO el incidente, no el incidente; el de existencia si detecta la desaparicion, y solo para las 18 rutas declaradas."
+  "_condicion_fable": "APPROVE CONDICIONADO del 7-sep 17:16. (1) detector de EXISTENCIA: hecho, tools/seal_detector_existencia.py, probado contra un arbol vaciado (17 de 18 faltantes, exit 1) y contra una lista vacia (exit 2, no pasa). (2) espacio libre: ya existia, tools/seal_disk_alert.sh, verificado en git y corriendo. (3) timer: instalado y agendado (seal-integridad-recuperacion.timer, proxima corrida 13:29; el servicio corrio con exit 0). (4) frase corregida: los tres detectores diferenciales detectan el ESTADO QUE DEJO el incidente, no el incidente; el de existencia si detecta la desaparicion, y solo para las 18 rutas declaradas.",
+  "review": {
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "Revision independiente 7-sep 14:35. Ataque los tres huecos de diseno del detector de existencia: lista VACIA -> exit 2, lista AUSENTE -> exit 2, y rutas que sean directorio (donde el hash se saltea) -> 0 de 18 declaradas. Los tres estaban tapados. El hueco que SI encontre fue de cobertura: el sujeto seal_detector_existencia.py se agrego al manifiesto sin un solo test en todo el arbol (grep -rl --include=test_*.py -> nada). ALICE agrego 3 brazos que lo EJERCEN por subproceso en una arena: positivo (falta una ruta -> exit 1), control (estan todas -> exit 0) y negativo (lista vacia no pasa). 11 tests en verde. NO corri mutantes: la arena esta congelada hasta el veredicto de FABLE y el bloqueo de este manifiesto era el recibo, no la evidencia de mutacion.",
+      "reviewed_sha256": {
+        "tools/seal_chequeo_integridad_recuperacion.sh": "2e8bcb7679b9afb6182bd406bd3761299babbb829b559787c14dfe12b2629be0",
+        "tools/seal_detector_credenciales_unidades.py": "51c83a43b53f16e9fa1a3d0cb1b4b5358b2e6cf4d6d99457172e18f6ba12c81f",
+        "tools/seal_detector_existencia.py": "2539e72dcea011607ff3631be264e0bc050aa8d6d7ac5bbb7396d592ae0d9400",
+        "tools/seal_detector_no_versionado.py": "82435971c16f2a49369d9564f321ab7daaf9af7e8d55ee48a1c39cebfec52a02",
+        "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
+        "tools/tests/test_detectores_recuperacion_v1.py": "2115211f9d707bf3fdcb6b92b51bcffb7c93286fe4b12db3bbc15131e935e1d0"
+      },
+      "manifest_digest": "c47d0b11634a04d5a76513054c92f7ef1c0a6c0cec67c8b57ea263cf5c7435b9"
+    },
+    "status": "approved",
+    "reviewer": "NEXUS",
+    "date": "2026-09-07"
+  }
 }
