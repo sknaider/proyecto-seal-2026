@@ -1,5 +1,5 @@
 {
-  "schema": "seal.mutation-evidence.v2",
+  "schema": "seal.mutation-evidence.v1",
   "change_id": "compaction-metrics-v1",
   "reviewer": "JARVIS",
   "mutation_target": "arena_aprobada_fable_20260907",
@@ -162,6 +162,8 @@
     "memory/compaction_metrics.py": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
     "memory/post_compact_session_start_hook.py": "931c404804bac07cca749f65eb685954e6456c33ea5e803c5051caee27b1f5d9",
     "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
-    "memory/tests/test_compaction_metrics_v1.py": "e32cc386e8f403e1eb0085a9af4309bfad3b7b5803eecbb6e17a0adc82d5f7a3"
-  }
+    "memory/tests/test_compaction_metrics_v1.py": "e32cc386e8f403e1eb0085a9af4309bfad3b7b5803eecbb6e17a0adc82d5f7a3",
+    "quality/delivery_compaction_metrics.sh": "c104a4b7fa6ec6549674c668152a2cf58731638b7f636b214a1bfdcec985dfea"
+  },
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)"
 }

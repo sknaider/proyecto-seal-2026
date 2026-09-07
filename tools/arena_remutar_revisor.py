@@ -16,7 +16,8 @@ sys.path.insert(0, str(RAIZ / "tools"))
 import seal_mutacion_segura as sms  # noqa: E402
 
 LIBS = "/venv/lib/python3.12/site-packages"
-ENV = {"PATH": "/usr/local/bin:/usr/bin:/bin", "PYTHONPATH": LIBS if pathlib.Path(LIBS).is_dir() else "", "PYTHONDONTWRITEBYTECODE": "1"}
+ENV = {"PATH": "/usr/local/bin:/usr/bin:/bin", "PYTHONPATH": LIBS if pathlib.Path(LIBS).is_dir() else "", "PYTHONDONTWRITEBYTECODE": "1",
+       **({"HOME": os.environ["HOME"]} if os.environ.get("HOME") else {})}  # HOME señuelo (555) del runner: chat_auth.py lo exige
 
 
 def sha(p: pathlib.Path) -> str:
@@ -67,8 +68,11 @@ def main(spec_path: str, salida: str) -> int:
         resultados.append({**m, "registro": registro, "result": "KILLED" if rc else "SURVIVED", "rc": rc})
         print(f"[arena] {m['id']}: rc={rc} -> {'MUERTO' if rc else 'SOBREVIVE'}")
     killed = sum(1 for r in resultados if r["result"] == "KILLED")
+    # file_sha256 sobre TODOS los subjects+tests del manifiesto (el gate compara el dict completo)
     files = sorted({m["subject"] for m in spec["mutants"]} | set(spec.get("extra_files", [])) | {t for argv in tests for t in argv if t.endswith(".py") and "::" not in t} | {t.split("::")[0] for argv in tests for t in argv if "::" in t})
-    ev = {"schema": "seal.mutation-evidence.v2", "change_id": spec["change_id"], "reviewer": spec["reviewer"], "mutation_target": "arena_aprobada_fable_20260907",
+    if spec.get("manifest") and (RAIZ / spec["manifest"]).is_file():
+        man = json.loads((RAIZ / spec["manifest"]).read_text()); files = sorted(set(files) | set(man.get("subjects", [])) | set(man.get("tests", [])))
+    ev = {"schema": "seal.mutation-evidence.v1", "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)", "change_id": spec["change_id"], "reviewer": spec["reviewer"], "mutation_target": "arena_aprobada_fable_20260907",
           "tool": "tools/arena_remutar_revisor.py", "killed": killed, "survived": len(resultados) - killed, "total": len(resultados), "no_tests": 0, "skipped": 0, "suspicious": 0, "timeout": 0,
           "mutation_score_percent": round(100.0 * killed / max(1, len(resultados)), 1), "mutants": resultados,
           "file_sha256": {f: sha(RAIZ / f) for f in files if (RAIZ / f).is_file()}}

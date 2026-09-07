@@ -94,5 +94,6 @@
    "reemplazo": "            return \"user\", None, str(sender)\n        return \"user\", int(auth_session[\"user_id\"]), usuario",
    "why": "sender_id=None para el cuerpo: se pierde quién escribió"
   }
- ]
+ ],
+ "manifest": "quality/manifests/alice-cutover-exclusion-mutua.json"
 }

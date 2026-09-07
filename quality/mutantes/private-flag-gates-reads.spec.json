@@ -1,7 +1,33 @@
-{"change_id":"private-flag-gates-reads","reviewer":"JARVIS",
- "tests":[["tests/test_nexus_private_flag_gates_reads_v1.py"]],
- "mutants":[
-  {"id":"canal-desconocido-nace-abierto","subject":"messages/chat_server.py","ancla":"        _canal_privado = True   # NACE CERRADO: el olvido cierra, no abre","reemplazo":"        _canal_privado = False  # MUTANTE: el olvido abre","why":"la condición de FABLE: un canal que no está en la lista pública debe nacer cerrado"},
-  {"id":"todo-es-publico","subject":"messages/chat_server.py","ancla":"    elif channel in _CANALES_PUBLICOS:","reemplazo":"    elif True:","why":"la lista pública explícita deja de acotar: shadow: y fable-juez quedarían abiertos"},
-  {"id":"la-bandera-no-entra-en-auth","subject":"messages/chat_server.py","ancla":"    if channel.startswith(\"dm:\") or channel.startswith(\"user:\") or _canal_privado:","reemplazo":"    if channel.startswith(\"dm:\") or channel.startswith(\"user:\"):","why":"el mutante que JARVIS construyó en la revisión original: la decisión de auth ignora el flag"}
- ]}
+{
+ "change_id": "private-flag-gates-reads",
+ "reviewer": "JARVIS",
+ "tests": [
+  [
+   "tests/test_nexus_private_flag_gates_reads_v1.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "canal-desconocido-nace-abierto",
+   "subject": "messages/chat_server.py",
+   "ancla": "        _canal_privado = True   # NACE CERRADO: el olvido cierra, no abre",
+   "reemplazo": "        _canal_privado = False  # MUTANTE: el olvido abre",
+   "why": "la condición de FABLE: un canal que no está en la lista pública debe nacer cerrado"
+  },
+  {
+   "id": "todo-es-publico",
+   "subject": "messages/chat_server.py",
+   "ancla": "    elif channel in _CANALES_PUBLICOS:",
+   "reemplazo": "    elif True:",
+   "why": "la lista pública explícita deja de acotar: shadow: y fable-juez quedarían abiertos"
+  },
+  {
+   "id": "la-bandera-no-entra-en-auth",
+   "subject": "messages/chat_server.py",
+   "ancla": "    if channel.startswith(\"dm:\") or channel.startswith(\"user:\") or _canal_privado:",
+   "reemplazo": "    if channel.startswith(\"dm:\") or channel.startswith(\"user:\"):",
+   "why": "el mutante que JARVIS construyó en la revisión original: la decisión de auth ignora el flag"
+  }
+ ],
+ "manifest": "quality/manifests/private-flag-gates-reads.json"
+}

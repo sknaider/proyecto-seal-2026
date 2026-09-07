@@ -66,5 +66,6 @@
    "reemplazo": "           ORDER BY priority ASC, created_at ASC\n           LIMIT $3\"\"\",\n        retry_after_sec, MAX_ATTEMPTS, limit,\n    )",
    "why": "los NULL (nunca entregados) dejan de ir primero"
   }
- ]
+ ],
+ "manifest": "quality/manifests/chat-redelivery-acusa.json"
 }

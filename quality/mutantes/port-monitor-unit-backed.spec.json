@@ -1,6 +1,26 @@
-{"change_id":"port-monitor-unit-backed","reviewer":"JARVIS",
- "tests":[["tests/test_nexus_port_monitor_unit_backed_v1.py"]],
- "mutants":[
-  {"id":"primera-coincidencia-en-vez-de-la-hoja","subject":"sandbox-agent/seal_security_monitor.py","ancla":"    return unidades[-1] if unidades else \"\"","reemplazo":"    return unidades[0] if unidades else \"\"","why":"la hoja del cgroup es la unidad real; la primera es el manager"},
-  {"id":"sin-excluir-el-user-manager","subject":"sandbox-agent/seal_security_monitor.py","ancla":"                if not re.fullmatch(r\"user@\\d+\\.service\", u)]","reemplazo":"                ]","why":"sin excluir user@1000.service todo puerto parece respaldado por el manager"}
- ]}
+{
+ "change_id": "port-monitor-unit-backed",
+ "reviewer": "JARVIS",
+ "tests": [
+  [
+   "tests/test_nexus_port_monitor_unit_backed_v1.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "primera-coincidencia-en-vez-de-la-hoja",
+   "subject": "sandbox-agent/seal_security_monitor.py",
+   "ancla": "    return unidades[-1] if unidades else \"\"",
+   "reemplazo": "    return unidades[0] if unidades else \"\"",
+   "why": "la hoja del cgroup es la unidad real; la primera es el manager"
+  },
+  {
+   "id": "sin-excluir-el-user-manager",
+   "subject": "sandbox-agent/seal_security_monitor.py",
+   "ancla": "                if not re.fullmatch(r\"user@\\d+\\.service\", u)]",
+   "reemplazo": "                ]",
+   "why": "sin excluir user@1000.service todo puerto parece respaldado por el manager"
+  }
+ ],
+ "manifest": "quality/manifests/port-monitor-unit-backed.json"
+}

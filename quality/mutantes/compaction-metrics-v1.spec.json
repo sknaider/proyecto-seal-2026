@@ -63,5 +63,6 @@
    "reemplazo": "    (lambda *a, **k: None)(construir(\n        \"post\", agent,",
    "why": "el post deja de registrar"
   }
- ]
+ ],
+ "manifest": "quality/manifests/compaction-metrics-v1.json"
 }
