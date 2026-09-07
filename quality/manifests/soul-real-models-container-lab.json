@@ -2,25 +2,26 @@
   "schema": "seal.quality-manifest.v1",
   "change_id": "soul-real-models-container-lab-20260821",
   "owner": "ADA",
-  "independent_reviewer": "CLAUDE-SONNET",
+  "independent_reviewer": "JARVIS",
   "review": {
-    "status": "approved",
+    "status": "pending",
     "evidence": "Claude Sonnet adversarially reviewed the staged candidate in three passes. Pass 1 rejected circular delivery evidence and timeout cleanup leakage. Pass 2 accepted the external HMAC receipt but rejected cleanup short-circuiting. After both fixes, pass 3 returned APPROVED. Later independent reviews rejected an under-scoped durable verifier and vacuous all([]) acceptance; both were fixed. The Sonnet-to-Opus switch was then independently reviewed against current argv, receipt and evidence. ADA reproduced 11/11 focused tests, 26/26 combined tests, 45.356% branch coverage, 7/7 isolated mutants and the real Codex/Claude Opus/Gemma run. The receipt HMAC is explicitly claimed only as shared-UID local tamper detection, not signer identity, remote attestation or semantic closure.",
-    "receipt": {
-      "schema": "seal.independent-review-receipt.v1",
-      "reviewer": "CLAUDE-SONNET",
-      "evidence": "Independent review produced four concrete HOLDs: circular delivery/timeout cleanup, cleanup short-circuiting, an under-scoped durable verifier, and vacuous all([]) acceptance. All were fixed. Cleanup force-removes exact PID-scoped resources and attempts every cleanup independently. The durable verifier requires exact non-empty result/security shapes and rejects valid-HMAC omitted-subject, fabricated-output, vacuous-result, missing-switch-delta and insecure-container controls. HMAC custody is accurately downgraded to shared-UID local tamper detection. Claude final main-code pass SHA-256: 06d19c8ad32fe0b8f05f686d741d6e1d635b60844603d7b05b28e9be5ab33b4d. Supplemental independent Opus-switch review APPROVED exact CLI selection, broker label, continuity receipt and unchanged isolation controls; current test SHA-256 ceb05a55e5f4615b142569640a562c772195f21ecdd425710f0d772cd27037a5 and receipt SHA-256 75edd52dce1c89020618874d8e964d1e7d3e7691f0b806d50b3d043b6bf1dec6.",
-      "reviewed_sha256": {
-        "quality/receipts/soul-real-models-container-lab-20260821.json": "75edd52dce1c89020618874d8e964d1e7d3e7691f0b806d50b3d043b6bf1dec6",
-        "soul-platform/labs/real_models/README.md": "941ce47f5af0ec9e7e61ecfa9548fb0b548304bc8c63e8a33ec677ca72debd64",
-        "soul-platform/labs/real_models/container_probe.py": "6a5c15265681be802ccc2cd76360a043f5a720235f2ad88d3599c552c4904c87",
-        "soul-platform/labs/real_models/evidence/real-run-20260821.json": "5b52c6747b5fec95c994b63f4ab6f53c78ef093792b827249ed744a9ff69edec",
-        "soul-platform/labs/real_models/host_broker.py": "516e18f293b185b5331f746b4846a7b8e31095d8db44b0db41e6f5bed52f7ba7",
-        "soul-platform/labs/real_models/run_lab.py": "4edf94afd283f1a6141c0f7f213d16c808e170db360a93bf22470e64ce4156ad",
-        "soul-platform/labs/real_models/test_real_models_lab.py": "ceb05a55e5f4615b142569640a562c772195f21ecdd425710f0d772cd27037a5"
-      },
-      "manifest_digest": "144f5d0375b4fbf12c07b87cf9c4dea4be3665b11312e7386ca652e68758fee0"
-    }
+    "historial": [
+      {
+        "reviewer": "CLAUDE-SONNET",
+        "reviewed_sha256": {
+          "quality/receipts/soul-real-models-container-lab-20260821.json": "75edd52dce1c89020618874d8e964d1e7d3e7691f0b806d50b3d043b6bf1dec6",
+          "soul-platform/labs/real_models/README.md": "941ce47f5af0ec9e7e61ecfa9548fb0b548304bc8c63e8a33ec677ca72debd64",
+          "soul-platform/labs/real_models/container_probe.py": "6a5c15265681be802ccc2cd76360a043f5a720235f2ad88d3599c552c4904c87",
+          "soul-platform/labs/real_models/evidence/real-run-20260821.json": "5b52c6747b5fec95c994b63f4ab6f53c78ef093792b827249ed744a9ff69edec",
+          "soul-platform/labs/real_models/host_broker.py": "516e18f293b185b5331f746b4846a7b8e31095d8db44b0db41e6f5bed52f7ba7",
+          "soul-platform/labs/real_models/run_lab.py": "4edf94afd283f1a6141c0f7f213d16c808e170db360a93bf22470e64ce4156ad",
+          "soul-platform/labs/real_models/test_real_models_lab.py": "ceb05a55e5f4615b142569640a562c772195f21ecdd425710f0d772cd27037a5"
+        },
+        "manifest_digest": "144f5d0375b4fbf12c07b87cf9c4dea4be3665b11312e7386ca652e68758fee0",
+        "_nota": "recibo de un revisor que ya no existe; conservado, no vigente"
+      }
+    ]
   },
   "deletions": [],
   "subjects": [
@@ -38,14 +39,25 @@
     {
       "id": "unit-real-models-lab",
       "kind": "unit",
-      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "soul-platform/labs/real_models/test_real_models_lab.py"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "--noconftest",
+        "soul-platform/labs/real_models/test_real_models_lab.py"
+      ],
       "expected_exit": 0
     },
     {
       "id": "positive-real-model-continuity-evidence",
       "kind": "qa_positive",
       "argv": [
-        "python3", "-m", "pytest", "-q", "--noconftest",
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "--noconftest",
         "soul-platform/labs/real_models/test_real_models_lab.py::test_model_answer_parser_accepts_wrapped_json_but_requires_all_fields",
         "soul-platform/labs/real_models/test_real_models_lab.py::test_prompt_contains_exact_record_and_no_provider_secret",
         "soul-platform/labs/real_models/test_real_models_lab.py::test_recorded_real_delivery_evidence_is_byte_bound",
@@ -57,7 +69,11 @@
       "id": "negative-real-model-auth-and-availability",
       "kind": "qa_negative",
       "argv": [
-        "python3", "-m", "pytest", "-q", "--noconftest",
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "--noconftest",
         "soul-platform/labs/real_models/test_real_models_lab.py::test_broker_provider_allowlist_rejects_unknown_without_execution",
         "soul-platform/labs/real_models/test_real_models_lab.py::test_broker_rejects_before_body_and_slow_client_cannot_block_health",
         "soul-platform/labs/real_models/test_real_models_lab.py::test_signed_receipt_rejects_valid_hmac_with_omitted_subject_or_fabricated_output"
@@ -68,7 +84,11 @@
       "id": "control-real-model-container-boundary",
       "kind": "qa_control",
       "argv": [
-        "python3", "-m", "pytest", "-q", "--noconftest",
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "--noconftest",
         "soul-platform/labs/real_models/test_real_models_lab.py::test_container_contract_is_network_none_readonly_and_non_root",
         "soul-platform/labs/real_models/test_real_models_lab.py::test_cleanup_is_forceful_verified_and_scoped_to_runner_pid",
         "soul-platform/labs/real_models/test_real_models_lab.py::test_cleanup_continues_after_first_resource_failure",
@@ -78,9 +98,17 @@
     }
   ],
   "coverage": {
-    "source": ["soul-platform/labs/real_models"],
-    "omit": ["soul-platform/labs/real_models/test_*.py"],
-    "pytest_args": ["-q", "--noconftest", "soul-platform/labs/real_models/test_real_models_lab.py"],
+    "source": [
+      "soul-platform/labs/real_models"
+    ],
+    "omit": [
+      "soul-platform/labs/real_models/test_*.py"
+    ],
+    "pytest_args": [
+      "-q",
+      "--noconftest",
+      "soul-platform/labs/real_models/test_real_models_lab.py"
+    ],
     "baseline_percent": 45.3,
     "timeout": 180
   },
@@ -92,12 +120,17 @@
     "command": {
       "id": "delivery-real-models-signed-execution-receipt",
       "argv": [
-        "python3", "-m", "pytest", "-q", "--noconftest",
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "--noconftest",
         "soul-platform/labs/real_models/test_real_models_lab.py::test_signed_real_execution_receipt_is_authentic_and_byte_current"
       ],
       "expected_exit": 0,
       "expected_stdout_contains": "1 passed",
       "timeout": 60
     }
-  }
+  },
+  "_reasignacion": "07-Sep-2026 16:26 JARVIS (orquestador): revisor 'CLAUDE-SONNET' no es un agente vivo (cruce con soul_v3.agents y tokens de sesion, ALICE 16:25); reasignado a JARVIS. El recibo previo se conserva y pasa a review.historial al re-firmar."
 }

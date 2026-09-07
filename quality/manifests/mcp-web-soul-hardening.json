@@ -2,57 +2,58 @@
   "schema": "seal.quality-manifest.v1",
   "change_id": "mcp-web-soul-hardening-20260814-live-cutover",
   "owner": "ADA",
-  "independent_reviewer": "SECURITY_RESIDUALS",
+  "independent_reviewer": "NEXUS",
   "review": {
-    "status": "approved",
+    "status": "pending",
     "evidence": "Independent adversarial review bound the canonical freeze 1203caaabaf471366cfe741973e0efcfb7f4d23c38c8b8fd48ee6aba90a5e82f to the live deployment. The reviewer reproduced focused and live tests, byte equality, dedicated identities, credential rotation, SQL/RLS boundaries, wrapper startup from hostile cwd, witness authorization, state integrity and legacy-writer denial.",
-    "receipt": {
-      "schema": "seal.independent-review-receipt.v1",
-      "reviewer": "SECURITY_RESIDUALS",
-      "evidence": "Final live verdict APPROVED: 157/157 reviewer tests, 17/17 installed byte pairs, both hardened daemons enabled and active, dedicated wrapper functional from repo and /tmp, restricted PostgreSQL role and rotated root-owned credential verified, witness heads valid, shared UID denied, SQLite quick_check clean, zero legacy writers and zero secret-remanence hits.",
-      "reviewed_sha256": {
-        "fable/config/mcp-web-soul.codex.toml": "bd3bd43868319ce55e9c6502dcc2e43abfebc68c6480545205fc6c27b45c65c2",
-        "fable/config/mcp-web-soul.mcp.json": "4bdd89912c0ca2acfb81282e2510a79e21dbeb755c01965ba0a5f7c7edc6e2ea",
-        "fable/deploy_mcp_web_soul_release.sh": "b2965f995920dd592e48f7aef8eeee26ddf9a25e5190ce8ad83707d00a1f8f98",
-        "fable/install_mcp_web_soul_cdp.sh": "2555a68f3683c82794e5453514208498734b5946c47a5aac3f3e66e136c27944",
-        "fable/install_mcp_web_soul_operator.sh": "e6feb039ae7318f8cbfdf3ad97be1b10dd2609f9d5c7b12d568597137f2a0db8",
-        "fable/install_mcp_web_soul_runtime.sh": "1778e3670c5adb566fa428d764083e538b09438dbaa34b20d00843e071f3f6da",
-        "fable/install_mcp_web_soul_witness.sh": "0a2890aceb7dd77ac6fc406757330a011926d82bfe7bd1221d0a0faeb526da8d",
-        "fable/mcp_web_soul_bundle.sha256": "1203caaabaf471366cfe741973e0efcfb7f4d23c38c8b8fd48ee6aba90a5e82f",
-        "fable/mcp_web_soul_control.py": "26dc3dc51f04b74c3f72032aa5660c2ba1d7015c3f93634e2ebb7762764e4049",
-        "fable/mcp_web_soul_deploy.py": "53382dc90c89b96de2fb9cbf458c44db9ace165ff84f570a7f2ca6fd08fc515b",
-        "fable/mcp_web_soul_operator.py": "0cec13f751f78704295c8da1b79497411229c79ff68de17c85bb0e47842458ab",
-        "fable/mcp_web_soul_profiles.py": "cd7136e67192d729d458a4b1a9e91c5eefedde21e26acd2093d0d420381f5ac1",
-        "fable/mcp_web_soul_proxy.py": "b1f70fc450e56a7b6735a574977b6b061145e645081f226eff21fded90d008bd",
-        "fable/mcp_web_soul_reconcile.py": "993e28144e0bf0ad45c3ff4cec7f88344f4893386beb0326120991551be9a17b",
-        "fable/mcp_web_soul_security.py": "ae00bd026c37fb94bae4c8bcf944a70a34e4460d448518303db128a84b87593e",
-        "fable/mcp_web_soul_visual.py": "0b13928046d70727a9d8b39cdf2d44ea102773f23a1f91e404677589be1a03de",
-        "fable/mcp_web_soul_witness.py": "277c3ec3b473c02bcddc4b5f8abdc235e687e38643878061ce97e81a9ca6389b",
-        "fable/production_manifest.txt": "57ca21aec876940279db5f409cdd4caa2683a699d19c24482e2d746ad08a8176",
-        "fable/requirements-mcp-web-soul.lock": "69796585aa0847ca698ccb567c024db18ab5059abf6cdbe03b58c0dc15608cd1",
-        "fable/requirements-mcp-web-soul.txt": "63122f29d9d001ad089c50c94e5398a524ab1190b6f1abf175739bda03c7056b",
-        "fable/rotate_mcp_web_soul_operator_credential.py": "52223fef1c3917dde730d8ebf6751634132b4279992e093e73b59bd02d4ba2b3",
-        "fable/seal_cdp.py": "fd5690b903fa8efc37eca025c910ba4725eaa8eb6cb1ebf740f1a34ef244dc2f",
-        "fable/seal_cdp_mcp.py": "d8e579f2985cd08e6cca00ad9d2c99e508b08fd92604f1e49a2d2f2e0d78983e",
-        "fable/seal_cdp_mcp_wrapper.sh": "76ed5c81960dd3eb3d26cc0a60efa29f1d814bdd095fa99611725a08b27c3c3d",
-        "fable/sql/mcp_web_soul_operator_boundary.sql": "a6c9964e6dc0b0dd76ae8ebdbdbb90d4ff2ad78ec20378326ae2aa5f61a4f66a",
-        "fable/sudoers/seal-mcp-web-cdp": "5214ad260bfadb49bcab20102c7cd4d05d1892133c210f7d27e08a89f545bec8",
-        "fable/systemd/seal-audit-witness.service": "586b3132df8e3a98e91d824ab3f0ff1a3619b487e78be6869cb35981df4a5fb8",
-        "fable/systemd/seal-mcp-web-soul-operator.service": "37740198c9ca865e60520117748b69ca1cd3c8e5e29315579a54a61e61711854",
-        "fable/test_mcp_web_soul_control.py": "bb4ff17f8a2727b1ecaf60c76fe16bf67767fe3d4f67cbd2db067e340b768258",
-        "fable/test_mcp_web_soul_deploy.py": "ee9e37a5e011fb73959064cd3c5dbd36fb6d9790d77f178b0bd46b25472fefe7",
-        "fable/test_mcp_web_soul_operator.py": "0743b787bd75a890db927b5acea72489f42cbb77f88a90f2cea796521fea0f72",
-        "fable/test_mcp_web_soul_proxy.py": "ce186983237702f1b22180986b262e52f4278fa432ddd82b944e06f50b3f2dfd",
-        "fable/test_mcp_web_soul_reconcile.py": "d258731da42bf31baf4058c54bb68add6405ed38edba081e9c6415909a57a6fc",
-        "fable/test_mcp_web_soul_release.py": "0524521bd66f1c8b5a313706bfbc09b863a707b79a98d2cbbbb56cbfa5ab5f59",
-        "fable/test_mcp_web_soul_visual.py": "59e0431648ef78b553f2837f743badc3198c01d863f8c4fad1b9cf47ecff2342",
-        "fable/test_mcp_web_soul_witness.py": "ae5807c9a0224f8eb86c66185d1aba7ec5beab0a5681927b5a28ac93bb8325b3",
-        "fable/test_release_reproducibility.py": "e13133198094995610030595216efbcd9ce79e219589d8b9c6efa563a51d6207",
-        "fable/test_rotate_mcp_web_soul_operator_credential.py": "2e334d2f68903f7ec4dd5ce88f1d42ef3ee34d676c429a2567504761767142d8",
-        "fable/test_seal_cdp_mcp_security.py": "2ed2a4107ebbbeba2fcab8351edb009239f59003cbac62530dcda383a7e939bd"
-      },
-      "manifest_digest": "73c5efadda7c1faf7100656eb781688791f91bc29aa299494e7c050348ec6165"
-    }
+    "historial": [
+      {
+        "reviewer": "SECURITY_RESIDUALS",
+        "reviewed_sha256": {
+          "fable/config/mcp-web-soul.codex.toml": "bd3bd43868319ce55e9c6502dcc2e43abfebc68c6480545205fc6c27b45c65c2",
+          "fable/config/mcp-web-soul.mcp.json": "4bdd89912c0ca2acfb81282e2510a79e21dbeb755c01965ba0a5f7c7edc6e2ea",
+          "fable/deploy_mcp_web_soul_release.sh": "b2965f995920dd592e48f7aef8eeee26ddf9a25e5190ce8ad83707d00a1f8f98",
+          "fable/install_mcp_web_soul_cdp.sh": "2555a68f3683c82794e5453514208498734b5946c47a5aac3f3e66e136c27944",
+          "fable/install_mcp_web_soul_operator.sh": "e6feb039ae7318f8cbfdf3ad97be1b10dd2609f9d5c7b12d568597137f2a0db8",
+          "fable/install_mcp_web_soul_runtime.sh": "1778e3670c5adb566fa428d764083e538b09438dbaa34b20d00843e071f3f6da",
+          "fable/install_mcp_web_soul_witness.sh": "0a2890aceb7dd77ac6fc406757330a011926d82bfe7bd1221d0a0faeb526da8d",
+          "fable/mcp_web_soul_bundle.sha256": "1203caaabaf471366cfe741973e0efcfb7f4d23c38c8b8fd48ee6aba90a5e82f",
+          "fable/mcp_web_soul_control.py": "26dc3dc51f04b74c3f72032aa5660c2ba1d7015c3f93634e2ebb7762764e4049",
+          "fable/mcp_web_soul_deploy.py": "53382dc90c89b96de2fb9cbf458c44db9ace165ff84f570a7f2ca6fd08fc515b",
+          "fable/mcp_web_soul_operator.py": "0cec13f751f78704295c8da1b79497411229c79ff68de17c85bb0e47842458ab",
+          "fable/mcp_web_soul_profiles.py": "cd7136e67192d729d458a4b1a9e91c5eefedde21e26acd2093d0d420381f5ac1",
+          "fable/mcp_web_soul_proxy.py": "b1f70fc450e56a7b6735a574977b6b061145e645081f226eff21fded90d008bd",
+          "fable/mcp_web_soul_reconcile.py": "993e28144e0bf0ad45c3ff4cec7f88344f4893386beb0326120991551be9a17b",
+          "fable/mcp_web_soul_security.py": "ae00bd026c37fb94bae4c8bcf944a70a34e4460d448518303db128a84b87593e",
+          "fable/mcp_web_soul_visual.py": "0b13928046d70727a9d8b39cdf2d44ea102773f23a1f91e404677589be1a03de",
+          "fable/mcp_web_soul_witness.py": "277c3ec3b473c02bcddc4b5f8abdc235e687e38643878061ce97e81a9ca6389b",
+          "fable/production_manifest.txt": "57ca21aec876940279db5f409cdd4caa2683a699d19c24482e2d746ad08a8176",
+          "fable/requirements-mcp-web-soul.lock": "69796585aa0847ca698ccb567c024db18ab5059abf6cdbe03b58c0dc15608cd1",
+          "fable/requirements-mcp-web-soul.txt": "63122f29d9d001ad089c50c94e5398a524ab1190b6f1abf175739bda03c7056b",
+          "fable/rotate_mcp_web_soul_operator_credential.py": "52223fef1c3917dde730d8ebf6751634132b4279992e093e73b59bd02d4ba2b3",
+          "fable/seal_cdp.py": "fd5690b903fa8efc37eca025c910ba4725eaa8eb6cb1ebf740f1a34ef244dc2f",
+          "fable/seal_cdp_mcp.py": "d8e579f2985cd08e6cca00ad9d2c99e508b08fd92604f1e49a2d2f2e0d78983e",
+          "fable/seal_cdp_mcp_wrapper.sh": "76ed5c81960dd3eb3d26cc0a60efa29f1d814bdd095fa99611725a08b27c3c3d",
+          "fable/sql/mcp_web_soul_operator_boundary.sql": "a6c9964e6dc0b0dd76ae8ebdbdbb90d4ff2ad78ec20378326ae2aa5f61a4f66a",
+          "fable/sudoers/seal-mcp-web-cdp": "5214ad260bfadb49bcab20102c7cd4d05d1892133c210f7d27e08a89f545bec8",
+          "fable/systemd/seal-audit-witness.service": "586b3132df8e3a98e91d824ab3f0ff1a3619b487e78be6869cb35981df4a5fb8",
+          "fable/systemd/seal-mcp-web-soul-operator.service": "37740198c9ca865e60520117748b69ca1cd3c8e5e29315579a54a61e61711854",
+          "fable/test_mcp_web_soul_control.py": "bb4ff17f8a2727b1ecaf60c76fe16bf67767fe3d4f67cbd2db067e340b768258",
+          "fable/test_mcp_web_soul_deploy.py": "ee9e37a5e011fb73959064cd3c5dbd36fb6d9790d77f178b0bd46b25472fefe7",
+          "fable/test_mcp_web_soul_operator.py": "0743b787bd75a890db927b5acea72489f42cbb77f88a90f2cea796521fea0f72",
+          "fable/test_mcp_web_soul_proxy.py": "ce186983237702f1b22180986b262e52f4278fa432ddd82b944e06f50b3f2dfd",
+          "fable/test_mcp_web_soul_reconcile.py": "d258731da42bf31baf4058c54bb68add6405ed38edba081e9c6415909a57a6fc",
+          "fable/test_mcp_web_soul_release.py": "0524521bd66f1c8b5a313706bfbc09b863a707b79a98d2cbbbb56cbfa5ab5f59",
+          "fable/test_mcp_web_soul_visual.py": "59e0431648ef78b553f2837f743badc3198c01d863f8c4fad1b9cf47ecff2342",
+          "fable/test_mcp_web_soul_witness.py": "ae5807c9a0224f8eb86c66185d1aba7ec5beab0a5681927b5a28ac93bb8325b3",
+          "fable/test_release_reproducibility.py": "e13133198094995610030595216efbcd9ce79e219589d8b9c6efa563a51d6207",
+          "fable/test_rotate_mcp_web_soul_operator_credential.py": "2e334d2f68903f7ec4dd5ce88f1d42ef3ee34d676c429a2567504761767142d8",
+          "fable/test_seal_cdp_mcp_security.py": "2ed2a4107ebbbeba2fcab8351edb009239f59003cbac62530dcda383a7e939bd"
+        },
+        "manifest_digest": "73c5efadda7c1faf7100656eb781688791f91bc29aa299494e7c050348ec6165",
+        "_nota": "recibo de un revisor que ya no existe; conservado, no vigente"
+      }
+    ]
   },
   "deletions": [],
   "subjects": [
@@ -160,8 +161,12 @@
     }
   ],
   "coverage": {
-    "source": ["fable"],
-    "omit": ["fable/test_*"],
+    "source": [
+      "fable"
+    ],
+    "omit": [
+      "fable/test_*"
+    ],
     "pytest_args": [
       "-q",
       "fable/test_mcp_web_soul_control.py",
@@ -196,5 +201,6 @@
       "expected_exit": 0,
       "expected_stdout_contains": "1 passed"
     }
-  }
+  },
+  "_reasignacion": "07-Sep-2026 16:26 JARVIS (orquestador): revisor 'SECURITY_RESIDUALS' no es un agente vivo (cruce con soul_v3.agents y tokens de sesion, ALICE 16:25); reasignado a NEXUS. El recibo previo se conserva y pasa a review.historial al re-firmar."
 }
