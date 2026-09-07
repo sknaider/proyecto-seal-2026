@@ -42,3 +42,24 @@ def test_foto_real_contiene_lo_critico_y_ningun_secreto():
         # limpieza SOLO dentro del subdirectorio de prueba bajo /mnt/spark-2 (ruta construida, guardada por prefijo)
         if str(dest).startswith("/mnt/spark-2/backups_seal/_test_"):
             shutil.rmtree(dest, ignore_errors=True)
+
+
+def test_unit_el_script_parsea_y_declara_su_guarda():
+    r = subprocess.run(["bash", "-n", str(SCRIPT)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    assert "# GUARDA-DESTRUCTIVA" in SCRIPT.read_text()
+
+
+def test_CONTROL_sin_la_guarda_un_destino_fuera_del_nfs_seria_aceptado(tmp_path):
+    """Control: en una COPIA del script con la guarda quitada, el mismo destino invalido NO se rechaza
+    con codigo 2. Prueba que el rechazo lo produce la guarda y no otra cosa. Se corta en el primer paso
+    (mountpoint) para no escribir nada."""
+    src = SCRIPT.read_text()
+    mutado = "\n".join(l for l in src.splitlines() if 'case "$DEST_ROOT" in /mnt/spark-2/*)' not in l)
+    assert mutado != src
+    copia = tmp_path / "copia.sh"; copia.write_text(mutado)
+    env = dict(os.environ); env["SEAL_SNAPSHOT_DEST"] = str(tmp_path / "x"); env["PATH"] = str(tmp_path) + ":" + env["PATH"]
+    (tmp_path / "mountpoint").write_text("#!/bin/sh\nexit 1\n"); (tmp_path / "mountpoint").chmod(0o755)
+    r = subprocess.run(["bash", str(copia)], capture_output=True, text=True, env=env, timeout=60)
+    assert r.returncode != 2, "la copia sin guarda no debe devolver el codigo de la guarda"
+    assert "destino invalido" not in r.stderr
