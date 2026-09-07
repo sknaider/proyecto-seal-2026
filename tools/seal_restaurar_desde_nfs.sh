@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# SIMULACRO DE RESTAURACIÓN (carril 6 de SPEC_SEAL_RESILIENTE): reconstruye la casa desde la foto del NFS en un
+# directorio VACÍO y restaura el pg_dump en un contenedor Postgres DESECHABLE. No toca /home/dadito ni la DB viva.
+# Uso: seal_restaurar_desde_nfs.sh <FECHA AAAA-MM-DD> <DESTINO>   (DESTINO: bajo /tmp/seal-restauracion-* y vacío)
+# Criterio de la spec §8: la casa vuelve en < 1 h desde NFS + pg_dump, sin rescatar nada de la memoria de un proceso.
+set -u
+FECHA="${1:-}"; DEST="${2:-}"
+ORIGEN_ROOT="${SEAL_SNAPSHOT_DEST:-/mnt/spark-2/backups_seal}"
+[ -n "$FECHA" ] && [ -n "$DEST" ] || { echo "[restaurar] uso: $0 <FECHA> <DESTINO>" >&2; exit 2; }
+ORIGEN="$ORIGEN_ROOT/$FECHA"
+[ -d "$ORIGEN" ] || { echo "[restaurar] no existe la foto $ORIGEN" >&2; exit 2; }
+DEST=$(realpath -m -- "$DEST")
+# GUARDA-DESTRUCTIVA: el destino sólo puede ser un directorio bajo /tmp/seal-restauracion-* y debe estar vacío.
+case "$DEST" in /tmp/seal-restauracion-*) ;; *) echo "[restaurar] destino invalido: $DEST (solo /tmp/seal-restauracion-*)" >&2; exit 2;; esac
+mkdir -p "$DEST" || exit 2
+[ -z "$(ls -A "$DEST")" ] || { echo "[restaurar] destino no vacio: $DEST" >&2; exit 2; }
+T0=$(date +%s)
+echo "[restaurar] $(date -Is) foto=$ORIGEN destino=$DEST"
+rsync -a --no-perms --no-owner --no-group "$ORIGEN/proyecto-seal/" "$DEST/IA/proyecto-seal/" || { echo "[restaurar] rsync repo fallo" >&2; exit 3; }
+rsync -a --no-perms "$ORIGEN/systemd_user/" "$DEST/.config/systemd/user/" || exit 3
+rsync -a --no-perms "$ORIGEN/claude_memory/" "$DEST/.claude/projects/-home-dadito-IA-proyecto-seal/memory/" || exit 3
+[ -f "$ORIGEN/CLAUDE_global.md" ] && mkdir -p "$DEST/.claude" && cp --no-preserve=mode "$ORIGEN/CLAUDE_global.md" "$DEST/.claude/CLAUDE.md"
+[ -d "$ORIGEN/config_seal" ] && rsync -a --no-perms "$ORIGEN/config_seal/" "$DEST/.config/seal/"
+T1=$(date +%s)
+# --- verificación por efecto de los archivos críticos ---
+FALTAN=0
+for f in IA/proyecto-seal/CLAUDE.md IA/proyecto-seal/messages/chat_server.py IA/proyecto-seal/memory/mcp_server_v4.py IA/proyecto-seal/scripts/seal_send.py IA/proyecto-seal/tools/seal_snapshot_nfs.sh .claude/projects/-home-dadito-IA-proyecto-seal/memory/MEMORY.md .claude/CLAUDE.md; do
+  [ -f "$DEST/$f" ] || { echo "[restaurar] FALTA $f" >&2; FALTAN=$((FALTAN+1)); }
+done
+UNIDADES=$(find "$DEST/.config/systemd/user" -maxdepth 1 -name 'seal-*.service' | wc -l)
+TIMERS=$(find "$DEST/.config/systemd/user" -maxdepth 1 -name 'seal-*.timer' | wc -l)
+ARCHIVOS=$(find "$DEST/IA/proyecto-seal" -type f | wc -l)
+SECRETOS=$(grep -rlE 'postgres(ql)?://[A-Za-z0-9_]+:[^@{}<> $]{8,}@' "$DEST/.config" 2>/dev/null | grep -vc 'REDACTADO' || true)
+# --- restauración del dump en un Postgres desechable ---
+DUMP=$(ls "$ORIGEN"/soul_v3_*.dump 2>/dev/null | head -1)
+TABLAS=-1; MEMORIAS=-1; T2=$T1
+if [ -n "$DUMP" ] && command -v docker >/dev/null; then
+  IMG=$(docker inspect seal-memory-db --format '{{.Config.Image}}' 2>/dev/null || echo pgvector/pgvector:pg16)
+  C="seal-restauracion-$$"
+  docker run -d --name "$C" -e POSTGRES_PASSWORD=restauracion -e POSTGRES_USER=seal -e POSTGRES_DB=seal_memory "$IMG" >/dev/null || { echo "[restaurar] no pude crear el contenedor" >&2; exit 3; }
+  for i in $(seq 1 60); do docker exec "$C" pg_isready -U seal -d seal_memory >/dev/null 2>&1 && break; sleep 1; done
+  docker exec "$C" psql -U seal -d seal_memory -qc 'CREATE EXTENSION IF NOT EXISTS vector' >/dev/null 2>&1
+  docker cp "$DUMP" "$C:/tmp/soul_v3.dump"
+  docker exec "$C" pg_restore -U seal -d seal_memory --no-owner --no-privileges -j 4 /tmp/soul_v3.dump >"$DEST/pg_restore.log" 2>&1
+  TABLAS=$(docker exec "$C" psql -U seal -d seal_memory -Atc "select count(*) from information_schema.tables where table_schema='soul_v3'" 2>/dev/null || echo -1)
+  MEMORIAS=$(docker exec "$C" psql -U seal -d seal_memory -Atc "select count(*) from soul_v3.memories" 2>/dev/null || echo -1)
+  T2=$(date +%s)
+  case "$C" in seal-restauracion-*) docker rm -f "$C" >/dev/null 2>&1;; esac
+fi
+cat <<R
+[restaurar] RESULTADO
+  archivos repo restaurados   $ARCHIVOS
+  unidades seal-*.service     $UNIDADES   timers $TIMERS
+  criticos faltantes          $FALTAN
+  secretos en config copiada  $SECRETOS   (debe ser 0)
+  tablas soul_v3 restauradas  $TABLAS
+  memorias restauradas        $MEMORIAS
+  tiempo archivos             $((T1-T0)) s   tiempo dump $((T2-T1)) s   total $((T2-T0)) s
+R
+[ "$FALTAN" -eq 0 ] && [ "$SECRETOS" -eq 0 ] && [ "$TABLAS" -gt 100 ] && [ "$MEMORIAS" -gt 1000 ] && [ $((T2-T0)) -lt 3600 ] && { echo "[restaurar] OK: la casa vuelve en $((T2-T0)) s"; exit 0; }
+echo "[restaurar] FALLO: revisar los conteos" >&2; exit 4
