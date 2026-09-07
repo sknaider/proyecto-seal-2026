@@ -114,6 +114,21 @@
   },
   "delivery": {
     "status": "verified",
-    "evidence": "Hallazgos REALES en produccion, no ejemplos: (1) no_versionado encontro 6 archivos del Studio que existian solo en disco -- ChatView.tsx y MessageContent.tsx (fde7e4c), luego CaptureControls, GmailPanel, Productivity (b819de3) y gmail-server.ts (f86cc6c) EN CASCADA, porque el detector solo ve un archivo cuando su importador ya esta en git; un clon limpio no compilaba el Studio antes de esto. (2) credenciales_unidades encontro SEAL_SIDECAR_TOKEN embebido en seal-companion-core.service, unidad activa, que el barrido por patron DSN de NEXUS no podia ver. (3) paquetes_vacios reproduce el caso que tumbo el MCP a las 11:31 (pandas con 42 .so y 0 .py: import OK, pandas.NA AttributeError). (4) el chequeo, en su PRIMERA corrida real, encontro 4 perdidas que la owner, mirando el mismo directorio a mano 25 minutos antes, no habia visto. META-CONTROL: con una copia del detector mutilada (return 1 -> return 0) el brazo positivo da exit 0, es decir el test se pondria ROJO: los brazos pueden fallar."
+    "evidence": "Hallazgos REALES en produccion, no ejemplos: (1) no_versionado encontro 6 archivos del Studio que existian solo en disco -- ChatView.tsx y MessageContent.tsx (fde7e4c), luego CaptureControls, GmailPanel, Productivity (b819de3) y gmail-server.ts (f86cc6c) EN CASCADA, porque el detector solo ve un archivo cuando su importador ya esta en git; un clon limpio no compilaba el Studio antes de esto. (2) credenciales_unidades encontro SEAL_SIDECAR_TOKEN embebido en seal-companion-core.service, unidad activa, que el barrido por patron DSN de NEXUS no podia ver. (3) paquetes_vacios reproduce el caso que tumbo el MCP a las 11:31 (pandas con 42 .so y 0 .py: import OK, pandas.NA AttributeError). (4) el chequeo, en su PRIMERA corrida real, encontro 4 perdidas que la owner, mirando el mismo directorio a mano 25 minutos antes, no habia visto. META-CONTROL: con una copia del detector mutilada (return 1 -> return 0) el brazo positivo da exit 0, es decir el test se pondria ROJO: los brazos pueden fallar.",
+    "command": {
+      "_doc": "Verifica la entrega por EFECTO, no por reporte: los 6 archivos que el detector encontro y que estaban SOLO en disco tienen que estar hoy en el indice de git. Si alguien los saca, este comando falla.",
+      "expected_exit": 0,
+      "argv": [
+        "git",
+        "ls-files",
+        "--error-unmatch",
+        "seal-studio/frontend/src/app/v2/ChatView.tsx",
+        "seal-studio/frontend/src/app/v2/MessageContent.tsx",
+        "seal-studio/frontend/src/app/v2/CaptureControls.tsx",
+        "seal-studio/frontend/src/app/v2/GmailPanel.tsx",
+        "seal-studio/frontend/src/app/v2/Productivity.tsx",
+        "seal-studio/frontend/src/lib/gmail-server.ts"
+      ]
+    }
   }
 }
