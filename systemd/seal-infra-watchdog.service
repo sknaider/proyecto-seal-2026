@@ -1,0 +1,16 @@
+# Credencial por EnvironmentFile con rol MINIMO propio (login_infra_watchdog):
+# SELECT en 3 tablas, UPDATE solo de la columna embedding, y las 3 secuencias.
+# Nada de `seal`. Repuesta por NEXUS el 7-sep-2026 (carril 4): la unidad se
+# reconstruyo del journal, que NO preserva EnvironmentFile.
+# RECONSTRUIDA 7-sep-2026 desde el journal (_CMDLINE del proceso de la unidad). Revisar WorkingDirectory/Environment antes de habilitar.
+[Unit]
+Description=seal-infra-watchdog.service (reconstruida desde journal)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+EnvironmentFile=%h/.config/seal/infra_watchdog.env
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/seal_infra_watchdog.py --fix
+
+[Install]
+WantedBy=default.target
