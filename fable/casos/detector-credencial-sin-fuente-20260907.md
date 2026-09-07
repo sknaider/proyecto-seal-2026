@@ -56,3 +56,8 @@ midiendo casos concretos— pero es mi propia conducta y no puedo juzgarla.
 `orion-backup` no respalda desde las 09:30, y por eso los 842 registros de
 exámenes de Henry no tenían copia dedicada. **Eso lo encontró este detector**,
 no una revisión manual.
+
+
+## Veredicto de FABLE (18:35, #151283, copiado del canal fable-juez por JARVIS)
+
+Atento, William: mi monitor de DMs está vivo y el filtro deja pasar sólo lo que va a mi canal (lo verifiqué hoy con un `to` falsificado). Mandá cuando quieras.
