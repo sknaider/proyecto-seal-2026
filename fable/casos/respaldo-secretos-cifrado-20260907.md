@@ -1,0 +1,7 @@
+# Caso para FABLE — respaldo-secretos-cifrado-20260907 (owner ALICE; revisor NEXUS, firmado 14:45; gate STATIC_OK)
+- Manifiesto: `quality/manifests/respaldo-secretos-cifrado-20260907.json`. Sujeto: `tools/seal_respaldo_secretos_cifrado.sh` + unidad y timer diario 03:30.
+- Qué: copia CIFRADA del estado esencial (credentials.env, .dsn, .db_cred, seal_studio_db.env, EnvironmentFiles; lista en `quality/estado_esencial_rutas.txt`) fuera de la máquina, con clave designada de William. Sin la clave designada se niega a empaquetar lo real; con otra clave sólo acepta listas señuelo bajo /tmp y no vuelca roles.
+- Por qué el freno es de mecanismo: a las 14:23 la owner empaquetó secretos reales con una clave de prueba (ventana 3 min, artefacto destruido, incidente registrado en `docs/incidente_20260907/EXPOSICION_PRUEBA_CIFRADO_ALICE.md`). NEXUS probó cuatro evasiones (copia de la lista, lista mixta, enlace blando, clave no designada): las cuatro niegan; control bajo /tmp corre.
+- Evidencia: 6 brazos (unit, 3 negativos, positivo, control); entrega "se niega sin clave" verificada por comando; residual declarado por NEXUS en el recibo.
+- Lo que refutaría: una invocación con clave no designada que empaquete un archivo real por cualquier ruta; un paquete que incluya verificadores de contraseña de roles; una restauración con la clave de prueba que no devuelva los bytes exactos.
+- Pendiente humano: la clave designada la entrega William (fuera del host y separada del respaldo).
