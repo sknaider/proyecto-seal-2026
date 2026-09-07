@@ -1,0 +1,130 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "chat-idem-dedup-durable",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 5,
+  "survived": 1,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 83.3,
+  "mutants": [
+    {
+      "id": "helper-que-miente",
+      "subject": "messages/chat_server.py",
+      "ancla": "    try:\n        return await chat_db.pool.fetchval(\n            \"SELECT metadata->>'legacy_id' FROM chat_messages \"",
+      "reemplazo": "    return None\n    try:\n        return await chat_db.pool.fetchval(\n            \"SELECT metadata->>'legacy_id' FROM chat_messages \"",
+      "why": "el helper devuelve None antes de consultar: la dedup durable desaparece",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "    try:\n        return await chat_db.pool.fetchval(\n            \"SELECT metadata->>'legacy_id' FROM chat_messages \"",
+        "reemplazo": "    return None\n    try:\n        return await chat_db.pool.fetchval(\n            \"SELECT metadata->>'legacy_id' FROM chat_messages \"",
+        "ancla_sha256": "141dd15e26879cbffa9dc49d450b3f6b2580b7979a47a0622fde277a395b4f27",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "borrar-la-llamada",
+      "subject": "messages/chat_server.py",
+      "ancla": "    if idempotency_key and chat_db.pool and idempotency_key not in _enqueued_ids:\n        try:\n            _prev_db = await asyncio.wait_for(\n                _fila_previa_por_clave(idempotency_key), timeout=0.5\n            )\n        except Exception:  # incluye TimeoutError; la dedup nunca bloquea el envio\n            _prev_db = None\n",
+      "reemplazo": "",
+      "why": "sin consulta a la fila previa",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "    if idempotency_key and chat_db.pool and idempotency_key not in _enqueued_ids:\n        try:\n            _prev_db = await asyncio.wait_for(\n                _fila_previa_por_clave(idempotency_key), timeout=0.5\n            )\n        except Exception:  # incluye TimeoutError; la dedup nunca bloquea el envio\n            _prev_db = None\n",
+        "reemplazo": "",
+        "ancla_sha256": "1f8da7a211127a00f183dca132084ca0abd16a9b77bb2dcdd344218796125746",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "llamada-bajo-un-if-False",
+      "subject": "messages/chat_server.py",
+      "ancla": "    if idempotency_key and chat_db.pool and idempotency_key not in _enqueued_ids:\n        try:\n            _prev_db = await asyncio.wait_for(",
+      "reemplazo": "    if False:\n        try:\n            _prev_db = await asyncio.wait_for(",
+      "why": "la llamada existe pero es inalcanzable",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "    if idempotency_key and chat_db.pool and idempotency_key not in _enqueued_ids:\n        try:\n            _prev_db = await asyncio.wait_for(",
+        "reemplazo": "    if False:\n        try:\n            _prev_db = await asyncio.wait_for(",
+        "ancla_sha256": "0e7bf256e158ffe61a5b12b7c1ae2ac2bedc9c204d12cefb68cc75a63ad11122",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0
+    },
+    {
+      "id": "consulta-de-vuelta-al-lock",
+      "subject": "messages/chat_server.py",
+      "ancla": "        except Exception:  # incluye TimeoutError; la dedup nunca bloquea el envio\n            _prev_db = None\n    async with _queue_lock:\n        if ikey in _enqueued_ids:",
+      "reemplazo": "        except Exception:  # incluye TimeoutError; la dedup nunca bloquea el envio\n            _prev_db = None\n    async with _queue_lock:\n        if idempotency_key and chat_db.pool:\n            try:\n                _prev_db = await _fila_previa_por_clave(idempotency_key)\n            except Exception:\n                _prev_db = None\n        if ikey in _enqueued_ids:",
+      "why": "la consulta a la DB vuelve dentro del lock: el candado circular que motivó el cambio",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "        except Exception:  # incluye TimeoutError; la dedup nunca bloquea el envio\n            _prev_db = None\n    async with _queue_lock:\n        if ikey in _enqueued_ids:",
+        "reemplazo": "        except Exception:  # incluye TimeoutError; la dedup nunca bloquea el envio\n            _prev_db = None\n    async with _queue_lock:\n        if idempotency_key and chat_db.pool:\n            try:\n                _prev_db = await _fila_previa_por_clave(idempotency_key)\n            except Exception:\n                _prev_db = None\n        if ikey in _enqueued_ids:",
+        "ancla_sha256": "ca3a5a28cb5d7ee368eda22cd03f906a7c9e525b7ef557637dfb494701765bfa",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "metadata-sin-la-clave",
+      "subject": "messages/chat_server.py",
+      "ancla": "                # comparar: hasta hoy la clave se usaba y se tiraba.\n                \"idempotency_key\": ikey,\n",
+      "reemplazo": "                # comparar: hasta hoy la clave se usaba y se tiraba.\n",
+      "why": "la clave no se persiste: la dedup no tiene contra qué comparar tras un reinicio",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "                # comparar: hasta hoy la clave se usaba y se tiraba.\n                \"idempotency_key\": ikey,\n",
+        "reemplazo": "                # comparar: hasta hoy la clave se usaba y se tiraba.\n",
+        "ancla_sha256": "9df735a98321c9da4db7107ff0b877099bdb66507e9de3091580595e0dac8e24",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    },
+    {
+      "id": "reintroducir-SUPERADMIN_USERNAME",
+      "subject": "messages/chat_server.py",
+      "ancla": "        and int(fresh_actor.get(\"id\") or 0) == _SUPERADMIN_USER_ID\n",
+      "reemplazo": "        and str(fresh_actor.get(\"username\") or \"\") == _SUPERADMIN_USERNAME\n",
+      "why": "vuelve el nombre inexistente que dejó delete_message en 500 quince días",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "        and int(fresh_actor.get(\"id\") or 0) == _SUPERADMIN_USER_ID\n",
+        "reemplazo": "        and str(fresh_actor.get(\"username\") or \"\") == _SUPERADMIN_USERNAME\n",
+        "ancla_sha256": "c3713db545a4bc9db9a358ce7891084bcfe27f963654ca68dba5187bcbabfac8",
+        "sujeto_sha256_antes": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1
+    }
+  ],
+  "file_sha256": {
+    "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+    "messages/test_idem_dedup_durable_v1.py": "9de6bdbdda9b3d39502c40cc8d0e8a65436d5f12d4fdba72f2afdf8a4c453878"
+  }
+}

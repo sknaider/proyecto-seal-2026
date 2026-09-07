@@ -1,0 +1,55 @@
+{
+ "change_id": "chat-idem-dedup-durable",
+ "reviewer": "JARVIS",
+ "manifest": "quality/manifests/chat-idem-dedup-durable.json",
+ "tests": [
+  [
+   "messages/test_idem_dedup_durable_v1.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "helper-que-miente",
+   "subject": "messages/chat_server.py",
+   "ancla": "    try:\n        return await chat_db.pool.fetchval(\n            \"SELECT metadata->>'legacy_id' FROM chat_messages \"",
+   "reemplazo": "    return None\n    try:\n        return await chat_db.pool.fetchval(\n            \"SELECT metadata->>'legacy_id' FROM chat_messages \"",
+   "why": "el helper devuelve None antes de consultar: la dedup durable desaparece"
+  },
+  {
+   "id": "borrar-la-llamada",
+   "subject": "messages/chat_server.py",
+   "ancla": "    if idempotency_key and chat_db.pool and idempotency_key not in _enqueued_ids:\n        try:\n            _prev_db = await asyncio.wait_for(\n                _fila_previa_por_clave(idempotency_key), timeout=0.5\n            )\n        except Exception:  # incluye TimeoutError; la dedup nunca bloquea el envio\n            _prev_db = None\n",
+   "reemplazo": "",
+   "why": "sin consulta a la fila previa"
+  },
+  {
+   "id": "llamada-bajo-un-if-False",
+   "subject": "messages/chat_server.py",
+   "ancla": "    if idempotency_key and chat_db.pool and idempotency_key not in _enqueued_ids:\n        try:\n            _prev_db = await asyncio.wait_for(",
+   "reemplazo": "    if False:\n        try:\n            _prev_db = await asyncio.wait_for(",
+   "why": "la llamada existe pero es inalcanzable"
+  },
+  {
+   "id": "consulta-de-vuelta-al-lock",
+   "subject": "messages/chat_server.py",
+   "ancla": "        except Exception:  # incluye TimeoutError; la dedup nunca bloquea el envio\n            _prev_db = None\n    async with _queue_lock:\n        if ikey in _enqueued_ids:",
+   "reemplazo": "        except Exception:  # incluye TimeoutError; la dedup nunca bloquea el envio\n            _prev_db = None\n    async with _queue_lock:\n        if idempotency_key and chat_db.pool:\n            try:\n                _prev_db = await _fila_previa_por_clave(idempotency_key)\n            except Exception:\n                _prev_db = None\n        if ikey in _enqueued_ids:",
+   "why": "la consulta a la DB vuelve dentro del lock: el candado circular que motivó el cambio"
+  },
+  {
+   "id": "metadata-sin-la-clave",
+   "subject": "messages/chat_server.py",
+   "ancla": "                # comparar: hasta hoy la clave se usaba y se tiraba.\n                \"idempotency_key\": ikey,\n",
+   "reemplazo": "                # comparar: hasta hoy la clave se usaba y se tiraba.\n",
+   "why": "la clave no se persiste: la dedup no tiene contra qué comparar tras un reinicio"
+  },
+  {
+   "id": "reintroducir-SUPERADMIN_USERNAME",
+   "subject": "messages/chat_server.py",
+   "ancla": "        and int(fresh_actor.get(\"id\") or 0) == _SUPERADMIN_USER_ID\n",
+   "reemplazo": "        and str(fresh_actor.get(\"username\") or \"\") == _SUPERADMIN_USERNAME\n",
+   "why": "vuelve el nombre inexistente que dejó delete_message en 500 quince días"
+  }
+ ],
+ "_nota": "7º mutante de la evidencia v1 (reintroducir-log-warning en cascade): pendiente de ancla; se agrega si el sitio es único."
+}
