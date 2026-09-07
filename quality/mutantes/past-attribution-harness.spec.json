@@ -1,0 +1,43 @@
+{
+ "change_id": "past-attribution-harness",
+ "reviewer": "ALICE",
+ "manifest": "quality/manifests/past-attribution-harness.json",
+ "tests": [["memory/test_past_attribution_harness.py"], ["memory/test_past_live_adapter.py"]],
+ "mutants": [
+  {
+   "id": "el-placebo-deja-de-acotar-el-control",
+   "subject": "memory/past_attribution_harness.py",
+   "ancla": "    control_upper_bound = max(off_score, placebo_score)",
+   "reemplazo": "    control_upper_bound = off_score",
+   "why": "el placebo deja de contar como techo: un efecto que el placebo tambien produce se declara del camino real"
+  },
+  {
+   "id": "una-capacidad-independiente-igual-se-atribuye",
+   "subject": "memory/past_attribution_harness.py",
+   "ancla": "    if off_score >= config.pass_threshold:\n        verdict = \"independent_of_persistence\"",
+   "reemplazo": "    if False:\n        verdict = \"independent_of_persistence\"",
+   "why": "algo que funciona IGUAL sin persistencia se atribuye a la persistencia: la conclusion mas facil de inflar"
+  },
+  {
+   "id": "los-contrafactuales-dejan-de-exigirse",
+   "subject": "memory/past_attribution_harness.py",
+   "ancla": "    elif counterfactual_failures:\n        verdict = \"counterfactual_not_cleared\"",
+   "reemplazo": "    elif False:\n        verdict = \"counterfactual_not_cleared\"",
+   "why": "borrar, reemplazar o corromper el recuerdo ya no tiene que cambiar el resultado: se pierde la prueba causal"
+  },
+  {
+   "id": "gana-sin-evidencia-de-camino",
+   "subject": "memory/past_attribution_harness.py",
+   "ancla": "    elif read_coverage < config.minimum_expected_read_coverage:\n        verdict = \"headline_gain_without_pathway_evidence\"",
+   "reemplazo": "    elif False:\n        verdict = \"headline_gain_without_pathway_evidence\"",
+   "why": "un puntaje alto sin haber leido los artefactos esperados pasa como camino demostrado"
+  },
+  {
+   "id": "el-efecto-minimo-deja-de-pedirse",
+   "subject": "memory/past_attribution_harness.py",
+   "ancla": "    elif pathway_effect < config.minimum_effect:\n        verdict = \"control_not_cleared\"",
+   "reemplazo": "    elif pathway_effect < -1e9:\n        verdict = \"control_not_cleared\"",
+   "why": "una diferencia de cero contra el control se acepta como efecto: el umbral deja de existir"
+  }
+ ]
+}

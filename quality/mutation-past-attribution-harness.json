@@ -1,86 +1,141 @@
 {
   "schema": "seal.mutation-evidence.v1",
-  "tool": "pytest against fourteen independently injected adversarial source mutants",
-  "workspace": "Fourteen isolated copies of the exact staged PAST subjects/tests recorded in file_sha256 (initial extraction tree 0b0fa62317b7c352b90e17ba84563403f552e882); production files, database and daemons were never mutated.",
-  "killed": 14,
-  "survived": 0,
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "past-attribution-harness",
+  "reviewer": "ALICE",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 3,
+  "survived": 2,
+  "total": 5,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
   "timeout": 0,
-  "total": 14,
-  "mutation_score_percent": 100.0,
-  "reviewer": "DARWIN",
+  "mutation_score_percent": 60.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n14 passed, 1 warning in 0.08s",
+    "sha_sujetos_antes": {
+      "memory/past_attribution_harness.py": "62b39f756d2c3aa9b1bac91f225e7e9b89a9f4a48fef4e1529255b9ca8b07de6"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
   "mutants": [
     {
-      "id": "accept_unavailable_read_trace",
+      "id": "el-placebo-deja-de-acotar-el-control",
       "subject": "memory/past_attribution_harness.py",
-      "killed_by": "test_execute_cannot_claim_unavailable_reads"
+      "ancla": "    control_upper_bound = max(off_score, placebo_score)",
+      "reemplazo": "    control_upper_bound = off_score",
+      "why": "el placebo deja de contar como techo: un efecto que el placebo tambien produce se declara del camino real",
+      "registro": {
+        "subject": "memory/past_attribution_harness.py",
+        "ancla": "    control_upper_bound = max(off_score, placebo_score)",
+        "reemplazo": "    control_upper_bound = off_score",
+        "ancla_sha256": "872ad8a88a2a552b2ae69a3c2c00dcf9bdf1c29e3b81139896eeb1adbe4b17af",
+        "sujeto_sha256_antes": "62b39f756d2c3aa9b1bac91f225e7e9b89a9f4a48fef4e1529255b9ca8b07de6",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "  /venv/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_mode\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n14 passed, 1 warning in 0.07s",
+      "sujeto_restaurado": true
     },
     {
-      "id": "misclassify_persistence_independent_answer",
+      "id": "una-capacidad-independiente-igual-se-atribuye",
       "subject": "memory/past_attribution_harness.py",
-      "killed_by": "test_answer_that_succeeds_without_memory_is_not_attributed"
+      "ancla": "    if off_score >= config.pass_threshold:\n        verdict = \"independent_of_persistence\"",
+      "reemplazo": "    if False:\n        verdict = \"independent_of_persistence\"",
+      "why": "algo que funciona IGUAL sin persistencia se atribuye a la persistencia: la conclusion mas facil de inflar",
+      "registro": {
+        "subject": "memory/past_attribution_harness.py",
+        "ancla": "    if off_score >= config.pass_threshold:\n        verdict = \"independent_of_persistence\"",
+        "reemplazo": "    if False:\n        verdict = \"independent_of_persistence\"",
+        "ancla_sha256": "a334eebd170dc664cc4a1e8016a7484d1cad514f166eeda6d6f27d83def2c332",
+        "sujeto_sha256_antes": "62b39f756d2c3aa9b1bac91f225e7e9b89a9f4a48fef4e1529255b9ca8b07de6",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/test_past_attribution_harness.py::test_answer_that_succeeds_without_memory_is_not_attributed"
+      ],
+      "pytest_tail": "  /venv/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_mode\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n14 passed, 1 warning in 0.08s",
+      "sujeto_restaurado": true
     },
     {
-      "id": "ignore_required_read_coverage",
+      "id": "los-contrafactuales-dejan-de-exigirse",
       "subject": "memory/past_attribution_harness.py",
-      "killed_by": "test_headline_gain_without_read_trace_is_explicit; test_partial_expected_read_coverage_fails_strict_default"
+      "ancla": "    elif counterfactual_failures:\n        verdict = \"counterfactual_not_cleared\"",
+      "reemplazo": "    elif False:\n        verdict = \"counterfactual_not_cleared\"",
+      "why": "borrar, reemplazar o corromper el recuerdo ya no tiene que cambiar el resultado: se pierde la prueba causal",
+      "registro": {
+        "subject": "memory/past_attribution_harness.py",
+        "ancla": "    elif counterfactual_failures:\n        verdict = \"counterfactual_not_cleared\"",
+        "reemplazo": "    elif False:\n        verdict = \"counterfactual_not_cleared\"",
+        "ancla_sha256": "8a6d2bbde3da82d40711cdd540c8d6e3816589e6d30b09077d399fba524ad7d7",
+        "sujeto_sha256_antes": "62b39f756d2c3aa9b1bac91f225e7e9b89a9f4a48fef4e1529255b9ca8b07de6",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/test_past_attribution_harness.py::test_counterfactual_must_degrade_before_pathway_is_supported"
+      ],
+      "pytest_tail": "  /venv/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_mode\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n14 passed, 1 warning in 0.07s",
+      "sujeto_restaurado": true
     },
     {
-      "id": "ignore_counterfactual_failures",
+      "id": "gana-sin-evidencia-de-camino",
       "subject": "memory/past_attribution_harness.py",
-      "killed_by": "test_counterfactual_must_degrade_before_pathway_is_supported"
+      "ancla": "    elif read_coverage < config.minimum_expected_read_coverage:\n        verdict = \"headline_gain_without_pathway_evidence\"",
+      "reemplazo": "    elif False:\n        verdict = \"headline_gain_without_pathway_evidence\"",
+      "why": "un puntaje alto sin haber leido los artefactos esperados pasa como camino demostrado",
+      "registro": {
+        "subject": "memory/past_attribution_harness.py",
+        "ancla": "    elif read_coverage < config.minimum_expected_read_coverage:\n        verdict = \"headline_gain_without_pathway_evidence\"",
+        "reemplazo": "    elif False:\n        verdict = \"headline_gain_without_pathway_evidence\"",
+        "ancla_sha256": "c842a94d070ed31b3db136d7a5294a362d5e8d988f9023511c8f69abe2fd651c",
+        "sujeto_sha256_antes": "62b39f756d2c3aa9b1bac91f225e7e9b89a9f4a48fef4e1529255b9ca8b07de6",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/test_past_attribution_harness.py::test_headline_gain_without_read_trace_is_explicit",
+        "memory/test_past_attribution_harness.py::test_partial_expected_read_coverage_fails_strict_default"
+      ],
+      "pytest_tail": "  /venv/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_mode\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n14 passed, 1 warning in 0.08s",
+      "sujeto_restaurado": true
     },
     {
-      "id": "persist_raw_output_without_opt_in",
+      "id": "el-efecto-minimo-deja-de-pedirse",
       "subject": "memory/past_attribution_harness.py",
-      "killed_by": "test_raw_output_is_redacted_by_default_and_opt_in"
-    },
-    {
-      "id": "accept_tampered_evidence_hash",
-      "subject": "memory/past_attribution_harness.py",
-      "killed_by": "test_evidence_write_is_atomic_and_hash_verified"
-    },
-    {
-      "id": "allow_empty_expected_artifact_set",
-      "subject": "memory/past_attribution_harness.py",
-      "killed_by": "test_expected_artifact_ids_must_not_be_empty"
-    },
-    {
-      "id": "allow_missing_placebo_control",
-      "subject": "memory/past_attribution_harness.py",
-      "killed_by": "test_placebo_arm_fails_closed_when_no_token_match_exists"
-    },
-    {
-      "id": "allow_unrecovered_expected_target",
-      "subject": "memory/past_live_adapter.py",
-      "killed_by": "test_missing_expected_target_fails_before_model_execution"
-    },
-    {
-      "id": "trust_non_readonly_retriever",
-      "subject": "memory/past_live_adapter.py",
-      "killed_by": "test_retrieval_boundary_attestation_fails_closed"
-    },
-    {
-      "id": "accept_model_prompt_hash_mismatch",
-      "subject": "memory/past_live_adapter.py",
-      "killed_by": "test_model_prompt_hash_mismatch_fails_closed"
-    },
-    {
-      "id": "accept_grader_hash_mismatch",
-      "subject": "memory/past_live_adapter.py",
-      "killed_by": "test_grader_hash_mismatch_fails_closed"
-    },
-    {
-      "id": "persist_raw_case_and_observation_metadata",
-      "subject": "memory/past_attribution_harness.py",
-      "killed_by": "test_untrusted_case_and_observation_metadata_are_hash_only; test_live_callback_metadata_cannot_smuggle_raw_content_into_report"
-    },
-    {
-      "id": "persist_raw_model_and_grader_callback_metadata",
-      "subject": "memory/past_live_adapter.py",
-      "killed_by": "test_live_callback_metadata_cannot_smuggle_raw_content_into_report"
+      "ancla": "    elif pathway_effect < config.minimum_effect:\n        verdict = \"control_not_cleared\"",
+      "reemplazo": "    elif pathway_effect < -1e9:\n        verdict = \"control_not_cleared\"",
+      "why": "una diferencia de cero contra el control se acepta como efecto: el umbral deja de existir",
+      "registro": {
+        "subject": "memory/past_attribution_harness.py",
+        "ancla": "    elif pathway_effect < config.minimum_effect:\n        verdict = \"control_not_cleared\"",
+        "reemplazo": "    elif pathway_effect < -1e9:\n        verdict = \"control_not_cleared\"",
+        "ancla_sha256": "b5b09c4f2671caf21991bb36675d995b9fb7a5b464c96fcc83732e27183eee21",
+        "sujeto_sha256_antes": "62b39f756d2c3aa9b1bac91f225e7e9b89a9f4a48fef4e1529255b9ca8b07de6",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "  /venv/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_mode\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n14 passed, 1 warning in 0.08s",
+      "sujeto_restaurado": true
     }
   ],
   "file_sha256": {

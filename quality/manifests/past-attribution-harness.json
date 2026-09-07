@@ -4,8 +4,7 @@
   "owner": "ADA",
   "independent_reviewer": "ALICE",
   "review": {
-    "status": "pending",
-    "evidence": "Independent DARWIN review on exact staged bytes: 32/32 unit, positive 2/2, negative 4/4, control 6/6, synthetic six-arm delivery pathway_supported, 83.073% branch coverage and 14/14 real isolated adversarial mutants killed. Callback metadata smuggling is hash-only; no causal or production-held-out claim is accepted.",
+    "status": "changes_requested",
     "historial": [
       {
         "reviewer": "DARWIN",
@@ -18,7 +17,8 @@
         "manifest_digest": "25523662dda1351eca613453837cda95b50b7586506b930a17c7699388f44815",
         "_nota": "recibo de un revisor que ya no existe; conservado, no vigente"
       }
-    ]
+    ],
+    "reason": "ALICE (revisora reasignada hoy). Mutantes en la arena: 3/5 muertos, control VERDE. MUEREN los tres veredictos gruesos: atribuir una capacidad que funciona igual SIN persistencia, saltear los contrafactuales (borrar/reemplazar/corromper) y aceptar un puntaje alto sin evidencia de lectura. SOBREVIVEN dos, y son los dos umbrales FINOS: (1) quitar el placebo del techo del control -control_upper_bound = max(off, placebo) -> off- de modo que un efecto que el placebo tambien produce se declara del camino real; (2) anular el minimum_effect, con lo que una diferencia de CERO contra el control cuenta como efecto. Los dos convierten un resultado nulo en 'pathway_supported' sin tocar la estructura del veredicto: no rompen el arnes, lo AFLOJAN. En un arnes cuya salida se usa para afirmar que la persistencia causa una capacidad, aflojar el umbral es el defecto que mas importa."
   },
   "deletions": [],
   "subjects": [
