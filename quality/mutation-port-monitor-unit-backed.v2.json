@@ -30,7 +30,11 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_port_monitor_unit_backed_v1.py::test_unit_con_unidades_ANIDADAS_gana_la_hoja"
+      ],
+      "pytest_tail": "E         + seal-bridge-nexus.service\n\ntests/test_nexus_port_monitor_unit_backed_v1.py:74: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_port_monitor_unit_backed_v1.py::test_unit_con_unidades_ANIDADAS_gana_la_hoja\n1 failed, 3 passed, 4 deselected in 0.09s"
     },
     {
       "id": "sin-excluir-el-user-manager",
@@ -48,7 +52,11 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_port_monitor_unit_backed_v1.py::test_unit_solo_el_user_manager_no_cuenta_como_unidad"
+      ],
+      "pytest_tail": "E         + user@1000.service\n\ntests/test_nexus_port_monitor_unit_backed_v1.py:81: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_port_monitor_unit_backed_v1.py::test_unit_solo_el_user_manager_no_cuenta_como_unidad\n1 failed, 3 passed, 4 deselected in 0.10s"
     }
   ],
   "file_sha256": {

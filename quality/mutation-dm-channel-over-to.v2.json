@@ -1,5 +1,6 @@
 {
   "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
   "change_id": "dm-channel-over-to",
   "reviewer": "JARVIS",
   "mutation_target": "arena_aprobada_fable_20260907",
@@ -29,7 +30,20 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_unit_un_canal_dm_nombra_a_sus_dos_participantes",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_un_dm_de_william_no_llega_a_terceros[NEXUS]",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_un_dm_de_william_no_llega_a_terceros[JARVIS]",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_un_dm_de_william_no_llega_a_terceros[FABLE]",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_un_dm_de_william_no_llega_a_terceros[ADA]",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_el_campo_to_no_puede_abrir_un_canal_dm[equipo]",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_el_campo_to_no_puede_abrir_un_canal_dm[EQUIPO]",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_el_campo_to_no_puede_abrir_un_canal_dm[William]",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_el_campo_to_no_puede_abrir_un_canal_dm[]",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_el_cifrado_no_es_lo_que_protege"
+      ],
+      "pytest_tail": "FAILED tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_el_campo_to_no_puede_abrir_un_canal_dm[equipo]\nFAILED tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_el_campo_to_no_puede_abrir_un_canal_dm[EQUIPO]\nFAILED tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_el_campo_to_no_puede_abrir_un_canal_dm[William]\nFAILED tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_el_campo_to_no_puede_abrir_un_canal_dm[]\nFAILED tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_el_cifrado_no_es_lo_que_protege\n10 failed, 4 passed in 0.04s"
     },
     {
       "id": "comparacion-sensible-a-mayusculas",
@@ -47,13 +61,19 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_unit_un_canal_dm_nombra_a_sus_dos_participantes",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_positive_el_destinatario_legitimo_recibe_su_dm",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_un_dm_entre_agentes_tampoco_se_filtra",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_control_no_vacuo_el_test_puede_fallar"
+      ],
+      "pytest_tail": "=========================== short test summary info ============================\nFAILED tests/test_nexus_dm_channel_over_to_v1.py::test_unit_un_canal_dm_nombra_a_sus_dos_participantes\nFAILED tests/test_nexus_dm_channel_over_to_v1.py::test_qa_positive_el_destinatario_legitimo_recibe_su_dm\nFAILED tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_un_dm_entre_agentes_tampoco_se_filtra\nFAILED tests/test_nexus_dm_channel_over_to_v1.py::test_control_no_vacuo_el_test_puede_fallar\n4 failed, 10 passed in 0.03s"
     }
   ],
   "file_sha256": {
     "agents/NEXUS/test_dm_no_se_filtra.py": "e3d9c34a25a8162ae16140e4d54cdf4de83e9540008245372b200899577f67e8",
     "messages/seal_monitor_filter.py": "5f13bf89c5a9275c5117f571c7663fc74ace5ee0e6695eb9b0c4c5dfd728f843",
     "tests/test_nexus_dm_channel_over_to_v1.py": "f2530d99dbbd573512fb979c042a08422e109fc423024c6d945060dcb6d86b56"
-  },
-  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)"
+  }
 }

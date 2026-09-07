@@ -30,7 +30,13 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_positive_un_canal_DESCONOCIDO_nace_cerrado",
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion",
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado"
+      ],
+      "pytest_tail": "messages/chat_db.py:498: AttributeError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_positive_un_canal_DESCONOCIDO_nace_cerrado\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado\n3 failed, 8 passed in 0.53s"
     },
     {
       "id": "todo-es-publico",
@@ -48,7 +54,12 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion",
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado"
+      ],
+      "pytest_tail": "\nmessages/chat_db.py:498: AttributeError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado\n2 failed, 9 passed in 0.51s"
     },
     {
       "id": "la-bandera-no-entra-en-auth",
@@ -66,7 +77,13 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_positive_la_bandera_entra_en_la_decision_de_auth",
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion",
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado"
+      ],
+      "pytest_tail": "messages/chat_db.py:498: AttributeError\n=========================== short test summary info ============================\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_positive_la_bandera_entra_en_la_decision_de_auth\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_el_flag_privado_exige_sesion\nFAILED tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_conductual_sin_pool_falla_cerrado\n3 failed, 8 passed in 0.52s"
     }
   ],
   "file_sha256": {
