@@ -1,0 +1,109 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "detector-oraculo-circular-20260907",
+  "owner": "ALICE",
+  "independent_reviewer": "NEXUS",
+  "subjects": [
+    "tools/seal_detector_oraculo_circular.py"
+  ],
+  "tests": [
+    "tools/tests/test_detector_oraculo_circular_v1.py"
+  ],
+  "source_sha256": {
+    "tools/seal_detector_oraculo_circular.py": "cb725fbea4aa325749367216ba0b7018c66d8eabe4f639eab2e903b3716ce13c",
+    "tools/tests/test_detector_oraculo_circular_v1.py": "df340da6f60da3aaec7b681f60213bc196abeb28e603bb7276d0831f12f68316"
+  },
+  "implementation_head": "13c12f53607b87ab7ba2c6983edefabb24a65e45",
+  "commands": [
+    {
+      "id": "unit-detector-oraculo",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_oraculo_circular_v1.py"
+      ]
+    },
+    {
+      "id": "positive-marca-constante-de-texto",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_oraculo_circular_v1.py::test_qa_positive_marca_la_comparacion_contra_una_constante_de_TEXTO"
+      ]
+    },
+    {
+      "id": "negative-no-marca-valor-cableado",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_oraculo_circular_v1.py::test_qa_negative_NO_marca_un_assert_con_el_valor_CABLEADO"
+      ]
+    },
+    {
+      "id": "negative-no-marca-constante-numerica",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_oraculo_circular_v1.py::test_qa_negative_NO_marca_una_constante_NUMERICA"
+      ]
+    },
+    {
+      "id": "control-sin-sujetos-no-dice-limpio",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_oraculo_circular_v1.py::test_qa_control_sin_archivos_que_mirar_NO_dice_limpio"
+      ]
+    }
+  ],
+  "delivery": {
+    "effect": "Un ORACULO CIRCULAR -un assert cuyo valor esperado sale de una constante del propio sujeto- no verifica nada: si el sujeto cambia, el assert lo sigue. El 7-sep aparecio TRES veces en un dia, en tres duenos distintos (ADA en soul-f2, NEXUS en nexus-credential-paths y otra vez en su primer brazo de checkpoint-g2). Los tres estaban VERDES y ninguno fallaba nunca: solo la mutacion los delata, y la mutacion es cara. Este detector encuentra la FORMA por AST, sin importar el sujeto.",
+    "evidence": "Sobre el caso REAL: tests/test_soul_runtime_orchestrator.py:100 -> f2.TRUSTED_PATH, la linea exacta que mi mutante dejo pasar. Barrido del arbol: 629 archivos, 139 hallazgos. Se separan por el TIPO del valor en el sujeto, que es lo unico MEDIBLE sin criterio: NUMERICO (EXIT_OK, MAX_ROWS) no alerta -en un codigo simbolico importa la identidad, no el numero-; TEXTO alerta pero dice 'revisar a mano', porque ahi cae TANTO un contrato real (TRUSTED_PATH) COMO una etiqueta simbolica (ALLOW/DENY) y el detector NO puede distinguirlas. No se afirma mas de lo que mide. Modo de fallo silencioso unico: quedarse sin archivos que mirar; devuelve 2, no 0. Reubicable: resuelve el sujeto contra los ancestros del archivo mirado, no solo contra su propia copia del repo.",
+    "status": "verified",
+    "command": {
+      "_doc": "Entrega por EFECTO sobre el caso REAL: el detector debe seguir senalando tests/test_soul_runtime_orchestrator.py:100 (f2.TRUSTED_PATH), la linea exacta que mi mutante dejo pasar. Si ADA la corrige, esta salida cambia y el manifiesto pide una evidencia nueva: eso es correcto, no un defecto.",
+      "expected_exit": 1,
+      "expected_stdout_contains": "TRUSTED_PATH",
+      "argv": [
+        "python3",
+        "tools/seal_detector_oraculo_circular.py",
+        "tests/test_soul_runtime_orchestrator.py"
+      ]
+    }
+  },
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_detector_oraculo_circular_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 600
+  }
+}
