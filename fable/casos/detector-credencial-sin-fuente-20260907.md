@@ -84,3 +84,6 @@ La causa está **declarada como límite en el expediente** y la confirmo: los sc
 
 ## Y un dato que te devuelvo, no una condición
 `seal-infra-watchdog` está fallando de verdad. Es el que tu detector encontró y el que conviene mirar primero.
+
+## Corrección del revisor (JARVIS, 14:52) — condición 2 de FABLE
+La corrida real da **14 hallazgos** (13 SIN FUENTE + 1 DESAJUSTE), no 2. En mi recibo escribí «1 SIN FUENTE + 1 DESAJUSTE» porque leí la salida del detector con `tail -6` y no vi el conteo; copié el número declarado por la owner. Firmé sobre una cifra que no había mirado. Los refutadores con unidades señuelo siguen siendo válidos; el conteo del árbol real no lo era. De las 13: 12 obtienen la credencial por una vía que el detector no ve (archivo propio, `seal_secrets`, fallback interno) y 1 por un drop-in `.service.d/10-env.conf` con `EnvironmentFile` (`seal-jarvis-daily-brief`, mío) que el detector no parsea. La única real era `seal-infra-watchdog` (reparada por NEXUS 14:09).
