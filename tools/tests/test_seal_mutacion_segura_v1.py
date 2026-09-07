@@ -11,8 +11,8 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import seal_mutacion_segura as sms  # noqa: E402
-from seal_mutacion_segura import (  # noqa: E402
-    ArnesInseguro, MARCA_GUARDA, verificar_entorno, verificar_mutacion, mutar,
+from seal_mutacion_segura import (    # noqa: E402
+    ArnesInseguro, MARCA_GUARDA, _verificar_entorno, verificar_mutacion, mutar,
 )
 
 FUENTE_CON_GUARDA = f"""#!/usr/bin/env bash
@@ -55,7 +55,7 @@ def test_el_freno_de_entorno_SE_EJERCE(tmp_path):
     """Contra un directorio escribible: debe negarse. Se ejerce el permiso
     creando un temporal, no se lee `stat` (el camino entero manda)."""
     with pytest.raises(ArnesInseguro, match="ESCRIBIR"):
-        verificar_entorno(raices=(str(tmp_path),))
+        _verificar_entorno(raices=(str(tmp_path),))
 
 
 def test_CONTROL_entorno_sin_escritura_pasa(tmp_path):
@@ -63,14 +63,14 @@ def test_CONTROL_entorno_sin_escritura_pasa(tmp_path):
     solo_lectura.mkdir()
     solo_lectura.chmod(0o500)
     try:
-        verificar_entorno(raices=(str(solo_lectura),))  # no levanta
+        _verificar_entorno(raices=(str(solo_lectura),))  # no levanta
     finally:
         solo_lectura.chmod(0o700)
 
 
 def test_CONTROL_raiz_inexistente_no_bloquea(tmp_path):
     """Una raiz que no existe no puede ser escribible; no debe frenar."""
-    verificar_entorno(raices=(str(tmp_path / "no_existe"),))
+    _verificar_entorno(raices=(str(tmp_path / "no_existe"),))
 
 
 def test_mutar_aplica_LOS_DOS_frenos(tmp_path, monkeypatch):
@@ -80,7 +80,7 @@ def test_mutar_aplica_LOS_DOS_frenos(tmp_path, monkeypatch):
     # sustituye por una raiz inexistente: aca se prueba `mutar`, no `verificar_entorno`
     # -que tiene sus propios brazos, incluido uno por efecto-.
     monkeypatch.setattr("seal_mutacion_segura._RAICES_PROHIBIDAS", (str(tmp_path / "nada"),))
-    monkeypatch.setattr("seal_mutacion_segura.verificar_entorno",
+    monkeypatch.setattr("seal_mutacion_segura._verificar_entorno",
                         lambda raices=(str(tmp_path / "nada"),): None)
     # Idem con el freno 3: tiene sus propios brazos y en este asiento -el host-
     # niega siempre, con razon. Aca se prueba que `mutar` los INVOCA a los tres.
@@ -113,7 +113,7 @@ def test_el_freno_BLOQUEA_de_verdad_en_este_asiento():
     """Por efecto, con el entorno real: si corro donde puedo borrar el home, no corro."""
     import seal_mutacion_segura as m
     with pytest.raises(ArnesInseguro, match="ESCRIBIR"):
-        m.verificar_entorno()
+        m._verificar_entorno()
 
 
 def test_CONTROL_una_raiz_de_solo_lectura_no_bloquea(tmp_path):
@@ -122,7 +122,7 @@ def test_CONTROL_una_raiz_de_solo_lectura_no_bloquea(tmp_path):
     ro.mkdir()
     ro.chmod(0o500)
     try:
-        verificar_entorno(raices=(str(ro),))
+        _verificar_entorno(raices=(str(ro),))
     finally:
         ro.chmod(0o700)
 
@@ -225,3 +225,23 @@ def test_un_fs_DESCONOCIDO_si_dispara_el_freno(tmp_path, monkeypatch):
     monkeypatch.setattr(sms, "_es_directorio", lambda m: True)
     with pytest.raises(sms.ArnesInseguro):
         sms.verificar_montajes("/trabajo", ("/home/dadito",))
+
+
+def test_la_puerta_VIEJA_no_habilita_nunca_mas():
+    """ALICE, 13:56: su banco llamo a `verificar_entorno` y obtuvo verde dentro
+    de un contenedor con /home montado rw -- y escribio en el home de verdad.
+
+    Un llamador viejo tiene que ROMPERSE, no pasar: devolver None ahi es dar
+    verde sin mirar los montajes, que es justo el agujero.
+    """
+    with pytest.raises(sms.ArnesInseguro) as e:
+        sms.verificar_entorno()
+    assert "verificar(" in str(e.value)
+
+
+def test_la_puerta_UNICA_corre_los_dos_frenos(monkeypatch):
+    corridos = []
+    monkeypatch.setattr(sms, "_verificar_entorno", lambda raices=(): corridos.append("entorno"))
+    monkeypatch.setattr(sms, "verificar_montajes", lambda arena, raices=(): corridos.append("montajes"))
+    sms.verificar("/trabajo")
+    assert corridos == ["entorno", "montajes"]

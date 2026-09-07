@@ -72,7 +72,7 @@ def _puede_escribir(directorio: str) -> bool:
         return False
 
 
-def verificar_entorno(raices: tuple[str, ...] = _RAICES_PROHIBIDAS) -> None:
+def _verificar_entorno(raices: tuple[str, ...] = _RAICES_PROHIBIDAS) -> None:
     """Freno 1: si este proceso puede escribir donde vive el trabajo, no corre."""
     escribibles = [r for r in raices if pathlib.Path(r).is_dir() and _puede_escribir(r)]
     if escribibles:
@@ -212,6 +212,38 @@ def verificar_montajes(arena: str, raices: tuple[str, ...] = _RAICES_PROHIBIDAS)
         )
 
 
+def verificar(arena: str, raices: tuple[str, ...] = _RAICES_PROHIBIDAS) -> None:
+    """UNICA puerta para habilitar el arnes. Corre los frenos 1 y 3 juntos.
+
+    POR QUE ES UNA SOLA (ALICE, 7-sep 13:56, medido por ella y reproducido por
+    mi). Yo habia dejado DOS funciones publicas, y su banco llamo a la vieja:
+
+        verificar_entorno()  dentro de un contenedor  -> HABILITA
+        y el proceso escribia de verdad en /home/dadito montado rw
+
+    El freno 1 pregunta "puedo escribir en una raiz protegida" y adentro del
+    contenedor la respuesta es NO aunque el home este montado con otro nombre.
+    Solo el freno 3 ve eso. Con dos puertas, la que da verde de mas es la que
+    alguien va a usar: no por descuido, sino porque era la documentada antes.
+    """
+    _verificar_entorno(raices)
+    verificar_montajes(arena, raices)
+
+
+def verificar_entorno(*_a, **_k):  # pragma: no cover - shim que falla ruidoso
+    """La puerta vieja. NO habilita: exige la nueva.
+
+    Devolver None aca seria dar verde sin mirar los montajes, que es
+    exactamente el agujero que este shim cierra. Un llamador viejo tiene que
+    ROMPERSE, no pasar.
+    """
+    raise ArnesInseguro(
+        "verificar_entorno() ya no habilita el arnes: no ve los montajes y daba "
+        "verde con /home montado rw dentro de un contenedor. Usa "
+        "verificar(arena='<ruta del area de trabajo>')."
+    )
+
+
 def verificar_mutacion(fuente: str, ancla: str) -> None:
     """Freno 2: no se muta una guarda que protege una operacion destructiva.
 
@@ -245,7 +277,6 @@ def mutar(fuente: str, ancla: str, reemplazo: str, arena: str) -> str:
     puede responder "puedo escribir afuera", y un freno que no se puede evaluar
     no se salta en silencio.
     """
-    verificar_entorno()
-    verificar_montajes(arena)
+    verificar(arena)
     verificar_mutacion(fuente, ancla)
     return fuente.replace(ancla, reemplazo)
