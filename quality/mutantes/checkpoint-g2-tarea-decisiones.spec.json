@@ -1,0 +1,50 @@
+{
+ "change_id": "checkpoint-g2-tarea-decisiones-20260907",
+ "reviewer": "ALICE",
+ "manifest": "quality/manifests/checkpoint-g2-tarea-decisiones-20260907.json",
+ "tests": [["messages/tests/test_checkpoint_tarea_decisiones_v1.py"]],
+ "mutants": [
+  {
+   "id": "la-bandera-nace-ENCENDIDA",
+   "subject": "messages/session_checkpoint.py",
+   "ancla": "    if os.environ.get(\"SEAL_CHECKPOINT_G2\", \"\").strip().lower() in {\"1\", \"true\", \"yes\", \"on\"}:",
+   "reemplazo": "    if os.environ.get(\"SEAL_CHECKPOINT_G2\", \"1\").strip().lower() in {\"1\", \"true\", \"yes\", \"on\"}:",
+   "why": "la capa nueva se enciende sola para los cinco agentes: es el contrato que la spec pide APAGADO por defecto"
+  },
+  {
+   "id": "la-bandera-acepta-cualquier-cosa",
+   "subject": "messages/session_checkpoint.py",
+   "ancla": "\"SEAL_CHECKPOINT_G2\", \"\").strip().lower() in {\"1\", \"true\", \"yes\", \"on\"}:",
+   "reemplazo": "\"SEAL_CHECKPOINT_G2\", \"\").strip().lower() not in {\"no\"}:",
+   "why": "'false'/'off'/'0' encienden la capa: apagarla explicitamente deja de funcionar"
+  },
+  {
+   "id": "las-tareas-ya-no-son-solo-mias",
+   "subject": "messages/session_checkpoint.py",
+   "ancla": "                \"WHERE agent = $1 AND status = 'in_progress' \"",
+   "reemplazo": "                \"WHERE ($1 = $1 OR TRUE) AND status = 'in_progress' \"",
+   "why": "FUGA ENTRE AGENTES: el checkpoint de ALICE se lleva las tareas en curso de los otros cuatro"
+  },
+  {
+   "id": "las-decisiones-ya-no-son-solo-mias",
+   "subject": "messages/session_checkpoint.py",
+   "ancla": "                \"WHERE agent = $1 AND category = 'decision' \"",
+   "reemplazo": "                \"WHERE ($1 = $1 OR TRUE) AND category = 'decision' \"",
+   "why": "FUGA ENTRE AGENTES en memorias: decisiones ajenas entran a mi checkpoint"
+  },
+  {
+   "id": "se-cuelan-las-tareas-terminadas",
+   "subject": "messages/session_checkpoint.py",
+   "ancla": "AND status = 'in_progress' \"",
+   "reemplazo": "AND status <> 'zzz-inexistente' \"",
+   "why": "el checkpoint deja de decir QUE ESTABA HACIENDO y trae tambien lo ya cerrado"
+  },
+  {
+   "id": "la-decision-entra-entera-sin-recorte",
+   "subject": "messages/session_checkpoint.py",
+   "ancla": "            {\"id\": d[\"id\"], \"content\": d[\"content\"][:200],",
+   "reemplazo": "            {\"id\": d[\"id\"], \"content\": d[\"content\"],",
+   "why": "sin el recorte a 200, una memoria larga infla el checkpoint sin limite"
+  }
+ ]
+}

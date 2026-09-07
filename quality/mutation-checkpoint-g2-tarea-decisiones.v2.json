@@ -1,0 +1,169 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "checkpoint-g2-tarea-decisiones-20260907",
+  "reviewer": "ALICE",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 5,
+  "survived": 1,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 83.333,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "......                                                                   [100%]\n6 passed in 0.02s",
+    "sha_sujetos_antes": {
+      "messages/session_checkpoint.py": "b665fa4531809a066bb9cf0a104ab537f529b6d4bc4e96018f352c7d13c2d741"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "la-bandera-nace-ENCENDIDA",
+      "subject": "messages/session_checkpoint.py",
+      "ancla": "    if os.environ.get(\"SEAL_CHECKPOINT_G2\", \"\").strip().lower() in {\"1\", \"true\", \"yes\", \"on\"}:",
+      "reemplazo": "    if os.environ.get(\"SEAL_CHECKPOINT_G2\", \"1\").strip().lower() in {\"1\", \"true\", \"yes\", \"on\"}:",
+      "why": "la capa nueva se enciende sola para los cinco agentes: es el contrato que la spec pide APAGADO por defecto",
+      "registro": {
+        "subject": "messages/session_checkpoint.py",
+        "ancla": "    if os.environ.get(\"SEAL_CHECKPOINT_G2\", \"\").strip().lower() in {\"1\", \"true\", \"yes\", \"on\"}:",
+        "reemplazo": "    if os.environ.get(\"SEAL_CHECKPOINT_G2\", \"1\").strip().lower() in {\"1\", \"true\", \"yes\", \"on\"}:",
+        "ancla_sha256": "71f7edce5b470674b009a310f18aba2309fa2559b5ebb6ce0040eea610d6c5d7",
+        "sujeto_sha256_antes": "b665fa4531809a066bb9cf0a104ab537f529b6d4bc4e96018f352c7d13c2d741",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_bandera_esta_APAGADA_por_defecto"
+      ],
+      "pytest_tail": "E       assert 'os.environ.get(\"SEAL_CHECKPOINT_G2\", \"\")' in '#!/usr/bin/env python3\\n\"\"\"SEAL Session Checkpoint — Guarda estado de sesión periódicamente.\\n\\nSi la sesión muere si...asyncio.run(read_checkpoint(args.agent))\\n    else:\\n        asyncio.run(capture_checkpoint(args.agent, args.final))\\n'\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:31: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_bandera_esta_APAGADA_por_defecto\n1 failed, 5 passed in 0.03s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "la-bandera-acepta-cualquier-cosa",
+      "subject": "messages/session_checkpoint.py",
+      "ancla": "\"SEAL_CHECKPOINT_G2\", \"\").strip().lower() in {\"1\", \"true\", \"yes\", \"on\"}:",
+      "reemplazo": "\"SEAL_CHECKPOINT_G2\", \"\").strip().lower() not in {\"no\"}:",
+      "why": "'false'/'off'/'0' encienden la capa: apagarla explicitamente deja de funcionar",
+      "registro": {
+        "subject": "messages/session_checkpoint.py",
+        "ancla": "\"SEAL_CHECKPOINT_G2\", \"\").strip().lower() in {\"1\", \"true\", \"yes\", \"on\"}:",
+        "reemplazo": "\"SEAL_CHECKPOINT_G2\", \"\").strip().lower() not in {\"no\"}:",
+        "ancla_sha256": "3d2927e2f2a9f5b7bb441cc5fdf5bc5f50c505b0699bc7cf4463981bafd8926f",
+        "sujeto_sha256_antes": "b665fa4531809a066bb9cf0a104ab537f529b6d4bc4e96018f352c7d13c2d741",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_bandera_esta_APAGADA_por_defecto"
+      ],
+      "pytest_tail": "E       assert 'in {\"1\", \"true\", \"yes\", \"on\"}' in 'SEAL_CHECKPOINT_G2\", \"\").strip().lower() not in {\"no\"}:\\n        tareas_activas = [\\n            {\"id\": t[\"id\"], \"title\": t[\"title\"], \"status\": t[\"status\"],\\n             \"priority\": t[\"priority\"]}\\n            for t in awai'\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:36: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_bandera_esta_APAGADA_por_defecto\n1 failed, 5 passed in 0.03s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "las-tareas-ya-no-son-solo-mias",
+      "subject": "messages/session_checkpoint.py",
+      "ancla": "                \"WHERE agent = $1 AND status = 'in_progress' \"",
+      "reemplazo": "                \"WHERE ($1 = $1 OR TRUE) AND status = 'in_progress' \"",
+      "why": "FUGA ENTRE AGENTES: el checkpoint de ALICE se lleva las tareas en curso de los otros cuatro",
+      "registro": {
+        "subject": "messages/session_checkpoint.py",
+        "ancla": "                \"WHERE agent = $1 AND status = 'in_progress' \"",
+        "reemplazo": "                \"WHERE ($1 = $1 OR TRUE) AND status = 'in_progress' \"",
+        "ancla_sha256": "9df10981e9e692bef3f2e3765766380748b0af7cd3c6a061734dbc1c7caf4b0b",
+        "sujeto_sha256_antes": "b665fa4531809a066bb9cf0a104ab537f529b6d4bc4e96018f352c7d13c2d741",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_las_tareas_son_SOLO_del_agente_del_checkpoint"
+      ],
+      "pytest_tail": "E           assert 'agent = $1' in 'reas_activas = [\\n            {\"id\": t[\"id\"], \"title\": t[\"title\"], \"status\": t[\"status\"],\\n             \"priority\": t...\", agent)\\n        ]\\n        decisiones_recientes = [\\n            {\"id\": d[\"id\"], \"content\": d[\"content\"][:200],\\n  '\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:57: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_las_tareas_son_SOLO_del_agente_del_checkpoint\n1 failed, 5 passed in 0.03s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "las-decisiones-ya-no-son-solo-mias",
+      "subject": "messages/session_checkpoint.py",
+      "ancla": "                \"WHERE agent = $1 AND category = 'decision' \"",
+      "reemplazo": "                \"WHERE ($1 = $1 OR TRUE) AND category = 'decision' \"",
+      "why": "FUGA ENTRE AGENTES en memorias: decisiones ajenas entran a mi checkpoint",
+      "registro": {
+        "subject": "messages/session_checkpoint.py",
+        "ancla": "                \"WHERE agent = $1 AND category = 'decision' \"",
+        "reemplazo": "                \"WHERE ($1 = $1 OR TRUE) AND category = 'decision' \"",
+        "ancla_sha256": "c4f33dac75c8030ed5dfa8c2c4bc09e17ef3b933532f675cc91ddefaec5cf261",
+        "sujeto_sha256_antes": "b665fa4531809a066bb9cf0a104ab537f529b6d4bc4e96018f352c7d13c2d741",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_las_tareas_son_SOLO_del_agente_del_checkpoint"
+      ],
+      "pytest_tail": "E           assert 'agent = $1' in '  \"created_at\": d[\"created_at\"].isoformat() if d[\"created_at\"] else \"\"}\\n            for d in await conn.fetch(\\n    ...n        ]\\n\\n    checkpoint = {\\n        \"agent\": agent,\\n        \"timestamp\": now.isoformat(),\\n        \"is_final\": '\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:57: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_las_tareas_son_SOLO_del_agente_del_checkpoint\n1 failed, 5 passed in 0.03s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "se-cuelan-las-tareas-terminadas",
+      "subject": "messages/session_checkpoint.py",
+      "ancla": "AND status = 'in_progress' \"",
+      "reemplazo": "AND status <> 'zzz-inexistente' \"",
+      "why": "el checkpoint deja de decir QUE ESTABA HACIENDO y trae tambien lo ya cerrado",
+      "registro": {
+        "subject": "messages/session_checkpoint.py",
+        "ancla": "AND status = 'in_progress' \"",
+        "reemplazo": "AND status <> 'zzz-inexistente' \"",
+        "ancla_sha256": "349d7abebdd96e1c5b06095f403d6fb2439d086f48f0be4c61313dc615b75a87",
+        "sujeto_sha256_antes": "b665fa4531809a066bb9cf0a104ab537f529b6d4bc4e96018f352c7d13c2d741",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_el_checkpoint_guarda_QUE_ESTABA_HACIENDO"
+      ],
+      "pytest_tail": "E       assert ('FROM agent_tasks' in '#!/usr/bin/env python3\\n\"\"\"SEAL Session Checkpoint — Guarda estado de sesión periódicamente.\\n\\nSi la sesión muere si...asyncio.run(read_checkpoint(args.agent))\\n    else:\\n        asyncio.run(capture_checkpoint(args.agent, args.final))\\n' and \"status = 'in_progress'\" in '#!/usr/bin/env python3\\n\"\"\"SEAL Session Checkpoint — Guarda estado de sesión periódicamente.\\n\\nSi la sesión muere si...asyncio.run(read_checkpoint(args.agent))\\n    else:\\n        asyncio.run(capture_checkpoint(args.agent, args.final))\\n')\n\nmessages/tests/test_checkpoint_tarea_decisiones_v1.py:43: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_el_checkpoint_guarda_QUE_ESTABA_HACIENDO\n1 failed, 5 passed in 0.03s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "la-decision-entra-entera-sin-recorte",
+      "subject": "messages/session_checkpoint.py",
+      "ancla": "            {\"id\": d[\"id\"], \"content\": d[\"content\"][:200],",
+      "reemplazo": "            {\"id\": d[\"id\"], \"content\": d[\"content\"],",
+      "why": "sin el recorte a 200, una memoria larga infla el checkpoint sin limite",
+      "registro": {
+        "subject": "messages/session_checkpoint.py",
+        "ancla": "            {\"id\": d[\"id\"], \"content\": d[\"content\"][:200],",
+        "reemplazo": "            {\"id\": d[\"id\"], \"content\": d[\"content\"],",
+        "ancla_sha256": "ffa4ff480ebcf4ce7c6d7ee735d5880ee83a691196f01fc5b3bc36b9273d57b3",
+        "sujeto_sha256_antes": "b665fa4531809a066bb9cf0a104ab537f529b6d4bc4e96018f352c7d13c2d741",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "......                                                                   [100%]\n6 passed in 0.02s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "messages/session_checkpoint.py": "b665fa4531809a066bb9cf0a104ab537f529b6d4bc4e96018f352c7d13c2d741",
+    "messages/tests/test_checkpoint_tarea_decisiones_v1.py": "429033b898d374093189a8ed47956396d12056d1ecee5b704c7d99366ea33a17"
+  }
+}
