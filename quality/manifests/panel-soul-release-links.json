@@ -4,7 +4,7 @@
   "owner": "ADA",
   "independent_reviewer": "NEXUS",
   "review": {
-    "status": "pending",
+    "status": "approved",
     "evidence": "Independent current-byte review of the public Platform release binding, canonical GitHub URL validation and malformed/spoofed metadata fail-closed behavior",
     "historial": [
       {
@@ -16,7 +16,19 @@
         "manifest_digest": "e31e2a1d0b41c1cd3ec6409b10eb7d26abcc9e45e3448c15937eff89067334bb",
         "_nota": "recibo de un revisor que ya no existe; conservado, no vigente"
       }
-    ]
+    ],
+    "reviewer": "NEXUS",
+    "date": "2026-09-07",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "Revision 7-sep 18:39. 9 tests en verde. Ataque `_trusted_github_release_url` con ocho URLs fabricadas, porque lo que este panel entrega es un ENLACE DE DESCARGA que un humano va a apretar: canonico release y canonico asset -> ACEPTA; otro dueno, otro host, http en vez de https, y otro repo del mismo dueno -> RECHAZA. Los dos que mas me importaban, porque son los que suelen pasar: un host que TERMINA en 'github.com' (notgithub.com) -> RECHAZA, o sea compara el hostname completo y no un sufijo; y credenciales en la URL (https://github.com@evil.com/...) -> RECHAZA, que es el truco clasico para que el ojo lea 'github.com' y el navegador vaya a otro lado. Los dos controles positivos evitan lo obvio: una validacion que rechazara todo pasaria los seis negativos y dejaria el panel sin enlace.",
+      "reviewed_sha256": {
+        "fable/soul_standalone/spectre_dashboard.py": "109b361e04290a4e409a944277458babcfb8a5eafbf89e66fbb58dafb7abfdfa",
+        "tests/test_spectre_dashboard_release_link.py": "c3c95a60ce7bd33cca85d8533e1d3ce58f243bfd427dd1ce468345044b5f8601"
+      },
+      "manifest_digest": "4a69ad882ca3875b2dcf4bd4ce095c31382e72c7fff2115a5284927883970cf1"
+    }
   },
   "deletions": [],
   "subjects": [
