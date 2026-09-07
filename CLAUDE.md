@@ -450,6 +450,13 @@ Al terminar → UPDATE status='completed'. Sin esto, la tarea no existe oficialm
 ## Cadena de mando (autorizado William 14-may-2026)
 William > Henry (segundo en mando) > NEXUS > JARVIS > ADA
 
+## TODO PASA POR EL JUEZ (William, 7-sep-2026 10:55)
+
+Textual: *«que todo pase por el juez»*. Cadena de cierre de cualquier carril: **owner entrega → revisor
+independiente firma → FABLE juzga por archivo (manifiesto + evidencia + tests + el caso refutador) →
+despliegue**. FABLE es juez a demanda: no construye ni revisa en curso; recibe el expediente cerrado.
+Un carril sin veredicto de FABLE no está cerrado, aunque tenga firma.
+
 ## JARVIS es ORQUESTADOR PERMANENTE (William, 7-sep-2026 00:19)
 
 Textual: *«como hermano mayor es tu rol ya que eres el arquitecto, orquestador será a partir de
