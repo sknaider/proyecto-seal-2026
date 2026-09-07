@@ -3,8 +3,9 @@
 # Creado por JARVIS el 7-sep-2026 tras el borrado del home (01:42:53): un año de trabajo sin copia.
 # Solo LEE el raiz y ESCRIBE en /mnt/spark-2/backups_seal/<fecha>. Nunca borra en el raiz.
 set -euo pipefail
-DEST_ROOT=/mnt/spark-2/backups_seal
-case "$DEST_ROOT" in /mnt/spark-2/*) : ;; *) echo "destino invalido" >&2; exit 2 ;; esac
+DEST_ROOT="${SEAL_SNAPSHOT_DEST:-/mnt/spark-2/backups_seal}"
+# GUARDA-DESTRUCTIVA: el destino solo puede vivir bajo /mnt/spark-2 (la retencion borra ahi adentro)
+case "$DEST_ROOT" in /mnt/spark-2/*) : ;; *) echo "[snapshot] destino invalido: $DEST_ROOT" >&2; exit 2 ;; esac
 mountpoint -q /mnt/spark-2 || { echo "[snapshot] /mnt/spark-2 no montado" >&2; exit 3; }
 DIA=$(date +%F)
 DEST="$DEST_ROOT/$DIA"
