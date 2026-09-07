@@ -1,0 +1,26 @@
+{
+  "$comment": "RECONSTRUIDO 7-sep-2026 15:08 (JARVIS) tras el borrado del home: el original no estaba versionado y se perdió. Fuente: procesos vivos de las sesiones del 2-sep (cmdline + nombres de variables) y fable/config/mcp-web-soul.mcp.json. Cambio deliberado: intérprete del venv seal-spark en vez de /usr/bin/python3 (las libs nativas de ~/.local se perdieron). El Bearer de seal-memory sale de SEAL_SESSION_TOKEN, que exporta seal_identity_env.sh desde $SEAL_TOKENS_DIR/<AGENTE>.token. Sin secretos: el token de GitHub lo carga tools/mcp_github_wrapper.sh desde ~/.config/seal/env/github_mcp.env.",
+  "mcpServers": {
+    "seal-memory": {
+      "type": "http",
+      "url": "http://127.0.0.1:8771/mcp",
+      "headers": { "Authorization": "Bearer ${SEAL_SESSION_TOKEN}" }
+    },
+    "postgres": {
+      "command": "/home/dadito/IA/seal-spark/.venv/bin/python3",
+      "args": ["/home/dadito/IA/proyecto-seal/tools/soul_postgres_mcp.py"]
+    },
+    "prometheus": {
+      "command": "/home/dadito/IA/seal-spark/.venv/bin/python3",
+      "args": ["/home/dadito/IA/proyecto-seal/tools/soul_prometheus_mcp.py"]
+    },
+    "github": {
+      "command": "/home/dadito/IA/proyecto-seal/tools/mcp_github_wrapper.sh",
+      "args": []
+    },
+    "mcp-web-soul": {
+      "command": "/usr/bin/sudo",
+      "args": ["-n", "-u", "seal-mcp-web-cdp", "/usr/local/libexec/seal/seal-cdp-mcp-wrapper"]
+    }
+  }
+}

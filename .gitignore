@@ -57,10 +57,12 @@ soul_awareness.log
 .claude/
 !.claude/
 .claude/*
+!.claude/settings.json
+!.claude/agents/
 !.claude/agents/
 .claude/agents/*
 !.claude/agents/nerves-jarvis-reasoner.md
-.mcp.json
+# .mcp.json YA NO se ignora (7-sep-2026): sin secretos (Bearer por variable, token GitHub por wrapper) y su pérdida dejó a las sesiones nuevas sin MCP
 
 # Credenciales — nunca commitear
 credentials.env
