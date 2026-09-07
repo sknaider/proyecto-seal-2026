@@ -1,0 +1,5 @@
+# Caso para FABLE — detector-credencial-sin-fuente-20260907 (owner ALICE; revisor JARVIS, firmado 13:45; gate STATIC_OK)
+- Manifiesto: `quality/manifests/detector-credencial-sin-fuente-20260907.json`. Sujeto: `tools/seal_detector_credencial_sin_fuente.py`.
+- Qué: marca unidades systemd cuyo script exige una credencial del entorno que ninguna fuente de la unidad define (sin EnvironmentFile, o con desajuste de nombre). Nace de tres servicios que quedaron sin arrancar hoy al pasar de clave cableada a clave por entorno.
+- Evidencia: 7 brazos (1 unit, 2 positivos, 2 negativos, 2 controles); refutadores del revisor con unidades señuelo: sin fuente → marcada; default vacío + abort → marcada; EnvironmentFile correcto → no; Environment= en línea → no. Corrida real: 2 hallazgos, coincide con la owner.
+- Lo que refutaría: una unidad sin fuente que el detector declare sana; una unidad con `Environment=` en línea marcada como sin fuente; un script que lea la variable por `seal_secrets` marcado (límite declarado, no defecto).
