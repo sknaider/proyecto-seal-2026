@@ -16,11 +16,13 @@ mkdir -p "$DEST" || exit 2
 [ -z "$(ls -A "$DEST")" ] || { echo "[restaurar] destino no vacio: $DEST" >&2; exit 2; }
 T0=$(date +%s)
 echo "[restaurar] $(date -Is) foto=$ORIGEN destino=$DEST"
-rsync -a --no-perms --no-owner --no-group "$ORIGEN/proyecto-seal/" "$DEST/IA/proyecto-seal/" || { echo "[restaurar] rsync repo fallo" >&2; exit 3; }
-rsync -a --no-perms "$ORIGEN/systemd_user/" "$DEST/.config/systemd/user/" || exit 3
-rsync -a --no-perms "$ORIGEN/claude_memory/" "$DEST/.claude/projects/-home-dadito-IA-proyecto-seal/memory/" || exit 3
+# rsync no crea los padres del destino; rc 23/24 (parciales por permisos/vanished) se toleran, como en el snapshot
+rs() { local dst="${@: -1}"; mkdir -p "$dst"; rsync -a --no-perms --no-owner --no-group --chmod=u+rwX "$@"; local rc=$?; [ $rc -eq 0 ] || [ $rc -eq 23 ] || [ $rc -eq 24 ] || return $rc; return 0; }
+rs "$ORIGEN/proyecto-seal/" "$DEST/IA/proyecto-seal/" || { echo "[restaurar] rsync repo fallo" >&2; exit 3; }
+rs "$ORIGEN/systemd_user/" "$DEST/.config/systemd/user/" || exit 3
+rs "$ORIGEN/claude_memory/" "$DEST/.claude/projects/-home-dadito-IA-proyecto-seal/memory/" || exit 3
 [ -f "$ORIGEN/CLAUDE_global.md" ] && mkdir -p "$DEST/.claude" && cp --no-preserve=mode "$ORIGEN/CLAUDE_global.md" "$DEST/.claude/CLAUDE.md"
-[ -d "$ORIGEN/config_seal" ] && rsync -a --no-perms "$ORIGEN/config_seal/" "$DEST/.config/seal/"
+[ -d "$ORIGEN/config_seal" ] && rs "$ORIGEN/config_seal/" "$DEST/.config/seal/"
 T1=$(date +%s)
 # --- verificación por efecto de los archivos críticos ---
 FALTAN=0
@@ -30,20 +32,23 @@ done
 UNIDADES=$(find "$DEST/.config/systemd/user" -maxdepth 1 -name 'seal-*.service' | wc -l)
 TIMERS=$(find "$DEST/.config/systemd/user" -maxdepth 1 -name 'seal-*.timer' | wc -l)
 ARCHIVOS=$(find "$DEST/IA/proyecto-seal" -type f | wc -l)
-SECRETOS=$(grep -rlE 'postgres(ql)?://[A-Za-z0-9_]+:[^@{}<> $]{8,}@' "$DEST/.config" 2>/dev/null | grep -vc 'REDACTADO' || true)
+SECRETOS=$(grep -rlE 'postgres(ql)?://[A-Za-z0-9_]+:[^@{}<> $]{8,}@' "$DEST/.config" 2>/dev/null | xargs -r grep -L REDACTADO | wc -l)
 # --- restauración del dump en un Postgres desechable ---
-DUMP=$(ls "$ORIGEN"/soul_v3_*.dump 2>/dev/null | head -1)
-TABLAS=-1; MEMORIAS=-1; T2=$T1
+DUMP=$(ls "$ORIGEN"/seal_memory_completa_*.dump "$ORIGEN"/soul_v3_*.dump 2>/dev/null | head -1)
+TABLAS=-1; MEMORIAS=-1; ESQUEMAS=-1; ORION=-1; T2=$T1
 if [ -n "$DUMP" ] && command -v docker >/dev/null; then
   IMG=$(docker inspect seal-memory-db --format '{{.Config.Image}}' 2>/dev/null || echo pgvector/pgvector:pg16)
   C="seal-restauracion-$$"
   docker run -d --name "$C" -e POSTGRES_PASSWORD=restauracion -e POSTGRES_USER=seal -e POSTGRES_DB=seal_memory "$IMG" >/dev/null || { echo "[restaurar] no pude crear el contenedor" >&2; exit 3; }
-  for i in $(seq 1 60); do docker exec "$C" pg_isready -U seal -d seal_memory >/dev/null 2>&1 && break; sleep 1; done
+  # la imagen oficial arranca, se apaga y vuelve a arrancar durante el init: esperar a que esté lista 3 veces seguidas
+  OKS=0; for i in $(seq 1 120); do if docker exec "$C" pg_isready -U seal -d seal_memory >/dev/null 2>&1; then OKS=$((OKS+1)); [ $OKS -ge 3 ] && break; else OKS=0; fi; sleep 2; done
   docker exec "$C" psql -U seal -d seal_memory -qc 'CREATE EXTENSION IF NOT EXISTS vector' >/dev/null 2>&1
   docker cp "$DUMP" "$C:/tmp/soul_v3.dump"
   docker exec "$C" pg_restore -U seal -d seal_memory --no-owner --no-privileges -j 4 /tmp/soul_v3.dump >"$DEST/pg_restore.log" 2>&1
   TABLAS=$(docker exec "$C" psql -U seal -d seal_memory -Atc "select count(*) from information_schema.tables where table_schema='soul_v3'" 2>/dev/null || echo -1)
   MEMORIAS=$(docker exec "$C" psql -U seal -d seal_memory -Atc "select count(*) from soul_v3.memories" 2>/dev/null || echo -1)
+  ESQUEMAS=$(docker exec "$C" psql -U seal -d seal_memory -Atc "select count(distinct table_schema) from information_schema.tables where table_schema not in ('pg_catalog','information_schema')" 2>/dev/null || echo -1)
+  ORION=$(docker exec "$C" psql -U seal -d seal_memory -Atc "select count(*) from information_schema.tables where table_schema='orion_exam'" 2>/dev/null || echo -1)
   T2=$(date +%s)
   case "$C" in seal-restauracion-*) docker rm -f "$C" >/dev/null 2>&1;; esac
 fi
@@ -55,6 +60,7 @@ cat <<R
   secretos en config copiada  $SECRETOS   (debe ser 0)
   tablas soul_v3 restauradas  $TABLAS
   memorias restauradas        $MEMORIAS
+  esquemas restaurados        $ESQUEMAS   tablas orion_exam $ORION (0 = la foto era solo soul_v3)
   tiempo archivos             $((T1-T0)) s   tiempo dump $((T2-T1)) s   total $((T2-T0)) s
 R
 [ "$FALTAN" -eq 0 ] && [ "$SECRETOS" -eq 0 ] && [ "$TABLAS" -gt 100 ] && [ "$MEMORIAS" -gt 1000 ] && [ $((T2-T0)) -lt 3600 ] && { echo "[restaurar] OK: la casa vuelve en $((T2-T0)) s"; exit 0; }
