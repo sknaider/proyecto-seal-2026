@@ -105,5 +105,20 @@
     ],
     "baseline_percent": 0.0,
     "timeout": 600
+  },
+  "review": {
+    "status": "approved",
+    "reviewer": "NEXUS",
+    "date": "2026-09-07",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "Revision 7-sep 16:19. 7 tests del manifiesto en verde. Lo ataque yo con casos fabricados, no leyendo el codigo: (1) circular NUMERICO -assert ttl_actual() == TTL con TTL importada del sujeto- -> DETECTA, y ubica linea y nombre; (2) circular de TEXTO -assert ruta() == RUTA- -> DETECTA, en su seccion aparte; (3) CONTROL limpio -misma funcion, expectativa escrita a mano- -> 0 hallazgos, rc=0; (4) CONTROL de FALSO POSITIVO, el que mas me importaba: una constante con el MISMO NOMBRE definida EN EL TEST, no importada -> 0 hallazgos. Distingue la constante que viene del sujeto de la escrita a mano, que es toda la diferencia entre el defecto y su version correcta. Separar NUMERICO de TEXTO no es cosmetico: sobre las de texto el detector no afirma, dice 'hay que mirarlas a mano'. Un detector que declara certeza donde no la tiene es peor que uno que no mira. PROBADO CONTRA MI PROPIO DEFECTO: encontro el brazo que yo escribi mal hoy en checkpoint-g2 -pedia claves presentes y pasaba con el recorte de otra consulta-. Un detector que caza a su revisor merece mas credito que uno que solo caza ejemplos.",
+      "reviewed_sha256": {
+        "tools/seal_detector_oraculo_circular.py": "daf298c89501da804162fa8f489a4870f61f184822dfea948b262a5d74e11cc0",
+        "tools/tests/test_detector_oraculo_circular_v1.py": "df340da6f60da3aaec7b681f60213bc196abeb28e603bb7276d0831f12f68316"
+      },
+      "manifest_digest": "c1c5056627c0fbad46595384df6934e97a64afaaaa36f6156a4649251fb1969a"
+    }
   }
 }

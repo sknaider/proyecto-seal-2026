@@ -2,6 +2,8 @@
 # Corre tools/arena_remutar_revisor.py DENTRO de la arena aprobada por FABLE (7-sep 14:48), igual que seal_recorrido_arnes.sh:
 # copia del índice por git archive en /tmp/seal-arena-*, contenedor sin privilegios (uid 65534), venv montado SOLO LECTURA.
 # Uso: tools/arena_remutar_run.sh quality/mutantes/<caso>.spec.json quality/mutation-<caso>.v2.json
+# SEAL_ARENA_CMD="<comando>" corre otro arnés dentro de la misma arena (p. ej. un check_*_mutants.py existente) y su stdout debe
+# terminar en quality/mutantes/salida.json para que se copie.
 set -u
 SPEC="$1"; SALIDA="$2"; REPO=/home/dadito/IA/proyecto-seal
 cd "$REPO"
@@ -25,7 +27,7 @@ chmod 444 "$ARENA/.home/.seal_chat_jwt_secret"; chmod 555 "$ARENA/.home"
 docker run --rm -i --user 65534:65534 -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/venv/lib/python3.12/site-packages -e HOME=/trabajo/.home \
   -e SEAL_DB_DSN=postgresql://arena-senuelo:arena-senuelo@127.0.0.1:1/arena_senuelo \
   -v "$ARENA":/trabajo -v /home/dadito/IA/seal-spark/.venv:/venv:ro -w /trabajo python:3.12-slim \
-  python3 tools/arena_remutar_revisor.py quality/mutantes/spec.json quality/mutantes/salida.json; RC=$?
+  ${SEAL_ARENA_CMD:-python3 tools/arena_remutar_revisor.py quality/mutantes/spec.json quality/mutantes/salida.json}; RC=$?
 cp "$ARENA/quality/mutantes/salida.json" "$SALIDA"
 echo "[arena] salida copiada a $SALIDA"
 # Limpieza: la arena pesa ~1,9 GB y sus archivos mutados quedan del uid 65534 (dadito no puede borrarlos). Se borra desde un
