@@ -9,7 +9,17 @@ HB_JSON="$MESSAGES_DIR/nexus_claude_heartbeat.json"
 GPU_TEMP=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ' || echo "null")
 GPU_UTIL=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ' || echo "null")
 
-NEXUS_PID=$(ps -C claude -o pid= -o args= 2>/dev/null | awk '/--name NEXUS/{print $1}' | head -1)
+# El guard EXIGE `runtime_detection_status` y este escritor no lo emitia: por eso
+# `heartbeat_ok` daba 0 de 5 aunque los cinco latidos estuvieran al dia en
+# event_log (medido 7-sep 15:01). Y publicaba un PID tomado con `head -1`, es
+# decir el PRIMERO, sin comprobar que fuera el UNICO: afirmaba identidad sin
+# medirla.
+#
+# Contrato del guard: solo `present_unique` puede llevar PID; `present_unique` y
+# `present_ambiguous` exigen alive=true.
+NEXUS_PIDS=$(ps -C claude -o pid= -o args= 2>/dev/null | awk '/--name NEXUS/{print $1}')
+NEXUS_N=$(printf '%s\n' "$NEXUS_PIDS" | grep -c '[0-9]' || true)
+NEXUS_PID=$(printf '%s\n' "$NEXUS_PIDS" | head -1 | tr -d ' ')
 if [ -z "$NEXUS_PID" ]; then
   KITTY_SOCK="/tmp/seal-nexus-kitty.sock"
   KITTY_PID=$(pgrep -f "kitty.*listen-on.*unix:${KITTY_SOCK}" 2>/dev/null | head -1)
@@ -20,7 +30,17 @@ if [ -z "$NEXUS_PID" ]; then
     done
   fi
 fi
-[ -z "$NEXUS_PID" ] && ALIVE_JSON="false" || ALIVE_JSON="true"
+if [ "${NEXUS_N:-0}" -eq 1 ]; then
+  RUNTIME_STATUS="present_unique"; ALIVE_JSON="true"
+elif [ "${NEXUS_N:-0}" -gt 1 ]; then
+  # Hay asiento, pero no puedo decir CUAL: no se publica PID.
+  RUNTIME_STATUS="present_ambiguous"; ALIVE_JSON="true"; NEXUS_PID=""
+elif [ -n "$NEXUS_PID" ]; then
+  # Llegado por la terminal kitty: no prueba presencia NI ausencia del asiento.
+  RUNTIME_STATUS="indeterminate"; ALIVE_JSON="true"; NEXUS_PID=""
+else
+  RUNTIME_STATUS="absent"; ALIVE_JSON="false"; NEXUS_PID=""
+fi
 
 HB_MSG="NEXUS ${ALIVE_JSON} — GPU ${GPU_TEMP}C ${GPU_UTIL}%"
 $VENV -c "
@@ -40,6 +60,7 @@ cat > "$HB_JSON" << EOF
   "agent": "NEXUS",
   "alive": ${ALIVE_JSON},
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "runtime_detection_status": "${RUNTIME_STATUS}",
   "process_pid": "${NEXUS_PID:-0}",
   "gpu_temp": ${GPU_TEMP},
   "gpu_util": ${GPU_UTIL}
