@@ -112,7 +112,9 @@ def test_qa_negative_clave_no_designada_con_lista_REAL_se_niega():
     r = subprocess.run(["bash", str(SCRIPT)], capture_output=True, text=True,
                        env=env, cwd=str(RAIZ), timeout=300)
     assert r.returncode == 2, "una clave improvisada con la lista REAL NO fue frenada"
-    assert "lista REAL" in r.stderr
+    # el mensaje cambio al cerrar la evasion por CONTENIDO (14:40): ahora nombra
+    # las rutas reales que la lista apunta, en vez de la identidad de la lista.
+    assert "FUERA de /tmp" in r.stderr
     assert not list(dest.glob("*.enc")), "publico un paquete pese a frenarse"
 
 
@@ -131,3 +133,22 @@ def test_qa_control_ensayo_legitimo_corre_pero_SIN_roles():
     assert r.returncode == 0, r.stderr
     assert "0 roles" in r.stdout, f"volco roles en un ensayo: {r.stdout}"
     assert list(dest.glob("*.enc")), "no publico nada en un ensayo legitimo"
+
+
+def test_qa_negative_copiar_la_lista_real_a_otra_ruta_NO_evade_el_freno():
+    """Evasión medida por NEXUS el 7-sep 14:40, cerrada por CONTENIDO.
+
+    La versión anterior comparaba la RUTA de la lista, así que `cp lista /tmp/x`
+    la volvía "distinta" llevando adentro los mismos 20 secretos reales.
+    Ahora se exige que TODA ruta de la lista viva bajo /tmp: una copia de la
+    lista real sigue apuntando a /home/dadito y se frena.
+    """
+    a, lista, clave, dest = _arena()
+    copia = a / "copia_de_la_lista_real.txt"
+    copia.write_text((RAIZ / "quality/estado_esencial_rutas.txt").read_text())
+    env = dict(os.environ, SEAL_SECRETOS_KEYFILE=str(clave), SEAL_SECRETOS_DEST=str(dest),
+               SEAL_SECRETOS_LISTA=str(copia))
+    r = subprocess.run(["bash", str(SCRIPT)], capture_output=True, text=True,
+                       env=env, cwd=str(RAIZ), timeout=300)
+    assert r.returncode == 2 and "FUERA de /tmp" in r.stderr
+    assert not list(dest.glob("*.enc")), "publico pese a apuntar a rutas reales"

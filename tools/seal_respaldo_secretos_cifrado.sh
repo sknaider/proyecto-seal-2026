@@ -82,10 +82,17 @@ perm=$(stat -c '%a' "$CLAVE")
 ENSAYO=0
 if [ "$CLAVE" != "$CLAVE_DESIGNADA" ]; then
   ENSAYO=1
-  if [ "$LISTA" = "$LISTA_REAL" ]; then
-    fatal "clave NO designada + lista REAL: eso empaqueta secretos de produccion
-        con una clave improvisada, que es el incidente del 7-sep 14:23.
-        Para ensayar: SEAL_SECRETOS_LISTA=<lista señuelo> ademas de la clave."
+  # Se mira el CONTENIDO de la lista, no su RUTA. NEXUS evadio la version
+  # anterior con un solo `cp`: una copia de la lista real esta en otra ruta y
+  # lleva adentro los mismos 20 secretos. Comparar rutas es comparar el nombre;
+  # lo que decide es lo que la lista APUNTA.
+  fuera=$(grep -vE '^\s*(#|$)' "$LISTA" 2>/dev/null | grep -vE '^/tmp/' | head -3)
+  if [ -n "$fuera" ]; then
+    fatal "clave NO designada y la lista apunta FUERA de /tmp:
+$(printf '        %s\n' $fuera)
+        Con una clave improvisada solo se empaquetan rutas señuelo bajo /tmp.
+        Copiar la lista real a otra ruta NO la vuelve señuelo (evasion medida
+        por NEXUS el 7-sep 14:40)."
   fi
 fi
 mkdir -p "$DESTINO" || fatal "no puedo crear el destino $DESTINO"
