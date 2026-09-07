@@ -23,11 +23,24 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
 
 from mcp import ClientSession, StdioServerParameters
-from mcp.client.streamable_http import streamablehttp_client
+try:
+    from mcp.client.streamable_http import streamablehttp_client
+except ImportError:
+    # SDK 2.x renamed the transport and moved headers to its HTTP client.
+    # Keep SDK 1.x compatibility without downgrading the shared runtime.
+    from mcp.client.streamable_http import streamable_http_client
+    from mcp.shared._httpx_utils import create_mcp_http_client
+
+    @asynccontextmanager
+    async def streamablehttp_client(url, *, headers=None):
+        async with create_mcp_http_client(headers=headers) as client:
+            async with streamable_http_client(url, http_client=client) as streams:
+                yield streams
 from mcp.client.stdio import stdio_client
 
 from studio_db import DB_URL

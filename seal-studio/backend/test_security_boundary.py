@@ -42,13 +42,24 @@ def test_project_path_rejects_escape():
     ).resolve()
 
 
-def test_v1_tools_is_not_shadowed_and_fable_is_canonical():
+def test_v1_tools_is_not_shadowed_and_fable_is_canonical(monkeypatch):
     matches = [
-        route for route in main.app.routes
+        route for route in api_v1.router.routes
         if getattr(route, "path", None) == "/v1/tools" and "GET" in getattr(route, "methods", set())
     ]
     assert len(matches) == 1
     assert matches[0].endpoint is api_v1.v1_tools
+    # FastAPI now includes routers lazily. Exercise the registered HTTP route
+    # instead of assuming included APIRoutes live directly in app.routes.
+    async def session(_headers):
+        return {"id": 99901, "username": "fixture", "role": "admin"}
+    async def catalog(**_kwargs):
+        return {"ok": True, "tools": [], "test_marker": "canonical_catalog"}
+    monkeypatch.setattr(main, "_canonical_session_from_headers", session)
+    monkeypatch.setattr(api_v1.mcp_gateway, "list_catalog", catalog)
+    response = TestClient(main.app).get("/v1/tools")
+    assert response.status_code == 200
+    assert response.json()["test_marker"] == "canonical_catalog"
     assert "FABLE" in main.CORE_AGENTS
     assert "FABLE" in api_v1._ALLOWED_AGENTS
 

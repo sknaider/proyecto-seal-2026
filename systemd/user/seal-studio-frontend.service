@@ -8,8 +8,10 @@ Wants=seal-studio-backend.service
 Type=simple
 WorkingDirectory=/home/dadito/IA/proyecto-seal/seal-studio/frontend
 Environment=NODE_ENV=production
+Environment=STUDIO_BUILD_DIR=.next-casa-20260907d
 Environment=PORT=3001
 Environment=HOSTNAME=0.0.0.0
+EnvironmentFile=-/home/dadito/.config/seal-studio/frontend.env
 ExecStart=/usr/bin/npm start
 Restart=on-failure
 RestartSec=3

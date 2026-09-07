@@ -25,7 +25,7 @@ export default function GmailPanel() {
         if (url.origin !== "https://accounts.google.com") throw new Error("Destino OAuth inválido.");
         window.location.assign(url.href);
       } else if (action === "inbox") setMessages(data.messages);
-      else { setStatus({ configured: true, connected: false }); setMessages(null); }
+      else { setStatus({ configured: true, connected: false }); setMessages(null); if (data.remoteRevocationPending) setError("Studio ya desconectó tu cuenta, pero Google no confirmó la revocación. Revisá el acceso SEAL Studio en myaccount.google.com/connections."); }
     } catch (cause) { if (alive.current) setError(cause instanceof Error ? cause.message : "No se pudo completar la operación."); }
     finally { if (alive.current) setBusy(false); }
   }

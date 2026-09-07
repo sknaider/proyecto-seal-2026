@@ -33,7 +33,15 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    ".next-casa-20260907/types/**/*.ts",
+    ".next-casa-20260907/dev/types/**/*.ts",
+    ".next-casa-20260907b/types/**/*.ts",
+    ".next-casa-20260907b/dev/types/**/*.ts",
+    ".next-casa-20260907c/types/**/*.ts",
+    ".next-casa-20260907c/dev/types/**/*.ts",
+    ".next-casa-20260907d/types/**/*.ts",
+    ".next-casa-20260907d/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

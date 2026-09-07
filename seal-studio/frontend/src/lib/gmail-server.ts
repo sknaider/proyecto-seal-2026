@@ -1,6 +1,6 @@
 // Server-only module. Never import from a client component.
 import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "node:crypto";
-import { mkdir, readFile, writeFile, rename, unlink } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename, unlink, lstat } from "node:fs/promises";
 import path from "node:path";
 import { OAuth2Client, type Credentials } from "google-auth-library";
 
@@ -31,6 +31,18 @@ export function gmailConfig(env = process.env): GmailConfig | null {
   } catch { return null; }
 }
 function owner(uid: number) { if (!Number.isSafeInteger(uid) || uid < 1) throw new Error("invalid_session"); return String(uid); }
+async function privateDirectory(config: GmailConfig) {
+  const info = await lstat(config.directory);
+  if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o077) !== 0 || (process.getuid && info.uid !== process.getuid())) throw new Error("integration_directory_not_private");
+}
+export async function cleanupPending(filename: string, remove = unlink) {
+  try { await remove(filename); }
+  catch (error) {
+    // Cleanup must not overwrite the result of a durably completed OAuth flow.
+    const code = (error as NodeJS.ErrnoException).code;
+    console.warn("Gmail pending cleanup failed", code && /^[A-Z]+$/.test(code) ? code : "unknown");
+  }
+}
 export function seal(value: unknown, config: GmailConfig, purpose: string): string {
   const iv = randomBytes(12), cipher = createCipheriv("aes-256-gcm", config.key, iv);
   cipher.setAAD(Buffer.from(purpose));
@@ -46,12 +58,13 @@ export function unseal<T>(value: string, config: GmailConfig, purpose: string): 
 }
 async function read<T>(config: GmailConfig, kind: string, uid: number): Promise<T | null> {
   const name = `${kind}-${owner(uid)}`;
-  try { return unseal<T>(await readFile(path.join(config.directory, name + ".enc"), "utf8"), config, name); }
+  try { await privateDirectory(config); return unseal<T>(await readFile(path.join(config.directory, name + ".enc"), "utf8"), config, name); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw new Error("integration_storage_unavailable"); }
 }
 async function write(config: GmailConfig, kind: string, uid: number, value: unknown) {
   const name = `${kind}-${owner(uid)}`;
   await mkdir(config.directory, { recursive: true, mode: 0o700 });
+  await privateDirectory(config);
   const target = path.join(config.directory, name + ".enc"), temp = target + "." + randomBytes(12).toString("hex");
   await writeFile(temp, seal(value, config, name), { mode: 0o600, flag: "wx" });
   await rename(temp, target);
@@ -89,7 +102,7 @@ export async function finishConnection(config: GmailConfig, uid: number, code: s
     client.setCredentials(tokens);
     const profile = await client.request<{ emailAddress: string }>({ url: "https://gmail.googleapis.com/gmail/v1/users/me/profile", timeout: 10000 });
     await write(config, "gmail", uid, { uid, email: profile.data.emailAddress, credentials: client.credentials } satisfies Stored);
-  } finally { await unlink(claimed); }
+  } finally { await cleanupPending(claimed); }
 }
 export async function inbox(config: GmailConfig, uid: number) {
   const stored = await read<Stored>(config, "gmail", uid);
@@ -113,9 +126,11 @@ export async function inbox(config: GmailConfig, uid: number) {
 }
 export async function disconnect(config: GmailConfig, uid: number) {
   const stored = await read<Stored>(config, "gmail", uid);
-  if (!stored) return;
+  if (!stored) return { localDisconnected: true, remoteRevocationPending: false };
   if (stored.uid !== uid) throw new Error("invalid_owner");
   const token = stored.credentials.refresh_token || stored.credentials.access_token;
-  if (token) await oauth(config).revokeToken(token);
+  // The explicit disconnect always removes Studio's local capability first.
   await unlink(path.join(config.directory, `gmail-${owner(uid)}.enc`));
+  try { if (token) await oauth(config).revokeToken(token); return { localDisconnected: true, remoteRevocationPending: false }; }
+  catch { return { localDisconnected: true, remoteRevocationPending: true }; }
 }

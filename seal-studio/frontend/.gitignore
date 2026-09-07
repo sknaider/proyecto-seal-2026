@@ -1,5 +1,6 @@
 node_modules/
-.next/
+.next*/
+*.tsbuildinfo
 *.log
 .env*
 !.env.example
