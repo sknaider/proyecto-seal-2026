@@ -1,0 +1,49 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "detector-credencial-sin-fuente-20260907",
+  "owner": "ALICE",
+  "independent_reviewer": "JARVIS",
+  "_doc": "Detector de unidades cuyo codigo exige una credencial del entorno y no tienen de donde sacarla. Nace de que al pasar 4 servicios de credencial cableada a credencial por entorno, TRES quedaron sin arrancar, y mi primer barrido encontro UNO: exigia que la unidad TUVIERA EnvironmentFile, asi que las dos peores -las que no tienen ninguno- eran invisibles. Es el mismo defecto que FABLE le encontro a mis detectores diferenciales (un arbol vacio les parece sano) con otro traje: la ausencia total del objeto que comparas se escapa siempre.",
+  "deletions": [],
+  "subjects": ["tools/seal_detector_credencial_sin_fuente.py"],
+  "tests": ["tools/tests/test_credencial_sin_fuente_v1.py"],
+  "source_sha256": {
+    "tools/seal_detector_credencial_sin_fuente.py": "a87ca663657e9bf95a3d73f75a050387fdf605f5d828a503524550452376c4c1",
+    "tools/tests/test_credencial_sin_fuente_v1.py": "1ef25636ac9590cd8dbfafce8d919bf412e0b07e3aa2ccbfda2e4dddd2927045"
+  },
+  "implementation_head": "e8a187209d4f8881ce9d4a3de23080111f945e26",
+  "coverage": {
+    "source": ["tools"],
+    "omit": ["tools/tests/*", "*/site-packages/*"],
+    "pytest_args": ["-q", "tools/tests/test_credencial_sin_fuente_v1.py"],
+    "baseline_percent": 0.0,
+    "timeout": 600,
+    "_nota": "el sujeto se ejercita por SUBPROCESO (tiene main que lee ~/.config/systemd/user por defecto); coverage de python no lo ve. Evidencia por efecto abajo."
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Hallazgo REAL: sobre las 223 unidades instaladas encontro 2 candidatos con credencial obligatoria y sin fuente en su unidad. De 11 candidatos iniciales la owner verifico UNO POR UNO y descarto 9 que la obtienen por otra via (seal_secrets o archivo propio); de los 2 restantes, seal-soul-metrics-exporter la tiene por herencia del proceso vivo (no reproducible) y orion-backup no la tiene: su respaldo NO CORRE desde 09:30 y por eso los 842 registros de examenes no tenian copia dedicada. RECORRIDO DEL NUMERO, declarado: 19 (sobre-reporte, contaba opcionales) -> 2 (sub-reporte, perdia el caso de ADA del default vacio) -> 13 -> 11 candidatos -> 1 hallazgo real verificado a mano. La diferencia entre candidato y hallazgo son quince minutos de verificar de a uno.",
+    "command": {
+      "_doc": "La entrega se afirma por SALIDA: el detector distingue las TRES categorias. Si alguien colapsa 'ilegible' con 'sano', esta cadena desaparece.",
+      "expected_exit": 0,
+      "expected_stdout_contains": "las tres categorias existen",
+      "argv": ["bash","-c","grep -q 'SIN FUENTE DE CREDENCIAL' tools/seal_detector_credencial_sin_fuente.py && grep -q 'DESAJUSTE DE NOMBRE' tools/seal_detector_credencial_sin_fuente.py && grep -q 'NO PUDE LEER SU ENTORNO' tools/seal_detector_credencial_sin_fuente.py && echo 'las tres categorias existen'"]
+    }
+  },
+  "commands": [
+    { "id": "unit-el-detector-parsea", "kind": "unit", "expected_exit": 0,
+      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_unit_el_detector_parsea"] },
+    { "id": "positive-sin-fuente", "kind": "qa_positive", "expected_exit": 0,
+      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_positive_sin_fuente_se_marca"] },
+    { "id": "positive-desajuste-de-nombre", "kind": "qa_positive", "expected_exit": 0,
+      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_positive_desajuste_de_nombre_se_marca"] },
+    { "id": "negative-con-fuente-correcta", "kind": "qa_negative", "expected_exit": 0,
+      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_con_fuente_correcta_no_se_marca"] },
+    { "id": "negative-default-vacio-si-se-marca", "kind": "qa_negative", "expected_exit": 0,
+      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_default_VACIO_si_se_marca"] },
+    { "id": "control-opcional-no-se-marca", "kind": "qa_control", "expected_exit": 0,
+      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_variable_OPCIONAL_no_se_marca"] },
+    { "id": "control-ilegible-no-es-sano", "kind": "qa_control", "expected_exit": 0,
+      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3","-m","pytest","-q","tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_entorno_ILEGIBLE_no_cuenta_como_sano"] }
+  ]
+}
