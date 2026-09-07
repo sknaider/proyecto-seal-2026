@@ -261,3 +261,61 @@ def test_la_puerta_UNICA_corre_los_dos_frenos(monkeypatch):
     monkeypatch.setattr(sms, "verificar_montajes", lambda arena, raices=(): corridos.append("montajes"))
     sms.verificar("/trabajo")
     assert corridos == ["entorno", "montajes"]
+
+
+# --- El mutante se registra de forma REPRODUCIBLE (medido 7-sep: 0 de 65) ---
+
+def _sin_frenos(monkeypatch, tmp_path):
+    """Aisla el registro de los frenos, que tienen sus propios brazos."""
+    monkeypatch.setattr(sms, "_verificar_entorno", lambda raices=(): None)
+    monkeypatch.setattr(sms, "verificar_montajes", lambda arena, raices=(): None)
+    return str(tmp_path)
+
+
+def test_el_registro_permite_reaplicar_el_MISMO_mutante(monkeypatch, tmp_path):
+    arena = _sin_frenos(monkeypatch, tmp_path)
+    fuente = "a = 1\nb = 2\n"
+    mut, reg = sms.aplicar_y_registrar(fuente, "b = 2", "b = 99", arena=arena, sujeto="x.py")
+    # el registro, y NADA mas, alcanza para reproducirlo
+    rehecho = fuente.replace(reg["ancla"], reg["reemplazo"])
+    assert rehecho == mut, "el registro no reproduce el mutante"
+
+
+def test_niega_un_ancla_AMBIGUA(monkeypatch, tmp_path):
+    """Con mas de una ocurrencia se muta donde no elegiste."""
+    arena = _sin_frenos(monkeypatch, tmp_path)
+    with pytest.raises(sms.ArnesInseguro, match="2 veces"):
+        sms.aplicar_y_registrar("x = 1\nx = 1\n", "x = 1", "x = 2", arena=arena, sujeto="x.py")
+
+
+def test_niega_un_ancla_AUSENTE(monkeypatch, tmp_path):
+    """El caso peor: el mutante no se aplica y 'sobrevive' sin haber existido.
+
+    Es el defecto que ya me costo una corrida el 4-sep: el mutante 'sobrevivio'
+    con el numero IDENTICO al del control, que es la firma de que no se aplico.
+    """
+    arena = _sin_frenos(monkeypatch, tmp_path)
+    with pytest.raises(sms.ArnesInseguro, match="0 veces"):
+        sms.aplicar_y_registrar("x = 1\n", "no_existe", "y", arena=arena, sujeto="x.py")
+
+
+def test_CONTROL_un_ancla_unica_no_levanta(monkeypatch, tmp_path):
+    arena = _sin_frenos(monkeypatch, tmp_path)
+    mut, reg = sms.aplicar_y_registrar("uno\ndos\n", "dos", "tres", arena=arena, sujeto="x.py")
+    assert reg["ocurrencias_del_ancla"] == 1 and "tres" in mut
+
+
+def test_el_registro_ata_el_ancla_y_el_sujeto_por_hash(monkeypatch, tmp_path):
+    """Sin los hashes, 'aplique el mismo mutante' es una afirmacion sin prueba."""
+    arena = _sin_frenos(monkeypatch, tmp_path)
+    import hashlib
+    fuente = "a = 1\n"
+    _, reg = sms.aplicar_y_registrar(fuente, "a = 1", "a = 2", arena=arena, sujeto="x.py")
+    assert reg["ancla_sha256"] == hashlib.sha256(b"a = 1").hexdigest()
+    assert reg["sujeto_sha256_antes"] == hashlib.sha256(fuente.encode()).hexdigest()
+
+
+def test_niega_un_mutante_que_NO_cambia_nada(monkeypatch, tmp_path):
+    arena = _sin_frenos(monkeypatch, tmp_path)
+    with pytest.raises(sms.ArnesInseguro, match="no cambio"):
+        sms.aplicar_y_registrar("a = 1\n", "a = 1", "a = 1", arena=arena, sujeto="x.py")

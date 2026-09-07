@@ -22,6 +22,7 @@ segundo evita el ACTO. Si uno se cae, el otro sigue.
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import pathlib
 import tempfile
@@ -268,6 +269,45 @@ def verificar_mutacion(fuente: str, ancla: str) -> None:
                 "operacion destructiva. Mutarla no simula el peligro, lo EJECUTA. "
                 "Para probar que la guarda sirve, neutraliza el EFECTO (un DRYRUN)."
             )
+
+
+def aplicar_y_registrar(fuente: str, ancla: str, reemplazo: str, *, arena: str,
+                        sujeto: str) -> tuple[str, dict]:
+    """Aplica un mutante y devuelve TAMBIEN como reproducirlo exactamente.
+
+    POR QUE (medido el 7-sep 15:20): de 65 evidencias de mutacion con sus
+    mutantes descritos, CERO guardaban el mutante en forma ejecutable. Guardaban
+    `id`, prosa y la salida observada. Con eso, re-correr tras un cambio de bytes
+    no es re-correr: es volver a INVENTAR el mutante leyendo una descripcion.
+
+    Y el peligro tiene nombre en nuestras propias notas del 4-sep: *un mutante
+    mal especificado se ve IGUAL que un test flojo*. Si el que re-corre deriva
+    un mutante DISTINTO y muere, el manifiesto cierra en verde habiendo medido
+    otra cosa, y nadie lo nota.
+
+    El registro incluye el sha256 del ancla y del sujeto: quien re-corra puede
+    probar que aplico EL MISMO mutante, no uno parecido.
+    """
+    ocurrencias = fuente.count(ancla)
+    if ocurrencias != 1:
+        raise ArnesInseguro(
+            f"el ancla aparece {ocurrencias} veces en {sujeto}; debe aparecer EXACTAMENTE 1. "
+            "Con 0 el mutante no se aplica y 'sobrevive' sin haber existido; con mas de 1 "
+            "muta lugares que no elegiste."
+        )
+    mutante = mutar(fuente, ancla, reemplazo, arena)
+    if mutante == fuente:
+        raise ArnesInseguro("el mutante no cambio el archivo: no hay nada que medir")
+    registro = {
+        "subject": sujeto,
+        "ancla": ancla,
+        "reemplazo": reemplazo,
+        "ancla_sha256": hashlib.sha256(ancla.encode()).hexdigest(),
+        "sujeto_sha256_antes": hashlib.sha256(fuente.encode()).hexdigest(),
+        "ocurrencias_del_ancla": ocurrencias,
+        "reproducible": True,
+    }
+    return mutante, registro
 
 
 def mutar(fuente: str, ancla: str, reemplazo: str, arena: str) -> str:
