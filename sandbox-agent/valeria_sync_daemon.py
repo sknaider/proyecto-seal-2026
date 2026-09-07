@@ -4,8 +4,8 @@ import asyncio, asyncpg, json, time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-VALERIA_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/valeria_memory"
-SOUL_DSN    = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+VALERIA_DSN = "postgresql://seal:REDACTADO@localhost:5433/valeria_memory"
+SOUL_DSN    = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 STATE       = Path("/tmp/valeria_sync_last_ts.txt")
 POLL        = 10
 VALID = {"fact","preference","decision","insight","correction","milestone","pattern","emotion","trust","humor","dynamic"}

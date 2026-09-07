@@ -148,7 +148,7 @@ def store_to_soul(audit: dict) -> None:
         import asyncpg
         async def _go():
             conn = await asyncpg.connect(
-                "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+                "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
             )
             try:
                 await conn.execute(

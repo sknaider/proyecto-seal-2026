@@ -24,7 +24,7 @@ import asyncpg
 from emotional_variance import compute_variance, interpret_variance
 
 # ── Config ──
-DB_URL       = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL       = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 MESSAGES_DIR = Path("/home/dadito/IA/proyecto-seal/messages")
 SESSION_START_FILE = MESSAGES_DIR / "session_start_snapshot.json"
 TERMINAL_LOG = MESSAGES_DIR / "terminal_log.jsonl"

@@ -10,7 +10,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
 from tools.memory.session_fts import SessionFTS, FTSResult, _row_to_result
 
-_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 
 # ── Mock helpers ──────────────────────────────────────────────────────────────

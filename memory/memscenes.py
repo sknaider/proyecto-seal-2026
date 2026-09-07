@@ -31,7 +31,7 @@ LOG = logging.getLogger("memscenes")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 AGENT = os.environ.get("SEAL_AGENT", "ADA")
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 LLAMA_URL = "http://localhost:8899/v1/chat/completions"
 MODEL = "gemma4-31b"
 

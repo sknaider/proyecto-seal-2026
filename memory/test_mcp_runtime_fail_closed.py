@@ -16,7 +16,7 @@ import tool_broker as tb
 def test_mcp_runtime_credential_wins_over_legacy_db_url(tmp_path: Path) -> None:
     cred = tmp_path / "runtime.cred"
     cred.write_text(
-        "postgresql://mcp_runtime:not-a-real-secret@localhost:5433/seal_memory",
+        "postgresql://mcp_runtime:REDACTADO@localhost:5433/seal_memory",
         encoding="utf-8",
     )
     cred.chmod(0o600)
@@ -77,7 +77,7 @@ def test_mcp_agent_credentials_are_private_and_identity_bound(tmp_path: Path) ->
     cred_dir.mkdir()
     ada = cred_dir / "ada.dsn"
     ada.write_text(
-        "postgresql://mcp_runtime_ada:not-a-real-secret@localhost:5433/seal_memory",
+        "postgresql://mcp_runtime_ada:REDACTADO@localhost:5433/seal_memory",
         encoding="utf-8",
     )
     ada.chmod(0o600)
@@ -92,7 +92,7 @@ def test_mcp_agent_credential_rejects_wrong_login(tmp_path: Path) -> None:
     cred_dir.mkdir()
     ada = cred_dir / "ada.dsn"
     ada.write_text(
-        "postgresql://mcp_runtime_nexus:not-a-real-secret@localhost:5433/seal_memory",
+        "postgresql://mcp_runtime_nexus:REDACTADO@localhost:5433/seal_memory",
         encoding="utf-8",
     )
     ada.chmod(0o600)
@@ -107,7 +107,7 @@ def test_mcp_agent_credential_rejects_world_readable_file(tmp_path: Path) -> Non
     cred_dir.mkdir()
     ada = cred_dir / "ada.dsn"
     ada.write_text(
-        "postgresql://mcp_runtime_ada:not-a-real-secret@localhost:5433/seal_memory",
+        "postgresql://mcp_runtime_ada:REDACTADO@localhost:5433/seal_memory",
         encoding="utf-8",
     )
     ada.chmod(0o644)

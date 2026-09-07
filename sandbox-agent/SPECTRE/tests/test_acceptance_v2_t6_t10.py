@@ -275,7 +275,7 @@ def t9_date_range_lookup():
     """episodic_lookup returns entries for specific date range, not all time."""
     async def run():
         import asyncpg
-        conn = await asyncpg.connect("postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
+        conn = await asyncpg.connect("postgresql://seal:REDACTADO@localhost:5433/seal_memory")
         row = await conn.fetchrow("SELECT id FROM soul_v3.memories LIMIT 1")
         await conn.close()
         if row is None:

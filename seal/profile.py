@@ -18,7 +18,7 @@ SEAL_HOME = Path(os.environ.get("SEAL_HOME", Path.home() / ".seal"))
 PROFILES_DIR = SEAL_HOME / "profiles"
 
 _SAFE_NAME = re.compile(r"^[a-z][a-z0-9_]{1,30}$")
-_DB_DEFAULT = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+_DB_DEFAULT = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 
 def _sanitize_name(name: str) -> str:

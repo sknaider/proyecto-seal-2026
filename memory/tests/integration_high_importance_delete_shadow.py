@@ -6,7 +6,7 @@ from pathlib import Path
 import asyncpg
 
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 MIGRATION = (
     Path(__file__).resolve().parents[1]
     / "migrations"

@@ -81,7 +81,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=test
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/test
+      - DATABASE_URL=postgresql://postgres:REDACTADO@db:5432/test
     depends_on:
       db:
         condition: service_healthy

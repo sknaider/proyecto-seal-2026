@@ -28,7 +28,7 @@ TRACE_LOG = Path("/tmp/alice_reasoning_traces.jsonl")
 
 _DB_URL = os.getenv(
     "SEAL_DB_URL",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+    "postgresql://seal:REDACTADO@localhost:5433/seal_memory",
 )
 _SCHEMA = os.getenv("SEAL_SCHEMA", "soul_v3")
 _CONN_KWARGS = {"server_settings": {"search_path": _SCHEMA}}

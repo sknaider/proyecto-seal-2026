@@ -3,8 +3,8 @@
 import asyncio, asyncpg, json
 from datetime import datetime, timezone
 
-VALERIA_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/valeria_memory"
-SOUL_DSN    = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+VALERIA_DSN = "postgresql://seal:REDACTADO@localhost:5433/valeria_memory"
+SOUL_DSN    = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 async def main():
     vc = await asyncpg.connect(VALERIA_DSN)

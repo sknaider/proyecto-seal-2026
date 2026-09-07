@@ -18,7 +18,7 @@ from typing import Optional
 import asyncpg
 from datetime import datetime, timezone
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 QDRANT_URL = "http://localhost:6333"
 QDRANT_API_KEY = "79edecc663271e84a5a559c89038cd20276098101a68ad8995c20428d9a47560"
 QDRANT_COLLECTION = "soul_memories"

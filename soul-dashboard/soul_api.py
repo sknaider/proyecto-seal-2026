@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-PG_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+PG_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 AGENTS = ["ADA", "JARVIS", "ALICE", "NEXUS", "DUM"]
 
 _pool: asyncpg.Pool | None = None

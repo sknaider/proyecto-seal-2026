@@ -14,7 +14,7 @@ from embeddings import get_embedding
 LOG = logging.getLogger("boot")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 
 SEED_MEMORIES = [

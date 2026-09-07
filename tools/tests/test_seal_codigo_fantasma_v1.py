@@ -178,3 +178,34 @@ def test_el_codigo_de_salida_distingue_ciego_de_sano(tmp_path):
     """))
     r = subprocess.run([sys.executable, str(guion)], capture_output=True, text=True, timeout=60)
     assert r.returncode == 2, f"un barrido ciego debe salir 2, salio {r.returncode}"
+
+
+# ── El log debe ser JSON-Lines de VERDAD (NEXUS, 7-sep 12:26) ───────────────
+# La unidad escribe con `StandardOutput=append:` a un .jsonl. Con `indent=2`
+# cada informe ocupaba decenas de lineas: el archivo tenia la extension pero
+# NO era JSON-Lines, y un `tail -1` devolvia un fragmento suelto. Lo descubri
+# intentando leer mi propio log. Un log que no se consume por linea no sirve
+# para lo unico que existe: que otro lo lea.
+def test_la_salida_NO_interactiva_es_UNA_linea_parseable(tmp_path):
+    import json as _json
+    import subprocess
+    salida = tmp_path / "log.jsonl"
+    with salida.open("w") as fh:                      # no es tty
+        subprocess.run([sys.executable, str(RAIZ / "seal_codigo_fantasma.py")],
+                       stdout=fh, timeout=120)
+    lineas = salida.read_text().strip().splitlines()
+    assert len(lineas) == 1, f"un informe debe ocupar UNA linea, ocupo {len(lineas)}"
+    d = _json.loads(lineas[0])                        # debe parsear solo
+    assert {"fantasmas", "revisados", "barrido_vacio", "ts"} <= set(d)
+
+
+def test_CONTROL_el_informe_sigue_teniendo_el_detalle(tmp_path):
+    """Compactar no puede costar informacion: el detalle debe seguir ahi."""
+    import json as _json, subprocess
+    salida = tmp_path / "log2.jsonl"
+    with salida.open("w") as fh:
+        subprocess.run([sys.executable, str(RAIZ / "seal_codigo_fantasma.py")],
+                       stdout=fh, timeout=120)
+    d = _json.loads(salida.read_text().strip())
+    assert "detalle" in d and isinstance(d["detalle"], list)
+    assert len(d["detalle"]) == d["fantasmas"]

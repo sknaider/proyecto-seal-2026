@@ -156,7 +156,7 @@ WHERE active = true;
 import asyncpg, hashlib, json
 from datetime import datetime
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 async def snapshot_table(conn, schema: str, table: str, key_cols: list[str]) -> dict:
     rows = await conn.fetch(f"SELECT * FROM {schema}.{table} ORDER BY id")

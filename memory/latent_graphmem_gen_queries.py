@@ -40,7 +40,7 @@ from neo4j import AsyncGraphDatabase
 HERE = Path(__file__).parent
 TEST_SET = HERE / "diagnostic" / "test_set_v1.jsonl"
 OUT_FILE = HERE / "diagnostic" / "synthetic_queries_v1.jsonl"
-PG_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+PG_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 NEO4J_URI = "bolt://localhost:7687"
 NEO4J_AUTH = ("neo4j", "seal2026soul")
 OLLAMA_URL = "http://localhost:11434/api/generate"

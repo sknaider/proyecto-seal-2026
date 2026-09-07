@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 INBOX = Path("/home/dadito/IA/proyecto-seal/messages/ada_inbox.jsonl")
 STATE_FILE = Path("/tmp/ada_dm_last_ts.txt")
 POLL_INTERVAL = 2

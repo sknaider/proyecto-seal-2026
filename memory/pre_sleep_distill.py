@@ -28,7 +28,7 @@ try:
 except ImportError:
     _HAS_EMBEDDINGS = False
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 # Palabras clave que marcan importancia alta
 IMPORTANCE_KEYWORDS = {

@@ -10,7 +10,7 @@ from datetime import datetime
 
 PG_DSN_SANDBOX = os.environ.get(
     "SEAL_V3_SANDBOX_DSN",
-    "postgresql://seal:seal_memory_2026@localhost:5433/soul_v3_sandbox"
+    "postgresql://seal:REDACTADO@localhost:5433/soul_v3_sandbox"
 )
 
 

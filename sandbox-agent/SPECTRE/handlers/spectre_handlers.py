@@ -286,7 +286,7 @@ async def on_message_incoming(evt: dict) -> None:
         try:
             import asyncpg
             conn = await asyncpg.connect(
-                "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+                "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
             )
             row = await conn.fetchrow(
                 "SELECT id FROM soul_v3.memories WHERE agent=$1 ORDER BY created_at DESC LIMIT 1",

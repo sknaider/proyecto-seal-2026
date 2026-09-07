@@ -225,7 +225,7 @@ STREAM_URL = "http://localhost:8765/internal/stream"
 COUNTER_FILE = MESSAGES_DIR / ".jarvis_local_counter"
 
 # ── DB connection (reuse from SEAL memory system) ──
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 
 async def load_soul_identity(agent: str = "JARVIS") -> str:

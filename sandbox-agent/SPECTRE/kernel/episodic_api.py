@@ -18,7 +18,7 @@ from typing import Any
 
 import asyncpg
 
-_DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+_DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 _SCHEMA = "soul_v3"
 
 STOPWORDS = {

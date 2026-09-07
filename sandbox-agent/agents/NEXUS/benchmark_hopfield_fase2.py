@@ -21,7 +21,7 @@ from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 from sentence_transformers import SentenceTransformer
 
-PG_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+PG_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 QDRANT_URL = "http://localhost:6333"
 QDRANT_API_KEY = "79edecc663271e84a5a559c89038cd20276098101a68ad8995c20428d9a47560"
 QDRANT_COLLECTION = "soul_memories"

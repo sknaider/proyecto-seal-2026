@@ -1,0 +1,25 @@
+servicio	script	interprete	dependencias	veredicto
+fable-spectre-dashboard.service	si	si	compila	PASA_ESTATICOS
+seal-auto-compact.service	si	si	compila	PASA_ESTATICOS
+seal-bridge-alice.service	si	si	compila	PASA_ESTATICOS
+seal-bridge-jarvis.service	si	si	compila	PASA_ESTATICOS
+seal-bridge-nexus.service	si	si	compila	PASA_ESTATICOS
+seal-codex-app-bridge-poller.service	si	si	compila	PASA_ESTATICOS
+seal-companion-core.service	-	si	-	PASA_ESTATICOS
+seal-dashboard.service	-	si	-	PASA_ESTATICOS
+seal-dum-watchdog.service	si	si	compila	PASA_ESTATICOS
+seal-laptop-activity.service	si	si	compila	PASA_ESTATICOS
+seal-mcp-server.service	si	si	compila	PASA_ESTATICOS
+seal-memory-anomaly-monitor.service	si	si	compila	PASA_ESTATICOS
+seal-memory-sdk-api.service	-	si	-	PASA_ESTATICOS
+seal-memory-sdk-gateway-prod.service	-	si	-	PASA_ESTATICOS
+seal-memory-sdk-gateway.service	-	si	-	PASA_ESTATICOS
+seal-security-monitor.service	si	si	compila	PASA_ESTATICOS
+seal-soul-dashboard-api.service	si	si	compila	PASA_ESTATICOS
+seal-studio-backend.service	-	si	-	PASA_ESTATICOS
+spectre-openai-shim.service	si	si	compila	PASA_ESTATICOS
+
+# NOTA (ADA, 10:53): PASA_ESTATICOS != listo para reiniciar.
+# ast.parse verifica SINTAXIS. No resuelve imports, dependencias,
+# configuracion ni arranque. Un import de un venv borrado pasa esto
+# y tumba el servicio igual.

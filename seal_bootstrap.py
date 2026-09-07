@@ -20,7 +20,7 @@ import tempfile
 from pathlib import Path
 
 REPO_URL = "https://github.com/sknaider/proyecto-seal.git"
-DEFAULT_DB = "postgresql://seal:seal_memory_2026@192.168.68.200:5433/seal_memory"
+DEFAULT_DB = "postgresql://seal:REDACTADO@192.168.68.200:5433/seal_memory"
 MIN_PYTHON = (3, 10)
 
 

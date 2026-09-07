@@ -8,7 +8,7 @@ Mismo flujo que test_minisoul_roundtrip.py, pero verifica la inserción
 REAL en soul_v3.memories contra PostgreSQL, dentro de una transacción
 que ROLLBACK al final (no persiste en prod).
 
-Conecta a: postgresql://seal:seal_memory_2026@localhost:5433/seal_memory
+Conecta a: postgresql://seal:REDACTADO@localhost:5433/seal_memory
 
 Ejecutar:
   python3 /tmp/test_minisoul_roundtrip_pg.py
@@ -57,7 +57,7 @@ def get_pg_connection():
             import psycopg
             # psycopg v3
             conn = psycopg.connect(
-                "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+                "postgresql://seal:REDACTADO@localhost:5433/seal_memory",
                 autocommit=False  # Transacción explícita
             )
         except ImportError:

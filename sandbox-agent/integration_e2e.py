@@ -31,7 +31,7 @@ from temporal_memory import TemporalMemory
 from procedure_evolution import ProcedureEvolution
 from event_bus import EventBus
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 AGENT = "NEXUS"
 
 

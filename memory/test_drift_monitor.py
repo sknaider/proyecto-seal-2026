@@ -9,7 +9,7 @@ sys.path.insert(0, "/home/dadito/IA/proyecto-seal/memory")
 
 import asyncpg
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 # Import helpers from mcp_server
 from mcp_server_v3 import _cosine_sim, _hashlib, get_embedding  # type: ignore

@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointIdsList
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 LOG_PATH = "/home/dadito/IA/proyecto-seal/memory/maintenance_log.jsonl"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")

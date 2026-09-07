@@ -15,24 +15,24 @@
   "domain_findings": {},
   "prediction_cache": {
     "P1": {
-      "query_hash": "ddde5d6c",
+      "query_hash": "b22076e2",
       "response": {
         "status": "alive",
         "next": "+15s"
       },
       "hit_count": 10,
       "miss_count": 0,
-      "last_validated": "2026-05-04T23:52:06.328026+00:00"
+      "last_validated": "2026-09-07T17:46:13.962498+00:00"
     }
   },
   "last_event": {
     "sender": "user",
     "content_preview": "user event 4 for active sensing test",
     "event_id": "ext_4",
-    "ts": "2026-05-04T23:52:06.417486+00:00"
+    "ts": "2026-09-07T17:46:14.042053+00:00"
   },
-  "last_updated": "2026-05-04T23:52:06.417753+00:00",
-  "last_context_hash": "378091e8",
+  "last_updated": "2026-09-07T17:46:14.042187+00:00",
+  "last_context_hash": "454609a9",
   "goal_stack": [
     {
       "id": "G1",

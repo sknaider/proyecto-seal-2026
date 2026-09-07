@@ -30,7 +30,7 @@ from typing import Optional
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen2.5:7b"
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 LOG = logging.getLogger("auto_extract_llm")
 
 EXTRACT_PROMPT_TEMPLATE = (

@@ -27,7 +27,7 @@ from zoneinfo import ZoneInfo
 sys.path.insert(0, str(Path(__file__).parent))
 
 PERU_TZ = ZoneInfo("America/Lima")
-DB_URL = os.environ.get("SEAL_DB_URL", "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
+DB_URL = os.environ.get("SEAL_DB_URL", "postgresql://seal:REDACTADO@localhost:5433/seal_memory")
 SCHEMA = "soul_v3"
 AGENTS_DIR = Path.home() / "IA/proyecto-seal/agents"
 SEAL_ROOT = Path.home() / "IA/proyecto-seal"

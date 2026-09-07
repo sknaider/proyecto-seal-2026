@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 LIMA_TZ = ZoneInfo("America/Lima")
 from pathlib import Path
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 LOG_PATH = Path.home() / "IA/proyecto-seal/messages/terminal_log.jsonl"
 CHAT_API = "http://localhost:8765/api/agents/send"
 

@@ -12,7 +12,7 @@
 param(
     [string]$Profile  = "laptop_william",
     [string]$Agent    = "JARVIS",
-    [string]$DbUrl    = "postgresql://seal:seal_memory_2026@100.75.201.110:5433/seal_memory",
+    [string]$DbUrl    = "postgresql://seal:REDACTADO@100.75.201.110:5433/seal_memory",
     [string]$Model    = "claude-sonnet-4-6",
     [string]$SparkIp  = "100.75.201.110"
 )

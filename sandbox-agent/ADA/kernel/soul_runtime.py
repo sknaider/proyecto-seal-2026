@@ -11,7 +11,7 @@ Conexiones:
   - heartbeat_write(agent, alive, last_dispatch_ts) → JSON heartbeat file
   - heartbeat_loop(agent, interval_s) → asyncio task que escribe heartbeat cada N segundos
 
-Stack: asyncpg directo a Soul DB (postgresql://seal:seal_memory_2026@localhost:5433/seal_memory).
+Stack: asyncpg directo a Soul DB (postgresql://seal:REDACTADO@localhost:5433/seal_memory).
 Schema: soul_v3.
 
 Failure mode: cada función es fail-soft. Si DB no responde, log y continúa.
@@ -27,7 +27,7 @@ from typing import Any
 
 DB_URL = os.environ.get(
     "SEAL_DB_URL",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+    "postgresql://seal:REDACTADO@localhost:5433/seal_memory",
 )
 SCHEMA = os.environ.get("SEAL_SCHEMA", "soul_v3")
 HEARTBEAT_DIR = Path("/home/dadito/IA/proyecto-seal/messages")

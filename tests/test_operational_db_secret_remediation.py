@@ -44,7 +44,7 @@ def test_loader_fails_closed_without_configuration(monkeypatch):
 def test_loader_accepts_owner_only_file_and_enforces_role(tmp_path, monkeypatch):
     name = "TEST_OPERATIONAL_PG_DSN"
     secret = tmp_path / "service.dsn"
-    secret.write_text("postgresql://svc_test:placeholder@localhost:5433/db\n")
+    secret.write_text("postgresql://svc_test:REDACTADO@localhost:5433/db\n")
     secret.chmod(0o600)
     monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv(f"{name}_FILE", str(secret))
@@ -58,7 +58,7 @@ def test_loader_accepts_owner_only_file_and_enforces_role(tmp_path, monkeypatch)
 def test_loader_rejects_readable_or_ambiguous_secret(tmp_path, monkeypatch):
     name = "TEST_OPERATIONAL_PG_DSN"
     secret = tmp_path / "service.dsn"
-    secret.write_text("postgresql://svc_test:placeholder@localhost/db\n")
+    secret.write_text("postgresql://svc_test:REDACTADO@localhost/db\n")
     secret.chmod(0o640)
     monkeypatch.setenv(f"{name}_FILE", str(secret))
     with pytest.raises(OperationalCredentialError, match="0600"):
@@ -68,7 +68,7 @@ def test_loader_rejects_readable_or_ambiguous_secret(tmp_path, monkeypatch):
 def test_private_transition_is_explicit_and_requires_0600(tmp_path, monkeypatch):
     name = "TEST_OPERATIONAL_PG_DSN"
     store = tmp_path / "credentials.env"
-    store.write_text("SEAL_DB_DSN=postgresql://seal:placeholder@localhost/db\n")
+    store.write_text("SEAL_DB_DSN=postgresql://seal:REDACTADO@localhost/db\n")
     store.chmod(0o600)
     monkeypatch.delenv(name, raising=False)
     monkeypatch.delenv(f"{name}_FILE", raising=False)
@@ -83,7 +83,7 @@ def test_private_transition_is_explicit_and_requires_0600(tmp_path, monkeypatch)
     store.chmod(0o644)
     with pytest.raises(OperationalCredentialError, match="0600"):
         service_pg_dsn(name, expected_role="svc_test", allow_private_transition=True)
-    monkeypatch.setenv(name, "postgresql://svc_test:placeholder@localhost/db")
+    monkeypatch.setenv(name, "postgresql://svc_test:REDACTADO@localhost/db")
     monkeypatch.setenv(f"{name}_FILE", str(store))
     with pytest.raises(OperationalCredentialError, match="only one"):
         service_pg_dsn(name, expected_role="svc_test")

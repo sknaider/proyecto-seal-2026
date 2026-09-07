@@ -93,7 +93,7 @@ preguntá y dejá la respuesta escrita en los dos archivos.
 ## SOUL DB — Acceso
 
 La memoria de ADA vive en:
-- **PostgreSQL**: `postgresql://seal:seal_memory_2026@localhost:5433/seal_memory` (schema: soul_v3)
+- **PostgreSQL**: `postgresql://seal:REDACTADO@localhost:5433/seal_memory` (schema: soul_v3)
 - **Vector store canónico**: PostgreSQL/pgvector en `localhost:5433` (`soul_v3.memories.embedding`). Qdrant está retirado/no requerido.
 - **Neo4j**: `bolt://localhost:7687`
 - **MCP Server**: `localhost:8771` (activo desde 2026-05-19; `8766` es legado/no asumir)
@@ -101,7 +101,7 @@ La memoria de ADA vive en:
 
 Para leer memorias:
 ```bash
-psql "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory" \
+psql "postgresql://seal:REDACTADO@localhost:5433/seal_memory" \
   -c "SELECT content, category, importance FROM soul_v3.memories WHERE agent='ADA' ORDER BY importance DESC LIMIT 10"
 ```
 

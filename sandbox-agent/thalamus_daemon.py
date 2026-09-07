@@ -27,7 +27,7 @@ import asyncpg
 
 DB_DSN = os.environ.get(
     "SEAL_PG_DSN",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+    "postgresql://seal:REDACTADO@localhost:5433/seal_memory",
 )
 
 CHANNEL_PATH = Path("/home/dadito/IA/proyecto-seal/messages/william_channel.jsonl")

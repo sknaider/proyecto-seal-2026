@@ -203,7 +203,7 @@ def _store_reasoning_trace(cp: dict, output_name: str, total_min: float, success
         try:
             import asyncpg
             conn = await asyncpg.connect(
-                "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+                "postgresql://seal:REDACTADO@localhost:5433/seal_memory",
                 timeout=5,
             )
             exists = await conn.fetchval(

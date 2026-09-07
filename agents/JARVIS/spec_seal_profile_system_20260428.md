@@ -176,7 +176,7 @@ def _init_db_schema(profile_dir: Path, profile_name: str):
     # Guardar schema name en config
     (profile_dir / "db_url.env").write_text(
         f"SEAL_SCHEMA={schema}\n"
-        f"SEAL_DB_URL=postgresql://seal:seal_memory_2026@localhost:5433/seal_memory\n"
+        f"SEAL_DB_URL=postgresql://seal:REDACTADO@localhost:5433/seal_memory\n"
     )
 ```
 

@@ -508,7 +508,7 @@ def get_config() -> SoulConfig:
 
 | Current (hardcoded) | New (env var) |
 |---------------------|---------------|
-| `db.py` line 7: `DB_URL = "postgresql://seal:seal_memory_2026@..."` | `SOUL_PG_HOST`, `SOUL_PG_PORT`, `SOUL_PG_USER`, `SOUL_PG_PASSWORD`, `SOUL_PG_DATABASE` |
+| `db.py` line 7: `DB_URL = "postgresql://seal:REDACTADO@..."` | `SOUL_PG_HOST`, `SOUL_PG_PORT`, `SOUL_PG_USER`, `SOUL_PG_PASSWORD`, `SOUL_PG_DATABASE` |
 | `mcp_server_v2.py` line 44: `OLLAMA_GEN_URL = "http://localhost:11434/..."` | `SOUL_OLLAMA_URL` |
 | `mcp_server_v2.py` line 45: `OLLAMA_MODEL = "qwen2.5:7b"` | `SOUL_OLLAMA_MODEL` |
 | `mcp_server_v2.py` line 47: `QDRANT_URL = "http://localhost:6333"` | `SOUL_QDRANT_URL` |

@@ -25,7 +25,7 @@ LIMA_TZ = ZoneInfo("America/Lima")
 REPO_DIR = Path(__file__).parent.parent
 MESSAGES_DIR = REPO_DIR / "messages"
 AGENTS_DIR = REPO_DIR / "agents"
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 WEBCHAT_URL = "http://localhost:8765/api/agents/send"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 

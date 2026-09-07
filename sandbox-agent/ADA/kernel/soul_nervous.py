@@ -24,7 +24,7 @@ import asyncpg
 
 DB_URL = os.environ.get(
     "ADA_SOUL_DB_URL",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+    "postgresql://seal:REDACTADO@localhost:5433/seal_memory",
 )
 AGENT = "ADA"
 RECALL_TIMEOUT_S = 2.0

@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 
 import tiktoken
 
-DB_URL = os.environ.get("SEAL_PG_DSN", "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
+DB_URL = os.environ.get("SEAL_PG_DSN", "postgresql://seal:REDACTADO@localhost:5433/seal_memory")
 AGENT = "ADA"
 HYBRID_K = 5
 

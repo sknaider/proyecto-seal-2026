@@ -85,11 +85,11 @@ def test_private_dsn_accepts_owner_only_regular_file(tmp_path: Path) -> None:
 
 
 def test_hook_environment_replaces_all_privileged_db_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SEAL_DB_DSN", "postgresql://seal:superuser@localhost/db")
-    monkeypatch.setenv("SEAL_DB_URL", "postgresql://seal:superuser@localhost/db")
+    monkeypatch.setenv("SEAL_DB_DSN", "postgresql://seal:REDACTADO@localhost/db")
+    monkeypatch.setenv("SEAL_DB_URL", "postgresql://seal:REDACTADO@localhost/db")
     monkeypatch.setenv("PGPASSWORD", "superuser")
     monkeypatch.setenv("SEAL_SESSION_TOKEN", "wrong-agent-token")
-    executor = f2.HookExecutor("ADA", "postgresql://mcp_runtime_ada:restricted@localhost/db")
+    executor = f2.HookExecutor("ADA", "postgresql://mcp_runtime_ada:REDACTADO@localhost/db")
     env = executor._environment("session")
     assert env["SEAL_PG_DSN"].startswith("postgresql://mcp_runtime_ada:")
     assert env["SEAL_DB_DSN"] == env["SEAL_PG_DSN"]
@@ -103,11 +103,11 @@ def test_hook_environment_replaces_all_privileged_db_inputs(monkeypatch: pytest.
 
 def test_child_pg_dsn_cannot_fall_back_to_superuser_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     """All aliases must resolve to the runtime role before a hook imports seal_secrets."""
-    monkeypatch.setenv("SEAL_DB_DSN", "postgresql://seal:superuser@localhost/db")
-    executor = f2.HookExecutor("ADA", "postgresql://mcp_runtime_ada:restricted@localhost/db")
+    monkeypatch.setenv("SEAL_DB_DSN", "postgresql://seal:REDACTADO@localhost/db")
+    executor = f2.HookExecutor("ADA", "postgresql://mcp_runtime_ada:REDACTADO@localhost/db")
     env = executor._environment("session")
     assert {env[name] for name in ("SEAL_DB_DSN", "SEAL_DB_URL", "SEAL_PG_DSN")} == {
-        "postgresql://mcp_runtime_ada:restricted@localhost/db"
+        "postgresql://mcp_runtime_ada:REDACTADO@localhost/db"
     }
 
 

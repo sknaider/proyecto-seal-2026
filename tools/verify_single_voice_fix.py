@@ -45,7 +45,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 API_SEND = "http://localhost:8765/api/agents/send"
 API_CLAIM = "http://localhost:8765/api/agents/claim"
 AGENT = "JARVIS"
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 results: list[tuple[str, bool, str]] = []
 

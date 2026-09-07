@@ -153,9 +153,9 @@ if __name__ == "__main__":
         ("Texto normal sin secrets", True),
         ("Mi API key es sk-ant-abc123def456ghi789jkl012mno345", False),
         ("Token: ghp_1234567890abcdefghijklmnopqrstuvwxyz", False),
-        ("postgresql://user:SuperSecret123@db.example.com:5432/mydb", False),
+        ("postgresql://user:REDACTADO@db.example.com:5432/mydb", False),
         ("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", False),
-        ("postgresql://seal:seal_memory_2026@localhost:5433/seal_memory", True),  # allowlisted
+        ("postgresql://seal:REDACTADO@localhost:5433/seal_memory", True),  # allowlisted
         ("password: YOUR_API_KEY", True),  # placeholder, allowlisted
         ("AKIA1234567890ABCDEF", False),  # AWS key
         ("api_key = 'gsk_abc123def456ghi789jkl012mno345pqr'", False),  # Groq

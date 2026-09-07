@@ -30,7 +30,7 @@ from __future__ import annotations
 import os, sys, json, argparse, asyncio, re
 import asyncpg
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/seal_memory")
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:REDACTADO@localhost:5432/seal_memory")
 OUT_DIR = os.environ.get("AGENT_OUT_DIR", os.path.dirname(os.path.abspath(__file__)))
 OCEAN_KEYS = ["ocean_o", "ocean_c", "ocean_e", "ocean_a", "ocean_n"]
 OCEAN_LABEL = {"ocean_o": "Apertura", "ocean_c": "Responsabilidad", "ocean_e": "Extraversion",

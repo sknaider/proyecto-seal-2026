@@ -50,7 +50,7 @@ LLM_OLLAMA_URL = "http://localhost:11434/api/chat"
 LLM_OLLAMA_MODEL = "qwen2.5:7b"
 
 # ── DB ──
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 # ── Transcript dirs per agent ──
 TRANSCRIPT_DIRS: dict[str, str] = {

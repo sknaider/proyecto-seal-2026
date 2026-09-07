@@ -220,7 +220,7 @@ jobs:
         run: npm run test:integration
         working-directory: packages/backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+          DATABASE_URL: postgresql://postgres:REDACTADO@localhost:5432/test
 
       - name: Build backend
         run: npm run build

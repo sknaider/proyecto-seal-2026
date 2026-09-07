@@ -83,7 +83,7 @@ from datetime import datetime, timezone
 
 # Config
 PG_DSN = os.getenv("SEAL_PG_DSN",
-    "postgresql://seal_admin:seal_memory_2026@localhost:5433/soul_memory")
+    "postgresql://seal_admin:REDACTADO@localhost:5433/soul_memory")
 MM_URL = os.getenv("MM_URL", "http://localhost:8080")
 MM_TOKEN = os.getenv("MM_TOKEN", "")  # Admin token de Mattermost
 MM_TEAM = "seal-team"

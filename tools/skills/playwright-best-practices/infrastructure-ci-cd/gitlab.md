@@ -260,7 +260,7 @@ e2e:integration:
       alias: cache
   variables:
     CI: "true"
-    DATABASE_URL: "postgresql://postgres:postgres@db:5432/testdb"
+    DATABASE_URL: "postgresql://postgres:REDACTADO@db:5432/testdb"
     REDIS_URL: "redis://cache:6379"
     POSTGRES_PASSWORD: "postgres"
     POSTGRES_DB: "testdb"
@@ -379,7 +379,7 @@ services:
     alias: db
 
 variables:
-  DATABASE_URL: "postgresql://postgres:postgres@db:5432/testdb"
+  DATABASE_URL: "postgresql://postgres:REDACTADO@db:5432/testdb"
 ```
 
 ### Merged report is empty after sharded run

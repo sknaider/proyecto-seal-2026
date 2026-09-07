@@ -29,7 +29,7 @@ LIMA = ZoneInfo("America/Lima")
 # Agentes que corren sobre harness Claude (donde un Stop-hook dispara por turno).
 # ADA (Codex) y DUM (Gemma) capturan por su propio mecanismo de harness, no por este hook.
 FAMILY = {"ADA", "JARVIS", "ALICE", "DUM", "NEXUS", "FABLE"}
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 
 def today_lima() -> str:

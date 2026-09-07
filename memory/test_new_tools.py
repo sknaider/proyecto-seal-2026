@@ -17,7 +17,7 @@ import traceback
 from datetime import datetime, timezone
 from neo4j import AsyncGraphDatabase
 
-DB_URL = os.environ.get("SEAL_PG_DSN", "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
+DB_URL = os.environ.get("SEAL_PG_DSN", "postgresql://seal:REDACTADO@localhost:5433/seal_memory")
 NEO4J_URI = "bolt://localhost:7687"
 NEO4J_AUTH = ("neo4j", os.environ.get("SEAL_NEO4J_PASSWORD", "seal2026soul"))
 

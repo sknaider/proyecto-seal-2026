@@ -48,7 +48,7 @@ def stream_sql() -> str:
     servidor. Probar la pieza no prueba que este conectada.
     """
     os.environ.setdefault("SEAL_STUDIO_DB_DSN",
-                          "postgresql://svc_seal_studio:sintetico@127.0.0.1:1/x")
+                          "postgresql://svc_seal_studio:REDACTADO@127.0.0.1:1/x")
     import api_v1
     return api_v1.STREAM_MESSAGES_SQL
 

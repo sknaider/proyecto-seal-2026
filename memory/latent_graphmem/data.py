@@ -13,7 +13,7 @@ from typing import Iterator
 
 import asyncpg
 
-PG_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+PG_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 MAX_TOKENS = 512  # e5-base limit
 
 

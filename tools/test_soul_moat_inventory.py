@@ -25,7 +25,7 @@ def test_inventory_dsn_requires_explicit_nonprivileged_identity(
     monkeypatch.setattr(
         moat,
         "service_pg_dsn",
-        lambda name: "postgresql://svc_soul_moat:synthetic@localhost:5433/seal_memory",
+        lambda name: "postgresql://svc_soul_moat:REDACTADO@localhost:5433/seal_memory",
     )
     assert moat._resolve_dsn().startswith("postgresql://svc_soul_moat:")
 

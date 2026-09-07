@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 NEXUS_INBOX = Path("/home/dadito/IA/proyecto-seal/messages/nexus_inbox.jsonl")  # private inbox — never shared
 STATE_FILE = Path("/tmp/nexus_dm_last_ts.txt")
 POLL_INTERVAL = 3  # seconds

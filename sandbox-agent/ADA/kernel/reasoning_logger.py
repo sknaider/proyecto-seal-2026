@@ -28,7 +28,7 @@ _MAX_LOG_LINES = 5000
 
 _DB_URL = os.environ.get(
     "SEAL_DB_URL",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+    "postgresql://seal:REDACTADO@localhost:5433/seal_memory",
 )
 _SCHEMA = os.environ.get("SEAL_SCHEMA", "soul_v3")
 _id_map: dict[str, int] = {}

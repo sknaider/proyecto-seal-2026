@@ -175,7 +175,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/myapp
+      - DATABASE_URL=postgresql://postgres:REDACTADO@db:5432/myapp
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=your-secret
     depends_on:

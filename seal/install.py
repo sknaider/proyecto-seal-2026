@@ -54,7 +54,7 @@ class EnvInfo:
 class InstallerConfig:
     profile_name: str
     agent_name: str = "JARVIS"
-    db_url: str = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+    db_url: str = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
     seal_home: Optional[Path] = None
     non_interactive: bool = False
     skip_db: bool = False
@@ -382,7 +382,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--agent", default="JARVIS", help="Agent personality to deploy")
     parser.add_argument(
         "--db-url",
-        default="postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+        default="postgresql://seal:REDACTADO@localhost:5433/seal_memory",
         help="PostgreSQL connection URL for soul_v3",
     )
     parser.add_argument(

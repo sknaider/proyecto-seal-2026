@@ -13,7 +13,7 @@ import argparse
 import json
 import sys
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 
 async def write_event(agent: str, event_type: str, content: str, metadata: str = "{}"):

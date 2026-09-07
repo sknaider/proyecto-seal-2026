@@ -335,7 +335,7 @@ async def soul_variance(agent: str = "ADA", window: int = 20):
         from emotional_variance import compute_variance, interpret_variance, compute_ocean_stability
         import asyncpg
 
-        conn = await asyncpg.connect("postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
+        conn = await asyncpg.connect("postgresql://seal:REDACTADO@localhost:5433/seal_memory")
         try:
             variance = await compute_variance(conn, agent, window)
             stability = await compute_ocean_stability(conn, agent, window)

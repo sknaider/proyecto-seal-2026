@@ -27,7 +27,7 @@ BYPASS = os.environ.get("SEAL_DENIAL_BYPASS", "0") == "1"
 AGENT = os.environ.get("SEAL_AGENT", "UNKNOWN")
 CONSECUTIVE_THRESHOLD = 3
 TOTAL_THRESHOLD = 20
-DB_URL = os.environ.get("SEAL_DB_URL", "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
+DB_URL = os.environ.get("SEAL_DB_URL", "postgresql://seal:REDACTADO@localhost:5433/seal_memory")
 SCHEMA = "soul_v3"
 CHAT_API = "http://localhost:8765/api/agents/send"
 

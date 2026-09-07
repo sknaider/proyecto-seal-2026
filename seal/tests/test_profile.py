@@ -94,7 +94,7 @@ class CreateTests(_ProfileBase):
     def test_default_db_url_written(self):
         pdir = create("default_db")
         env = (pdir / "db_url.env").read_text()
-        self.assertIn("SEAL_DB_URL=postgresql://seal:seal_memory_2026@localhost:5433/seal_memory", env)
+        self.assertIn("SEAL_DB_URL=postgresql://seal:REDACTADO@localhost:5433/seal_memory", env)
 
     def test_duplicate_raises_file_exists(self):
         create("dup")

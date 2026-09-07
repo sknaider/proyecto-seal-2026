@@ -50,7 +50,7 @@ sys.path.insert(0, str(HERE))
 from latent_graphmem.data import serialize_subgraph  # noqa: E402
 from latent_graphmem_build_pairs import _bfs_subgraph  # noqa: E402
 
-PG_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+PG_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 NEO4J_URI = "bolt://localhost:7687"
 NEO4J_AUTH = ("neo4j", "seal2026soul")
 ADAPTER_DIR = Path(os.path.expanduser(

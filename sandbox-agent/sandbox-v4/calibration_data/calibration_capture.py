@@ -19,7 +19,7 @@ import asyncpg
 
 PG_DSN = os.environ.get(
     "SEAL_PG_DSN",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+    "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 )
 OUTPUT = Path(__file__).parent / "calibration.jsonl"
 PHASE_START = "2026-04-27"  # Sprint 5 starts

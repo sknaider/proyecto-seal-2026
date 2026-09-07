@@ -14,7 +14,7 @@ import os
 import sys
 import time
 
-DEFAULT_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DEFAULT_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 
 async def fetch_soul_context(agent: str, dsn: str) -> dict:

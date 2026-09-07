@@ -18,7 +18,7 @@ def test_missing_dsn_fails_closed(monkeypatch):
 def test_superuser_dsn_is_rejected(monkeypatch):
     monkeypatch.setenv(
         "SEAL_STUDIO_DB_DSN",
-        "postgresql://seal:not-a-real-secret@127.0.0.1:5433/seal_memory",
+        "postgresql://seal:REDACTADO@127.0.0.1:5433/seal_memory",
     )
     with pytest.raises(RuntimeError, match="refusing broader login"):
         runpy.run_path(str(CONFIG))

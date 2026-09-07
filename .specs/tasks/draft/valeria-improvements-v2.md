@@ -127,11 +127,11 @@ WantedBy=multi-user.target
 
 ```bash
 # Verificar
-psql postgresql://seal:seal_memory_2026@localhost:5433/seal_memory \
+psql postgresql://seal:REDACTADO@localhost:5433/seal_memory \
   -c "\dt valeria_*"
 
 # Si no existen:
-psql postgresql://seal:seal_memory_2026@localhost:5433/seal_memory \
+psql postgresql://seal:REDACTADO@localhost:5433/seal_memory \
   < /home/dadito/IA/proyecto-seal/characters/valeria_schema.sql
 ```
 

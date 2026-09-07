@@ -26,7 +26,7 @@ try:
 except ImportError:
     HAS_DB = False
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 _pool: Optional[asyncpg.Pool] = None
 _pool_lock = asyncio.Lock()

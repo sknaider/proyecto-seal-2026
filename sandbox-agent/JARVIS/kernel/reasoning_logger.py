@@ -50,7 +50,7 @@ _MAX_LOG_LINES = 5000  # keep last 5k traces (older lines pruned on rotation)
 # Soul DB settings — env-overridable. Defaults match seal_heartbeat.
 _DB_URL = os.environ.get(
     "SEAL_DB_URL",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+    "postgresql://seal:REDACTADO@localhost:5433/seal_memory",
 )
 _SCHEMA = os.environ.get("SEAL_SCHEMA", "soul_v3")
 # Map local UUID → Soul DB BIGSERIAL id, so update_trace_outcome can locate the row.

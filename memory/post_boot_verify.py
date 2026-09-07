@@ -27,7 +27,7 @@ from pathlib import Path
 
 import asyncpg
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 CHAT_HEALTH = "http://localhost:8765/"  # chat_server root returns HTML 200
 WEBCHAT_URL = "http://localhost:8765/api/agents/send"
 MESSAGES_DIR = Path("/home/dadito/IA/proyecto-seal/messages")

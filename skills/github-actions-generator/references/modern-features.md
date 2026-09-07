@@ -215,7 +215,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Run tests
         env:
-          DATABASE_URL: postgres://postgres:postgres@postgres:5432/test
+          DATABASE_URL: postgres://postgres:REDACTADO@postgres:5432/test
           REDIS_URL: redis://redis:6379
         run: npm test
 ```
@@ -341,7 +341,7 @@ jobs:
       - name: Run tests
         id: test
         env:
-          DATABASE_URL: postgres://postgres:postgres@postgres:5432/test
+          DATABASE_URL: postgres://postgres:REDACTADO@postgres:5432/test
         run: |
           npm ci
           npm test -- --coverage

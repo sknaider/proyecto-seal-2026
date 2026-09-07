@@ -58,7 +58,7 @@ def test_qa_positive_credenciales_con_nombre_inocente():
     a = _arena()
     # el caso dificil: nombre de variable que NO delata, valor que si
     (a / "u.service").write_text(
-        "[Service]\nEnvironment=CFG=postgres://usuario:clave-larga-secreta@h/db\n")
+        "[Service]\nEnvironment=CFG=postgres://usuario:REDACTADO@h/db\n")
     r = _corre(CREDENCIALES, str(a))
     assert r.returncode == 1 and "CFG" in r.stdout
 

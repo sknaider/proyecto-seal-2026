@@ -94,7 +94,7 @@ tail -10 /tmp/jarvis_reasoning_traces.jsonl | jq .
 python3 -c "
 import asyncpg, asyncio
 async def q():
-    c = await asyncpg.connect('postgresql://seal:seal_memory_2026@localhost:5433/seal_memory', server_settings={'search_path':'soul_v3'})
+    c = await asyncpg.connect('postgresql://seal:REDACTADO@localhost:5433/seal_memory', server_settings={'search_path':'soul_v3'})
     rows = await c.fetch(\"SELECT id, task, outcome FROM soul_v3.reasoning_traces WHERE agent='JARVIS' ORDER BY id DESC LIMIT 5\")
     for r in rows: print(dict(r))
     await c.close()

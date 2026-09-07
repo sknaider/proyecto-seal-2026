@@ -271,7 +271,7 @@ def _pg_dsn() -> str:
         from seal_secrets import pg_dsn  # type: ignore
         return pg_dsn()
     except Exception:
-        return "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+        return "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 
 async def persist_bench(report: dict[str, Any], triggered_by: str = "safety_governor") -> int | None:

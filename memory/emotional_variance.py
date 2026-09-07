@@ -56,7 +56,7 @@ from collections import Counter, defaultdict
 
 import asyncpg
 
-DB_URL       = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL       = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 MESSAGES_DIR = Path("/home/dadito/IA/proyecto-seal/messages")
 TERMINAL_LOG = MESSAGES_DIR / "terminal_log.jsonl"
 

@@ -22,7 +22,7 @@ import asyncpg
 from datetime import datetime
 from typing import List, Optional
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 STOPWORDS = {
     "de", "la", "el", "en", "que", "y", "a", "los", "del", "las", "un", "por",

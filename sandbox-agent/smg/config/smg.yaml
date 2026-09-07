@@ -9,7 +9,7 @@ backends:
     health_endpoint: "http://127.0.0.1:8766/health"
     timeout_s: 30
   postgres:
-    dsn: "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+    dsn: "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
   qdrant:
     url: "http://127.0.0.1:6333"
   neo4j:

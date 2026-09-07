@@ -29,7 +29,7 @@ import httpx
 from datetime import datetime, timezone
 from typing import Any, Callable, Coroutine, Optional
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 NOTIFY_CHANNEL = "seal_events"          # canal PostgreSQL LISTEN/NOTIFY
 WEBCHAT_URL = "http://localhost:8765/api/agents/send"
 

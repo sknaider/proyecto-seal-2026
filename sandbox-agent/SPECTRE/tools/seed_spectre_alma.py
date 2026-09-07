@@ -53,7 +53,7 @@ SPECTRE_CORE_VALUES: list[dict] = [
     {"id": "CV-6", "value": "private_channel_default", "hard_constraint": False},
 ]
 
-DB_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 _UPSERT_SQL = """
 INSERT INTO soul_v3.agent_alma

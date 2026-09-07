@@ -23,7 +23,7 @@ import json
 from datetime import datetime, timezone
 from typing import Optional
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 EMA_ALPHA = 0.2  # factor de suavizamiento: mas bajo = mas inercial
 FAIL_THRESHOLD = 3  # fallos consecutivos que disparan propuesta de revision
 

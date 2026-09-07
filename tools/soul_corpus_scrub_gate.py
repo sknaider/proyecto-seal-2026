@@ -184,7 +184,7 @@ def selftest() -> int:
         {"id": 2, "category": "reasoning_traces",
          "content": "Verifiqué por efecto antes de afirmar; el juicio propio es lo que me hace confiable."}, # ALMA → pasa
         {"id": 3, "category": "memories",
-         "content": "La conexión es postgres://seal:s3cr3tPass@127.0.0.1:5433/soul y no debe filtrarse."},  # SECRETO → excluye
+         "content": "La conexión es postgres://seal:REDACTADO@127.0.0.1:5433/soul y no debe filtrarse."},  # SECRETO → excluye
         {"id": 4, "category": "memories",
          "content": "El token quedó guardado: sk-ABCD1234efgh5678IJKL90mnop y hay que rotarlo."},           # SECRETO → excluye
         {"id": 5, "category": "instincts",

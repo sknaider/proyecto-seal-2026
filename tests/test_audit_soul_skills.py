@@ -107,7 +107,7 @@ def test_crlf_frontmatter_and_code_like_links_are_not_false_errors(tmp_path: Pat
 
 def test_embedded_privileged_dsn_fails_closed(tmp_path: Path) -> None:
     root = tmp_path / "skills"
-    write_skill(root / "unsafe-db" / "SKILL.md", "unsafe-db", "Connect to `postgresql://seal:password@localhost/db`.\n")
+    write_skill(root / "unsafe-db" / "SKILL.md", "unsafe-db", "Connect to `postgresql://seal:REDACTADO@localhost/db`.\n")
     report = audit_soul_skills.audit([root])
     assert "embedded-privileged-dsn" in {item["code"] for item in report["findings"]}
     assert report["counts"]["structural_fail"] == 1

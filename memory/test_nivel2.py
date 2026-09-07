@@ -21,7 +21,7 @@ PERU_TZ = ZoneInfo("America/Lima")
 # Add parent dir to path so we can import from mcp_server
 sys.path.insert(0, os.path.dirname(__file__))
 
-DB_URL = os.environ.get("SEAL_PG_DSN", "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
+DB_URL = os.environ.get("SEAL_PG_DSN", "postgresql://seal:REDACTADO@localhost:5433/seal_memory")
 
 results = {"passed": 0, "failed": 0, "errors": []}
 

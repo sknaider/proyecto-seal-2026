@@ -282,7 +282,7 @@ def walk_redact(obj, red: Redactor):
 def selftest() -> int:
     sample = {
         "model": "claude-opus-4-8",
-        "system": [{"type": "text", "text": "Eres NEXUS. DB postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+        "system": [{"type": "text", "text": "Eres NEXUS. DB postgresql://seal:REDACTADO@localhost:5433/seal_memory",
                     "cache_control": {"type": "ephemeral"}}],
         "messages": [
             {"role": "user", "content": [

@@ -50,7 +50,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
 )
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 QDRANT_URL = "http://localhost:6333"
 QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "79edecc663271e84a5a559c89038cd20276098101a68ad8995c20428d9a47560")
 OLLAMA_URL = "http://localhost:11434/api/generate"

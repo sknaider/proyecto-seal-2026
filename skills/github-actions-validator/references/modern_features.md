@@ -304,7 +304,7 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: postgres://postgres:postgres@postgres:5432/testdb
+          DATABASE_URL: postgres://postgres:REDACTADO@postgres:5432/testdb
           REDIS_URL: redis://redis:6379
         run: npm test
 ```

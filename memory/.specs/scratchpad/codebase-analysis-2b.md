@@ -226,7 +226,7 @@ Counted from `@mcp.tool()` decorators: **74 confirmed tool definitions** at line
 ### Hardcoded values (HIGH RISK for productization):
 ```python
 # db.py line 7 — DB credentials hardcoded
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 # mcp_server_v2.py lines 44-49 — all service URLs hardcoded
 OLLAMA_GEN_URL = "http://localhost:11434/api/generate"

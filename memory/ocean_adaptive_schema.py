@@ -10,7 +10,7 @@ import asyncio
 import asyncpg
 import sys
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 # OCEAN actual de los agentes (leído de identity.ocean_scores)
 OCEAN_CURRENT = {

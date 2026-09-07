@@ -68,7 +68,7 @@ CASES = [
     #    hashes a ciegas, estos dos caen primero. Son el canario del falso negativo.
     ("Twilio Account SID (hex entero)", "AC" + "a" * 32, True),
     ("par hash:hash (hex entero)", "b" * 32 + ":" + "c" * 32, True),
-    ("DSN postgres con credencial", "postgresql://seal:supersecreta123@host:5432/db", True),
+    ("DSN postgres con credencial", "postgresql://seal:REDACTADO@host:5432/db", True),
     ("Slack token", "xoxb-1234567890abcdefghij", True),
     ("token de Facebook REAL (largo)", "EAA" + "B" * 60, True),
     ("PEM private key", "-----BEGIN RSA PRIVATE KEY-----", True),

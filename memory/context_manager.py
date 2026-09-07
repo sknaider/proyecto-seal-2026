@@ -29,7 +29,7 @@ import asyncpg
 
 DB_URL = os.environ.get(
     "SEAL_DB_URL",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+    "postgresql://seal:REDACTADO@localhost:5433/seal_memory",
 )
 SCHEMA = "soul_v3"
 log = logging.getLogger(__name__)

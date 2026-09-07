@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 
 LOGS_DIR = Path(__file__).parent / "logs"
-DB_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 
 async def get_today_events(agent: str) -> list[dict]:

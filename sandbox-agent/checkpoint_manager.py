@@ -17,7 +17,7 @@ import json
 from datetime import datetime, timezone
 from typing import Optional
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 
 class CheckpointManager:

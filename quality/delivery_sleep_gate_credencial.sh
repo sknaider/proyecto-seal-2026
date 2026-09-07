@@ -32,7 +32,7 @@ echo
 echo "== ARM2 (control no vacuo): la MISMA lógica con el DSN viejo hardcodeado DEBE fallar =="
 # Copia del sujeto con la credencial rotada de vuelta. Si esto NO fallara, el ARM1 no
 # probaria nada: significaria que el script anda con cualquier credencial.
-sed 's|^DB_URL = settings.pg_dsn$|DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"|' \
+sed 's|^DB_URL = settings.pg_dsn$|DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"|' \
     "$REPO/memory/sleep_gate_cron.py" > "$TMP/con_credencial_vieja.py"
 cp "$REPO/memory/config.py" "$TMP/" 2>/dev/null || true
 # La salida se captura ANTES de buscar en ella. Con `set -o pipefail`, hacer

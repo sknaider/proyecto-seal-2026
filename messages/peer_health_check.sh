@@ -20,7 +20,7 @@ async def check():
     results = {}
     all_agents = ['JARVIS', 'ADA', 'ALICE', 'DUM', 'NEXUS']
     try:
-        conn = await asyncpg.connect('postgresql://seal:seal_memory_2026@localhost:5433/seal_memory')
+        conn = await asyncpg.connect('postgresql://seal:REDACTADO@localhost:5433/seal_memory')
         for agent in all_agents:
             row = await conn.fetchrow(
                 \"\"\"SELECT created_at FROM soul_v3.event_log

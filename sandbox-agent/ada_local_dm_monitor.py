@@ -4,7 +4,7 @@ import asyncio, asyncpg, json, time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 INBOX = Path("/home/dadito/IA/proyecto-seal/messages/ada_local_inbox.jsonl")
 STATE = Path("/tmp/ada_local_dm_last_ts.txt")
 POLL = 3

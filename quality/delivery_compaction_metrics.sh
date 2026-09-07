@@ -42,7 +42,7 @@ case "$R1" in *"degraded=False"*) : ;; *) echo "  ARM1 FALLO: esperaba degraded=
 
 # ---- ARM2: copia con la credencial MUERTA de julio
 cp memory/post_compact_session_start_hook.py "$TMP/hook_degradado.py"
-sed -i 's|^DB_URL = settings.pg_dsn|DB_URL = "postgresql://seal:credencial_muerta@localhost:5433/seal_memory"|' \
+sed -i 's|^DB_URL = settings.pg_dsn|DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"|' \
   "$TMP/hook_degradado.py"
 M2="$TMP/degradado.jsonl"
 echo '{}' | SEAL_AGENT="$AG" SEAL_COMPACTION_METRICS="$M2" PYTHONPATH=memory \

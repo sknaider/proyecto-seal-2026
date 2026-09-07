@@ -34,7 +34,7 @@ from identity_integrity import (
 )
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, Encoding, PublicFormat
 
-DB_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 AGENT_IDENTITY_DIRS: dict[str, Path] = {
     "ADA": Path.home() / ".ada",

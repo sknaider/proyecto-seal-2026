@@ -40,7 +40,7 @@ def test_durable_cron_resolves_secret_inside_child_not_argv(monkeypatch):
 
     monkeypatch.setenv(
         "SEAL_DURABLE_CRON_PG_DSN",
-        "postgresql://svc_seal_durable_cron:SENTINEL_SECRET@localhost:5433/seal_memory",
+        "postgresql://svc_seal_durable_cron:REDACTADO@localhost:5433/seal_memory",
     )
     monkeypatch.setattr(module.subprocess, "run", fake_run)
     module._run_db("register", {

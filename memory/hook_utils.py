@@ -79,7 +79,7 @@ def detect_agent() -> str | None:
 # Common constants
 DB_URL = os.environ.get(
     "SEAL_PG_DSN",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
+    "postgresql://seal:REDACTADO@localhost:5433/seal_memory",
 )
 PYTHON = "/home/dadito/IA/seal-spark/.venv/bin/python3"
 SEAL_DIR = "/home/dadito/IA/proyecto-seal"

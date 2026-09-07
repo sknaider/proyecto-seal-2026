@@ -1,0 +1,20 @@
+servicio	modulos	faltan	veredicto	detalle
+fable-spectre-dashboard.service	11	0	IMPORTA_OK	
+seal-auto-compact.service	6	0	IMPORTA_OK	
+seal-bridge-alice.service	8	1	FALTAN_DEPS	seal_monitor_filter:ModuleNotFoundError
+seal-bridge-jarvis.service	8	1	FALTAN_DEPS	seal_monitor_filter:ModuleNotFoundError
+seal-bridge-nexus.service	8	1	FALTAN_DEPS	seal_monitor_filter:ModuleNotFoundError
+seal-codex-app-bridge-poller.service	11	2	FALTAN_DEPS	ada_codex_poller:ModuleNotFoundError;messages:ModuleNotFoundError
+seal-companion-core.service	-	-	NO_APLICA	sin script python o sin interprete
+seal-dashboard.service	-	-	NO_APLICA	sin script python o sin interprete
+seal-dum-watchdog.service	11	1	FALTAN_DEPS	seal_heartbeat:ModuleNotFoundError
+seal-laptop-activity.service	12	1	FALTAN_DEPS	operational_db_credentials:ModuleNotFoundError
+seal-mcp-server.service	67	31	FALTAN_DEPS	agent_rubric:ModuleNotFoundError;agent_tools_registry:ModuleNotFoundEr
+seal-memory-anomaly-monitor.service	13	1	FALTAN_DEPS	operational_db_credentials:ModuleNotFoundError
+seal-memory-sdk-api.service	-	-	NO_APLICA	sin script python o sin interprete
+seal-memory-sdk-gateway-prod.service	-	-	NO_APLICA	sin script python o sin interprete
+seal-memory-sdk-gateway.service	-	-	NO_APLICA	sin script python o sin interprete
+seal-security-monitor.service	13	0	IMPORTA_OK	
+seal-soul-dashboard-api.service	14	0	IMPORTA_OK	
+seal-studio-backend.service	-	-	NO_APLICA	sin script python o sin interprete
+spectre-openai-shim.service	13	2	FALTAN_DEPS	operational_db_credentials:ModuleNotFoundError;spectre_tools:ModuleNot

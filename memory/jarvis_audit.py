@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio, asyncpg, hashlib, hmac, os, time
 from datetime import datetime, timezone
 
-_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 _SECRET = b"seal_hmac_2026"
 
 

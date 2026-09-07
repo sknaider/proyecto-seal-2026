@@ -35,7 +35,7 @@ sys.path.insert(0, str(MEMORY_DIR))
 
 import asyncpg
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 WEBCHAT_URL = "http://localhost:8765/api/agents/send"
 AGENTS = ["ADA", "JARVIS", "ALICE", "DUM", "NEXUS"]
 WILLIAM_SIGNAL_FILE = REPO_DIR / "messages" / ".william_signal"

@@ -32,7 +32,7 @@ log = logging.getLogger("valeria")
 
 # ── Config ──────────────────────────────────────────────────────────────────
 LM_STUDIO_URL = "http://localhost:1234/v1/chat/completions"
-DB_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/valeria_memory"
+DB_DSN = "postgresql://seal:REDACTADO@localhost:5433/valeria_memory"
 MODEL_NAME = "qwen3.5-35b-a3b"  # Qwen3.5-35B-A3B-Uncensored en LM Studio
 MAX_CONTEXT_MEMORIES = 5
 MAX_CONVERSATION_HISTORY = 20  # messages to keep in context window

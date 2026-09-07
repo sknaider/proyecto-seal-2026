@@ -35,7 +35,7 @@ from qdrant_client.models import PointStruct
 from sentence_transformers import SentenceTransformer
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-PG_URL     = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+PG_URL     = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 QDRANT_URL = "http://localhost:6333"
 COLLECTION = "seal_conversations"
 EMBED_MODEL = "intfloat/multilingual-e5-base"

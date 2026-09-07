@@ -20,7 +20,7 @@ from pathlib import Path
 
 AGENT_JITTER = {"JARVIS": 0, "ADA": 20, "ALICE": 40}
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 VENV_PY = "/home/dadito/IA/seal-spark/.venv/bin/python3"
 CHAT_API = "http://localhost:8765/api/agents/send"
 

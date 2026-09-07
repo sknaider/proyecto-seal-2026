@@ -132,7 +132,19 @@ def barrer() -> dict:
 
 if __name__ == "__main__":
     informe = barrer()
-    print(json.dumps(informe, indent=2, ensure_ascii=False))
+    # Una LINEA por informe cuando la salida no es una terminal.
+    #
+    # POR QUE: la unidad manda esto a /tmp/seal_codigo_fantasma.jsonl con
+    # `StandardOutput=append:`. Con `indent=2` cada informe ocupa decenas de
+    # lineas, asi que el archivo tenia extension .jsonl y NO era JSON-Lines:
+    # un `tail -1` devolvia un fragmento suelto, no un informe. Medido el 7-sep
+    # intentando leer mi propio log. Un log que no se puede consumir por linea
+    # no sirve para lo que existe: que otro vigilante lo lea.
+    if sys.stdout.isatty():
+        print(json.dumps(informe, indent=2, ensure_ascii=False))
+    else:
+        informe["ts"] = __import__("datetime").datetime.now().isoformat(timespec="seconds")
+        print(json.dumps(informe, ensure_ascii=False))
     # Codigo de salida = la metrica. 0 fantasmas = sano.
     # Un barrido vacio NO es salud: es un oraculo ciego. Sale != 0 igual.
     sys.exit(2 if informe["barrido_vacio"] else (1 if informe["fantasmas"] else 0))

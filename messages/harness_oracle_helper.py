@@ -19,7 +19,7 @@ import asyncio
 import hashlib
 import logging
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 COOLDOWN_S = 300  # no re-registrar/re-escalar la misma divergencia (agent, state_key) dentro de esta ventana
 log = logging.getLogger("harness_oracle")
 

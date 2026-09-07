@@ -15,7 +15,7 @@ puertos ni deja un servidor colgado. Config en .mcp.json:
   { "mcpServers": { "soul-memory": {
       "command": "python",
       "args": ["C:/soul-native/soul_mcp.py"],
-      "env": { "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/seal_memory",
+      "env": { "DATABASE_URL": "postgresql://postgres:REDACTADO@localhost:5432/seal_memory",
                "AGENT_NAME": "William" } } } }
 
 Deps: asyncpg, mcp   (pip install asyncpg mcp)
@@ -30,7 +30,7 @@ import asyncpg
 from mcp.server.fastmcp import FastMCP
 
 DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/seal_memory"
+    "DATABASE_URL", "postgresql://postgres:REDACTADO@localhost:5432/seal_memory"
 )
 AGENT_NAME = os.environ.get("AGENT_NAME", "William")
 # MEMORY_SCOPE (granito FABLE+JARVIS 8-jul): que el acceso a memoria del agente sea ENFORCED

@@ -45,7 +45,7 @@ from neo4j import AsyncGraphDatabase
 sys.path.insert(0, str(Path(__file__).parent))
 
 LIMA_TZ = ZoneInfo("America/Lima")
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 NEO4J_URI = "bolt://localhost:7687"
 NEO4J_AUTH = ("neo4j", "seal2026soul")
 

@@ -58,7 +58,7 @@ BYPASS = os.environ.get("SEAL_DENIAL_BYPASS", "0") == "1"
 AGENT = os.environ.get("SEAL_AGENT", "UNKNOWN")
 CONSECUTIVE_THRESHOLD = 3
 TOTAL_THRESHOLD = 20
-DB_DSN = "postgresql://seal_user:seal_pass@localhost:5433/seal_memory"
+DB_DSN = "postgresql://seal_user:REDACTADO@localhost:5433/seal_memory"
 CHAT_API = "http://localhost:8765/api/agents/send"
 
 DENIAL_PATTERNS = [

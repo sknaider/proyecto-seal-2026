@@ -59,7 +59,7 @@ Tablas prefijadas `cgraph_` — compatibles con schema SOUL v3.
 from NEXUS.kernel.code_graph import apply_schema, index_source, hybrid_search, resolve_edges
 import asyncpg
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
 
 # Setup único
 await apply_schema(DSN)

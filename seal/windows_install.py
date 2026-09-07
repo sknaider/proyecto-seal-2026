@@ -21,7 +21,7 @@ import os
 import sys
 from pathlib import Path
 
-_DB_DEFAULT = "postgresql://seal:seal_memory_2026@100.75.201.110:5433/seal_memory"
+_DB_DEFAULT = "postgresql://seal:REDACTADO@100.75.201.110:5433/seal_memory"
 _SEAL_VERSION = "0.1.0"
 
 
