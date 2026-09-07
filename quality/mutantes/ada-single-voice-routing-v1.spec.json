@@ -1,0 +1,57 @@
+{
+ "change_id": "ada-single-voice-routing-v1",
+ "reviewer": "JARVIS",
+ "manifest": "quality/manifests/ada-single-voice-routing-v1.json",
+ "tests": [
+  [
+   "messages/tests/test_ada_codex_remote_bridge_silence.py"
+  ],
+  [
+   "messages/tests/test_ada_directed_routing.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "routing-sin-terminal-log",
+   "subject": "messages/routing.yaml",
+   "ancla": "    deliver_to: [terminal_log, trigger_ada, web_api]",
+   "reemplazo": "    deliver_to: [trigger_ada, web_api]",
+   "why": "agent_to:ADA vuelve a omitir terminal_log: el DM a ADA no llega al log de su terminal"
+  },
+  {
+   "id": "ack-sin-gracia",
+   "subject": "messages/ada_codex_remote_bridge.py",
+   "ancla": "    0.0, _env_float(\"ADA_BRIDGE_DM_ACK_GRACE_SECONDS\", 10.0)",
+   "reemplazo": "    0.0, _env_float(\"ADA_BRIDGE_DM_ACK_GRACE_SECONDS\", 0.0)",
+   "why": "el ACK sale sin gracia: duplica cuando la respuesta rápida llega"
+  },
+  {
+   "id": "ack-dm-apagado-por-default",
+   "subject": "messages/ada_codex_remote_bridge.py",
+   "ancla": "DM_LIVE_ACK_ENABLED = os.environ.get(\"ADA_BRIDGE_DM_DURABLE_ACK\", \"true\").lower() in {\"1\", \"true\", \"yes\"}",
+   "reemplazo": "DM_LIVE_ACK_ENABLED = os.environ.get(\"ADA_BRIDGE_DM_DURABLE_ACK\", \"false\").lower() in {\"1\", \"true\", \"yes\"}",
+   "why": "el ACK durable vuelve a apagado por defecto"
+  },
+  {
+   "id": "ada-filtra-a-jarvis",
+   "subject": "messages/routing.yaml",
+   "ancla": "    deliver_to: [terminal_log, trigger_ada, web_api]",
+   "reemplazo": "    deliver_to: [terminal_log, trigger_ada, vscode_commands, web_api]",
+   "why": "agent_to:ADA agrega vscode_commands (el canal de JARVIS)"
+  },
+  {
+   "id": "jarvis-filtra-a-ada",
+   "subject": "messages/routing.yaml",
+   "ancla": "    deliver_to: [vscode_commands, web_api]\n",
+   "reemplazo": "    deliver_to: [vscode_commands, trigger_ada, web_api]\n",
+   "why": "agent_to:JARVIS agrega trigger_ada: un mensaje a JARVIS dispara a ADA"
+  },
+  {
+   "id": "reply-id-solo-numerico",
+   "subject": "messages/ada_codex_remote_bridge.py",
+   "ancla": "    references = {str(msg.id), f\"db_{msg.id}\", response_source_id(msg)}",
+   "reemplazo": "    references = {str(msg.id)}",
+   "why": "response_source_ids devuelve solo el id numérico: el in_reply_to db_<id> deja de reconocerse"
+  }
+ ]
+}

@@ -47,6 +47,7 @@ def main(spec_path: str, salida: str) -> int:
         print("[arena] CONTROL ROJO; cola de pytest:\n" + "\n".join(ULTIMA_SALIDA.splitlines()[-25:]))
         raise SystemExit("el CONTROL debe estar verde ANTES de mutar")
     print("[arena] control: VERDE")
+    control = {"rc": 0, "pytest_tail": "\n".join(ULTIMA_SALIDA.splitlines()[-4:]), "sha_sujetos_antes": {m["subject"]: sha(RAIZ / m["subject"]) for m in spec["mutants"]}}
     resultados = []
     for m in spec["mutants"]:
         suj = RAIZ / m["subject"]
@@ -65,10 +66,11 @@ def main(spec_path: str, salida: str) -> int:
         finally:
             suj.write_text(original)
         assert sha(suj) == hashlib.sha256(original.encode()).hexdigest(), f"{m['id']}: el sujeto no quedo restaurado"
+        restaurado = sha(suj) == control["sha_sujetos_antes"][m["subject"]]
         # trazabilidad (pedido ADA 15:48): qué brazos mataron al mutante y la cola de pytest, no sólo el rc
         fallos = [l.split()[1] for l in ULTIMA_SALIDA.splitlines() if l.startswith("FAILED ") and len(l.split()) > 1]
         resultados.append({**m, "registro": registro, "result": "KILLED" if rc else "SURVIVED", "rc": rc,
-                           "killed_by": fallos[:12], "pytest_tail": "\n".join(ULTIMA_SALIDA.splitlines()[-6:])})
+                           "killed_by": fallos[:12], "pytest_tail": "\n".join(ULTIMA_SALIDA.splitlines()[-6:]), "sujeto_restaurado": restaurado})
         print(f"[arena] {m['id']}: rc={rc} -> {'MUERTO' if rc else 'SOBREVIVE'}")
     killed = sum(1 for r in resultados if r["result"] == "KILLED")
     # file_sha256 sobre TODOS los subjects+tests del manifiesto (el gate compara el dict completo)
@@ -77,7 +79,8 @@ def main(spec_path: str, salida: str) -> int:
         man = json.loads((RAIZ / spec["manifest"]).read_text()); files = sorted(set(files) | set(man.get("subjects", [])) | set(man.get("tests", [])))
     ev = {"schema": "seal.mutation-evidence.v1", "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)", "change_id": spec["change_id"], "reviewer": spec["reviewer"], "mutation_target": "arena_aprobada_fable_20260907",
           "tool": "tools/arena_remutar_revisor.py", "killed": killed, "survived": len(resultados) - killed, "total": len(resultados), "no_tests": 0, "skipped": 0, "suspicious": 0, "timeout": 0,
-          "mutation_score_percent": round(100.0 * killed / max(1, len(resultados)), 3), "mutants": resultados,
+          "mutation_score_percent": round(100.0 * killed / max(1, len(resultados)), 3), "control_sujeto_sin_mutar": control,
+          "limpieza": {"sujetos_restaurados": all(r["sujeto_restaurado"] for r in resultados), "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"}, "mutants": resultados,
           "file_sha256": {f: sha(RAIZ / f) for f in files if (RAIZ / f).is_file()}}
     pathlib.Path(salida).write_text(json.dumps(ev, indent=2, ensure_ascii=False) + "\n")
     print(f"[arena] evidencia v2 -> {salida}: {killed}/{len(resultados)} muertos")

@@ -136,5 +136,6 @@
       "expected_exit": 0,
       "expected_stdout_contains": "DELIVERY_OK"
     }
-  }
+  },
+  "_re_mutacion_arena_20260907": "PENDIENTE (JARVIS, revisor, 16:32): el spec ejecutable con los 6 mutantes existe (quality/mutantes/ada-single-voice-routing-v1.spec.json) pero el control es ROJO en la arena: messages/ada_codex_remote_bridge.py fija ROOT = Path('/home/dadito/IA/proyecto-seal') y en la arena el repo vive en /trabajo -> ModuleNotFoundError working_state_journal. No es un defecto del test ni de la arena: es una ruta absoluta cableada en el sujeto. Owner ADA (bloqueada por su guardian): NEXUS aplica el cambio de una linea (ROOT = Path(__file__).resolve().parents[1]) como worker y ADA valida por lectura; despues el revisor re-corre."
 }
