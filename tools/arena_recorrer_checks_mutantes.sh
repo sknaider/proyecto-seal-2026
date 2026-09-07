@@ -15,6 +15,12 @@ for n in pathlib.Path('quality/mutantes/_partes.txt').read_text().split():
     p=pathlib.Path(f'quality/mutantes/{n}.json')
     try: out[n]=json.loads(p.read_text())
     except Exception as e: out[n]={"error":type(e).__name__,"stderr_tail":pathlib.Path(f'quality/mutantes/{n}.err').read_text()[-600:]}
+import os
+# si un check escribe su evidencia a un archivo (p. ej. quality/mutation-<caso>.json) en vez de stdout, SEAL_ARENA_EVIDENCIA lo nombra
+ev=os.environ.get('SEAL_ARENA_EVIDENCIA')
+if ev and pathlib.Path(ev).is_file():
+    try: out['evidencia_escrita']=json.loads(pathlib.Path(ev).read_text())
+    except Exception as e: out['evidencia_escrita']={"error":type(e).__name__}
 pathlib.Path('quality/mutantes/salida.json').write_text(json.dumps(out,indent=1,ensure_ascii=False)+"\n")
 PY
 exit $RC

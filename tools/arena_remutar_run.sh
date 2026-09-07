@@ -24,7 +24,7 @@ chmod 444 "$ARENA/.home/.seal_chat_jwt_secret"; chmod 555 "$ARENA/.home"
 # DSN SENUELO (host 127.0.0.1 puerto 1: no hay DB alcanzable desde la arena). memory/memory_extraction_hook.py lo pide
 # AL IMPORTAR via seal_secrets.pg_dsn; sin el, 4 tests del bundle F2 salen rojos POR ENTORNO y el control no sirve
 # de linea base. Una sola variable corta la cadena PG_PASSWORD -> PG_USER -> ... (ALICE, 7-sep.)
-docker run --rm -i --user 65534:65534 -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/venv/lib/python3.12/site-packages -e HOME=/trabajo/.home \
+docker run --rm -i --user 65534:65534 -e PYTHONDONTWRITEBYTECODE=1 -e SEAL_ARENA_EVIDENCIA -e PYTHONPATH=/venv/lib/python3.12/site-packages -e HOME=/trabajo/.home \
   -e SEAL_DB_DSN=postgresql://arena-senuelo:arena-senuelo@127.0.0.1:1/arena_senuelo \
   -v "$ARENA":/trabajo -v /home/dadito/IA/seal-spark/.venv:/venv:ro -w /trabajo python:3.12-slim \
   ${SEAL_ARENA_CMD:-python3 tools/arena_remutar_revisor.py quality/mutantes/spec.json quality/mutantes/salida.json}; RC=$?

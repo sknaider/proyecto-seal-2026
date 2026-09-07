@@ -1,82 +1,186 @@
 {
   "schema": "seal.mutation-evidence.v1",
-  "tool": "Focused adversarial mutants executed on isolated copies; nonzero harness errors are suspicious, not counted as kills.",
-  "workspace": "MCP reset recovery plus active_recall lessons lane",
-  "killed": 24,
+  "tool": "explicit adversarial mutants on a COPY of memory/mcp_server_v4.py per mutant in a fresh tmp dir, -B, killer = named test rc==1 in subprocess pytest; rc not in (0,1) = suspicious",
+  "workspace": "carril de lecciones de active_recall: _LESSONS_LANE_SQL, _recall_lessons_lane, _format_lessons_section, _LESSONS_LANE_MIN_SCORE",
+  "killed": 19,
   "survived": 0,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
   "timeout": 0,
-  "total": 24,
+  "total": 19,
   "mutation_score_percent": 100.0,
+  "positive_control_unmutated_copy": {
+    "rc": 0,
+    "ok": true
+  },
+  "oracle_negative_control_broken_import": {
+    "rc": 4,
+    "classified_as_killed": false,
+    "ok": true
+  },
   "reviewer": "JARVIS",
+  "notes_defense_in_depth": "el bloque de active_recall que invoca el carril está en try/except (aditivo); no se muta porque su killer requeriría el pool real.",
   "file_sha256": {
-    "memory/mcp_server_v4.py": "d72718ac72d33134e2b083c57e4a65cccce1814b44796214d2561439d6efa9bf",
     "memory/instinct_cron.py": "0a5eecdbb5cebe0d24104ec8c1f25436966c64b0b3bb7c9f2e14e462793da48f",
+    "memory/mcp_server_v4.py": "ae84eb707953ee0b7fb0018afe7e669ebfaa2cace0303e748e8038abbe022ebf",
     "memory/tests/check_mcp_surface_recovery_mutants.py": "9962bc82b39bbe07d7986a5597d4e4fe43932c77a9d6acc62de186b3e56399d1",
     "memory/tests/check_recall_lessons_lane_mutants.py": "8fda6cdbd7add7077b6ed91867a00d85bed9c8e2f5c4eb768dea659263614e8a",
-    "tools/seal_memory_files_ingest.py": "ce3309d8697277fb3110aaf3bdc87f87d55e34db025825984a83f00d7dd729fb",
-    "memory/tests/test_mcp_surface_recovery_20260903.py": "a911ec93957f746133d92a0bbd5f87b448cfb84a57b6d3b5fe1ca8db05faf9ba",
     "memory/tests/test_active_recall_hook.py": "64350b038ff9de0cd665c84894e4b7744ca3ad193ff4d88234cc6034a0584b3c",
+    "memory/tests/test_mcp_surface_recovery_20260903.py": "a911ec93957f746133d92a0bbd5f87b448cfb84a57b6d3b5fe1ca8db05faf9ba",
+    "memory/tests/test_memory_files_ingest_author.py": "af375b27fd7eb2c9483730b9e8366be004b9482d5d0aa71329f1b4289b11d8ee",
     "memory/tests/test_recall_lessons_lane.py": "976aab067d77ceb80a1ee1f24334a20afe1e76b27a35c81be19c89cee44da651",
-    "memory/tests/test_memory_files_ingest_author.py": "af375b27fd7eb2c9483730b9e8366be004b9482d5d0aa71329f1b4289b11d8ee"
+    "tools/seal_memory_files_ingest.py": "ce3309d8697277fb3110aaf3bdc87f87d55e34db025825984a83f00d7dd729fb"
   },
   "detail": {
-    "mcp_surface": {
-      "total": 11,
-      "killed": 11,
-      "survived": 0,
-      "suspicious": 0
-    },
     "lessons_lane": {
       "total": 8,
       "killed": 8,
       "survived": 0,
       "suspicious": 0
     },
-    "positive_controls": [
-      "unmutated MCP recovery 6/6 PASS",
-      "unmutated lessons lane 5/5 PASS"
-    ],
-    "negative_control": "broken import classified suspicious, never as killed",
-    "memory_files_ingest_author_tanda_owner_ADA": {
-      "total": 5,
-      "killed": 5,
+    "mcp_surface": {
+      "total": 11,
+      "killed": 11,
       "survived": 0,
-      "suspicious": 0,
-      "mutantes": [
-        "no lee author del frontmatter (el defecto original)",
-        "idempotencia solo por sha256 (el fix no repararia nada)",
-        "ingested_by vuelve al literal JARVIS",
-        "_norm_author copia el nombre crudo",
-        "el frontmatter pierde prioridad sobre el cuerpo"
-      ],
-      "_nota": "Corridos por ADA sobre copias aisladas en /tmp; el arbol vivo se verifico intacto despues."
-    }
+      "suspicious": 0
+    },
+    "mcp_surface_results": [
+      {
+        "name": "drop-agent-task-update",
+        "status": "killed",
+        "returncode": 1,
+        "tail": "e\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_unit_complete_tool_surface_and_restored_signatures\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_instinct_paths_are_owner_scoped_atomic_and_incremental\n2 failed, 4 passed, 1 warning in 1.19s\n"
+      },
+      {
+        "name": "query-prefix-regression",
+        "status": "killed",
+        "returncode": 1,
+        "tail": "rg/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_positive_recovered_cognitive_and_integrity_contracts\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_negative_known_regressions_are_absent\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_instinct_paths_are_owner_scoped_atomic_and_incremental\n3 failed, 3 passed, 1 warning in 0.82s\n"
+      },
+      {
+        "name": "semantic-band-regression",
+        "status": "killed",
+        "returncode": 1,
+        "tail": "  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_positive_recovered_cognitive_and_integrity_contracts\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_instinct_paths_are_owner_scoped_atomic_and_incremental\n2 failed, 4 passed, 1 warning in 0.88s\n"
+      },
+      {
+        "name": "identity-fail-open",
+        "status": "killed",
+        "returncode": 1,
+        "tail": ": asyncio_mode\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_negative_known_regressions_are_absent\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_instinct_paths_are_owner_scoped_atomic_and_incremental\n2 failed, 4 passed, 1 warning in 1.21s\n"
+      },
+      {
+        "name": "terminal-error-as-success",
+        "status": "killed",
+        "returncode": 1,
+        "tail": "  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_control_terminal_state_distinguishes_declared_errors\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_instinct_paths_are_owner_scoped_atomic_and_incremental\n2 failed, 4 passed, 1 warning in 1.31s\n"
+      },
+      {
+        "name": "drop-ocean-boundary",
+        "status": "killed",
+        "returncode": 1,
+        "tail": "  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_positive_recovered_cognitive_and_integrity_contracts\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_instinct_paths_are_owner_scoped_atomic_and_incremental\n2 failed, 4 passed, 1 warning in 0.92s\n"
+      },
+      {
+        "name": "drop-relationship-boundary",
+        "status": "killed",
+        "returncode": 1,
+        "tail": "  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_positive_recovered_cognitive_and_integrity_contracts\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_instinct_paths_are_owner_scoped_atomic_and_incremental\n2 failed, 4 passed, 1 warning in 0.89s\n"
+      },
+      {
+        "name": "feedback-non-atomic",
+        "status": "killed",
+        "returncode": 1,
+        "tail": "  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_positive_recovered_cognitive_and_integrity_contracts\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_instinct_paths_are_owner_scoped_atomic_and_incremental\n2 failed, 4 passed, 1 warning in 1.06s\n"
+      },
+      {
+        "name": "instinct-cross-owner",
+        "status": "killed",
+        "returncode": 1,
+        "tail": "b/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_mode\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_instinct_paths_are_owner_scoped_atomic_and_incremental\n1 failed, 5 passed, 1 warning in 1.27s\n"
+      },
+      {
+        "name": "send-without-session-key",
+        "status": "killed",
+        "returncode": 1,
+        "tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_instinct_paths_are_owner_scoped_atomic_and_incremental\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_send_user_file_fails_closed_and_routes_explicit_channel\n2 failed, 4 passed, 1 warning in 1.28s\n"
+      },
+      {
+        "name": "cron-full-age-reapplication",
+        "status": "killed",
+        "returncode": 1,
+        "tail": "b/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_mode\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_mcp_surface_recovery_20260903.py::test_instinct_paths_are_owner_scoped_atomic_and_incremental\n1 failed, 5 passed, 1 warning in 1.27s\n"
+      }
+    ],
+    "lessons_lane_results": [
+      {
+        "mutant": "corpus_filter_removed",
+        "test": "test_sql_targets_only_the_lessons_corpus_and_excludes_given_ids",
+        "killed": true,
+        "suspicious": false,
+        "rc": 1,
+        "note": "sin el filtro el carril trae cualquier memoria team"
+      },
+      {
+        "mutant": "scope_filter_removed",
+        "test": "test_sql_targets_only_the_lessons_corpus_and_excludes_given_ids",
+        "killed": true,
+        "suspicious": false,
+        "rc": 1,
+        "note": "traería memorias privadas ajenas"
+      },
+      {
+        "mutant": "exclude_ids_ignored",
+        "test": "test_sql_targets_only_the_lessons_corpus_and_excludes_given_ids",
+        "killed": true,
+        "suspicious": false,
+        "rc": 1,
+        "note": "duplica lo que ya trajo el semántico"
+      },
+      {
+        "mutant": "threshold_disabled",
+        "test": "test_threshold_filters_low_similarity_and_keeps_order",
+        "killed": true,
+        "suspicious": false,
+        "rc": 1,
+        "note": "lecciones irrelevantes ocupan los 3 lugares"
+      },
+      {
+        "mutant": "metadata_str_not_parsed",
+        "test": "test_threshold_filters_low_similarity_and_keeps_order",
+        "killed": true,
+        "suspicious": false,
+        "rc": 1,
+        "note": "metadata como texto pierde descripción"
+      },
+      {
+        "mutant": "section_header_lost",
+        "test": "test_section_format_has_file_author_and_similarity",
+        "killed": true,
+        "suspicious": false,
+        "rc": 1,
+        "note": "sin cabecera la sección se confunde con las memorias"
+      },
+      {
+        "mutant": "empty_returns_section",
+        "test": "test_empty_lessons_produce_no_section",
+        "killed": true,
+        "suspicious": false,
+        "rc": 1,
+        "note": "agregaría una sección vacía en cada recall"
+      },
+      {
+        "mutant": "min_score_drifted_0_80",
+        "test": "test_threshold_filters_low_similarity_and_keeps_order",
+        "killed": true,
+        "suspicious": false,
+        "rc": 1,
+        "note": "0.85->0.80 deja pasar una lección a 0.83 (azar con e5): muere por EFECTO (fixture ALICE)"
+      }
+    ]
   },
-  "mutation_target": "isolated_copy",
-  "revision_independiente_JARVIS": {
-    "_doc": "Bloque del revisor; acompana la evidencia del owner, no la reemplaza. Mutantes sobre COPIA en tempdir.",
-    "canario": "raise al importar tools/seal_memory_files_ingest.py -> 1 error (la suite ejecuta el sujeto)",
-    "ronda_1": {
-      "control": "13 passed",
-      "muertos": [
-        "literal 'JARVIS' en ingested_by (1 failed)",
-        "autor buscado en el BODY (6 failed)",
-        "exige el campo SIN indentar (6 failed)"
-      ],
-      "sobrevivio": "quitar re.I: 'Author:' en mayuscula volvia a unknown y ningun test lo comprobaba"
-    },
-    "ronda_2": {
-      "control": "16 passed",
-      "muertos": [
-        "sin re.I (2 failed)",
-        "literal JARVIS (1 failed)",
-        "autor en el BODY (9 failed)"
-      ],
-      "resultado": "3 de 3; el sobreviviente de la ronda 1 ahora muere"
-    },
-    "atribucion": "el manifiesto declaraba independent_reviewer=JASON; me negue a firmar bajo un nombre ajeno y el owner lo corrigio a JARVIS"
-  }
+  "tmp_dir": "/tmp/seal-mutants-lessons-lane-bapzwhsa",
+  "mutation_target": "arena_aprobada_fable_20260907 (ambos arneses del manifiesto corridos dentro del contenedor uid 65534)",
+  "_recorrida_20260907": "Re-corrida por el revisor JARVIS en la arena aprobada por FABLE tras el cambio autorizado de mcp_server_v4.py (0ac4bdf, G2 en el arranque). Arneses: memory/tests/check_recall_lessons_lane_mutants.py y check_mcp_surface_recovery_mutants.py (propios del manifiesto)."
 }
