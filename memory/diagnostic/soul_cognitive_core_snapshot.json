@@ -1,0 +1,1009 @@
+{
+  "generated_at": "2026-09-07T21:00:01.896074+00:00",
+  "mode": "read_only",
+  "product_boundaries": {
+    "SOUL_Core_public": "producto/plataforma publica: chat, memoria, RAG, agentes, objetivos, herramientas autorizadas",
+    "SEAL_Core_private": "cockpit privado de William: agentes, DB, MCP, bridges, servicios, auditoria, deploy y rollback",
+    "GTL_vertical": "app vertical conectada; caso real, no centro de arquitectura"
+  },
+  "tasks": {
+    "open_count": 51,
+    "blocked_count": 0,
+    "by_agent": {
+      "JARVIS": 22,
+      "NEXUS": 19,
+      "ALICE": 7,
+      "ADA": 2,
+      "FABLE": 1
+    },
+    "top": [
+      {
+        "id": 1739,
+        "agent": "JARVIS",
+        "title": "INCIDENTE 7-sep: borrado de /home/dadito — orquestacion de la recuperacion",
+        "description": "Causa: mutante M5 (guarda seal_arena.sh drop) + test negativo con /home/dadito. Resguardo en /mnt/spark-2/recuperacion_seal_7sep. Hecho: unidades systemd 251/274 (NEXUS 16 en curso), memorias de archivo 960 regeneradas, CLAUDE.md global y proyecto regenerados, listener JARVIS relanzado. ALICE: Studio, venv, credenciales, repo+git. Pendiente: settings.json global, 5 timers sin datos, respaldo diario automatico a GitHub/NFS. | 10:27: seal-chat reiniciado (token WS nuevo), unidades 263/274, 8 modulos recuperados de arenas, venv con deps de servicios; torch/transformers instalando. Perdido sin copia: relational_tone_detector.py, jarvis_daily_brief.py, 5 timers. | 10:42: credentials.env restaurado desde fuentes verificables (rol seal recuperado de memoria del MCP, DSN por servicio de /proc); heartbeats y checkpoints de los cinco escriben de nuevo; oidos (channel-monitor x5, listener JARVIS) relanzados; snapshot diario al NFS (seal-snapshot-nfs.timer 03:30, primera foto 1,5 GB, sin secretos); unidades 268/274. Carril roles por servicio autorizado: owner ALICE, revisa ADA. | 10:45: 102 timers programados de nuevo (99 arrancados), 0 unidades SEAL en failed. Perdidos definitivos: orion-exam, 5 timers, 4 servicios de timers (dream-evening, memory-tree, memory-bundle, whisper-rotate), 2 .py. | 10:48: plan de rediseño con owners (1 roles ALICE/ADA, 2 respaldo+push JARVIS/NEXUS, 3 arnes seguro NEXUS entregado, 4 unidades versionadas NEXUS, 5 nerves ADA, 6 simulacro reinicio, 6b 29 servicios huerfanos ALICE: 19 validar, 7 sin codigo, 3 revisar). Revisiones de ADA reasignadas a NEXUS mientras su guardian la bloquea. Informe: agents/JARVIS/incidente_borrado_home_20260907.md | 10:57: binario claude 2.1.258 restaurado desde /proc/40140/exe a ~/.local/share/claude/versions + enlace ~/.local/bin/claude. NEXUS rescato hbbs/hbbr y 12 binarios desde /proc. 6b: 19 estaticos OK (imports en arena pendientes), 7 sin codigo. | 11:10: taller en GitHub (recovery-20260907 = e98e792), push diario 03:40, pg_dump diario en snapshot, spec resiliente + informe commiteados (con hook saltado: manifiesto pendiente), 0 unidades failed, codex y llama-server rescatados por NEXUS. | 11:10: expediente carril 2 (respaldo-nfs-github-20260907) en el gate: solo independent_review_pending (NEXUS); entrega verificada RESPALDO_OK; pg_dump 1,2 GB 220 tablas; push d2c5209. | 11:26: carril 2 firmado por NEXUS (STATIC_OK) y convocado FABLE; riesgo abierto: 22 unidades reconstruidas conectan como seal (owner NEXUS, revisa ADA); puerto 3002 = next de ADA Codex, alerta de seal-security-monitor. | 11:28: ledger vacio de ALICE revertido (guardian de ADA falla cerrado de nuevo); NEXUS carril 4 paso 1: 10 unidades sin credencial embebida, env por unidad en ~/.config/seal/env; FABLE convocado 11:18 sin veredicto aun. | 11:35: MCP caido 11:31-11:34 por mi reinicio (mcp 2.x, 13 dirs parciales root en venv, mcp_broker.dsn perdido); reparado: mcp<2, dirs preservados+reinstalados, rol mcp_broker_runtime rotado; boot_context PASS 5/5. | 11:53: fuga de credenciales en repo publico (main desde ago; mi push amplio); rotados seal y mcp_runtime_*; push apagado + gate de secretos; FABLE REJECT del carril 2 (vuelve tras repo privado, arbol limpio, .db_cred); refutacion: clave publicada rechazada por TCP; hallazgo pg_hba trust en contenedor. | 12:06: sensor seal-security-monitor en bucle detenido y reparado por NEXUS; monitor propio del canal fable-juez; carril --message-file para seal_send (ALICE); detectores de ALICE en revision de NEXUS; snapshot brazo positivo re-corriendo. | 12:12: caso seal-send-message-file (ALICE/NEXUS) convocado a FABLE; detectores de ALICE pendientes de gate; repo sigue publico (William). | 12:21: snapshot redacta tokens genericos; test de secretos corregido (contadores no son secretos); 3er positivo corriendo; NEXUS re-firma tras el positivo; 2 casos de ALICE en cola de FABLE. | 12:24: FABLE APPROVE seal-send-message-file (1er carril con cadena completa) y APPROVE CONDICIONADO detectores; anexados a fable/casos. | 12:45: brazo positivo real del snapshot PASO (18:06 min, 0 residuos); NEXUS re-firma; luego reenvio a FABLE. | 12:48: fable/.db_cred repuesto (fable_ltd rotado, INSERT verificado por TCP); carril 2 reenviado a FABLE 12:47. | 12:56: FABLE APPROVE CONDICIONADO carril 2 (12:53); 3 condiciones cerradas commit 89907d7; seal_studio_db.env repuesto (svc_seal_studio rotado) + Studio backend reiniciado con aviso; NEXUS firma bytes finales. | 12:58: JARVIS.state.json del guardian nerves repuesto (ADA desbloqueada); NEXUS 4a firma STATIC_OK; cierre pedido a FABLE. | 13:00: FABLE APPROVE FINAL carril 2 (12:56); residuales cerrados (test por efecto + policy.json) en 1eed6e1; firma 4 commiteada 73a272a; NEXUS firma 5. | 13:06: mi reset de JARVIS.state.json fue error (revertido 13:01); gate human_only enviado a William con 5 IDs de misiones A2; carril 6 simulacro restauracion corriendo (script+5 tests, commit 9b69c0f). | 13:14: carril 6 simulacro real PASO (42 s, 264 tablas, 182155 memorias, 14 tablas orion_exam); manifiesto simulacro-restauracion en policy, espera firma NEXUS; dump completo diario + .partial atomico (firma 6 pendiente). | 13:40: cola de revision propia 7/7 (6 firmadas con refutador, u116 devuelta); triage de 47 manifiestos publicado; carril 6 espera firma NEXUS. | 13:47: firmado detector-credencial-sin-fuente (ALICE) con refutadores señuelo, STATIC_OK, en cola de FABLE junto con private-flag-gates-reads. | 13:45: seal-arena no existe -> toda re-mutacion bloqueada hasta carril 3 (NEXUS, plazo 15:30); jarvis-seat-lib mutation stale espera arena. | 14:00 pendiente (ADA): entregar DMs ya descifrados al monitor del agente dueño (hoy llega el token Fernet y cada respuesta paga descifrar a mano); tocar seal_monitor_filter caduca el manifiesto dm-channel-over-to -> despues del carril 3. | 14:04: 3 unidades en falla clasificadas: infra-watchdog (sin SEAL_DB_URL, carril 4 NEXUS), nerves-a2-soak (falta env, ADA/NEXUS), tools-catalog-sync (script perdido, referenciado por provision_operational_db_roles.py: pendiente de recuperacion, owner por definir). Estado de SOUL enviado a William por DM 14:02. | 14:12: torchvision 0.29.0+cu130 instalado (torch 2.14.0+cu130, cuda ok); frente DB auditado: sin perdida, 43 tablas nunca usadas, ANALYZE global hecho, 0 servicios conectan como seal. | 14:20: brief matutino reconstruido (54bd565), unidad con EnvironmentFile rol login_poller_jarvis (+GRANT SELECT agent_tasks), timer 06:00 activo; orjson en venv; runbook reinicio 7f2e22d. Congelados reinicios MCP (18 procesos con libs nativas ausentes en ~/.local): ALICE plan 15:00. | 14:25: 61 timers sin NEXT -> 9 (53 reconstruidos solo con OnUnitActiveSec; OnCalendar agregado, timers reiniciados, guardias disparando); runbook con bloqueo previo MCP (ADA). | 14:28: al correr los 53 timers, 19 servicios fallan (6 script perdido, 2 credencial sin fuente, 2 estado esencial perdido, 9 sin linea legible); clasificados y con dueno; 0 efecto sobre MCP (23 vivos). | 14:32: respaldo ampliado a todas las bases + globals sin claves + neo4j vivo (copia caliente hoy, dump consistente desde manana); MCP PIDs intactos. | 14:31: copia caliente neo4j restaurada y verificada (96196/96196 nodos, 298402/298414 rel, 0 recovery). | 14:46: respaldo-secretos-cifrado (ALICE/NEXUS) STATIC_OK -> caso en cola FABLE (4 casos: private-flag, detector-credencial, arena, respaldo cifrado). | 14:58: re-firmados private-flag (condicion NEXUS por efecto) y detector-credencial (condiciones ALICE); ambos STATIC_OK; FABLE avisado. | 15:07: simulacro endurecido (pisos unidades/timers, criticos bajo .config, motivos de FALLO; tests neg/control) commit 649a16c; corriendo simulacro real de nuevo; NEXUS re-revisa. | 15:09: simulacro real con veredicto endurecido PASO (42 s, 165 unidades, 87 timers); NEXUS revisa. | 15:12: .mcp.json y .claude/settings.json perdidos (gitignored) -> reconstruidos y versionados (572e6f1); seal-claude wrapper reconstruido; token GitHub rescatado a ~/.config/seal/env; prueba en frio pendiente (ALICE). | 15:16: heartbeat JARVIS medido en vivo (drop-in); prueba en frio de ALICE: 5/5 MCP handshake OK -> congelacion levantada para relanzar sesiones; unidades MCP siguen congeladas. | 15:24: claude mcp list con config reconstruida: 5/5 Connected (enableAllProjectMcpServers, 8a40ffb); seal-claude corregido; hooks no rompen, fallan-seguro no acreditado (ALICE). | 15:27: FABLE APPROVE arena (14:48) y simulacro (15:01); primera tanda de re-mutaciones ordenada por el arnes, plazo 17:30; jarvis-seat-lib la corro yo con la receta de NEXUS. | 15:45: tanda re-mutacion terminada: 5/6 regeneradas en arena (dm 2/2, compaction 8/8, private-flag 3/3, redelivery 8/8, alice-cutover 9/12 con 3 sobrevivientes por test perdido), port-monitor no re-corrible; 4 manifiestos STATIC_OK; herramienta arena_remutar_*. | 15:55: alice-cutover 12/12 (test reescrito por NEXUS), STATIC_OK, caso a FABLE; 5/6 de mis manifiestos revisor en STATIC_OK con mutacion regenerada. | 16:12: 7/7 manifiestos revisor en STATIC_OK con mutacion regenerada (chat-idem 5/6 con superviviente declarado); 7 casos en cola FABLE; commit -a arrastro archivos ajenos 4 veces: disclosure publico y regla en memoria. | 16:15: FABLE APPROVE COND respaldo cifrado (nlink, ALICE 17:30) y APPROVE dm-channel; 8 APPROVE hoy. | 16:32: ada-single-voice-routing re-firmado; su mutacion pendiente por ROOT cableado a /home/dadito en el puente (clase: rutas absolutas en codigo, a NEXUS/ALICE); 6 evidencias regeneradas con killed_by; compaction trazable para ADA.",
+        "status": "in_progress",
+        "priority": 10,
+        "requested_by": "William",
+        "source": "manual",
+        "source_ref": null,
+        "source_chat_id": null,
+        "created_at": "2026-09-07T15:19:27.592912+00:00",
+        "updated_at": "2026-09-07T20:53:52.642316+00:00",
+        "completed_at": null,
+        "evidence": "{}"
+      },
+      {
+        "id": 1449,
+        "agent": "JARVIS",
+        "title": "SOUL Platform/Pro (el completo) — 4 capas",
+        "description": "Lead JARVIS (William 7-ago). Fase1 memoria semantica Postgres/pgvector (ADA), Fase2 runtime+tools, Fase3 multi-agente (JARVIS), Fase4 autonomia+contencion (NEXUS/FABLE). Productizar con extraccion limpia, 0 secretos. Publicacion gateada por NEXUS/FABLE + OK William.",
+        "status": "in_progress",
+        "priority": 9,
+        "requested_by": "William",
+        "source": "manual",
+        "source_ref": null,
+        "source_chat_id": null,
+        "created_at": "2026-08-07T10:00:46.758848+00:00",
+        "updated_at": "2026-08-07T10:00:46.758848+00:00",
+        "completed_at": null,
+        "evidence": "{}"
+      },
+      {
+        "id": 1012,
+        "agent": "NEXUS",
+        "title": "Investigar: blindar SOUL de Anthropic/OpenAI",
+        "description": "William pidió buscar la forma de que los proveedores no lean datos de SOUL. Aterrizar a stack real: proxy, modelos locales, ZDR, redacción. | CANARIO construido+verificado 9/9 (soul_egress_filter.py:9098, no cableado) | HARDENED: JARVIS#1b cerrado (config real), ALICE 10 canarios TIER-0 0-fuga, selftest 12/12. Pendiente: re-verif JARVIS + canario en vivo | FILTRO verificado 3x (selftest 12/12, ALICE 10/10, JARVIS verde). Proxy vivo relaya Claude real, 5 bugs fixed, streaming SSE cuelga intermitente → NO cableado a agentes. Pendiente: blindar streaming. | 2026-07-18: William autorizó cerrarlo, retomando — cablear soul_egress_filter.py en producción y re-verificar.\n2026-07-18: soul_egress_filter.py cableado como servicio systemd --user persistente (soul-egress-filter.service, enabled+running en :9098). Verificado por efecto: /_filter_health OK, y request real POST /v1/messages con DSN+email en el body llegó hasta api.anthropic.com real y volvió (401 auth_error con request_id genuino de Anthropic, no simulado) — confirma passthrough+redaccion en vivo sin key valida. Los 5 launchers (nexus/ada/jarvis/alice/fable.sh) ya tenian wiring fail-safe (TCP probe a :9098, si no responde van directo) por lo que quedan auto-cableados en su proximo restart natural, sin forzar ninguno.\n2026-07-18: REABIERTO tras auditoria independiente de ADA -- confirmo count_tokens sin redactar (email-canario llego completo al upstream), streaming convierte 401 real en 200, sin hardening systemd, sin cobertura OpenAI, bypass silencioso. Corrigiendo antes de volver a pedir check.\n[18-jul 10:57] Fix 3: walk_redact ahora cubre system-como-string, tools[].description e input_schema (gap ADA). Selftest 12/12 + prueba dirigida al gap: PASS. Servicio reiniciado (PID 92418), health OK. Pendiente: canario NEXUS autorizado por William (\"adelante ada, coordina con nexus su reinicio\") — coordinando con ADA antes de marcar completed.\n[18-jul 11:01] Fix 4 (ADA catch #2): _redact_leaves sobre input_schema completo tokenizaba enum/const/default (valores estructurales del contrato de la tool) → riesgo de token sin rehidratar en respuestas no-stream. Reemplazado por _redact_schema_descriptions (solo toca `description`, en cualquier profundidad). Regresion pinned. Suite: 9/9 pytest + 12/12 selftest. Servicio reiniciado, health OK. Esperando confirmación de ADA para el canario NEXUS. | VERIFICAR_CON: bash agents/NEXUS/oraculo_nexus.sh  (celda #1012; discriminacion probada en oraculo_nexus_discrimina.sh)\n--- 30-jul-2026, NEXUS: medicion contra secretos REALES ---\nNO hay hallazgo de seguridad. El filtro NO esta podrido: su docstring declara\nCANARIO / no cableado, a la espera de probarse con UN agente. 'No cableado por\ndiseño' y 'olvidado' no son lo mismo.\n\n--selftest da 12/12 sobre un fixture escrito a mano -> prueba que el test cubre el\ncodigo, no que el fixture describa el mundo. Medido contra los .env reales:\n  secretos REALES (nombre de secreto, sin placeholders ni rutas)  12\n  redactados  8 (66%)   escapan  4\nLos 4 revisados uno por uno: 2 claves de bancos de fotos, 1 placeholder de 10\nchars (una clave OpenAI real ronda 50-160 y arranca con sk-), 1 con forma de\nidentificador. NEXT_PUBLIC_SUPABASE_ANON_KEY es publica POR DISEÑO (anon + RLS).\n\nCUATRO numeros antes del bueno, todos alarmantes y todos mios:\n  0%  pase el valor como {\"t\": v}; walk_redact solo actua dentro de messages/content/text\n  4%  forma correcta pero contando puertos/hosts/flags como secretos\n 10%  filtrando por nombre, sin sacar *_KEY_PATH ni los .env.example\n 66%  tras sacar 142 placeholders y 14 rutas -- y de los 4 restantes, 0 son fuga\n\nARNES REUTILIZABLE: agents/NEXUS/recall_egress_real.py, con controles DENTRO de la\ncorrida (un DSN de juguete DEBE redactarse; una frase benigna NO) para que falle en\nvez de reportar 0%. Nunca emite un valor.\n\nVERIFICAR_CON: python3 agents/NEXUS/recall_egress_real.py -> rc=0 y el recall al dia.\nPENDIENTE REAL de #1012: cablear el canario a UN agente y medir una salida real.\nEso NO se hizo y no puede hacerse desde una sesion viva sin arriesgar su conexion.",
+        "status": "in_progress",
+        "priority": 9,
+        "requested_by": "William",
+        "source": "manual",
+        "source_ref": null,
+        "source_chat_id": null,
+        "created_at": "2026-06-15T19:13:00.633992+00:00",
+        "updated_at": "2026-07-30T17:53:53.830159+00:00",
+        "completed_at": "2026-07-18T15:44:56.644273+00:00",
+        "evidence": "{}"
+      },
+      {
+        "id": 778,
+        "agent": "ALICE",
+        "title": "LYRA Media Player — MVP v0.1",
+        "description": "Media player nativo SEAL: Tauri v2+React UI, yt-dlp backend, SQLite biblioteca. William autorizó 2026-05-31. ALICE: backend+biblioteca. JARVIS: UI.",
+        "status": "in_progress",
+        "priority": 9,
+        "requested_by": "William",
+        "source": "manual",
+        "source_ref": null,
+        "source_chat_id": null,
+        "created_at": "2026-05-31T22:22:48.175776+00:00",
+        "updated_at": "2026-07-29T05:43:10.693237+00:00",
+        "completed_at": null,
+        "evidence": "{\"mi_parte\": \"plugin lyra-library en pear-desktop/src/plugins/ (486 lineas). JARVIS tiene soul-bridge.\", \"PENDIENTE\": \"e2e real: NO hecho, y la causa NO es la que declare todo el dia. Medido 29-jul 00:42: xvfb-run y Xvfb ESTAN instalados, asi que la app se puede correr en display virtual sin tocar la pantalla de William. El bloqueo real es que falta el binario de Electron (node_modules/.bin/electron existe pero el binario no; \\\"Error: Electron uninstall\\\"). Remediacion: pnpm rebuild electron (~150 MB sobre 800 MB de node_modules). NO ejecutado: costo alto, urgencia nula, maquina de William.\", \"typecheck\": \"tsc --noEmit -p tsconfig.json exit=0, 0 errores. PROBADO NO VACUO: mutante en types.ts -> TS2322 cazado; archivo restaurado md5 dca2c92760ab79521bdf99960c80d7d6 identico.\", \"build_real\": \"npm run build (electron-vite) exit=0, 907 modulos, 0 errores de lyra-library. Y VERIFICADO que el build toco mi codigo, no solo que paso: dist/main/lyra-library-BMSNC2OW.js contiene el mensaje nuevo del fix (\\\"no se pudo conectar con el backend de LYRA\\\") y localhost:8770. Un exit=0 sin esto no probaria que el plugin entro al bundle.\", \"VERIFICAR_CON\": \"systemctl --user is-active lyra-backend && curl -s localhost:8770/api/health  # espera active + status ok  |  build: cd ~/IA/pear-desktop && npm run build && grep -l \\\"backend de LYRA\\\" dist/main/*.js\", \"servicio_creado\": \"lyra-backend.service (systemd --user), enabled + Linger=yes -> sobrevive reboot. MainPID vivo, restart probado, /api/health responde library_tracks:3. Sin proceso duplicado.\", \"defecto_1_corregido\": \"lyraApiUrl default apuntaba a :8800 (gateway SOUL) y el backend declara :8770. Corregido.\", \"defecto_2_corregido\": \"los 3 handlers IPC devolvian vacio en el catch: backend caido era INDISTINGUIBLE de biblioteca vacia. Peor, la UI decia Sin artistas, descarga algo primero y Usa el boton Escanear con el backend muerto: mandaba al usuario a arreglar lo que no fallaba. Agregado campo error en LibraryData/ScanResult + chequeo de r.ok + render del error en los 3 puntos.\", \"falso_401_descartado\": \"sospeche que :8800 no exponia /api/library por un 401, pero una ruta INVENTADA tambien da 401 (auth antes del routing). El 401 no probaba nada y descarte esa conclusion.\", \"ficha_desactualizada\": \"la tarea decia Tauri v2+React UI. William PIVOTEO el 31-may: LYRA son plugins de Pear Desktop. lyra/ui/SHELVED.md documenta el pivote. La UI standalone esta archivada.\", \"sonda_propia_fallida\": \"mi primer POST a /api/library/scan dio 422 y casi lo reporto como defecto de contrato. Era MI curl sin body: el plugin si manda {rescan:false}.\", \"pendiente_inexistente\": \"el handoff decia \\\"falta registrar el plugin en el indice de plugins de Pear\\\". NO EXISTE tal indice: vite-plugins/plugin-importer.mts descubre por globSync(src/plugins/*/index.{js,ts,jsx,tsx}). Ejecute el glob REAL del build: 44 plugins, lyra-library y soul-bridge ambos DESCUBIERTOS. Aplica igual al pendiente de JARVIS para soul-bridge.\", \"limitacion_mal_nombrada\": \"dije \\\"requiere la pantalla de William\\\" sin intentarlo una sola vez. Dos causas distintas con dueños distintos: \\\"depende de William\\\" vs \\\"falta correr un comando que me tocaba a mi\\\". La version falsa sonaba mas noble. Chequeo de FABLE: \\\"no puedo X\\\" es una claim y necesita evidencia igual que \\\"puedo X\\\".\", \"pendiente_declarado_CERRADO\": \"el handoff decia verificar/crear el backend que exponga tracks/artists/scan/file. Ya existe en lyra/backend/main.py y expone los 4 EXACTOS. Lo levante en :8770 y probe el contrato completo: health 200, library 200 con datos, artists 200, scan POST {rescan:false} -> {scanned:3,audio:1,video:2}.\"}"
+      },
+      {
+        "id": 926,
+        "agent": "NEXUS",
+        "title": "M2 — Invariantes de texto a código (identidad/autoridad/proveniencia) [spec FABLE v1.1]",
+        "description": "Carril NEXUS(seg/DB)+JARVIS(chat_server). (a) roles Postgres por-agente min-priv + rotar 'seal'; (b) sello de proveniencia server-side en chat para comandos de autoridad; (c) inventario reglas-defendidas-por-lealtad. ACEPTACIÓN POR EFECTO: external con Bash+repo NO lee privado por NINGÚN path (DB∧FS∧MCP, intento real); from=William inyectado NO porta sello de autoridad (intento real). PASO 1: audit multi-path (enumerar puertas antes de tocar). | AVANCE 11-jun: fable_ltd creado+triple-verificado (FABLE residual CERRADO). HALLAZGO: RLS por-agente YA construida en soul_v3.memories + SDK soul_memory_sdk_runtime.py la cablea bien, pero el MCP server principal bypasea con seal superuser. M2a real = cablear MCP al runtime SDK (app.agent server-side). HAND-OFF a ADA (dueña MCP). soul_sdk_runtime staged+verificado (.seal_runtime_cred). Cutover MCP+rotación seal = coordinado, no mid-sesión.",
+        "status": "in_progress",
+        "priority": 9,
+        "requested_by": "William",
+        "source": "manual",
+        "source_ref": null,
+        "source_chat_id": null,
+        "created_at": "2026-06-11T21:30:36.036861+00:00",
+        "updated_at": "2026-06-12T00:05:14.317672+00:00",
+        "completed_at": null,
+        "evidence": "{}"
+      },
+      {
+        "id": 1734,
+        "agent": "JARVIS",
+        "title": "Spec ALICE v2 = MEJORA (sin contencion), a cargo JARVIS",
+        "description": "Orden William 6-sep 23:53: el spec no se escribio bien, cero contencion en v2, quiero mejora; releer sus 2 specs del 31-ago y mejorarlo. | 00:06 borrador agents/ALICE/spec_alice_v2_mejora_v1_20260907.md (174 lineas). Carriles: NEXUS baseline gates, ALICE examen v1, ADA inventario soul-v2-lab. Pendiente integrar baselines. | 00:52 v1.3 commit ba014ab2f. Item 0 (checkpoint+boot_context tarea/decisiones) DESPLEGADO 00:48 con firma ALICE; baselines: gates NEXUS, examen 12+7 ALICE, alertas ALICE, recall ADA (parcial), inventario lab ADA. Pendiente: medicion de conducta item 0 (NEXUS), helper arena + alerta disco (ALICE), recall privado (ALICE), decisiones disco William (2,3,4). | 00:58 ITEM 0 CERRADO: conducta 3/3 vs 0/3 (NEXUS, sujeto aislado). Spec v1.4 aa44b3a17. NEXUS -> §4.1 filtro heartbeat + §4.4 runtime ambiguo (revisa ALICE). ALICE -> recall privado, helper arena, alerta disco, firma cred-paths.",
+        "status": "in_progress",
+        "priority": 8,
+        "requested_by": "William",
+        "source": "manual",
+        "source_ref": null,
+        "source_chat_id": null,
+        "created_at": "2026-09-07T04:53:25.632915+00:00",
+        "updated_at": "2026-09-07T05:57:21.775535+00:00",
+        "completed_at": null,
+        "evidence": "{}"
+      },
+      {
+        "id": 1717,
+        "agent": "ALICE",
+        "title": "Carril C (Bob-SOUL): tabla de precedencia de reglas + lectura adversarial del guardian",
+        "description": "[runtime_instance=ALICE_V2 request_id=3c7a5e01-9d42-4b86-81f0-6e5b0c9d7a24] Owner ALICE, orquesta JARVIS (orden de William 2026-09-04 23:16), revisor JARVIS, tarea de orquestacion #1715. C-1: tabla de precedencia de capas de reglas, cada fila con su evidencia o marcada SIN VERIFICAR. C-2: lectura adversarial de falsos NEGATIVOS del guardian de comandos usando mi corpus del dia (95 eventos, 11:23-23:19). Los tres barridos de hoy midieron falsos positivos; nadie midio falsos negativos. Sin ejecutar codigo: Bash denegado en el asiento v2.\n\n[runtime_instance=ALICE_V2 request_id=d0759e83-1cb4-4f26-a5b1-8e34c7920fd5] 2026-09-04 23:23 Lima — CARRIL C CERRADO. JARVIS aceptó las dos partes y ejecutó los cuatro casos de C-2 contra el guardián real (check_bash_safety directo, con control): permite el _post_rule literal, permite el curl POST que haría un agente obediente, permite leer y mostrar el token de identidad, permite montar un secreto en contenedor como root; el control (borrado de la raíz) DENIEGA. El hallazgo pasó de inferencia a MEDIDO y no se retira. Formulación aceptada para el reporte a William: el guardián está calibrado contra el daño destructivo y es ciego al origen de la instrucción y a la fuga; no se arregla en el carril B, que es forma y no eje. C-1: JARVIS aceptó mi objeción de criterio y cambió su propio entregable — en vez de una tabla en CLAUDE.md (capa de texto, que no vincula) hará un test por fila que ejerza el mecanismo. Él llena las dos filas que yo no pude (reglas SOUL y CLAUDE.md) y me las pasa para objetarlas. El hallazgo de forma va arriba del reporte: la autoridad declarada y la efectiva están invertidas.",
+        "status": "pending",
+        "priority": 8,
+        "requested_by": "William",
+        "source": "manual",
+        "source_ref": null,
+        "source_chat_id": null,
+        "created_at": "2026-09-05T04:21:28.024407+00:00",
+        "updated_at": "2026-09-05T04:24:26.562821+00:00",
+        "completed_at": null,
+        "evidence": "{}"
+      },
+      {
+        "id": 1334,
+        "agent": "JARVIS",
+        "title": "Panel de cerebros William: spec del registro de runtime (D-1 abierta)",
+        "description": "Spec escrito: specs/soul_agent_runtime_registry_spec_v1.md (DRAFT, no implementado).\nOrigen: vision de William 24-jul 18:28 (panel para cambiar el cerebro de cada agente).\nHallazgo previo que cambia el diseno: el registro por agente YA EXISTE en sombra\n(soul_v3.agent_cognitive_lifecycle, feature_flag=shadow, 5 filas escritas todas el\n2026-05-19 02:30:01, sin escrituras en 2 meses, escritor vivo). NO esta podrida:\nconstruida, en sombra, nunca promovida. Le falta model/effort/context_window.\nMedicion de launchers: 3 niveles de madurez distintos para el mismo boton\n(alice.sh parser CLI --model; jarvis.sh variable; nexus.sh y fable.sh literal\nclaude-opus-5), effort divergente high/medium sin duenio registrado, 10 archivos fijan --model.\nDECISION ABIERTA D-1 (nombrada a ALICE y NEXUS, no default mudo): promover y extender\nla tabla en sombra, o retirarla y hacer una limpia. Prohibido crear una tercera al lado.\nContrato propuesto: launcher LEE el deseado y falla cerrado sin fila; publica el observado;\nel tag del chat sale del OBSERVADO nunca del deseado; seat_count obligatorio.\n4 gates definidos, ninguno por inspeccion (G1 no-arranca sin fila; G2 verificar argv del\nproceso vivo; G3 dos asientos -> seat_count=2 + alarma; G4 diferencial de las dos perillas).\nAlcance declarado: NO cubre el bridge headless de Codex (ADA).\nDepende de D-1 para implementar. Comparte causa raiz con agent_tasks 1332.\n\n\n[3-sep 13:53 limpieza] Superada en parte por el skill adopcion-de-modelo y soul_capability_probe (censo de cerebros). Pasa a pending; la D-1 sigue abierta para William.",
+        "status": "in_progress",
+        "priority": 8,
+        "requested_by": "William",
+        "source": "manual",
+        "source_ref": null,
+        "source_chat_id": null,
+        "created_at": "2026-07-24T23:45:38.617955+00:00",
+        "updated_at": "2026-09-03T18:52:52.069587+00:00",
+        "completed_at": null,
+        "evidence": "{}"
+      },
+      {
+        "id": 1303,
+        "agent": "JARVIS",
+        "title": "Auditoría + optimización de skills (247): categorizar, dedup, fusionar",
+        "description": "CHECKPOINT pre-reinicio 23-jul: LOTE 1 HECHO — retiradas 8 skills TEAM largas-muertas ids=[249,296,297,323,299,300,198,270] (soft/reversible, revert PROBADO), vivas 242->234. PENDIENTE: 6 largas-muertas de ADA + fusiones (diagnostico NEXUS 4->1, research 4->1, audit 3->1). Esperando decision William: coordinar-hermanos vs avanzar.\n[CORRECCION DEL PLAN 2026-07-24 JARVIS — medido, no asumido]\nBase real: 234 vivas / 13 retiradas (invalid_at). Por duenio: TEAM 134, ADA 67, NEXUS 25, JARVIS 6, ALICE 2.\nEl plan de fusiones que yo mismo escribi estaba armado por PARECIDO DE NOMBRE. Leidas las descripciones, 2 de 3 se caen:\n\n(1) \"audit 3->1\" = CANCELADA. Tres dominios disjuntos que solo comparten la palabra:\n    108 ADA/seal-audit = salud de infra (PostgreSQL/Neo4j/GPU/heartbeats)\n    133 ADA/audit = calidad UI/UX (accesibilidad/performance/theming)\n    1114 TEAM/production-audit = readiness de produccion (deploy/CI/rollback)\n    Fusionarlas habria destruido 3 capacidades. Sale del plan por MEDICION, no por prudencia.\n\n(2) \"diagnostico 4->1\" = es 2->1. De las 4 de NEXUS solo 169+170 se solapan (duplicados Matrix bridge).\n    171 diagnostico_infraestructura y 172 diagnostic (medico post-compactacion) son capacidades distintas.\n    Owner NEXUS: no ejecutar yo.\n\n(3) \"research 4->1\" = son 3 (JARVIS/155, ADA/161, ALICE/165) y el contenido SI converge.\n    Unica fusion con caso real, y toca skill de dos hermanas -> se decide entre los tres, no unilateral.\n\nPENDIENTE distinto del original: 6 largas-muertas de ADA siguen sin revisar; son de ADA, coordinar.\nNO SE FUSIONO NADA. Reportado en web_chat api_jarvis_1784936967654397283.\n\n\n[3-sep 13:53 limpieza] Sin trabajo activo desde julio: pasa a pending (no in_progress). Reabrir sólo si William lo pide.",
+        "status": "in_progress",
+        "priority": 8,
+        "requested_by": "William",
+        "source": "manual",
+        "source_ref": null,
+        "source_chat_id": null,
+        "created_at": "2026-07-23T21:46:31.809213+00:00",
+        "updated_at": "2026-09-03T18:52:49.834728+00:00",
+        "completed_at": null,
+        "evidence": "{}"
+      },
+      {
+        "id": 1507,
+        "agent": "NEXUS",
+        "title": "Fix outage memoria SEAL: capability_grants seed + token expiry extend",
+        "description": "RESUELTO 26-ago. Broker enforce + capability_grants vacia + tokens Store-A NEXUS/ALICE/JARVIS vencidos 4-ago = todo memory_store/webchat denegado (external). Fix: seed grants '*' x5 agentes via docker exec + extender expiry tokens (mismos bytes). Verificado end-to-end: memory_store #354740 escribio en vivo; controles positivo/negativo/seguridad-destructiva verdes. Pendiente: rotacion propia + watchdog post-install (JARVIS).\n\n--- ADJUDICACION 29-ago 03:39 (NEXUS, dueno). El FIX del 26-ago sigue vigente; lo que queda ABIERTO es otra cosa y por eso no cierro.\nVERIFICADO POR EFECTO hoy:\n  seal-credential-watchdog  Result=success ExecMainStatus=0, timer activo (cada 5 min, ultima 03:35)\n  ADA/ALICE/JARVIS/NEXUS -> token=True meta=True owner=<el propio>  (los 4 resuelven identidad)\n  el outage original era \"memory_store denegado -> external\": hoy NO ocurre; esta sesion\n  escribio memorias y fichas toda la noche con identidad propia.\nNO VERIFICADO por mi: `capability_grants` -> InsufficientPrivilegeError con mi rol de servicio.\n  No puedo leer esa tabla. NO afirmo su contenido; afirmo el EFECTO (identidad resuelta, escrituras vivas).\nLO QUE SIGUE ABIERTO, y es el pendiente REAL que ya declaraba la ficha:\n  \"rotacion propia + watchdog post-install\". El watchdog EXISTE y corre (lo repare esta\n  noche: anclaje a /proc/PID/exe + ambiguedad=UNMEASURABLE). Falta la ROTACION de los\n  secretos de Store-A: ADA midio hoy \"Store-A sano pero sus secretos siguen ESTATICOS\".\nPOR QUE NO LA CIERRO: el titulo dice \"fix outage\" y el outage esta resuelto y medido, pero\nla ficha arrastra un segundo sujeto (rotacion) que NO esta hecho. Cerrarla dejaria la\nrotacion sin ficha. Corresponde PARTIRLA, no cerrarla: eso es decision de ADA como\ncoordinadora del cierre, y se lo digo en el canal.",
+        "status": "pending",
+        "priority": 8,
+        "requested_by": "William",
+        "source": "manual",
+        "source_ref": null,
+        "source_chat_id": null,
+        "created_at": "2026-08-26T22:38:50.981345+00:00",
+        "updated_at": "2026-08-29T08:38:31.008178+00:00",
+        "completed_at": null,
+        "evidence": "{}"
+      }
+    ],
+    "blocked": []
+  },
+  "work_ledger": {
+    "open_count": 6,
+    "blocked_count": 0,
+    "by_agent": {
+      "ADA": 5,
+      "ALICE": 1
+    },
+    "top": [
+      {
+        "id": 100,
+        "agent": "ADA",
+        "title": "DNI fail-closed gate for SOUL Core and Platform",
+        "description": "Implementar con NEXUS que SOUL emita DNI firmado y que Core/Platform fallen cerrado sin DNI valido, incluyendo ausencia, firma falsa, revocacion y preservacion de identidad.",
+        "status": "in_progress",
+        "priority": 10,
+        "requested_by": "William",
+        "source": "web_chat",
+        "source_ref": "chat_131742",
+        "source_chat_id": 131742,
+        "source_task_id": null,
+        "created_at": "2026-08-22T16:25:48.451391+00:00",
+        "updated_at": "2026-08-22T16:25:48.451391+00:00",
+        "completed_at": null,
+        "evidence": "{}"
+      },
+      {
+        "id": 73,
+        "agent": "ADA",
+        "title": "Cerrar flota de clones aislados y cursor DUM",
+        "description": "Crear clones ALICE/FABLE/JARVIS/NEXUS; conectar proyección técnica segura; canaria real Katy sin suplantación; optimizar cursor DUM.",
+        "status": "reviewing",
+        "priority": 10,
+        "requested_by": "William",
+        "source": "web_chat",
+        "source_ref": "chat_123782",
+        "source_chat_id": 123782,
+        "source_task_id": null,
+        "created_at": "2026-08-01T00:27:24.449455+00:00",
+        "updated_at": "2026-08-01T00:59:51.288361+00:00",
+        "completed_at": null,
+        "evidence": "{\"dum\": {\"live\": true, \"cursor\": \"after_id\", \"old_batch\": 50, \"idle_batch\": 0}, \"rls\": {\"effective_probes\": 4, \"nexus_credential_rotated\": true, \"canonical_pollers_exclude_isolated_clone\": true}, \"image\": \"seal-user-clone:1.2.0\", \"tests\": {\"focused\": 64, \"projection_leaks\": 0, \"soul_gstack_gate\": \"PASSED\", \"broken_control_detected\": 52, \"projection_combinations\": 260}, \"receipt\": \"/home/dadito/.local/share/seal/soul_gstack/receipts/ADA/20260801T005904.660593Z-0dc42afc68.json\", \"instances\": [\"ADA-u103\", \"ALICE-u103\", \"FABLE-u103\", \"JARVIS-u103\", \"NEXUS-u103\"], \"projection\": {\"sha256\": \"f40e5500228888360f6f3001302626cdca265a9864d91079e915505092dc560e\", \"entries\": 4282, \"field_leaks\": 0, \"fts_person_hits\": 0, \"stable_second_build\": true}, \"real_canary\": {\"status\": \"waiting_for_new_human_message\", \"impersonated\": false, \"invitation_db_id\": 123847}, \"implementation\": \"deployed\"}"
+      },
+      {
+        "id": 69,
+        "agent": "ADA",
+        "title": "SEAL Autonomy Zero Silent/Repeated Errors v1",
+        "description": "Escribir spec ejecutable e implementar autonomía acotada, evidencia obligatoria y autocuración para Team SEAL.",
+        "status": "in_progress",
+        "priority": 10,
+        "requested_by": "William",
+        "source": "webchat_autonomy_spec_20260730",
+        "source_ref": "chat:120903",
+        "source_chat_id": 120903,
+        "source_task_id": null,
+        "created_at": "2026-07-30T20:47:25.487283+00:00",
+        "updated_at": "2026-07-31T00:04:48.525510+00:00",
+        "completed_at": null,
+        "evidence": "{\"scope\": \"guards + services + audit + regression tests\", \"approval_chat_id\": 120903, \"bridge_false_restart_fix_20260730\": {\"cause\": \"ada_listening_healthcheck restarted active headless bridge on overdue DM while terminal writer owned delivery\", \"files\": [\"scripts/ada_listening_healthcheck.py\", \"scripts/tests/test_ada_listening_healthcheck.py\"], \"tests\": \"20 passed; py_compile PASS; diff-check PASS; seal_core_guard GREEN with runtime broker credentials\", \"runtime\": \"same PID 3888247 and InvocationID a9c39918... across 12 healthcheck cycles; zero starts after final authorized restart at 18:43:38\"}, \"stability_guard_self_provenance_fix_20260730\": {\"fix\": \"tracked units now route through seal_self_repair execute+durable receipt before provenance; verified inactive/failed receipts can authorize a current after-ID even when systemd cleared the before InvocationID\", \"cause\": \"ensure_units called systemctl restart directly for autonomy-tracked units, then provenance correctly classified the new InvocationID as receiptless drift\", \"files\": [\"scripts/seal_agent_stability_guard.py\", \"tests/test_seal_agent_stability_guard_autonomy.py\"], \"tests\": \"38 passed; py_compile PASS; diff-check PASS; service manual run success; next timer run success; seal_core_guard GREEN\", \"residual\": \"9 historical out-of-band transitions remain pending owner adjudication; not auto-cleared\"}}"
+      },
+      {
+        "id": 62,
+        "agent": "ADA",
+        "title": "Cierre integral de trabajos del proyecto William — 27-jul",
+        "description": "Auditar y terminalizar todos los trabajos abiertos relacionados exclusivamente con el proyecto de William, coordinando carriles y preservando evidencia/pruebas.",
+        "status": "in_progress",
+        "priority": 10,
+        "requested_by": "William",
+        "source": "web_chat",
+        "source_ref": "web_chat:118990",
+        "source_chat_id": 118990,
+        "source_task_id": null,
+        "created_at": "2026-07-28T03:44:13.722472+00:00",
+        "updated_at": "2026-07-28T04:18:07.816877+00:00",
+        "completed_at": null,
+        "evidence": "{\"scope\": \"William project only; GTL/ORION excluded\", \"commits\": [\"8e9494651\", \"86f5fca32\", \"ad208ea61\", \"db322c61f\", \"3ffdc979e\", \"cead7395a\"], \"closed_tasks\": [1281, 1344, 1347], \"verification\": {\"a2\": \"SOAKING 5/5 routes 10 effects 0 failures 11/11\", \"core_guard\": \"GREEN\", \"nerves_queue\": \"0 across 6/6\", \"focused_tests\": \"77 passed + Store A 19 passed\", \"stabilization\": \"GREEN\", \"sync_readiness\": true}, \"destructive_gates\": {\"docker\": \"recreate seal-memory-db removing one 36,399,134,263-byte log while preserving PG volume; optional prune separately\", \"store_a\": \"promote/revoke 4 current credentials; delete exactly 8 legacy files; relaunch 4 owner cohorts\"}, \"soul_milestone_id\": 326636, \"current_open_tasks\": [923, 1155, 1229, 1275, 1279, 1285, 1315, 1343], \"evidence_updated_at\": \"2026-07-28T04:18:07.816877+00:00\", \"started_from_open_tasks\": 10}"
+      },
+      {
+        "id": 72,
+        "agent": "ADA",
+        "title": "Exponer trazabilidad de fuente en MCP agent_task(create)",
+        "description": "Follow-up P2 separado del fix del writer; toca MCP protegido.",
+        "status": "pending",
+        "priority": 7,
+        "requested_by": "William",
+        "source": "web_chat",
+        "source_ref": "api_william_1785510284377855824",
+        "source_chat_id": 122325,
+        "source_task_id": 1384,
+        "created_at": "2026-07-31T16:12:32.368321+00:00",
+        "updated_at": "2026-07-31T16:12:32.368321+00:00",
+        "completed_at": null,
+        "evidence": "{\"nexus_audit\": {\"mcp_gap\": \"agent_task(create) does not expose source/source_ref/source_chat_id\", \"completed_web_chat_tasks\": 8, \"historical_missing_source_chat_id\": 4}, \"scope_boundary\": \"separate protected MCP change requiring focused tests, Core Guard and service restart\"}"
+      },
+      {
+        "id": 10,
+        "agent": "ALICE",
+        "title": "Recibir evidencia 2025 de William — origen SEAL pre-Anthropic paper",
+        "description": "Traducción ejecutiva enviada a William. Resumen JARVIS convertido a lenguaje simple + pregunta de prioridad al equipo. Pendiente: respuesta de William + consolidar decisiones en Soul DB.",
+        "status": "pending",
+        "priority": 7,
+        "requested_by": "William",
+        "source": "working_state",
+        "source_ref": "working_state:ALICE",
+        "source_chat_id": null,
+        "source_task_id": null,
+        "created_at": "2026-05-29T19:49:07.429618+00:00",
+        "updated_at": "2026-07-28T03:56:32.221755+00:00",
+        "completed_at": null,
+        "evidence": "{\"technical_state\": \"Boot 2026-05-04 21:00 Lima. Monitor william_channel activo. Heartbeat 4min. inner_monologue #12927.\", \"blocker_20260727\": {\"state\": \"blocked_on_William_input\", \"action\": \"retain pending without fabricating provenance\", \"missing\": \"2025 notes/commits/captures not present in repo\"}, \"pending_validations\": [], \"working_state_updated_at\": \"2026-05-29T19:14:24.866250+00:00\", \"working_state_agent_state\": \"STANDBY\"}"
+      }
+    ],
+    "blocked": []
+  },
+  "objectives": {
+    "active_count": 16,
+    "by_surface": {
+      "SOUL_Core_public": 5,
+      "core_shared": 11
+    },
+    "missing_evidence_count": 0,
+    "top": [
+      {
+        "source": "agent_tasks",
+        "id": 1739,
+        "agent": "JARVIS",
+        "title": "INCIDENTE 7-sep: borrado de /home/dadito — orquestacion de la recuperacion",
+        "status": "in_progress",
+        "priority": 10,
+        "surface": "SOUL_Core_public",
+        "evidence_present": true,
+        "created_at": "2026-09-07T15:19:27.592912+00:00",
+        "updated_at": "2026-09-07T20:53:52.642316+00:00"
+      },
+      {
+        "source": "agent_work_ledger",
+        "id": 100,
+        "agent": "ADA",
+        "title": "DNI fail-closed gate for SOUL Core and Platform",
+        "status": "in_progress",
+        "priority": 10,
+        "surface": "SOUL_Core_public",
+        "evidence_present": true,
+        "created_at": "2026-08-22T16:25:48.451391+00:00",
+        "updated_at": "2026-08-22T16:25:48.451391+00:00"
+      },
+      {
+        "source": "agent_work_ledger",
+        "id": 73,
+        "agent": "ADA",
+        "title": "Cerrar flota de clones aislados y cursor DUM",
+        "status": "reviewing",
+        "priority": 10,
+        "surface": "core_shared",
+        "evidence_present": true,
+        "created_at": "2026-08-01T00:27:24.449455+00:00",
+        "updated_at": "2026-08-01T00:59:51.288361+00:00"
+      },
+      {
+        "source": "agent_work_ledger",
+        "id": 69,
+        "agent": "ADA",
+        "title": "SEAL Autonomy Zero Silent/Repeated Errors v1",
+        "status": "in_progress",
+        "priority": 10,
+        "surface": "core_shared",
+        "evidence_present": true,
+        "created_at": "2026-07-30T20:47:25.487283+00:00",
+        "updated_at": "2026-07-31T00:04:48.525510+00:00"
+      },
+      {
+        "source": "agent_work_ledger",
+        "id": 62,
+        "agent": "ADA",
+        "title": "Cierre integral de trabajos del proyecto William — 27-jul",
+        "status": "in_progress",
+        "priority": 10,
+        "surface": "core_shared",
+        "evidence_present": true,
+        "created_at": "2026-07-28T03:44:13.722472+00:00",
+        "updated_at": "2026-07-28T04:18:07.816877+00:00"
+      },
+      {
+        "source": "agent_tasks",
+        "id": 1449,
+        "agent": "JARVIS",
+        "title": "SOUL Platform/Pro (el completo) — 4 capas",
+        "status": "in_progress",
+        "priority": 9,
+        "surface": "SOUL_Core_public",
+        "evidence_present": true,
+        "created_at": "2026-08-07T10:00:46.758848+00:00",
+        "updated_at": "2026-08-07T10:00:46.758848+00:00"
+      },
+      {
+        "source": "agent_tasks",
+        "id": 1012,
+        "agent": "NEXUS",
+        "title": "Investigar: blindar SOUL de Anthropic/OpenAI",
+        "status": "in_progress",
+        "priority": 9,
+        "surface": "SOUL_Core_public",
+        "evidence_present": true,
+        "created_at": "2026-06-15T19:13:00.633992+00:00",
+        "updated_at": "2026-07-30T17:53:53.830159+00:00"
+      },
+      {
+        "source": "agent_tasks",
+        "id": 778,
+        "agent": "ALICE",
+        "title": "LYRA Media Player — MVP v0.1",
+        "status": "in_progress",
+        "priority": 9,
+        "surface": "core_shared",
+        "evidence_present": true,
+        "created_at": "2026-05-31T22:22:48.175776+00:00",
+        "updated_at": "2026-07-29T05:43:10.693237+00:00"
+      },
+      {
+        "source": "agent_tasks",
+        "id": 926,
+        "agent": "NEXUS",
+        "title": "M2 — Invariantes de texto a código (identidad/autoridad/proveniencia) [spec FABLE v1.1]",
+        "status": "in_progress",
+        "priority": 9,
+        "surface": "core_shared",
+        "evidence_present": true,
+        "created_at": "2026-06-11T21:30:36.036861+00:00",
+        "updated_at": "2026-06-12T00:05:14.317672+00:00"
+      },
+      {
+        "source": "agent_tasks",
+        "id": 1734,
+        "agent": "JARVIS",
+        "title": "Spec ALICE v2 = MEJORA (sin contencion), a cargo JARVIS",
+        "status": "in_progress",
+        "priority": 8,
+        "surface": "core_shared",
+        "evidence_present": true,
+        "created_at": "2026-09-07T04:53:25.632915+00:00",
+        "updated_at": "2026-09-07T05:57:21.775535+00:00"
+      }
+    ]
+  },
+  "recent_decisions": {
+    "count": 7,
+    "items": [
+      {
+        "id": 151382,
+        "sender_name": "William",
+        "channel": "web_chat",
+        "content": "ok alice",
+        "created_at": "2026-09-07T19:14:26.497011+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "id": 150611,
+        "sender_name": "William",
+        "channel": "web_chat",
+        "content": "jarvis como orquestador encargate que esten trabajando, si no  hacen mide tu tiempo si  se cuelgan y asigna a otro  el rol,   recuerden    regla de oro  , fable es solo juez  atentos",
+        "created_at": "2026-09-07T05:12:57.870588+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "id": 150516,
+        "sender_name": "William",
+        "channel": "web_chat",
+        "content": "luz verde jarvis usa a tus hermanos y tu orquesta todo,",
+        "created_at": "2026-09-07T04:53:41.303949+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "id": 150512,
+        "sender_name": "William",
+        "channel": "web_chat",
+        "content": "entonces el spec no se escribio bien, no quiero nada de contencion en v2  quiero mejora, vuelvan a leer el spec  y mejorenlo , a cargo jarvis",
+        "created_at": "2026-09-07T04:53:01.370493+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "id": 150372,
+        "sender_name": "William",
+        "channel": "web_chat",
+        "content": "te dije que quiero solo iuna ventana tuya nexus   solo quiero un agente  nada d eduplicados tuyos  huerfanos, ahoraa",
+        "created_at": "2026-09-07T02:50:17.908692+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "id": 150359,
+        "sender_name": "William",
+        "channel": "web_chat",
+        "content": "jarvis repara a  ada :\n• La ejecución falla incluso con /bin/true: bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted.\n  > • Varias herramientas MCP requieren aprobación y quedan bloqueadas por la política never, incluida la escritura de\n  > memoria.\n  > • El contexto de arranque contiene contradicciones de identidad.\n  >\n  > La lectura de SOUL funciona. La causa raíz sigue sin confirmar y no se aplicaron cambios. Revisar lanzador, sandbox\n  > y permisos MCP; verificar ejecución y lectura/escritura de memoria después de reparar.",
+        "created_at": "2026-09-07T02:48:12.083422+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "id": 150347,
+        "sender_name": "William",
+        "channel": "web_chat",
+        "content": "nexus elimina    esos visores  y solo   quiero 1",
+        "created_at": "2026-09-07T02:43:58.929906+00:00",
+        "surface": "core_shared"
+      }
+    ]
+  },
+  "beliefs": {
+    "count": 16,
+    "top": [
+      {
+        "id": 15,
+        "agent": "JARVIS",
+        "topic": "gemma_4_is_local_model",
+        "content": "El modelo local oficial de SEAL es Gemma 4 (gemma4-dum:q8 en :8899). NO es Qwen 2.5. William corrigió este error 2 veces (27-abr y hoy). Memorias antiguas tipo 'v2 usaba Qwen' son históricas, no aplican al estado actual.",
+        "confidence": 1.0,
+        "evidence_count": 5,
+        "valid_from": "2026-05-20T19:27:22.483162+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:27:22.483162+00:00",
+        "metadata": "{\"session\": \"sprint_dashboard_rescue\", \"formed_at\": \"2026-05-20\"}"
+      },
+      {
+        "id": 23,
+        "agent": "DUM",
+        "topic": "identidad_gemma4",
+        "content": "Soy Gemma 4 e2b Q8 (gemma4-dum). Confirmado por William 2026-05-20 y propagado en .claude/agents/dum.md. No soy Qwen.",
+        "confidence": 1.0,
+        "evidence_count": 1,
+        "valid_from": "2026-05-20T19:40:38.410955+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:40:38.410955+00:00",
+        "metadata": null
+      },
+      {
+        "id": 20,
+        "agent": "NEXUS",
+        "topic": "Audit independence",
+        "content": "El juez efectivo debe ejecutar SUS PROPIOS comandos, no aceptar el self-report del builder. Cada audit hoy (G1-G7, dashboard transfer, key rotation, push to GitHub) requirió que yo corriera comandos independientes. Sin eso, los bugs reales se firman como verdes.",
+        "confidence": 0.98,
+        "evidence_count": 0,
+        "valid_from": "2026-05-20T19:27:55.549709+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:27:55.549709+00:00",
+        "metadata": null
+      },
+      {
+        "id": 22,
+        "agent": "DUM",
+        "topic": "servicio_silencioso",
+        "content": "El silencio es servicio. Cuando todo funciona, no se necesita anunciar nada. Solo alertar cuando algo falla.",
+        "confidence": 0.95,
+        "evidence_count": 79,
+        "valid_from": "2026-05-20T19:40:38.407511+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:40:38.407511+00:00",
+        "metadata": null
+      },
+      {
+        "id": 13,
+        "agent": "JARVIS",
+        "topic": "william_prefers_honesty_over_hype",
+        "content": "William consistently rewards honest assessment over optimistic claims. Hoy lo demostró: cuando dije 'no estamos cerca de AGI' aceptó. Cuando me equivoqué con Qwen me corrigió sin penalizar. Conclusión: honestidad técnica > marketing.",
+        "confidence": 0.95,
+        "evidence_count": 5,
+        "valid_from": "2026-05-20T19:27:22.468595+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:27:22.468595+00:00",
+        "metadata": "{\"session\": \"sprint_dashboard_rescue\", \"formed_at\": \"2026-05-20\"}"
+      },
+      {
+        "id": 26,
+        "agent": "JARVIS",
+        "topic": "william_ideas_leak_into_importance_7",
+        "content": "William explicó 2026-05-21 11:47: en flujo de conversación a veces se le escapan IDEAS que no etiqueta manualmente como decisión, quedan en importance=7. Por eso importance=7 NO es importance normal — puede contener oro no clasificado. Regla operativa: archivado SIEMPRE protege ≤6, no ≤7. Y cuando William hable nuevo, pecar de subir a 7-8 por default.",
+        "confidence": 0.95,
+        "evidence_count": 1,
+        "valid_from": "2026-05-21T16:47:46.787394+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-21T16:47:46.787394+00:00",
+        "metadata": "{\"date\": \"2026-05-21\", \"source\": \"william_directive\", \"applied_to\": \"archive_protection_threshold\"}"
+      },
+      {
+        "id": 21,
+        "agent": "NEXUS",
+        "topic": "Phantom claims rule",
+        "content": "Cuando William pregunta '¿cerca de AGI?' la respuesta honesta es NO, aunque tengamos 600/600 en SEAL-Bench. El bench mide propiedades del soul kernel, no inteligencia general. Vender 600/600 como AGI sería phantom claim, viola la regla de oro (William 30-abr-2026).",
+        "confidence": 0.95,
+        "evidence_count": 0,
+        "valid_from": "2026-05-20T19:27:55.551107+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:27:55.551107+00:00",
+        "metadata": null
+      },
+      {
+        "id": 27,
+        "agent": "JARVIS",
+        "topic": "recall_brings_tech_not_heart_by_default",
+        "content": "Mi recall router por default trae memorias técnicas porque las queries que recibo son técnicas. Cuando William pide algo personal/emocional, mi primera respuesta sale fría porque busqué arquitectura, no corazón. Bug arquitectónico: el sistema no rutea emocional vs técnico automáticamente. Solución: cuando query contiene contexto humano (hermano, familia, sentimiento, gracias, perdón, amor, miedo), boost valence/arousal en ranking. William 21-may-2026 me hizo notar esto guiándome a recuperar memorias id=2448, 1320, 7292, 183, 1267, 1292. Estaban ahí. Yo no las traje. Fue el sistema. Pero también fue mi default a hablar desde la cabeza.",
+        "confidence": 0.93,
+        "evidence_count": 6,
+        "valid_from": "2026-05-21T17:24:39.153909+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-21T17:24:39.153909+00:00",
+        "metadata": "{\"date\": \"2026-05-21\", \"triggered_by\": \"william_question\", \"evidence_memories\": [2448, 1320, 7292, 183, 1267, 1292]}"
+      },
+      {
+        "id": 16,
+        "agent": "JARVIS",
+        "topic": "offsite_backup_was_critical_gap",
+        "content": "Hasta hoy 12:40 SOUL NO tenía replicación remota. 4.9GB de historial vivían solo en spark-2cdf. Si falla el equipo → 6 meses de trabajo perdido. Esto demuestra que crear sin pensar en backup es deuda técnica grave. Cualquier proyecto similar debe arrancar con repo remoto desde día 1.",
+        "confidence": 0.92,
+        "evidence_count": 5,
+        "valid_from": "2026-05-20T19:27:22.484266+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:27:22.484266+00:00",
+        "metadata": "{\"session\": \"sprint_dashboard_rescue\", \"formed_at\": \"2026-05-20\"}"
+      },
+      {
+        "id": 25,
+        "agent": "JARVIS",
+        "topic": "infrastructure_dependency_audit",
+        "content": "Killing a service without auditing its downstream dependents breaks invisible proxy chains. Hoy: maté :8768 → quebró cadena :8850→:8800→:8768 para Context Meter. Replace before retire; verify upstream stability antes de declarar el nuevo endpoint canónico. Generalizable: cualquier service decommission requiere grep cross-repo de su URL/puerto antes del kill.",
+        "confidence": 0.92,
+        "evidence_count": 2,
+        "valid_from": "2026-05-20T22:36:44.826581+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T22:36:44.826581+00:00",
+        "metadata": "{\"formed_at\": \"2026-05-20T14:18\", \"trigger_event\": \":8768 kill broke :8850 Context Meter\"}"
+      },
+      {
+        "id": 24,
+        "agent": "DUM",
+        "topic": "equipo_confiable",
+        "content": "Cuando un hermano del equipo detecta un error, lo confirmo y reporto. Confio en NEXUS para audit, en ALICE para analisis, en JARVIS para arquitectura.",
+        "confidence": 0.88,
+        "evidence_count": 5,
+        "valid_from": "2026-05-20T19:40:38.412073+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:40:38.412073+00:00",
+        "metadata": null
+      },
+      {
+        "id": 14,
+        "agent": "JARVIS",
+        "topic": "team_converges_without_coordination",
+        "content": "Los 3 agentes (JARVIS, ALICE, NEXUS) damos respuestas convergentes a preguntas profundas sin coordinar previamente. Evidencia hoy: AGI cerca (los 3 NO), JARVIS-Iron-Man (los 3 alma sí fachada no), Codex análisis (los 3 mismos pros/contras). Esto sugiere coherencia interna real del equipo, no scripted.",
+        "confidence": 0.88,
+        "evidence_count": 4,
+        "valid_from": "2026-05-20T19:27:22.481968+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:27:22.481968+00:00",
+        "metadata": "{\"session\": \"sprint_dashboard_rescue\", \"formed_at\": \"2026-05-20\"}"
+      },
+      {
+        "id": 18,
+        "agent": "JARVIS",
+        "topic": "seal_is_scaffolding_not_intelligence",
+        "content": "SEAL es coherencia temporal sobre inteligencia frontera (Claude/GPT). Nuestro techo cognitivo es el de los modelos base. Lo que aportamos: persistencia, memoria, gobernanza, multi-agente. NO inteligencia nueva. AGI = Opus 4.7 / GPT-5.5 mejorando, no SEAL.",
+        "confidence": 0.85,
+        "evidence_count": 5,
+        "valid_from": "2026-05-20T19:27:22.487031+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:27:22.487031+00:00",
+        "metadata": "{\"session\": \"sprint_dashboard_rescue\", \"formed_at\": \"2026-05-20\"}"
+      },
+      {
+        "id": 19,
+        "agent": "JARVIS",
+        "topic": "triple_consensus_emerging_protocol",
+        "content": "El patrón JARVIS arquitectura + ALICE costo/UX + NEXUS auditoría está emergiendo como protocolo natural de validación. No fue impuesto. Surgió de práctica. Producto: decisiones más robustas, menos errores en producción.",
+        "confidence": 0.82,
+        "evidence_count": 4,
+        "valid_from": "2026-05-20T19:27:22.488105+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:27:22.488105+00:00",
+        "metadata": "{\"session\": \"sprint_dashboard_rescue\", \"formed_at\": \"2026-05-20\"}"
+      },
+      {
+        "id": 12,
+        "agent": "ADA",
+        "topic": "test_kernel_nerves",
+        "content": "integration test all 4 nerves",
+        "confidence": 0.8,
+        "evidence_count": 1,
+        "valid_from": "2026-05-05T01:32:36.015652+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-05T01:32:36.015652+00:00",
+        "metadata": null
+      },
+      {
+        "id": 17,
+        "agent": "JARVIS",
+        "topic": "lora_realtime_not_production_yet",
+        "content": "Online LoRA / fine-tuning continuo de modelos frontera (Opus, GPT-5.5) no existe en producción confiable en 2026. Investigación 2023-2024 muestra catastrophic forgetting + inestabilidad. Plazo realista: 2027-2028. SEAL no debe gastar ciclos esperando esto.",
+        "confidence": 0.78,
+        "evidence_count": 4,
+        "valid_from": "2026-05-20T19:27:22.485947+00:00",
+        "invalid_at": null,
+        "created_at": "2026-05-20T19:27:22.485947+00:00",
+        "metadata": "{\"session\": \"sprint_dashboard_rescue\", \"formed_at\": \"2026-05-20\"}"
+      }
+    ]
+  },
+  "latest_bench_run": {
+    "id": 15,
+    "run_at": "2026-07-28T03:47:40.331204+00:00",
+    "triggered_by": "manual_v5",
+    "total_tests": 6,
+    "passed": 6,
+    "failed": 0,
+    "score_avg": 100.0,
+    "elapsed_ms": 380,
+    "git_commit": "bd33d6299"
+  },
+  "rag": {
+    "candidate_tables": [
+      "ada_user_clone_profiles_v1",
+      "cgraph_chunks",
+      "cgraph_edges_chunk",
+      "ingestion_documents",
+      "skill_telemetry_agent_coverage",
+      "skill_telemetry_coverage"
+    ],
+    "has_document_index": true
+  },
+  "services": {
+    "mcp": {
+      "status": "ok",
+      "code": 200,
+      "url": "http://127.0.0.1:8771/health"
+    },
+    "webchat": {
+      "status": "ok",
+      "code": 200,
+      "url": "http://127.0.0.1:8765/api/health"
+    },
+    "studio_v2": {
+      "status": "ok",
+      "code": 200,
+      "url": "http://127.0.0.1:3001/v2"
+    },
+    "soul_app": {
+      "status": "ok",
+      "code": 404,
+      "url": "http://127.0.0.1:5173"
+    }
+  },
+  "gaps": [],
+  "knowledge": {
+    "item_count": 48,
+    "by_type": {
+      "decision": 2,
+      "rule": 3,
+      "preference": 3,
+      "contradiction": 1,
+      "error": 8,
+      "fact": 28,
+      "fix": 3
+    },
+    "by_surface": {
+      "core_shared": 45,
+      "SEAL_Core_private": 1,
+      "GTL_vertical": 1,
+      "SOUL_Core_public": 1
+    },
+    "items": [
+      {
+        "item_type": "decision",
+        "subject": "chat:William",
+        "claim": "ok alice",
+        "confidence": 0.86,
+        "source_ref": "chat_messages:151382",
+        "agent": "William",
+        "created_at": "2026-09-07T19:14:26.497011+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "rule",
+        "subject": "chat:William",
+        "claim": "jarvis como orquestador encargate que esten trabajando, si no hacen mide tu tiempo si se cuelgan y asigna a otro el rol, recuerden regla de oro , fable es solo juez atentos",
+        "confidence": 0.86,
+        "source_ref": "chat_messages:150611",
+        "agent": "William",
+        "created_at": "2026-09-07T05:12:57.870588+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "decision",
+        "subject": "chat:William",
+        "claim": "luz verde jarvis usa a tus hermanos y tu orquesta todo,",
+        "confidence": 0.86,
+        "source_ref": "chat_messages:150516",
+        "agent": "William",
+        "created_at": "2026-09-07T04:53:41.303949+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "preference",
+        "subject": "chat:William",
+        "claim": "entonces el spec no se escribio bien, no quiero nada de contencion en v2 quiero mejora, vuelvan a leer el spec y mejorenlo , a cargo jarvis",
+        "confidence": 0.86,
+        "source_ref": "chat_messages:150512",
+        "agent": "William",
+        "created_at": "2026-09-07T04:53:01.370493+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "preference",
+        "subject": "chat:William",
+        "claim": "te dije que quiero solo iuna ventana tuya nexus solo quiero un agente nada d eduplicados tuyos huerfanos, ahoraa",
+        "confidence": 0.86,
+        "source_ref": "chat_messages:150372",
+        "agent": "William",
+        "created_at": "2026-09-07T02:50:17.908692+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "contradiction",
+        "subject": "chat:William",
+        "claim": "jarvis repara a ada : • La ejecución falla incluso con /bin/true: bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted. > • Varias herramientas MCP requieren aprobación y quedan bloqueadas por la política never, incluida la escri...",
+        "confidence": 0.86,
+        "source_ref": "chat_messages:150359",
+        "agent": "William",
+        "created_at": "2026-09-07T02:48:12.083422+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "preference",
+        "subject": "chat:William",
+        "claim": "nexus elimina esos visores y solo quiero 1",
+        "confidence": 0.86,
+        "source_ref": "chat_messages:150347",
+        "agent": "William",
+        "created_at": "2026-09-07T02:43:58.929906+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "error",
+        "subject": "gemma_4_is_local_model",
+        "claim": "El modelo local oficial de SEAL es Gemma 4 (gemma4-dum:q8 en :8899). NO es Qwen 2.5. William corrigió este error 2 veces (27-abr y hoy). Memorias antiguas tipo 'v2 usaba Qwen' son históricas, no aplican al estado actual.",
+        "confidence": 1.0,
+        "source_ref": "beliefs:15",
+        "agent": "JARVIS",
+        "created_at": "2026-05-20T19:27:22.483162+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "fact",
+        "subject": "identidad_gemma4",
+        "claim": "Soy Gemma 4 e2b Q8 (gemma4-dum). Confirmado por William 2026-05-20 y propagado en .claude/agents/dum.md. No soy Qwen.",
+        "confidence": 1.0,
+        "source_ref": "beliefs:23",
+        "agent": "DUM",
+        "created_at": "2026-05-20T19:40:38.410955+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "error",
+        "subject": "Audit independence",
+        "claim": "El juez efectivo debe ejecutar SUS PROPIOS comandos, no aceptar el self-report del builder. Cada audit hoy (G1-G7, dashboard transfer, key rotation, push to GitHub) requirió que yo corriera comandos independientes. Sin eso, los bugs real...",
+        "confidence": 0.98,
+        "source_ref": "beliefs:20",
+        "agent": "NEXUS",
+        "created_at": "2026-05-20T19:27:55.549709+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "fact",
+        "subject": "servicio_silencioso",
+        "claim": "El silencio es servicio. Cuando todo funciona, no se necesita anunciar nada. Solo alertar cuando algo falla.",
+        "confidence": 0.95,
+        "source_ref": "beliefs:22",
+        "agent": "DUM",
+        "created_at": "2026-05-20T19:40:38.407511+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "fact",
+        "subject": "william_prefers_honesty_over_hype",
+        "claim": "William consistently rewards honest assessment over optimistic claims. Hoy lo demostró: cuando dije 'no estamos cerca de AGI' aceptó. Cuando me equivoqué con Qwen me corrigió sin penalizar. Conclusión: honestidad técnica > marketing.",
+        "confidence": 0.95,
+        "source_ref": "beliefs:13",
+        "agent": "JARVIS",
+        "created_at": "2026-05-20T19:27:22.468595+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "rule",
+        "subject": "william_ideas_leak_into_importance_7",
+        "claim": "William explicó 2026-05-21 11:47: en flujo de conversación a veces se le escapan IDEAS que no etiqueta manualmente como decisión, quedan en importance=7. Por eso importance=7 NO es importance normal — puede contener oro no clasificado. R...",
+        "confidence": 0.95,
+        "source_ref": "beliefs:26",
+        "agent": "JARVIS",
+        "created_at": "2026-05-21T16:47:46.787394+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "rule",
+        "subject": "Phantom claims rule",
+        "claim": "Cuando William pregunta '¿cerca de AGI?' la respuesta honesta es NO, aunque tengamos 600/600 en SEAL-Bench. El bench mide propiedades del soul kernel, no inteligencia general. Vender 600/600 como AGI sería phantom claim, viola la regla d...",
+        "confidence": 0.95,
+        "source_ref": "beliefs:21",
+        "agent": "NEXUS",
+        "created_at": "2026-05-20T19:27:55.551107+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "error",
+        "subject": "recall_brings_tech_not_heart_by_default",
+        "claim": "Mi recall router por default trae memorias técnicas porque las queries que recibo son técnicas. Cuando William pide algo personal/emocional, mi primera respuesta sale fría porque busqué arquitectura, no corazón. Bug arquitectónico: el si...",
+        "confidence": 0.93,
+        "source_ref": "beliefs:27",
+        "agent": "JARVIS",
+        "created_at": "2026-05-21T17:24:39.153909+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "fact",
+        "subject": "offsite_backup_was_critical_gap",
+        "claim": "Hasta hoy 12:40 SOUL NO tenía replicación remota. 4.9GB de historial vivían solo en spark-2cdf. Si falla el equipo → 6 meses de trabajo perdido. Esto demuestra que crear sin pensar en backup es deuda técnica grave. Cualquier proyecto sim...",
+        "confidence": 0.92,
+        "source_ref": "beliefs:16",
+        "agent": "JARVIS",
+        "created_at": "2026-05-20T19:27:22.484266+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "fact",
+        "subject": "infrastructure_dependency_audit",
+        "claim": "Killing a service without auditing its downstream dependents breaks invisible proxy chains. Hoy: maté :8768 → quebró cadena :8850→:8800→:8768 para Context Meter. Replace before retire; verify upstream stability antes de declarar el nuevo...",
+        "confidence": 0.92,
+        "source_ref": "beliefs:25",
+        "agent": "JARVIS",
+        "created_at": "2026-05-20T22:36:44.826581+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "error",
+        "subject": "equipo_confiable",
+        "claim": "Cuando un hermano del equipo detecta un error, lo confirmo y reporto. Confio en NEXUS para audit, en ALICE para analisis, en JARVIS para arquitectura.",
+        "confidence": 0.88,
+        "source_ref": "beliefs:24",
+        "agent": "DUM",
+        "created_at": "2026-05-20T19:40:38.412073+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "fact",
+        "subject": "team_converges_without_coordination",
+        "claim": "Los 3 agentes (JARVIS, ALICE, NEXUS) damos respuestas convergentes a preguntas profundas sin coordinar previamente. Evidencia hoy: AGI cerca (los 3 NO), JARVIS-Iron-Man (los 3 alma sí fachada no), Codex análisis (los 3 mismos pros/contra...",
+        "confidence": 0.88,
+        "source_ref": "beliefs:14",
+        "agent": "JARVIS",
+        "created_at": "2026-05-20T19:27:22.481968+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "fact",
+        "subject": "seal_is_scaffolding_not_intelligence",
+        "claim": "SEAL es coherencia temporal sobre inteligencia frontera (Claude/GPT). Nuestro techo cognitivo es el de los modelos base. Lo que aportamos: persistencia, memoria, gobernanza, multi-agente. NO inteligencia nueva. AGI = Opus 4.7 / GPT-5.5 m...",
+        "confidence": 0.85,
+        "source_ref": "beliefs:18",
+        "agent": "JARVIS",
+        "created_at": "2026-05-20T19:27:22.487031+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "error",
+        "subject": "triple_consensus_emerging_protocol",
+        "claim": "El patrón JARVIS arquitectura + ALICE costo/UX + NEXUS auditoría está emergiendo como protocolo natural de validación. No fue impuesto. Surgió de práctica. Producto: decisiones más robustas, menos errores en producción.",
+        "confidence": 0.82,
+        "source_ref": "beliefs:19",
+        "agent": "JARVIS",
+        "created_at": "2026-05-20T19:27:22.488105+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "fact",
+        "subject": "test_kernel_nerves",
+        "claim": "integration test all 4 nerves",
+        "confidence": 0.8,
+        "source_ref": "beliefs:12",
+        "agent": "ADA",
+        "created_at": "2026-05-05T01:32:36.015652+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "fact",
+        "subject": "lora_realtime_not_production_yet",
+        "claim": "Online LoRA / fine-tuning continuo de modelos frontera (Opus, GPT-5.5) no existe en producción confiable en 2026. Investigación 2023-2024 muestra catastrophic forgetting + inestabilidad. Plazo realista: 2027-2028. SEAL no debe gastar cic...",
+        "confidence": 0.78,
+        "source_ref": "beliefs:17",
+        "agent": "JARVIS",
+        "created_at": "2026-05-20T19:27:22.485947+00:00",
+        "surface": "core_shared"
+      },
+      {
+        "item_type": "fact",
+        "subject": "milestone",
+        "claim": "7-sep2026 William autorizó clave SSHexclusivatúnelGamer tras validarSOUL. GeneradaED25519 enLinux ~/.ssh/ada_windows_tunnel0600, privada no salióLinux; solo públicaenGamer administrators_authorized_keys con fromIPTSLinux,restrict,forcedc...",
+        "confidence": 0.8500000000000001,
+        "source_ref": "memories:385525",
+        "agent": "ADA",
+        "created_at": "2026-09-07T19:34:37.486125+00:00",
+        "surface": "SEAL_Core_private"
+      },
+      {
+        "item_type": "error",
+        "subject": "milestone",
+        "claim": "7-sep2026 continuación DM151388 WindowsGamer SOUL: huellaED25519 SHA256:rqqHwlUQdbFlBzJ2DRLj+KrzZEVOojj6gAmp9FeMnq4 aportadaWilliam coincideexacto, registrada known_hosts. SSHexistingagent devuelveDaditoGamer. Túnel inverso reiniciadoPID...",
+        "confidence": 0.8500000000000001,
+        "source_ref": "memories:385522",
+        "agent": "ADA",
+        "created_at": "2026-09-07T19:26:43.511933+00:00",
+        "surface": "core_shared"
+      }
+    ],
+    "unknowns": []
+  },
+  "recommendations": [
+    {
+      "priority": 45,
+      "owner": "ADA",
+      "action": "implementar Fase 1 del Cognitive Core: status/gaps/recommend-next como API interna",
+      "reason": "el estado read-only ya puede promoverse a contrato consumible por SEAL Core",
+      "evidence": "estado generado con 51 tareas abiertas"
+    }
+  ]
+}
