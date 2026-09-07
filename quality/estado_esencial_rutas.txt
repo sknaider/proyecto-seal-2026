@@ -17,3 +17,4 @@
 /home/dadito/.config/seal/seal_studio_db.env
 /home/dadito/.seal_chat_jwt_secret
 /home/dadito/IA/proyecto-seal/fable/.db_cred
+/home/dadito/.config/seal/infra_watchdog.env
