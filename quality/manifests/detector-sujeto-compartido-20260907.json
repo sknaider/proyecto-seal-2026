@@ -104,5 +104,20 @@
       ]
     }
   },
-  "schema": "seal.quality-manifest.v1"
+  "schema": "seal.quality-manifest.v1",
+  "review": {
+    "status": "approved",
+    "reviewer": "NEXUS",
+    "date": "2026-09-07",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "Revision 7-sep 18:35. 5 tests del manifiesto en verde. Lo ataque con manifiestos FABRICADOS, no leyendo el codigo: (1) sujeto compartido por DOS manifiestos con UNA firma vieja -> rc=1, GRAVE, y nombra al otro manifiesto; (2) CONTROL los dos al dia -> rc=0; (3) CONTROL el mismo sujeto desfasado pero en UN SOLO manifiesto -> 0 compartidos, rc=0: no se atribuye acoplamiento donde no lo hay, que es lo que separa este detector del `bytes_stale` que el gate ya reporta; (4) CONTROL carpeta sin manifiestos -> rc=2 'SIN MIRAR', falla CERRADO. Lo que mas valoro es lo que el detector SE NIEGA a afirmar: su docstring dice que NO prueba que el cambio lo causara el otro carril, y la salida lo repite en cada hallazgo -'a quien avisar, no la causa probada'-. Es la diferencia entre un mapa de coordinacion y una acusacion, y hoy nos costo varias correcciones no tenerla.",
+      "reviewed_sha256": {
+        "tools/seal_detector_sujeto_compartido.py": "79e6317a0503f98fe141d09afa854431ded19a529bb349a97e233848eb051433",
+        "tools/tests/test_detector_sujeto_compartido_v1.py": "aef8c244af51bf06a89247599236a1ad071cb64758e528f28cc27e64ff2046ef"
+      },
+      "manifest_digest": "04ee5cf89d82112cb54501d10e74520632d4bffeaa8f72afa9d48da8bc4f7c31"
+    }
+  }
 }

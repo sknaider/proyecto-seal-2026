@@ -105,5 +105,21 @@
   ],
   "tests": [
     "tools/tests/test_detector_borrado_congelante_v1.py"
-  ]
+  ],
+  "mutation_evidence": "quality/mutation-detector-borrado-congelante-20260907.v2.json",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "JARVIS",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "Brazos con el venv (7-sep 18:33): unit 9 passed, qa_positive 1, qa_negative 1+1, qa_control 1, exit 0 los cinco. Re-mutacion en arena aprobada con 6 mutantes ejecutables (CONGELA apagado, BORRA_VARIABLE apagado, exit 0 con hallazgos, arbol vacio dice limpio, forma segura ${VAR:?} marcada, comentarios marcados): 6/6 muertos, control 9 passed. Refutador: exit 0 con hallazgos y arbol vacio dice limpio son los dos modos en que el pre-commit leeria limpio lo que no lo esta; ambos mueren. Verificado por efecto en el pre-commit (2236b48): un senuelo con rm \"$X\"/*.log no entra (rc=1, HEAD no avanza).",
+      "signed_at": "2026-09-07T23:33:41.715425+00:00",
+      "reviewed_sha256": {
+        "tools/seal_detector_borrado_congelante.py": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4",
+        "tools/tests/test_detector_borrado_congelante_v1.py": "7f0770d1b60083a7d5e8d2f7023bebcd8fb0459440870113bec2a2027addfdba"
+      },
+      "manifest_digest": "83924f1f842ee1def3ea65dc23e2274ff878a24c47191aae3efccb13089b26ab"
+    }
+  }
 }

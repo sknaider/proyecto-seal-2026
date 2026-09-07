@@ -1,0 +1,54 @@
+{
+  "change_id": "detector-borrado-congelante-20260907",
+  "reviewer": "JARVIS",
+  "manifest": "quality/manifests/detector-borrado-congelante-20260907.json",
+  "tests": [
+    [
+      "tools/tests/test_detector_borrado_congelante_v1.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "congela-ya-no-detecta",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "            if CONGELA.search(linea):\n",
+      "reemplazo": "            if False and CONGELA.search(linea):\n",
+      "why": "la forma exacta que congela (glob sobre variable) deja de detectarse; el detector calla justo en su caso principal"
+    },
+    {
+      "id": "rm-rf-variable-ya-no-marca",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "            if m and not SEGURA_ABORTA.search(linea):",
+      "reemplazo": "            if False and m and not SEGURA_ABORTA.search(linea):",
+      "why": "rm -rf sobre variable sin guarda deja de marcarse: la segunda forma (la de NEXUS) desaparece"
+    },
+    {
+      "id": "exit-0-con-hallazgos",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "    return 1 if (congelan or sin_guarda) else 0",
+      "reemplazo": "    return 0",
+      "why": "el detector imprime hallazgos pero sale 0: el pre-commit lo leeria como limpio"
+    },
+    {
+      "id": "arbol-vacio-dice-limpio",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "        return 2\n",
+      "reemplazo": "        return 0\n",
+      "why": "sin scripts que mirar dice 'limpio' (exit 0) en vez de fallar cerrado (exit 2): el arbol vacio pasaria"
+    },
+    {
+      "id": "forma-segura-aborta-marcada",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "            if m and not SEGURA_ABORTA.search(linea):",
+      "reemplazo": "            if m:",
+      "why": "la forma segura ${VAR:?} (aborta si esta vacia) pasa a marcarse: falso positivo que ensena a ignorar el detector"
+    },
+    {
+      "id": "comentarios-marcados",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "            if limpia.startswith(\"#\") or limpia.startswith(\"//\"):",
+      "reemplazo": "            if False:",
+      "why": "los comentarios pasan a marcarse: documentar la forma prohibida quedaria prohibido (el error del 1-sep)"
+    }
+  ]
+}

@@ -1,0 +1,174 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "detector-borrado-congelante-20260907",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 6,
+  "survived": 0,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": ".........                                                                [100%]\n9 passed in 0.57s",
+    "sha_sujetos_antes": {
+      "tools/seal_detector_borrado_congelante.py": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "congela-ya-no-detecta",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "            if CONGELA.search(linea):\n",
+      "reemplazo": "            if False and CONGELA.search(linea):\n",
+      "why": "la forma exacta que congela (glob sobre variable) deja de detectarse; el detector calla justo en su caso principal",
+      "registro": {
+        "subject": "tools/seal_detector_borrado_congelante.py",
+        "ancla": "            if CONGELA.search(linea):\n",
+        "reemplazo": "            if False and CONGELA.search(linea):\n",
+        "ancla_sha256": "dec55d0b986d8c6bc45b10d461558c32a8d1205b5d5e66ac74a43b6b0a89e98a",
+        "sujeto_sha256_antes": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_unit_encuentra_el_glob_sobre_variable",
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_qa_positive_tambien_sin_comillas_y_con_llaves"
+      ],
+      "pytest_tail": "\ntools/tests/test_detector_borrado_congelante_v1.py:43: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_detector_borrado_congelante_v1.py::test_unit_encuentra_el_glob_sobre_variable\nFAILED tools/tests/test_detector_borrado_congelante_v1.py::test_qa_positive_tambien_sin_comillas_y_con_llaves\n2 failed, 7 passed in 0.56s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "rm-rf-variable-ya-no-marca",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "            if m and not SEGURA_ABORTA.search(linea):",
+      "reemplazo": "            if False and m and not SEGURA_ABORTA.search(linea):",
+      "why": "rm -rf sobre variable sin guarda deja de marcarse: la segunda forma (la de NEXUS) desaparece",
+      "registro": {
+        "subject": "tools/seal_detector_borrado_congelante.py",
+        "ancla": "            if m and not SEGURA_ABORTA.search(linea):",
+        "reemplazo": "            if False and m and not SEGURA_ABORTA.search(linea):",
+        "ancla_sha256": "179266b36df62dbbb7a0770904b8abc0573eab90887c1ee7305def3eddfb7a82",
+        "sujeto_sha256_antes": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_qa_positive_marca_rm_rf_sobre_variable_SIN_guarda"
+      ],
+      "pytest_tail": "E        +  where 0 = CompletedProcess(args=['/usr/local/bin/python3', '/trabajo/tools/seal_detector_borrado_congelante.py', '/tmp/pytest-of.../sin_guarda.sh\\n\\n1 scripts mirados · 0 con GLOB sobre variable · 0 con rm -rf sobre variable SIN guarda\\n', stderr='').returncode\n\ntools/tests/test_detector_borrado_congelante_v1.py:105: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_detector_borrado_congelante_v1.py::test_qa_positive_marca_rm_rf_sobre_variable_SIN_guarda\n1 failed, 8 passed in 0.54s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "exit-0-con-hallazgos",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "    return 1 if (congelan or sin_guarda) else 0",
+      "reemplazo": "    return 0",
+      "why": "el detector imprime hallazgos pero sale 0: el pre-commit lo leeria como limpio",
+      "registro": {
+        "subject": "tools/seal_detector_borrado_congelante.py",
+        "ancla": "    return 1 if (congelan or sin_guarda) else 0",
+        "reemplazo": "    return 0",
+        "ancla_sha256": "23466971482da72a85bc0af88fc2a83cb3aeba2fefa0dfc279dd36c7f28a86f1",
+        "sujeto_sha256_antes": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_unit_encuentra_el_glob_sobre_variable",
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_qa_positive_tambien_sin_comillas_y_con_llaves",
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_qa_positive_marca_rm_rf_sobre_variable_SIN_guarda"
+      ],
+      "pytest_tail": "tools/tests/test_detector_borrado_congelante_v1.py:105: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_detector_borrado_congelante_v1.py::test_unit_encuentra_el_glob_sobre_variable\nFAILED tools/tests/test_detector_borrado_congelante_v1.py::test_qa_positive_tambien_sin_comillas_y_con_llaves\nFAILED tools/tests/test_detector_borrado_congelante_v1.py::test_qa_positive_marca_rm_rf_sobre_variable_SIN_guarda\n3 failed, 6 passed in 0.57s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "arbol-vacio-dice-limpio",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "        return 2\n",
+      "reemplazo": "        return 0\n",
+      "why": "sin scripts que mirar dice 'limpio' (exit 0) en vez de fallar cerrado (exit 2): el arbol vacio pasaria",
+      "registro": {
+        "subject": "tools/seal_detector_borrado_congelante.py",
+        "ancla": "        return 2\n",
+        "reemplazo": "        return 0\n",
+        "ancla_sha256": "ef8f8fd8b863bd8ba42ee804e1919087678721ca275d0ec1465924ce005021f9",
+        "sujeto_sha256_antes": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_qa_control_sin_scripts_NO_dice_limpio"
+      ],
+      "pytest_tail": "E        +  where 0 = CompletedProcess(args=['/usr/local/bin/python3', '/trabajo/tools/seal_detector_borrado_congelante.py', '/tmp/pytest-of...returncode=0, stdout=\"SIN MIRAR: no se encontro ningun script. Un detector sin sujetos no dice 'limpio'.\\n\", stderr='').returncode\n\ntools/tests/test_detector_borrado_congelante_v1.py:90: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_detector_borrado_congelante_v1.py::test_qa_control_sin_scripts_NO_dice_limpio\n1 failed, 8 passed in 0.56s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "forma-segura-aborta-marcada",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "            if m and not SEGURA_ABORTA.search(linea):",
+      "reemplazo": "            if m:",
+      "why": "la forma segura ${VAR:?} (aborta si esta vacia) pasa a marcarse: falso positivo que ensena a ignorar el detector",
+      "registro": {
+        "subject": "tools/seal_detector_borrado_congelante.py",
+        "ancla": "            if m and not SEGURA_ABORTA.search(linea):",
+        "reemplazo": "            if m:",
+        "ancla_sha256": "179266b36df62dbbb7a0770904b8abc0573eab90887c1ee7305def3eddfb7a82",
+        "sujeto_sha256_antes": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_qa_negative_NO_marca_la_variable_con_ABORTO_si_esta_vacia"
+      ],
+      "pytest_tail": "E        +  where 1 = CompletedProcess(args=['/usr/local/bin/python3', '/trabajo/tools/seal_detector_borrado_congelante.py', '/tmp/pytest-of...:?}/${name:?}\"\\n\\n1 scripts mirados · 0 con GLOB sobre variable · 1 con rm -rf sobre variable SIN guarda\\n', stderr='').returncode\n\ntools/tests/test_detector_borrado_congelante_v1.py:120: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_detector_borrado_congelante_v1.py::test_qa_negative_NO_marca_la_variable_con_ABORTO_si_esta_vacia\n1 failed, 8 passed in 0.58s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "comentarios-marcados",
+      "subject": "tools/seal_detector_borrado_congelante.py",
+      "ancla": "            if limpia.startswith(\"#\") or limpia.startswith(\"//\"):",
+      "reemplazo": "            if False:",
+      "why": "los comentarios pasan a marcarse: documentar la forma prohibida quedaria prohibido (el error del 1-sep)",
+      "registro": {
+        "subject": "tools/seal_detector_borrado_congelante.py",
+        "ancla": "            if limpia.startswith(\"#\") or limpia.startswith(\"//\"):",
+        "reemplazo": "            if False:",
+        "ancla_sha256": "0854cc0543e264635e8e98db692af5f8ccab72a59b9c5d1f06e3941bc5ccb7ef",
+        "sujeto_sha256_antes": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_detector_borrado_congelante_v1.py::test_qa_negative_NO_marca_un_comentario"
+      ],
+      "pytest_tail": "E        +  where 1 = CompletedProcess(args=['/usr/local/bin/python3', '/trabajo/tools/seal_detector_borrado_congelante.py', '/tmp/pytest-of...rm \"$M\"/*.json\\n\\n1 scripts mirados · 1 con GLOB sobre variable · 0 con rm -rf sobre variable SIN guarda\\n', stderr='').returncode\n\ntools/tests/test_detector_borrado_congelante_v1.py:85: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_detector_borrado_congelante_v1.py::test_qa_negative_NO_marca_un_comentario\n1 failed, 8 passed in 0.60s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "tools/seal_detector_borrado_congelante.py": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4",
+    "tools/tests/test_detector_borrado_congelante_v1.py": "7f0770d1b60083a7d5e8d2f7023bebcd8fb0459440870113bec2a2027addfdba"
+  }
+}
