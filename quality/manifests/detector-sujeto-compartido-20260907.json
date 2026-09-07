@@ -1,0 +1,108 @@
+{
+  "change_id": "detector-sujeto-compartido-20260907",
+  "owner": "ALICE",
+  "independent_reviewer": "NEXUS",
+  "subjects": [
+    "tools/seal_detector_sujeto_compartido.py"
+  ],
+  "tests": [
+    "tools/tests/test_detector_sujeto_compartido_v1.py"
+  ],
+  "source_sha256": {
+    "tools/seal_detector_sujeto_compartido.py": "79e6317a0503f98fe141d09afa854431ded19a529bb349a97e233848eb051433",
+    "tools/tests/test_detector_sujeto_compartido_v1.py": "aef8c244af51bf06a89247599236a1ad071cb64758e528f28cc27e64ff2046ef"
+  },
+  "implementation_head": "283784d39e88a20bac6ad2cacaf5fd0f0bcf17a3",
+  "commands": [
+    {
+      "id": "unit-sujeto-compartido",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_sujeto_compartido_v1.py"
+      ]
+    },
+    {
+      "id": "positive-avisa-firma-vencida-en-compartido",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_sujeto_compartido_v1.py::test_qa_positive_avisa_cuando_la_firma_de_un_compartido_ya_no_cubre_los_bytes"
+      ]
+    },
+    {
+      "id": "negative-no-avisa-por-compartir-sin-mas",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_sujeto_compartido_v1.py::test_qa_negative_NO_avisa_por_compartir_un_archivo_sin_firma_vencida"
+      ]
+    },
+    {
+      "id": "negative-no-pisa-el-trabajo-del-gate",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_sujeto_compartido_v1.py::test_qa_negative_NO_avisa_por_una_firma_vencida_en_archivo_NO_compartido"
+      ]
+    },
+    {
+      "id": "control-sin-manifiestos-no-dice-limpio",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_detector_sujeto_compartido_v1.py::test_qa_control_carpeta_sin_manifiestos_NO_dice_limpio"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_detector_sujeto_compartido_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 600
+  },
+  "delivery": {
+    "status": "verified",
+    "effect": "Un archivo declarado por DOS manifiestos hace que cerrar un carril venza la evidencia del otro. Medido el 7-sep: messages/session_checkpoint.py es sujeto de checkpoint-g2 y de nexus-credential-paths; NEXUS lo reescribio para cerrar el primero y con eso vencio la evidencia del segundo, correctamente y sin que nada lo avisara. El gate mira un manifiesto por vez.",
+    "evidence": "Barrido del arbol: 286 sujetos, 22 COMPARTIDOS por dos o mas manifiestos, 10 con firma vencida. LIMITE DECLARADO: esto NO prueba que el cambio lo causara el otro carril -el gate ya marca la caducidad uno por uno-; lo unico que agrega es decir CON QUIEN se comparte el archivo, para saber a quien avisar. La causa es una hipotesis a verificar en los commits. Dos brazos negativos fijan justamente donde NO debe gritar: compartir un archivo sin firma vencida (normal, 22 casos) y una firma vencida en archivo NO compartido (eso es del gate, repetirlo seria pisarle el trabajo).",
+    "command": {
+      "_doc": "Entrega por EFECTO: sobre los manifiestos reales debe seguir listando compartidos.",
+      "expected_exit": 1,
+      "expected_stdout_contains": "compartidos",
+      "argv": [
+        "python3",
+        "tools/seal_detector_sujeto_compartido.py"
+      ]
+    }
+  },
+  "schema": "seal.quality-manifest.v1"
+}
