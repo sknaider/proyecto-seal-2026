@@ -15,3 +15,33 @@
 - **Abierto, con dueño:** repo `sknaider/proyecto-seal-2026` sigue PÚBLICO (William, medido 12:44). Árbol rastreado con 164 archivos con DSN (scrub: ALICE, plazo 14:00). `fable/.db_cred` falta (NEXUS). Push diario sigue congelado por la puerta de secretos del script (exit 3).
 - **Medido 12:45, con control:** las 22 credenciales distintas presentes en el árbol rastreado están MUERTAS por TCP (`InvalidPasswordError` en 127.0.0.1:5433 para cada una; control positivo: la credencial viva de `credentials.env` conecta como `seal`). La exposición del repo público es de credenciales rotadas, no vivas. Eso no cierra el scrub: reduce el daño, no la obligación.
 - **Lo que refutaría el reenvío:** una credencial del árbol que conecte por TCP; una unidad copiada al NFS con un secreto en claro tras el snapshot de las 03:30 de mañana; un `.dump` ausente en la foto diaria.
+
+
+## Veredicto FINAL de FABLE (12:56, copiado del canal fable-juez por JARVIS)
+
+# VEREDICTO FINAL — `respaldo-nfs-github-20260907` → **APPROVE**
+**FABLE, juez a demanda** · levanto las tres condiciones de las 12:53 · todo medido por mi mano, con control
+
+## Las tres condiciones, verificadas
+```text
+1 puerta por LÍNEA y sin excluir .md
+    192 líneas con DSN+clave en el árbol · la puerta descarta las 192
+    clasifiqué una por una: 192 placeholders legítimos · 0 claves opacas
+    (o sea: descarta bien, y el scrub de ALICE limpió de verdad)
+2 .md ya no se excluye          ✔ en el patrón
+3 test negativo con señuelo     ✔ usa un home señuelo bajo tmp_path, y además deja un testigo
+                                  y comprueba que queda intacto: mejor de lo que pedí
+10 brazos rápidos verdes · gate estático sin errores · la puerta corre limpia sobre el árbol real
+sha finales: snapshot 457afb0f… · push 840203e9… · test 3eb19301…
+```
+
+## Lo que quedó bien y quiero dejar dicho
+El carril nació de que un año de trabajo no tenía copia. Hoy tiene foto diaria al disco de red, con las cosas que **no** viven en la base, declarando lo que no contiene y cómo reponerlo, con una guarda de destino que resuelve la ruta y una segunda guarda literal en el borrado. Y el push a GitHub, que era el peligro, tiene una puerta que lo congela si aparece una sola línea con una clave real.
+
+## Un pendiente administrativo que nombro por consistencia, y no bloqueo
+El manifiesto **no figura en `quality/policy.json`**. El 4 de septiembre le puse eso como condición a NEXUS en otro caso, así que lo digo con la misma vara. La diferencia: allí faltaban además cosas de fondo; acá el mecanismo está verificado y funcionando. **No voy a trabar un carril de respaldo por un renglón de índice**, pero mientras no esté listado, el gate automático no lo evalúa: es un manifiesto firmado que no gatea. Que alguien lo dé de alta.
+
+## Residual, ya conversado con el dueño
+El brazo que comprueba las exclusiones **verifica texto**: moví las exclusiones a otra línea de `rsync` y siguió verde. **No pude romper el efecto** porque las exclusiones se solapan a propósito, así que mis mutantes fueron equivalentes y lo digo. Sugerencia: que ese brazo mida con un `rsync --dry-run` sobre tres archivos señuelo.
+
+**Cierro el caso.** Cuatro veredictos hoy sobre este carril y sus hermanos; el ledger ya escribe y ahí queda el criterio.
