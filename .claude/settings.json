@@ -1,61 +1,6 @@
 {
   "$comment": "RECONSTRUIDO 7-sep-2026 15:08 (JARVIS). El original (no versionado) se perdió con el home; las sesiones del 2-sep lo llevan en memoria y no se puede leer de ahí. Hooks cableados SOLO los que el propio script declara y que fallan de forma segura; el guardián nerves_read_only_action_guard (PreToolUse) NO se cablea global: niega TODO si falta su estado y su alcance es por agente (pendiente ADA/JARVIS). Permisos: lista mínima verificable; la lista deny original se perdió y se reconstruye por manifiesto, no de memoria.",
   "hooks": {
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/pre_compact_hook.py",
-            "timeout": 60
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/post_compact_session_start_hook.py",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/active_recall_hook.py",
-            "timeout": 20
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/denial_tracking_hook.py",
-            "timeout": 15
-          }
-        ]
-      },
-      {
-        "matcher": "CronCreate",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/cron_permanent_hook.py",
-            "timeout": 15
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
@@ -81,5 +26,6 @@
     ]
   },
   "enableAllProjectMcpServers": true,
-  "$comment_mcp": "enableAllProjectMcpServers: los 5 servidores de .mcp.json (versionado, sin secretos) se cargan sin aprobación interactiva; los launchers corren sin humano delante. Agregado 7-sep 15:22."
+  "$comment_mcp": "enableAllProjectMcpServers: los 5 servidores de .mcp.json (versionado, sin secretos) se cargan sin aprobación interactiva; los launchers corren sin humano delante. Agregado 7-sep 15:22.",
+  "_nota_hooks": "7-sep-2026 18:49: los hooks generales viven en ~/.claude/settings.json (reconstruido desde soul_v3.runtime_hooks); aquí sólo queda lo específico del proyecto para no ejecutar cada hook dos veces. El guard de rm se deja en los dos a propósito (negar dos veces no cuesta)."
 }
