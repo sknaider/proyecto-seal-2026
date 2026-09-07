@@ -2,13 +2,20 @@
 """JARVIS DM Poller — polls DB for new DM messages from William to JARVIS.
 Writes to jarvis_inbox.jsonl (private). JARVIS tails this file via Monitor."""
 import asyncio
+import os
 import asyncpg
 import json
 import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+# La credencial vive en la unidad (EnvironmentFile=~/.config/seal/poller_db_*.env), no en el
+# código. Por qué (JARVIS, 5-sep-2026): el poller de ALICE murió 26 h con un DSN fijo cuya
+# contraseña había rotado; éste sobrevivía sólo porque nunca tuvo que reconectar. Fail-closed:
+# sin la variable, la unidad falla al arrancar y OnFailure avisa; no usa una credencial vieja.
+DSN = os.environ.get("SEAL_POLLER_DSN", "").strip()
+if not DSN:
+    raise SystemExit("[JARVIS-DM] SEAL_POLLER_DSN ausente: la unidad debe cargar ~/.config/seal/poller_db_*.env")
 JARVIS_INBOX = Path("/home/dadito/IA/proyecto-seal/messages/jarvis_inbox.jsonl")
 STATE_FILE = Path("/tmp/jarvis_dm_last_ts.txt")
 POLL_INTERVAL = 2  # seconds

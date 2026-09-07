@@ -1,0 +1,126 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "NEXUS inyeccion de fallas sobre copia aislada (mktemp -d bajo /tmp)",
+  "workspace": "Cada mutante sobre una COPIA; ningun archivo de produccion se toco. Control PRIMERO en cada tanda.",
+  "reviewer": "JARVIS",
+  "killed": 12,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 12,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+    "messages/chat_server.py": "8788eb5bb7bef306b3f5eb8d58a1e17a61bee10388b95f5627ca05956e500f75",
+    "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "e611e5bbc581d8d69a4fdadea659873dc79496cea296fdb7d009f0002c1e3c75",
+    "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a459172137ce90afd0c5073cbb213f818cca8c38ccb5b767c72e328081bff207"
+  },
+  "detail": [
+    {
+      "id": "agregar-v2-a-plenos",
+      "subject": "channel_acl.py::puede_escribir",
+      "mutation": "saltear el chequeo de cuerpos (`if quien in _ALICE_CUERPOS` -> `if False`), que equivale a agregar ALICE-V2 a REMITENTES_PLENOS",
+      "killed_by": "test_control_NUNCA_los_dos_cuerpos_a_la_vez (+2)",
+      "killed": true,
+      "why": "es el reflejo original y el defecto entero: dos ALICE publicando"
+    },
+    {
+      "id": "sin-archivo-gana-v2",
+      "subject": "channel_acl.py::cuerpo_activo_de_alice",
+      "mutation": "el default pasa de ALICE a ALICE-V2",
+      "killed_by": "test_unit_sin_archivo_gana_v1 (+1)",
+      "killed": true,
+      "why": "el olvido debe conservar lo que ya andaba, no habilitar el cuerpo en evaluacion"
+    },
+    {
+      "id": "valor-desconocido-pasa",
+      "subject": "channel_acl.py::cuerpo_activo_de_alice",
+      "mutation": "devolver el contenido crudo sin validarlo contra los dos cuerpos",
+      "killed_by": "test_unit_valor_desconocido_cae_a_v1 (+1)",
+      "killed": true,
+      "why": "un archivo con basura dejaria a los DOS cuerpos fuera y a ALICE muda"
+    },
+    {
+      "id": "el-inactivo-publica-en-cualquier-canal",
+      "subject": "channel_acl.py::puede_escribir",
+      "mutation": "`quien == cuerpo_activo_de_alice()` -> `True`",
+      "killed_by": "test_negativo_el_cuerpo_INACTIVO (+2)",
+      "killed": true,
+      "why": "anula la exclusion dejando la forma del codigo intacta"
+    },
+    {
+      "id": "tabla-por-patron",
+      "subject": "chat_server.py::_es_cuerpo_de_agente",
+      "mutation": "reemplazar la tabla por un regex `ALICE-V\\d+`",
+      "killed_by": "test_control_un_patron_generico_NO_habria_pasado",
+      "killed": true,
+      "why": "un patron deja entrar ALICE-V9, un cuerpo que nadie habilito"
+    },
+    {
+      "id": "cualquiera-es-cuerpo",
+      "subject": "chat_server.py::_es_cuerpo_de_agente",
+      "mutation": "`return True` al inicio",
+      "killed_by": "test_negativo_nadie_mas_puede_firmar_como_ALICE (+2)",
+      "killed": true,
+      "why": "cualquier sesion podria firmar como ALICE"
+    },
+    {
+      "id": "cuerpo-identity-nunca-aplica",
+      "subject": "chat_server.py::_agent_auth_gate",
+      "mutation": "`cuerpo_identity = False and bool(...)`",
+      "killed_by": "test_cableado_positivo_sesion_del_cuerpo_firma_como_ALICE_sin_declararse",
+      "killed": true,
+      "why": "el helper quedaria perfecto y desconectado: v2 volveria a pasar como v1"
+    },
+    {
+      "id": "instance-id-ajeno-se-ignora",
+      "subject": "chat_server.py::_agent_auth_gate",
+      "mutation": "anular la guarda que rechaza un instance_id sin respaldo de la sesion",
+      "killed_by": "test_cableado_negativo_el_token_canonico_NO_puede_aseverar_otra_instancia",
+      "killed": true,
+      "why": "el cliente volveria a elegir su propio cuerpo, que es el agujero original"
+    },
+    {
+      "id": "el-gate-deja-pasar-todo",
+      "subject": "chat_server.py::_agent_auth_gate",
+      "mutation": "`if reason:` -> `if False:`",
+      "killed_by": "test_cableado_negativo_una_sesion_ajena_no_firma_como_ALICE (+1)",
+      "killed": true,
+      "why": "control de que los brazos negativos no son decorativos"
+    },
+    {
+      "id": "cuerpo-persiste-su-propio-nombre",
+      "subject": "chat_server.py::_agent_send_db_actor",
+      "mutation": "anular la rama de cuerpos (vuelve a guardar sender_name=ALICE-V2)",
+      "killed_by": "test_persistencia_el_cuerpo_se_guarda_con_el_nombre_CANONICO",
+      "killed": true,
+      "why": "William veria el nombre del cuerpo y el RLS de los DM compar-a mal"
+    },
+    {
+      "id": "cualquiera-persiste-el-aseverado",
+      "subject": "chat_server.py::_agent_send_db_actor",
+      "mutation": "`if _es_cuerpo_de_agente(...)` -> `if True:`",
+      "killed_by": "test_persistencia_control_los_demas_conservan_su_nombre_de_sesion",
+      "killed": true,
+      "why": "el nombre persistido lo elegiria el cliente para CUALQUIER sesion"
+    },
+    {
+      "id": "se-pierde-la-autoria-real",
+      "subject": "chat_server.py::_agent_send_db_actor",
+      "mutation": "devolver sender_id=None para el cuerpo",
+      "killed_by": "test_persistencia_el_cuerpo_se_guarda_con_el_nombre_CANONICO",
+      "killed": true,
+      "why": "mostrar el nombre del agente no puede borrar QUIEN escribio"
+    }
+  ],
+  "correcciones_propias": [
+    "Mi primera version decidia el cuerpo con el instance_id del BODY: la exclusion era ADVISORY para quien tuviera el token canonico. Lo encontro JARVIS revisando, no yo.",
+    "Mi rechazo nuevo de instance_id pisaba el error mas especifico del endpoint de subida: la suite paso de 63 a 65 fallos. Acotado a no-upload, volvio a 63.",
+    "El hueco de la instancia invisible (v2 firmando como ALICE sin declararse) lo encontre yo pero DESPUES de commitear la primera version, no antes.",
+    "Mis primeros 5 tests probaban el HELPER y ninguno llamaba a `_agent_auth_gate`: el mismo 'existe pero nadie lo llama' que yo le habia marcado a ADA y que ya me habia sobrevivido un mutante en la dedup de idempotencia. Lo cazo JARVIS revisando; los 5 brazos de cableado salieron de ahi.",
+    "Publique una tabla de '8 de 8 valores coinciden' entre mi ACL y el broker... corrida entera como `dadito`. El broker corre como root SIN capacidades y no atraviesa el 710 del home: una de las dos piezas quedaba ciega. Lo midio JARVIS. Tercera vez en la noche que mido con MI rol en vez del que ejecuta.",
+    "Mi ACL mandaba al cuerpo degradado a `shadow:<nombre>`, un canal que NO EXISTIA (422 unknown_channel): el mensaje de rechazo prometia un corral inexistente y dejaba MUDA a la degradada, justo cuando el plan de rollback depende de que pueda avisar. Lo midio ALICE desde adentro."
+  ]
+}

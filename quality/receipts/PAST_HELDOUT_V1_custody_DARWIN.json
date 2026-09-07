@@ -1,0 +1,36 @@
+{
+  "schema": "seal.dataset-custody-receipt.v1",
+  "custodian": "DARWIN",
+  "role": "constructor_and_dataset_custodian_not_final_reviewer",
+  "harness_commit": "b6d2eeaf3",
+  "classification": "fully_synthetic",
+  "live_database_touched": false,
+  "network_used": false,
+  "private_memory_used": false,
+  "fable_subject_used": false,
+  "pre_open_validation": {
+    "first_attempt_aborted_before_model_execution": true,
+    "evidence_written": false,
+    "refrozen_before_results": true
+  },
+  "observed": {
+    "case_count": 8,
+    "trial_count": 240,
+    "primary_endpoint": "8_of_8_pathway_supported",
+    "positive_control": "8_of_8_persistence_on_score_1",
+    "negative_controls": "8_of_8_persistence_off_and_placebo_score_0",
+    "non_vacuous_control": "8_of_8_positive_negative_gap_1",
+    "test_result": "8_passed"
+  },
+  "byte_bindings": {
+    "corpus_rsi/past_heldout_v1_dataset.json": "f9e8aea2b6d31ceff692c193550def0ea5abcd5f8b89b6e2066de6214794abab",
+    "corpus_rsi/past_heldout_v1_preregister.json": "1ba33f3a0dfb61723df4eaf2c17d9c5f3ce1a2f33078f770755d8e40d59fcd25",
+    "corpus_rsi/past_heldout_v1_evidence.json": "56faec0989ec3a8968865ab5b11c4c7036fc5f7a5ebc0aa8f8701744aba33828",
+    "corpus_rsi/PAST_HELDOUT_V1_RESULTS.md": "ea2fc799ea9d90895595842063d0e39305366123c44eea917ce593bb819320dc",
+    "memory/past_heldout_v1_runner.py": "cf86d70fa30fe2bcfd7636ae3090742bcab0a4dda034879f87bcb3d30841124f",
+    "memory/test_past_heldout_v1.py": "ac7071cf3296596d4d0f852526f198ae7119e66f061185fc542cdd924e69077a",
+    "scripts/run_past_heldout_v1.py": "ac0627259f25943319033b9ef11c57fe567e815ca2e6e01ee00a8c1a28478ab3"
+  },
+  "claim_boundary": "synthetic deterministic harness-boundary attribution; not production causal proof",
+  "independent_final_review_required": true
+}

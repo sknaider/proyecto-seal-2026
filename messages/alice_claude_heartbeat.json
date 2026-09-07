@@ -1,8 +1,0 @@
-{
-  "agent": "ALICE",
-  "alive": true,
-  "timestamp": "2026-05-06T22:45:29Z",
-  "process_pid": "2254560",
-  "gpu_temp": 53,
-  "gpu_util": 0
-}

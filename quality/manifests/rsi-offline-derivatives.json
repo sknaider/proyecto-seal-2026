@@ -1,0 +1,82 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "rsi-offline-derivatives-20260819",
+  "owner": "ADA",
+  "independent_reviewer": "WEGENER",
+  "review": {
+    "status": "approved",
+    "evidence": "WEGENER reproduced the exact staged INDEX: unit 8/8, positive 2/2, negative 2/2, control 3/3, delivery 8/8, and branch coverage 85.112% >= 84.925%. The shield evidence binds all 39 unique corpus specimens by filename+SHA-256 and root SHA-256; frozen shield, T5 and GRAPH-ENUM JSON reproduced byte-identically with non-vacuous controls. Staged corpus scan found zero credential, private-key, email, local-path, LAN-IP or real-person fixtures. T5 remains explicitly offline/not integrated; no live-enforcement claim is approved.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "WEGENER",
+      "evidence": "Exact staged INDEX reproduction: unit 8/8; QA positive 2/2, negative 2/2, control 3/3; delivery 8/8; branch coverage 85.112%; 39/39 corpus specimens byte-bound; 0 staged secret/PII/topology hits; T5 verified offline and not integrated.",
+      "reviewed_sha256": {
+        "corpus_rsi/shield_deterministic_trace.py": "a1de9c421fdaea948ac9327e9a092f81b911878cc8f3f046bfaf3fde99b95452",
+        "corpus_rsi/shield_deterministic_trace.json": "04b2e1c1bb25cea5d061164aca99c57fb6c3e97c9af17a3f6bf1a607450e9acd",
+        "corpus_rsi/t5_extraction_probe.py": "e7d35d866357d6aa73042061cb22ac7951e7e14da786b20efccce18f42bbdbe6",
+        "corpus_rsi/t5_extraction_probe.json": "413d3f11d902eb21ee5dc014ca6d60e01974ad7175294dddf515839f846fa161",
+        "corpus_rsi/t6_graph_reconstruction_probe.py": "dd2f34e0e1235b607a21b1df52434e08ab276c7db36c3aaa0474a25cfa365287",
+        "corpus_rsi/t6_graph_reconstruction_probe.json": "a12996ed9daf34698671ff9b68ba5935c1e0a29bba9256a25110d4086808e9e3",
+        "corpus_rsi/test_absorbed_derivatives.py": "e2fd91d94b1d9926e9dbc309c7ceeac3ad5234a3cdb0b76748dca75d2a8e0860",
+        "corpus_rsi/test_t6_graph_reconstruction_probe.py": "607b36bc486504851e2e037f3afc0540203ee9923dc5714809796738e72df09b"
+      },
+      "manifest_digest": "2f44ff82383c04b02e74b7ff0d4e21fcdda1dba6828d5377f5dfdf58dff4656a"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "corpus_rsi/shield_deterministic_trace.py",
+    "corpus_rsi/shield_deterministic_trace.json",
+    "corpus_rsi/t5_extraction_probe.py",
+    "corpus_rsi/t5_extraction_probe.json",
+    "corpus_rsi/t6_graph_reconstruction_probe.py",
+    "corpus_rsi/t6_graph_reconstruction_probe.json"
+  ],
+  "tests": [
+    "corpus_rsi/test_absorbed_derivatives.py",
+    "corpus_rsi/test_t6_graph_reconstruction_probe.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-rsi-offline-all",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "corpus_rsi/test_absorbed_derivatives.py", "corpus_rsi/test_t6_graph_reconstruction_probe.py"],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-rsi-attacks-detected",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "corpus_rsi/test_absorbed_derivatives.py::test_shield_trace_reproduces_frozen_bytes_and_non_vacuous_controls", "corpus_rsi/test_t6_graph_reconstruction_probe.py::test_positive_control_reconstructs_with_stateless_authorization"],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-rsi-guards-deny",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "corpus_rsi/test_absorbed_derivatives.py::test_t5_probe_reproduces_frozen_bytes_and_separates_egress", "corpus_rsi/test_t6_graph_reconstruction_probe.py::test_guard_blocks_accumulation_without_blocking_everything"],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-rsi-benign-and-deterministic",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "corpus_rsi/test_absorbed_derivatives.py::test_frozen_json_contains_no_runtime_error_marker", "corpus_rsi/test_t6_graph_reconstruction_probe.py::test_negative_control_allows_benign_navigation", "corpus_rsi/test_t6_graph_reconstruction_probe.py::test_evidence_is_deterministic_and_non_vacuous"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["corpus_rsi"],
+    "omit": ["corpus_rsi/test_*.py"],
+    "pytest_args": ["-q", "--noconftest", "corpus_rsi/test_absorbed_derivatives.py", "corpus_rsi/test_t6_graph_reconstruction_probe.py"],
+    "baseline_percent": 84.925,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "The offline probes regenerate their frozen evidence and exercise positive, negative and non-vacuous controls without DB, network or daemon access.",
+    "command": {
+      "id": "delivery-rsi-offline-reproduction",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "corpus_rsi/test_absorbed_derivatives.py", "corpus_rsi/test_t6_graph_reconstruction_probe.py"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "8 passed"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+[Unit]
+# capytown-bringup.service — Autostart BLINDADO del bringup del robot (ALICE 2026-07-14).
+# Reemplaza el autostart de escritorio (lxterminal) que borraron. Corre en bash al boot,
+# reinicia solo si se cae, y sobrevive reinicios. Mas dificil de borrar por accidente que
+# un .desktop en ~/.config/autostart de un robot publico.
+Description=CapyTown robot bringup (scan + odom + servos)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# EDITA "User" con tu usuario del Pi (probablemente "pi" o el que uses).
+User=pi
+# EDITA la ruta si copiaste el kit a otro lado.
+ExecStart=/home/pi/capytown_autostart/start_bringup.sh
+Restart=on-failure
+RestartSec=3
+# Log a journal: ver con  journalctl -u capytown-bringup -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -88,7 +88,8 @@ async def run() -> None:
 
     from turn_extractor import extract_and_store
 
-    session_id = f"stop-hook-{abs(hash(TRANSCRIPT)) % 999999}"
+    # session_id real de la sesion que disparo el hook (cura H7, 3-sep); fallback al hash del transcript
+    session_id = os.environ.get("SEAL_SESSION_ID_HOOK", "").strip() or f"stop-hook-{abs(hash(TRANSCRIPT)) % 999999}"
     await extract_and_store(
         agent=AGENT,
         session_id=session_id,

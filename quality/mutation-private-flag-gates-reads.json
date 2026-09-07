@@ -1,0 +1,73 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "private-flag-gates-reads",
+  "owner": "NEXUS",
+  "fecha": "2026-09-04",
+  "_doc": "Mutantes corridos sobre una COPIA del arbol (mktemp -d con messages/ y tests/), nunca sobre el arbol vivo. Control primero.",
+  "control": {
+    "comando": "pytest tests/test_nexus_private_flag_gates_reads_v1.py -q",
+    "resultado": "11 passed"
+  },
+  "canario": {
+    "descripcion": "raise RuntimeError al importar chat_server",
+    "resultado": "3 failed, 8 passed",
+    "lectura": "Los 3 conductuales mueren -> SI ejecutan el sujeto. Los 8 textuales SOBREVIVEN al canario, y eso es la prueba directa de que nunca ejecutan chat_server: lo leen como texto."
+  },
+  "tanda_revisor_JARVIS": {
+    "_doc": "Los dos mutantes que JARVIS construyo al revisar. Reproducidos por el owner.",
+    "mutantes": [
+      {
+        "id": "flag-invertido",
+        "descripcion": "_canal_privado = NOT bool(fetchval(...)) -- SELECT y condicion IDENTICOS letra por letra",
+        "brazos_textuales_viejos": "8 passed  (SOBREVIVE)",
+        "brazos_conductuales_nuevos": "2 failed, 1 passed  (MUERE)",
+        "lectura": "Es el hueco exacto que JARVIS nombro: los brazos viejos fijan el TEXTO de la consulta y de la condicion, no el SENTIDO del valor. Un canal privado pasaba a tratarse como publico sin que ninguno se enterara."
+      },
+      {
+        "id": "saco-_canal_privado-de-la-condicion",
+        "descripcion": "la condicion de auth deja de mirar la bandera; el SELECT queda intacto",
+        "resultado_suite_completa": "4 failed, 7 passed  (MUERE)",
+        "lectura": "Lo cazan 2 textuales y 2 conductuales. Confirma el matiz de JARVIS: los brazos viejos NO son inutiles, detectan textualmente."
+      }
+    ]
+  },
+  "deuda_declarada": "Falta el brazo 'autenticado pero NO autorizado -> 403': exige la sesion de otra persona y hoy solo lo cubre un brazo textual.",
+  "reviewer": "JARVIS",
+  "mutation_target": "isolated_copy",
+  "revision_independiente_JARVIS": {
+    "_doc": "Bloque del REVISOR. No reemplaza la evidencia del owner: la acompana.",
+    "control": "11 passed (copia completada con messages/*.py y memory/*.py hasta igualar el arbol vivo)",
+    "mutantes": [
+      {
+        "id": "flag is_private leido INVERTIDO, texto identico",
+        "result": "KILLED",
+        "observed": "2 failed, 9 passed",
+        "nota": "En la ronda 1 SOBREVIVIA con los 8 brazos viejos: era el agujero que motivo el rechazo."
+      },
+      {
+        "id": "fail-OPEN si la consulta del flag falla",
+        "result": "KILLED",
+        "observed": "1 failed, 10 passed"
+      },
+      {
+        "id": "saca _canal_privado de la condicion",
+        "result": "KILLED",
+        "observed": "4 failed, 7 passed"
+      }
+    ],
+    "delivery_corrido_por_el_revisor": "401 en shadow:alice, shadow:alice-v2 y fable-juez; 200 en web_chat; delivery: passed; rc=0"
+  },
+  "total": 3,
+  "killed": 3,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "_conteos": "Los tres mutantes son de JARVIS como revisor; el owner los reprodujo. CORREGIDO 4-sep: este archivo usaba `sobrevivientes` y el gate lee killed/survived/total, asi que devolvia invalid_mutation_counts y mutation_score -1.0. Escribi el esquema de memoria en vez de mirar gate.py:586, que lista las seis claves exactas.",
+  "file_sha256": {
+    "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+    "tests/test_nexus_private_flag_gates_reads_v1.py": "1a1aaf81a67acfa49e386c50b5aedbcc8c68fc48cf58cdcc0274cd500df6c23c"
+  }
+}

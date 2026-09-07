@@ -1,0 +1,14 @@
+{
+  "$comment": "MCP del asiento ALICE v2 AISLADO (corre ya como alice-v2-lab): gateway SOUL v2 por socket, sin sudo, sin bearer.",
+  "mcpServers": {
+    "soul-v2-gateway": {
+      "type": "stdio",
+      "command": "/usr/bin/python3",
+      "args": [
+        "/opt/alice-v2-owner-runtime/scripts/mcp_gateway_client.py",
+        "--socket",
+        "/run/alice-v2-lab/mcp-broker.sock"
+      ]
+    }
+  }
+}

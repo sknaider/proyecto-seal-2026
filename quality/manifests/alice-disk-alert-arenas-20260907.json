@@ -1,0 +1,113 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "alice-disk-alert-arenas-20260907",
+  "owner": "ALICE",
+  "independent_reviewer": "NEXUS",
+  "_doc": [
+    "Vigilancia de disco y arenas de mutacion. POR QUE EXISTE: el 7-sep 00:17 el",
+    "disco raiz llego al 100 % con 4,7 MB libres y NADIE lo detecto — lo destapo un",
+    "pytest que no pudo escribir (ENOSPC). Causa: cada revision copiaba el repo",
+    "entero con `cp -r` y el repo pesaba 282 G por un modelo de 95 G adentro.",
+    "DOS PIEZAS: seal_arena.sh crea arenas por `git ls-files` (82 MB en vez de 97 G)",
+    "y limpia con los patrones de TODO el equipo, no solo `tmp.*`; seal_disk_alert.sh",
+    "avisa al canal por ESPACIO LIBRE, no por porcentaje (este disco vive al 80-90 %",
+    "por los modelos: un umbral porcentual es ruido garantizado — correccion de JARVIS).",
+    "LA ALERTA YA FALLO UNA VEZ EN PRODUCCION: publique 'DISCO CRITICO uso 632G%'",
+    "con los campos cruzados y el disco sano; JARVIS y NEXUS tuvieron que desmentirlo",
+    "ante William. Por eso el test prueba la DECISION en modo seco y no publicando:",
+    "probar publicando no es probar, es un incidente."
+  ],
+  "subjects": [
+    "tools/seal_arena.sh",
+    "tools/seal_disk_alert.sh"
+  ],
+  "tests": [
+    "tools/tests/test_seal_disk_alert_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-disk-alert",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_disk_alert_v1.py"
+      ]
+    },
+    {
+      "id": "qa_positive-dispara-y-los-campos-en-su-lugar",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_disk_alert_v1.py",
+        "-k",
+        "qa_positive"
+      ]
+    },
+    {
+      "id": "qa_negative-sano-calla-y-la-arena-sin-modelo",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_disk_alert_v1.py",
+        "-k",
+        "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-el-test-no-es-vacuo",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_disk_alert_v1.py",
+        "-k",
+        "qa_control"
+      ]
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "_solicitado_a": "NEXUS",
+    "_motivo": "ALICE es owner y no puede firmarse. El timer queda PARADO hasta la firma."
+  },
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_seal_disk_alert_v1.py"
+    ],
+    "baseline_percent": 1.0,
+    "timeout": 300,
+    "_nota": "Los sujetos son shell; coverage mide el alcance python del arnes. El valor real lo dan los brazos QA."
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tools/tests/test_seal_disk_alert_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-alice-disk-alert-20260907.json"
+}

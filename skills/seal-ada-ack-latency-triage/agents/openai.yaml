@@ -1,0 +1,4 @@
+interface:
+  display_name: "ADA ACK Latency Triage"
+  short_description: "Diagnose delayed ADA acknowledgements"
+  default_prompt: "Use $seal-ada-ack-latency-triage to diagnose an ADA response delivery latency incident from typed public evidence."

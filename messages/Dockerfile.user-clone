@@ -1,0 +1,12 @@
+FROM python:3.12.13-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36
+
+ARG CRYPTOGRAPHY_VERSION=47.0.0
+RUN pip install --no-cache-dir "cryptography==${CRYPTOGRAPHY_VERSION}"
+WORKDIR /app
+COPY messages/ada_user_clone_worker.py /app/ada_user_clone_worker.py
+COPY messages/user_clone_policy.py /app/user_clone_policy.py
+COPY messages/voice_profiles /app/voice_profiles
+RUN chmod 0555 /app/ada_user_clone_worker.py /app/user_clone_policy.py \
+    && chmod 0444 /app/voice_profiles/*.json /app/voice_profiles/sources/*.md
+USER 1000:1000
+ENTRYPOINT ["python3", "/app/ada_user_clone_worker.py"]

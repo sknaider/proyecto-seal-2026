@@ -1,0 +1,39 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "response-lease-contract-20260903",
+  "subject": "messages/response_lease.py",
+  "harness": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_nexus_response_lease_contract_v1.py"
+  ],
+  "_doc": "El primer intento de mutante 2 (quitar `async`) dejaba `await` dentro de un `def`: SyntaxError. La suite se ponia roja igual, pero por un error de sintaxis, no por el contrato --un kill que no prueba lo que dice probar--. Se rehizo con un mutante SINTACTICAMENTE VALIDO.",
+  "mutants": [
+    {
+      "id": "release_db-borrada",
+      "author": "NEXUS",
+      "mutation": "eliminar `async def release_db` del modulo",
+      "why": "Es exactamente lo que hizo mi reset --hard y lo que produjo el HTTP 500 en produccion.",
+      "result": "KILLED",
+      "observed": "2 failed, 4 passed"
+    },
+    {
+      "id": "release_db-sincrona",
+      "author": "NEXUS",
+      "mutation": "reemplazar por `def release_db(pool, broadcast_id, agent): return False`",
+      "why": "Una funcion con el MISMO NOMBRE pasa el chequeo de existencia y revienta igual en el `await` del call site. Sin el brazo de corrutina, el manifiesto diria 'contrato verificado' con produccion rota.",
+      "result": "KILLED",
+      "observed": "1 failed, 5 passed"
+    }
+  ],
+  "control_sujeto_sin_mutar": {
+    "result": "GREEN",
+    "observed": "6 passed",
+    "donde": "la misma copia aislada"
+  },
+  "killed": 2,
+  "total": 2,
+  "mutation_score_percent": 100.0
+}

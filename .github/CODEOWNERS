@@ -1,0 +1,23 @@
+# SEAL protected core daemon surfaces.
+# GitHub branch protection can require review from William for these paths.
+
+/AGENTS.md @sknaider
+/ada_codex.sh @sknaider
+/memory/mcp_server_v4.py @sknaider
+/memory/dual_memory_governance.py @sknaider
+/memory/test_dual_memory_governance.py @sknaider
+/memory/test_mcp_dual_memory_format.py @sknaider
+/memory/tests/test_active_recall_hook.py @sknaider
+/messages/ada_codex_remote_bridge.py @sknaider
+/messages/ada_codex_compact_monitor.py @sknaider
+/messages/ada_codex_soul_bootstrap.py @sknaider
+/messages/tests/test_ada_codex_remote_bridge_silence.py @sknaider
+/scripts/seal_core_guard.py @sknaider
+
+# Quality policy and enforcement require William's authenticated GitHub review.
+/quality/** @sknaider
+/quality_gate/** @sknaider
+/scripts/seal_quality_gate.py @sknaider
+/.githooks/pre-commit @sknaider
+/.github/workflows/seal-quality-gate.yml @sknaider
+/setup.cfg @sknaider

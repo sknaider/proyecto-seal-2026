@@ -1,0 +1,12 @@
+[Unit]
+Description=Sample SEAL NERVES A2 soak every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+AccuracySec=10s
+Persistent=true
+Unit=seal-nerves-a2-soak.service
+
+[Install]
+WantedBy=timers.target

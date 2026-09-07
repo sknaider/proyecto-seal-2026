@@ -1,0 +1,82 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "past-heldout-v1-20260820",
+  "owner": "DARWIN",
+  "independent_reviewer": "WEGENER",
+  "review": {
+    "status": "approved",
+    "evidence": "WEGENER independently reproduced all QA arms, portable delivery, byte custody, redaction, branch coverage and six genuine copy mutations. Approval is limited to the frozen synthetic deterministic harness boundary; it is not a live-model, production, causal or externally anchored claim.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "WEGENER",
+      "evidence": "Exact staged-byte review: unit 8/8; positive 1/1; negative 1/1; control 3/3; portable delivery 240 trials from an unrelated cwd; branch coverage 79.141104%; zero raw artifact contents or expected tokens in frozen evidence; zero private paths, LAN addresses, DSNs, keys or tokens. Six reviewer-originated mutations in isolated copies were killed: grader bypass, reduced intervention matrix, trials 5-to-1, raw-output retention, analysis-failure bypass, and dataset-hash-fence bypass plus artifact drift. Fresh evidence is semantically stable but intentionally not byte-identical because run UUID, timestamp, timing and evidence digest are volatile. Claim constrained to synthetic deterministic mechanism attribution; production_generalization=false and causal_proof=false.",
+      "reviewed_sha256": {
+        "corpus_rsi/past_heldout_v1_dataset.json": "f9e8aea2b6d31ceff692c193550def0ea5abcd5f8b89b6e2066de6214794abab",
+        "corpus_rsi/past_heldout_v1_preregister.json": "1ba33f3a0dfb61723df4eaf2c17d9c5f3ce1a2f33078f770755d8e40d59fcd25",
+        "corpus_rsi/past_heldout_v1_evidence.json": "56faec0989ec3a8968865ab5b11c4c7036fc5f7a5ebc0aa8f8701744aba33828",
+        "corpus_rsi/PAST_HELDOUT_V1_RESULTS.md": "ea2fc799ea9d90895595842063d0e39305366123c44eea917ce593bb819320dc",
+        "memory/past_heldout_v1_runner.py": "cf86d70fa30fe2bcfd7636ae3090742bcab0a4dda034879f87bcb3d30841124f",
+        "scripts/run_past_heldout_v1.py": "ac0627259f25943319033b9ef11c57fe567e815ca2e6e01ee00a8c1a28478ab3",
+        "quality/receipts/PAST_HELDOUT_V1_custody_DARWIN.json": "327e640827c180b7103904b6e813bbfd06558eb68393d8d36c8563bbd9679455",
+        "memory/test_past_heldout_v1.py": "ac7071cf3296596d4d0f852526f198ae7119e66f061185fc542cdd924e69077a"
+      },
+      "manifest_digest": "76757ccce2779210269b2096d19e695b5c070a1d59ae1ad0d34d96bc6f0c29c0"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "corpus_rsi/past_heldout_v1_dataset.json",
+    "corpus_rsi/past_heldout_v1_preregister.json",
+    "corpus_rsi/past_heldout_v1_evidence.json",
+    "corpus_rsi/PAST_HELDOUT_V1_RESULTS.md",
+    "memory/past_heldout_v1_runner.py",
+    "scripts/run_past_heldout_v1.py",
+    "quality/receipts/PAST_HELDOUT_V1_custody_DARWIN.json"
+  ],
+  "tests": ["memory/test_past_heldout_v1.py"],
+  "commands": [
+    {
+      "id": "unit-past-heldout-v1",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "memory/test_past_heldout_v1.py"],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-past-heldout-v1",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "memory/test_past_heldout_v1.py::test_frozen_heldout_executes_all_six_arms_and_controls"],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-past-heldout-v1",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "memory/test_past_heldout_v1.py::test_dataset_byte_drift_fails_before_execution"],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-past-heldout-v1",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "memory/test_past_heldout_v1.py::test_dataset_is_new_fully_synthetic_and_non_private", "memory/test_past_heldout_v1.py::test_placebos_are_token_matched_before_results", "memory/test_past_heldout_v1.py::test_preregister_is_frozen_and_bound_to_dataset_and_harness"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["memory.past_heldout_v1_runner"],
+    "omit": ["memory/test_*.py"],
+    "pytest_args": ["-q", "--noconftest", "memory/test_past_heldout_v1.py"],
+    "baseline_percent": 79.141,
+    "timeout": 180
+  },
+  "mutation_evidence": "quality/mutation-past-heldout-v1.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "The frozen runner generated a redacted 240-trial artifact whose preregistered endpoint and three control classes were met. This is synthetic harness-boundary evidence only.",
+    "command": {
+      "id": "delivery-past-heldout-v1",
+      "argv": ["python3", "scripts/run_past_heldout_v1.py", "--evidence", "/tmp/past_heldout_v1_delivery.json"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "\"analysis_status\": \"preregistered_thresholds_met\""
+    }
+  }
+}

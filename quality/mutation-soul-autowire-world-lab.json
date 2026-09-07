@@ -1,0 +1,66 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "CARVER exact-byte review, DARWIN adversarial reproduction and ADA isolated-copy fault injection",
+  "workspace": "DARWIN independently reproduced 8 isolated-copy mutants on unchanged executable/test bytes; CARVER independently reviewed the final exact staged bytes and digest-pinned Compose delta. No production resource was touched.",
+  "killed": 8,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 8,
+  "mutation_score_percent": 100.0,
+  "reviewer": "CARVER+DARWIN",
+  "file_sha256": {
+    "soul-platform/labs/autowire_world/README.md": "92d1861ba45b912d3e5fdf029af4c2a8a4cfb8e4e649a7d0954ea37025683fb6",
+    "soul-platform/labs/autowire_world/autowire_lab.py": "6d2e291f1240f2bee80f972d2a616a2eab0631e23698cd052a9c0368c50ba34e",
+    "soul-platform/labs/autowire_world/compose.yaml": "a42fbcf26e7251da881488f39749b4b64108cc444d45524a9b0510684cb8ac2b",
+    "soul-platform/labs/autowire_world/mock_provider.py": "7174c0cde552d85d0e7dad7b7cca3144a9c11972139f0db387d9232ed18fa4ba",
+    "soul-platform/labs/autowire_world/providers.json": "1e2df83fd0e9469fa4638cfd345d2c2b234c3074dd6140d7dd624387eb9ec917",
+    "soul-platform/labs/autowire_world/run_lab.py": "e48d883e563c46c339622cb64c5363bdd293f1e66ec72248c13cf6ad4da9d4ba",
+    "soul-platform/labs/autowire_world/verify_lab.py": "d623eabb4e0f56444f437e4f5cf59c7050bc4988bb2db7783c08450c3aafd52e",
+    "soul-platform/labs/autowire_world/test_autowire_world_lab.py": "1090fe84b511390deb75250782ada09714ffd9ed3e89bf2ee0af08fbf961039c"
+  },
+  "mutants": [
+    {
+      "id": "duplicate-json-guard-bypass-copy",
+      "result": "killed",
+      "evidence": "mutant sha256 0dc5f69072ca2dafd100378776f189beb8ab84bed8e68d3cf3302e9b5b300cb1; strict duplicate-key negative test failed; exit 1"
+    },
+    {
+      "id": "machine-soul-identity-guard-bypass-copy",
+      "result": "killed",
+      "evidence": "mutant sha256 fcd52d7a94421c876c2e72b91531cf85a716b71294bf85c5560ded6f0efb1190; identity-drift control failed; exit 1"
+    },
+    {
+      "id": "attach-client-allowlist-bypass-copy",
+      "result": "killed",
+      "evidence": "mutant sha256 6615a5fa59d6d81b3e82e23523f15c527a5a84fbdc3d170a1e225f4572adff96; unknown-client denial test failed; exit 1"
+    },
+    {
+      "id": "attach-session-expiry-bypass-copy",
+      "result": "killed",
+      "evidence": "mutant sha256 4501fdbf7470a1b63c99f1493f50686ad90462856c68519e4b8ec83fff282a45; expired/revoked-session test failed; exit 1"
+    },
+    {
+      "id": "concurrent-generation-cas-bypass-copy",
+      "result": "killed",
+      "evidence": "mutant sha256 9653c3e9cdabaa576ad53652c5f9e72f3c2e9cb1a20d000d92421c97ab5593ad; one-winner CAS test failed; exit 1"
+    },
+    {
+      "id": "redirect-follow-copy",
+      "result": "killed",
+      "evidence": "mutant sha256 e4d97643a2bb6cfc92c210f2d99f7d4705690098fbaaeeb97c34f63faaa1acb2; local HTTP redirect was followed and the fail-closed test failed; exit 1; independently reproduced by DARWIN"
+    },
+    {
+      "id": "stale-rollback-whole-fence-bypass-copy",
+      "result": "killed",
+      "evidence": "mutant sha256 fc7a63d74b795ce49b18421cc302ce73fb908affcc768e1069fcedd04f610bf6; stale rollback overwrote a newer winner and the test failed; exit 1; independently reproduced by DARWIN"
+    },
+    {
+      "id": "stale-rollback-generation-fence-bypass-copy",
+      "result": "killed",
+      "evidence": "mutant sha256 62209184cd6d5d68545a62d55565b2824ac634238361b117f2714c9f1949c03d; same-provider generation-2 reactivation was rolled back by generation 1 and the focused test failed; exit 1"
+    }
+  ]
+}

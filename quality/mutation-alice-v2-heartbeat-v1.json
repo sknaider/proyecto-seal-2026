@@ -1,0 +1,27 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "alice-v2-heartbeat-v1",
+  "reviewer": "NEXUS",
+  "subject": "scripts/alice_v2_heartbeat.py",
+  "file_sha256": {
+    "scripts/alice_v2_heartbeat.py": "5bf5d4fb193b9c4515a35306a09b49dd3471cea601c6cb7baf6878aef5ecee45",
+    "scripts/test_alice_v2_heartbeat.py": "863899e0367a3ff0cd2f583340c217da959feb4e33e9a8fb151692400b0c2cc1"
+  },
+  "harness": ["python3", "-m", "pytest", "-q", "scripts/test_alice_v2_heartbeat.py"],
+  "_doc": "Precheck de ADA en copias aisladas. NEXUS debe repetir o reemplazar esta evidencia durante la revisión independiente.",
+  "mutants": [
+    {"id": "acepta-cuerpo-v1", "author": "ADA", "mutation": "omite el switch ALICE-V2", "why": "Un timer externo no debe escribir latidos v2 durante rollback.", "result": "KILLED", "observed": "1 failed, 4 passed"},
+    {"id": "acepta-seat-inactivo", "author": "ADA", "mutation": "omite ActiveState=active", "why": "Un PID stale no prueba que el asiento esté activo.", "result": "KILLED", "observed": "1 failed, 4 passed"},
+    {"id": "acepta-user-incorrecto", "author": "ADA", "mutation": "omite User=alice-v2-lab", "why": "El latido debe probar el cuerpo aislado, no sólo un nombre de unidad.", "result": "KILLED", "observed": "1 failed, 4 passed"},
+    {"id": "acepta-uid-incorrecto", "author": "ADA", "mutation": "omite uid=982 en /proc/PID/status", "why": "La unidad puede declarar un usuario mientras el proceso vivo pertenece a otro.", "result": "KILLED", "observed": "1 failed, 4 passed"}
+  ],
+  "control_sujeto_sin_mutar": {"result": "GREEN", "observed": "6 passed", "donde": "copia aislada", "por": "ADA"},
+  "killed": 4,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
+  "mutation_score_percent": 100.0
+}

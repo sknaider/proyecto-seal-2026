@@ -35,6 +35,10 @@ _embed_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="embed")
 # LRU cache for embeddings — same text = 0ms (no recompute)
 _EMBED_CACHE_MAX = 3000
 _embed_cache: OrderedDict[str, list[float]] = OrderedDict()
+# E5 assigns different semantics to query/document prefixes. Keeping a
+# dedicated query cache prevents the same raw text from reusing a passage
+# vector (or vice versa).
+_query_embed_cache: OrderedDict[str, list[float]] = OrderedDict()
 
 
 def _get_model() -> SentenceTransformer:
@@ -48,6 +52,13 @@ def _encode_sync(text: str) -> list[float]:
     """CPU-bound encode — runs in thread pool to not block event loop."""
     model = _get_model()
     vector = model.encode([f"passage: {text}"], show_progress_bar=False, device="cpu")
+    return vector[0].tolist()
+
+
+def _encode_query_sync(text: str) -> list[float]:
+    """Encode retrieval queries with the prefix required by multilingual-e5."""
+    model = _get_model()
+    vector = model.encode([f"query: {text}"], show_progress_bar=False, device="cpu")
     return vector[0].tolist()
 
 
@@ -74,6 +85,29 @@ async def get_embedding(text: str) -> list[float]:
     if len(_embed_cache) >= _EMBED_CACHE_MAX:
         _embed_cache.popitem(last=False)  # remove oldest
     _embed_cache[cache_key] = result
+    return result
+
+
+async def get_query_embedding(text: str) -> list[float]:
+    """Get a cached E5 query vector without sharing the passage cache.
+
+    Documents continue to use :func:`get_embedding` (``passage:``). Retrieval
+    queries use ``query:`` so their vectors inhabit the intended E5 space.
+    """
+    cache_key = text[:300]
+    if cache_key in _query_embed_cache:
+        _query_embed_cache.move_to_end(cache_key)
+        return _query_embed_cache[cache_key]
+
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        _embed_executor,
+        functools.partial(_encode_query_sync, text),
+    )
+
+    if len(_query_embed_cache) >= _EMBED_CACHE_MAX:
+        _query_embed_cache.popitem(last=False)
+    _query_embed_cache[cache_key] = result
     return result
 
 

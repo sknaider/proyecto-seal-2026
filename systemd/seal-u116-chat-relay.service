@@ -1,0 +1,47 @@
+[Unit]
+Description=SEAL narrow chat relay for network-none JARVIS-u116
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=seal-u116-chat-relay
+Group=seal-u116-chat-client
+UMask=0077
+RuntimeDirectory=seal-u116-chat-relay
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=restart
+LoadCredential=instance.token:/home/dadito/IA/proyecto-seal/messages/.agent_session_token_JARVIS-u116
+ExecStart=/usr/bin/python3 /usr/local/libexec/seal/u116_chat_relay.py --token-file %d/instance.token --socket /run/seal-u116-chat-relay/u116.sock
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

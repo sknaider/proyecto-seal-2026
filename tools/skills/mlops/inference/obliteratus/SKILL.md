@@ -49,7 +49,9 @@ If not installed, clone and install from GitHub:
 ```bash
 git clone https://github.com/elder-plinius/OBLITERATUS.git
 cd OBLITERATUS
-pip install -e .
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e .
 # For Gradio web UI support:
 # pip install -e ".[spaces]"
 ```

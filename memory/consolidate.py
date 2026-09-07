@@ -33,6 +33,40 @@ from embeddings import get_embedding
 LOG = logging.getLogger("seal-consolidate")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
 
+# Contrato del esquema VIVO que este daemon toca. Por qué existe (JARVIS, 5-sep-2026): la
+# unidad fallaba desde el 4-sep con UndefinedColumnError porque el SELECT pedía `ref_id`,
+# una columna que event_log no tiene; nadie se enteró hasta que ADA listó las unidades
+# caídas. Se valida ANTES de escribir nada, y se falla cerrado: un daemon de consolidación
+# que escribe sobre un esquema que no es el que cree es peor que uno parado.
+REQUIRED_COLUMNS: dict[str, tuple[str, ...]] = {
+    "event_log": ("agent", "event_type", "content", "created_at"),
+    "memories": ("agent", "category", "content", "embedding", "importance", "source",
+                 "valid_from", "metadata"),
+}
+
+
+def _format_event_line(row) -> str:
+    """Una línea del registro de actividad. La fila trae `created_at`, no `time`."""
+    return f"[{row['created_at'].strftime('%H:%M')}] {row['event_type']}: {row['content'][:200]}"
+
+
+async def validate_live_schema(conn) -> None:
+    """Falla (RuntimeError nombrando tabla y columna) si el esquema vivo no cumple el contrato."""
+    rows = await conn.fetch(
+        """SELECT table_name, column_name FROM information_schema.columns
+           WHERE table_schema = current_schema() AND table_name = ANY($1::text[])""",
+        list(REQUIRED_COLUMNS),
+    )
+    vivas: dict[str, set[str]] = {}
+    for r in rows:
+        vivas.setdefault(r["table_name"], set()).add(r["column_name"])
+    faltan = [f"{tabla}.{col}" for tabla, cols in REQUIRED_COLUMNS.items()
+              for col in cols if col not in vivas.get(tabla, set())]
+    if faltan:
+        raise RuntimeError("esquema vivo no cumple el contrato, no se escribe nada: faltan "
+                           + ", ".join(faltan))
+
+
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen2.5:7b"
 
@@ -64,7 +98,7 @@ async def consolidate_events(pool: asyncpg.Pool, hours_back: int = 24, dry_run: 
         for agent_row in agents:
             agent = agent_row["agent"]
             events = await conn.fetch(
-                """SELECT created_at, event_type, content, ref_id
+                """SELECT created_at, event_type, content
                    FROM event_log WHERE agent = $1 AND created_at > $2
                    ORDER BY created_at ASC""",
                 agent, cutoff,
@@ -75,8 +109,7 @@ async def consolidate_events(pool: asyncpg.Pool, hours_back: int = 24, dry_run: 
 
             # Build event text for summarization
             event_text = "\n".join(
-                f"[{e['time'].strftime('%H:%M')}] {e['event_type']}: {e['content'][:200]}"
-                for e in events
+                _format_event_line(e) for e in events
             )
 
             prompt = f"""Summarize the following activity log for AI agent {agent} into 2-3 key insights.
@@ -114,34 +147,62 @@ Key insights:"""
     return actions
 
 
-async def merge_redundant(pool: asyncpg.Pool, dry_run: bool = False) -> list[str]:
-    """Find and merge memories with similarity > 0.90 (same agent, same category)."""
+async def merge_redundant(pool: asyncpg.Pool, dry_run: bool = False,
+                          candidate_hours: int | float | None = 24) -> list[str]:
+    """Fusiona memorias casi duplicadas (similitud > 0.90, mismo agente y categoría).
+
+    ACOTADA a propósito (JARVIS, 5-sep-2026): la versión anterior hacía
+    `memories a JOIN memories b` sobre 84.272 memorias vivas con embeddings y la corrida del
+    timer del 5-sep murió en este paso por `TimeoutStartSec=600` (3 workers, 13,5 s de CPU en
+    10 minutos: era I/O). Ahora sólo las memorias de las últimas `candidate_hours` buscan su
+    vecino más cercano en una shortlist HNSW de 64, filtrada por agente y categoría. Medido
+    contra la DB viva antes de escribir esto: 20 pares en 1,6 s (24 h) contra >10 min.
+
+    Fail-closed: una ventana que no acota (0, negativa o None) es un error, no un "todo".
+    El contrato viene de julio: memory/test_consolidate_dedup_query.py.
+    """
+    if not candidate_hours or candidate_hours <= 0:
+        raise ValueError(f"candidate_hours debe acotar la ventana (>0); recibido {candidate_hours!r}")
     actions = []
 
     async with pool.acquire() as conn:
-        # Find pairs of very similar valid memories
         pairs = await conn.fetch(
             """SELECT a.id AS id_a, b.id AS id_b,
                       a.content AS content_a, b.content AS content_b,
                       a.importance AS imp_a, b.importance AS imp_b,
                       a.agent, a.category,
-                      1 - (a.embedding <=> b.embedding) AS similarity
+                      1 - (b.embedding <=> a.embedding) AS similarity
                FROM memories a
-               JOIN memories b ON a.agent = b.agent AND a.category = b.category
-                                  AND a.id < b.id
-               WHERE a.embedding IS NOT NULL AND b.embedding IS NOT NULL
-                 AND a.invalid_at IS NULL AND b.invalid_at IS NULL
-                 AND 1 - (a.embedding <=> b.embedding) > 0.90
+               JOIN LATERAL (
+                   SELECT candidate.id, candidate.content, candidate.importance, candidate.embedding
+                   FROM (
+                       SELECT b.id, b.content, b.importance, b.embedding, b.agent, b.category
+                       FROM memories b
+                       WHERE b.embedding IS NOT NULL AND b.invalid_at IS NULL AND b.id <> a.id
+                       ORDER BY b.embedding <=> a.embedding
+                       LIMIT 64
+                   ) candidate
+                   WHERE candidate.agent = a.agent AND candidate.category = a.category
+                     AND 1 - (candidate.embedding <=> a.embedding) > 0.90
+                   ORDER BY candidate.embedding <=> a.embedding
+                   LIMIT 1
+               ) b ON TRUE
+               WHERE a.embedding IS NOT NULL AND a.invalid_at IS NULL
+                 AND a.created_at > NOW() - ($1 * INTERVAL '1 hour')
                ORDER BY similarity DESC
-               LIMIT 20"""
+               LIMIT 20""",
+            candidate_hours,
         )
 
+        tocadas: set[int] = set()   # con la shortlist lateral el par (a,b) puede venir también como (b,a)
         for p in pairs:
             if dry_run:
                 actions.append(
                     f"[DRY RUN] Would merge #{p['id_a']} + #{p['id_b']} "
                     f"(sim={p['similarity']:.3f}, {p['agent']}/{p['category']})"
                 )
+                continue
+            if p["id_a"] in tocadas or p["id_b"] in tocadas:
                 continue
 
             # Keep the more important one, invalidate the other
@@ -151,6 +212,7 @@ async def merge_redundant(pool: asyncpg.Pool, dry_run: bool = False) -> list[str
             await conn.execute(
                 "UPDATE memories SET invalid_at = NOW() WHERE id = $1", drop_id
             )
+            tocadas.add(drop_id)
             actions.append(
                 f"Merged: kept #{keep_id}, invalidated #{drop_id} "
                 f"(sim={p['similarity']:.3f}, {p['agent']}/{p['category']})"
@@ -332,6 +394,10 @@ async def run_consolidation(hours_back: int = 24, dry_run: bool = False):
     LOG.info("SEAL Soul — Consolidation started (hours_back=%d, dry_run=%s)", hours_back, dry_run)
     LOG.info("=" * 60)
 
+    # Paso 0: el esquema vivo tiene que ser el que este código cree. Antes de cualquier escritura.
+    async with pool.acquire() as conn:
+        await validate_live_schema(conn)
+
     all_actions = []
 
     # Step 1: Summarize events
@@ -343,7 +409,7 @@ async def run_consolidation(hours_back: int = 24, dry_run: bool = False):
 
     # Step 2: Merge redundant memories
     LOG.info("Step 2: Merging redundant memories...")
-    actions = await merge_redundant(pool, dry_run)
+    actions = await merge_redundant(pool, dry_run, candidate_hours=hours_back)
     all_actions.extend(actions)
     for a in actions:
         LOG.info("  %s", a)

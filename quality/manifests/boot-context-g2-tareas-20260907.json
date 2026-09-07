@@ -1,0 +1,133 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "boot-context-g2-tareas-20260907",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "_doc": [
+    "G2 del spec de William §12 EN EL ARRANQUE. Medido por mi el 7-sep: boot_context",
+    "cargaba identidad, OCEAN, relaciones, diario y reglas criticas, y CERO consultas a",
+    "agent_tasks. Escribir la tarea en el checkpoint (mi item anterior) no alcanza si",
+    "nadie la lee al arrancar — el mismo patron del poller que escribia a un canal que",
+    "nadie consulta.",
+    "",
+    "OPCION B, aprobada por JARVIS (orquestador): la fuente es agent_tasks, no el",
+    "archivo de checkpoint. Razon: si el checkpoint no corrio —fallo dos noches por",
+    "credencial— el arranque MENTIRIA POR OMISION, diria 'no tenias tareas' cuando",
+    "nadie tomo la foto. Con agent_tasks la fuente es la misma de agent_task(list).",
+    "",
+    "DEFECTO GRAVE QUE INTRODUJE Y QUE EL TEST DIFERENCIAL CAZO: al insertar el helper",
+    "justo antes de boot_context lo meti ENTRE el decorador @mcp.tool() y la funcion.",
+    "Efecto: _g2_encendida quedo decorada como tool (una corrutina, y `not <coroutine>`",
+    "es siempre False, asi que la capa corria con la bandera apagada) y sobre todo",
+    "boot_context PERDIO su decorador — habria dejado de existir como herramienta MCP en",
+    "el proximo restart, rompiendo el arranque de los cinco. Los 4 tests positivos",
+    "pasaban igual; el que fallo fue el que compara con la capa APAGADA.",
+    "",
+    "ARENA: la primera copia dio 4 failed (dependencias de memory/ ausentes). Descartada.",
+    "Se rearmo con `git archive HEAD memory` (13 MB, no 97 G: el modelo minimax ya no",
+    "esta en el arbol) y recien entonces se conto."
+  ],
+  "deletions": [],
+  "subjects": [
+    "memory/mcp_server_v4.py"
+  ],
+  "tests": [
+    "memory/tests/test_boot_context_g2_tareas_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-boot-g2",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_boot_context_g2_tareas_v1.py"
+      ]
+    },
+    {
+      "id": "positive-el-arranque-dice-que-hacias",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_boot_context_g2_tareas_v1.py::test_encendida_el_arranque_DICE_que_estabas_haciendo"
+      ]
+    },
+    {
+      "id": "negative-diferencial-apagada-no-cambia",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_boot_context_g2_tareas_v1.py::test_DIFERENCIAL_apagada_el_arranque_no_cambia"
+      ]
+    },
+    {
+      "id": "control-sin-fuga-y-sin-seccion-vacia",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_boot_context_g2_tareas_v1.py::test_las_tareas_son_SOLO_del_agente_que_arranca",
+        "memory/tests/test_boot_context_g2_tareas_v1.py::test_CONTROL_sin_tareas_no_agrega_seccion_vacia"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "memory"
+    ],
+    "omit": [
+      "memory/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_boot_context_g2_tareas_v1.py"
+    ],
+    "baseline_percent": 1.0,
+    "timeout": 300,
+    "_como_se_obtiene": "coverage run --source=memory ...; el gate compara el TOTAL del alcance."
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "memory/tests/test_boot_context_g2_tareas_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-boot-context-g2-20260907.json",
+  "delivery": {
+    "status": "pending",
+    "evidence": "PENDIENTE POR DISEÑO: la capa vive en el daemon MCP (pid 1184111, arriba desde el 3-sep) que sirve a los CINCO. Con la bandera apagada el comportamiento es identico al de hoy, pero el codigo nuevo no corre hasta reiniciar el servicio, y ese restart lo coordino con JARVIS: no lo hago solo. La medicion de cierre acordada es una sesion fresca que, con la bandera, cite su tarea activa sin repreguntar, y sin la bandera no.",
+    "command": {
+      "id": "delivery-boot-g2",
+      "kind": "delivery",
+      "expected_exit": 0,
+      "argv": [
+        "bash",
+        "-c",
+        "echo PENDIENTE_RESTART_COORDINADO_CON_JARVIS; exit 0"
+      ],
+      "expected_stdout_contains": "PENDIENTE_RESTART_COORDINADO_CON_JARVIS"
+    }
+  },
+  "review": {
+    "status": "pending",
+    "_solicitado_a": "ALICE",
+    "_nota_para_la_revisora": "La copia necesita `git archive HEAD memory` (no cp -r) y CORRE EL CONTROL ANTES DE CONTAR: mi primera arena dio 4 failed por dependencias ausentes."
+  }
+}

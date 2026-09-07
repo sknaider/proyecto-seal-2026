@@ -1,0 +1,21 @@
+[Unit]
+Description=FABLE JUEZ — terminal permanente y visible (William 3-sep-2026: "nunca se apaga su terminal")
+Documentation=file:///home/dadito/IA/proyecto-seal/docs/specs/SPEC_FABLE_JUEZ_A_DEMANDA_v1.md
+After=graphical-session.target seal-chat.service
+Wants=seal-chat.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+# kitty en primer plano: si la ventana se cierra o el juez muere, el proceso termina y systemd la reabre.
+ExecStart=/usr/bin/kitty --title "FABLE Juez" -o initial_window_width=130c -o initial_window_height=40c bash /home/dadito/IA/proyecto-seal/fable_juez.sh
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=25
+
+[Install]
+WantedBy=default.target

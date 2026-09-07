@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import Optional, Any
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -12,11 +13,24 @@ from companion_core.db import init_db, close_db, get_db
 from companion_core.settings import toml_path
 from companion_core.agent import get_reply, stream_claude
 from companion_core.mcp_client import McpClient
+from companion_core import sub_agents as _sub_agents
 
 VERSION = "0.3.0"
 
 # In-memory config cache (persisted to companion_settings table)
 _config_cache: dict[str, Any] = {}
+
+
+async def _memory_tree_periodic():
+    """Run memory tree builder at startup then every hour (best-effort, silent on error)."""
+    await asyncio.sleep(5)  # let DB settle after init
+    while True:
+        try:
+            from companion_core.memory_tree_builder import build_all
+            await build_all(agent="USER")
+        except Exception:
+            pass
+        await asyncio.sleep(3600)
 
 
 @asynccontextmanager
@@ -30,7 +44,9 @@ async def lifespan(app: FastAPI):
             _config_cache[row[0]] = json.loads(row[1])
         except (json.JSONDecodeError, TypeError):
             _config_cache[row[0]] = row[1]
+    task = asyncio.create_task(_memory_tree_periodic())
     yield
+    task.cancel()
     await close_db()
 
 
@@ -46,19 +62,57 @@ app.add_middleware(
 
 @app.get("/api/health")
 async def health():
+    import shutil as _shutil
+    import time as _time
+    import urllib.request as _u
+    from companion_core.settings import db_path as _db_path
+    from companion_core.platform_paths import config_dir as _config_dir
+    from companion_core.platform_paths import data_dir as _data_dir
+    from companion_core.platform_paths import platform_name as _platform_name
+
     db = get_db()
     mem_count = await db.execute_fetchall("SELECT COUNT(*) FROM memories")
     msg_count = await db.execute_fetchall("SELECT COUNT(*) FROM conversations")
     srv_count = await db.execute_fetchall("SELECT COUNT(*) FROM mcp_servers")
+    db_file = _db_path()
+
+    disk = _shutil.disk_usage(str(db_file.parent if db_file.parent.exists() else Path.home()))
+    services = {"ollama": {"reachable": False, "latency_ms": None}}
+    started = _time.perf_counter()
+    try:
+        req = _u.Request("http://localhost:11434/api/tags", method="GET")
+        with _u.urlopen(req, timeout=1) as r:
+            services["ollama"] = {
+                "reachable": r.status == 200,
+                "latency_ms": round((_time.perf_counter() - started) * 1000, 1),
+            }
+    except Exception:
+        services["ollama"]["latency_ms"] = round((_time.perf_counter() - started) * 1000, 1)
+
     return {
         "status": "ok",
         "version": VERSION,
         "service": "companion_core",
+        "platform": {
+            "os": _platform_name(),
+            "config_dir": str(_config_dir()),
+            "data_dir": str(_data_dir()),
+        },
         "stats": {
             "memories": mem_count[0][0] if mem_count else 0,
             "messages": msg_count[0][0] if msg_count else 0,
             "mcp_servers": srv_count[0][0] if srv_count else 0,
         },
+        "database": {
+            "path": str(db_file),
+            "size_bytes": db_file.stat().st_size if db_file.exists() else 0,
+        },
+        "system": {
+            "disk_free_mb": round(disk.free / 1024 / 1024, 1),
+            "disk_total_mb": round(disk.total / 1024 / 1024, 1),
+            "load_average": list(os.getloadavg()) if hasattr(os, "getloadavg") else None,
+        },
+        "services": services,
     }
 
 
@@ -121,6 +175,316 @@ async def _upsert_setting(key: str, value: Any) -> None:
     _config_cache[key] = value
 
 
+# ── Autocomplete inline (OpenHuman absorption — autocomplete namespace) ──────
+
+
+class AutocompleteBody(BaseModel):
+    text: str
+    thread_id: Optional[str] = None
+    max_suggestions: int = 3
+
+
+_AUTOCOMPLETE_SEED = (
+    "Resumime lo de hoy",
+    "Recordame ",
+    "Planeá ",
+    "Buscá ",
+    "Mostrame ",
+    "Cuál es ",
+    "Cómo hago ",
+    "Mi agenda mañana",
+    "Lista mis pendientes",
+    "Qué aprendí hoy",
+)
+
+
+@app.post("/api/autocomplete")
+async def autocomplete_inline(body: AutocompleteBody):
+    """Ghost-text suggestions for chat input.
+
+    Source order:
+      1. Recent user messages from this thread (high recency)
+      2. Common prompts seed (cold start)
+    No LLM round-trip — keeps latency under 5ms for typing UX.
+    """
+    text = (body.text or "").strip()
+    if not text:
+        return {"suggestions": list(_AUTOCOMPLETE_SEED[:body.max_suggestions])}
+
+    needle = text.lower()
+    suggestions: list[str] = []
+    seen: set[str] = set()
+
+    db = get_db()
+    if body.thread_id:
+        try:
+            rows = await db.execute_fetchall(
+                "SELECT content FROM chat_messages WHERE thread_id = ? AND role = 'user' "
+                "ORDER BY id DESC LIMIT 50",
+                (body.thread_id,),
+            )
+            for r in rows:
+                c = (r[0] if not isinstance(r, dict) else r.get("content", "") or "").strip()
+                lc = c.lower()
+                if lc.startswith(needle) and c not in seen and len(c) > len(text):
+                    seen.add(c)
+                    suggestions.append(c)
+                    if len(suggestions) >= body.max_suggestions:
+                        break
+        except Exception:
+            pass
+
+    if len(suggestions) < body.max_suggestions:
+        for seed in _AUTOCOMPLETE_SEED:
+            if seed.lower().startswith(needle) and seed not in seen:
+                seen.add(seed)
+                suggestions.append(seed)
+                if len(suggestions) >= body.max_suggestions:
+                    break
+
+    return {"suggestions": suggestions, "query": text}
+
+
+# ── OpenClaw catalog (Fase 0 — read-only manifests, no execution) ────────────
+
+
+_OPENCLAW_ROOT_CANDIDATES = (
+    "/home/dadito/IA/openclaw",
+    os.path.expanduser("~/IA/openclaw"),
+    os.environ.get("OPENCLAW_PATH") or "",
+)
+
+
+def _openclaw_root() -> Optional[Path]:
+    for candidate in _OPENCLAW_ROOT_CANDIDATES:
+        if not candidate:
+            continue
+        p = Path(candidate) / "extensions"
+        if p.is_dir():
+            return p.parent
+    return None
+
+
+def _classify_plugin(name: str, manifest: dict) -> dict:
+    """Detecta categoría + risk tier sin ejecutar nada — heurística por contracts."""
+    name_l = (name or "").lower()
+    channels = manifest.get("channels") or []
+    contracts = manifest.get("contracts") or {}
+    provider_envs = manifest.get("providerAuthEnvVars") or {}
+    provider_choices = manifest.get("providerAuthChoices") or []
+
+    is_channel = bool(channels)
+    is_provider = bool(provider_envs or provider_choices) or "providers" in (contracts.keys() if isinstance(contracts, dict) else [])
+    is_tool = any(k in (contracts.keys() if isinstance(contracts, dict) else [])
+                  for k in ("tools", "skills", "agents"))
+
+    # Risk tier heurística
+    risk = "normal"
+    UNOFFICIAL = {"whatsapp", "imessage", "bluebubbles", "wechat", "qqbot", "zalo", "zalouser"}
+    OFFICIAL_OAUTH = {"slack", "discord", "telegram", "google", "googlechat", "google-meet",
+                      "microsoft", "msteams", "feishu", "github-copilot"}
+    if name_l in UNOFFICIAL:
+        risk = "critical"
+    elif name_l in OFFICIAL_OAUTH:
+        risk = "high"
+    elif is_provider:
+        risk = "high"
+
+    categories = []
+    if is_channel: categories.append("channel")
+    if is_provider: categories.append("provider")
+    if is_tool: categories.append("tool")
+    if not categories: categories.append("misc")
+
+    return {"categories": categories, "risk_tier": risk}
+
+
+@app.get("/api/openclaw/catalog")
+async def openclaw_catalog(category: Optional[str] = None, risk: Optional[str] = None):
+    """Read-only scan of OpenClaw extensions manifests.
+
+    NO code execution. NO module load. Solo parsing JSON estático.
+    Per spec Fase 0 (ADA, 23-may-2026): SEAL aprende el catálogo sin aumentar
+    superficie de ataque.
+    """
+    root = _openclaw_root()
+    if not root:
+        return {"ok": False, "error": "openclaw repo no encontrado", "root_candidates": list(_OPENCLAW_ROOT_CANDIDATES)}
+
+    ext_dir = root / "extensions"
+    catalog: list[dict] = []
+    for plugin_json in sorted(ext_dir.glob("*/openclaw.plugin.json")):
+        try:
+            manifest = json.loads(plugin_json.read_text(encoding="utf-8"))
+        except Exception as exc:
+            catalog.append({
+                "name": plugin_json.parent.name, "ok": False,
+                "error": f"parse: {exc}", "path": str(plugin_json),
+            })
+            continue
+
+        pkg = {}
+        pkg_path = plugin_json.parent / "package.json"
+        if pkg_path.is_file():
+            try:
+                pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        name = plugin_json.parent.name
+        classification = _classify_plugin(name, manifest)
+
+        catalog.append({
+            "ok": True,
+            "name": name,
+            "manifest_id": manifest.get("id"),
+            "channels": manifest.get("channels") or [],
+            "contracts": list((manifest.get("contracts") or {}).keys()) if isinstance(manifest.get("contracts"), dict) else [],
+            "providers_auth_envs": list((manifest.get("providerAuthEnvVars") or {}).keys()),
+            "categories": classification["categories"],
+            "risk_tier": classification["risk_tier"],
+            "enabled_by_default": bool(manifest.get("enabledByDefault", False)),
+            "activation_on_startup": bool((manifest.get("activation") or {}).get("onStartup", False)),
+            "config_schema_keys": list(((manifest.get("configSchema") or {}).get("properties") or {}).keys()),
+            "pkg_name": pkg.get("name"),
+            "pkg_version": pkg.get("version"),
+            "pkg_description": pkg.get("description"),
+            "path": str(plugin_json.parent.relative_to(root)),
+        })
+
+    if category:
+        catalog = [c for c in catalog if c.get("ok") and category in (c.get("categories") or [])]
+    if risk:
+        catalog = [c for c in catalog if c.get("ok") and c.get("risk_tier") == risk]
+
+    counts = {"total": len(catalog)}
+    for c in catalog:
+        if not c.get("ok"):
+            continue
+        for cat in c.get("categories") or []:
+            counts[cat] = counts.get(cat, 0) + 1
+        rk = c.get("risk_tier") or "normal"
+        counts[f"risk_{rk}"] = counts.get(f"risk_{rk}", 0) + 1
+
+    return {
+        "ok": True,
+        "root": str(root),
+        "counts": counts,
+        "plugins": catalog,
+    }
+
+
+# ADA-specified smoke baseline: 5 manifests críticos que deben siempre estar presentes.
+_OPENCLAW_SMOKE_BASELINE = ("telegram", "discord", "matrix", "ollama", "memory-lancedb")
+
+
+@app.get("/api/openclaw/catalog/smoke")
+async def openclaw_catalog_smoke():
+    """Deterministic smoke test on 5 baseline manifests (ADA spec 23-may-2026).
+
+    Validates parse-ability of the 5 plugins selected as baseline coverage:
+    telegram, discord, matrix, ollama, memory-lancedb.
+    Returns per-plugin status without executing any plugin code.
+    """
+    root = _openclaw_root()
+    if not root:
+        return {"ok": False, "error": "openclaw repo no encontrado", "checks": []}
+
+    ext_dir = root / "extensions"
+    checks = []
+    all_pass = True
+    for name in _OPENCLAW_SMOKE_BASELINE:
+        manifest_path = ext_dir / name / "openclaw.plugin.json"
+        check = {"name": name, "ok": False, "path": str(manifest_path.relative_to(root))}
+        if not manifest_path.is_file():
+            check["error"] = "manifest not found"
+            all_pass = False
+            checks.append(check)
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            classification = _classify_plugin(name, manifest)
+            check.update({
+                "ok": True,
+                "manifest_id": manifest.get("id"),
+                "categories": classification["categories"],
+                "risk_tier": classification["risk_tier"],
+                "channels": manifest.get("channels") or [],
+                "has_config_schema": bool(manifest.get("configSchema")),
+            })
+        except Exception as exc:
+            check["error"] = f"parse: {exc}"
+            all_pass = False
+        checks.append(check)
+
+    return {
+        "ok": all_pass,
+        "baseline": list(_OPENCLAW_SMOKE_BASELINE),
+        "passed": sum(1 for c in checks if c["ok"]),
+        "total": len(checks),
+        "checks": checks,
+    }
+
+
+# ── Sub-agents (v0.6 — OpenHuman absorption) ─────────────────────────────────
+
+
+@app.get("/api/sub-agents")
+async def list_sub_agents():
+    """Catalog of specialized sub-agents available for routing."""
+    return {"agents": _sub_agents.list_all(), "count": len(_sub_agents.ALL_SUB_AGENTS)}
+
+
+class SubAgentInvoke(BaseModel):
+    agent: str
+    query: str
+    user_goal: Optional[str] = None
+
+
+@app.post("/api/sub-agents/invoke")
+async def invoke_sub_agent(payload: SubAgentInvoke):
+    """Invoke a sub-agent with full dynamic prompt context.
+
+    Wires the LLM through the existing companion_core agent module so routing
+    config (BYOK key, GEMMA 4 local fallback, etc.) is respected.
+    """
+    sa = _sub_agents.get(payload.agent)
+    if sa is None:
+        raise HTTPException(status_code=404, detail=f"sub-agent '{payload.agent}' not found")
+
+    api_key = _config_cache.get("api_key")
+    model = _config_cache.get("model")
+    ocean = _config_cache.get("ocean")
+    user_name = _config_cache.get("name", "")
+
+    async def _llm(messages: list[dict], system: str) -> str:
+        last = messages[-1]["content"] if messages else payload.query
+        return await get_reply(
+            thread_history=messages[:-1],
+            new_content=last,
+            api_key=api_key,
+            model=model,
+            user_name=user_name,
+            system=system,
+        )
+
+    result = await _sub_agents.invoke_sub_agent(
+        payload.agent,
+        payload.query,
+        call_llm=_llm,
+        user_name=user_name,
+        user_goal=payload.user_goal or "",
+        ocean=ocean if isinstance(ocean, dict) else None,
+    )
+    return result
+
+
+@app.get("/api/sub-agents/route")
+async def suggest_sub_agent_route(query: str):
+    """Heuristic suggestion of which sub-agent fits a query best."""
+    return {"agent": _sub_agents.suggest_route(query), "query": query}
+
+
 @app.post("/api/companion/first-run")
 async def first_run(payload: FirstRunPayload):
     await _upsert_setting("name", payload.name)
@@ -128,6 +492,16 @@ async def first_run(payload: FirstRunPayload):
     await _upsert_setting("first_run_complete", True)
     if payload.ocean:
         await _upsert_setting("ocean", payload.ocean)
+    # Sync agent_profile.name so /api/companion/context returns the chosen agent name
+    try:
+        db = get_db()
+        await db.execute(
+            "UPDATE agent_profile SET name = ?, updated_at = datetime('now') WHERE id = 1",
+            (payload.primary_agent,),
+        )
+        await db.commit()
+    except Exception:
+        pass
     return {"ok": True}
 
 
@@ -889,6 +1263,56 @@ class UserProfileUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+_AVATAR_DEFAULT = {
+    "variant": "orb",
+    "primary_color": "#a78bfa",
+    "secondary_color": "#7c3aed",
+    "accent_color": "#fb7185",
+    "accessory": "none",
+    "motion": "normal",
+}
+_AVATAR_VARIANTS = {"orb", "leaf", "spark"}
+_AVATAR_ACCESSORIES = {"none", "halo", "headset", "badge"}
+_AVATAR_MOTION = {"calm", "normal", "expressive"}
+
+
+class AvatarProfileUpdate(BaseModel):
+    variant: Optional[str] = None
+    primary_color: Optional[str] = None
+    secondary_color: Optional[str] = None
+    accent_color: Optional[str] = None
+    accessory: Optional[str] = None
+    motion: Optional[str] = None
+
+
+def _validate_hex_color(value: str, field: str) -> str:
+    import re as _re_local
+    if not _re_local.fullmatch(r"#[0-9a-fA-F]{6}", value or ""):
+        raise HTTPException(status_code=400, detail=f"invalid {field}")
+    return value.lower()
+
+
+def _normalize_avatar_config(value: dict | None) -> dict:
+    raw = {**_AVATAR_DEFAULT, **(value or {})}
+    variant = str(raw.get("variant", "orb")).lower()
+    accessory = str(raw.get("accessory", "none")).lower()
+    motion = str(raw.get("motion", "normal")).lower()
+    if variant not in _AVATAR_VARIANTS:
+        variant = _AVATAR_DEFAULT["variant"]
+    if accessory not in _AVATAR_ACCESSORIES:
+        accessory = _AVATAR_DEFAULT["accessory"]
+    if motion not in _AVATAR_MOTION:
+        motion = _AVATAR_DEFAULT["motion"]
+    return {
+        "variant": variant,
+        "primary_color": _validate_hex_color(str(raw.get("primary_color")), "primary_color"),
+        "secondary_color": _validate_hex_color(str(raw.get("secondary_color")), "secondary_color"),
+        "accent_color": _validate_hex_color(str(raw.get("accent_color")), "accent_color"),
+        "accessory": accessory,
+        "motion": motion,
+    }
+
+
 @app.get("/api/agent/profile")
 async def get_agent_profile():
     db = get_db()
@@ -935,6 +1359,40 @@ async def update_agent_profile(payload: AgentProfileUpdate):
     await db.execute(f"UPDATE agent_profile SET {', '.join(set_parts)} WHERE id=1", values)
     await db.commit()
     return {"ok": True}
+
+
+@app.get("/api/avatar/profile")
+async def get_avatar_profile():
+    cfg = _normalize_avatar_config(_config_cache.get("avatar_profile"))
+    return {
+        "ok": True,
+        "avatar": cfg,
+        "options": {
+            "variants": sorted(_AVATAR_VARIANTS),
+            "accessories": sorted(_AVATAR_ACCESSORIES),
+            "motion": sorted(_AVATAR_MOTION),
+        },
+    }
+
+
+@app.patch("/api/avatar/profile")
+async def update_avatar_profile(payload: AvatarProfileUpdate):
+    current = _normalize_avatar_config(_config_cache.get("avatar_profile"))
+    updates = payload.model_dump(exclude_none=True)
+    if not updates:
+        return {"ok": True, "avatar": current}
+    candidate = {**current, **updates}
+    if "variant" in updates and str(candidate["variant"]).lower() not in _AVATAR_VARIANTS:
+        raise HTTPException(status_code=400, detail="invalid variant")
+    if "accessory" in updates and str(candidate["accessory"]).lower() not in _AVATAR_ACCESSORIES:
+        raise HTTPException(status_code=400, detail="invalid accessory")
+    if "motion" in updates and str(candidate["motion"]).lower() not in _AVATAR_MOTION:
+        raise HTTPException(status_code=400, detail="invalid motion")
+    avatar = _normalize_avatar_config(candidate)
+    await _upsert_setting("avatar_profile", avatar)
+    await _audit_log("USER", "avatar_profile_update", channel="settings",
+                     target_id="avatar_profile", metadata={"updated": list(updates.keys())})
+    return {"ok": True, "avatar": avatar, "updated": list(updates.keys())}
 
 
 @app.get("/api/agent/emotional-state")
@@ -994,6 +1452,71 @@ class SkillUpdate(BaseModel):
     enabled: Optional[bool] = None
 
 
+class SkillMdImport(BaseModel):
+    path: Optional[str] = None
+    content: Optional[str] = None
+    name: Optional[str] = None
+    enabled: bool = True
+    overwrite: bool = False
+
+
+def _parse_skill_md(content: str, fallback_name: str = "Imported Skill") -> dict[str, str]:
+    text = content.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="SKILL.md content required")
+    if len(text) > 200_000:
+        raise HTTPException(status_code=400, detail="SKILL.md too large")
+
+    frontmatter: dict[str, str] = {}
+    body = text
+    if text.startswith("---"):
+        parts = text.split("---", 2)
+        if len(parts) == 3:
+            raw_frontmatter = parts[1]
+            body = parts[2].strip()
+            for line in raw_frontmatter.splitlines():
+                if ":" not in line:
+                    continue
+                key, value = line.split(":", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key in {"name", "description"} and value:
+                    frontmatter[key] = value
+
+    title = frontmatter.get("name", "").strip()
+    if not title:
+        for line in body.splitlines():
+            line = line.strip()
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
+    if not title:
+        title = fallback_name
+
+    description = frontmatter.get("description", "").strip()
+    if not description:
+        for line in body.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or line.startswith("---"):
+                continue
+            description = line[:240]
+            break
+
+    prompt = (
+        "Use this local SKILL.md guidance when handling the task below.\n\n"
+        f"{body}\n\n"
+        "Task:\n{task}"
+    )
+    trigger = title.lower().replace(" ", "-")[:64]
+    return {
+        "name": title[:80],
+        "description": description[:240],
+        "trigger_phrase": trigger,
+        "prompt_template": prompt,
+        "category": "skill-md",
+    }
+
+
 @app.post("/api/skills")
 async def create_skill(payload: SkillCreate):
     if not payload.name.strip():
@@ -1014,6 +1537,69 @@ async def create_skill(payload: SkillCreate):
             raise HTTPException(status_code=409, detail="skill name already exists")
         raise
     return {"ok": True, "id": cur.lastrowid}
+
+
+@app.post("/api/skills/import-skill-md")
+async def import_skill_md(payload: SkillMdImport):
+    source = "content"
+    content = payload.content or ""
+    fallback_name = payload.name or "Imported Skill"
+    if payload.path:
+        path = Path(payload.path).expanduser().resolve()
+        if path.name != "SKILL.md":
+            raise HTTPException(status_code=400, detail="path must point to SKILL.md")
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="SKILL.md not found")
+        if path.stat().st_size > 200_000:
+            raise HTTPException(status_code=400, detail="SKILL.md too large")
+        content = path.read_text(encoding="utf-8")
+        fallback_name = payload.name or path.parent.name
+        source = str(path)
+
+    parsed = _parse_skill_md(content, fallback_name=fallback_name)
+    if payload.name and payload.name.strip():
+        parsed["name"] = payload.name.strip()[:80]
+
+    db = get_db()
+    existing = await db.execute_fetchall(
+        "SELECT id FROM skills WHERE name = ?",
+        (parsed["name"],),
+    )
+    if existing and not payload.overwrite:
+        raise HTTPException(status_code=409, detail="skill name already exists")
+
+    if existing:
+        skill_id = existing[0]["id"]
+        await db.execute(
+            """UPDATE skills
+               SET description = ?, trigger_phrase = ?, prompt_template = ?,
+                   category = ?, enabled = ?
+               WHERE id = ?""",
+            (
+                parsed["description"],
+                parsed["trigger_phrase"],
+                parsed["prompt_template"],
+                parsed["category"],
+                int(payload.enabled),
+                skill_id,
+            ),
+        )
+    else:
+        cur = await db.execute(
+            "INSERT INTO skills (name, description, trigger_phrase, prompt_template, category, enabled) "
+            "VALUES (?,?,?,?,?,?)",
+            (
+                parsed["name"],
+                parsed["description"],
+                parsed["trigger_phrase"],
+                parsed["prompt_template"],
+                parsed["category"],
+                int(payload.enabled),
+            ),
+        )
+        skill_id = cur.lastrowid
+    await db.commit()
+    return {"ok": True, "id": skill_id, "name": parsed["name"], "source": source}
 
 
 @app.get("/api/skills")
@@ -1532,10 +2118,1717 @@ async def list_server_tools(server_id: str):
     return {"server_id": server_id, "tools": tools}
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SPRINT 1 PORT — Sprint features adapted from PostgreSQL soul_v3 to SQLite local
+# ══════════════════════════════════════════════════════════════════════════════
+# All endpoints below operate on companion_core SQLite. They do NOT touch
+# Soul App 2 backend at :8800. This makes SEAL App fully self-contained.
+
+# ── BYOK Vault ────────────────────────────────────────────────────────────────
+
+try:
+    from companion_core import byok_vault  # local AES-GCM vault, OS keyring + keyfile fallback
+    _BYOK_AVAILABLE = True
+except Exception as _e:
+    print(f"[byok_vault] disabled: {_e}")
+    byok_vault = None  # type: ignore
+    _BYOK_AVAILABLE = False
+
+
+class BYOKSaveBody(BaseModel):
+    provider: str
+    api_key: str
+
+
+async def _audit_log(
+    agent: str,
+    action: str,
+    *,
+    channel: Optional[str] = None,
+    target_id: Optional[str] = None,
+    metadata: Optional[dict] = None,
+    processed_locally: bool = True,
+    provider_used: Optional[str] = None,
+) -> None:
+    """Append entry to companion_audit_log. Never raises."""
+    try:
+        db = get_db()
+        await db.execute(
+            """INSERT INTO companion_audit_log
+               (agent, channel, action, target_id, metadata, processed_locally, provider_used)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                agent,
+                channel,
+                action,
+                target_id,
+                json.dumps(metadata) if metadata is not None else None,
+                1 if processed_locally else 0,
+                provider_used,
+            ),
+        )
+        await db.commit()
+    except Exception:
+        pass
+
+
+@app.get("/api/byok/status")
+async def byok_status():
+    """Vault status WITHOUT exposing key values."""
+    if not _BYOK_AVAILABLE:
+        return {"ok": False, "error": "byok_vault module unavailable"}
+    try:
+        return {"ok": True, **byok_vault.status()}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/byok/key")
+async def byok_save(body: BYOKSaveBody):
+    """Persist an API key for a provider (encrypted at rest)."""
+    if not _BYOK_AVAILABLE:
+        raise HTTPException(status_code=503, detail="vault unavailable")
+    try:
+        byok_vault.save_key(body.provider, body.api_key)
+        await _audit_log("USER", "byok_save", channel="settings",
+                         target_id=body.provider.lower().strip(),
+                         metadata={"success": True}, provider_used=body.provider)
+        return {"ok": True, "provider": body.provider.lower().strip()}
+    except byok_vault.VaultError as e:
+        await _audit_log("USER", "byok_save", channel="settings",
+                         target_id=body.provider,
+                         metadata={"success": False, "error": str(e)}, provider_used=body.provider)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/byok/key/{provider}")
+async def byok_delete(provider: str):
+    if not _BYOK_AVAILABLE:
+        raise HTTPException(status_code=503, detail="vault unavailable")
+    try:
+        removed = byok_vault.delete_key(provider)
+        await _audit_log("USER", "byok_delete", channel="settings",
+                         target_id=provider.lower().strip(),
+                         metadata={"removed": removed}, provider_used=provider)
+        return {"ok": True, "removed": removed, "provider": provider.lower().strip()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── Dreams ────────────────────────────────────────────────────────────────────
+
+_ALLOWED_AGENTS = {"SOUL", "USER", "ADA", "JARVIS", "ALICE", "NEXUS", "DUM"}
+_ALLOWED_CYCLES = {"morning", "midday", "evening", "nocturnal"}
+
+
+def _decode_json(s):
+    if s is None:
+        return None
+    if isinstance(s, (list, dict)):
+        return s
+    try:
+        return json.loads(s)
+    except Exception:
+        return s
+
+
+@app.get("/api/dreams")
+async def list_dreams(
+    agent: str = "all",
+    cycle: str = "all",
+    limit: int = 50,
+):
+    """List recent dreams from daily_dreams."""
+    if agent != "all" and agent.upper() not in _ALLOWED_AGENTS:
+        return {"dreams": [], "error": f"unknown agent: {agent}"}
+    if cycle != "all" and cycle not in _ALLOWED_CYCLES:
+        return {"dreams": [], "error": f"unknown cycle: {cycle}"}
+    limit = max(1, min(int(limit), 200))
+
+    db = get_db()
+    where = ["1=1"]
+    params: list = []
+    if agent != "all":
+        where.append("agent = ?")
+        params.append(agent.upper())
+    if cycle != "all":
+        where.append("cycle = ?")
+        params.append(cycle)
+    params.append(limit)
+    sql = (
+        "SELECT id, agent, date, cycle, dream_narrative, key_events, "
+        "emotional_arc, learnings, pending_threads, model_used, "
+        "inject_to_prompt, created_at "
+        "FROM daily_dreams WHERE " + " AND ".join(where) +
+        " ORDER BY date DESC, created_at DESC LIMIT ?"
+    )
+    rows = await db.execute_fetchall(sql, tuple(params))
+    return {
+        "dreams": [
+            {
+                "id": r["id"],
+                "agent": r["agent"],
+                "date": r["date"],
+                "cycle": r["cycle"],
+                "narrative": r["dream_narrative"],
+                "key_events": _decode_json(r["key_events"]) or [],
+                "emotional_arc": _decode_json(r["emotional_arc"]) or {},
+                "learnings": _decode_json(r["learnings"]) or [],
+                "pending_threads": _decode_json(r["pending_threads"]) or [],
+                "model": r["model_used"],
+                "inject_to_prompt": bool(r["inject_to_prompt"]),
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ],
+        "count": len(rows),
+    }
+
+
+# ── LLM Routing ───────────────────────────────────────────────────────────────
+
+_ALLOWED_ROLES = {"reasoning", "agentic", "coding", "summary"}
+_ALLOWED_PROVIDERS = {"ollama", "anthropic", "openai", "mistral", "google", "openrouter", "groq", "deepseek"}
+
+
+class RoutingPatchBody(BaseModel):
+    agent: str = "DEFAULT"
+    role: str
+    provider: str
+    model: str
+    fallback_provider: Optional[str] = None
+    fallback_model: Optional[str] = None
+    enabled: bool = True
+
+
+@app.get("/api/llm-routing")
+async def llm_routing_list(agent: str = "DEFAULT"):
+    if agent != "DEFAULT" and agent.upper() not in _ALLOWED_AGENTS:
+        return {"agent": agent, "rows": [], "error": "unknown agent"}
+    db = get_db()
+    rows = await db.execute_fetchall(
+        """SELECT role, provider, model, fallback_provider, fallback_model,
+                  max_tokens, temperature, enabled, updated_at
+           FROM llm_routing WHERE agent = ?
+           ORDER BY CASE role WHEN 'reasoning' THEN 1 WHEN 'agentic' THEN 2
+                              WHEN 'coding' THEN 3 WHEN 'summary' THEN 4
+                              ELSE 5 END""",
+        (agent.upper() if agent != "DEFAULT" else agent,),
+    )
+    return {
+        "agent": agent,
+        "rows": [
+            {
+                "role": r["role"],
+                "provider": r["provider"],
+                "model": r["model"],
+                "fallback_provider": r["fallback_provider"],
+                "fallback_model": r["fallback_model"],
+                "max_tokens": r["max_tokens"],
+                "temperature": r["temperature"],
+                "enabled": bool(r["enabled"]),
+                "updated_at": r["updated_at"],
+            }
+            for r in rows
+        ],
+    }
+
+
+@app.patch("/api/llm-routing")
+async def llm_routing_patch(body: RoutingPatchBody):
+    agent_norm = body.agent.upper() if body.agent != "DEFAULT" else "DEFAULT"
+    if agent_norm != "DEFAULT" and agent_norm not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="unknown agent")
+    if body.role not in _ALLOWED_ROLES:
+        raise HTTPException(status_code=400, detail="unknown role")
+    if body.provider not in _ALLOWED_PROVIDERS:
+        raise HTTPException(status_code=400, detail="unknown provider")
+    if not body.model.strip():
+        raise HTTPException(status_code=400, detail="model required")
+
+    db = get_db()
+    await db.execute(
+        """INSERT INTO llm_routing (agent, role, provider, model, fallback_provider, fallback_model, enabled, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(agent, role) DO UPDATE SET
+               provider = excluded.provider,
+               model = excluded.model,
+               fallback_provider = excluded.fallback_provider,
+               fallback_model = excluded.fallback_model,
+               enabled = excluded.enabled,
+               updated_at = datetime('now')""",
+        (agent_norm, body.role, body.provider, body.model.strip(),
+         body.fallback_provider, body.fallback_model, 1 if body.enabled else 0),
+    )
+    await db.commit()
+    return {"ok": True, "agent": agent_norm, "role": body.role}
+
+
+# ── Capabilities ──────────────────────────────────────────────────────────────
+
+_CAP_COLUMNS = {
+    "cap_shell_commands", "cap_git", "cap_read_files", "cap_write_files",
+    "cap_screen_capture", "cap_camera", "cap_web_search", "cap_browser_control",
+    "cap_memory_read", "cap_memory_write", "cap_cron_jobs", "cap_notifications",
+    "cap_channel_read",
+}
+
+
+class CapabilityPatchBody(BaseModel):
+    agent: str = "SOUL"
+    capability: str
+    enabled: bool
+
+
+@app.get("/api/capabilities")
+async def capabilities_get(agent: str = "SOUL"):
+    if agent.upper() not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="unknown agent")
+    db = get_db()
+    row = await db.execute_fetchall(
+        "SELECT * FROM agent_capabilities WHERE agent = ? LIMIT 1",
+        (agent.upper(),),
+    )
+    if not row:
+        # auto-create row with safe defaults
+        await db.execute("INSERT OR IGNORE INTO agent_capabilities (agent) VALUES (?)", (agent.upper(),))
+        await db.commit()
+        row = await db.execute_fetchall(
+            "SELECT * FROM agent_capabilities WHERE agent = ? LIMIT 1",
+            (agent.upper(),),
+        )
+    r = row[0]
+    caps = {col: bool(r[col]) for col in _CAP_COLUMNS}
+    return {
+        "agent": agent.upper(),
+        "capabilities": caps,
+        "updated_at": r["updated_at"],
+    }
+
+
+@app.patch("/api/capabilities")
+async def capabilities_patch(body: CapabilityPatchBody):
+    if body.agent.upper() not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="unknown agent")
+    if body.capability not in _CAP_COLUMNS:
+        raise HTTPException(status_code=400, detail=f"unknown capability: {body.capability}")
+    db = get_db()
+    await db.execute(
+        f"UPDATE agent_capabilities SET {body.capability} = ?, updated_at = datetime('now') WHERE agent = ?",
+        (1 if body.enabled else 0, body.agent.upper()),
+    )
+    await db.commit()
+    await _audit_log("USER", f"capability_toggle:{body.capability}", channel="settings",
+                     target_id=body.agent.upper(), metadata={"enabled": body.enabled})
+    return {"ok": True, "agent": body.agent.upper(), "capability": body.capability, "enabled": body.enabled}
+
+
+# ── Audit Log ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/audit-log")
+async def audit_log_list(
+    agent: Optional[str] = None,
+    action: Optional[str] = None,
+    processed_locally: Optional[bool] = None,
+    limit: int = 100,
+):
+    if agent and agent.upper() not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="invalid agent")
+    limit = max(1, min(int(limit), 500))
+
+    where: list[str] = ["1=1"]
+    params: list = []
+    if agent:
+        where.append("agent = ?")
+        params.append(agent.upper())
+    if action:
+        where.append("action LIKE ?")
+        params.append(f"%{action}%")
+    if processed_locally is not None:
+        where.append("processed_locally = ?")
+        params.append(1 if processed_locally else 0)
+    params.append(limit)
+
+    sql = (
+        "SELECT id, agent, channel, action, target_id, metadata, "
+        "processed_locally, provider_used, created_at "
+        "FROM companion_audit_log WHERE " + " AND ".join(where) +
+        " ORDER BY created_at DESC LIMIT ?"
+    )
+    db = get_db()
+    rows = await db.execute_fetchall(sql, tuple(params))
+    entries = []
+    for r in rows:
+        entries.append({
+            "id": r["id"],
+            "agent": r["agent"],
+            "channel": r["channel"],
+            "action": r["action"],
+            "target_id": r["target_id"],
+            "metadata": _decode_json(r["metadata"]),
+            "processed_locally": bool(r["processed_locally"]),
+            "provider_used": r["provider_used"],
+            "created_at": r["created_at"],
+        })
+    local_count = sum(1 for e in entries if e["processed_locally"])
+    return {
+        "ok": True,
+        "entries": entries,
+        "count": len(entries),
+        "stats": {"local": local_count, "egress": len(entries) - local_count},
+    }
+
+
+# ── Notifications ─────────────────────────────────────────────────────────────
+
+_ALLOWED_NOTIF_TYPES = {"nerves_fire", "governance_challenge", "reflective_diagnosis", "system_alert", "integration_event", "custom"}
+_ALLOWED_SEVERITY = {"critical", "warning", "info", "success"}
+
+
+class NotificationCreate(BaseModel):
+    agent: str = "SOUL"
+    type: str
+    title: str
+    body: Optional[str] = None
+    severity: str = "info"
+    action_url: Optional[str] = None
+    metadata: Optional[dict] = None
+
+
+@app.get("/api/notifications")
+async def notifications_list(unread_only: bool = False, limit: int = 50):
+    limit = max(1, min(int(limit), 200))
+    db = get_db()
+    if unread_only:
+        rows = await db.execute_fetchall(
+            "SELECT * FROM user_notifications WHERE read = 0 AND dismissed = 0 ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        )
+    else:
+        rows = await db.execute_fetchall(
+            "SELECT * FROM user_notifications WHERE dismissed = 0 ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        )
+    return {
+        "ok": True,
+        "notifications": [
+            {
+                "id": r["id"],
+                "agent": r["agent"],
+                "type": r["type"],
+                "severity": r["severity"],
+                "title": r["title"],
+                "body": r["body"],
+                "read": bool(r["read"]),
+                "action_url": r["action_url"],
+                "metadata": _decode_json(r["metadata"]),
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ],
+        "count": len(rows),
+    }
+
+
+@app.post("/api/notifications")
+async def notifications_create(body: NotificationCreate):
+    if body.agent.upper() not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="unknown agent")
+    if body.type not in _ALLOWED_NOTIF_TYPES:
+        raise HTTPException(status_code=400, detail="unknown notification type")
+    if body.severity not in _ALLOWED_SEVERITY:
+        raise HTTPException(status_code=400, detail="unknown severity")
+    db = get_db()
+    cur = await db.execute(
+        """INSERT INTO user_notifications (agent, type, severity, title, body, action_url, metadata)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (body.agent.upper(), body.type, body.severity, body.title, body.body,
+         body.action_url, json.dumps(body.metadata) if body.metadata else None),
+    )
+    await db.commit()
+    return {"ok": True, "id": cur.lastrowid}
+
+
+@app.post("/api/notifications/{notif_id}/read")
+async def notifications_mark_read(notif_id: int):
+    db = get_db()
+    await db.execute("UPDATE user_notifications SET read = 1 WHERE id = ?", (notif_id,))
+    await db.commit()
+    return {"ok": True, "id": notif_id}
+
+
+@app.delete("/api/notifications/{notif_id}")
+async def notifications_dismiss(notif_id: int):
+    db = get_db()
+    await db.execute("UPDATE user_notifications SET dismissed = 1 WHERE id = ?", (notif_id,))
+    await db.commit()
+    return {"ok": True, "id": notif_id}
+
+
+# ── Memory Tree (P1 — h→d→m→y user-friendly recall) ──────────────────────────
+
+_ALLOWED_LEVELS = {"hour", "day", "month", "year"}
+_MEMORY_TREE_PARENT_LEVEL = {"hour": "day", "day": "month", "month": "year"}
+
+
+def _validate_memory_tree_args(agent: str, level: Optional[str] = None) -> tuple[str, Optional[str]]:
+    if agent.upper() not in _ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail="unknown agent")
+    if level is not None and level not in _ALLOWED_LEVELS:
+        raise HTTPException(status_code=400, detail=f"unknown level: {level}")
+    return agent.upper(), level
+
+
+def _memory_tree_bucket(r) -> dict:
+    child_ids = _decode_json(r["child_ids"]) or []
+    return {
+        "id": r["id"],
+        "level": r["level"],
+        "bucket_key": r["bucket_start"],
+        "bucket_start": r["bucket_start"],
+        "bucket_end": r["bucket_end"],
+        "summary": r["summary"],
+        "child_ids": child_ids,
+        "child_count": len(child_ids),
+        "created_at": r["created_at"],
+    }
+
+
+@app.get("/api/memory-tree")
+async def memory_tree_list(agent: str = "SOUL", level: str = "day", limit: int = 30):
+    agent_norm, level = _validate_memory_tree_args(agent, level)
+    limit = max(1, min(int(limit), 100))
+    db = get_db()
+    rows = await db.execute_fetchall(
+        """SELECT id, level, bucket_start, bucket_end, summary, child_ids, created_at
+           FROM memory_tree WHERE agent = ? AND level = ?
+           ORDER BY bucket_start DESC LIMIT ?""",
+        (agent_norm, level, limit),
+    )
+    return {
+        "ok": True,
+        "agent": agent_norm,
+        "level": level,
+        "buckets": [_memory_tree_bucket(r) for r in rows],
+        "count": len(rows),
+    }
+
+
+@app.get("/api/memory-tree/search")
+async def memory_tree_search(agent: str = "SOUL", q: str = "", level: Optional[str] = None, limit: int = 30):
+    agent_norm, level = _validate_memory_tree_args(agent, level)
+    query = q.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="q required")
+    limit = max(1, min(int(limit), 100))
+    db = get_db()
+    where = ["agent = ?", "lower(summary) LIKE ?"]
+    params: list[Any] = [agent_norm, f"%{query.lower()}%"]
+    if level:
+        where.append("level = ?")
+        params.append(level)
+    params.append(limit)
+    rows = await db.execute_fetchall(
+        """SELECT id, level, bucket_start, bucket_end, summary, child_ids, created_at
+           FROM memory_tree
+           WHERE """ + " AND ".join(where) + """
+           ORDER BY bucket_start DESC LIMIT ?""",
+        tuple(params),
+    )
+    return {
+        "ok": True,
+        "agent": agent_norm,
+        "level": level,
+        "query": query,
+        "buckets": [_memory_tree_bucket(r) for r in rows],
+        "count": len(rows),
+    }
+
+
+@app.get("/api/memory-tree/buckets/{bucket_id}")
+async def memory_tree_detail(bucket_id: int):
+    db = get_db()
+    rows = await db.execute_fetchall(
+        """SELECT id, agent, level, bucket_start, bucket_end, summary, child_ids, created_at
+           FROM memory_tree WHERE id = ?""",
+        (bucket_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="bucket not found")
+    row = rows[0]
+    bucket = _memory_tree_bucket(row)
+    child_ids = bucket["child_ids"]
+
+    child_buckets = []
+    memories = []
+    if child_ids:
+        placeholders = ",".join("?" for _ in child_ids)
+        if row["level"] == "hour":
+            memory_rows = await db.execute_fetchall(
+                f"""SELECT id, agent, category, content, importance, created_at
+                    FROM memories WHERE id IN ({placeholders})""",
+                tuple(child_ids),
+            )
+            by_id = {r["id"]: r for r in memory_rows}
+            for cid in child_ids:
+                r = by_id.get(cid)
+                if r:
+                    memories.append({
+                        "id": r["id"],
+                        "agent": r["agent"],
+                        "category": r["category"],
+                        "content": r["content"],
+                        "importance": r["importance"],
+                        "created_at": r["created_at"],
+                    })
+        else:
+            child_rows = await db.execute_fetchall(
+                f"""SELECT id, level, bucket_start, bucket_end, summary, child_ids, created_at
+                    FROM memory_tree WHERE id IN ({placeholders})""",
+                tuple(child_ids),
+            )
+            by_id = {r["id"]: r for r in child_rows}
+            child_buckets = [_memory_tree_bucket(by_id[cid]) for cid in child_ids if cid in by_id]
+
+    parent = None
+    parent_level = _MEMORY_TREE_PARENT_LEVEL.get(row["level"])
+    if parent_level:
+        parent_rows = await db.execute_fetchall(
+            """SELECT id, level, bucket_start, bucket_end, summary, child_ids, created_at
+               FROM memory_tree WHERE agent = ? AND level = ?
+               ORDER BY bucket_start DESC LIMIT 200""",
+            (row["agent"], parent_level),
+        )
+        for parent_row in parent_rows:
+            if bucket_id in (_decode_json(parent_row["child_ids"]) or []):
+                parent = _memory_tree_bucket(parent_row)
+                break
+
+    return {
+        "ok": True,
+        "bucket": bucket,
+        "parent": parent,
+        "children": child_buckets,
+        "memories": memories,
+        "child_count": len(child_buckets) + len(memories),
+    }
+
+
+class MemoryTreeRebuildBody(BaseModel):
+    agent: str = "SOUL"
+    level: str = "all"
+    dry_run: bool = False
+
+
+@app.post("/api/memory-tree/rebuild")
+async def memory_tree_rebuild(body: MemoryTreeRebuildBody):
+    agent_norm, _ = _validate_memory_tree_args(body.agent)
+    level = body.level
+    if level != "all" and level not in _ALLOWED_LEVELS:
+        raise HTTPException(status_code=400, detail=f"unknown level: {level}")
+    from companion_core.memory_tree_builder import build_all, build_level
+    try:
+        if level == "all":
+            result = await build_all(agent_norm, dry_run=body.dry_run)
+        else:
+            result = await build_level(agent_norm, level, dry_run=body.dry_run)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    await _audit_log("USER", "memory_tree_rebuild", channel="local",
+                     target_id=f"{agent_norm}:{level}", metadata={"dry_run": body.dry_run})
+    return {"ok": True, "agent": agent_norm, "level": level, "dry_run": body.dry_run, "result": result}
+
+
+# ── Connections / Integrations (P2 — Add Account view) ───────────────────────
+
+_KNOWN_CONNECTORS = {
+    "gmail": {"name": "Gmail", "category": "email", "oauth": "google"},
+    "gcal": {"name": "Google Calendar", "category": "calendar", "oauth": "google"},
+    "gdrive": {"name": "Google Drive", "category": "storage", "oauth": "google"},
+    "github": {"name": "GitHub", "category": "dev", "oauth": "github"},
+    "notion": {"name": "Notion", "category": "notes", "oauth": "notion"},
+    "slack": {"name": "Slack", "category": "chat"},
+    "telegram": {"name": "Telegram", "category": "chat"},
+    "obsidian": {"name": "Obsidian Vault", "category": "notes"},
+    "whatsapp": {"name": "WhatsApp", "category": "chat"},
+    "ms365": {"name": "Microsoft 365", "category": "office"},
+    "linkedin": {"name": "LinkedIn", "category": "social"},
+    "discord": {"name": "Discord", "category": "chat"},
+    "gmeet": {"name": "Google Meet", "category": "video"},
+    "zoom": {"name": "Zoom", "category": "video"},
+}
+
+_OAUTH_PROVIDERS = {
+    "google": {
+        "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_url": "https://oauth2.googleapis.com/token",
+        "client_id_env": ("SEAL_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_ID"),
+        "client_secret_env": ("SEAL_GOOGLE_CLIENT_SECRET", "GOOGLE_CLIENT_SECRET"),
+    },
+    "github": {
+        "auth_url": "https://github.com/login/oauth/authorize",
+        "token_url": "https://github.com/login/oauth/access_token",
+        "client_id_env": ("SEAL_GITHUB_CLIENT_ID", "GITHUB_CLIENT_ID"),
+        "client_secret_env": ("SEAL_GITHUB_CLIENT_SECRET", "GITHUB_CLIENT_SECRET"),
+    },
+    "notion": {
+        "auth_url": "https://api.notion.com/v1/oauth/authorize",
+        "token_url": "https://api.notion.com/v1/oauth/token",
+        "client_id_env": ("SEAL_NOTION_CLIENT_ID", "NOTION_CLIENT_ID"),
+        "client_secret_env": ("SEAL_NOTION_CLIENT_SECRET", "NOTION_CLIENT_SECRET"),
+    },
+}
+
+_OAUTH_SCOPES = {
+    "gmail": "https://www.googleapis.com/auth/gmail.readonly",
+    "gcal": "https://www.googleapis.com/auth/calendar.readonly",
+    "gdrive": "https://www.googleapis.com/auth/drive.metadata.readonly",
+    "github": "repo read:user user:email",
+    "notion": "",
+}
+
+
+def _first_env(names: tuple[str, ...]) -> Optional[str]:
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
+
+def _oauth_connector_meta(connector_id: str) -> dict:
+    cid = connector_id.lower().strip()
+    meta = _KNOWN_CONNECTORS.get(cid)
+    if not meta:
+        raise HTTPException(status_code=400, detail=f"unknown connector: {cid}")
+    provider = meta.get("oauth")
+    if not provider or provider not in _OAUTH_PROVIDERS:
+        raise HTTPException(status_code=400, detail=f"oauth not supported for: {cid}")
+    cfg = _OAUTH_PROVIDERS[provider]
+    client_id = _first_env(cfg["client_id_env"])
+    client_secret = _first_env(cfg["client_secret_env"])
+    return {
+        "connector_id": cid,
+        "provider": provider,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "configured": bool(client_id and client_secret),
+        "scope": _OAUTH_SCOPES.get(cid, ""),
+        "auth_url": cfg["auth_url"],
+        "token_url": cfg["token_url"],
+        "setup_hint": (
+            None if client_id and client_secret else
+            f"Configura {'/'.join(cfg['client_id_env'])} y {'/'.join(cfg['client_secret_env'])} antes de conectar."
+        ),
+    }
+
+
+def _encrypt_oauth_token(payload: dict) -> tuple[bytes, bytes]:
+    if not _BYOK_AVAILABLE:
+        raise HTTPException(status_code=503, detail="vault unavailable")
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    import secrets as _secrets
+    master = byok_vault.get_or_create_master_key()
+    nonce = _secrets.token_bytes(12)
+    data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    return AESGCM(master).encrypt(nonce, data, None), nonce
+
+
+async def _oauth_exchange_token(meta: dict, code: str, redirect_uri: str) -> dict:
+    import httpx
+    data = {
+        "client_id": meta["client_id"],
+        "client_secret": meta["client_secret"],
+        "code": code,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+    }
+    headers = {"Accept": "application/json"}
+    async with httpx.AsyncClient(timeout=20) as client:
+        r = await client.post(meta["token_url"], data=data, headers=headers)
+        r.raise_for_status()
+        token = r.json()
+    if "access_token" not in token:
+        raise HTTPException(status_code=502, detail="oauth token response missing access_token")
+    return token
+
+
+@app.get("/api/connections")
+async def connections_list():
+    """List all available connectors + their connection status (from integrations table)."""
+    db = get_db()
+    connected = await db.execute_fetchall("SELECT id, connected_at FROM integrations")
+    connected_map = {r["id"]: r["connected_at"] for r in connected}
+    items = []
+    for cid, meta in _KNOWN_CONNECTORS.items():
+        items.append({
+            "id": cid,
+            "name": meta["name"],
+            "category": meta["category"],
+            "connected": cid in connected_map,
+            "connected_at": connected_map.get(cid),
+            "status": "connected" if cid in connected_map else "available",
+            "oauth_provider": meta.get("oauth"),
+            "oauth_configured": (
+                _oauth_connector_meta(cid)["configured"] if meta.get("oauth") else False
+            ),
+            "setup_hint": (
+                _oauth_connector_meta(cid)["setup_hint"] if meta.get("oauth") else None
+            ),
+        })
+    return {"ok": True, "connectors": sorted(items, key=lambda x: (x["category"], x["name"])), "count": len(items)}
+
+
+class ConnectionAddBody(BaseModel):
+    connector_id: str
+
+
+@app.post("/api/connections/add")
+async def connections_add(body: ConnectionAddBody):
+    """Mark a connector as connected. UI may then trigger OAuth flow externally."""
+    cid = body.connector_id.lower().strip()
+    if cid not in _KNOWN_CONNECTORS:
+        raise HTTPException(status_code=400, detail=f"unknown connector: {cid}")
+    db = get_db()
+    await db.execute(
+        "INSERT OR IGNORE INTO integrations (id, connected_at) VALUES (?, datetime('now'))",
+        (cid,),
+    )
+    await db.commit()
+    await _audit_log("USER", "connection_add", channel="settings", target_id=cid,
+                     metadata={"connector": cid})
+    return {"ok": True, "connector": cid, "connected": True}
+
+
+class OAuthStartBody(BaseModel):
+    connector_id: str
+    redirect_uri: str = "http://localhost:8769/api/connections/oauth/callback"
+
+
+@app.post("/api/connections/oauth/start")
+async def connections_oauth_start(body: OAuthStartBody):
+    """Create a real OAuth authorization URL for supported connectors.
+
+    Credentials are read from environment variables, so the flow is live once
+    William supplies provider client id/secret. No fake connected state here.
+    """
+    import secrets as _secrets
+    from urllib.parse import urlencode
+
+    meta = _oauth_connector_meta(body.connector_id)
+    if not meta["configured"]:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "ok": False,
+                "connector": meta["connector_id"],
+                "provider": meta["provider"],
+                "configured": False,
+                "setup_hint": meta["setup_hint"],
+            },
+        )
+
+    state = _secrets.token_urlsafe(24)
+    db = get_db()
+    await db.execute(
+        """INSERT INTO oauth_states (state, connector_id, provider, redirect_uri)
+           VALUES (?, ?, ?, ?)""",
+        (state, meta["connector_id"], meta["provider"], body.redirect_uri),
+    )
+    await db.commit()
+
+    query = {
+        "client_id": meta["client_id"],
+        "redirect_uri": body.redirect_uri,
+        "response_type": "code",
+        "state": state,
+    }
+    if meta["scope"]:
+        query["scope"] = meta["scope"]
+    if meta["provider"] == "google":
+        query["access_type"] = "offline"
+        query["prompt"] = "consent"
+    if meta["provider"] == "notion":
+        query["owner"] = "user"
+
+    auth_url = f"{meta['auth_url']}?{urlencode(query)}"
+    await _audit_log("USER", "connection_oauth_start", channel="settings",
+                     target_id=meta["connector_id"], metadata={"provider": meta["provider"]})
+    return {
+        "ok": True,
+        "connector": meta["connector_id"],
+        "provider": meta["provider"],
+        "auth_url": auth_url,
+        "state": state,
+        "scope": meta["scope"],
+    }
+
+
+@app.get("/api/connections/oauth/callback")
+async def connections_oauth_callback(code: Optional[str] = None, state: Optional[str] = None,
+                                     error: Optional[str] = None):
+    if error:
+        raise HTTPException(status_code=400, detail=f"oauth error: {error}")
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="code and state required")
+
+    db = get_db()
+    rows = await db.execute_fetchall(
+        "SELECT state, connector_id, provider, redirect_uri FROM oauth_states WHERE state = ?",
+        (state,),
+    )
+    if not rows:
+        raise HTTPException(status_code=400, detail="invalid or expired oauth state")
+
+    row = rows[0]
+    meta = _oauth_connector_meta(row["connector_id"])
+    token = await _oauth_exchange_token(meta, code, row["redirect_uri"])
+    ciphertext, nonce = _encrypt_oauth_token({
+        "provider": row["provider"],
+        "connector_id": row["connector_id"],
+        "token": token,
+    })
+    await db.execute(
+        """INSERT INTO integrations (id, token_encrypted, nonce, connected_at)
+           VALUES (?, ?, ?, datetime('now'))
+           ON CONFLICT(id) DO UPDATE SET
+               token_encrypted=excluded.token_encrypted,
+               nonce=excluded.nonce,
+               connected_at=excluded.connected_at""",
+        (row["connector_id"], ciphertext, nonce),
+    )
+    await db.execute("DELETE FROM oauth_states WHERE state = ?", (state,))
+    await db.commit()
+    await _audit_log("USER", "connection_oauth_callback", channel="settings",
+                     target_id=row["connector_id"], metadata={"provider": row["provider"]})
+    return {"ok": True, "connector": row["connector_id"], "connected": True, "provider": row["provider"]}
+
+
+@app.delete("/api/connections/{connector_id}")
+async def connections_remove(connector_id: str):
+    cid = connector_id.lower().strip()
+    db = get_db()
+    await db.execute("DELETE FROM integrations WHERE id = ?", (cid,))
+    await db.commit()
+    await _audit_log("USER", "connection_remove", channel="settings", target_id=cid)
+    return {"ok": True, "connector": cid, "connected": False}
+
+
+# ── Billing / Plans (local entitlement layer) ───────────────────────────────
+
+_BILLING_PLANS = [
+    {
+        "id": "free",
+        "name": "Free",
+        "price_usd_month": 0,
+        "features": ["local_chat", "memory", "voice_browser_fallback", "basic_connectors"],
+        "limits": {"sub_agents": 5, "cron_jobs": 3, "oauth_connectors": 1},
+    },
+    {
+        "id": "plus",
+        "name": "Plus",
+        "price_usd_month": None,
+        "features": ["local_voice_offline", "15_sub_agents", "screen_intelligence", "tokenjuice", "cron_jobs"],
+        "limits": {"sub_agents": 15, "cron_jobs": 20, "oauth_connectors": 5},
+    },
+    {
+        "id": "pro",
+        "name": "Pro",
+        "price_usd_month": None,
+        "features": ["team_governance", "priority_local_models", "backup_restore", "advanced_oauth"],
+        "limits": {"sub_agents": 15, "cron_jobs": 100, "oauth_connectors": 20},
+    },
+]
+
+
+class BillingPatchBody(BaseModel):
+    plan_id: str
+    status: str = "active"
+
+
+def _billing_plan(plan_id: str) -> Optional[dict]:
+    return next((p for p in _BILLING_PLANS if p["id"] == plan_id), None)
+
+
+@app.get("/api/billing/plans")
+async def billing_plans():
+    """Local-first billing catalog. Prices remain unset until William decides."""
+    return {
+        "ok": True,
+        "plans": _BILLING_PLANS,
+        "payment_provider": "not_configured",
+        "requires_product_decision": ["plus.price_usd_month", "pro.price_usd_month", "payment_provider"],
+    }
+
+
+@app.get("/api/billing/subscription")
+async def billing_subscription():
+    plan_id = str(_config_cache.get("billing_plan", "free"))
+    plan = _billing_plan(plan_id) or _BILLING_PLANS[0]
+    return {
+        "ok": True,
+        "plan_id": plan["id"],
+        "status": _config_cache.get("billing_status", "local"),
+        "plan": plan,
+        "local_only": True,
+        "payment_required": False,
+    }
+
+
+@app.patch("/api/billing/subscription")
+async def billing_subscription_patch(body: BillingPatchBody):
+    if not _billing_plan(body.plan_id):
+        raise HTTPException(status_code=400, detail="unknown billing plan")
+    if body.status not in {"local", "active", "trialing", "past_due", "canceled"}:
+        raise HTTPException(status_code=400, detail="unknown billing status")
+    await _upsert_setting("billing_plan", body.plan_id)
+    await _upsert_setting("billing_status", body.status)
+    await _audit_log("USER", "billing_plan_set", channel="settings",
+                     target_id=body.plan_id, metadata={"status": body.status})
+    return {"ok": True, "plan_id": body.plan_id, "status": body.status}
+
+
+# ── Screen Awareness (P3 — local capture/analyze status) ─────────────────────
+
+@app.get("/api/screen/status")
+async def screen_status():
+    """Returns capability status: whether the OS supports capture + analyzer model present."""
+    import shutil
+    has_mss = False
+    try:
+        import mss  # noqa: F401
+        has_mss = True
+    except Exception:
+        pass
+    # Ollama reachable?
+    has_ollama = False
+    try:
+        import urllib.request as _u
+        req = _u.Request("http://localhost:11434/api/tags", method="GET")
+        with _u.urlopen(req, timeout=2) as r:
+            has_ollama = r.status == 200
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "capture_available": has_mss,
+        "analyzer_available": has_ollama,
+        "recommended_model": "gemma3:4b" if has_ollama else None,
+        "permission_note": "Screen capture solo se ejecuta cuando el usuario lo pide. La imagen NO sale del equipo.",
+        "setup_hint": None if (has_mss and has_ollama) else (
+            "Para activar Screen Awareness: instalar mss (pip install mss) y arrancar Ollama con un modelo de visión (ollama pull gemma3:4b)."
+        ),
+    }
+
+
+# ── Screen Intelligence: capture + analyze + history (real impl) ─────────────
+
+# We persist screen captures as a thumbnail in user_notifications-adjacent table
+# Lightweight: keep a small ring buffer in memory + base64 thumbnails on disk.
+import base64 as _b64
+from pathlib import Path as _Path
+import re as _re
+from companion_core.platform_paths import screen_captures_dir as _screen_captures_dir
+
+_SCREEN_DIR: _Path | None = None
+_SCREEN_RING_MAX = 30
+_SCREEN_ID_RE = _re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+
+
+def _screen_dir_ready() -> _Path:
+    screen_dir = _SCREEN_DIR or _screen_captures_dir()
+    screen_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(screen_dir, 0o700)
+    except Exception:
+        pass
+    return screen_dir
+
+
+def _screen_image_path(image_id: str, *, thumbnail: bool = False) -> _Path:
+    if not _SCREEN_ID_RE.fullmatch(image_id):
+        raise HTTPException(status_code=400, detail="invalid image_id")
+    suffix = ".thumb.png" if thumbnail else ".png"
+    return _screen_dir_ready() / f"{image_id}{suffix}"
+
+
+class ScreenAnalyzeBody(BaseModel):
+    image_id: Optional[str] = None  # if omitted, captures fresh
+    prompt: str = "Describe what's on the screen in 2-3 sentences. Be specific."
+    model: str = "gemma3:4b"
+
+
+@app.post("/api/screen/capture")
+async def screen_capture():
+    """Capture current screen, save as PNG under user config, return id+thumbnail b64."""
+    try:
+        import mss
+        from PIL import Image
+    except ImportError as e:
+        raise HTTPException(status_code=503, detail=f"capture deps missing: {e}")
+
+    from datetime import datetime as _dt
+    sd = _screen_dir_ready()
+    image_id = _dt.now().strftime("%Y%m%dT%H%M%S%f")
+    path = _screen_image_path(image_id)
+    thumb_path = _screen_image_path(image_id, thumbnail=True)
+
+    def _do_capture() -> tuple[int, int]:
+        with mss.mss() as sct:
+            mon = sct.monitors[1]
+            raw = sct.grab(mon)
+            img = Image.frombytes("RGB", raw.size, raw.rgb)
+            img.save(path, "PNG", optimize=True)
+            thumb = img.copy()
+            thumb.thumbnail((320, 240))
+            thumb.save(thumb_path, "PNG", optimize=True)
+            return img.size
+
+    import asyncio as _asyncio
+    try:
+        w, h = await _asyncio.to_thread(_do_capture)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"capture failed: {e}")
+
+    # Read thumbnail b64
+    thumb_b64 = _b64.b64encode(thumb_path.read_bytes()).decode("ascii")
+
+    # Trim ring buffer (oldest first)
+    pngs = sorted(sd.glob("*.png"))
+    full_pngs = [p for p in pngs if not p.name.endswith(".thumb.png")]
+    excess = len(full_pngs) - _SCREEN_RING_MAX
+    if excess > 0:
+        for old in full_pngs[:excess]:
+            old.unlink(missing_ok=True)
+            old.with_suffix(".thumb.png").unlink(missing_ok=True)
+
+    await _audit_log("USER", "screen_capture", channel="local",
+                     target_id=image_id, metadata={"size": f"{w}x{h}"})
+    return {
+        "ok": True, "image_id": image_id, "width": w, "height": h,
+        "thumbnail_b64": thumb_b64, "path": str(path), "local_only": True,
+    }
+
+
+@app.post("/api/screen/analyze")
+async def screen_analyze(body: ScreenAnalyzeBody):
+    """Send a captured screen to local Ollama vision model and get description."""
+    if body.image_id:
+        path = _screen_image_path(body.image_id)
+        if not path.exists():
+            raise HTTPException(status_code=404, detail=f"image not found: {body.image_id}")
+    else:
+        # capture fresh
+        cap = await screen_capture()
+        path = _Path(cap["path"])
+        body.image_id = cap["image_id"]
+
+    image_b64 = _b64.b64encode(path.read_bytes()).decode("ascii")
+
+    import urllib.request as _u
+    payload = json.dumps({
+        "model": body.model,
+        "prompt": body.prompt,
+        "images": [image_b64],
+        "stream": False,
+    }).encode()
+    try:
+        req = _u.Request("http://localhost:11434/api/generate",
+                         data=payload, headers={"Content-Type": "application/json"},
+                         method="POST")
+        with _u.urlopen(req, timeout=120) as r:
+            data = json.loads(r.read())
+        description = data.get("response", "").strip()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"analyzer failed: {e}")
+
+    await _audit_log("USER", "screen_analyze", channel="local",
+                     target_id=body.image_id,
+                     metadata={"model": body.model, "chars": len(description)},
+                     provider_used="ollama")
+    return {
+        "ok": True, "image_id": body.image_id, "model": body.model,
+        "description": description, "local_only": True,
+    }
+
+
+@app.get("/api/screen/history")
+async def screen_history(limit: int = 20):
+    """List recent captures (id, timestamp, thumbnail path)."""
+    sd = _screen_dir_ready()
+    limit = max(1, min(limit, 100))
+    pngs = sorted([p for p in sd.glob("*.png") if not p.name.endswith(".thumb.png")], reverse=True)
+    items = []
+    for p in pngs[:limit]:
+        thumb = p.with_suffix(".thumb.png")
+        items.append({
+            "image_id": p.stem,
+            "captured_at": p.stem,
+            "has_thumbnail": thumb.exists(),
+            "size_bytes": p.stat().st_size,
+        })
+    return {"ok": True, "captures": items, "count": len(items), "local_only": True}
+
+
+@app.get("/api/screen/thumbnail/{image_id}")
+async def screen_thumbnail(image_id: str):
+    """Return thumbnail PNG for a captured image."""
+    thumb = _screen_image_path(image_id, thumbnail=True)
+    if not thumb.exists():
+        raise HTTPException(status_code=404, detail="thumbnail not found")
+    from fastapi.responses import Response
+    return Response(content=thumb.read_bytes(), media_type="image/png")
+
+
+@app.delete("/api/screen/capture/{image_id}")
+async def screen_delete(image_id: str):
+    sd = _screen_dir_ready()
+    p = sd / f"{image_id}.png"
+    t = sd / f"{image_id}.thumb.png"
+    deleted = 0
+    for f in (p, t):
+        if f.exists():
+            f.unlink()
+            deleted += 1
+    return {"ok": True, "image_id": image_id, "files_deleted": deleted}
+
+
+# ── TokenJuice rules (P5 — context compression manager) ──────────────────────
+
+_TOKENJUICE_BUILTIN_RULES = [
+    {"id": "git_status_strip", "label": "Limpiar 'git status' largo",
+     "pattern": r"^On branch.*\n\nnothing to commit", "category": "git", "builtin": True, "enabled": True},
+    {"id": "npm_install_quiet", "label": "Quitar ruido de npm install",
+     "pattern": r"npm warn deprecated.*", "category": "npm", "builtin": True, "enabled": True},
+    {"id": "docker_pull_progress", "label": "Quitar progreso de docker pull",
+     "pattern": r"\w+: Pulling fs layer.*", "category": "docker", "builtin": True, "enabled": True},
+    {"id": "ansi_color_codes", "label": "Quitar códigos de color ANSI",
+     "pattern": r"\x1b\[[0-9;]*m", "category": "shell", "builtin": True, "enabled": True},
+    {"id": "trailing_whitespace", "label": "Quitar espacios al final de líneas",
+     "pattern": r"[ \t]+$", "category": "format", "builtin": True, "enabled": True},
+]
+_TOKENJUICE_RULE_ID_RE = _re.compile(r"^[a-z0-9][a-z0-9_-]{1,63}$")
+
+
+def _tokenjuice_builtin_ids() -> set[str]:
+    return {str(r["id"]) for r in _TOKENJUICE_BUILTIN_RULES}
+
+
+def _tokenjuice_validate_id(rule_id: str) -> str:
+    cleaned = rule_id.strip().lower()
+    if not _TOKENJUICE_RULE_ID_RE.fullmatch(cleaned):
+        raise HTTPException(status_code=400, detail="invalid rule id")
+    return cleaned
+
+
+def _tokenjuice_validate_pattern(pattern: str) -> str:
+    import re as _re_local
+    pattern = pattern or ""
+    if not pattern:
+        raise HTTPException(status_code=400, detail="pattern required")
+    if len(pattern) > 500:
+        raise HTTPException(status_code=400, detail="pattern too long")
+    try:
+        _re_local.compile(pattern)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"invalid regex: {exc}")
+    return pattern
+
+
+def _tokenjuice_rule_from_row(r) -> dict:
+    return {
+        "id": r["id"],
+        "label": r["label"],
+        "pattern": r["pattern"],
+        "category": r["category"],
+        "enabled": bool(r["enabled"]),
+        "builtin": bool(r["builtin"]),
+        "created_at": r["created_at"],
+        "updated_at": r["updated_at"],
+    }
+
+
+async def _tokenjuice_custom_rules(include_disabled: bool = False) -> list[dict]:
+    db = get_db()
+    where = "" if include_disabled else "WHERE enabled = 1"
+    rows = await db.execute_fetchall(
+        f"""SELECT id, label, pattern, category, enabled, builtin, created_at, updated_at
+            FROM tokenjuice_rules {where}
+            ORDER BY category ASC, label ASC"""
+    )
+    return [_tokenjuice_rule_from_row(r) for r in rows]
+
+
+async def _tokenjuice_all_rules(include_disabled: bool = False) -> list[dict]:
+    custom = await _tokenjuice_custom_rules(include_disabled=include_disabled)
+    custom_ids = {r["id"] for r in custom}
+    builtins = [dict(r) for r in _TOKENJUICE_BUILTIN_RULES if include_disabled or r.get("enabled", True)]
+    return [*builtins, *[r for r in custom if r["id"] not in _tokenjuice_builtin_ids()]]
+
+
+async def _tokenjuice_record_stats(applied: list[dict], input_chars: int, output_chars: int) -> None:
+    if not applied:
+        return
+    db = get_db()
+    saved = max(0, input_chars - output_chars)
+    for item in applied:
+        rule_id = item["rule"]
+        matches = int(item["matches"])
+        await db.execute(
+            """INSERT INTO tokenjuice_rule_stats (rule_id, match_count, chars_saved, last_used_at)
+               VALUES (?, ?, ?, datetime('now'))
+               ON CONFLICT(rule_id) DO UPDATE SET
+                   match_count = match_count + excluded.match_count,
+                   chars_saved = chars_saved + excluded.chars_saved,
+                   last_used_at = excluded.last_used_at""",
+            (rule_id, matches, saved),
+        )
+    await db.commit()
+
+
+@app.get("/api/tokenjuice/rules")
+async def tokenjuice_rules(include_disabled: bool = False):
+    """List active compression rules (user-friendly view of TokenJuice config)."""
+    rules = await _tokenjuice_all_rules(include_disabled=include_disabled)
+    return {
+        "ok": True,
+        "rules": rules,
+        "count": len(rules),
+        "user_friendly_label": "Reducir ruido del contexto",
+    }
+
+
+class TokenjuiceRuleBody(BaseModel):
+    id: Optional[str] = None
+    label: str
+    pattern: str
+    category: str = "custom"
+    enabled: bool = True
+
+
+class TokenjuiceRulePatchBody(BaseModel):
+    label: Optional[str] = None
+    pattern: Optional[str] = None
+    category: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+@app.post("/api/tokenjuice/rules")
+async def tokenjuice_rule_create(body: TokenjuiceRuleBody):
+    import re as _re_local
+    label = body.label.strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="label required")
+    rule_id = _tokenjuice_validate_id(body.id or _re_local.sub(r"[^a-z0-9_-]+", "_", label.lower()).strip("_"))
+    if rule_id in _tokenjuice_builtin_ids():
+        raise HTTPException(status_code=400, detail="builtin rule id is protected")
+    pattern = _tokenjuice_validate_pattern(body.pattern)
+    category = (body.category or "custom").strip().lower()[:40] or "custom"
+    db = get_db()
+    await db.execute(
+        """INSERT INTO tokenjuice_rules (id, label, pattern, category, enabled, builtin)
+           VALUES (?, ?, ?, ?, ?, 0)
+           ON CONFLICT(id) DO UPDATE SET
+               label=excluded.label,
+               pattern=excluded.pattern,
+               category=excluded.category,
+               enabled=excluded.enabled,
+               updated_at=datetime('now')""",
+        (rule_id, label, pattern, category, int(body.enabled)),
+    )
+    await db.commit()
+    await _audit_log("USER", "tokenjuice_rule_upsert", channel="settings", target_id=rule_id)
+    return {"ok": True, "rule": {"id": rule_id, "label": label, "pattern": pattern,
+                                  "category": category, "enabled": body.enabled, "builtin": False}}
+
+
+@app.patch("/api/tokenjuice/rules/{rule_id}")
+async def tokenjuice_rule_update(rule_id: str, body: TokenjuiceRulePatchBody):
+    rule_id = _tokenjuice_validate_id(rule_id)
+    if rule_id in _tokenjuice_builtin_ids():
+        raise HTTPException(status_code=400, detail="builtin rules are read-only")
+    db = get_db()
+    rows = await db.execute_fetchall("SELECT id FROM tokenjuice_rules WHERE id = ?", (rule_id,))
+    if not rows:
+        raise HTTPException(status_code=404, detail="rule not found")
+    updates = []
+    params: list[Any] = []
+    if body.label is not None:
+        label = body.label.strip()
+        if not label:
+            raise HTTPException(status_code=400, detail="label required")
+        updates.append("label = ?")
+        params.append(label)
+    if body.pattern is not None:
+        updates.append("pattern = ?")
+        params.append(_tokenjuice_validate_pattern(body.pattern))
+    if body.category is not None:
+        updates.append("category = ?")
+        params.append((body.category or "custom").strip().lower()[:40] or "custom")
+    if body.enabled is not None:
+        updates.append("enabled = ?")
+        params.append(int(body.enabled))
+    if updates:
+        updates.append("updated_at = datetime('now')")
+        params.append(rule_id)
+        await db.execute(f"UPDATE tokenjuice_rules SET {', '.join(updates)} WHERE id = ?", tuple(params))
+        await db.commit()
+    await _audit_log("USER", "tokenjuice_rule_update", channel="settings", target_id=rule_id)
+    rows = await db.execute_fetchall(
+        "SELECT id, label, pattern, category, enabled, builtin, created_at, updated_at FROM tokenjuice_rules WHERE id = ?",
+        (rule_id,),
+    )
+    return {"ok": True, "rule": _tokenjuice_rule_from_row(rows[0])}
+
+
+@app.delete("/api/tokenjuice/rules/{rule_id}")
+async def tokenjuice_rule_delete(rule_id: str):
+    rule_id = _tokenjuice_validate_id(rule_id)
+    if rule_id in _tokenjuice_builtin_ids():
+        raise HTTPException(status_code=400, detail="builtin rules are read-only")
+    db = get_db()
+    await db.execute("DELETE FROM tokenjuice_rule_stats WHERE rule_id = ?", (rule_id,))
+    cur = await db.execute("DELETE FROM tokenjuice_rules WHERE id = ?", (rule_id,))
+    await db.commit()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="rule not found")
+    await _audit_log("USER", "tokenjuice_rule_delete", channel="settings", target_id=rule_id)
+    return {"ok": True, "id": rule_id, "deleted": True}
+
+
+class TokenjuiceCompactBody(BaseModel):
+    text: str
+
+
+@app.post("/api/tokenjuice/compact")
+async def tokenjuice_compact(body: TokenjuiceCompactBody):
+    """Apply all builtin rules to compress text. Returns the compacted result + savings."""
+    import re as _re
+    src = body.text or ""
+    out = src
+    applied = []
+    rules = await _tokenjuice_all_rules()
+    for rule in rules:
+        try:
+            new, n = _re.subn(rule["pattern"], "", out, flags=_re.MULTILINE | _re.IGNORECASE)
+            if n > 0:
+                out = new
+                applied.append({"rule": rule["id"], "matches": n})
+        except Exception:
+            continue
+    await _tokenjuice_record_stats(applied, len(src), len(out))
+    return {
+        "ok": True,
+        "input_chars": len(src),
+        "output_chars": len(out),
+        "savings_pct": round((1 - len(out) / max(len(src), 1)) * 100, 1),
+        "rules_applied": applied,
+        "output": out,
+    }
+
+
+@app.get("/api/tokenjuice/stats")
+async def tokenjuice_stats():
+    rules = await _tokenjuice_all_rules(include_disabled=True)
+    labels = {r["id"]: r for r in rules}
+    db = get_db()
+    rows = await db.execute_fetchall(
+        "SELECT rule_id, match_count, chars_saved, last_used_at FROM tokenjuice_rule_stats ORDER BY chars_saved DESC, match_count DESC"
+    )
+    stats = []
+    for r in rows:
+        rule = labels.get(r["rule_id"], {"id": r["rule_id"], "label": r["rule_id"], "category": "unknown", "builtin": False})
+        stats.append({
+            "rule_id": r["rule_id"],
+            "label": rule["label"],
+            "category": rule["category"],
+            "builtin": bool(rule.get("builtin", False)),
+            "match_count": r["match_count"],
+            "chars_saved": r["chars_saved"],
+            "last_used_at": r["last_used_at"],
+        })
+    return {"ok": True, "stats": stats, "count": len(stats)}
+
+
+@app.get("/api/tokenjuice/export")
+async def tokenjuice_export():
+    return {
+        "ok": True,
+        "version": 1,
+        "custom_rules": await _tokenjuice_custom_rules(include_disabled=True),
+    }
+
+
+class TokenjuiceImportBody(BaseModel):
+    custom_rules: list[TokenjuiceRuleBody]
+
+
+@app.post("/api/tokenjuice/import")
+async def tokenjuice_import(body: TokenjuiceImportBody):
+    imported = []
+    for rule in body.custom_rules[:100]:
+        created = await tokenjuice_rule_create(rule)
+        imported.append(created["rule"]["id"])
+    return {"ok": True, "imported": imported, "count": len(imported)}
+
+
+# ── Cron Jobs (visible schedules — P3 OpenHuman doc 43) ─────────────────────
+
+class CronCreateBody(BaseModel):
+    name: str
+    cron_expression: str
+    handler: str
+    agent: Optional[str] = None
+    enabled: bool = True
+
+
+@app.get("/api/cron-jobs")
+async def cron_jobs_list():
+    db = get_db()
+    rows = await db.execute_fetchall(
+        """SELECT id, name, agent, cron_expression, handler, enabled,
+                  last_run_at, next_run_at, created_by, created_at
+           FROM cron_jobs ORDER BY enabled DESC, name ASC"""
+    )
+    return {"ok": True, "jobs": [dict(r) for r in rows], "count": len(rows)}
+
+
+@app.post("/api/cron-jobs")
+async def cron_jobs_create(body: CronCreateBody):
+    if not body.name.strip() or not body.cron_expression.strip() or not body.handler.strip():
+        raise HTTPException(status_code=400, detail="name, cron_expression, handler required")
+    db = get_db()
+    try:
+        cur = await db.execute(
+            """INSERT INTO cron_jobs (name, agent, cron_expression, handler, enabled, created_by)
+               VALUES (?, ?, ?, ?, ?, 'USER')""",
+            (body.name.strip(), body.agent, body.cron_expression.strip(),
+             body.handler.strip(), 1 if body.enabled else 0),
+        )
+        await db.commit()
+        return {"ok": True, "id": cur.lastrowid, "name": body.name}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/cron-jobs/{job_id}")
+async def cron_jobs_delete(job_id: int):
+    db = get_db()
+    await db.execute("DELETE FROM cron_jobs WHERE id = ?", (job_id,))
+    await db.commit()
+    return {"ok": True, "id": job_id}
+
+
+@app.post("/api/cron-jobs/{job_id}/toggle")
+async def cron_jobs_toggle(job_id: int):
+    db = get_db()
+    await db.execute(
+        "UPDATE cron_jobs SET enabled = 1 - enabled WHERE id = ?",
+        (job_id,),
+    )
+    await db.commit()
+    return {"ok": True, "id": job_id}
+
+
+# ── Voice STT/TTS (local-first, offline) ────────────────────────────────────
+# STT: faster-whisper (CTranslate2 backend, runs on CPU, ARM-native).
+# TTS: piper-tts (Spanish voice davefx-medium pre-downloaded).
+# Both 100% local, no internet, no API key.
+
+import base64 as _vb64
+import tempfile as _vtmp
+from pathlib import Path as _VPath
+from companion_core.platform_paths import voice_models_dir as _voice_models_dir
+
+_WHISPER_MODEL_SIZE = "base"  # tiny | base | small | medium
+
+_whisper_model = None
+_piper_voice = None
+
+
+def _piper_voice_path() -> _VPath:
+    return _voice_models_dir() / "es_ES-davefx-medium.onnx"
+
+
+def _get_whisper():
+    global _whisper_model
+    if _whisper_model is None:
+        try:
+            from faster_whisper import WhisperModel
+            _whisper_model = WhisperModel(_WHISPER_MODEL_SIZE, device="cpu", compute_type="int8")
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"whisper unavailable: {e}")
+    return _whisper_model
+
+
+def _get_piper():
+    global _piper_voice
+    if _piper_voice is None:
+        try:
+            from piper import PiperVoice
+            voice_path = _piper_voice_path()
+            if not voice_path.exists():
+                raise HTTPException(status_code=503, detail=f"piper voice missing: {voice_path}")
+            _piper_voice = PiperVoice.load(str(voice_path))
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"piper unavailable: {e}")
+    return _piper_voice
+
+
+@app.get("/api/voice/status")
+async def voice_status():
+    """STT + TTS capability + local model status."""
+    has_whisper = False
+    try:
+        import faster_whisper  # noqa: F401
+        has_whisper = True
+    except Exception:
+        pass
+    has_piper = False
+    try:
+        import piper  # noqa: F401
+        has_piper = True
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "stt_available": has_whisper,
+        "stt_model": _WHISPER_MODEL_SIZE if has_whisper else None,
+        "tts_available": has_piper and _piper_voice_path().exists(),
+        "tts_voice": "es_ES-davefx-medium" if _piper_voice_path().exists() else None,
+        "fully_local": has_whisper and has_piper and _piper_voice_path().exists(),
+        "permission_note": "Voz se procesa 100% localmente. El audio NO sale del equipo.",
+    }
+
+
+class VoiceSTTBody(BaseModel):
+    audio_b64: str
+    language: str = "es"
+
+
+@app.post("/api/voice/stt")
+async def voice_stt(body: VoiceSTTBody):
+    """Transcribe audio (base64) to text. 100% local."""
+    try:
+        audio_bytes = _vb64.b64decode(body.audio_b64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid audio_b64")
+    if len(audio_bytes) < 100:
+        raise HTTPException(status_code=400, detail="audio too short")
+
+    model = _get_whisper()
+    import asyncio as _a
+    with _vtmp.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        f.write(audio_bytes)
+        tmp_path = f.name
+
+    def _do_transcribe():
+        segments, info = model.transcribe(tmp_path, language=body.language)
+        text_parts = [s.text for s in segments]
+        return " ".join(text_parts).strip(), info.language, info.duration
+
+    try:
+        text, lang, duration = await _a.to_thread(_do_transcribe)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"transcription failed: {e}")
+    finally:
+        try:
+            _VPath(tmp_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    await _audit_log("USER", "voice_stt", channel="local",
+                     metadata={"chars": len(text), "duration_s": round(duration, 2),
+                               "language": lang})
+    return {
+        "ok": True, "text": text, "language": lang,
+        "duration_seconds": round(duration, 2), "fully_local": True,
+    }
+
+
+class VoiceTTSBody(BaseModel):
+    text: str
+    voice: Optional[str] = None
+
+
+@app.post("/api/voice/tts")
+async def voice_tts(body: VoiceTTSBody):
+    """Synthesize text to wav (base64). 100% local."""
+    if not body.text or not body.text.strip():
+        raise HTTPException(status_code=400, detail="text required")
+    if len(body.text) > 5000:
+        raise HTTPException(status_code=400, detail="text too long (max 5000 chars)")
+
+    voice = _get_piper()
+    import asyncio as _a
+    import wave as _wave
+    import io as _io
+
+    def _do_synth():
+        buf = _io.BytesIO()
+        with _wave.open(buf, "wb") as wf:
+            voice.synthesize_wav(body.text.strip(), wf)
+        return buf.getvalue()
+
+    try:
+        wav_bytes = await _a.to_thread(_do_synth)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"synthesis failed: {e}")
+
+    await _audit_log("USER", "voice_tts", channel="local",
+                     metadata={"chars": len(body.text), "wav_bytes": len(wav_bytes)})
+    return {
+        "ok": True,
+        "audio_b64": _vb64.b64encode(wav_bytes).decode("ascii"),
+        "format": "wav", "bytes": len(wav_bytes),
+        "voice": "es_ES-davefx-medium", "fully_local": True,
+    }
+
+
+# ── 404 friendly handler for API ─────────────────────────────────────────────
+# Replaces FastAPI's generic {"detail":"Not Found"} with a hint that lists
+# a few real endpoints, so devs/users see the next action immediately.
+
+from fastapi.requests import Request as _Req
+from fastapi.responses import JSONResponse as _JSON
+
+
+@app.exception_handler(404)
+async def api_friendly_404(request: _Req, exc):
+    path = request.url.path
+    if not path.startswith("/api/"):
+        # let SPA fallback handle UI routes if installed
+        raise exc
+    # Collect a handful of registered API routes to suggest
+    routes = []
+    for r in app.routes:
+        rpath = getattr(r, "path", "")
+        if rpath.startswith("/api/") and rpath not in routes:
+            routes.append(rpath)
+        if len(routes) >= 12:
+            break
+    return _JSON(
+        status_code=404,
+        content={
+            "ok": False,
+            "error": "endpoint no encontrado",
+            "path": path,
+            "hint": "Verifica el método HTTP y la ruta. Endpoints disponibles más abajo.",
+            "available": routes[:5],
+            "available_examples": routes,
+        },
+    )
+
+
 # ── Static UI serving (production) ───────────────────────────────────────────
 # In dev: frontend runs on Vite :5174 with CORS.
-# In production (.deb install): UI lives at /usr/share/seal-companion/ui
-_UI_DIR = Path(os.environ.get("SEAL_UI_DIR", "/usr/share/seal-companion/ui"))
+# In production the UI may live in a Linux package directory, beside the
+# Windows executable, or in the source tree during portable/dev launches.
+from companion_core.platform_paths import ui_dir as _platform_ui_dir
+
+_UI_DIR = _platform_ui_dir()
 
 if _UI_DIR.is_dir():
     app.mount("/assets", StaticFiles(directory=str(_UI_DIR / "assets")), name="assets")

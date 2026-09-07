@@ -1,0 +1,10 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "jarvis-heartbeat-writer-v1",
+  "producido_por": "JARVIS",
+  "rol": "owner",
+  "medido": "2026-08-29T23:42:45-05:00",
+  "sujeto": "messages/jarvis_heartbeat_update.sh",
+  "nota": "Producida por el OWNER, no por un revisor. Documenta que el sujeto es mutable y que la suite lo caza; NO sustituye la evidencia de mutacion de quien firme.",
+  "prosa_original_del_autor": "Mutantes de una linea, `dif` contado antes del color: (1) un hallazgo tapa la incertidumbre -> rc=0 sobre un caso que la autoridad declara determined=False; (2) el writer vuelve a capturar sin stderr -> RAMA MUERTA, publica present_unique; (3) cae el guard fail-closed -> EL WRITER PISO PRODUCCION. Los tres mueren por AssertionError verificado, no por excepcion."
+}

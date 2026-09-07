@@ -370,7 +370,7 @@ async def test_prepare_delegates_exact_128_to_1024_contract(tmp_path, monkeypatc
         return {"status": "completed"}
 
     monkeypatch.setattr(
-        "soul_platform.embedding_cutover.BgeM3Embedding", lambda **_kwargs: Provider()
+        "soul_platform.embedding_cutover.LocalBgeM3Embedding", lambda **_kwargs: Provider()
     )
     monkeypatch.setattr(
         "soul_platform.embedding_cutover.migrate_sqlite_embeddings", fake_migrate

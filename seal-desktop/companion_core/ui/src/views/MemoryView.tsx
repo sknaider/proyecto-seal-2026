@@ -75,7 +75,7 @@ export default function MemoryView() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Search memories…"
+            placeholder="Buscar recuerdos…"
             className="flex-1 bg-transparent text-sm text-slate-200 placeholder-seal-muted outline-none"
           />
           {q && <button onClick={() => setQ('')}><X size={12} className="text-seal-muted" /></button>}
@@ -84,7 +84,7 @@ export default function MemoryView() {
           <button
             onClick={() => setCatFilter('')}
             className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${!catFilter ? 'bg-blue-600 border-blue-600 text-white' : 'border-seal-border text-seal-muted hover:border-slate-500'}`}
-          >All</button>
+          >Todo</button>
           {categories.map(c => (
             <button
               key={c.category}
@@ -114,7 +114,9 @@ export default function MemoryView() {
           </div>
         ))}
         {memories.length === 0 && (
-          <div className="flex items-center justify-center h-32 text-seal-muted text-sm">No memories yet</div>
+          <div className="flex items-center justify-center h-32 text-seal-muted text-sm text-center px-4">
+            Aún no hay recuerdos. Empieza a conversar y SEAL guardará lo importante aquí.
+          </div>
         )}
       </div>
 
@@ -124,7 +126,7 @@ export default function MemoryView() {
           <textarea
             value={newContent}
             onChange={e => setNewContent(e.target.value)}
-            placeholder="Memory content…"
+            placeholder="Escribe lo que quieres que SEAL recuerde…"
             rows={3}
             className="w-full bg-seal-bg border border-seal-border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-seal-muted outline-none resize-none"
           />
@@ -132,7 +134,7 @@ export default function MemoryView() {
             <input
               value={newCategory}
               onChange={e => setNewCategory(e.target.value)}
-              placeholder="Category (optional)"
+              placeholder="Tema (opcional)"
               className="flex-1 bg-seal-bg border border-seal-border rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-seal-muted outline-none"
             />
             <select
@@ -144,8 +146,8 @@ export default function MemoryView() {
             </select>
           </div>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowAdd(false)} className="px-3 py-1 text-sm text-seal-muted hover:text-slate-300">Cancel</button>
-            <button onClick={addMemory} disabled={loading || !newContent.trim()} className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 rounded-lg disabled:opacity-30 transition-colors">Save</button>
+            <button onClick={() => setShowAdd(false)} className="px-3 py-1 text-sm text-seal-muted hover:text-slate-300">Cancelar</button>
+            <button onClick={addMemory} disabled={loading || !newContent.trim()} className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 rounded-lg disabled:opacity-30 transition-colors">Guardar</button>
           </div>
         </div>
       )}
@@ -156,7 +158,7 @@ export default function MemoryView() {
             onClick={() => setShowAdd(true)}
             className="w-full flex items-center justify-center gap-2 py-2 text-sm text-seal-muted hover:text-slate-300 border border-dashed border-seal-border rounded-lg hover:border-slate-500 transition-colors"
           >
-            <Plus size={14} /> Add memory
+            <Plus size={14} /> Agregar recuerdo
           </button>
         </div>
       )}

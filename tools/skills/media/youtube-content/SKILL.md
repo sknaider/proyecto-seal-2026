@@ -14,7 +14,9 @@ Extract transcripts from YouTube videos and convert them into useful formats.
 ## Setup
 
 ```bash
-pip install youtube-transcript-api
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install youtube-transcript-api
 ```
 
 ## Helper Script

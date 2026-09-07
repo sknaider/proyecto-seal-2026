@@ -11,40 +11,28 @@ provided.
 ## Install
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install soul-platform
-soul-machine init --model gemma3:1b-it-qat
+cd bundle
+./soul-install.sh --model gemma3:1b-it-qat
 ```
 
-### Windows desktop tray: cableado sin terminal
+The supported public install is a release bundle containing Platform 0.5.0,
+Core 0.4.2 and SHA-256 files. `soul-install.sh` auto-discovers and verifies
+those wheels when they sit beside the script. The package is not currently
+published on PyPI, so a bare `pip install soul-platform` is intentionally not
+documented as a working path.
+The release builder emits deterministic Windows ZIP and Linux/macOS `tar.gz`
+archives; the latter extracts to the documented `bundle/` directory.
 
-Install the desktop extra and launch the visual controller:
+## AutoWire 0.5
 
-```bash
-pip install 'soul-platform[desktop]'
-soul-tray
-```
-
-On Windows, `Install-Soul.ps1` installs and opens it automatically. Supplying
-`-NoTray` also removes any prior tray startup descriptor. The violet icon beside the clock shows the live proxy
-state, discovers the user's Ollama models, starts/stops the managed proxy,
-switches brains without replacing the soul database, and copies the endpoint
-or local token only when the user explicitly asks. Closing the tray leaves the
-managed proxy running; turning the soul off preserves its identity and memory.
-
-For a display-free diagnostic (also used by the installer):
-
-```bash
-soul-tray-cli --check
-```
-
-The status probe binds the UI to the configured machine-soul UUID and baseline
-hash. An unrelated HTTP service occupying port `11435` is reported as foreign,
-not as a healthy soul, and the diagnostic exits nonzero unless SOUL is ready.
-The Windows installer also registers the tray itself in the current user's
-Startup folder, so both the proxy and its visual controller return after login.
-The ZIP binds SOUL Platform to its SHA-256; pinned third-party desktop
-dependencies are downloaded from PyPI and therefore require internet access.
+On Windows the installer leaves SOUL hot-ready: it inventories fixed local
+model surfaces without changing the active brain and registers a
+least-privilege per-user watcher. Codex CLI and Claude Code are connected
+through their official local stdio MCP configuration when present. Discovery
+is not trust: raw HTTP model listeners remain memory-blocked (including
+Ollama), cloud providers require a separate consent/egress contract, and the
+BGE-M3 embedding identity is never auto-swapped. Codex and Claude retrieve
+authorized SOUL context through MCP, outside the replaceable model endpoint.
 
 Optional integrations:
 
@@ -61,9 +49,10 @@ extras inside its venv and prints the DBA-owned server steps.
 > The brain can change; the soul, memory and identity remain.
 
 SOUL Platform can expose one authenticated, OpenAI-compatible endpoint on the
-loopback interface. Applications talk to that endpoint instead of directly to
-Ollama or LM Studio. The proxy injects the same identity and recalled memories
-on every request, while the configured upstream model remains replaceable.
+loopback interface. Applications can use that stable endpoint instead of
+talking directly to Ollama or LM Studio while the configured upstream remains
+replaceable. In 0.5 the raw model route is deliberately brain-only; private
+identity and memory are available to attached clients through local MCP.
 
 After installing the package in a dedicated virtual environment, initialize a
 machine soul (no administrator privileges are used):
@@ -97,6 +86,27 @@ descriptor. Re-running the command is idempotent and preserves the existing
 identity and memories. The generated proxy listens only on
 `127.0.0.1:11435`.
 
+### SOUL Tray (cero terminal)
+
+The desktop extra installs a native tray control surface. It reports whether
+the soul and current brain are ready, discovers local Ollama models, switches
+the brain without changing `machine_soul_id` or the memory database, starts or
+stops the managed proxy, and copies the authenticated endpoint. Closing the
+tray leaves the soul running.
+
+```bash
+python -m pip install 'soul-platform[desktop]'
+soul-tray --headless-check
+soul-tray --install-autostart
+soul-tray
+```
+
+Windows uses two least-privilege per-user Scheduled Tasks: one for the proxy
+and one for the tray. Neither runs as Administrator or SYSTEM. Linux uses the
+verified user systemd proxy plus an XDG tray entry; macOS uses per-user
+LaunchAgents. `soul-tray --remove-autostart` removes only the tray launcher and
+preserves the machine soul, token, configuration and memories.
+
 To point the same soul at another local OpenAI-compatible brain:
 
 ```bash
@@ -113,11 +123,18 @@ and after the switch. On Windows the default config lives under
 `~/Library/Application Support/SOUL`.
 
 The client must send the generated token as `Authorization: Bearer <token>`.
-Recall is read-only by default. A trusted local client opts into learning for a
-request with `X-Soul-Remember: true`; `false` explicitly opts out even when the
-machine-wide `auto_store` setting is enabled. Invalid truthy strings are
-rejected instead of being guessed. The response reports `X-Soul-Store` as
-`stored`, `disabled` or `failed` without exposing memory content.
+Recall is read-only by default. `X-Soul-Remember: true` persists the raw user
+prompt plus a response digest in a separate hash-linked conversation ledger;
+it never promotes the question or prompt into semantic memory. A trusted client promotes a reviewed
+declarative fact explicitly with
+`"soul_memory":{"content":"...","importance":1..10}`. Questions are
+rejected as facts. The response reports `X-Soul-Store` as `ledger`,
+`fact-stored`, `ledger+fact`, `ledger-failed+fact-stored`,
+`ledger+fact-failed`, `disabled` or `failed` without exposing content.
+The ledger and agency audit each keep a private, atomic head sidecar, so editing,
+reordering or deleting a valid suffix from the SQLite file fails closed on
+reopen. Because the sidecar shares the user's OS account, high-assurance
+deployments still checkpoint that head in an operator-owned external witness.
 The v1 proxy accepts OpenAI-compatible SSE when `stream=true`, preserves SOUL
 evidence headers and enforces the response-size ceiling before returning the
 bounded event stream. It does not yet provide token-by-token low-latency
@@ -131,12 +148,10 @@ To remove only the autostart descriptor while preserving the soul:
 soul-machine disable-autostart
 ```
 
-`soul-machine uninstall` stops the proxy and removes both per-user startup
-descriptors while preserving the soul database, identity and token. A tray
-already visible must be closed once from its own menu (or ends at logout); it
-will not return at the next login. Running `init` again recovers the same soul.
-Purging those persistent files is intentionally not an installer operation; it
-requires an explicit, separately reviewed deletion.
+`soul-machine uninstall` stops and removes the per-user runtime integration but
+also preserves the soul database, identity and token. Running `init` again
+recovers the same soul. Purging those persistent files is intentionally not an
+installer operation; it requires an explicit, separately reviewed deletion.
 
 The current release renders and activates native Linux, Windows and macOS
 per-user startup descriptors and is covered by cross-platform contract tests.
@@ -147,8 +162,8 @@ contract but must be verified on a host where LM Studio is running.
 
 ## Architecture
 
-- **F1 — scale memory:** `soul-framework[postgres,embeddings]`, PostgreSQL +
-  pgvector, published as Core v0.3.0.
+- **F1 — scale memory:** Core 0.4.2 with BGE-M3/1024, HNSW/pgvector and a
+  reversible, byte-checked migration from legacy 128-dimensional embeddings.
 - **F2 — runtime + tools:** `soul_platform.agency.AgentRuntime`. Allowlist,
   effect scopes, atomic durable budgets, timeout, bounded output and durable audit.
 - **F3 — multi-agent:** `soul_platform.coordination.Coordinator`. Durable task
@@ -172,10 +187,12 @@ non-root UID and bounded resources; images must be both pinned by SHA-256 and in
 an operator allowlist. Verifier public keys come from an operator trust store—no
 trust root or private key is shipped in the package.
 
-The model adapter follows the same rule: `AgentRuntime` accepts the built-in
-`SubprocessLLMProvider`, which exchanges canonical JSON over stdin/stdout and
-kills/reaps the provider process group at deadline. An arbitrary in-process
-coroutine cannot suppress cancellation and accumulate hidden model work.
+The model adapter follows the same rule: host subprocess execution is outside
+the release profile and is denied twice by default. An operator must explicitly
+set both `allow_host_execution=True` and `allow_uncontained_model=True` for an
+experimental trusted adapter; even then it receives a scrubbed environment, canonical JSON
+over stdin/stdout and a hard-cancelable process group. Untrusted models belong
+behind a contained adapter rather than in the host process.
 
 Signed receipt chains detect payload or link tampering. To detect deletion of a
 valid suffix, persist the last accepted receipt hash independently and pass it as

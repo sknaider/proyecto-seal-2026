@@ -1,0 +1,14 @@
+[Unit]
+Description=Reconcile isolated SEAL user clone instances
+After=seal-chat.service docker.service
+Wants=seal-chat.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/dadito/IA/proyecto-seal/scripts/reconcile_ada_user_clones.py --once
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/dadito/.local/state/seal /home/dadito/IA/proyecto-seal/messages /home/dadito/.config/systemd/user /home/dadito/.local/share/systemd

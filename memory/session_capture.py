@@ -25,7 +25,20 @@ import httpx
 
 from db import get_pool, close_pool
 from embeddings import get_embedding
-from mcp_server_v3 import classify_emotion
+# classify_emotion vive en mcp_server_v4 (via v3). Ese import arrastra
+# dual_memory_governance, que perdio 4 nombres con el `git reset --hard` del
+# 3-sep 13:26 (ADA, medido: ImportError MEMORY_MODE_WORK_RECOVERY). Una captura
+# de sesion no puede depender de que TODO el MCP importe: si falla, se captura
+# sin valence/arousal (que es lo que ya pasaba: el call site desempaqueta 2 y
+# la funcion devuelve 3, asi que caia al except y quedaba None,None).
+try:
+    from mcp_server_v3 import classify_emotion
+except Exception as _exc:  # ImportError o cualquier fallo de carga del MCP
+    logging.getLogger("session_capture").warning(
+        "classify_emotion no disponible (%r); capturo sin emocion", _exc)
+
+    async def classify_emotion(text: str):  # type: ignore[misc]
+        return None, None, None
 
 LOG = logging.getLogger("session-capture")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
@@ -237,7 +250,7 @@ Memorias clave (máximo 10, solo las importantes):"""
 
             try:
                 emb = await get_embedding(content)
-                v, a = await classify_emotion(content)
+                v, a, *_ = await classify_emotion(content)  # FIX ADA 3-sep: v4 devuelve 3 valores; antes caia al except y perdia el embedding
             except Exception as e:
                 LOG.warning("Embedding/emotion failed: %s", e)
                 emb = None
@@ -266,8 +279,8 @@ Memorias clave (máximo 10, solo las importantes):"""
             # Write to PostgreSQL — event_time = cuándo ocurrió (bitemporalidad)
             # ingestion_time = NOW() (cuándo se guardó) — implícito en created_at
             event_time_val = None
-            if isinstance(mem.get("metadata"), dict):
-                ts = mem["metadata"].get("event_time") or mem["metadata"].get("timestamp")
+            if isinstance(m.get("metadata"), dict):  # FIX ADA 3-sep: era `mem` (NameError, 494 capturas fallidas en session_end.log)
+                ts = m["metadata"].get("event_time") or m["metadata"].get("timestamp")
                 if ts:
                     try:
                         from datetime import datetime

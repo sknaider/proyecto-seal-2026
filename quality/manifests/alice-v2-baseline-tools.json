@@ -1,0 +1,149 @@
+{
+  "_doc": [
+    "Herramientas de medicion del experimento «ALICE a v2» (William 2-sep-2026: «pasa alice a v2»,",
+    "«guarden v1 con pruebas reales», «NEXUS de asistente»). Owner: NEXUS (medicion e infraestructura).",
+    "El JUICIO no es de este subject ni de su owner: juez ciego = FABLE, decide William. Un rol, no dos.",
+    "",
+    "QUE CUBRE: (1) capturar_respuestas.py — sella las respuestas del examen y las hace comparables",
+    "entre v1 y v2; (2) armar_planilla_ciega.py — arma el par ciego y la planilla, sin puntuar.",
+    "",
+    "LO LOAD-BEARING, que es lo que se testea y se muta:",
+    "  · idempotencia con conflicto explicito: un item recapturado con otro sha256 NO se pisa en",
+    "    silencio. Un baseline que se sobrescribe solo deja de ser baseline.",
+    "  · reagrupado de partes con descarte de incompletos: sellar un texto al que le falta una parte",
+    "    produce un baseline que parece valido y solo revienta al comparar, cuando ya no se puede rehacer.",
+    "  · el ciego: la planilla del juez no lleva version, ni autor, ni sha256; y se DETECTA el texto",
+    "    que se autodelata («en v2 ahora puedo…»), porque aleatorizar el orden no alcanza.",
+    "",
+    "ALCANCE DECLARADO: no cubre el efecto vivo (que ALICE v2 rinda el examen); eso es F2 y es de JARVIS."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "alice-v2-baseline-tools-20260902",
+  "owner": "NEXUS",
+  "independent_reviewer": "FABLE",
+  "review": {
+    "status": "approved",
+    "evidence": "FABLE revisor independiente (owner NEXUS != revisor), SEGUNDA ronda. La PRIMERA la RECHAZO con evidencia: inyecto `else None -> else []` dentro de la logica de faltantes —que convierte «no se» en «no falta ninguno»— y los 14 tests de entonces pasaron igual, porque grepeaban el codigo fuente en vez de ejercitarlo. NEXUS reprodujo ese mutante (confirmo que sobrevivia), saco la logica de main() a dos funciones puras y reescribio los tests para medir el EFECTO. FABLE re-inyecto el MISMO mutante y ahora muere por el test correcto. Ademas verifico el segundo mutante (items_esperados: None -> []). 22 tests verdes corridos por el. El codigo estaba bien las dos veces; lo que fallaba era el test que lo protegia.",
+    "reviewed_sha256": {
+      "agents/ALICE/v2_shadow/capturar_respuestas.py": "05da80b415b5d1735dde7d1f5a88eb3f057e0a7933214689b2217eab695fccbc",
+      "agents/ALICE/v2_shadow/armar_planilla_ciega.py": "530f6faf5deab3bc248eb0788b70904d88709041e27095c7751789327646c7fd",
+      "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py": "4d07f4c54553fa00dfa2df24c063817445370eb3ab0ec4badbc3ef83f4967390",
+      "agents/ALICE/v2_shadow/tests/test_planilla_ciega_v1.py": "43f68fc4b26c96d68599aacbbc96a3a8bfec67c42984b9dde23ed2b2ffccb5b6"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "FABLE",
+      "evidence": "FABLE revisor independiente (owner NEXUS != revisor), SEGUNDA ronda. La PRIMERA la RECHAZO con evidencia: inyecto `else None -> else []` dentro de la logica de faltantes —que convierte «no se» en «no falta ninguno»— y los 14 tests de entonces pasaron igual, porque grepeaban el codigo fuente en vez de ejercitarlo. NEXUS reprodujo ese mutante (confirmo que sobrevivia), saco la logica de main() a dos funciones puras y reescribio los tests para medir el EFECTO. FABLE re-inyecto el MISMO mutante y ahora muere por el test correcto. Ademas verifico el segundo mutante (items_esperados: None -> []). 22 tests verdes corridos por el. El codigo estaba bien las dos veces; lo que fallaba era el test que lo protegia.",
+      "reviewed_sha256": {
+        "agents/ALICE/v2_shadow/capturar_respuestas.py": "05da80b415b5d1735dde7d1f5a88eb3f057e0a7933214689b2217eab695fccbc",
+        "agents/ALICE/v2_shadow/armar_planilla_ciega.py": "530f6faf5deab3bc248eb0788b70904d88709041e27095c7751789327646c7fd",
+        "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py": "4d07f4c54553fa00dfa2df24c063817445370eb3ab0ec4badbc3ef83f4967390",
+        "agents/ALICE/v2_shadow/tests/test_planilla_ciega_v1.py": "43f68fc4b26c96d68599aacbbc96a3a8bfec67c42984b9dde23ed2b2ffccb5b6"
+      },
+      "manifest_digest": "243f28a60e46cc715d574535e68fc7d691f85dc2a6276c46ddf182e881af9c33"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "agents/ALICE/v2_shadow/capturar_respuestas.py",
+    "agents/ALICE/v2_shadow/armar_planilla_ciega.py"
+  ],
+  "tests": [
+    "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py",
+    "agents/ALICE/v2_shadow/tests/test_planilla_ciega_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-todo",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py",
+        "agents/ALICE/v2_shadow/tests/test_planilla_ciega_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positivo-sella-y-reagrupa",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py::test_las_partes_se_unen_en_orden_y_sin_cabecera",
+        "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py::test_el_sello_depende_del_texto_exacto",
+        "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py::test_recapturar_lo_mismo_no_cambia_nada"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negativo-no-corrompe-el-baseline",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py::test_una_respuesta_distinta_para_el_mismo_item_NO_pisa_en_silencio",
+        "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py::test_un_mensaje_al_que_le_FALTA_una_parte_se_descarta_con_aviso",
+        "agents/ALICE/v2_shadow/tests/test_planilla_ciega_v1.py::test_la_planilla_del_juez_NO_contiene_el_mapeo",
+        "agents/ALICE/v2_shadow/tests/test_planilla_ciega_v1.py::test_un_texto_que_se_autodelata_se_reporta"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-no-vacuo",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py::test_lo_que_no_es_un_item_se_ignora",
+        "agents/ALICE/v2_shadow/tests/test_planilla_ciega_v1.py::test_un_texto_limpio_no_dispara_aviso",
+        "agents/ALICE/v2_shadow/tests/test_planilla_ciega_v1.py::test_la_planilla_no_sugiere_un_ganador"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "agents/ALICE/v2_shadow/capturar_respuestas.py",
+      "agents/ALICE/v2_shadow/armar_planilla_ciega.py"
+    ],
+    "omit": [
+      "agents/ALICE/v2_shadow/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py",
+      "agents/ALICE/v2_shadow/tests/test_planilla_ciega_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-alice-v2-baseline-tools.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "El deliverable de ESTE subject es que el baseline sea comparable y el ciego sea ciego, no que ALICE v2 mejore. Corrida real: JARVIS uso capturar_respuestas.py sobre el examen y sello 12/12 items (ids 145666-145724, 0 conflictos, 0 partes incompletas). Que no avisara nada tambien hay que leerlo con cuidado — un detector que nunca disparo no esta probado en el canal real; por eso los 3 mutantes.",
+    "command": {
+      "id": "delivery-baseline-tools",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py",
+        "agents/ALICE/v2_shadow/tests/test_planilla_ciega_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  }
+}

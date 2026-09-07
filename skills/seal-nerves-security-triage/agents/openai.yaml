@@ -1,0 +1,4 @@
+interface:
+  display_name: "SEAL NERVES Security Triage"
+  short_description: "Tool-less security evidence triage for NEXUS"
+  default_prompt: "Analyze one authenticated NEXUS security-pulse evidence bundle without tools or mutation; classify severity and propose the smallest governed next action."

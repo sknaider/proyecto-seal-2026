@@ -25,9 +25,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from soul_framework.embedding.bge_m3 import BgeM3Embedding
 from soul_framework.embedding_migration import migrate_sqlite_embeddings
 
+from soul_platform.local_embedding import LocalBgeM3Embedding
 from soul_platform.proxy import ProxySettings
 
 EMBEDDING_BLOCK = """[embedding]
@@ -179,7 +179,7 @@ def _verify_sqlite_candidate(path: Path, expected_rows: dict[str, Any]) -> None:
 
 def _probe_bge() -> None:
     """Require a live local BGE-M3 endpoint returning finite 1024-d output."""
-    provider = BgeM3Embedding(dimensions=1024)
+    provider = LocalBgeM3Embedding(dimensions=1024)
     try:
         vector = asyncio.run(provider.embed("SOUL BGE-M3 cutover readiness probe"))
     except Exception as exc:
@@ -219,7 +219,7 @@ async def prepare(
     # This changes SQLite's byte representation, never its logical rows, and
     # makes the later byte-exact backup/checkpoint contract meaningful.
     _exclusive_sqlite_probe(source, checkpoint_wal=True)
-    provider = BgeM3Embedding(dimensions=1024)
+    provider = LocalBgeM3Embedding(dimensions=1024)
     return await migrate_sqlite_embeddings(
         source,
         provider,

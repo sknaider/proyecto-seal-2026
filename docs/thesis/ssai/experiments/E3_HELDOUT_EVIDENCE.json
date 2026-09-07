@@ -1,0 +1,114 @@
+{
+  "assurance_design": {
+    "externally_anchored_preregistration": false,
+    "independent_reviewer_challenge_required": true,
+    "new_operators_relative_to_original_e3": true
+  },
+  "case_set_sha256": "620ff8bdea2f7aee438ab855d7dbccdaaebfa9ce69980bb9e0e175f617f517ca",
+  "framework_state": "SHADOW/TOFU_UNANCHORED",
+  "generated_at": "2026-08-20T06:16:20.419795+00:00",
+  "limits": [
+    "SHADOW/TOFU_UNANCHORED only; no production or mainnet claim.",
+    "Ephemeral local witness models an independently protected witness but does not provide one.",
+    "Held-out refers to new mutation operators relative to the original seven-case E3 battery.",
+    "The local case catalog was not externally anchored before execution; this is not a blinded preregistered trial."
+  ],
+  "outcomes": [
+    {
+      "case_id": "manifest_identity_state_substitution",
+      "detail": "pinned-key verification rejected mutation",
+      "detected": true,
+      "detector": "crypto",
+      "evaluated_sha256": "9b9df3ae77240cbe83da5ab514a3c39ced4f23fd4469d02e22014b179f59bf9b",
+      "expected_detector": "crypto",
+      "latency_us": 145.777,
+      "surface": "manifest",
+      "verify_state": "-"
+    },
+    {
+      "case_id": "manifest_controller_key_substitution",
+      "detail": "pinned-key verification rejected mutation",
+      "detected": true,
+      "detector": "crypto",
+      "evaluated_sha256": "64baa17efcf3a637443adbea596b298738473d301db7ae7e252618b9beb51b0a",
+      "expected_detector": "crypto",
+      "latency_us": 133.633,
+      "surface": "manifest",
+      "verify_state": "-"
+    },
+    {
+      "case_id": "valid_signature_wrong_signer",
+      "detail": "pinned-key verification rejected mutation",
+      "detected": true,
+      "detector": "crypto",
+      "evaluated_sha256": "d4c1d819c0005497bb7b4c2fac09ecaaaf1fa711f63437de44687a5db71e3011",
+      "expected_detector": "crypto",
+      "latency_us": 138.177,
+      "surface": "signature",
+      "verify_state": "-"
+    },
+    {
+      "case_id": "middle_event_field_injection",
+      "detail": "line 2: record is not encoded as JCS",
+      "detected": true,
+      "detector": "verify",
+      "evaluated_sha256": "a535d8be10cb34e3f23847f78765c99601e2955611442cfc8f137c39e33ce16e",
+      "expected_detector": "verify",
+      "latency_us": 72.577,
+      "surface": "event",
+      "verify_state": "REJECT"
+    },
+    {
+      "case_id": "middle_record_deletion",
+      "detail": "line 2: expected strict sequence 2, got 3",
+      "detected": true,
+      "detector": "verify",
+      "evaluated_sha256": "5429770adde503f7e6cc027c3d1907361273c889b5fb970f9dd754966e20c8b2",
+      "expected_detector": "verify",
+      "latency_us": 132.401,
+      "surface": "event",
+      "verify_state": "REJECT"
+    },
+    {
+      "case_id": "cross_ledger_prev_hash_graft",
+      "detail": "line 2: prev_hash mismatch (expected 409f94e68c4ffb5ef965ae48bc8ca1b46b3579ab468a8be26dc6e464459e64a1, got '5cfa7e65f9aa4f9966e76663c6e79137da08455b2605003c762ba69b4b990b7b')",
+      "detected": true,
+      "detector": "verify",
+      "evaluated_sha256": "573cbfbc7a853f94526e33d752bee1208aa7a2956d7bc76dc9220a73efd3a53a",
+      "expected_detector": "verify",
+      "latency_us": 105.265,
+      "surface": "tree_head",
+      "verify_state": "REJECT"
+    },
+    {
+      "case_id": "same_sequence_history_replacement",
+      "detail": "history fork detected at sequence 4: witness=c027faf245523c7547b263825db5c43d573404b628e920fdd39e99c30f4e0c64, ledger=36fcdfdec3213b87c2c54b71b2dba02928a1445a99b3970c7592ba5085da2d05",
+      "detected": true,
+      "detector": "witness",
+      "evaluated_sha256": "9bb68a073becf87d2725499166da3657fa92e966726f45c3c0b8319bbd410022",
+      "expected_detector": "witness",
+      "latency_us": 32.368,
+      "surface": "rollback",
+      "verify_state": "ACCEPT(blind)"
+    },
+    {
+      "case_id": "insider_middle_recompute_fork",
+      "detail": "history fork detected at sequence 4: witness=ac1a063ed22da19a568326773b7054ecf4227a0d1805209568f198b2b86768f7, ledger=8c0918d04f9a2b8650858e24aa0a1fa1cb02aee7ea9d4348a431f11afe02c49e",
+      "detected": true,
+      "detector": "witness",
+      "evaluated_sha256": "15448a8e32b8f5e5f850dee66b730d8592092b29feaa1f24812e50d8c4864868",
+      "expected_detector": "witness",
+      "latency_us": 32.497,
+      "surface": "insider_fork",
+      "verify_state": "ACCEPT(blind)"
+    }
+  ],
+  "schema": "ssai-e3-heldout-evidence-v1",
+  "summary": {
+    "attacks_detected": 8,
+    "attacks_total": 8,
+    "detectors_match_preregistered": true,
+    "fail_closed_pass": true,
+    "honest_control_accepted": true
+  }
+}

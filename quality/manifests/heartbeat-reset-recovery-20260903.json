@@ -1,0 +1,107 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "heartbeat-reset-recovery-20260903",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "pending",
+    "evidence": "La firma anterior de JASON+CARVER quedó ligada a bytes previos. NEXUS debe revalidar que el soporte F5 conserva el contrato de heartbeat.",
+    "reviewed_sha256": {
+      "memory/seal_heartbeat.py": "d877c0bfcf60921460d46f27e82d84c9f2186105f33c0dc707bfd2cdc6d08106",
+      "scripts/seal_agent_stability_guard.py": "a4803519ddecb290b396fcad5691e75de158088aef972f1d2a3bb738257feacc",
+      "tests/test_seal_heartbeat_credentials.py": "4b97ff4c65afee6e1967dcb2e49a104b82c21fa79fb1392c1921d034bd793068",
+      "tests/test_seal_agent_stability_guard_heartbeat.py": "c32609b5e8bd4f1bcf4cd8065428abf6bf355308bc73634be067222c995556b2"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "memory/seal_heartbeat.py",
+    "scripts/seal_agent_stability_guard.py"
+  ],
+  "tests": [
+    "tests/test_seal_heartbeat_credentials.py",
+    "tests/test_seal_agent_stability_guard_heartbeat.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-heartbeat-reset-recovery",
+      "kind": "unit",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_seal_heartbeat_credentials.py",
+        "tests/test_seal_agent_stability_guard_heartbeat.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-four-state-runtime",
+      "kind": "qa_positive",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_seal_agent_stability_guard_heartbeat.py::test_runtime_status_unique_is_the_only_green_state",
+        "tests/test_seal_agent_stability_guard_heartbeat.py::test_legacy_ambiguous_label_preserves_presence"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-runtime-claims",
+      "kind": "qa_negative",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_seal_agent_stability_guard_heartbeat.py::test_invalid_explicit_status_fails_closed_without_relabeling",
+        "tests/test_seal_agent_stability_guard_heartbeat.py::test_ambiguous_claim_requires_multiple_observed_runtimes",
+        "tests/test_seal_agent_stability_guard_heartbeat.py::test_absent_claim_rejects_observed_runtime"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-legacy-indeterminate",
+      "kind": "qa_control",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_seal_agent_stability_guard_heartbeat.py::test_legacy_runtime_label_preserves_indeterminate",
+        "tests/test_seal_heartbeat_credentials.py"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["memory", "scripts"],
+    "omit": ["tests/*"],
+    "pytest_args": [
+      "-q",
+      "tests/test_seal_heartbeat_credentials.py",
+      "tests/test_seal_agent_stability_guard_heartbeat.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_evidence": "",
+  "mutation_baseline_percent": 0.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "All five heartbeat writers inserted current rows into soul_v3.event_log, then the restarted live guard reported heartbeat_ok=5/5. The overall guard remains YELLOW only for an unrelated SEAL Studio superuser fallback finding.",
+    "command": {
+      "id": "delivery-live-heartbeats-and-guard",
+      "argv": [
+        "bash",
+        "-lc",
+        "systemctl --user start seal-ada-heartbeat.service seal-alice-heartbeat.service seal-fable-heartbeat.service seal-jarvis-heartbeat.service seal-nexus-heartbeat.service && systemctl --user restart seal-agent-stability-guard.service && test \"$(jq -r .heartbeat_ok messages/seal_agent_stability_guard_last.json)\" = 5 && echo heartbeat_ok=5"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "heartbeat_ok=5"
+    }
+  }
+}

@@ -23,7 +23,9 @@ Render text as large ASCII art banners. 571 built-in fonts.
 ### Setup
 
 ```bash
-pip install pyfiglet --break-system-packages -q
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install pyfiglet --break-system-packages -q
 ```
 
 ### Usage

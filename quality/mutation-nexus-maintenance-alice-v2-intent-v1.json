@@ -1,0 +1,44 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "nexus-maintenance-alice-v2-intent-v1",
+  "reviewer": "NEXUS",
+  "subject": "memory/nexus_maintenance.py",
+  "file_sha256": {
+    "memory/nexus_maintenance.py": "c1bcab727cca938c8384dacfe920c46c2412824d8cb8f6c37cdfc61931e27aa7",
+    "memory/test_nexus_maintenance_cutover.py": "307d75c7a820f01da4de11ea2f2f2b3f051c191b9266b377ff591aba94fd626c"
+  },
+  "harness": ["bash", "-lc", "PYTHONPATH=memory python3 -m pytest -q memory/test_nexus_maintenance_cutover.py"],
+  "_doc": "Precheck de ADA en copias aisladas. NEXUS debe repetir o reemplazar esta evidencia durante la revisión independiente.",
+  "mutants": [
+    {
+      "id": "detector-vuelve-a-lista-fija",
+      "author": "ADA",
+      "mutation": "detect_services itera _WATCH en vez de _watch_services()",
+      "why": "Reviviría poller y bridge v1 aunque el cuerpo activo sea ALICE-V2.",
+      "result": "KILLED",
+      "observed": "1 failed, 3 passed"
+    },
+    {
+      "id": "omite-recheck-antes-del-restart",
+      "author": "ADA",
+      "mutation": "elimina el segundo chequeo de intención dentro de fix_restart",
+      "why": "Una detección previa al cutover podría ejecutar después y revivir v1.",
+      "result": "KILLED",
+      "observed": "1 failed, 3 passed"
+    }
+  ],
+  "control_sujeto_sin_mutar": {
+    "result": "GREEN",
+    "observed": "4 passed",
+    "donde": "copia aislada",
+    "por": "ADA"
+  },
+  "killed": 2,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 2,
+  "mutation_score_percent": 100.0
+}

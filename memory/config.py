@@ -61,6 +61,27 @@ except ImportError:
     _PYDANTIC_V2 = False
 
 
+# Poblar el entorno desde seal_secrets ANTES de instanciar los settings.
+#
+# POR QUE: los defaults de esta clase son de desarrollo (`pg_password` trae una
+# contrasena vieja). Pydantic lee del ENTORNO, asi que si nadie lo pobla primero
+# se queda con el default y falla con InvalidPasswordError.
+#
+# Lo restaure NEXUS el 3-sep tras romperlo yo mismo: un `git reset --hard` mio
+# devolvio este archivo a HEAD y con el la credencial vieja. Consecuencia medida:
+# los latidos de los CINCO dejaron de escribir el event_log a las 13:25, y DUM
+# emitio 4 alertas de "sin actividad" que eran ciertas — el sintoma aparecio a
+# 10 minutos y a dos capas de distancia de la causa.
+#
+# Es defensivo y no pisa nada: `load_secrets` NUNCA sobrescribe una variable ya
+# presente, asi que un entorno explicito sigue ganando.
+try:  # pragma: no cover - depende del entorno de despliegue
+    from seal_secrets import pg_dsn as _seal_pg_dsn
+    _seal_pg_dsn()          # efecto: puebla os.environ con PG_* y SEAL_*
+except Exception:           # sin secretos disponibles se cae a los defaults
+    pass
+
+
 class SealSettings(BaseSettings):
     """All externalized configuration for the SEAL Memory System."""
 

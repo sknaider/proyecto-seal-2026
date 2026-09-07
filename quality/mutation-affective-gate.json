@@ -1,0 +1,71 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "explicit adversarial mutants (guard removal + regex mutation) on an imported COPY of flood_form_gate.py (never the live file); killer = victim input flips the verdict",
+  "workspace": "is_affective() load-bearing logic (len cap, newline guard, affective regex atoms + required-addressee) over messages/flood_form_gate.py",
+  "killed": 5,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 5,
+  "mutation_score_percent": 100.0,
+  "reviewer": "FABLE",
+  "notes_defense_in_depth": "url/code-fence/empty-core guards son defense-in-depth REDUNDANTE con fullmatch+strip para todo input probado (medido en v1: no aislables); se conservan por intención explícita, no se cuentan como mutantes matables.",
+  "file_sha256": {
+    "messages/flood_form_gate.py": "3020dad14209857b76be16cedf53a326647608066e883ce3d080a46a1a879afe",
+    "messages/tests/test_affective_gate.py": "9fbd9dd937417928b7a5ffcc96cc04d9a758ff00dadf032998fb9d364f9c52f8"
+  },
+  "detail": [
+    {
+      "mutant": "len_cap_guard_removed",
+      "test": "test_negative_length_cap_facade",
+      "killed": true,
+      "orig_answer": false,
+      "mutant_answer": true,
+      "victim": "gracias gracias gracias gracias gracias gracias gracias grac",
+      "note": "sin el cap, una fachada de 240 chars de atoms afectivos repetidos fullmatchea",
+      "rc": 1
+    },
+    {
+      "mutant": "newline_guard_removed",
+      "test": "test_negative_newline_multiclause",
+      "killed": true,
+      "orig_answer": false,
+      "mutant_answer": true,
+      "victim": "hola,\ngracias",
+      "note": "sin el guard, 'hola\\ngracias' colapsa a 'hola gracias' y fullmatchea (2 clausulas)",
+      "rc": 1
+    },
+    {
+      "mutant": "atom_hola_removed",
+      "test": "test_positive_greetings_pass[hola]",
+      "killed": true,
+      "orig_answer": true,
+      "mutant_answer": false,
+      "victim": "hola",
+      "note": "quitar el atom 'hola' del regex hace que un saludo genuino NO pase",
+      "rc": 1
+    },
+    {
+      "mutant": "addressee_made_required",
+      "test": "test_positive_greetings_pass[buenos_dias]",
+      "killed": true,
+      "orig_answer": true,
+      "mutant_answer": false,
+      "victim": "buenos días",
+      "note": "volver el destinatario OBLIGATORIO rompe 'buenos días' sin nombre",
+      "rc": 1
+    },
+    {
+      "mutant": "atom_overbroad_wildcard",
+      "test": "test_control_report_is_not_affective",
+      "killed": true,
+      "orig_answer": false,
+      "mutant_answer": true,
+      "victim": "El instalador falló con exit 123, revisando la causa",
+      "note": "un '.*' en el atom vuelve afectivo CUALQUIER texto -> bypass total del anti-flood",
+      "rc": 1
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maximize Safe Capability"
+  short_description: "Lleva Codex al máximo con evidencia segura"
+  default_prompt: "Usa $maximize-safe-capability para llevar este objetivo al máximo nivel técnico permitido y verificarlo por efecto."

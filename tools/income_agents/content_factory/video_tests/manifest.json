@@ -1,0 +1,102 @@
+[
+  {
+    "idx": 1,
+    "level": "basic",
+    "label": "Texto estático sin audio",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests/01_basic-title.mp4",
+    "width": 720,
+    "height": 1280,
+    "duration": 6.0,
+    "size_kb": 74.8
+  },
+  {
+    "idx": 2,
+    "level": "basic",
+    "label": "Título + música simple",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests/02_title-music.mp4",
+    "width": 720,
+    "height": 1280,
+    "duration": 7.0,
+    "size_kb": 309.4
+  },
+  {
+    "idx": 3,
+    "level": "voice",
+    "label": "Voz neural + título",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests/03_voiceover.mp4",
+    "width": 720,
+    "height": 1280,
+    "duration": 11.0,
+    "size_kb": 398.8
+  },
+  {
+    "idx": 4,
+    "level": "caption",
+    "label": "Voz + subtítulos",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests/04_captions.mp4",
+    "width": 720,
+    "height": 1280,
+    "duration": 12.0,
+    "size_kb": 398.4
+  },
+  {
+    "idx": 5,
+    "level": "motion",
+    "label": "Fondo animado + escenas",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests/05_animated-bg.mp4",
+    "width": 720,
+    "height": 1280,
+    "duration": 10.0,
+    "size_kb": 3483.3
+  },
+  {
+    "idx": 6,
+    "level": "cards",
+    "label": "Cards de valor",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests/06_cards.mp4",
+    "width": 720,
+    "height": 1280,
+    "duration": 12.0,
+    "size_kb": 574.3
+  },
+  {
+    "idx": 7,
+    "level": "brand",
+    "label": "Template con marca",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests/07_brand-template.mp4",
+    "width": 720,
+    "height": 1280,
+    "duration": 12.0,
+    "size_kb": 1055.7
+  },
+  {
+    "idx": 8,
+    "level": "motion",
+    "label": "Estilo b-roll generado",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests/08_broll-style.mp4",
+    "width": 720,
+    "height": 1280,
+    "duration": 12.0,
+    "size_kb": 4011.5
+  },
+  {
+    "idx": 9,
+    "level": "brand",
+    "label": "Reel de venta",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests/09_sales-reel.mp4",
+    "width": 720,
+    "height": 1280,
+    "duration": 13.0,
+    "size_kb": 905.3
+  },
+  {
+    "idx": 10,
+    "level": "pro",
+    "label": "Template profesional completo",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests/10_professional-template.mp4",
+    "width": 720,
+    "height": 1280,
+    "duration": 14.0,
+    "size_kb": 937.5
+  }
+]

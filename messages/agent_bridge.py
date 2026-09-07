@@ -74,7 +74,7 @@ def write_trigger(agent_name: str, msg: dict) -> None:
     _log(f"trigger → {trigger_path.name} [{msg.get('from','?')}→{agent_name}]")
 
 
-def write_inbox(agent_name: str, msg: dict) -> None:
+def write_inbox(agent_name: str, msg: dict, rate_state: dict) -> None:
     """Append filtered message to per-agent inbox file consumed by tail -F inside Claude.
 
     Replaces the in-Claude `tail | python filter` pattern. The bridge applies the
@@ -83,7 +83,7 @@ def write_inbox(agent_name: str, msg: dict) -> None:
     accumulating zombies on crash.
     """
     line = json.dumps(msg, ensure_ascii=False)
-    filtered = filter_line(line, agent_name.upper())
+    filtered = filter_line(line, agent_name.upper(), rate_state)
     if filtered is None:
         return
     inbox = INBOX_DIR / f"seal_inbox_{agent_name.upper()}.jsonl"
@@ -96,6 +96,9 @@ def write_inbox(agent_name: str, msg: dict) -> None:
 
 async def run_bridge(agent_name: str) -> None:
     _log(f"iniciando bridge para {agent_name} → {WS_URL}")
+    # The monitor filter keeps per-process rate-limit state. Preserve it across
+    # WebSocket reconnects while keeping different bridge processes isolated.
+    rate_state: dict = {}
     while True:
         try:
             async with websockets.connect(WS_URL, ping_interval=20, ping_timeout=20) as ws:
@@ -116,7 +119,7 @@ async def run_bridge(agent_name: str) -> None:
                         if str(msg.get("from", "")).upper() == agent_name.upper():
                             continue
                         write_trigger(agent_name, msg)
-                        write_inbox(agent_name, msg)
+                        write_inbox(agent_name, msg, rate_state)
                     except Exception as e:
                         _log(f"parse error: {e}")
 

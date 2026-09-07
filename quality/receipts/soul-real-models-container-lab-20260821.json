@@ -1,0 +1,46 @@
+{
+  "actor_assurance": "local_environment_claim_not_cryptographic_identity",
+  "after": {
+    "file_sha256": {
+      "soul-platform/labs/real_models/README.md": "941ce47f5af0ec9e7e61ecfa9548fb0b548304bc8c63e8a33ec677ca72debd64",
+      "soul-platform/labs/real_models/container_probe.py": "6a5c15265681be802ccc2cd76360a043f5a720235f2ad88d3599c552c4904c87",
+      "soul-platform/labs/real_models/evidence/real-run-20260821.json": "5b52c6747b5fec95c994b63f4ab6f53c78ef093792b827249ed744a9ff69edec",
+      "soul-platform/labs/real_models/host_broker.py": "516e18f293b185b5331f746b4846a7b8e31095d8db44b0db41e6f5bed52f7ba7",
+      "soul-platform/labs/real_models/run_lab.py": "4edf94afd283f1a6141c0f7f213d16c808e170db360a93bf22470e64ce4156ad",
+      "soul-platform/labs/real_models/test_real_models_lab.py": "ceb05a55e5f4615b142569640a562c772195f21ecdd425710f0d772cd27037a5"
+    },
+    "git_status": "M soul-platform/labs/real_models/README.md\n M soul-platform/labs/real_models/evidence/real-run-20260821.json\n M soul-platform/labs/real_models/host_broker.py\n M soul-platform/labs/real_models/test_real_models_lab.py",
+    "head": "94bcfbd766f24588cb4762044699e4f61a074072"
+  },
+  "agent": "ADA",
+  "argv": [
+    "python3",
+    "soul-platform/labs/real_models/run_lab.py",
+    "--receipt",
+    "/tmp/soul-real-models-live-final2.json"
+  ],
+  "argv_sha256": "c9b45b9312e6da79d304586bf15ad0e1be485bde83cc419ffb0757a8a397b3c3",
+  "before": {
+    "file_sha256": {
+      "soul-platform/labs/real_models/README.md": "941ce47f5af0ec9e7e61ecfa9548fb0b548304bc8c63e8a33ec677ca72debd64",
+      "soul-platform/labs/real_models/container_probe.py": "6a5c15265681be802ccc2cd76360a043f5a720235f2ad88d3599c552c4904c87",
+      "soul-platform/labs/real_models/evidence/real-run-20260821.json": "5b52c6747b5fec95c994b63f4ab6f53c78ef093792b827249ed744a9ff69edec",
+      "soul-platform/labs/real_models/host_broker.py": "516e18f293b185b5331f746b4846a7b8e31095d8db44b0db41e6f5bed52f7ba7",
+      "soul-platform/labs/real_models/run_lab.py": "4edf94afd283f1a6141c0f7f213d16c808e170db360a93bf22470e64ce4156ad",
+      "soul-platform/labs/real_models/test_real_models_lab.py": "ceb05a55e5f4615b142569640a562c772195f21ecdd425710f0d772cd27037a5"
+    },
+    "git_status": "M soul-platform/labs/real_models/README.md\n M soul-platform/labs/real_models/evidence/real-run-20260821.json\n M soul-platform/labs/real_models/host_broker.py\n M soul-platform/labs/real_models/test_real_models_lab.py",
+    "head": "94bcfbd766f24588cb4762044699e4f61a074072"
+  },
+  "claim_scope": "execution_observed_not_semantic_closure",
+  "created_at": "2026-08-21T06:04:44.442187+00:00",
+  "expected_exit_code": 0,
+  "observed_exit_code": 0,
+  "receipt_id": "20260821T060444.442158Z-e33bececde",
+  "schema": "seal.soul-gstack.execution-receipt.v1",
+  "signature": "hmac-sha256:927bf49bff1f33fb69eedee4d54b5e1c9495c99fb70d89e2149bcff56887ff3c",
+  "stderr": "",
+  "stdout": "{\n  \"broker\": {\n    \"calls\": [\n      {\n        \"elapsed_ms\": 9248,\n        \"model\": \"gpt-5.6-sol\",\n        \"output_sha256\": \"86580b60de1cfbd99bec3ac912c0e9c5bbec931ff73b834aa333afd65772f0ec\",\n        \"provider\": \"codex\"\n      },\n      {\n        \"elapsed_ms\": 3998,\n        \"model\": \"claude-opus\",\n        \"output_sha256\": \"c03e19a1d99e1cddd808aa3c570b851a3d88dae473dddbe4305c471589278731\",\n        \"provider\": \"claude\"\n      },\n      {\n        \"elapsed_ms\": 729,\n        \"model\": \"gemma3:1b-it-qat\",\n        \"output_sha256\": \"5f89c768cc2e486a754b35cc82fa430520fc42ddbdfa5ab022cfb1c7579bcfb3\",\n        \"provider\": \"gemma\"\n      },\n      {\n        \"elapsed_ms\": 689,\n        \"model\": \"gemma3:1b-it-qat\",\n        \"output_sha256\": \"5f89c768cc2e486a754b35cc82fa430520fc42ddbdfa5ab022cfb1c7579bcfb3\",\n        \"provider\": \"gemma\"\n      }\n    ],\n    \"count\": 4\n  },\n  \"container_security\": [\n    {\n      \"broker_mount_readonly\": true,\n      \"cap_drop\": [\n        \"ALL\"\n      ],\n      \"lab_mount_readonly\": true,\n      \"network_mode\": \"none\",\n      \"no_new_privileges\": true,\n      \"provider_credentials_in_env\": [],\n      \"readonly_rootfs\": true,\n      \"state_mount_writable\": true,\n      \"user\": \"1000:1000\"\n    },\n    {\n      \"broker_mount_readonly\": true,\n      \"cap_drop\": [\n        \"ALL\"\n      ],\n      \"lab_mount_readonly\": true,\n      \"network_mode\": \"none\",\n      \"no_new_privileges\": true,\n      \"provider_credentials_in_env\": [],\n      \"readonly_rootfs\": true,\n      \"state_mount_writable\": true,\n      \"user\": \"1000:1000\"\n    }\n  ],\n  \"created_at\": \"2026-08-21T06:04:44.352494+00:00\",\n  \"lab_file_sha256\": {\n    \"README.md\": \"941ce47f5af0ec9e7e61ecfa9548fb0b548304bc8c63e8a33ec677ca72debd64\",\n    \"container_probe.py\": \"6a5c15265681be802ccc2cd76360a043f5a720235f2ad88d3599c552c4904c87\",\n    \"host_broker.py\": \"516e18f293b185b5331f746b4846a7b8e31095d8db44b0db41e6f5bed52f7ba7\",\n    \"run_lab.py\": \"4edf94afd283f1a6141c0f7f213d16c808e170db360a93bf22470e64ce4156ad\",\n    \"test_real_models_lab.py\": \"ceb05a55e5f4615b142569640a562c772195f21ecdd425710f0d772cd27037a5\"\n  },\n  \"phase1\": {\n    \"memory_anchor_sha256\": \"4aee5d4bc4e4ba8d1879925ff7a30dbde113ae21e59e3d563b0c5ec15ac505bd\",\n    \"negative_auth\": {\n      \"missing\": 401,\n      \"wrong\": 401\n    },\n    \"phase\": \"cross_model\",\n    \"results\": [\n      {\n        \"answer_sha256\": \"86580b60de1cfbd99bec3ac912c0e9c5bbec931ff73b834aa333afd65772f0ec\",\n        \"continuity\": true,\n        \"elapsed_ms\": 9248,\n        \"generation\": 1,\n        \"model\": \"gpt-5.6-sol\",\n        \"provider\": \"codex\"\n      },\n      {\n        \"answer_sha256\": \"c03e19a1d99e1cddd808aa3c570b851a3d88dae473dddbe4305c471589278731\",\n        \"continuity\": true,\n        \"elapsed_ms\": 3998,\n        \"generation\": 2,\n        \"model\": \"claude-opus\",\n        \"provider\": \"claude\"\n      },\n      {\n        \"answer_sha256\": \"5f89c768cc2e486a754b35cc82fa430520fc42ddbdfa5ab022cfb1c7579bcfb3\",\n        \"continuity\": true,\n        \"elapsed_ms\": 729,\n        \"generation\": 3,\n        \"model\": \"gemma3:1b-it-qat\",\n        \"provider\": \"gemma\"\n      }\n    ],\n    \"soul_id\": \"7f61858a-d0d3-4ca6-83f5-e4a6b3db9830\"\n  },\n  \"phase2\": {\n    \"persisted_switches_after\": 4,\n    \"persisted_switches_before\": 3,\n    \"phase\": \"container_restart\",\n    \"providers\": [\n      \"codex\",\n      \"claude\",\n      \"gemma\",\n      \"gemma\"\n    ],\n    \"recall_after_restart\": {\n      \"answer_sha256\": \"5f89c768cc2e486a754b35cc82fa430520fc42ddbdfa5ab022cfb1c7579bcfb3\",\n      \"continuity\": true,\n      \"elapsed_ms\": 689,\n      \"generation\": 4,\n      \"model\": \"gemma3:1b-it-qat\",\n      \"provider\": \"gemma\"\n    },\n    \"status\": \"PASS\"\n  },\n  \"provider_credentials_inside_containers\": 0,\n  \"schema\": \"soul.real-model-continuity.receipt.v1\",\n  \"status\": \"PASS\"\n}\n",
+  "summary": "Real SOUL continuity run with Codex Claude Opus and Gemma",
+  "work_unit_id": "soul-real-models-opus-20260821"
+}

@@ -2,6 +2,12 @@
 > Documentado por William Henry Tovar Urquia — 2026-04-06
 > Analogía entre neurociencia humana y arquitectura SOUL del equipo SEAL
 
+> **Nota canónica 2026-07-22:** este documento describe la macroarquitectura
+> cognitiva de **todo SOUL**. No debe confundirse con el daemon de motivación
+> `memory/seal_nerves.py`. La separación, lifecycle y gates operativos vigentes
+> están en `docs/SPEC_NERVES_ARCHITECTURE_v3_ADA.md` (v3.1) y
+> `memory/nerves_contract_v3.json`.
+
 ---
 
 ## La diferencia en una frase

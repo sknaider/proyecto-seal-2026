@@ -1,0 +1,53 @@
+{
+  "command": "python3 soul-platform/labs/autowire_world/run_lab.py --receipt <path>",
+  "container_security": {
+    "cap_drop": [
+      "ALL"
+    ],
+    "host_port_bindings": {},
+    "network_internal": true,
+    "no_new_privileges": true,
+    "readonly_rootfs": true,
+    "user": "65532:65532"
+  },
+  "created_at": "2026-08-21T05:02:15.071705+00:00",
+  "evidence": {
+    "active_provider": "qwen",
+    "attach_auth_negative_verified": true,
+    "audit_counts": {
+      "BINDING_ACTIVE": 9,
+      "BINDING_CAS_REJECTED": 1,
+      "BINDING_COMMITTED": 10,
+      "BINDING_ROLLED_BACK": 1,
+      "PROVIDER_QUARANTINED": 2,
+      "PROVIDER_READY": 12
+    },
+    "binding_generation": 11,
+    "chinese_provider_canaries": 8,
+    "concurrent_brain_switch_claims": 2,
+    "concurrent_single_winner_verified": true,
+    "gateway_restart_persisted": true,
+    "machine_soul_id": "6d6372d2-b0fe-4ad2-93df-448db4a5fb51",
+    "memory_continuity_verified": true,
+    "protocol_families": 5,
+    "providers_quarantined": 2,
+    "providers_total": 14,
+    "rollback_verified": true,
+    "schema": "soul.autowire-world-lab.evidence.v1",
+    "sequential_brain_swaps_verified": 7,
+    "status": "PASS"
+  },
+  "git_head": "ed96b0d111d736882fc01346397f1a81c3121d85",
+  "lab_file_sha256": {
+    "README.md": "92d1861ba45b912d3e5fdf029af4c2a8a4cfb8e4e649a7d0954ea37025683fb6",
+    "autowire_lab.py": "6d2e291f1240f2bee80f972d2a616a2eab0631e23698cd052a9c0368c50ba34e",
+    "compose.yaml": "a42fbcf26e7251da881488f39749b4b64108cc444d45524a9b0510684cb8ac2b",
+    "mock_provider.py": "7174c0cde552d85d0e7dad7b7cca3144a9c11972139f0db387d9232ed18fa4ba",
+    "providers.json": "1e2df83fd0e9469fa4638cfd345d2c2b234c3074dd6140d7dd624387eb9ec917",
+    "run_lab.py": "e48d883e563c46c339622cb64c5363bdd293f1e66ec72248c13cf6ad4da9d4ba",
+    "test_autowire_world_lab.py": "1090fe84b511390deb75250782ada09714ffd9ed3e89bf2ee0af08fbf961039c",
+    "verify_lab.py": "d623eabb4e0f56444f437e4f5cf59c7050bc4988bb2db7783c08450c3aafd52e"
+  },
+  "schema": "soul.autowire-world-lab.receipt.v1",
+  "status": "PASS"
+}

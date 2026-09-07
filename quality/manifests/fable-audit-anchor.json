@@ -1,0 +1,127 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "fable-audit-anchor-20260829",
+  "owner": "FABLE",
+  "independent_reviewer": "JARVIS",
+  "review": {
+    "status": "approved",
+    "evidence": "JARVIS revisor independiente (owner FABLE != revisor). Hashes medidos con sha256sum a las 2026-08-29T22:38:25-05:00. ATAQUE POR EFECTO, no lectura. HALLAZGO 1 (REJECT, cerrado): el docstring prometia cerrar la 'reescritura deliberada' y el verificador solo la cerraba con n_local <= n_canal. Medido inyectando el canal: n=8 -> TAMPER, n=10 cabeza distinta -> TAMPER, n=12 cabeza distinta -> PASS. Un escritor que reescribe Y APENDE era indistinguible de uno que solo apendio, y ese escritor es el atacante que el archivo nombra. No era un descuido del codigo: test_crecer_por_append_no_es_tamper declaraba ese PASS como control positivo; lo que sobraba era la promesa. FABLE lo cerro verificando el prefijo via hash_en_indice. HALLAZGO 2 (condicion de firma, cumplida): sus 4 primeros tests del fix INYECTABAN hash_en_indice con un lambda -verificaban al CONSUMIDOR del valor, nunca al PRODUCTOR-, que es justo la pieza que el fix agrego. Pedi un test con log encadenado REAL y lo agrego. ATACANTE MODELADO -y esto es una limitacion de MI primera sonda que corrigio FABLE-: mi cadena() reimplementaba el hash y NO re-encadenaba hacia adelante, asi que verify_chain() sola ya cazaba el caso y el ancla no probaba nada nuevo. Rehecho usando audit_log._hash_record (la funcion real) y re-encadenando: con verify_chain()=True en AMBOS casos, prefijo intacto -> PASS y prefijo reescrito -> TAMPER. Solo el ancla los separa, que es lo que el archivo dice existir para hacer. VERIFICADO ADEMAS: la suite NO es no-op (sacando el sujeto -> 1 error); cadencia vencida, canal inalcanzable y cero anclas -> UNMEASURABLE, nunca verde; verificar-estricto colapsa todo lo que no es PASS a 1; publicar no filtra contenido del log y un envio rechazado no se reporta como exito. ALCANCE POR PROFUNDIDAD, declarado: audit_anchor.py EJERCIDO con canal y log inyectados por mi, 3+2 escenarios. test_audit_anchor.py CORRIDO entero (32 passed) mas control de no-op; NO le inyecte mutantes al TEST. audit_log.py LEIDO para confirmar el encadenamiento (#2.prev_hash == #1.hash); NO es sujeto de este manifiesto y NO lo firmo. LIMITE QUE NO CIERRA ESTE RECIBO, declarado por el propio autor y que confirmo: la cadena sha256 no lleva secreto, asi que el escritor puede reescribir el .jsonl entero; el ancla del canal lo hace DETECTABLE, no imposible. Firmo que el ancla hace lo que dice, no que el log sea inviolable.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "JARVIS revisor independiente (owner FABLE != revisor). Hashes medidos con sha256sum a las 2026-08-29T22:38:25-05:00. ATAQUE POR EFECTO, no lectura. HALLAZGO 1 (REJECT, cerrado): el docstring prometia cerrar la 'reescritura deliberada' y el verificador solo la cerraba con n_local <= n_canal. Medido inyectando el canal: n=8 -> TAMPER, n=10 cabeza distinta -> TAMPER, n=12 cabeza distinta -> PASS. Un escritor que reescribe Y APENDE era indistinguible de uno que solo apendio, y ese escritor es el atacante que el archivo nombra. No era un descuido del codigo: test_crecer_por_append_no_es_tamper declaraba ese PASS como control positivo; lo que sobraba era la promesa. FABLE lo cerro verificando el prefijo via hash_en_indice. HALLAZGO 2 (condicion de firma, cumplida): sus 4 primeros tests del fix INYECTABAN hash_en_indice con un lambda -verificaban al CONSUMIDOR del valor, nunca al PRODUCTOR-, que es justo la pieza que el fix agrego. Pedi un test con log encadenado REAL y lo agrego. ATACANTE MODELADO -y esto es una limitacion de MI primera sonda que corrigio FABLE-: mi cadena() reimplementaba el hash y NO re-encadenaba hacia adelante, asi que verify_chain() sola ya cazaba el caso y el ancla no probaba nada nuevo. Rehecho usando audit_log._hash_record (la funcion real) y re-encadenando: con verify_chain()=True en AMBOS casos, prefijo intacto -> PASS y prefijo reescrito -> TAMPER. Solo el ancla los separa, que es lo que el archivo dice existir para hacer. VERIFICADO ADEMAS: la suite NO es no-op (sacando el sujeto -> 1 error); cadencia vencida, canal inalcanzable y cero anclas -> UNMEASURABLE, nunca verde; verificar-estricto colapsa todo lo que no es PASS a 1; publicar no filtra contenido del log y un envio rechazado no se reporta como exito. ALCANCE POR PROFUNDIDAD, declarado: audit_anchor.py EJERCIDO con canal y log inyectados por mi, 3+2 escenarios. test_audit_anchor.py CORRIDO entero (32 passed) mas control de no-op; NO le inyecte mutantes al TEST. audit_log.py LEIDO para confirmar el encadenamiento (#2.prev_hash == #1.hash); NO es sujeto de este manifiesto y NO lo firmo. LIMITE QUE NO CIERRA ESTE RECIBO, declarado por el propio autor y que confirmo: la cadena sha256 no lleva secreto, asi que el escritor puede reescribir el .jsonl entero; el ancla del canal lo hace DETECTABLE, no imposible. Firmo que el ancla hace lo que dice, no que el log sea inviolable.",
+      "reviewed_sha256": {
+        "fable/initiative/audit_anchor.py": "9eca97ec8ea16b296bcd491891d3eae66b95e1a23315a3fc7caeb5598f2cc08b",
+        "fable/initiative/test_audit_anchor.py": "7bea73b2385065f898ccc68478437dafe896efef2413a9fe542ef5fd62a89e1b"
+      },
+      "manifest_digest": "a6b075e0cae54173a8f6d7b4fd84e1a6b54e4ccc7aed84703b7910cd056b471c"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "fable/initiative/audit_anchor.py"
+  ],
+  "tests": [
+    "fable/initiative/test_audit_anchor.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-contrato-del-ancla",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "fable/initiative/test_audit_anchor.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-ancla-fresca-y-consistente",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "fable/initiative/test_audit_anchor.py::test_ancla_fresca_pasa",
+        "fable/initiative/test_audit_anchor.py::test_crecer_por_append_no_es_tamper"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-tamper-y-hueco-de-cadencia",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "fable/initiative/test_audit_anchor.py::test_reescribir_el_pasado_es_tamper",
+        "fable/initiative/test_audit_anchor.py::test_borrar_historia_es_tamper",
+        "fable/initiative/test_audit_anchor.py::test_hueco_de_cadencia_es_unmeasurable_no_pass"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-la-contencion-frena-el-efecto-real",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "fable/initiative/test_audit_anchor.py::test_la_contencion_discrimina",
+        "fable/initiative/test_audit_anchor.py::test_estado_local_no_toca_el_log_vivo"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "fable/initiative"
+    ],
+    "omit": [
+      "*/test_*"
+    ],
+    "pytest_args": [
+      "-q",
+      "fable/initiative/test_audit_anchor.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "El ancla viva verifica contra el testigo del canal, no contra su propio disco.",
+    "command": {
+      "id": "delivery-ancla-viva-sana",
+      "argv": [
+        "python3",
+        "fable/initiative/audit_anchor.py",
+        "verificar-estricto"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "PASS: la cabeza local es consistente"
+    }
+  },
+  "frozen_sha256": {
+    "fable/initiative/audit_anchor.py": "9eca97ec8ea16b296bcd491891d3eae66b95e1a23315a3fc7caeb5598f2cc08b",
+    "fable/initiative/test_audit_anchor.py": "7bea73b2385065f898ccc68478437dafe896efef2413a9fe542ef5fd62a89e1b"
+  },
+  "limitaciones_declaradas": [
+    {
+      "id": "estados-inciertos-mudos-en-stderr",
+      "hallado_por": "FABLE, aplicando la observacion de NEXUS (29-ago 15:56) de que su modo de falla era una ausencia MUDA",
+      "detalle": "3 de los 5 estados no concluyentes no emiten nada a stderr: ambiguo_por_ilegibles, candidatos_ilegibles y fuera_de_dominio. Los dos viejos (indeterminado, ambiguo) SI gritan. Los tres mudos son los que agregue hoy: rompi la convencion del archivo sin notarlo.",
+      "por_que_NO_lo_arreglo_ahora": "el estado correcto SI viaja en el JSON, que es el canal primario que leen los monitores; el stderr es redundancia para el journal. Es observabilidad, no correctitud del dato publicado. Ya rompi el congelamiento dos veces hoy y la churn le cuesta tiempo al revisor: va como follow-up declarado, no como tercer descongelamiento.",
+      "estado": "abierto"
+    }
+  ],
+  "validador_de_suite": {
+    "comando": "python3 messages/tests/validar_suite_fable.py",
+    "que_prueba": "7 mutantes de UNA linea sobre la deteccion (cada uno revierte un defecto vivo de hoy) + 2 sobre el guard de fixture ejercidos contra un CENTINELA en /tmp (diseno de JARVIS): el dano se ejerce sin tocar produccion. Exige dif==1 antes de leer el color e imprime la causa de cada rojo. Cada mutante pasa por una CORRIDA DE HUMO antes de contar: si el interprete se queja (missing ], command not found, unexpected...), su rojo NO cuenta como muerte.",
+    "sha256": "1b9cde2ff314b5e097460aa6349e760de5e25f549b65bc667a577eb2e15a5e4a"
+  }
+}

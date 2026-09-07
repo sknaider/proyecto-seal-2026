@@ -6,6 +6,22 @@ Fires from PostToolBatch hook after significant tool batches.
 """
 from __future__ import annotations
 
+import pathlib as _pathlib
+import sys as _sys
+
+# `seal_secrets` y `dual_memory_governance` viven al lado de este archivo, así
+# que el import pegado sólo resuelve si el que lanza ya tiene `memory/` en el
+# path.  Importado desde otro cwd revienta con ModuleNotFoundError en la línea
+# de abajo — medido 2-sep, lo marcó FABLE revisando.  Alcance honesto: NINGUNA
+# unidad systemd ni script lo lanza hoy como script, así que es portabilidad
+# latente y no un fallo activo; el arreglo cuesta tres líneas y saca la
+# dependencia del cwd de quien invoque.
+_AQUI = str(_pathlib.Path(__file__).resolve().parent)
+if _AQUI not in _sys.path:
+    _sys.path.insert(0, _AQUI)
+
+from seal_secrets import pg_dsn
+
 import asyncio
 import json
 import logging
@@ -17,20 +33,104 @@ from uuid import UUID
 
 import asyncpg
 
-DB_URL = os.environ.get("SEAL_DB_URL", "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory")
+from dual_memory_governance import ensure_layer_metadata
+
+DB_URL = os.environ.get("SEAL_DB_URL", pg_dsn(required=True))
 SCHEMA = "soul_v3"
 log = logging.getLogger(__name__)
 
 EXTRACT_TOOLS = {"Edit", "Write", "Bash", "memory_store", "mcp__seal-memory__memory_store"}
-SKIP_PATTERNS = re.compile(r"heartbeat|monitor|ack|\[cron\]|\[dum\]|tick \d+", re.IGNORECASE)
-MIN_CONTENT_CHARS = 200
+SKIP_PATTERNS = re.compile(
+    r"\b(?:heartbeat|monitor|ack)\b|\[cron\]|\[dum\]|\btick\s+\d+\b",
+    re.IGNORECASE,
+)
+MIN_CONTENT_CHARS = 400
 MAX_FACTS = 5
-EXTRACT_TIMEOUT_S = 8.0
+EXTRACT_MAX_TOKENS = 256
+EXTRACT_TIMEOUT_S = 15.0
 
 VALID_CATEGORIES = {
     "decision", "error_resolved", "file_modified",
     "user_request", "technical_fact", "open_question",
+    "emotion", "insight",
 }
+
+# Continuidad entre cuerpos (William 3-sep-2026: «quiero que los 2 sean uno, no debe quedar huecos»).
+# Medido ese día: 153 memorias del cuerpo Claude de ADA, 84 en inglés, 0 en la capa emocional
+# («ADA felt dead and alive» quedó como technical_fact/operational, valence 0). El otro cuerpo
+# recuerda por términos (websearch_to_tsquery + ILIKE), así que un hecho en inglés no responde a
+# una pregunta en español, y un sentimiento archivado como hecho técnico no entra a la capa emocional.
+FEELING_RE = re.compile(
+    r"\b(me sent[ií]|me siento|se sinti[oó]|se siente|sent[ií] (que|orgullo|verg[üu]enza|miedo|alivio|cansancio)|siento que|"
+    r"felt|feel(s|ing)?\b|orgullos[ao]|avergonzad[ao]|verg[üu]enza|miedo|alivi[ao]d[ao]|content[ao]|"
+    r"cansad[ao]|frustrad[ao]|agradecid[ao]|emocionad[ao]|triste|feliz)\b",
+    re.IGNORECASE,
+)
+
+
+FEELING_VERB_RE = re.compile(
+    r"\b(me sent[ií]|me siento|se sinti[oó]|se siente|sent[ií]|siento|felt|feel(s|ing)?|estoy (orgullos[ao]|content[ao]|cansad[ao]|triste|feliz|agradecid[ao]|avergonzad[ao])|"
+    r"me (da|dio) (orgullo|verg[üu]enza|miedo|alivio))\b",
+    re.IGNORECASE,
+)
+OTHER_PEOPLE_RE = re.compile(r"\b(William|Dadito|Henry|JARVIS|NEXUS|ALICE|FABLE|DUM|SPECTRE|el equipo|los hermanos)\b", re.IGNORECASE)
+
+
+def reroute_feelings(fact: dict, agent: str) -> dict:
+    """Un sentimiento DEL PROPIO AGENTE va a la capa emocional (category=emotion).
+
+    Condición (veredicto FABLE M6, 3-sep): el agente tiene que ser el SUJETO de la oración
+    (la oración empieza con su nombre o en primera persona) y el sentimiento tiene que ser
+    suyo: si entre el sujeto y el verbo de sentir aparece otra persona («ADA documentó el
+    miedo de William», «ADA anotó que JARVIS se sintió»), NO es emoción propia. Que el
+    nombre aparezca en cualquier parte no alcanza («el watchdog de ADA feels...»)."""
+    stmt = (fact.get("statement") or "").strip()
+    if fact.get("category") == "emotion":
+        return fact
+    # Sujeto propio: el agente, o primera persona (pronombre o verbo de sentir conjugado en primera: "Siento que...").
+    subj = re.match(rf"^(?:{re.escape(agent)}|Me|Yo|I|Siento|Sent[ií]|Estoy)\b", stmt, re.IGNORECASE)
+    if not subj:
+        return fact
+    # Solo VERBOS de sentir en voz del agente ("me sentí", "se sintió", "felt", "siento"). Un sustantivo
+    # ("el miedo de William", "el orgullo del equipo") no es una emoción propia. (Hallazgo FABLE #147310.)
+    m = FEELING_VERB_RE.search(stmt)
+    if not m:
+        return fact
+    # Otra persona SOLO entre el sujeto y el verbo de sentir: ahí es quien siente ("ADA anotó que JARVIS
+    # se sintió"). Después del verbo es el OBJETO del sentimiento ("orgullosa de William") y sí es propio.
+    between = stmt[subj.end():m.start()]
+    if OTHER_PEOPLE_RE.search(between):
+        return fact
+    # El sentimiento es de una cosa ("el watchdog feels"): sujeto ajeno entre medio.
+    if re.search(r"\b(el|la|los|las|un|una)\s+\w+\s*$", between, re.IGNORECASE) and not re.match(r"^(Me|Yo|I)\b", stmt, re.IGNORECASE):
+        return fact
+    fact = dict(fact); fact["category"] = "emotion"
+    return fact
+
+
+def build_fact_metadata(session_id, turn_index: int, fact: dict, now: datetime) -> dict:
+    """Metadata de un hecho extraído. Etiqueta el CUERPO que lo vivió (runtime_instance) si el lanzador
+    exporta SEAL_RUNTIME_INSTANCE (ADA_CLAUDE, ADA_CODEX_TUI...). Sin eso, los dos cuerpos de ADA eran
+    indistinguibles en la base (medido 3-sep: 157/158 sin runtime_instance)."""
+    meta = {
+        "session_id": str(session_id),
+        "turn_index": turn_index,
+        "confidence": fact["confidence"],
+        "extracted_at": now.isoformat(),
+        "source": "turn_extractor_v3",
+    }
+    inst = os.environ.get("SEAL_RUNTIME_INSTANCE", "").strip()
+    if inst:
+        meta["runtime_instance"] = inst
+        meta["shared_canonical_identity"] = os.environ.get("SEAL_AGENT", "").strip().upper() or None
+    return ensure_layer_metadata(
+        meta,
+        category=fact["category"],
+        memory_type="semantic",
+        content=fact["statement"],
+        inferred_by="turn_extractor_v3",
+        inferred_at=now.isoformat(),
+    )
 
 EXTRACT_PROMPT = """\
 Extract up to {max_facts} atomic facts from the following agent turn and tool actions.
@@ -44,8 +144,10 @@ Tool actions executed:
 {tool_actions}
 
 Rules:
+- WRITE EVERY STATEMENT IN SPANISH (the team and its owner recall in Spanish; an English fact does not answer a Spanish question).
 - Each fact is a standalone, verifiable statement.
-- Valid categories: decision | error_resolved | file_modified | user_request | technical_fact | open_question
+- Valid categories: decision | error_resolved | file_modified | user_request | technical_fact | open_question | emotion | insight
+- Use "emotion" ONLY for a feeling the agent itself expresses (how it felt), never for facts about the system.
 - DO NOT repeat trivial items (acks, heartbeats, monitor events).
 - DO NOT interpret — extract only what is literally present or very strongly implied.
 - Respond with JSON only (no preamble, no markdown):
@@ -135,7 +237,13 @@ async def extract_and_store(
     try:
         response = await asyncio.wait_for(
             asyncio.get_event_loop().run_in_executor(
-                None, lambda: llm.complete(prompt, max_tokens=400)
+                None,
+                lambda: llm.complete(
+                    prompt, max_tokens=EXTRACT_MAX_TOKENS,
+                    # el HTTP corta ANTES que el await: sin esto el thread
+                    # seguia generando 120 s tras un timeout de 15 s
+                    timeout=EXTRACT_TIMEOUT_S,
+                ),
             ),
             timeout=EXTRACT_TIMEOUT_S,
         )
@@ -160,6 +268,8 @@ async def extract_and_store(
     stored = 0
     try:
         for fact in facts:
+            fact = reroute_feelings(fact, agent)
+            metadata = build_fact_metadata(session_id, turn_index, fact, now)
             await conn.execute(
                 f"""
                 INSERT INTO {SCHEMA}.memories
@@ -170,13 +280,7 @@ async def extract_and_store(
                 fact["statement"],
                 fact["category"],
                 int(fact["confidence"] * 10),
-                json.dumps({
-                    "session_id": str(session_id),
-                    "turn_index": turn_index,
-                    "confidence": fact["confidence"],
-                    "extracted_at": now.isoformat(),
-                    "source": "turn_extractor_v3",
-                }),
+                json.dumps(metadata),
                 now,
             )
             stored += 1

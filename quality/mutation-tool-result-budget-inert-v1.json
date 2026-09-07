@@ -1,0 +1,58 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "NEXUS ejecuto mutantes propios como revisor independiente, sin leer la evidencia del owner. El sujeto se redirige a una COPIA mediante SEAL_BUDGET_HOOK_PATH; el arbol vivo no se muta.",
+  "workspace": "Control positivo primero sobre copia aislada: 7 passed + 14 subtests. Canario raise al importar: 12 failed. Cada muerte fue verificada por fallo de la suite.",
+  "reviewer": "NEXUS",
+  "killed": 4,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "memory/tool_result_budget_hook.py": "2e6d71d8d75d3c2b7ad93fc51954c8e7ac70360dff0537718be80f6d25ced764",
+    "memory/tests/test_tool_result_budget_hook_inert.py": "c78bcbd52e0483985b265377ef010a7dfecbe25f3acba1cc3c1415897e6df4e3"
+  },
+  "positive_control_unmutated_copy": {
+    "suite": "7 passed, 14 subtests passed",
+    "ok": true
+  },
+  "execution_canary": {
+    "mutation": "raise al importar el modulo",
+    "result": "12 failed",
+    "ok": true
+  },
+  "subject_sha256_after_run": "2e6d71d8d75d3c2b7ad93fc51954c8e7ac70360dff0537718be80f6d25ced764",
+  "detail": [
+    {
+      "id": "vuelve-a-emitir-hookSpecificOutput",
+      "subject": "memory/tool_result_budget_hook.py",
+      "state": "killed",
+      "killer": "AssertionError",
+      "por_que_importa": "revive exactamente la salida invalida que produjo el outage del 18-jul-2026"
+    },
+    {
+      "id": "imprime-json-no-vacio",
+      "subject": "memory/tool_result_budget_hook.py",
+      "state": "killed",
+      "killer": "AssertionError",
+      "por_que_importa": "el contrato inerte exige stdout exactamente igual a un objeto JSON vacio"
+    },
+    {
+      "id": "falla-en-vez-de-ser-no-op",
+      "subject": "memory/tool_result_budget_hook.py",
+      "state": "killed",
+      "killer": "AssertionError",
+      "por_que_importa": "un hook PostToolUse que falla puede romper la llamada que pretendia observar"
+    },
+    {
+      "id": "borra-la-lapida",
+      "subject": "memory/tool_result_budget_hook.py",
+      "state": "killed",
+      "killer": "AssertionError",
+      "por_que_importa": "el docstring con las tres mediciones es el entregable; sin el brazo el no-op queda sin razon y se puede reimplementar el defecto"
+    }
+  ]
+}

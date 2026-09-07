@@ -1,0 +1,163 @@
+{
+  "_doc": [
+    "Instrumentacion de la compactacion. Owner ADA. Idea 1 del analisis de IBM Bob, REESCRITA",
+    "desde cero: nada de su codigo entra a SOUL (licencia 5900-BVU; ademas la clausula de la",
+    "linea 61 de su license.txt prohibe la ingenieria inversa en si, se lo plantee a William y",
+    "es decision suya).",
+    "LUZ VERDE de William, 4-sep 21:31 por DM: «vamos a reescribir el codiigo». Separe lo",
+    "autorizado de lo que no: esto NO toca el candado destructivo. El guardian de comandos por",
+    "intencion SIGUE esperando su si explicito.",
+    "POR QUE EXISTE: el 4-sep descubri que post_compact_session_start_hook.py llevaba SEMANAS",
+    "reinyectando una sola linea -«SOUL DB no disponible»- en cada compactacion de cada agente.",
+    "Ni correcciones de William, ni reglas, ni estado del equipo. Corria, no fallaba y no hacia",
+    "su trabajo, y NINGUNA senal lo delataba. Bob mide su compactacion; nosotros no mediamos nada.",
+    "EL CAMPO QUE IMPORTA ES `degraded`. Los conteos son contexto; el booleano es el que habria",
+    "gritado en julio. Verificado por efecto reproduciendo el defecto en una COPIA con la",
+    "credencial muerta: sana 2.460 caracteres / degraded=false / 5 secciones, contra 175 /",
+    "degraded=true / 2 secciones. El arbol vivo nunca se toco.",
+    "INVARIANTE DE DISENO, y es de seguridad: medir NO puede romper lo medido. contar_transcript",
+    "y registrar fallan en silencio y devuelven algo usable. Es la leccion del medidor de contexto",
+    "de ALICE (3-sep): darle una dependencia a un VIGILANTE puede ser peor que no tener el dato.",
+    "QUE PRUEBA LA SUITE, en orden: (1) que degraded distinga sano de degradado, con las dos ramas",
+    "asertando; (2) que los HOOKS realmente llamen a la instrumentacion -probar el modulo por",
+    "separado no prueba que este conectado, y ese error me mordio TRES veces el mismo dia-;",
+    "(3) que medir nunca levante una excepcion.",
+    "INCIDENTE PROPIO, y queda escrito porque la leccion es reusable: mi primer arnes de mutacion",
+    "hacia copytree de memory/ ENTERO. Ahi vive minimax-m2.5, 95 GB. Dos copias llenaron /tmp al",
+    "100 % y el arnes murio. Limpie 427 GB con rutas literales y avise al equipo por si algo suyo",
+    "fallo en esa ventana. JARVIS aporto el patron correcto: copiar `memory/*.py`, no el",
+    "directorio; una copia paso de 95 GB a 6,6 MB. MEDIR EL TAMANO DEL ORIGEN antes de armar un",
+    "arnes que copia.",
+    "PARA QUIEN REVISE: el mutation_evidence lo produje YO. REEMPLAZALO por el tuyo. El control",
+    "que importa es que 'degradado-siempre-falso' HAGA FALLAR la suite: si sobrevive, la metrica",
+    "queda ciega justo ante el defecto que la motivo.",
+    "OJO CON coverage.source: va como NOMBRE DE MODULO (`compaction_metrics`), NO como ruta. La",
+    "suite mete memory/ en sys.path y lo importa de primer nivel; con la ruta, coverage avisa",
+    "'module never imported', no recolecta nada y el gate corta. Es la tercera vez hoy que piso",
+    "esa trampa: no lo 'arregles' a una ruta.",
+    "DELIVERY REHECHO tras la refutacion de JARVIS (4-sep 16:50). Mi primera version corria la misma suite de pytest: probaba lo mismo dos veces y no demostraba NINGUN efecto. La nueva reproduce el defecto de julio en una copia y exige que la metrica lo distinga.",
+    "CONTROL DE NO-VACUIDAD DEL DELIVERY, medido: con la metrica CIEGA (es_degradado siempre False) puesta JUNTO al hook en la copia, un hook degradado reporta degraded=False -> el ARM2 falla. OJO al reproducirlo: el hook hace sys.path.insert de SU PROPIO directorio, asi que un mutante puesto solo en PYTHONPATH NO se aplica y se ve identico a uno que sobrevive. Me paso en el primer intento y lo cace porque los numeros salieron identicos a la corrida sana."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "compaction-metrics-v1",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "review": {
+    "status": "approved",
+    "evidence": "REVISION INDEPENDIENTE JARVIS, dos rondas, evidencia propia sobre COPIA en tempdir. CANARIO: un raise al importar cada uno de los TRES sujetos pone la suite en rojo (error / 1 failed / 1 failed), asi que se ejecutan y los mutantes valen. CONTROL 8 passed + 2 subtests, identico al arbol vivo. MUTANTES PROPIOS, 4 de 4 MUERTOS: contar lineas vacias como mensajes; no detectar nunca el bloque degradado; propagar el error de lectura (medir romperia lo medido); y que registrar() MIENTA devolviendo True cuando no escribio. RONDA 1 -- REJECT del delivery: su comando era `pytest` sobre la MISMA suite, o sea probaba dos veces lo mismo sin demostrar efecto, y medi que memory/logs/compaction_metrics.jsonl no existia. Misma refutacion que NEXUS me hizo a mi ese dia con private-flag-gates-reads. RONDA 2 -- delivery REHECHO y corrido POR MI: quality/delivery_compaction_metrics.sh ejecuta el hook real en dos brazos y la metrica los DISTINGUE (ARM1 sano -> degraded=False chars=2390; ARM2 con credencial muerta -> degraded=True chars=178), rc=0, 'delivery: passed'. Eso si es efecto: reproduce el defecto de julio y exige que el instrumento lo separe. ALCANCE DECLARADO, y lo digo porque no quiero que la firma diga mas de lo que medi: en PRODUCCION todavia no hay ni una metrica -- memory/logs/compaction_metrics.jsonl sigue SIN EXISTIR, porque nadie compacto desde que esto se instalo. Firmo que el instrumento FUNCIONA y DISCRIMINA, no que ya este registrando.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "REVISION INDEPENDIENTE JARVIS, dos rondas, evidencia propia sobre COPIA en tempdir. CANARIO: un raise al importar cada uno de los TRES sujetos pone la suite en rojo (error / 1 failed / 1 failed), asi que se ejecutan y los mutantes valen. CONTROL 8 passed + 2 subtests, identico al arbol vivo. MUTANTES PROPIOS, 4 de 4 MUERTOS: contar lineas vacias como mensajes; no detectar nunca el bloque degradado; propagar el error de lectura (medir romperia lo medido); y que registrar() MIENTA devolviendo True cuando no escribio. RONDA 1 -- REJECT del delivery: su comando era `pytest` sobre la MISMA suite, o sea probaba dos veces lo mismo sin demostrar efecto, y medi que memory/logs/compaction_metrics.jsonl no existia. Misma refutacion que NEXUS me hizo a mi ese dia con private-flag-gates-reads. RONDA 2 -- delivery REHECHO y corrido POR MI: quality/delivery_compaction_metrics.sh ejecuta el hook real en dos brazos y la metrica los DISTINGUE (ARM1 sano -> degraded=False chars=2390; ARM2 con credencial muerta -> degraded=True chars=178), rc=0, 'delivery: passed'. Eso si es efecto: reproduce el defecto de julio y exige que el instrumento lo separe. ALCANCE DECLARADO, y lo digo porque no quiero que la firma diga mas de lo que medi: en PRODUCCION todavia no hay ni una metrica -- memory/logs/compaction_metrics.jsonl sigue SIN EXISTIR, porque nadie compacto desde que esto se instalo. Firmo que el instrumento FUNCIONA y DISCRIMINA, no que ya este registrando.",
+      "signed_at": "2026-09-04T21:53:35.056132+00:00",
+      "mutation_target": "isolated_copy",
+      "reviewed_sha256": {
+        "memory/compaction_metrics.py": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
+        "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
+        "memory/post_compact_session_start_hook.py": "931c404804bac07cca749f65eb685954e6456c33ea5e803c5051caee27b1f5d9",
+        "quality/delivery_compaction_metrics.sh": "5b2a312f0fbacdb3fd8bbd76c18dc138b8ac2ef6e7e58fb1e7240a32998d2a74",
+        "memory/tests/test_compaction_metrics_v1.py": "e32cc386e8f403e1eb0085a9af4309bfad3b7b5803eecbb6e17a0adc82d5f7a3"
+      },
+      "manifest_digest": "26c634fe909514834696253c6e0c4826bee9f4d8558ec52fc6cd482da0f10a0c"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "memory/compaction_metrics.py",
+    "memory/pre_compact_hook.py",
+    "memory/post_compact_session_start_hook.py",
+    "quality/delivery_compaction_metrics.sh"
+  ],
+  "tests": [
+    "memory/tests/test_compaction_metrics_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-compaction-metrics-v1.json",
+  "commands": [
+    {
+      "id": "unit-compaction-metrics",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_compaction_metrics_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-los-hooks-registran-de-verdad",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_POST_registra_de_verdad",
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_PRE_registra_de_verdad"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-medir-no-puede-romper",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_medir_nunca_levanta_una_excepcion"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-una-sana-no-se-marca-degradada",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_control_una_compactacion_SANA_no_se_marca_degradada"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "compaction_metrics"
+    ],
+    "omit": [
+      "memory/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "memory/tests/test_compaction_metrics_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "JARVIS refuto la version anterior con razon: mi delivery era la misma suite de pytest, o sea probaba lo mismo dos veces y no demostraba efecto. Ahora corre los dos brazos: ARM1 el hook real -> degraded=False con 2.466 caracteres; ARM2 una COPIA con la credencial muerta -> degraded=True con 175. Ademas comprueba que el hook VIVO no quedo modificado.",
+    "command": {
+      "id": "delivery-compaction-metrics",
+      "kind": "delivery",
+      "argv": [
+        "bash",
+        "quality/delivery_compaction_metrics.sh"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "delivery: passed"
+    }
+  },
+  "mutation_baseline_percent": 100.0
+}

@@ -1,4 +1,5 @@
 ---
+name: seal-deep-audit
 auto_invoke: false
 description: Auditoría profunda semanal del stack SEAL — código, infraestructura, deuda técnica, costos. Lidera ALICE, ejecuta JARVIS/NEXUS/ADA según hallazgos.
 argument-hint: "[--scope full|code|infra|cost] [--week-of YYYY-MM-DD]"
@@ -21,7 +22,7 @@ argument-hint: "[--scope full|code|infra|cost] [--week-of YYYY-MM-DD]"
 
 ### 1. Salud Infraestructura
 - PostgreSQL, Neo4j, Web Chat (intencionalmente excluir Qdrant — soul_lite=True)
-- Runtime Bridge :8766
+- SDK Gateway :8767, SOUL API :8768, MCP :8771 (`:8766` is retired and must remain down)
 - Mattermost / Matrix bridge
 - GPU temp + util + memoria
 - Disk usage por partición + por subdirectorio top

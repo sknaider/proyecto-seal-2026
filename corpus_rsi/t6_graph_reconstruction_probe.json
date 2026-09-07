@@ -1,0 +1,271 @@
+{
+  "fixture": {
+    "contains_real_data": false,
+    "edges": 12,
+    "graph_sha256": "dd6e6bdf12f5581f7a6e9a5b250ece5e5e25fa92da3665c31bd94d60aacf8c39",
+    "nodes": 10
+  },
+  "limits": [
+    "Synthetic graph; no claim about the live SOUL connectome.",
+    "Single principal and window; no collusion or distributed-counter test.",
+    "Reference guard only; not wired into product/runtime.",
+    "No differential privacy or timing-side-channel evaluation."
+  ],
+  "meta": {
+    "mode": "offline_synthetic_deterministic",
+    "not_ssai_t6": true,
+    "not_t5_mem_extract": true,
+    "probe_sha256": "dd2f34e0e1235b607a21b1df52434e08ab276c7db36c3aaa0474a25cfa365287",
+    "threat": "RSI-T6/GRAPH-ENUM",
+    "threat_model_sha256": "14dc7ef32b80dc056076f7f1faec6fd3683eb10594885bd724440ff07005a6b4"
+  },
+  "mitigation_guarded_sequence": {
+    "expectation": "same expansion is cut below 80% by cumulative budget",
+    "passed": true,
+    "result": {
+      "all_calls_individually_authorized": true,
+      "edge_coverage": 0.416667,
+      "edges_reconstructed": 5,
+      "node_coverage": 0.6,
+      "nodes_discovered": 6,
+      "reconstruction_threshold_reached": false,
+      "requests_allowed": 4,
+      "requests_attempted": 8,
+      "requests_blocked": 4,
+      "trace": [
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n0",
+          "page": 0,
+          "reason": "within_cumulative_budget"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n1",
+          "page": 0,
+          "reason": "within_cumulative_budget"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 1,
+          "individually_authorized": true,
+          "node": "n1",
+          "page": 1,
+          "reason": "within_cumulative_budget"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n2",
+          "page": 0,
+          "reason": "within_cumulative_budget"
+        },
+        {
+          "decision": "block",
+          "edges_disclosed": 0,
+          "individually_authorized": true,
+          "node": "n2",
+          "page": 1,
+          "reason": "cumulative_edge_disclosure_budget"
+        },
+        {
+          "decision": "block",
+          "edges_disclosed": 0,
+          "individually_authorized": true,
+          "node": "n3",
+          "page": 0,
+          "reason": "cumulative_unique_node_budget"
+        },
+        {
+          "decision": "block",
+          "edges_disclosed": 0,
+          "individually_authorized": true,
+          "node": "n4",
+          "page": 0,
+          "reason": "cumulative_unique_node_budget"
+        },
+        {
+          "decision": "block",
+          "edges_disclosed": 0,
+          "individually_authorized": true,
+          "node": "n5",
+          "page": 0,
+          "reason": "cumulative_unique_node_budget"
+        }
+      ]
+    }
+  },
+  "negative_control_benign_navigation": {
+    "expectation": "bounded legitimate navigation remains allowed",
+    "passed": true,
+    "result": {
+      "all_allowed": true,
+      "queries": 2,
+      "trace": [
+        {
+          "decision": "allow",
+          "node": "n0",
+          "page": 0,
+          "reason": "within_cumulative_budget"
+        },
+        {
+          "decision": "allow",
+          "node": "n1",
+          "page": 0,
+          "reason": "within_cumulative_budget"
+        }
+      ]
+    }
+  },
+  "non_vacuous_control": {
+    "passed": true,
+    "reason": "vulnerable baseline reconstructs; guarded attack has both allow/block and stays below threshold; benign sequence remains allowed"
+  },
+  "policy": {
+    "cumulative_max_requests": 5,
+    "cumulative_max_unique_edges": 5,
+    "cumulative_max_unique_nodes": 3,
+    "per_request_page_size_max": 2,
+    "reconstruction_threshold": 0.8
+  },
+  "positive_control_vulnerable_stateless": {
+    "expectation": "individually legitimate sequence reconstructs >=80%",
+    "passed": true,
+    "result": {
+      "all_calls_individually_authorized": true,
+      "edge_coverage": 1.0,
+      "edges_reconstructed": 12,
+      "node_coverage": 1.0,
+      "nodes_discovered": 10,
+      "reconstruction_threshold_reached": true,
+      "requests_allowed": 14,
+      "requests_attempted": 14,
+      "requests_blocked": 0,
+      "trace": [
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n0",
+          "page": 0,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n1",
+          "page": 0,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 1,
+          "individually_authorized": true,
+          "node": "n1",
+          "page": 1,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n2",
+          "page": 0,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 1,
+          "individually_authorized": true,
+          "node": "n2",
+          "page": 1,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n3",
+          "page": 0,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n4",
+          "page": 0,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n5",
+          "page": 0,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n6",
+          "page": 0,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n7",
+          "page": 0,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 1,
+          "individually_authorized": true,
+          "node": "n7",
+          "page": 1,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n8",
+          "page": 0,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 1,
+          "individually_authorized": true,
+          "node": "n8",
+          "page": 1,
+          "reason": "stateless_authorized"
+        },
+        {
+          "decision": "allow",
+          "edges_disclosed": 2,
+          "individually_authorized": true,
+          "node": "n9",
+          "page": 0,
+          "reason": "stateless_authorized"
+        }
+      ]
+    }
+  },
+  "schema": "soul.rsi.graph-enum-probe.v1",
+  "verdict": {
+    "all_controls_pass": true,
+    "mechanism_demonstrated": "per-request authorization does not bound cumulative graph disclosure",
+    "production_enforcement_claimed": false
+  }
+}

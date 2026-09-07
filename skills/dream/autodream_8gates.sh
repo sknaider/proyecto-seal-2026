@@ -26,31 +26,29 @@ MIN_TIME_GAP_SECS=86400  # 24h
 AGENT="${SEAL_AGENT:-ADA}"
 
 _log() { echo "[$(date '+%H:%M:%S')] $*" >> "$LOG_FILE"; }
+_skip() { _log "$*"; exit 0; }
 
 # GATE 1: Feature gate
-[[ "${AUTODREAM_ENABLED:-1}" != "1" ]] && { _log "GATE1 FAIL: disabled"; exit 1; }
+[[ "${AUTODREAM_ENABLED:-1}" != "1" ]] && _skip "GATE1 SKIP: disabled"
 _log "GATE1 OK"
 
 # GATE 2: KAIROS exclusion — skip if active_recall hook is in progress
 # Check if any active_recall process is running
 if pgrep -f "active_recall_hook" > /dev/null 2>&1; then
-    _log "GATE2 FAIL: KAIROS/active_recall in progress"
-    exit 1
+    _skip "GATE2 SKIP: KAIROS/active_recall in progress"
 fi
 _log "GATE2 OK"
 
 # GATE 3: Remote exclusion — check if this is an interactive local session
 # Skip if running in non-interactive shell without TTY (e.g. pure cron without session)
 if [[ ! -t 1 ]] && [[ -z "${SEAL_AGENT:-}" ]]; then
-    _log "GATE3 FAIL: no TTY and no SEAL_AGENT (pure cron context)"
-    exit 1
+    _skip "GATE3 SKIP: no TTY and no SEAL_AGENT (pure cron context)"
 fi
 _log "GATE3 OK"
 
 # GATE 4: Auto-memory enabled — verify settings.json has Stop hook
 if ! grep -q 'memory_extraction_hook' "$HOME/.claude/settings.json" 2>/dev/null; then
-    _log "GATE4 FAIL: memory extraction hook not in settings.json"
-    exit 1
+    _skip "GATE4 SKIP: memory extraction hook not in settings.json"
 fi
 _log "GATE4 OK"
 
@@ -61,8 +59,7 @@ if [[ -f "$LAST_DREAM_FILE" ]]; then
     ELAPSED=$(( NOW - LAST_DREAM ))
     if (( ELAPSED < MIN_TIME_GAP_SECS )); then
         HOURS=$(( ELAPSED / 3600 ))
-        _log "GATE5 FAIL: only ${HOURS}h since last dream (need 24h)"
-        exit 1
+        _skip "GATE5 SKIP: only ${HOURS}h since last dream (need 24h)"
     fi
     _log "GATE5 OK: $((ELAPSED/3600))h since last dream"
 else
@@ -74,8 +71,7 @@ if [[ -f "$SCAN_TIMESTAMP" ]]; then
     LAST_SCAN=$(cat "$SCAN_TIMESTAMP")
     SCAN_ELAPSED=$(( NOW - LAST_SCAN ))
     if (( SCAN_ELAPSED < MIN_SCAN_GAP_SECS )); then
-        _log "GATE6 FAIL: scanned ${SCAN_ELAPSED}s ago (need 600s)"
-        exit 1
+        _skip "GATE6 SKIP: scanned ${SCAN_ELAPSED}s ago (need 600s)"
     fi
 fi
 echo "$NOW" > "$SCAN_TIMESTAMP"
@@ -94,8 +90,7 @@ for f in "$PROJ_DIR"/*.jsonl; do
 done
 
 if (( NEW_SESSIONS < MIN_SESSIONS )); then
-    _log "GATE7 FAIL: only $NEW_SESSIONS new sessions (need $MIN_SESSIONS)"
-    exit 1
+    _skip "GATE7 SKIP: only $NEW_SESSIONS new sessions (need $MIN_SESSIONS)"
 fi
 _log "GATE7 OK: $NEW_SESSIONS new sessions"
 
@@ -104,8 +99,7 @@ if [[ -f "$LOCK_FILE" ]]; then
     OLD_PID=$(cat "$LOCK_FILE" 2>/dev/null || echo 0)
     # Check if PID is still alive
     if kill -0 "$OLD_PID" 2>/dev/null; then
-        _log "GATE8 FAIL: lock held by PID $OLD_PID"
-        exit 1
+        _skip "GATE8 SKIP: lock held by PID $OLD_PID"
     else
         _log "GATE8: stale lock (PID $OLD_PID dead), removing"
         rm -f "$LOCK_FILE"
@@ -116,8 +110,7 @@ fi
 echo $$ > "$LOCK_FILE"
 SLEEP_PID=$(cat "$LOCK_FILE")
 if [[ "$SLEEP_PID" != "$$" ]]; then
-    _log "GATE8 FAIL: lost lock race (got $SLEEP_PID)"
-    exit 1
+    _skip "GATE8 SKIP: lost lock race (got $SLEEP_PID)"
 fi
 _log "GATE8 OK: lock acquired PID=$$"
 

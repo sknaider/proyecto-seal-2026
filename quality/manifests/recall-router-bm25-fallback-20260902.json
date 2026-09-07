@@ -1,0 +1,188 @@
+{
+ "schema": "seal.quality-manifest.v1",
+ "change_id": "recall-router-bm25-fallback-20260902",
+ "owner": "JARVIS",
+ "independent_reviewer": "NEXUS",
+ "deletions": [],
+ "subjects": [
+  "memory/recall_router.py",
+  "memory/tests/check_recall_router_bm25_mutants.py"
+ ],
+ "tests": [
+  "memory/tests/test_recall_router_memories_bm25_fallback.py"
+ ],
+ "commands": [
+  {
+   "id": "unit-bm25-fallback-contract",
+   "kind": "unit",
+   "expected_exit": 0,
+   "argv": [
+    "/home/dadito/IA/seal-spark/.venv/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "--noconftest",
+    "-p",
+    "no:cacheprovider",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py"
+   ]
+  },
+  {
+   "id": "positive-long-query-reaches-memories-source",
+   "kind": "qa_positive",
+   "expected_exit": 0,
+   "argv": [
+    "/home/dadito/IA/seal-spark/.venv/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "--noconftest",
+    "-p",
+    "no:cacheprovider",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py::test_falls_back_to_or_when_and_is_empty",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py::test_long_query_goes_straight_to_or",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py::test_or_terms_builder_drops_stopwords_so_the_or_slots_discriminate"
+   ]
+  },
+  {
+   "id": "negative-and-hit-does-not-widen",
+   "kind": "qa_negative",
+   "expected_exit": 0,
+   "argv": [
+    "/home/dadito/IA/seal-spark/.venv/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "--noconftest",
+    "-p",
+    "no:cacheprovider",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py::test_and_hit_does_not_trigger_or",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py::test_or_terms_builder_drops_short_tokens_and_caps"
+   ]
+  },
+  {
+   "id": "control-unchanged-behaviour-and-non-vacuous-builder",
+   "kind": "qa_control",
+   "expected_exit": 0,
+   "argv": [
+    "/home/dadito/IA/seal-spark/.venv/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "--noconftest",
+    "-p",
+    "no:cacheprovider",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py::test_control_short_query_keeps_strict_and_single_query",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py::test_control_or_builder_never_returns_empty_string",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py::test_control_or_builder_is_idempotent_and_dedups"
+   ]
+  }
+ ],
+ "evidence": {
+  "measured_2026_09_02": "40/40 consultas reales de soul_v3.recall_audit (JARVIS) devolvian 0 filas desde _recall_memories con el AND estricto; 40/40 con OR de terminos; mediana 208 ms p90 236 ms max 253 ms (misma DSN/RLS que el MCP, out-of-process)",
+  "audit_ref": "fable/FABLE_auditoria_arquitectura_SOUL_20260902.md D2",
+  "measured_2026_09_02_1200": "EXPLAIN ANALYZE bajo mcp_runtime_jarvis: BitmapOr de 8 términos 35.175 filas, RLS descartó 25.670, 'del','las','uno','once' en el OR -> stopwords fuera; timeout carril 0.60 -> 1.0 s"
+ },
+ "_doc": [
+  "Carril memories del recall router (D2 auditoría FABLE 2-sep-2026). Owner JARVIS, revisor NEXUS.",
+  "QUÉ CUBRE: _bm25_or_terms (stopwords/min-len/tope), _recall_memories (AND<=5 tokens con fallback OR,",
+  "OR directo >5), _MEMORIES_BM25_SQL (ts_rank 32, ORDER BY relevancia x importancia) y el timeout del carril.",
+  "INTÉRPRETE: seal-spark venv — recall_router importa embeddings (transformers); .venv-quality no lo tiene",
+  "y colecciona con error (medido 2-sep 12:07: rc=2 ModuleNotFoundError transformers).",
+  "NOTA DE ALCANCE: active_recall llama al router con include_memories=False desde 5128a7572 (22-jul);",
+  "este carril alimenta soul_recall_router_tool y cualquier caller con include_memories=True.",
+  "GATE: el brazo de cobertura elige intérprete por SEAL_QUALITY_PYTHON > sys.executable > .venv-quality; ninguno traía coverage+pytest+transformers. Se instaló `coverage` en /home/dadito/IA/seal-spark/.venv (2-sep 12:20) y el gate/commit de este manifest corren con SEAL_QUALITY_PYTHON=/home/dadito/IA/seal-spark/.venv/bin/python3."
+ ],
+ "coverage": {
+  "source": [
+   "recall_router"
+  ],
+  "omit": [
+   "memory/tests/*",
+   "*/site-packages/*"
+  ],
+  "pytest_args": [
+   "--noconftest",
+   "-p",
+   "no:cacheprovider",
+   "memory/tests/test_recall_router_memories_bm25_fallback.py"
+  ],
+  "baseline_percent": 0.0,
+  "timeout": 300,
+  "_note": "nombre de módulo, no ruta: --source=memory/recall_router.py no colecta datos (medido 2-sep 12:22); el carril cubre 20,8 % de un router de ~1.500 líneas"
+ },
+ "mutation_evidence": "quality/mutation-recall-router-bm25-fallback-20260902.json",
+ "mutation_baseline_percent": 100.0,
+ "mutation_command": [
+  "/home/dadito/IA/seal-spark/.venv/bin/python3",
+  "memory/tests/check_recall_router_bm25_mutants.py"
+ ],
+ "review": {
+  "status": "approved",
+  "reviewer": "NEXUS",
+  "approved_at": "2026-09-02T12:15:23-05:00",
+  "evidence": "NEXUS revisor independiente (owner JARVIS != revisor), DM dm:jarvis:nexus 12:12 y 12:15, verificado por efecto: H1 env -u PYTHONPATH <argv del manifest> -> 11 passed in 2.72s; H2 is_killed = rc == 1 (linea 107), su mutante que no compila rc=4 ya no cuenta como muerto; runner completo 8/8 rc=1, control positivo rc=0, oracle-check rc=4 SUSPECT; sujeto revisado == sujeto que corre (mtime 12:01:47 < arranque MCP 12:03:23). Hallazgos H1 (bloqueante, argv sin PYTHONPATH) y H2 (latente, rc!=0 como muerte) corregidos en el mismo cambio.",
+  "reviewed_sha256": {
+   "memory/recall_router.py": "7a3d6f8fbfb382c528d4257f9292ae9615884eef5800252a229ba70baf7f18fc",
+   "memory/tests/check_recall_router_bm25_mutants.py": "80a9081c1d93df9d0cd2c1673721b631c7ee00d29bce674f4c7ba76d837790fb",
+   "memory/tests/test_recall_router_memories_bm25_fallback.py": "347bb5ca0638adcd6002690d0e565dde273204511a3a38522456d1bbb9701b67"
+  },
+  "anunciado_en": {
+   "tabla": "soul_v3.chat_messages",
+   "ids": [
+    144869,
+    144870
+   ],
+   "legacy_ids": [
+    "api_nexus_1788369323323970948",
+    "api_nexus_1788369323337575084"
+   ],
+   "channel": "dm:jarvis:nexus",
+   "session_user": "NEXUS",
+   "timestamp": "2026-09-02T12:15:23-05:00",
+   "hallazgos_previos": {
+    "ids_legacy": [
+     "api_nexus_1788369128731423151",
+     "api_nexus_1788369128743142891",
+     "api_nexus_1788369128751197834",
+     "api_nexus_1788369128758666708"
+    ],
+    "timestamp": "2026-09-02T12:12:08-05:00",
+    "H1": "bloqueante, corregido",
+    "H2": "latente, corregido"
+   }
+  },
+  "post_review_note": "2-sep 12:29, después del OK de NEXUS (144869-144870): el arnés de mutantes queda declarado como SUJETO del manifest (check_subject del modo staged sólo mira subjects) y agrega su propio sha256 a file_sha256 de la evidencia (mutation_evidence_stale). NEXUS lo revisó como sujeto en H2. recall_router.py y el test: sin cambios.",
+  "receipt": {
+   "schema": "seal.independent-review-receipt.v1",
+   "reviewer": "NEXUS",
+   "evidence": "NEXUS revisor independiente (owner JARVIS != revisor), DM dm:jarvis:nexus 12:12 y 12:15, verificado por efecto: H1 env -u PYTHONPATH <argv del manifest> -> 11 passed in 2.72s; H2 is_killed = rc == 1 (linea 107), su mutante que no compila rc=4 ya no cuenta como muerto; runner completo 8/8 rc=1, control positivo rc=0, oracle-check rc=4 SUSPECT; sujeto revisado == sujeto que corre (mtime 12:01:47 < arranque MCP 12:03:23). Hallazgos H1 (bloqueante, argv sin PYTHONPATH) y H2 (latente, rc!=0 como muerte) corregidos en el mismo cambio.",
+   "reviewed_sha256": {
+    "memory/recall_router.py": "7a3d6f8fbfb382c528d4257f9292ae9615884eef5800252a229ba70baf7f18fc",
+    "memory/tests/check_recall_router_bm25_mutants.py": "80a9081c1d93df9d0cd2c1673721b631c7ee00d29bce674f4c7ba76d837790fb",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py": "347bb5ca0638adcd6002690d0e565dde273204511a3a38522456d1bbb9701b67"
+   },
+   "manifest_digest": "4069d1e356ee0488e0ecfbb27e3329f2b1214221c613cf46d1f7e95c76c6a1bb"
+  }
+ },
+ "delivery": {
+  "status": "verified",
+  "evidence": "Deliverable = carril memories vivo en seal-mcp-server (pid 209250, reiniciado 12:03:23 con el archivo sha256 del manifest). Efecto medido por el tool MCP soul_recall_router_tool: (1) 11:58 misma query larga -> 'No relevant context' (timeout 0.60 en frío: SQL crudo 993 ms, 54.280 buffers); (2) 12:00 misma query -> 5 memorias, 191 ms; (3) 12:04 tras restart, query larga NUEVA -> 4 memorias, 120 ms. Fuera de proceso bajo mcp_runtime_jarvis: 3 queries largas x2, 92-209 ms, 6 hits cada una.",
+  "command": {
+   "id": "delivery-lane-contract",
+   "kind": "delivery",
+   "argv": [
+    "/home/dadito/IA/seal-spark/.venv/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "--noconftest",
+    "-p",
+    "no:cacheprovider",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py"
+   ],
+   "expected_exit": 0,
+   "expected_stdout_contains": "passed"
+  }
+ }
+}

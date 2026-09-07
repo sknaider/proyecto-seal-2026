@@ -11,6 +11,7 @@ Operations:
 """
 import asyncio
 import json
+import math
 import sys
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -24,11 +25,37 @@ MIN_STRENGTH = 0.05     # below this → soft-invalidate
 SIMILARITY_THRESHOLD = 0.85
 
 
+def decay_reference(created_at, last_activated_at, last_decayed_at):
+    """Use the newest evidence point so repeated runs never reapply full age."""
+    return max(
+        value
+        for value in (created_at, last_activated_at, last_decayed_at)
+        if value is not None
+    )
+
+
+def decayed_strength(strength: float, elapsed_days: float, success_count: int) -> float:
+    """Exponentially decay only the elapsed interval since the latest evidence."""
+    elapsed_days = max(0.0, elapsed_days)
+    frequency_factor = success_count / (1.0 + success_count)
+    effective_lambda = DECAY_RATE * (1.0 - 0.7 * frequency_factor)
+    return max(0.0, strength * math.exp(-effective_lambda * elapsed_days))
+
+
 async def decay_instincts(pool) -> dict:
     """Apply Ebbinghaus decay to all active instincts (v3 schema: strength, invalid_at, success_count)."""
     rows = await pool.fetch("""
-        SELECT id, agent, strength, created_at, trigger_condition
-        FROM instincts WHERE invalid_at IS NULL
+        SELECT i.id, i.agent, i.strength, i.created_at, i.trigger_condition,
+               i.success_count,
+               latest.last_activated_at,
+               NULLIF(i.metadata->>'last_decayed_at', '')::timestamptz AS last_decayed_at
+        FROM instincts i
+        LEFT JOIN LATERAL (
+            SELECT MAX(a.created_at) AS last_activated_at
+            FROM instinct_activations a
+            WHERE a.instinct_id = i.id
+        ) latest ON TRUE
+        WHERE i.invalid_at IS NULL
     """)
 
     now = datetime.now(LIMA_TZ)
@@ -36,28 +63,39 @@ async def decay_instincts(pool) -> dict:
     deactivated = 0
 
     for r in rows:
-        # v3 instincts has no last_activated col — use created_at as activity proxy
-        last = r["created_at"]
-        if last is None:
+        if r["created_at"] is None:
             continue
+
+        last = decay_reference(
+            r["created_at"], r["last_activated_at"], r["last_decayed_at"]
+        )
 
         days_since = (now - last).total_seconds() / 86400
         if days_since < 1:
             continue
 
-        decay = DECAY_RATE * days_since
-        new_strength = max(0.0, float(r["strength"]) - decay)
+        new_strength = decayed_strength(
+            float(r["strength"]), days_since, int(r["success_count"] or 0)
+        )
 
         if new_strength < MIN_STRENGTH:
             await pool.execute(
-                "UPDATE instincts SET invalid_at = now(), strength = $2 WHERE id = $1",
+                """UPDATE instincts
+                   SET invalid_at = now(), strength = $2,
+                       metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb),
+                                            '{last_decayed_at}', to_jsonb(now()), true)
+                   WHERE id = $1""",
                 r["id"], new_strength,
             )
             deactivated += 1
             print(f"  DEACTIVATED #{r['id']} ({r['agent']}): {r['trigger_condition'][:50]} — strength={new_strength:.3f}")
         else:
             await pool.execute(
-                "UPDATE instincts SET strength = $2 WHERE id = $1",
+                """UPDATE instincts
+                   SET strength = $2,
+                       metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb),
+                                            '{last_decayed_at}', to_jsonb(now()), true)
+                   WHERE id = $1""",
                 r["id"], new_strength,
             )
         decayed += 1

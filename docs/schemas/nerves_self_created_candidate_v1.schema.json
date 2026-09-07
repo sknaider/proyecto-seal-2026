@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seal.local/schemas/nerves_self_created_candidate_v1.schema.json",
+  "title": "SEAL NERVES Self-Created Candidate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "candidate_id",
+    "agent",
+    "name",
+    "pattern_id",
+    "layer",
+    "risk_class",
+    "status",
+    "observations",
+    "skill",
+    "allowed_tools",
+    "network",
+    "requires_independent_review",
+    "created_at",
+    "candidate_sha256"
+  ],
+  "properties": {
+    "schema": {"const": "seal.nerves.self_created_candidate.v1"},
+    "candidate_id": {"type": "string", "format": "uuid"},
+    "agent": {"enum": ["ADA", "ALICE", "DUM", "JARVIS", "NEXUS", "FABLE"]},
+    "name": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{2,63}$"},
+    "pattern_id": {"type": "string", "minLength": 3, "maxLength": 160},
+    "layer": {"const": "SELF_CREATED"},
+    "risk_class": {"const": "A2_READ_ONLY"},
+    "status": {"const": "SIBLING_REVIEW_PENDING"},
+    "observations": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["observation_id", "pattern_id", "observed_at", "evidence_sha256", "verified"],
+        "properties": {
+          "observation_id": {"type": "string", "minLength": 3},
+          "pattern_id": {"type": "string", "minLength": 3},
+          "observed_at": {"type": "string", "format": "date-time"},
+          "evidence_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "verified": {"const": true}
+        }
+      }
+    },
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bundle_sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^skills/[a-z0-9][a-z0-9_-]+$"},
+        "bundle_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "allowed_tools": {"type": "array", "maxItems": 0},
+    "network": {"const": "none"},
+    "requires_independent_review": {"const": true},
+    "created_at": {"type": "string", "format": "date-time"},
+    "candidate_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

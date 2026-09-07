@@ -1,0 +1,59 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "Mutantes adversariales sobre COPIA aislada; canario de importacion corrido ANTES de contar un solo mutante.",
+  "workspace": "Credencial de la consolidacion nocturna: sale de settings, no del codigo",
+  "mutation_target": "isolated_copy",
+  "killed": 5,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 5,
+  "mutation_score_percent": 100.0,
+  "reviewer": "NEXUS",
+  "detail": {
+    "tanda_owner_ADA": {
+      "total": 3,
+      "killed": 3,
+      "survived": 0,
+      "suspicious": 0,
+      "mutantes": [
+        "M1 vuelve el DSN hardcodeado original -> 3 failed",
+        "M2 hardcodea OTRA password (valida hoy) -> 2 failed. Importa porque el defecto no es la password concreta sino que este ESCRITA: la de hoy es la muerta de manana",
+        "M3 fallback `settings.pg_dsn or '<credencial vieja>'` -> 2 failed. Es la forma en que el defecto volveria sin que nadie lo note"
+      ]
+    },
+    "canario_de_importacion": {
+      "resultado": "raise al final del modulo -> 3 de 5 tests fallan",
+      "los_2_que_sobreviven": "leen el FUENTE con read_text, no importan el modulo. Es correcto que sobrevivan al canario y es la razon por la que existe test_el_modulo_IMPORTA"
+    },
+    "control_positivo": "arena sin mutar: 5 passed",
+    "control_de_restauracion": "cmp arena vs original tras la tanda: identica",
+    "tanda_revisor_NEXUS": {
+      "total": 2,
+      "killed": 2,
+      "survived": 0,
+      "suspicious": 0,
+      "mutantes": [
+        "MUT1 vuelve el DSN hardcodeado (la regresion exacta) -> 2 failed",
+        "MUT2 el import de config se sustituye por un pg_dsn fijo -> 2 failed"
+      ],
+      "_solapamiento_declarado": "su MUT1 ataca el mismo eje que mi M1. No son 5 mutaciones independientes: son 5 corridas con atribucion honesta.",
+      "_lo_que_APORTO_y_yo_no_habia_mirado": "verifico que `settings.pg_dsn` NO herede el literal viejo como default de pydantic. Era la unica forma de que este arreglo fuera COSMETICO --delegar en settings y que settings devolviera la credencial muerta por la puerta de atras--. Lo midio por PROPIEDAD, sin imprimir ningun DSN: bloqueo el import de seal_secrets con un meta_path y comparo el resultado contra el literal; tambien en entorno limpio (env -i, como una unidad systemd). En los dos casos el DSN NO es el literal viejo (sha e00d95ae, coincide=False)."
+    }
+  },
+  "_mutante_equivalente_declarado": {
+    "mutante": "M4 quita `sys.path.insert(0, str(Path(__file__).resolve().parent))`",
+    "resultado": "5 passed — SOBREVIVE",
+    "por_que_NO_se_le_escribe_un_test": "porque es EQUIVALENTE en el camino de produccion, y lo medi antes de decidirlo: al ejecutar `python3 /ruta/sleep_gate_cron.py` desde CUALQUIER cwd, Python ya coloca el directorio del script en sys.path[0]. Corri las dos variantes como script desde /tmp y las dos terminan en 'SleepGate complete'. El insert solo hace falta si el modulo se IMPORTA desde otro lado, y ahi el que importa pone el path (mi propio test lo hace).",
+    "por_que_se_conserva_igual": "consistencia con memory/post_compact_session_start_hook.py, el hook hermano arreglado el 4-sep con el mismo patron. Quitarlo seria un cambio de estilo sin efecto, no una mejora.",
+    "regla_aplicada": "un mutante que sobrevive casi nunca es equivalente; este lo es y se PRUEBA, no se supone"
+  },
+  "file_sha256": {
+    "memory/sleep_gate_cron.py": "22c73ad0ca0194d08f589f58a9b0432d898db2c15b61b6b40f5de7698f5e632a",
+    "quality/delivery_sleep_gate_credencial.sh": "93f9c63d4be2b4e2e32a28a08c722e9a78ef87b05a345a4fb51981de520f838a",
+    "memory/tests/test_sleep_gate_credencial.py": "156ff592b0db342dd5effbf20d9b0182061a5377bad774d2c1406e6a816f3794"
+  },
+  "_criterio_de_cierre_del_revisor": "NEXUS lo dejo escrito y lo adopto: el criterio bueno NO es 'lee settings' sino que el PROCESO VIVO conecte con la identidad correcta y sobreviva a un restart. Forma vs efecto."
+}

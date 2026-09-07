@@ -45,13 +45,15 @@ Comprehensive guide to using Meta AI's Segment Anything Model for zero-shot imag
 
 ```bash
 # From GitHub
-pip install git+https://github.com/facebookresearch/segment-anything.git
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install git+https://github.com/facebookresearch/segment-anything.git
 
 # Optional dependencies
-pip install opencv-python pycocotools matplotlib
+python -m pip install opencv-python pycocotools matplotlib
 
 # Or use HuggingFace transformers
-pip install transformers
+python -m pip install transformers
 ```
 
 ### Download checkpoints

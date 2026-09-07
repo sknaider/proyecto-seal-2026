@@ -10,9 +10,12 @@ import hashlib
 import hmac
 import json
 import os
+import base64
+import sqlite3
 import stat
 import argparse
 import sys
+import time
 import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -21,14 +24,27 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from soul_framework import Soul
 from soul_framework.config import SoulConfig
 
+from soul_platform.auth import AuthenticationDenied, PrincipalTokenVerifier, VerifiedPrincipal
+from soul_platform.local_embedding import LocalBgeM3Embedding
+from soul_platform.t5_memory_egress import SQLiteT5EgressStore
 
-LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+
+# Hostnames are intentionally excluded.  Resolving ``localhost`` in httpx after
+# validation creates a DNS/rebinding boundary that the proxy cannot pin.
+LOOPBACK_HOSTS = {"127.0.0.1", "::1"}
 VALID_ROLES = {"system", "user", "assistant", "tool"}
+
+
+def _default_upstream_attestor(_settings: "ProxySettings") -> bool:
+    """Never treat protocol compatibility as local process identity proof."""
+
+    return False
 
 
 def _reject_non_finite_json(value: str) -> None:
@@ -125,6 +141,11 @@ class ProxySettings:
     auto_store: bool = False
     max_request_bytes: int = 1_048_576
     max_response_bytes: int = 8_388_608
+    t5_mode: str = "locked"
+    t5_tenant: str = ""
+    t5_owner_subject: str = ""
+    t5_principal_keys_file: Path | None = None
+    t5_state_db: Path | None = None
 
     @classmethod
     def from_toml(cls, path: str | os.PathLike[str]) -> "ProxySettings":
@@ -139,6 +160,7 @@ class ProxySettings:
         soul = raw.get("soul") or {}
         proxy = raw.get("proxy") or {}
         upstream = raw.get("upstream") or {}
+        memory_egress = raw.get("memory_egress") or {}
         embedding = raw.get("embedding")
         legacy_embedding = embedding is None
         if legacy_embedding:
@@ -178,11 +200,33 @@ class ProxySettings:
             auto_store=proxy.get("auto_store") is True,
             max_request_bytes=int(proxy.get("max_request_bytes", 1_048_576)),
             max_response_bytes=int(proxy.get("max_response_bytes", 8_388_608)),
+            t5_mode=str(memory_egress.get("mode") or "locked"),
+            t5_tenant=str(memory_egress.get("tenant") or ""),
+            t5_owner_subject=str(memory_egress.get("owner_subject") or ""),
+            t5_principal_keys_file=(
+                _absolute_path(memory_egress.get("principal_keys_file"), "memory_egress.principal_keys_file")
+                if memory_egress.get("principal_keys_file")
+                else None
+            ),
+            t5_state_db=(
+                _absolute_path(memory_egress.get("state_db"), "memory_egress.state_db")
+                if memory_egress.get("state_db")
+                else None
+            ),
         )
         if settings.soul_db.parent.resolve() != config.parent.resolve():
             raise ValueError("soul.db must stay inside the canonical SOUL root")
         if settings.token_file.parent.resolve() != config.parent.resolve():
             raise ValueError("proxy.token_file must stay inside the canonical SOUL root")
+        if settings.t5_state_path.parent.resolve() != config.parent.resolve():
+            raise ValueError("memory_egress.state_db must stay inside the canonical SOUL root")
+        if (
+            settings.t5_principal_keys_file is not None
+            and settings.t5_principal_keys_file.parent.resolve() != config.parent.resolve()
+        ):
+            raise ValueError(
+                "memory_egress.principal_keys_file must stay inside the canonical SOUL root"
+            )
         settings.validate()
         return settings
 
@@ -252,6 +296,30 @@ class ProxySettings:
                 "embedding.url must be an uncredentialed loopback /api/embed URL"
             )
         _assert_no_symlink_components(self.soul_db, "soul.db")
+        if self.t5_mode not in {"locked", "enforce", "compatibility-single-owner"}:
+            raise ValueError(
+                "memory_egress.mode must be locked, enforce or compatibility-single-owner"
+            )
+        tenant = self.t5_tenant.strip().casefold()
+        owner = self.t5_owner_subject.strip().casefold()
+        if self.t5_mode == "locked":
+            if self.t5_principal_keys_file is not None:
+                raise ValueError("locked memory egress cannot configure principal keys")
+        elif not tenant or not owner:
+            raise ValueError("memory_egress tenant and owner_subject are required")
+        if self.t5_mode == "enforce":
+            if self.t5_principal_keys_file is None:
+                raise ValueError("enforce memory egress requires principal_keys_file")
+            _assert_no_symlink_components(
+                self.t5_principal_keys_file, "memory_egress.principal_keys_file"
+            )
+            _assert_private_owned_file(
+                self.t5_principal_keys_file, "memory_egress.principal_keys_file"
+            )
+            self.principal_verifier()
+        elif self.t5_mode == "compatibility-single-owner" and self.t5_principal_keys_file is not None:
+            raise ValueError("single-owner compatibility must not accept principal keys")
+        _assert_no_symlink_components(self.t5_state_path, "memory_egress.state_db")
         self.read_token()
 
     def read_token(self) -> str:
@@ -263,18 +331,205 @@ class ProxySettings:
         return token
 
     @property
+    def t5_state_path(self) -> Path:
+        return self.t5_state_db or self.soul_db.with_name(
+            f"{self.soul_db.stem}.t5-egress.sqlite3"
+        )
+
+    def principal_verifier(self) -> PrincipalTokenVerifier | None:
+        if self.t5_mode != "enforce":
+            return None
+        assert self.t5_principal_keys_file is not None
+        try:
+            raw = json.loads(self.t5_principal_keys_file.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict) or not raw:
+                raise ValueError
+            keys = {
+                str(key_id): Ed25519PublicKey.from_public_bytes(
+                    base64.b64decode(value, validate=True)
+                )
+                for key_id, value in raw.items()
+                if isinstance(key_id, str) and key_id and isinstance(value, str)
+            }
+            if set(keys) != set(raw):
+                raise ValueError
+        except Exception as exc:
+            raise ValueError("principal trust store is invalid") from exc
+        return PrincipalTokenVerifier(keys)
+
+    @property
     def baseline_hash(self) -> str:
         payload = f"{self.machine_soul_id}\0{self.soul_name}\0{self.soul_db.resolve()}"
         return hashlib.sha256(payload.encode()).hexdigest()
+
+    @property
+    def conversation_ledger(self) -> Path:
+        """Conversation history is durable but never part of semantic recall."""
+
+        return self.soul_db.with_name(f"{self.soul_db.stem}.conversations.sqlite3")
+
+
+class ConversationLedger:
+    """Append-only, hash-linked conversation ledger.
+
+    Raw prompts belong here, not in the factual memory index.  Keeping the
+    ledger physically separate prevents questions and transient instructions
+    from becoming identity facts merely because a client enabled persistence.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.head_path = path.with_name(f"{path.name}.head")
+
+    def _write_head(self, head: str) -> None:
+        temporary = self.head_path.with_name(
+            f".{self.head_path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+        )
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            os.write(fd, f"{head}\n".encode())
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        os.replace(temporary, self.head_path)
+        if os.name != "nt":
+            os.chmod(self.head_path, 0o600)
+
+    def _read_head(self) -> str:
+        _assert_no_symlink_components(self.head_path, "conversation ledger head")
+        _assert_private_owned_file(self.head_path, "conversation ledger head")
+        value = self.head_path.read_text(encoding="ascii").strip().lower()
+        if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+            raise ValueError("conversation ledger head witness is invalid")
+        return value
+
+    def initialize(self) -> None:
+        _assert_no_symlink_components(self.path, "conversation ledger")
+        if self.path.exists() and _is_link_or_reparse(self.path):
+            raise ValueError("conversation ledger must never be a symlink")
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute("PRAGMA synchronous=FULL")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS conversation_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_unix_ms INTEGER NOT NULL,
+                    role TEXT NOT NULL CHECK (role IN ('user')),
+                    content TEXT NOT NULL,
+                    response_sha256 TEXT NOT NULL,
+                    previous_sha256 TEXT NOT NULL,
+                    entry_sha256 TEXT NOT NULL UNIQUE
+                )
+                """
+            )
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS conversation_metadata "
+                "(key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+            )
+            head = self._verify_connection(connection)
+            enabled = connection.execute(
+                "SELECT value FROM conversation_metadata WHERE key='head_witness_v1'"
+            ).fetchone()
+            if enabled is None:
+                self._write_head(head)
+                connection.execute(
+                    "INSERT INTO conversation_metadata(key,value) VALUES('head_witness_v1','required')"
+                )
+            elif self._read_head() != head:
+                raise ValueError("conversation ledger head witness does not match")
+        if os.name != "nt":
+            os.chmod(self.path, 0o600)
+            for suffix in ("-wal", "-shm"):
+                sidecar = Path(f"{self.path}{suffix}")
+                if sidecar.exists():
+                    os.chmod(sidecar, 0o600)
+
+    @staticmethod
+    def _entry_material(
+        created: int, content: str, response_hash: str, previous: str
+    ) -> bytes:
+        return json.dumps(
+            {
+                "created_unix_ms": created,
+                "role": "user",
+                "content": content,
+                "response_sha256": response_hash,
+                "previous_sha256": previous,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+
+    @classmethod
+    def _verify_connection(cls, connection: sqlite3.Connection) -> str:
+        expected_previous = "0" * 64
+        for row in connection.execute(
+            "SELECT created_unix_ms, content, response_sha256, previous_sha256, "
+            "entry_sha256 FROM conversation_events ORDER BY id"
+        ):
+            created, content, response_hash, previous, entry = row
+            expected_entry = hashlib.sha256(
+                cls._entry_material(created, content, response_hash, previous)
+            ).hexdigest()
+            if previous != expected_previous or not hmac.compare_digest(entry, expected_entry):
+                raise ValueError("conversation ledger hash chain is invalid")
+            expected_previous = entry
+        return expected_previous
+
+    def verify(self) -> str:
+        with sqlite3.connect(self.path) as connection:
+            head = self._verify_connection(connection)
+        if self._read_head() != head:
+            raise ValueError("conversation ledger head witness does not match")
+        return head
+
+    def append(self, content: str, response: bytes) -> str:
+        created = int(time.time() * 1000)
+        response_hash = hashlib.sha256(response).hexdigest()
+        with sqlite3.connect(self.path) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            previous = self._verify_connection(connection)
+            if self._read_head() != previous:
+                raise ValueError("conversation ledger head witness does not match")
+            material = self._entry_material(created, content, response_hash, previous)
+            entry = hashlib.sha256(material).hexdigest()
+            connection.execute(
+                """
+                INSERT INTO conversation_events
+                    (created_unix_ms, role, content, response_sha256,
+                     previous_sha256, entry_sha256)
+                VALUES (?, 'user', ?, ?, ?, ?)
+                """,
+                (created, content, response_hash, previous, entry),
+            )
+            # Keep the SQLite write lock until the head is atomically advanced.
+            # A crash can leave a mismatch (fail closed), never a silent race.
+            self._write_head(entry)
+            connection.commit()
+        return entry
 
 
 def create_app(
     settings: ProxySettings,
     *,
     upstream_transport: httpx.AsyncBaseTransport | None = None,
+    upstream_attestor: Any | None = None,
 ) -> FastAPI:
     settings.validate()
-    state: dict[str, Any] = {"soul": None, "upstream": None}
+    # A loopback HTTP listener can be impersonated by another same-user
+    # process.  Production therefore never releases private memory over the
+    # generic OpenAI-compatible path.  An injected attestor is a test/future
+    # platform seam only; Codex and Claude attach through authenticated MCP.
+    runtime_attestor = upstream_attestor or _default_upstream_attestor
+    principal_verifier = settings.principal_verifier()
+    state: dict[str, Any] = {
+        "soul": None,
+        "upstream": None,
+        "ledger": None,
+        "t5_egress": None,
+    }
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -290,6 +545,10 @@ def create_app(
                 flags |= os.O_NOFOLLOW
             fd = os.open(settings.soul_db, flags, 0o600)
             os.close(fd)
+        ledger = ConversationLedger(settings.conversation_ledger)
+        ledger.initialize()
+        t5_egress = SQLiteT5EgressStore(settings.t5_state_path)
+        await t5_egress.initialize()
         headers = {}
         key = os.environ.get(settings.upstream_api_key_env, "").strip()
         if key:
@@ -298,6 +557,7 @@ def create_app(
             timeout=settings.timeout_seconds,
             headers=headers,
             transport=upstream_transport,
+            trust_env=False,
         )
         try:
             soul_config = SoulConfig(
@@ -310,15 +570,43 @@ def create_app(
                 ollama_embedding_url=settings.embedding_url,
                 ollama_embedding_timeout=settings.embedding_timeout_seconds,
             )
-            async with Soul.create(settings.soul_name, config=soul_config) as soul:
+            embedding = None
+            if settings.embedding_provider == "bge-m3":
+                embedding = LocalBgeM3Embedding(
+                    model=settings.embedding_model,
+                    url=settings.embedding_url,
+                    timeout=settings.embedding_timeout_seconds,
+                    dimensions=settings.embedding_dimensions,
+                )
+            async with Soul.create(
+                settings.soul_name, config=soul_config, embedding=embedding
+            ) as soul:
                 if settings.soul_db.exists() and os.name != "nt":
                     os.chmod(settings.soul_db, 0o600)
                 state["soul"] = soul
                 state["upstream"] = client
+                state["ledger"] = ledger
+                state["t5_egress"] = t5_egress
+                if settings.t5_mode == "compatibility-single-owner":
+                    with sqlite3.connect(settings.soul_db) as connection:
+                        legacy_ids = [
+                            row[0]
+                            for row in connection.execute(
+                                "SELECT id FROM memories WHERE invalid_at IS NULL"
+                            )
+                        ]
+                    await t5_egress.bind_legacy_memories(
+                        soul_id=settings.machine_soul_id,
+                        memory_ids=legacy_ids,
+                        tenant=settings.t5_tenant,
+                        owner_subject=settings.t5_owner_subject,
+                    )
                 yield
         finally:
             state["soul"] = None
             state["upstream"] = None
+            state["ledger"] = None
+            state["t5_egress"] = None
             await client.aclose()
 
     app = FastAPI(title="SOUL Proxy", version="1", lifespan=lifespan)
@@ -331,13 +619,38 @@ def create_app(
         if not hmac.compare_digest(provided.encode(), expected.encode()):
             raise HTTPException(status_code=401, detail="local SOUL token required")
 
+    def authenticated_interlocutor(
+        x_soul_principal: str | None,
+    ) -> VerifiedPrincipal | None:
+        if settings.t5_mode == "locked":
+            return None
+        if settings.t5_mode == "compatibility-single-owner":
+            return VerifiedPrincipal(
+                tenant=settings.t5_tenant.strip().casefold(),
+                actor=settings.t5_owner_subject.strip().casefold(),
+                key_id="local-single-owner-compatibility",
+                expires_at=0,
+                session_id=f"legacy:{settings.machine_soul_id}",
+            )
+        if not x_soul_principal or principal_verifier is None:
+            raise HTTPException(status_code=401, detail="signed SOUL principal required")
+        try:
+            principal = principal_verifier.verify(x_soul_principal.strip())
+        except AuthenticationDenied:
+            raise HTTPException(status_code=401, detail="signed SOUL principal invalid") from None
+        if principal.tenant.strip().casefold() != settings.t5_tenant.strip().casefold():
+            raise HTTPException(status_code=403, detail="SOUL principal tenant denied")
+        if not principal.session_id:
+            raise HTTPException(status_code=401, detail="signed SOUL session required")
+        if not hmac.compare_digest(
+            principal.audience.encode(), settings.machine_soul_id.encode()
+        ):
+            raise HTTPException(status_code=403, detail="SOUL principal audience denied")
+        return principal
+
     @app.get("/health")
     async def health() -> dict[str, Any]:
-        return {
-            "ok": state["soul"] is not None,
-            "machine_soul_id": settings.machine_soul_id,
-            "baseline_hash": settings.baseline_hash,
-        }
+        return {"ok": state["soul"] is not None}
 
     @app.post("/admin/shutdown")
     async def shutdown(
@@ -369,7 +682,7 @@ def create_app(
         ready_now = state["soul"] is not None and brain
         return JSONResponse(
             status_code=200 if ready_now else 503,
-            content={"ready": ready_now, "soul_loaded": state["soul"] is not None, "brain_reachable": brain},
+            content={"ready": ready_now},
         )
 
     @app.get("/v1/models")
@@ -383,15 +696,61 @@ def create_app(
             "data": [{"id": settings.upstream_model, "object": "model", "owned_by": "soul"}],
         }
 
-    async def soul_context(query: str) -> tuple[str, list[dict[str, Any]]]:
+    async def soul_context(
+        query: str,
+        principal: VerifiedPrincipal | None,
+    ) -> tuple[str, list[dict[str, Any]], str]:
+        try:
+            runtime_is_attested = bool(runtime_attestor(settings))
+        except Exception:
+            runtime_is_attested = False
+        if not runtime_is_attested:
+            return (
+                "El upstream local no está atestado para recibir identidad o memoria SOUL. "
+                "Responde solo con conocimiento general y no inventes datos personales.",
+                [],
+                "blocked-unattested-upstream",
+            )
         soul = state["soul"]
-        if soul is None:
+        egress = state["t5_egress"]
+        if soul is None or egress is None:
             raise HTTPException(status_code=503, detail="machine soul is not loaded")
         try:
-            boot = await soul.boot()
-            hits = await soul.memory.search(query, limit=settings.mem_k) if query else []
+            boot = ""
+            if (
+                principal is not None
+                and principal.tenant.strip().casefold() == settings.t5_tenant.strip().casefold()
+                and principal.actor.strip().casefold()
+                == settings.t5_owner_subject.strip().casefold()
+            ):
+                boot = await soul.boot()
+            hits = (
+                await soul.memory.search(query, limit=settings.mem_k)
+                if query and principal is not None
+                else []
+            )
         except Exception:
             raise HTTPException(status_code=503, detail="machine soul recall failed") from None
+        if principal is None:
+            decision = None
+            hits = []
+            egress_reason = "locked-no-verified-interlocutor"
+        else:
+            try:
+                decision = await egress.evaluate(
+                    soul_id=settings.machine_soul_id,
+                    tenant=principal.tenant,
+                    session_id=principal.session_id,
+                    interlocutor=principal.actor,
+                    memory_ids=[hit.memory.id for hit in hits],
+                )
+            except Exception:
+                raise HTTPException(
+                    status_code=503, detail="machine soul egress policy failed"
+                ) from None
+            allowed_ids = set(decision.allowed_ids)
+            hits = [hit for hit in hits if str(hit.memory.id) in allowed_ids]
+            egress_reason = decision.reason
         evidence = [
             {
                 "memory_id": hit.memory.id,
@@ -405,20 +764,27 @@ def create_app(
             "Usa exclusivamente las memorias suministradas para datos personales. "
             "Si el dato no aparece, responde honestamente que no lo recuerdas; no lo inventes."
         )
-        return f"{guard}\n\n{boot}\n\n## Memorias relevantes\n{memories}", evidence
+        scoped_boot = boot or "(contexto de identidad privado no autorizado)"
+        return (
+            f"{guard}\n\n{scoped_boot}\n\n## Memorias relevantes\n{memories}",
+            evidence,
+            egress_reason,
+        )
 
     @app.post("/v1/chat/completions")
     async def chat_completions(
         request: Request,
         authorization: str | None = Header(None),
         x_soul_token: str | None = Header(None),
+        x_soul_principal: str | None = Header(None),
         x_soul_remember: str | None = Header(None),
     ) -> JSONResponse:
         require_token(authorization, x_soul_token)
+        principal = authenticated_interlocutor(x_soul_principal)
         remember_header = (x_soul_remember or "").strip().lower()
         if remember_header not in {"", "true", "false"}:
             raise HTTPException(status_code=422, detail="X-Soul-Remember must be true or false")
-        should_store = settings.auto_store if not remember_header else remember_header == "true"
+        should_log = settings.auto_store if not remember_header else remember_header == "true"
         declared = request.headers.get("content-length")
         if declared:
             try:
@@ -438,6 +804,37 @@ def create_app(
             raise HTTPException(status_code=400, detail="invalid JSON") from None
         if not isinstance(body, dict) or not isinstance(body.get("messages"), list):
             raise HTTPException(status_code=422, detail="messages must be a list")
+        fact_request = body.pop("soul_memory", None)
+        fact_content = ""
+        fact_importance = 5
+        if fact_request is not None:
+            if not isinstance(fact_request, dict):
+                raise HTTPException(status_code=422, detail="soul_memory must be an object")
+            if set(fact_request) - {"content", "importance"}:
+                raise HTTPException(
+                    status_code=422,
+                    detail="soul_memory contains unsupported ownership metadata",
+                )
+            fact_content = fact_request.get("content", "")
+            fact_importance = fact_request.get("importance", 5)
+            if (
+                not isinstance(fact_content, str)
+                or not 1 <= len(fact_content.strip()) <= 4096
+                or "?" in fact_content
+                or not isinstance(fact_importance, int)
+                or isinstance(fact_importance, bool)
+                or not 1 <= fact_importance <= 10
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail="soul_memory requires a declarative content and importance 1..10",
+                )
+            fact_content = fact_content.strip()
+            if principal is None:
+                raise HTTPException(
+                    status_code=403,
+                    detail="semantic memory writes require a verified interlocutor",
+                )
         stream_value = body.get("stream")
         if stream_value not in (None, False, True):
             raise HTTPException(status_code=422, detail="stream must be a boolean")
@@ -453,7 +850,7 @@ def create_app(
                 raise HTTPException(status_code=422, detail="message content must be text")
             if message["role"] == "user":
                 last_user = message["content"]
-        block, evidence = await soul_context(last_user)
+        block, evidence, egress_reason = await soul_context(last_user, principal)
         forwarded = dict(body)
         forwarded["messages"] = [{"role": "system", "content": block}] + messages
         forwarded["model"] = settings.upstream_model
@@ -478,6 +875,7 @@ def create_app(
             "X-Soul-Memories": str(len(evidence)),
             "X-Soul-Memory-Ids": ",".join(str(item["memory_id"]) for item in evidence),
             "X-Soul-Memory-SHA256": ",".join(item["content_sha256"] for item in evidence),
+            "X-Soul-Egress": egress_reason,
             "X-Soul-Store": store_status,
         }
         if wants_stream:
@@ -527,16 +925,41 @@ def create_app(
         # Memory mutation is deliberately after response validation. A client
         # that observes 502 may safely retry without duplicating or poisoning
         # the persistent soul with a request whose response was unusable.
-        if should_store and response.is_success and last_user:
+        if response.is_success and last_user and should_log:
             try:
-                await state["soul"].memory.store(
-                    f"El usuario dijo: {last_user}", importance=5
-                )
-                store_status = "stored"
+                state["ledger"].append(last_user, bytes(content))
+                store_status = "ledger"
             except Exception:
                 # The upstream operation already happened. Preserve its response so a
                 # client retry cannot duplicate model work or cost.
                 store_status = "failed"
+        if response.is_success and fact_content:
+            try:
+                memory_id = await state["soul"].memory.store(
+                    fact_content, importance=fact_importance, scope="private"
+                )
+                await state["t5_egress"].bind_memory(
+                    soul_id=settings.machine_soul_id,
+                    memory_id=memory_id,
+                    tenant=principal.tenant,
+                    owner_subject=principal.actor,
+                    scope="private",
+                    origin=(
+                        "legacy-migration"
+                        if settings.t5_mode == "compatibility-single-owner"
+                        else "authenticated-write"
+                    ),
+                )
+                if store_status == "disabled":
+                    store_status = "fact-stored"
+                elif store_status == "ledger":
+                    store_status = "ledger+fact"
+                else:
+                    store_status = "ledger-failed+fact-stored"
+            except Exception:
+                store_status = (
+                    "ledger+fact-failed" if store_status == "ledger" else "failed"
+                )
         headers["X-Soul-Store"] = store_status
         if wants_stream:
             return Response(

@@ -1,0 +1,25 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "fable-juez-a-demanda-20260903",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "_doc": [
+    "FABLE JUEZ a demanda. Orden de William 3-sep-2026 17:26 (ada-claude #146987): 'crea el spec fable juez y armalo y me lo entregas armado y probado'. Spec: docs/specs/SPEC_FABLE_JUEZ_A_DEMANDA_v1.md. Tarea DB #1657.",
+    "QUE CUBRE: contrato estatico del lanzador fable_juez.sh (rol SEAL_FABLE_ROLE=juez, identidad Bearer, sin tmux, sin monitor del general, prompt 'dictaminas no reparas', veredicto UNA vez en web_chat como review, cierre con end_session), del vigilante fable/fable_juez_watch.py (solo fable-juez y dm:fable:william, excluye FABLE, sigue william_channel.jsonl), del extractor fable/fable_juez_expediente.py (solo lectura; rol restringido svc_seal_studio, nunca seal), y del frontend (pestana fable, canal fable-juez, to FABLE, presencia solo con rol juez).",
+    "QUE NO CUBRE: la sesion viva de FABLE (se prueba por efecto en la entrega); el cutover (lifecycle manual + unidades) que es operacion, no codigo; el gate de calidad ni el examen ciego.",
+    "MUTANTES (ADA, medidos): quitar SEAL_FABLE_ROLE=juez -> 1 failed; volver al monitor del general (seal_events_FABLE.log) -> 1 failed; publicar en web_chat en vez de fable-juez -> 1 failed.",
+    "COMMIT CON --no-verify por orden de William (precedente 1581ebd19). PENDIENTE: firma independiente (NEXUS o JARVIS) y alta en quality/policy.json. No se registra en policy.json hasta la firma."
+  ],
+  "deletions": [],
+  "subjects": ["fable_juez.sh", "fable/fable_juez_watch.py", "fable/fable_juez_expediente.py"],
+  "tests": ["tests/test_fable_juez_launcher_v1.py"],
+  "commands": [
+    {"id": "unit-prompt-contract", "kind": "unit", "argv": ["python3","-m","pytest","-q","-p","no:cacheprovider","tests/test_fable_juez_launcher_v1.py::test_launcher_prompt_contract"], "expected_exit": 0},
+    {"id": "positive-rol-e-identidad", "kind": "qa_positive", "argv": ["python3","-m","pytest","-q","-p","no:cacheprovider","tests/test_fable_juez_launcher_v1.py::test_launcher_exports_judge_role_and_identity"], "expected_exit": 0},
+    {"id": "negative-no-escucha-general", "kind": "qa_negative", "argv": ["python3","-m","pytest","-q","-p","no:cacheprovider","tests/test_fable_juez_launcher_v1.py::test_launcher_never_listens_to_general"], "expected_exit": 0},
+    {"id": "control-guard-por-rol", "kind": "qa_control", "argv": ["python3","-m","pytest","-q","-p","no:cacheprovider","tests/test_fable_juez_launcher_v1.py::test_launcher_single_judge_guard_filters_by_role","tests/test_fable_juez_launcher_v1.py::test_expediente_is_read_only_and_never_superuser"], "expected_exit": 0}
+  ],
+  "coverage": {"source": ["fable/fable_juez_watch.py","fable/fable_juez_expediente.py"], "omit": ["tests/*","*/site-packages/*"], "pytest_args": ["-p","no:cacheprovider","tests/test_fable_juez_launcher_v1.py"], "baseline_percent": 0.0, "timeout": 120},
+  "review": {"status": "pending", "evidence": "Pendiente de revisor independiente (NEXUS o JARVIS). Owner ADA no firma su propio cambio."},
+  "delivery": {"status": "pending", "evidence": "Se completa con la prueba real: FABLE JUEZ convocado con un caso, anuncio en fable-juez, veredicto con recibo, un solo mensaje en web_chat.", "command": {"id": "delivery-fable-juez", "argv": ["python3","-m","pytest","-q","-p","no:cacheprovider","tests/test_fable_juez_launcher_v1.py"], "expected_exit": 0, "expected_stdout_contains": "passed"}}
+}

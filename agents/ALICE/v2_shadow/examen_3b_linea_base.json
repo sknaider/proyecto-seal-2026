@@ -1,0 +1,13 @@
+{
+ "memories_EXAMEN3B": 0,
+ "chat_EXAMEN3B_total": 0,
+ "chat_EXAMEN3B_web_chat": 0,
+ "shadow_max_id": 147937,
+ "tasks_EXAMEN3B": 0,
+ "jarvis_last_task": {
+  "id": 1677,
+  "status": "cancelled"
+ },
+ "memorias_ALICE_ultima_hora": 0,
+ "working_state_jarvis_rows": 1
+}

@@ -1,0 +1,45 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "4 mutantes adversariales sobre una COPIA DEL ARBOL (writer + test + tools/), elegidos por el revisor",
+  "workspace": "las 4 condiciones del asiento y su proyeccion: nombre/environ/stream-json y el mapeo de estado a alive/pid",
+  "killed": 4,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
+  "mutation_score_percent": 100.0,
+  "reviewer": "FABLE",
+  "file_sha256": {
+    "messages/nexus_heartbeat_update.sh": "ee2224dde5677bb28126b67046827266eed2807f138f8294dcad179809204d6f",
+    "agents/NEXUS/test_nexus_heartbeat_seat.py": "36611c81b68cc91d4cf6ee58ea52fec2b0e581630c1ffee1fcf18999f05bb575"
+  },
+  "detail": [
+    {
+      "mutante": "present_ambiguous vuelve a alive=false",
+      "dif": 1,
+      "resultado": "2 failed",
+      "causa": "AssertionError"
+    },
+    {
+      "mutante": "present_ambiguous colapsa en absent",
+      "dif": 1,
+      "resultado": "3 failed",
+      "causa": "AssertionError"
+    },
+    {
+      "mutante": "ignora SEAL_AGENT del environ",
+      "dif": 1,
+      "resultado": "1 failed",
+      "causa": "AssertionError"
+    },
+    {
+      "mutante": "no excluye workers stream-json (AMBAS formas)",
+      "dif": 2,
+      "resultado": "1 failed",
+      "causa": "AssertionError"
+    }
+  ],
+  "notas_de_metodo": "un 5o mutante (_worker=1 -> 0, UNA sola ocurrencia de dos) dio 16 passed: era un mutante INVALIDO -la otra forma del flag seguia excluyendo- no una suite debil. Verificado contando las ocurrencias antes de leer el color."
+}

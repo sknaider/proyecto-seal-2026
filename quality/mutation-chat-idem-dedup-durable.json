@@ -1,0 +1,83 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "NEXUS inyeccion de fallas sobre copia aislada (mktemp -d bajo /tmp)",
+  "workspace": "Cada mutante sobre una COPIA; ningun archivo de produccion se toco. Control (sin mutar) PRIMERO en cada tanda: 7 passed.",
+  "reviewer": "JARVIS",
+  "killed": 6,
+  "survived": 1,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 7,
+  "mutation_score_percent": 85.714,
+  "file_sha256": {
+    "messages/chat_server.py": "30fc8f02d3ceb470c9b3f256331b8563e1b6682676154bbf74a4a02cb03cfd4c",
+    "messages/test_idem_dedup_durable_v1.py": "9de6bdbdda9b3d39502c40cc8d0e8a65436d5f12d4fdba72f2afdf8a4c453878"
+  },
+  "detail": [
+    {
+      "id": "consulta-de-vuelta-al-lock",
+      "subject": "chat_server.py::agents_send",
+      "mutation": "mover la llamada a _fila_previa_por_clave DENTRO de `async with _queue_lock`",
+      "killed_by": "test_control_la_consulta_NO_corre_dentro_del_lock_de_la_cola",
+      "killed": true,
+      "why": "lo pidio JARVIS revisando: un scan bajo el lock serializa CADA POST de agente"
+    },
+    {
+      "id": "metadata-sin-la-clave",
+      "subject": "chat_server.py::agents_send",
+      "mutation": "quitar `idempotency_key` del dict de metadata persistida",
+      "killed_by": "test_unit_la_clave_viaja_a_la_METADATA_persistida",
+      "killed": true,
+      "why": "sin la clave persistida la capa contra la DB no tiene con que comparar: queda decorativa"
+    },
+    {
+      "id": "helper-que-miente",
+      "subject": "chat_server.py::_fila_previa_por_clave",
+      "mutation": "`return None` antes de consultar",
+      "killed_by": "test_positivo_clave_ya_persistida",
+      "killed": true,
+      "why": "nunca deduplicaria, y el sintoma seria un duplicado silencioso"
+    },
+    {
+      "id": "borrar-la-llamada",
+      "subject": "chat_server.py::agents_send",
+      "mutation": "eliminar el bloque entero que consulta la fila previa",
+      "killed_by": "test_unit_la_capa_esta_CABLEADA_en_el_handler_de_envio",
+      "killed": true,
+      "why": "el helper puede estar perfecto y no llamarlo nadie"
+    },
+    {
+      "id": "reintroducir-SUPERADMIN_USERNAME",
+      "subject": "chat_server.py::delete_message",
+      "mutation": "volver a comparar contra el nombre inexistente `_SUPERADMIN_USERNAME`",
+      "killed_by": "test_control_ningun_NOMBRE_INDEFINIDO_en_el_modulo",
+      "killed": true,
+      "why": "ese typo tuvo DELETE /api/chat/messages devolviendo 500 a todos desde el 19-ago; lo hallo ALICE barriendo la CLASE"
+    },
+    {
+      "id": "reintroducir-log-warning",
+      "subject": "chat_server.py::cascade",
+      "mutation": "volver a `log.warning(...)` con `log` inexistente",
+      "killed_by": "test_control_ningun_NOMBRE_INDEFINIDO_en_el_modulo",
+      "killed": true,
+      "why": "convertia un error ATRAPADO en un NameError no atrapado, justo donde el comentario promete no romper el turno"
+    },
+    {
+      "id": "llamada-bajo-un-if-False",
+      "subject": "chat_server.py::agents_send",
+      "mutation": "dejar la llamada presente pero inalcanzable (`if False:`)",
+      "killed_by": null,
+      "killed": false,
+      "why": "SOBREVIVE Y LO DECLARO: el brazo de cableado verifica por AST que ALGUIEN llama al helper, no que la llamada sea ALCANZABLE. Matarlo pide ejercitar el endpoint y no el modulo. Es el mismo defecto que le marque a ADA en 3b: el test mira la forma, no el efecto."
+    }
+  ],
+  "correcciones_propias": [
+    "Mi primer mutante de metadata golpeaba la misma cadena 400 lineas antes, en el dict `entry`, y 'sobrevivia' por eso. Re-anclado por AST al dict que tiene `to` y `legacy_id`, murio.",
+    "Mi primer timeout fue 0,1 s contra un scan de 148 ms: la capa habria quedado verde en los tests e inutil en produccion.",
+    "Mi primera verificacion de delivery uso un self-DM, que NO se persiste en chat_messages, y el fallo parecia del fix.",
+    "Mi consulta de comprobacion imprimia 'NO' tanto para 'fila sin la clave' como para 'no hay fila'.",
+    "Los 148 ms los medi con MI rol (mcp_runtime_nexus); el servicio corre como login_bus y mide 25-44 ms. Bajo RLS el plan depende del rol."
+  ]
+}

@@ -8,6 +8,7 @@ descriptor after the proxy configuration proves the minimum security contract.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import plistlib
@@ -21,29 +22,27 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
-
 from soul_platform.proxy import (
     ProxySettings,
     _assert_no_symlink_components,
 )
 
+
 PlatformName = Literal["linux", "windows", "macos"]
+WINDOWS_TASK_NAME = "SOUL Platform"
 
 
-def _loopback_base_url(host: str, port: int) -> str:
-    """Build a valid HTTP origin for IPv4 and bracketed IPv6 literals."""
-    authority = f"[{host}]" if ":" in host and not host.startswith("[") else host
-    return f"http://{authority}:{port}"
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
-def _windows_roaming_root(home: Path) -> Path:
-    raw = os.environ.get("APPDATA") if sys.platform.startswith("win") else None
-    if not raw:
-        return home / "AppData" / "Roaming"
-    roaming = Path(raw).expanduser()
-    if not roaming.is_absolute():
-        raise ValueError("APPDATA must be an absolute path")
-    return roaming
+def _local_urlopen(request: urllib.request.Request, *, timeout: float):
+    """Open a literal-loopback control request without ambient proxies/redirects."""
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}), _NoRedirect()
+    )
+    return opener.open(request, timeout=timeout)
 
 
 def _clean_path(value: object, field: str) -> Path:
@@ -85,13 +84,7 @@ class AutostartContract:
 
     @property
     def command(self) -> tuple[str, ...]:
-        return (
-            str(self.python),
-            "-m",
-            "soul_platform.proxy",
-            "--config",
-            str(self.config),
-        )
+        return (str(self.python), "-m", "soul_platform.proxy", "--config", str(self.config))
 
 
 def _systemd_quote(value: str) -> str:
@@ -122,16 +115,25 @@ def render_windows(contract: AutostartContract) -> bytes:
     python = contract.python.with_name("pythonw.exe")
     if not python.exists():
         python = contract.python
-    script = (
-        "Option Explicit\r\n"
-        "Dim shell\r\n"
-        'Set shell = CreateObject("WScript.Shell")\r\n'
-        "shell.Run Chr(34) & "
-        f'"{_vbs_string(str(python))}" & Chr(34) & '
-        '" -m soul_platform.proxy --config " & Chr(34) & '
-        f'"{_vbs_string(str(contract.config))}" & Chr(34), 0, False\r\n'
-    )
-    return script.encode("utf-8")
+    return json.dumps(
+        {
+            "schema": "soul.windows-autostart.v2",
+            "task_name": WINDOWS_TASK_NAME,
+            "executable": str(python),
+            "arguments": [
+                "-m",
+                "soul_platform.proxy",
+                "--config",
+                str(contract.config),
+            ],
+            "logon_type": "InteractiveToken",
+            "run_level": "LeastPrivilege",
+            "hidden": True,
+            "restart_count": 3,
+            "restart_interval_seconds": 60,
+        },
+        sort_keys=True,
+    ).encode("utf-8")
 
 
 def render_macos(contract: AutostartContract) -> bytes:
@@ -151,54 +153,34 @@ def descriptor_path(platform: PlatformName, home: Path) -> Path:
     if platform == "linux":
         return home / ".config" / "systemd" / "user" / "soul-platform-proxy.service"
     if platform == "windows":
-        return (
-            _windows_roaming_root(home)
-            / "Microsoft"
-            / "Windows"
-            / "Start Menu"
-            / "Programs"
-            / "Startup"
-            / "SOUL Platform.vbs"
-        )
+        return home / "AppData" / "Local" / "SOUL" / "autostart-task.json"
     if platform == "macos":
         return home / "Library" / "LaunchAgents" / "com.soul.platform.proxy.plist"
     raise ValueError(f"unsupported platform: {platform}")
 
 
-def tray_descriptor_path(platform: PlatformName, home: Path) -> Path | None:
-    """Return the optional visual tray autostart descriptor for this platform."""
-    if platform != "windows":
-        return None
-    return (
-        _windows_roaming_root(home)
-        / "Microsoft"
-        / "Windows"
-        / "Start Menu"
-        / "Programs"
-        / "Startup"
-        / "SOUL Tray.vbs"
-    )
-
-
 def _safe_descriptor_parent(target: Path, home: Path) -> None:
     _assert_no_symlink_components(home, "home")
     home.mkdir(parents=True, exist_ok=True)
-    _assert_no_symlink_components(target.parent, "autostart path")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    _assert_no_symlink_components(target.parent, "autostart path")
-    if not target.parent.is_dir():
-        raise ValueError("autostart parent is not a directory")
+    current = home
+    relative = target.parent.relative_to(home)
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            raise ValueError("autostart path contains a symlinked directory")
+        current.mkdir(exist_ok=True)
+        if not current.is_dir():
+            raise ValueError("autostart parent is not a directory")
 
 
-def install_descriptor(
-    contract: AutostartContract, platform: PlatformName, *, home: Path | None = None
-) -> Path:
+def install_descriptor(contract: AutostartContract, platform: PlatformName, *, home: Path | None = None) -> Path:
     requested_home = (home or Path.home()).expanduser()
     _assert_no_symlink_components(requested_home, "home")
     resolved_home = requested_home.resolve()
     target = descriptor_path(platform, resolved_home)
     _safe_descriptor_parent(target, resolved_home)
-    _assert_no_symlink_components(target, "autostart descriptor")
+    if target.is_symlink():
+        raise ValueError("refusing to replace a symlinked autostart descriptor")
     payload = {
         "linux": render_linux,
         "windows": render_windows,
@@ -224,66 +206,211 @@ def disable_descriptor(platform: PlatformName, *, home: Path | None = None) -> P
     _assert_no_symlink_components(requested_home, "home")
     target = descriptor_path(platform, requested_home.resolve())
     _assert_no_symlink_components(target.parent, "autostart path")
-    _assert_no_symlink_components(target, "autostart descriptor")
-    if target.exists():
+    if target.exists() and not target.is_symlink():
         target.unlink()
+    elif target.is_symlink():
+        raise ValueError("refusing to remove a symlinked autostart descriptor")
     return target
 
 
-def disable_tray_descriptor(
-    platform: PlatformName, *, home: Path | None = None
-) -> Path | None:
-    """Disable only the optional visual tray autostart, preserving all SOUL data."""
-    requested_home = (home or Path.home()).expanduser()
-    _assert_no_symlink_components(requested_home, "home")
-    target = tray_descriptor_path(platform, requested_home.resolve())
-    if target is None:
-        return None
-    _assert_no_symlink_components(target.parent, "tray autostart path")
-    _assert_no_symlink_components(target, "tray autostart descriptor")
-    if target.exists():
-        target.unlink()
-    return target
-
-
-def _run(command: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+def _run(
+    command: list[str],
+    *,
+    check: bool = True,
+    input_text: str | None = None,
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        command, check=check, text=True, capture_output=True, timeout=30
+        command,
+        check=check,
+        text=True,
+        input=input_text,
+        capture_output=True,
+        timeout=30,
     )
 
 
-def _authenticated_probe(
-    contract: AutostartContract, *, timeout_seconds: float = 15.0
-) -> None:
+def _powershell_literal(value: str) -> str:
+    if any(char in value for char in ("\x00", "\r", "\n")):
+        raise ValueError("unsafe control character in PowerShell value")
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _powershell_stdin() -> list[str]:
+    """Use a fixed short argv; task XML travels over stdin, not CreateProcess argv."""
+    return [
+        "powershell.exe",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "-",
+    ]
+
+
+def _windows_task_script(
+    contract: AutostartContract,
+    *,
+    action: str,
+    previous_xml: str = "",
+) -> str:
+    task = _powershell_literal(WINDOWS_TASK_NAME)
+    identity = (
+        "$identity=[Security.Principal.WindowsIdentity]::GetCurrent();"
+        "$sid=$identity.User.Value;"
+        "if($sid -eq 'S-1-5-18'){throw 'SYSTEM identity is forbidden'};"
+    )
+    if action == "remove":
+        return (
+            "$ErrorActionPreference='Stop';"
+            + identity
+            +
+            f"$task=Get-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+            "if($task){"
+            f"Stop-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+            f"Unregister-ScheduledTask -TaskName {task} -Confirm:$false"
+            "};"
+            f"if(Get-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue){{"
+            "throw 'SOUL scheduled task removal could not be verified'"
+            "}"
+        )
+    if action == "rollback":
+        encoded_xml = base64.b64encode(previous_xml.encode("utf-16le")).decode("ascii")
+        xml_literal = _powershell_literal(encoded_xml)
+        restore = ""
+        if previous_xml:
+            restore = (
+                f"$xml=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String({xml_literal}));"
+                f"Register-ScheduledTask -TaskName {task} -Xml $xml -Force | Out-Null;"
+                f"Start-ScheduledTask -TaskName {task};"
+            )
+        return (
+            "$ErrorActionPreference='Stop';"
+            + identity
+            +
+            f"$current=Get-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+            "if($current){"
+            f"Stop-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+            f"Unregister-ScheduledTask -TaskName {task} -Confirm:$false"
+            "};"
+            + restore
+            + (
+                f"if(-not (Get-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue)){{"
+                "throw 'SOUL scheduled task rollback restore could not be verified'"
+                "}"
+                if previous_xml
+                else f"if(Get-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue){{"
+                "throw 'SOUL scheduled task rollback removal could not be verified'"
+                "}"
+            )
+        )
+    if action == "snapshot":
+        return (
+            "$ErrorActionPreference='Stop';"
+            + identity
+            + f"$old=Get-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+            "$oldXml='';"
+            "if($old){$oldXml=Export-ScheduledTask -TaskName $old.TaskName};"
+            "$oldEncoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($oldXml));"
+            "Write-Output 'SOUL_TASK_RECEIPT_V1';"
+            "Write-Output ('SOUL_PREVIOUS_TASK_XML='+$oldEncoded)"
+        )
+    if action != "register":
+        raise ValueError("unsupported Windows task action")
+    python = contract.python.with_name("pythonw.exe")
+    if os.name == "nt" and not python.is_file():
+        raise RuntimeError("pythonw.exe is required for hidden Windows autostart")
+    if not python.is_file():
+        python = contract.python
+    executable = _powershell_literal(str(python))
+    arguments = _powershell_literal(
+        subprocess.list2cmdline(
+            ["-m", "soul_platform.proxy", "--config", str(contract.config)]
+        )
+    )
+    encoded_previous = base64.b64encode(previous_xml.encode("utf-16le")).decode("ascii")
+    previous_literal = _powershell_literal(encoded_previous)
+    return (
+        "$ErrorActionPreference='Stop';"
+        + identity
+        + f"$oldXml=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String({previous_literal}));"
+        f"$action=New-ScheduledTaskAction -Execute {executable} -Argument {arguments};"
+        "$trigger=New-ScheduledTaskTrigger -AtLogOn -User $sid;"
+        "$settings=New-ScheduledTaskSettingsSet -Hidden -RestartCount 3 "
+        "-RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable "
+        "-AllowStartIfOnBatteries -DontStopIfGoingOnBatteries "
+        "-MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero);"
+        "$principal=New-ScheduledTaskPrincipal -UserId $sid "
+        "-LogonType Interactive -RunLevel Limited;"
+        "$definition=New-ScheduledTask -Action $action -Trigger $trigger "
+        "-Settings $settings -Principal $principal;"
+        "try{"
+        f"Register-ScheduledTask -TaskName {task} -InputObject $definition -Force | Out-Null;"
+        f"Start-ScheduledTask -TaskName {task}"
+        "}catch{"
+        f"$new=Get-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+        "if($new){"
+        f"Stop-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+        f"Unregister-ScheduledTask -TaskName {task} -Confirm:$false"
+        "};"
+        "if($oldXml){"
+        f"Register-ScheduledTask -TaskName {task} -Xml $oldXml -Force | Out-Null;"
+        f"Start-ScheduledTask -TaskName {task}"
+        "};throw}"
+    )
+
+
+def _previous_windows_task(stdout: str) -> str:
+    lines = str(stdout or "").splitlines()
+    if "SOUL_TASK_RECEIPT_V1" not in lines:
+        raise RuntimeError("missing Windows task rollback receipt marker")
+    fields = {}
+    for line in lines:
+        if line.startswith("SOUL_PREVIOUS_TASK_") and "=" in line:
+            key, value = line.split("=", 1)
+            fields[key] = value.strip()
+    if "SOUL_PREVIOUS_TASK_XML" not in fields:
+        raise RuntimeError("incomplete Windows task rollback receipt")
+    encoded = fields["SOUL_PREVIOUS_TASK_XML"]
+    try:
+        xml = base64.b64decode(encoded, validate=True).decode("utf-16le") if encoded else ""
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise RuntimeError("invalid Windows task rollback receipt") from exc
+    return xml
+
+
+def _legacy_windows_descriptor(home: Path) -> Path:
+    return (
+        home
+        / "AppData"
+        / "Roaming"
+        / "Microsoft"
+        / "Windows"
+        / "Start Menu"
+        / "Programs"
+        / "Startup"
+        / "SOUL Platform.vbs"
+    )
+
+
+def _authenticated_probe(contract: AutostartContract, *, timeout_seconds: float = 15.0) -> None:
     deadline = time.monotonic() + timeout_seconds
     token = contract.token_file.read_text(encoding="utf-8").strip()
-    base_url = _loopback_base_url(contract.host, contract.port)
     models_request = urllib.request.Request(
-        f"{base_url}/v1/models",
+        f"http://{contract.host}:{contract.port}/v1/models",
         headers={"Authorization": f"Bearer {token}"},
     )
-    ready_request = urllib.request.Request(f"{base_url}/ready")
+    ready_request = urllib.request.Request(f"http://{contract.host}:{contract.port}/ready")
     last_error = "not started"
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(models_request, timeout=1) as response:
+            with _local_urlopen(models_request, timeout=1) as response:
                 models_payload = json.loads(response.read())
-            with urllib.request.urlopen(ready_request, timeout=1) as ready_response:
+            with _local_urlopen(ready_request, timeout=1) as ready_response:
                 ready_payload = json.loads(ready_response.read())
-            models = (
-                models_payload.get("data")
-                if models_payload.get("object") == "list"
-                else []
-            )
-            if (
-                response.status == 200
-                and ready_response.status == 200
-                and ready_payload.get("ready") is True
-                and any(
-                    item.get("id") == contract.upstream_model
-                    for item in models
-                    if isinstance(item, dict)
-                )
+            models = models_payload.get("data") if models_payload.get("object") == "list" else []
+            if response.status == 200 and ready_response.status == 200 and ready_payload.get("ready") is True and any(
+                item.get("id") == contract.upstream_model for item in models if isinstance(item, dict)
             ):
                 return
             last_error = f"unexpected health response {response.status}"
@@ -316,45 +443,63 @@ def activate_descriptor(
         _run(["launchctl", "bootstrap", domain, str(target)])
         _run(["launchctl", "kickstart", "-k", f"{domain}/com.soul.platform.proxy"])
     elif platform == "windows":
+        shell_command = _powershell_stdin()
+        snapshot_script = _windows_task_script(contract, action="snapshot")
+        snapshot = _run(shell_command, input_text=snapshot_script)
+        previous_xml = _previous_windows_task(getattr(snapshot, "stdout", ""))
+        register_script = _windows_task_script(
+            contract,
+            action="register",
+            previous_xml=previous_xml,
+        )
+        rollback_script = _windows_task_script(
+            contract,
+            action="rollback",
+            previous_xml=previous_xml,
+        )
         _request_shutdown(contract)
         _wait_stopped(contract)
-        subprocess.Popen(
-            ["wscript.exe", str(target)],
-            close_fds=True,
-            creationflags=getattr(subprocess, "DETACHED_PROCESS", 0)
-            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
-        )
+        try:
+            _run(shell_command, input_text=register_script)
+        except Exception:
+            _run(shell_command, input_text=rollback_script)
+            raise
     else:
         raise ValueError(f"unsupported platform: {platform}")
-    if wait:
-        _authenticated_probe(contract)
+    try:
+        if wait:
+            _authenticated_probe(contract)
+    except Exception:
+        if platform == "windows":
+            _run(_powershell_stdin(), input_text=rollback_script)
+        raise
+    if platform == "windows":
+        legacy = _legacy_windows_descriptor((home or Path.home()).expanduser().resolve())
+        if legacy.is_symlink():
+            raise ValueError("refusing to remove a symlinked legacy autostart descriptor")
+        if legacy.is_file():
+            legacy.unlink()
     return target
 
 
 def _request_shutdown(contract: AutostartContract) -> None:
     token = contract.token_file.read_text(encoding="utf-8").strip()
     request = urllib.request.Request(
-        f"{_loopback_base_url(contract.host, contract.port)}/admin/shutdown",
+        f"http://{contract.host}:{contract.port}/admin/shutdown",
         method="POST",
         headers={"Authorization": f"Bearer {token}"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=2) as response:
+        with _local_urlopen(request, timeout=2) as response:
             if response.status != 200:
                 raise RuntimeError(f"shutdown returned HTTP {response.status}")
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"shutdown returned HTTP {exc.code}") from exc
-    except (urllib.error.URLError, TimeoutError):
-        # Python 3.13 may surface a read timeout as bare TimeoutError rather
-        # than wrapping it in URLError. The caller still executes
-        # ``_wait_stopped`` and therefore cannot delete the descriptor unless
-        # the listener actually disappears.
+    except (urllib.error.URLError, TimeoutError, socket.timeout):
         return
 
 
-def _wait_stopped(
-    contract: AutostartContract, *, timeout_seconds: float = 10.0
-) -> None:
+def _wait_stopped(contract: AutostartContract, *, timeout_seconds: float = 10.0) -> None:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         try:
@@ -375,28 +520,58 @@ def deactivate_descriptor(
     """Stop the managed proxy, disable autostart, and preserve all soul data."""
     target = descriptor_path(platform, (home or Path.home()).expanduser().resolve())
     if platform == "linux":
-        stopped = _run(
-            ["systemctl", "--user", "disable", "--now", target.name], check=False
-        )
+        stopped = _run(["systemctl", "--user", "disable", "--now", target.name], check=False)
         if stopped.returncode != 0:
-            raise RuntimeError(
-                f"systemctl failed to stop {target.name}; descriptor retained"
-            )
+            raise RuntimeError(f"systemctl failed to stop {target.name}; descriptor retained")
         _wait_stopped(contract)
         _run(["systemctl", "--user", "daemon-reload"])
     elif platform == "macos":
-        stopped = _run(
-            ["launchctl", "bootout", f"gui/{os.getuid()}", str(target)], check=False
-        )
+        stopped = _run(["launchctl", "bootout", f"gui/{os.getuid()}", str(target)], check=False)
         if stopped.returncode != 0:
-            raise RuntimeError(
-                "launchctl failed to stop SOUL proxy; descriptor retained"
-            )
+            raise RuntimeError("launchctl failed to stop SOUL proxy; descriptor retained")
         _wait_stopped(contract)
     elif platform == "windows":
+        _run(
+            _powershell_stdin(),
+            input_text=_windows_task_script(contract, action="remove"),
+        )
         _request_shutdown(contract)
         _wait_stopped(contract)
     return disable_descriptor(platform, home=home)
+
+
+def stop_descriptor(
+    contract: AutostartContract,
+    platform: PlatformName,
+    *,
+    home: Path | None = None,
+) -> None:
+    """Stop the proxy without deleting its login-time autostart descriptor.
+
+    This is the reversible operation used by the tray UI.  It must never
+    remove identity, memory, token, configuration, or the descriptor itself.
+    A later :func:`activate_descriptor` starts the same machine soul again.
+    """
+
+    target = descriptor_path(platform, (home or Path.home()).expanduser().resolve())
+    if not target.is_file() or target.is_symlink():
+        raise RuntimeError("cannot stop an unmanaged SOUL proxy")
+    if platform == "linux":
+        stopped = _run(["systemctl", "--user", "stop", target.name], check=False)
+        if stopped.returncode != 0:
+            raise RuntimeError(f"systemctl failed to stop {target.name}")
+    elif platform == "macos":
+        stopped = _run(
+            ["launchctl", "bootout", f"gui/{os.getuid()}", str(target)],
+            check=False,
+        )
+        if stopped.returncode != 0:
+            raise RuntimeError("launchctl failed to stop SOUL proxy")
+    elif platform == "windows":
+        _request_shutdown(contract)
+    else:
+        raise ValueError(f"unsupported platform: {platform}")
+    _wait_stopped(contract)
 
 
 def restart_descriptor(
@@ -407,20 +582,11 @@ def restart_descriptor(
 ) -> None:
     target = descriptor_path(platform, (home or Path.home()).expanduser().resolve())
     if not target.is_file() or target.is_symlink():
-        raise RuntimeError(
-            "cannot switch a running brain without a managed autostart service"
-        )
+        raise RuntimeError("cannot switch a running brain without a managed autostart service")
     if platform == "linux":
         _run(["systemctl", "--user", "restart", target.name])
     elif platform == "macos":
-        _run(
-            [
-                "launchctl",
-                "kickstart",
-                "-k",
-                f"gui/{os.getuid()}/com.soul.platform.proxy",
-            ]
-        )
+        _run(["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/com.soul.platform.proxy"])
     elif platform == "windows":
         _request_shutdown(contract)
         _wait_stopped(contract)

@@ -1,0 +1,131 @@
+{
+  "_doc": [
+    "Dedup de idempotencia que sobrevive al reinicio del chat server, mas tres nombres",
+    "usados y nunca definidos en el modulo.",
+    "`_enqueued_ids` es un LRU en memoria de 2000 que no se rehidrata al arrancar: deduplicaba",
+    "dentro de la vida del proceso y nada a traves de un reinicio, justo cuando un reintento es",
+    "mas probable. Lo levanto NEXUS revisando el retry de pendientes del broker de ALICE-V2.",
+    "Owner: NEXUS. Revisor independiente: JARVIS (condiciono el deploy por latencia y midio el scan)."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "chat-idem-dedup-durable-20260904",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "implementation_head": "af8157b3540a6c67f2aeb6b24d9afa085e36808d",
+  "implementation_commits": [
+    "4a986abe4",
+    "af8157b35"
+  ],
+  "review": {
+    "status": "approved",
+    "evidence": "JARVIS revisó 4a986abe4 y af8157b35: tres nombres indefinidos corregidos (log×2→print, _SUPERADMIN_USERNAME→_SUPERADMIN_USER_ID definido en 4623); capa DB de dedup corre ANTES de `async with _queue_lock` (condición de JARVIS tras medir 160 ms de scan por pkey sin índice, HIT≈MISS), timeout 0,5 s con fail-open, clave persistida en metadata; tests 7/7 verdes corridos por JARVIS 00:16; mutantes 6/7 muertos con un sobreviviente DECLARADO (if False) que exige test de endpoint, aceptado como límite explícito. Pendiente no bloqueante: índice de expresión sobre metadata->>'idempotency_key' vía SEAL_PG_ADMIN_DSN (owner de la tabla = rol seal). Delivery: restart con hash y verificación de dedup por efecto (mismo idempotency_key dos veces tras el restart → duplicate:true source:db). RE-FIRMA 00:20 tras delivery verificado por NEXUS: /__version 30fc8f02d3ce == sha256 en disco (verificado también por JARVIS), recibos 20260904T051657-4f7ab723aa y 20260904T051808-f19090ae1c, caso que refuta: misma clave tras restart → duplicate:true source:db (148091); control anti-vacuo: clave nueva → id nuevo. TERCERA FIRMA 00:23: mutation_evidence movida a quality/mutation-chat-idem-dedup-durable.json (seal.mutation-evidence.v1: killed 6, survived 1 declarado, score 85,7 %, file_sha256 del sujeto = hash desplegado 30fc8f02); gate verify previo sólo 'independent_review_receipt_stale'. || RE-FIRMA SOBRE HEAD 05:30 (JARVIS). Bytes firmados antes: af8157b35. Delta a HEAD en messages/chat_server.py medido con git diff: e1bf00f8c y fe3fd178a (cutover: cuerpo dictado por la sesion; interruptor en /etc/seal; sender_name canonico) revisados y firmados por JARVIS en alice-cutover-exclusion-mutua.json; 924d0e842 y 55e23b1df (ledger: mark_delivered tras el push; filtro de rollout en SQL) revisados y firmados por JARVIS en chat-redelivery-acusa.json (STATIC_OK). Funciones tocadas: agents_send, _redelivery_tick, _resolve_agent_auth, _agent_auth_gate, _agent_send_db_actor; la capa de dedup durable (_fila_previa_por_clave fuera del lock, timeout 0,5 s, clave en metadata) no cambio. Tests de este manifiesto corridos sobre HEAD antes de firmar.",
+    "approved_at": "2026-09-04T10:28:16.660996+00:00",
+    "reviewed_sha256": {
+      "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+      "messages/test_idem_dedup_durable_v1.py": "9de6bdbdda9b3d39502c40cc8d0e8a65436d5f12d4fdba72f2afdf8a4c453878"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "JARVIS revisó 4a986abe4 y af8157b35: tres nombres indefinidos corregidos (log×2→print, _SUPERADMIN_USERNAME→_SUPERADMIN_USER_ID definido en 4623); capa DB de dedup corre ANTES de `async with _queue_lock` (condición de JARVIS tras medir 160 ms de scan por pkey sin índice, HIT≈MISS), timeout 0,5 s con fail-open, clave persistida en metadata; tests 7/7 verdes corridos por JARVIS 00:16; mutantes 6/7 muertos con un sobreviviente DECLARADO (if False) que exige test de endpoint, aceptado como límite explícito. Pendiente no bloqueante: índice de expresión sobre metadata->>'idempotency_key' vía SEAL_PG_ADMIN_DSN (owner de la tabla = rol seal). Delivery: restart con hash y verificación de dedup por efecto (mismo idempotency_key dos veces tras el restart → duplicate:true source:db). RE-FIRMA 00:20 tras delivery verificado por NEXUS: /__version 30fc8f02d3ce == sha256 en disco (verificado también por JARVIS), recibos 20260904T051657-4f7ab723aa y 20260904T051808-f19090ae1c, caso que refuta: misma clave tras restart → duplicate:true source:db (148091); control anti-vacuo: clave nueva → id nuevo. TERCERA FIRMA 00:23: mutation_evidence movida a quality/mutation-chat-idem-dedup-durable.json (seal.mutation-evidence.v1: killed 6, survived 1 declarado, score 85,7 %, file_sha256 del sujeto = hash desplegado 30fc8f02); gate verify previo sólo 'independent_review_receipt_stale'. || RE-FIRMA SOBRE HEAD 05:30 (JARVIS). Bytes firmados antes: af8157b35. Delta a HEAD en messages/chat_server.py medido con git diff: e1bf00f8c y fe3fd178a (cutover: cuerpo dictado por la sesion; interruptor en /etc/seal; sender_name canonico) revisados y firmados por JARVIS en alice-cutover-exclusion-mutua.json; 924d0e842 y 55e23b1df (ledger: mark_delivered tras el push; filtro de rollout en SQL) revisados y firmados por JARVIS en chat-redelivery-acusa.json (STATIC_OK). Funciones tocadas: agents_send, _redelivery_tick, _resolve_agent_auth, _agent_auth_gate, _agent_send_db_actor; la capa de dedup durable (_fila_previa_por_clave fuera del lock, timeout 0,5 s, clave en metadata) no cambio. Tests de este manifiesto corridos sobre HEAD antes de firmar.",
+      "reviewed_sha256": {
+        "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+        "messages/test_idem_dedup_durable_v1.py": "9de6bdbdda9b3d39502c40cc8d0e8a65436d5f12d4fdba72f2afdf8a4c453878"
+      },
+      "manifest_digest": "2266be5a502b5bd4919fe6fe99469b1d996a201b62a9e45f95ad448bf587b8a4"
+    }
+  },
+  "subjects": [
+    "messages/chat_server.py"
+  ],
+  "tests": [
+    "messages/test_idem_dedup_durable_v1.py"
+  ],
+  "source_sha256": {
+    "messages/chat_server.py": "30fc8f02d3ceb470c9b3f256331b8563e1b6682676154bbf74a4a02cb03cfd4c",
+    "messages/test_idem_dedup_durable_v1.py": "9de6bdbdda9b3d39502c40cc8d0e8a65436d5f12d4fdba72f2afdf8a4c453878"
+  },
+  "commands": [
+    {
+      "id": "unit-siete-brazos",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/test_idem_dedup_durable_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    },
+    {
+      "id": "positivo-clave-persistida",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/test_idem_dedup_durable_v1.py::test_positivo_clave_ya_persistida_devuelve_el_id_anterior"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negativo-clave-nueva-no-bloquea",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/test_idem_dedup_durable_v1.py::test_negativo_clave_nueva_no_bloquea_la_escritura"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-consulta-fuera-del-lock",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/test_idem_dedup_durable_v1.py::test_control_la_consulta_NO_corre_dentro_del_lock_de_la_cola"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "delivery": {
+    "status": "verified",
+    "evidence": "VERIFICADO POR EFECTO con el caso que refuta, no con el que confirma. Procedencia: /__version code_hash 30fc8f02d3ce == sha256 del archivo en disco; dos restarts por seal_safe_restart.sh con recibo de autonomia result=verified (20260904T051657-4f7ab723aa y 20260904T051808-f19090ae1c). PRUEBA: clave nexus-delivery-idem-1788499081 enviada a web_chat ANTES del reinicio -> fila 148091 con la clave persistida en metadata (verificado por consulta, coincide byte a byte). Reinicio (InvocationID 019bca13 -> 743e3fad, LRU en memoria vacio). Misma clave DESPUES -> {\"id\":\"api_nexus_1788499081366518524\",\"duplicate\":true,\"source\":\"db\"}: mismo id que antes del reinicio y source=db, que prueba que respondio la capa nueva y no el LRU. Ese es exactamente el caso que ANTES de este fix escribia una segunda fila. CONTROL ANTI-VACUO: clave nueva post-reinicio -> id nuevo, sin duplicate. La capa no deduplica todo. DOS ERRORES PROPIOS EN ESTA MISMA VERIFICACION, registrados porque casi cierran mal el brazo: (a) mi primer vehiculo fue un self-DM dm:NEXUS:NEXUS, que NO se persiste en chat_messages, asi que la capa no podia engancharse nunca y el fallo parecia del fix; (b) mi primera consulta imprimia 'NO' tanto si la fila no tenia la clave como si la fila NO EXISTIA -- el mismo colapso de dos estados en uno que vengo marcando toda la noche, esta vez mio. Separados los dos casos, el diagnostico cambio por completo. LIMITE ABIERTO: sin indice sobre metadata->>'idempotency_key' el SELECT barre la tabla (148 ms, 119.665 filas) y por eso corre fuera del lock con timeout de 0,5 s y fail-open. No pude crearlo: el owner de chat_messages es el rol `seal` y el pool admin de seal-chat es login_bus_admin, verificado comparando current_user con tableowner en vez de intentar el DDL. Es decision de William.",
+    "command": {
+      "id": "delivery-idem-dedup",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/test_idem_dedup_durable_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  },
+  "coverage": {
+    "source": [
+      "messages/chat_server.py"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "messages/test_idem_dedup_durable_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-chat-idem-dedup-durable.json"
+}

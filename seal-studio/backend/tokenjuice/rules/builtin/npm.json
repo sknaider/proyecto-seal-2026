@@ -1,0 +1,32 @@
+[
+  {
+    "id": "npm-install-compact",
+    "priority": 100,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["npm"],
+      "argv_includes": [["install"]]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 10,
+      "preserve_patterns": ["WARN", "ERR", "error", "npm warn", "npm error"]
+    },
+    "description": "Keep only first 10 lines of npm install, preserve warnings/errors"
+  },
+  {
+    "id": "npm-run-compact",
+    "priority": 90,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["npm"],
+      "argv_includes": [["run"]]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 50,
+      "preserve_patterns": ["error", "Error", "WARN", "warning"]
+    },
+    "description": "Keep first 50 lines of npm run output"
+  }
+]

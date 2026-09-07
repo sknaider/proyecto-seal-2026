@@ -19,6 +19,7 @@ Usage:
   python3 latent_graphmem_serve.py --self-test   # import + health check, no server
 """
 from __future__ import annotations
+from db import get_pool
 
 import argparse
 import asyncio
@@ -33,7 +34,6 @@ from typing import Any
 ADAPTER_DIR = Path(os.path.expanduser(
     os.environ.get("LATENT_ADAPTER_DIR", "~/IA/modelos/latent-graphmem-soul-v1/best")
 ))
-PG_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
 NEO4J_URI = "bolt://localhost:7687"
 NEO4J_AUTH = ("neo4j", "seal2026soul")
 
@@ -108,8 +108,7 @@ async def _load_model():
 async def _pg():
     global _pg_pool
     if _pg_pool is None:
-        import asyncpg
-        _pg_pool = await asyncpg.create_pool(PG_DSN, min_size=1, max_size=4)
+        _pg_pool = await get_pool()
     return _pg_pool
 
 

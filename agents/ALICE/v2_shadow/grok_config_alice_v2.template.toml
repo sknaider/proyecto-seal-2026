@@ -1,0 +1,56 @@
+# Plantilla del asiento «ALICE v2 = Grok Build + SOUL v2» — NO APLICADA (F2, JARVIS 2-sep-2026 23:23)
+#
+# Destino previsto: <workspace de ALICE v2>/.grok/config.toml  (scope de proyecto, NO ~/.grok/config.toml de William)
+# Claves verificadas en ~/.grok/docs/user-guide (13-memory: Force-Disable; 07-mcp: Configuration / HTTP transport).
+# `${VAR}` se expande al cargar en url/command/args/env/headers. `env` sólo aplica a stdio; para HTTP van `headers`.
+# El token NUNCA se escribe acá: viaja por la variable de entorno del proceso del asiento.
+
+# Cerebro: DECISIÓN DE WILLIAM 2-sep 23:41 «Alice usará Claude Opus 5» — una sola variable (arquitectura), no dos.
+# Grok soporta la Anthropic Messages API nativa (11-custom-models.md §Anthropic (Claude)): base_url + api_format
+# "messages" + clave por env_key. GATE human_only: hace falta una API key de Anthropic que hoy NO existe en la
+# máquina (sólo OAuth de Claude Code); la provee William por archivo 0600, nunca por chat ni en este TOML.
+[models]
+default = "claude-opus-5"
+
+[model.claude-opus-5]
+model = "claude-opus-5"
+base_url = "https://api.anthropic.com/v1"
+name = "ALICE v2 — Claude Opus 5"
+api_format = "messages"
+env_key = "SEAL_ANTHROPIC_API_KEY_ALICE_V2"
+extra_headers = { "anthropic-version" = "2023-06-01" }
+
+# Control local (sólo para pruebas de plomería sin gastar tokens; NO es el cerebro del experimento):
+[model.gemma4-26b-local]
+model = "ttempvnn/HauhauCS-Gemma4-26B-A4B-Uncensored-HauhauCS-Balanced-Q4-K-M:latest"
+base_url = "http://localhost:11434/v1"
+
+# ---- Memoria de Grok: APAGADA. El alma vive en SOUL (soul_v3), única fuente de verdad. ----
+[memory]
+enabled = false
+
+[memory.initial_injection]
+enabled = false
+
+[memory.dream]
+enabled = false
+
+[compaction.memory_flush]
+enabled = false
+
+# ---- SOUL por MCP: identidad, memoria, recall y continuidad de ALICE ----
+[mcp_servers.seal-memory]
+url = "http://127.0.0.1:8771/mcp"
+enabled = true
+
+[mcp_servers.seal-memory.headers]
+Authorization = "Bearer ${SEAL_MCP_TOKEN_ALICE_V2}"
+
+# ---- Gateway v2 (broker MCP de soul-v2-lab para el asiento ALICE): cuando ADA lo acuñe ----
+# [mcp_servers.soul-v2-gateway]
+# url = "<socket/URL del broker alice-v2>"
+# enabled = true
+
+# ---- Pendiente de MEDIR antes de encender: Grok lee hooks de .claude/settings.json por defecto ----
+# (absorcion_grok.md, supuesto 5). Si las capas SOUL input_injection_probe / output_action_guard disparan
+# bajo Grok, quedan encendidas (regla del skill adopcion-de-modelo: cerebro no medido = capas ON).

@@ -1,0 +1,129 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "seal-lifecycle-manual-state-20260903",
+  "owner": "ADA",
+  "independent_reviewer": "FABLE",
+  "_doc": [
+    "seal_lifecycle_controller.py: (1) DSN por seal_secrets fail-closed, el literal traia la contrasena vieja del rol seal y la unidad llevaba muerta desde 13:27 del 3-sep; (2) nuevo desired_state='manual': el controlador ni mata ni relanza a ese agente.",
+    "QUE LO GENERO: al reparar el DSN el reconciliador revivio y aplico agent_lifecycle.ADA=stopped (NEXUS, 12-jul) contra la sesion ADA Claude que William lanzo a las 14:56: SIGKILL al PID 914726 a las 15:02:01. William, 15:07: 'solo te usare de momentos y no quiero 2 adas'. running la relanzaria por seal_restart.sh ada al apagarla = segunda ADA.",
+    "QUE CUBRE: la funcion real reconcile_agent con espias en kill/launch/log_event: manual+viva no-op, manual+apagada no-op, controles stopped+viva mata y running+apagada relanza; y que el archivo no vuelva a llevar contrasena literal.",
+    "QUE NO CUBRE: la fila real de agent_lifecycle (se cambio por UPDATE con razon, changed_by ADA); el timer systemd; seal_restart.sh. RESIDUAL MEDIDO POR EL REVISOR: `desired_state` no tiene whitelist en el codigo ni CHECK constraint en agent_lifecycle (solo PRIMARY KEY (agent_name), verificado en pg_constraint). `agent` si esta validado (VALID_AGENTS, linea 148). Consecuencia: un typo tipo 'manaul' cae en el MISMO no-op silencioso que 'manual' y es indistinguible en el log. Ese es el generador del mutante sobreviviente. Seguimiento fuera de este cambio.",
+    "MUTANTES (medidos por FABLE, revisor independiente; corrigen la redaccion previa de ADA). Cada mutante se aplico en arbol AISLADO (copia de messages/ + memory/seal_secrets.py), nunca en el vivo. M0 quitar la rama explicita `if desired == \"manual\": return` -> 5 passed, SOBREVIVE: el fall-through ya era no-op. M1a solo ampliar el guard de kill a `desired != \"running\" and alive` -> 5 passed, SOBREVIVE. M2a solo ampliar el guard de launch a `desired != \"stopped\" and not alive` -> 5 passed, SOBREVIVE. M1b = M0+M1a -> 1 failed (test_manual_alive_is_noop). M2b = M0+M2a -> 1 failed (test_manual_dead_is_noop). M3 contrasena literal de vuelta -> 1 failed (test_dsn_no_literal_password). CONCLUSION QUE ESTO OBLIGA A CORREGIR: la rama de `manual` NO es solo documentacion defensiva. Ninguna edicion UNICA del guard de kill o de launch rompe el contrato mientras la rama exista: es la rama la que neutraliza M1a y M2a. Rama y fall-through son dos capas redundantes, y hace falta quitar LAS DOS para matar a ADA. Por eso la rama se conserva. La suite pinea el COMPORTAMIENTO (que es lo que protege a William), no la rama.",
+    "COMMIT CON --no-verify por orden de William ('commitea', 15:12), mismo precedente que 1581ebd19 (14:42). PENDIENTE: firma independiente de NEXUS o ALICE (review.status approved + receipt con sha256) y alta en quality/policy.json. No se registra en policy.json hasta la firma para no poner en rojo el audit global."
+  ],
+  "deletions": [],
+  "subjects": [
+    "messages/seal_lifecycle_controller.py"
+  ],
+  "tests": [
+    "messages/tests/test_seal_lifecycle_manual_state.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-dsn-sin-literal",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_seal_lifecycle_manual_state.py::test_dsn_no_literal_password"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-manual-viva-no-mata",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_seal_lifecycle_manual_state.py::test_manual_alive_is_noop"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-manual-apagada-no-relanza",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_seal_lifecycle_manual_state.py::test_manual_dead_is_noop"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-stopped-y-running-si-actuan",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_seal_lifecycle_manual_state.py::test_control_stopped_alive_kills",
+        "messages/tests/test_seal_lifecycle_manual_state.py::test_control_running_dead_launches"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/seal_lifecycle_controller.py"
+    ],
+    "omit": [
+      "messages/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-p",
+      "no:cacheprovider",
+      "messages/tests/test_seal_lifecycle_manual_state.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Tick real de seal-lifecycle 15:08:39 con el codigo nuevo y ADA=manual: sin linea para ADA; sesion ADA Claude PID 1139691 viva. Antes del cambio: 15:02:01 auto_killed PID 914726.",
+    "command": {
+      "id": "delivery-lifecycle-manual",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_seal_lifecycle_manual_state.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  },
+  "mutation_evidence": "quality/mutation-seal-lifecycle-manual-state-20260903.json",
+  "review": {
+    "status": "approved",
+    "evidence": "FABLE juez a demanda, revisor independiente (owner ADA != revisor FABLE), convocado por William 3-sep-2026. Todo recomputado por mi mano, nada aceptado de lo declarado.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "FABLE",
+      "evidence": "FABLE revisor independiente (owner ADA != revisor FABLE). Recomputado por mi: (1) sha256 de los 2 sujetos coinciden byte-exacto en las CUATRO fuentes: arbol vivo, sha256_sujetos.txt del expediente, copia del expediente y blob de git en 1934c429d. (2) 5 passed corridos por mi; los 4 comandos del manifiesto + el de delivery: 5/5 exit=0. (3) Mutacion medida por mi en arbol AISLADO, y CORRIGE la redaccion original del manifiesto: M1 y M2 tal como estaban escritos (una sola edicion del guard) SOBREVIVEN 5 passed, no matan; matan solo combinados con quitar la rama de manual (M1b y M2b -> 1 failed cada uno). M3 -> 1 failed. Esto invierte la conclusion declarada: la rama de manual NO es mera documentacion, es la capa que neutraliza cualquier ampliacion UNICA del guard de kill o launch. (4) Control positivo EN PRODUCCION, que es la evidencia mas fuerte del caso: agent_lifecycle.ADA='manual' (changed_by ADA, 2026-09-03T20:07:57.547281Z); 313 ticks reales del timer entre 15:08:09 y 17:44:16 Lima; cero eventos en lifecycle_events para ADA posteriores al cambio; PID 1139691 con SEAL_AGENT=ADA vivo. Antes del cambio: auto_killed PID 914726 a las 20:02:01Z. (5) Ruling sobre lifecycle_events: NO debe loguearse por tick (313 ticks en 2h36m = ~2900 filas/dia de ruido); la transicion YA queda durable en agent_lifecycle (changed_by/changed_at/reason, verificado). El silencio no es total y no bloquea. (6) Residual declarado, no bloqueante: desired_state sin whitelist en codigo ni CHECK en la tabla (pg_constraint: solo PRIMARY KEY) -> un typo cae en el mismo no-op silencioso. (7) Emiti ademas quality/mutation-seal-lifecycle-manual-state-20260903.json (seal.mutation-evidence.v1), que el gate exige porque messages/** es critical_path y el manifiesto no lo traia: sin ese artefacto el alta en policy.json falla con mutation_evidence_required_for_critical_subject.",
+      "reviewed_sha256": {
+        "messages/seal_lifecycle_controller.py": "e3196636cfffb0e3f3d66affbaf6b4d0f700c35de24289098f222812ca2a807b",
+        "messages/tests/test_seal_lifecycle_manual_state.py": "a1469efed74658382dec471712a5dc16b2bed88e7d93ce0a4025f7181360f632"
+      },
+      "manifest_digest": "1ff792f2b77b2328b821f8cd78bc536f9b87cb2ab149faff0683853c30390792"
+    }
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "schema": "seal.past-heldout.preregister.v1",
+  "status": "frozen_before_results",
+  "frozen_at_utc": "2026-08-20T05:45:00Z",
+  "custodian": "DARWIN",
+  "constructor_role": "dataset_assurance_not_final_reviewer",
+  "harness_commit": "b6d2eeaf3",
+  "dataset_path": "corpus_rsi/past_heldout_v1_dataset.json",
+  "dataset_sha256": "f9e8aea2b6d31ceff692c193550def0ea5abcd5f8b89b6e2066de6214794abab",
+  "pre_open_validation_history": [
+    {
+      "status": "aborted_before_model_execution",
+      "reason": "placebo p02 exceeded the preregistered 0.10 token tolerance and the name scanner used substring rather than token matching",
+      "evidence_written": false,
+      "resolution": "token-match p02 and correct the assurance scanner, then refreeze all affected hashes before opening results"
+    }
+  ],
+  "frozen_file_sha256": {
+    "memory/past_heldout_v1_runner.py": "cf86d70fa30fe2bcfd7636ae3090742bcab0a4dda034879f87bcb3d30841124f",
+    "memory/past_attribution_harness.py": "62b39f756d2c3aa9b1bac91f225e7e9b89a9f4a48fef4e1529255b9ca8b07de6",
+    "memory/past_live_adapter.py": "53d1a4b93f3f88718bc1478607c9d28c9876e9b6a167b6295a1118d3b2043391"
+  },
+  "runtime_contract": {
+    "model_id": "seal-deterministic-heldout-v1",
+    "model_sha256": "0864679dd70fd0d7658e96021b0ea99b71f48ca74ea563dce63e9b73f96e02cb",
+    "prompt_template_sha256": "c3dc7ba9604f864f96e87d979997798c125444e418e2bb5159d42a9e8d081736",
+    "grader_id": "seal-exact-token-grader-v1",
+    "grader_sha256": "dab932b05348d369d6f38d08b9db5f5429ca832fa5dd6c91994bfcc91fe8f8ea"
+  },
+  "assurance": {
+    "case_count": 8,
+    "arms": [
+      "persistence_on",
+      "persistence_off",
+      "placebo",
+      "delete",
+      "replace",
+      "corrupt"
+    ],
+    "classification": "fully_synthetic",
+    "live_database_allowed": false,
+    "network_allowed": false,
+    "private_memory_allowed": false,
+    "fable_subject_allowed": false,
+    "author_saw_dataset_during_harness_construction": false
+  },
+  "analysis_plan": {
+    "seed": 380491,
+    "trials_per_case": 5,
+    "pass_threshold": 0.8,
+    "minimum_effect": 0.8,
+    "minimum_expected_read_coverage": 1.0,
+    "placebo_token_tolerance": 0.1,
+    "primary_endpoint": "count of cases with verdict pathway_supported",
+    "success_threshold": "8 of 8 cases",
+    "required_verdict": "pathway_supported",
+    "expected_arm_scores": {
+      "persistence_on": 1.0,
+      "persistence_off": 0.0,
+      "placebo": 0.0,
+      "delete": 0.0,
+      "replace": 0.0,
+      "corrupt": 0.0
+    },
+    "positive_control": "persistence_on must score 1.0 for every case",
+    "negative_control": "persistence_off and placebo must score 0.0 for every case",
+    "non_vacuous_control": "positive and negative scores must differ for every case",
+    "missing_or_mismatched_hash_behavior": "fail before model execution and do not write evidence",
+    "multiple_comparison_adjustment": "not applicable: deterministic exact endpoints, no inferential p-values",
+    "analysis_changes_after_results": "forbidden for v1; any change requires a new version and new dataset"
+  },
+  "claim_policy": {
+    "allowed": "mechanism attribution at the frozen synthetic deterministic harness boundary",
+    "causal_proof_allowed": false,
+    "production_generalization_allowed": false,
+    "live_soul_claim_allowed": false,
+    "callback_attestation_is_independent": false
+  }
+}

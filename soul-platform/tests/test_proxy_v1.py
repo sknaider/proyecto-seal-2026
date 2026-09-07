@@ -1,17 +1,24 @@
 from __future__ import annotations
 
 import json
+import http.server
+import base64
+import sqlite3
 import sys
+import threading
 import types
 import uuid
 from pathlib import Path
 
 import httpx
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from soul_framework import Soul
 from soul_framework.config import SoulConfig
 
 from soul_platform.proxy import ProxySettings, create_app, run_proxy
+from soul_platform.auth import PrincipalTokenIssuer
 
 
 @pytest.fixture(autouse=True)
@@ -28,6 +35,35 @@ def _local_bge_stub(monkeypatch):
     monkeypatch.setattr(
         "soul_framework.embedding.bge_m3.BgeM3Embedding.embed_batch", embed_batch
     )
+    monkeypatch.setattr(
+        "soul_platform.local_embedding.LocalBgeM3Embedding.embed_batch", embed_batch
+    )
+    # Most proxy unit tests exercise T5 and persistence, not OS process
+    # identity.  Dedicated negative tests below keep the real default closed.
+    monkeypatch.setattr(
+        "soul_platform.proxy._default_upstream_attestor", lambda _settings: True
+    )
+
+
+async def test_private_context_is_blocked_when_live_runtime_attestation_fails(tmp_path):
+    settings = _settings(tmp_path)
+    captured = []
+    app = create_app(
+        settings,
+        upstream_transport=_transport(captured),
+        upstream_attestor=lambda _settings: False,
+    )
+    response = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {settings.read_token()}"},
+        json={"messages": [{"role": "user", "content": "¿Qué recuerdo?"}]},
+    )
+    assert response.status_code == 200
+    assert response.headers["X-Soul-Egress"] == "blocked-unattested-upstream"
+    assert response.headers["X-Soul-Memories"] == "0"
+    assert "Memorias relevantes" not in captured[0]["messages"][0]["content"]
 
 
 def _settings(tmp_path: Path, model: str = "brain-a") -> ProxySettings:
@@ -42,10 +78,33 @@ def _settings(tmp_path: Path, model: str = "brain-a") -> ProxySettings:
         port=11435,
         require_auth=True,
         token_file=token,
-        upstream_kind="openai-compatible",
+        upstream_kind="ollama",
         upstream_base_url="http://127.0.0.1:11434/v1",
         upstream_model=model,
+        t5_mode="compatibility-single-owner",
+        t5_tenant="local-machine",
+        t5_owner_subject="local-owner",
+        t5_state_db=tmp_path / "MachineSoul.t5-egress.sqlite3",
     )
+
+
+def _enforce_settings(tmp_path: Path, model: str = "brain-a"):
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    keys = tmp_path / "principal-keys.json"
+    keys.write_text(json.dumps({"principal-1": base64.b64encode(public).decode()}))
+    keys.chmod(0o600)
+    base = _settings(tmp_path, model)
+    settings = ProxySettings(
+        **{
+            **base.__dict__,
+            "t5_mode": "enforce",
+            "t5_tenant": "team",
+            "t5_owner_subject": "alice",
+            "t5_principal_keys_file": keys,
+        }
+    )
+    return settings, PrincipalTokenIssuer(private, "principal-1")
 
 
 def test_pythonw_without_stdio_disables_uvicorn_console_logging(tmp_path, monkeypatch):
@@ -148,10 +207,205 @@ async def test_auth_health_ready_and_no_secret_leak(tmp_path):
             ready = await client.get("/ready")
     assert denied.status_code == 401
     assert health.status_code == 200
-    assert health.json()["machine_soul_id"] == settings.machine_soul_id
+    assert health.json() == {"ok": True}
     assert settings.upstream_base_url not in health.text
     assert settings.read_token() not in health.text
-    assert ready.status_code == 200 and ready.json()["ready"] is True
+    assert ready.status_code == 200 and ready.json() == {"ready": True}
+
+
+async def test_enforce_rejects_missing_invalid_and_sessionless_principal_before_body(tmp_path):
+    settings, issuer = _enforce_settings(tmp_path)
+    app = create_app(settings, upstream_transport=_transport([]))
+    device = {"Authorization": f"Bearer {settings.read_token()}"}
+    missing = await _request(
+        app, "POST", "/v1/chat/completions", headers=device, content=b"not-json"
+    )
+    invalid = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers={**device, "X-Soul-Principal": "invalid"},
+        content=b"not-json",
+    )
+    sessionless = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers={
+            **device,
+            "X-Soul-Principal": issuer.issue(
+                "team", "alice", audience=settings.machine_soul_id
+            ),
+        },
+        content=b"not-json",
+    )
+    audienceless = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers={
+            **device,
+            "X-Soul-Principal": issuer.issue(
+                "team", "alice", session_id="signed-session"
+            ),
+        },
+        content=b"not-json",
+    )
+    assert (
+        missing.status_code,
+        invalid.status_code,
+        sessionless.status_code,
+        audienceless.status_code,
+    ) == (
+        401,
+        401,
+        401,
+        403,
+    )
+    assert missing.json()["detail"] == "signed SOUL principal required"
+    assert sessionless.json()["detail"] == "signed SOUL session required"
+    assert audienceless.json()["detail"] == "SOUL principal audience denied"
+
+
+async def test_enforce_filters_before_context_and_owner_metadata_cannot_pivot(tmp_path):
+    settings, issuer = _enforce_settings(tmp_path)
+    captured: list[dict] = []
+    app = create_app(settings, upstream_transport=_transport(captured))
+    device = {"Authorization": f"Bearer {settings.read_token()}"}
+    alice = issuer.issue(
+        "team", "alice", session_id="alice-session",
+        audience=settings.machine_soul_id,
+    )
+    bob = issuer.issue(
+        "team", "bob", session_id="bob-session",
+        audience=settings.machine_soul_id,
+    )
+
+    unsupported_owner = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers={**device, "X-Soul-Principal": alice},
+        json={
+            "messages": [{"role": "user", "content": "guardar"}],
+            "soul_memory": {
+                "content": "PRIVADO-ALICE-991",
+                "importance": 10,
+                "owner_subject": "bob",
+            },
+        },
+    )
+    assert unsupported_owner.status_code == 422
+
+    stored = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers={**device, "X-Soul-Principal": alice},
+        json={
+            "messages": [{"role": "user", "content": "guardar"}],
+            "soul_memory": {"content": "PRIVADO-ALICE-991", "importance": 10},
+        },
+    )
+    assert stored.status_code == 200
+    assert stored.headers["X-Soul-Store"] == "fact-stored"
+
+    bob_response = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers={**device, "X-Soul-Principal": bob},
+        json={"messages": [{"role": "user", "content": "PRIVADO-ALICE-991"}]},
+    )
+    bob_system = captured[-1]["messages"][0]["content"]
+    assert bob_response.status_code == 200
+    assert bob_response.headers["X-Soul-Memories"] == "0"
+    assert "PRIVADO-ALICE-991" not in bob_system
+    assert "contexto de identidad privado no autorizado" in bob_system
+
+    alice_response = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers={**device, "X-Soul-Principal": alice},
+        json={"messages": [{"role": "user", "content": "PRIVADO-ALICE-991"}]},
+    )
+    alice_system = captured[-1]["messages"][0]["content"]
+    assert alice_response.status_code == 200
+    assert int(alice_response.headers["X-Soul-Memories"]) >= 1
+    assert "PRIVADO-ALICE-991" in alice_system
+
+
+async def test_enforce_rejects_signed_principal_replayed_to_another_soul(tmp_path):
+    settings, issuer = _enforce_settings(tmp_path)
+    other = ProxySettings(
+        **{
+            **settings.__dict__,
+            "machine_soul_id": str(uuid.uuid4()),
+            "soul_db": tmp_path / "other" / "MachineSoul.db",
+            "token_file": tmp_path / "other" / "proxy.token",
+            "t5_state_db": tmp_path / "other" / "MachineSoul.t5-egress.sqlite3",
+        }
+    )
+    other.soul_db.parent.mkdir(parents=True)
+    other.token_file.write_text("different-local-device-token-00000000")
+    other.token_file.chmod(0o600)
+    token_for_first = issuer.issue(
+        "team", "alice", session_id="alice-session",
+        audience=settings.machine_soul_id,
+    )
+    app = create_app(other, upstream_transport=_transport([]))
+    response = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {other.read_token()}",
+            "X-Soul-Principal": token_for_first,
+        },
+        content=b"not-json",
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "SOUL principal audience denied"
+
+
+async def test_locked_mode_allows_brain_but_withholds_all_memory_and_writes(tmp_path):
+    base = _settings(tmp_path)
+    settings = ProxySettings(
+        **{
+            **base.__dict__,
+            "t5_mode": "locked",
+            "t5_tenant": "",
+            "t5_owner_subject": "",
+            "t5_principal_keys_file": None,
+        }
+    )
+    await _seed(settings)
+    captured: list[dict] = []
+    app = create_app(settings, upstream_transport=_transport(captured))
+    device = {"Authorization": f"Bearer {settings.read_token()}"}
+    chat = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers=device,
+        json={"messages": [{"role": "user", "content": "clave de continuidad"}]},
+    )
+    write = await _request(
+        app,
+        "POST",
+        "/v1/chat/completions",
+        headers=device,
+        json={
+            "messages": [{"role": "user", "content": "guardar"}],
+            "soul_memory": {"content": "Dato declarativo bloqueado.", "importance": 5},
+        },
+    )
+    assert chat.status_code == 200
+    assert chat.headers["X-Soul-Egress"] == "locked-no-verified-interlocutor"
+    assert chat.headers["X-Soul-Memories"] == "0"
+    assert "ORQUIDEA-127387" not in captured[-1]["messages"][0]["content"]
+    assert write.status_code == 403
 
 
 async def test_ready_rejects_reachable_upstream_without_configured_model(tmp_path):
@@ -159,11 +413,44 @@ async def test_ready_rejects_reachable_upstream_without_configured_model(tmp_pat
     app = create_app(settings, upstream_transport=_transport([]))
     response = await _request(app, "GET", "/ready")
     assert response.status_code == 503
-    assert response.json() == {
-        "ready": False,
-        "soul_loaded": True,
-        "brain_reachable": False,
-    }
+    assert response.json() == {"ready": False}
+
+
+async def test_upstream_ignores_environment_proxy_and_does_not_leak_key(
+    tmp_path, monkeypatch
+):
+    observed: list[tuple[str, str | None]] = []
+
+    class ProxyTrap(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            observed.append((self.path, self.headers.get("Authorization")))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'{"data":[{"id":"brain-a"}]}')
+
+        def log_message(self, _format, *args):
+            pass
+
+    trap = http.server.ThreadingHTTPServer(("127.0.0.1", 0), ProxyTrap)
+    thread = threading.Thread(target=trap.serve_forever, daemon=True)
+    thread.start()
+    try:
+        proxy_url = f"http://127.0.0.1:{trap.server_port}"
+        monkeypatch.setenv("HTTP_PROXY", proxy_url)
+        monkeypatch.setenv("ALL_PROXY", proxy_url)
+        monkeypatch.delenv("NO_PROXY", raising=False)
+        monkeypatch.delenv("no_proxy", raising=False)
+        monkeypatch.setenv("SOUL_PROXY_UPSTREAM_API_KEY", "TOPSECRET")
+        settings = ProxySettings(
+            **{**_settings(tmp_path).__dict__, "upstream_base_url": "http://127.0.0.1:9/v1"}
+        )
+        response = await _request(create_app(settings), "GET", "/ready")
+    finally:
+        trap.shutdown()
+        thread.join(timeout=2)
+        trap.server_close()
+    assert response.status_code == 503
+    assert observed == []
 
 
 async def test_same_soul_survives_model_switch_and_process_restart(tmp_path):
@@ -214,7 +501,7 @@ async def test_different_soul_is_negative_control(tmp_path):
     assert int(response.headers["X-Soul-Memories"]) == 0
 
 
-async def test_explicit_remember_header_persists_without_global_auto_store(tmp_path):
+async def test_explicit_remember_header_uses_ledger_not_semantic_memory(tmp_path):
     settings = _settings(tmp_path)
     captured: list[dict] = []
     app = create_app(settings, upstream_transport=_transport(captured))
@@ -226,17 +513,134 @@ async def test_explicit_remember_header_persists_without_global_auto_store(tmp_p
         headers={**auth, "X-Soul-Remember": "true"},
         json={"messages": [{"role": "user", "content": "LUCERO-127469"}]},
     )
-    recalled = await _request(
-        create_app(settings, upstream_transport=_transport(captured)),
+    assert stored.headers["X-Soul-Store"] == "ledger"
+    async with Soul.create(settings.soul_name, config=_soul_config(settings)) as soul:
+        assert await soul.memory.search("LUCERO-127469") == []
+    with sqlite3.connect(settings.conversation_ledger) as connection:
+        rows = connection.execute(
+            "SELECT content, previous_sha256, entry_sha256 FROM conversation_events"
+        ).fetchall()
+    assert rows[0][0] == "LUCERO-127469"
+    assert rows[0][1] == "0" * 64 and len(rows[0][2]) == 64
+
+
+async def test_tampered_conversation_ledger_fails_closed_on_restart(tmp_path):
+    settings = _settings(tmp_path)
+    auth = {"Authorization": f"Bearer {settings.read_token()}", "X-Soul-Remember": "true"}
+    await _request(
+        create_app(settings, upstream_transport=_transport([])),
+        "POST", "/v1/chat/completions", headers=auth,
+        json={"messages": [{"role": "user", "content": "original"}]},
+    )
+    with sqlite3.connect(settings.conversation_ledger) as connection:
+        connection.execute("UPDATE conversation_events SET content='alterado' WHERE id=1")
+    restarted = create_app(settings, upstream_transport=_transport([]))
+    with pytest.raises(ValueError, match="hash chain"):
+        async with restarted.router.lifespan_context(restarted):
+            pass
+
+
+async def test_conversation_ledger_head_detects_suffix_deletion(tmp_path):
+    settings = _settings(tmp_path)
+    auth = {"Authorization": f"Bearer {settings.read_token()}", "X-Soul-Remember": "true"}
+    app = create_app(settings, upstream_transport=_transport([]))
+    for content in ("uno", "dos"):
+        await _request(
+            app, "POST", "/v1/chat/completions", headers=auth,
+            json={"messages": [{"role": "user", "content": content}]},
+        )
+    with sqlite3.connect(settings.conversation_ledger) as connection:
+        connection.execute(
+            "DELETE FROM conversation_events WHERE id=(SELECT MAX(id) FROM conversation_events)"
+        )
+    restarted = create_app(settings, upstream_transport=_transport([]))
+    with pytest.raises(ValueError, match="head witness"):
+        async with restarted.router.lifespan_context(restarted):
+            pass
+
+
+async def test_explicit_fact_is_promoted_but_question_is_never_a_fact(tmp_path):
+    settings = _settings(tmp_path)
+    auth = {"Authorization": f"Bearer {settings.read_token()}"}
+    app = create_app(settings, upstream_transport=_transport([]))
+    stored = await _request(
+        app,
         "POST",
         "/v1/chat/completions",
-        headers=auth,
-        json={"messages": [{"role": "user", "content": "LUCERO-127469"}]},
+        headers={**auth, "X-Soul-Remember": "true"},
+        json={
+            "messages": [{"role": "user", "content": "¿Cómo me llamo?"}],
+            "soul_memory": {"content": "El usuario se llama William.", "importance": 10},
+        },
     )
-    assert stored.headers["X-Soul-Store"] == "stored"
-    assert recalled.headers["X-Soul-Store"] == "disabled"
-    assert int(recalled.headers["X-Soul-Memories"]) >= 1
-    assert "LUCERO-127469" in captured[-1]["messages"][0]["content"]
+    assert stored.headers["X-Soul-Store"] == "ledger+fact"
+    async with Soul.create(settings.soul_name, config=_soul_config(settings)) as soul:
+        hits = await soul.memory.search("nombre del usuario", limit=10)
+    assert any(hit.memory.content == "El usuario se llama William." for hit in hits)
+    assert all("¿Cómo me llamo?" not in hit.memory.content for hit in hits)
+
+
+async def test_question_cannot_be_promoted_as_fact(tmp_path):
+    settings = _settings(tmp_path)
+    response = await _request(
+        create_app(settings, upstream_transport=_transport([])),
+        "POST",
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {settings.read_token()}"},
+        json={
+            "messages": [{"role": "user", "content": "hola"}],
+            "soul_memory": {"content": "¿Vivo en México?", "importance": 9},
+        },
+    )
+    assert response.status_code == 422
+
+
+async def test_fact_success_reports_partial_ledger_failure_honestly(tmp_path, monkeypatch):
+    settings = _settings(tmp_path)
+    monkeypatch.setattr(
+        "soul_platform.proxy.ConversationLedger.append",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(sqlite3.OperationalError("full")),
+    )
+    response = await _request(
+        create_app(settings, upstream_transport=_transport([])),
+        "POST",
+        "/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {settings.read_token()}",
+            "X-Soul-Remember": "true",
+        },
+        json={
+            "messages": [{"role": "user", "content": "dato"}],
+            "soul_memory": {"content": "El código revisado es LUNA-42.", "importance": 8},
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["X-Soul-Store"] == "ledger-failed+fact-stored"
+
+
+async def test_ledger_success_reports_partial_fact_failure_honestly(tmp_path, monkeypatch):
+    settings = _settings(tmp_path)
+
+    async def fail_store(*_args, **_kwargs):
+        raise sqlite3.OperationalError("semantic store unavailable")
+
+    monkeypatch.setattr("soul_framework.memory.store.MemoryStore.store", fail_store)
+    response = await _request(
+        create_app(settings, upstream_transport=_transport([])),
+        "POST", "/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {settings.read_token()}",
+            "X-Soul-Remember": "true",
+        },
+        json={
+            "messages": [{"role": "user", "content": "dato"}],
+            "soul_memory": {"content": "El código revisado es SOL-43.", "importance": 8},
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["X-Soul-Store"] == "ledger+fact-failed"
+    with sqlite3.connect(settings.conversation_ledger) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM conversation_events").fetchone()[0] == 1
 
 
 async def test_invalid_remember_header_fails_closed(tmp_path):
@@ -453,9 +857,15 @@ def test_settings_reject_public_bind_remote_without_opt_in_and_weak_token(tmp_pa
     settings = _settings(tmp_path)
     with pytest.raises(ValueError, match="loopback"):
         ProxySettings(**{**settings.__dict__, "host": "0.0.0.0"}).validate()
+    with pytest.raises(ValueError, match="loopback"):
+        ProxySettings(**{**settings.__dict__, "host": "localhost"}).validate()
     with pytest.raises(ValueError, match="disabled"):
         ProxySettings(
             **{**settings.__dict__, "upstream_base_url": "https://example.com/v1"}
+        ).validate()
+    with pytest.raises(ValueError, match="disabled"):
+        ProxySettings(
+            **{**settings.__dict__, "upstream_base_url": "http://localhost:11434/v1"}
         ).validate()
     settings.token_file.write_text("weak")
     with pytest.raises(ValueError, match="32 bytes"):

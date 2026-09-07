@@ -24,7 +24,8 @@ while true; do
 
     echo "[SPECTRE] iniciando — $(date '+%Y-%m-%d %H:%M:%S')"
     "$VENV_PY" "$DAEMON" 2>&1 | tee -a "$LOG_DIR/spectre_$(date +%Y%m%d).log"
-    EXIT_CODE=$?
+    # El estado relevante es el del daemon, no el de tee.
+    EXIT_CODE=${PIPESTATUS[0]}
     echo "[SPECTRE] salió con código $EXIT_CODE — reiniciando en 5s..."
     sleep 5
 done

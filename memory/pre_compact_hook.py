@@ -22,6 +22,8 @@ from pathlib import Path
 
 from config import settings
 from hook_utils import detect_agent
+from compact_original_request import extract_original_request
+from compaction_metrics import construir, contar_transcript, registrar
 
 DB_URL = settings.pg_dsn
 MESSAGES_DIR = Path.home() / "IA/proyecto-seal/messages"
@@ -65,12 +67,18 @@ def extract_key_info(context: str) -> dict:
     return result
 
 
-async def save_pre_compact_state(context_summary: str) -> str:
+async def save_pre_compact_state(context_summary: str, original_request: str | None = None) -> str:
     """Guarda el estado actual antes de la compactación."""
     import asyncpg
 
     t0 = time.monotonic()
     agent = detect_agent()
+    if not agent:
+        # Fail-closed: una identidad declarada y desconocida no escribe el
+        # checkpoint de nadie. Sale ANTES de abrir la conexion.
+        import os as _os
+        return (f"[PreCompact] SEAL_AGENT={_os.environ.get('SEAL_AGENT','')!r} "
+                "fuera del roster — no guardo estado (fail-closed)")
     now = datetime.now(PERU_TZ)
     saved_items = []
 
@@ -142,6 +150,9 @@ async def save_pre_compact_state(context_summary: str) -> str:
             "emotional_state": emotional_state,
             "last_intention": last_intention[:300],
             "active_instincts": instinct_summary,
+            # Idea 5 de Bob: la compactación conserva lo RECIENTE; sin esto el
+            # objetivo original se pierde a los pocos ciclos y el trabajo deriva.
+            "original_request": original_request,
             **distill,
         }
         state_json = json.dumps(state_data, default=str)
@@ -155,6 +166,8 @@ async def save_pre_compact_state(context_summary: str) -> str:
                 updated_at = $3
         """, agent, state_json, now)
         saved_items.append("working_state")
+        if original_request:
+            saved_items.append("original_request")
 
         # 6. Session chain — flush turns + write digest (Capas 1+3)
         try:
@@ -205,10 +218,27 @@ def main():
     if not context:
         context = input_data.get("compact_summary", "")
 
+    # El harness entrega `transcript_path`; NO entrega sessionContext/summary/
+    # compact_summary. Medido el 4-sep-2026: por eso la extracción de arriba salía
+    # vacía en cada compactación. El pedido original se rescata del transcript.
+    transcript = input_data.get("transcript_path")
+    original_request = extract_original_request(transcript)
+
+    # Instrumentacion (idea 1 de Bob, reescrita). Medir NO puede romper la
+    # compactacion: contar_transcript y registrar fallan en silencio.
+    t_ini = time.monotonic()
     try:
-        result = asyncio.run(save_pre_compact_state(context))
+        result = asyncio.run(save_pre_compact_state(context, original_request))
     except Exception as e:
         result = f"[PreCompact] Exception: {e}"
+    registrar(construir(
+        "pre",
+        os.environ.get("SEAL_AGENT", ""),
+        duration_ms=int((time.monotonic() - t_ini) * 1000),
+        original_request_captured=bool(original_request),
+        trigger=input_data.get("trigger"),
+        **contar_transcript(transcript),
+    ))
 
     print(json.dumps({"systemMessage": result, "continue": True}))
 

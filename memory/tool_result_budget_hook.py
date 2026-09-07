@@ -1,139 +1,57 @@
 #!/usr/bin/env python3
-"""SEAL Tool Result Budget Hook — H2.6 (PostToolUse).
+"""SEAL Tool Result Budget Hook — H2.6 (PostToolUse). **INERTE A PROPÓSITO.**
 
-Trunca resultados grandes de herramientas para reducir tokens en contexto.
-Estrategia head+tail: preserva inicio y fin del output, omite el medio.
+Este hook NO recorta nada y no puede hacerlo. Se conserva como lápida: la idea
+vuelve sola cada vez que alguien mira la presión de contexto, y sin este registro
+se reimplementa desde cero. **Antes de revivirlo, leé las tres mediciones.**
 
-Herramienta  | Límite chars | Estrategia
--------------|-------------|------------------
-Read         | 8,000       | head(3K) + tail(500) + mensaje omitidos
-Grep         | 4,000       | head + "N matches más omitidos"
-Bash         | 6,000       | tail (lo relevante suele estar al final)
-WebFetch     | 5,000       | head + resumen sección omitida
-Default      | 10,000      | head truncado
+MEDICIÓN 1 — el schema no admite reemplazar el resultado (JARVIS + FABLE, 18-jul-2026)
+    PostToolUse `hookSpecificOutput` sólo acepta `hookEventName` y
+    `additionalContext`, y `additionalContext` AÑADE texto, no lo reemplaza.
+    Emitir `toolResponse` producía "Hook JSON output validation failed" en TODO
+    output que superara el presupuesto, en toda la flota. Como se rechazaba, el
+    recorte no se aplicaba nunca: outputs enteros y presión de contexto, una de
+    las causas del outage del 18-jul. **Un hook PostToolUse no puede achicar un
+    tool_result en este Claude Code.**
 
-ROI: -40-60% contexto en sesiones intensas de lectura.
+MEDICIÓN 2 — además fallaba antes de llegar a su lógica (ADA, 4-sep-2026)
+    El harness entrega `tool_response` como **dict**, no como str. El filtro
+    `not isinstance(tool_response, str)` cortaba en la línea anterior, así que
+    para Bash la función de presupuesto no se ejecutaba jamás. Sonda con la
+    forma real, tres llamadas del harness:
 
-Bypass: SEAL_TOOL_BUDGET_BYPASS=1 → no truncar.
-Archivos <2,000 chars → no truncar nunca.
+        Bash    dict    139
+        Bash    dict    168
+        Bash    dict    139
 
-Spec: agents/JARVIS/spec_tool_result_budget_h26.md
+    Dos causas de muerte independientes. Arreglar una sola no habría revivido nada.
+
+MEDICIÓN 3 — el harness YA hace lo que este hook quería (ADA, 4-sep-2026)
+    Es exactamente la idea 13 del análisis de Bob: guardar la salida completa y
+    mandar sólo el recorte con el puntero. Ya existe. Salida de 113,3 KB:
+
+        Output too large (113.3KB). Full output saved to:
+          .../tool-results/bghnqks4z.txt
+        Preview (first 2KB): ...
+
+    116.018 bytes en disco, 2 KB en contexto, sin volver a ejecutar el comando.
+    **No hay nada que adoptar acá: el recorte con puntero al original ya está.**
+
+DÓNDE SÍ FALTA, si alguien retoma el frente: en NUESTROS productores de salida
+(respuestas del MCP, scripts de auditoría), que es donde controlamos el texto.
+No en un hook PostToolUse.
+
 Owner: JARVIS (diseño) | ADA (implementación) — H2.6 — 2026-04-19
+Lápida: ADA, 4-sep-2026, cerrando la tarea 1698.
 """
 from __future__ import annotations
 
 import json
-import os
-import sys
-
-# Bypass global
-BYPASS = os.environ.get("SEAL_TOOL_BUDGET_BYPASS", "0") == "1"
-
-# Mínimo para no truncar nunca (output pequeño = no vale la pena)
-MIN_CHARS = 2_000
-
-# Límites por herramienta
-LIMITS: dict[str, int] = {
-    "Read":     8_000,
-    "Grep":     4_000,
-    "Bash":     6_000,
-    "WebFetch": 5_000,
-}
-DEFAULT_LIMIT = 10_000
-
-# Herramientas de escritura — nunca truncar
-SKIP_TOOLS = {"Write", "Edit", "mcp__filesystem__write_file", "mcp__filesystem__edit_file"}
-
-
-def truncate_head_tail(text: str, limit: int, head_ratio: float = 0.85) -> str:
-    """Trunca con estrategia head+tail. head_ratio = fracción para el inicio."""
-    if len(text) <= limit:
-        return text
-
-    head_size = int(limit * head_ratio)
-    tail_size = limit - head_size
-    omitted = len(text) - head_size - tail_size
-
-    head = text[:head_size]
-    tail = text[-tail_size:] if tail_size > 0 else ""
-
-    marker = f"\n\n... [{omitted:,} chars omitidos] ...\n\n"
-    header = f"[RESULT TRUNCADO: {len(text):,} chars → {limit:,}]\n\n"
-
-    return header + head + marker + tail
-
-
-def truncate_tail(text: str, limit: int) -> str:
-    """Para Bash: preserva el final (donde suelen estar errores/resultados)."""
-    if len(text) <= limit:
-        return text
-
-    omitted = len(text) - limit
-    tail = text[-limit:]
-    header = f"[RESULT TRUNCADO: {len(text):,} chars → {limit:,}. Inicio omitido ({omitted:,} chars).]\n\n"
-    return header + tail
-
-
-def truncate_head(text: str, limit: int) -> str:
-    """Para WebFetch/Default: preserva el inicio."""
-    if len(text) <= limit:
-        return text
-
-    omitted = len(text) - limit
-    head = text[:limit]
-    return head + f"\n\n... [{omitted:,} chars omitidos] ..."
-
-
-def apply_budget(tool_name: str, response: str) -> str | None:
-    """Aplica el presupuesto al response. Retorna texto truncado o None si no hay cambio."""
-    if len(response) <= MIN_CHARS:
-        return None
-
-    limit = LIMITS.get(tool_name, DEFAULT_LIMIT)
-    if len(response) <= limit:
-        return None
-
-    if tool_name == "Read":
-        return truncate_head_tail(response, limit)
-    elif tool_name == "Bash":
-        return truncate_tail(response, limit)
-    elif tool_name in ("WebFetch", "Grep"):
-        return truncate_head(response, limit)
-    else:
-        return truncate_head(response, DEFAULT_LIMIT)
 
 
 def main() -> None:
-    if BYPASS:
-        print(json.dumps({}))
-        return
-
-    try:
-        input_data = json.loads(sys.stdin.read())
-    except Exception:
-        print(json.dumps({}))
-        return
-
-    tool_name = input_data.get("tool_name", "")
-    tool_response = input_data.get("tool_response", "")
-
-    if tool_name in SKIP_TOOLS or not isinstance(tool_response, str):
-        print(json.dumps({}))
-        return
-
-    truncated = apply_budget(tool_name, tool_response)
-
-    if truncated is None:
-        print(json.dumps({}))
-        return
-
-    output = {
-        "hookSpecificOutput": {
-            "hookEventName": "PostToolUse",
-            "toolResponse": truncated,
-        }
-    }
-    print(json.dumps(output))
+    # No-op deliberado. Ver las tres mediciones del docstring antes de tocar esto.
+    print(json.dumps({}))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,64 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "alice-disk-alert-arenas-20260907",
+  "owner": "ALICE",
+  "_como_se_midio": "Arena por `seal_arena.sh new tools` (foto del INDICE via git write-tree). CONTROL POSITIVO antes de contar: sin mutar -> 12 passed. OJO: la primera tanda se DESCARTO porque la arena traia la version INDEXADA vieja del test -yo habia editado sin `git add`- y corrio 7 tests en vez de 12. La arena fotografia el indice, no el arbol: si editas y no indexas, mutas codigo viejo.",
+  "harness": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tools/tests/test_seal_disk_alert_v1.py"
+  ],
+  "control_sujeto_sin_mutar": {
+    "observed": "12 passed",
+    "result": "GREEN"
+  },
+  "file_sha256": {
+    "tools/seal_disk_alert.sh": "96c6ea29486fb964415c19a501ae7982ae08f3b4fe477e49a524a9b4dde655f8",
+    "tools/seal_arena.sh": "3b2f89b32ac9fe7ff852b518bfb5d1c5578ee0b02650c1698bfafea975fc430e",
+    "tools/tests/test_seal_disk_alert_v1.py": "6fe15b725cb397f787c4e92bd02dbe788aa54a5be22cba1ee9368b422a2d1541"
+  },
+  "total": 4,
+  "killed": 4,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "mutants": [
+    {
+      "id": "M1-umbral-invertido",
+      "author": "ALICE",
+      "mutation": "libre_gb -lt -> -gt",
+      "observed": "3 failed, 9 passed",
+      "result": "KILLED",
+      "why": "El aviso dispararia cuando SOBRA espacio y callaria cuando falta. Es el defecto que vuelve la alerta inutil sin que se note: sigue 'funcionando'."
+    },
+    {
+      "id": "M2-campos-cruzados",
+      "author": "ALICE",
+      "mutation": "'libres %s · uso %s%%' -> 'uso %s%% · libres %s'",
+      "observed": "2 failed, 10 passed",
+      "result": "KILLED",
+      "why": "Es EXACTAMENTE el bug que publique al canal a las 00:34 ('DISCO CRITICO uso 632G% libres 83') y que JARVIS y NEXUS tuvieron que desmentirle a William. El test existe porque ese fallo ya ocurrio en produccion."
+    },
+    {
+      "id": "M3-sin-memoria-de-nivel",
+      "author": "ALICE",
+      "mutation": "no persistir $nivel en el archivo de estado",
+      "observed": "1 failed, 11 passed",
+      "result": "KILLED",
+      "why": "Repetiria la misma alerta cada 10 min. Un vigilante que grita igual todo el tiempo se deja de leer: es el ruido que mi propio baseline del Pilar III midio en 77 %."
+    },
+    {
+      "id": "M4-drop-sin-guarda",
+      "author": "ALICE",
+      "mutation": "case /tmp/seal-arena-*) -> case *)",
+      "observed": "5 failed, 7 passed",
+      "result": "KILLED",
+      "why": "El mutante DEMOSTRO su punto destruyendo la arena: sin la guarda, el test que llama `drop ''` ejecuta `find '' -mindepth 1 -delete` y borra el directorio actual. Es el defecto real que tuve el 7-sep 01:22 y por el que JARVIS pidio mover la guarda al helper."
+    }
+  ]
+}

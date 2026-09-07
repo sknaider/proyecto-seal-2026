@@ -1,0 +1,32 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "ADA isolated-copy adversarial mutation harness rerun after durable receipt verification; Claude Sonnet independently reviewed the mutation contract and final cleanup-specific controls",
+  "workspace": "Seven isolated temporary copies of the final lab bytes; no provider credential or production resource was used by mutation tests.",
+  "killed": 7,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 7,
+  "mutation_score_percent": 100.0,
+  "reviewer": "CLAUDE-SONNET",
+  "file_sha256": {
+    "soul-platform/labs/real_models/README.md": "941ce47f5af0ec9e7e61ecfa9548fb0b548304bc8c63e8a33ec677ca72debd64",
+    "soul-platform/labs/real_models/container_probe.py": "6a5c15265681be802ccc2cd76360a043f5a720235f2ad88d3599c552c4904c87",
+    "quality/receipts/soul-real-models-container-lab-20260821.json": "75edd52dce1c89020618874d8e964d1e7d3e7691f0b806d50b3d043b6bf1dec6",
+    "soul-platform/labs/real_models/evidence/real-run-20260821.json": "5b52c6747b5fec95c994b63f4ab6f53c78ef093792b827249ed744a9ff69edec",
+    "soul-platform/labs/real_models/host_broker.py": "516e18f293b185b5331f746b4846a7b8e31095d8db44b0db41e6f5bed52f7ba7",
+    "soul-platform/labs/real_models/run_lab.py": "4edf94afd283f1a6141c0f7f213d16c808e170db360a93bf22470e64ce4156ad",
+    "soul-platform/labs/real_models/test_real_models_lab.py": "ceb05a55e5f4615b142569640a562c772195f21ecdd425710f0d772cd27037a5"
+  },
+  "mutants": [
+    {"id": "provider-allowlist-bypass", "result": "killed", "exit_code": 1, "mutant_sha256": "df17123dd5662509e44368265663d19ac276a569830c771b27eed617f716d27c"},
+    {"id": "network-none-removal", "result": "killed", "exit_code": 1, "mutant_sha256": "61b125ddfcb369c5df3acf94ba138a73073316f72a34171b1174f81283d4e931"},
+    {"id": "memory-field-confusion", "result": "killed", "exit_code": 1, "mutant_sha256": "c451a40e2b6c312761ff443330071b366dc66bcd1e31dcec7ee0b6a7eaeea8c7"},
+    {"id": "auth-before-body-bypass", "result": "killed", "exit_code": 1, "mutant_sha256": "5f8414644fbac97550cc4c315203f48e64d283f98ce6cc833158bb32934092f9"},
+    {"id": "codex-ephemeral-removal", "result": "killed", "exit_code": 1, "mutant_sha256": "59a91af942c03674be58490a58e834e9adb87820401684fd8dbd24c182c38579"},
+    {"id": "force-cleanup-removal", "result": "killed", "exit_code": 1, "mutant_sha256": "6a307be28dcdbd4f2edf399df468198ab5eba5be305e9e4101bf64702386c4a3"},
+    {"id": "cleanup-short-circuit", "result": "killed", "exit_code": 1, "mutant_sha256": "3c9ef509121124b5e4581aed890de5974d5bd212427d5190a0d6ab6328f6390e"}
+  ]
+}

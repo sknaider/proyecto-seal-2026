@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mcp-web-soul": {
+      "args": [
+        "-n",
+        "-u",
+        "seal-mcp-web-cdp",
+        "/usr/local/libexec/seal/seal-cdp-mcp-wrapper"
+      ],
+      "command": "/usr/bin/sudo"
+    }
+  }
+}

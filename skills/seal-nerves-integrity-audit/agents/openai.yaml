@@ -1,0 +1,4 @@
+interface:
+  display_name: "SEAL NERVES Integrity Audit"
+  short_description: "Audit JARVIS integrity findings safely"
+  default_prompt: "Use $seal-nerves-integrity-audit to diagnose a JARVIS integrity mission and return typed read-only evidence."

@@ -1,0 +1,82 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "Focused adversarial mutants executed on isolated copies; nonzero harness errors are suspicious, not counted as kills.",
+  "workspace": "MCP reset recovery plus active_recall lessons lane",
+  "killed": 24,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 24,
+  "mutation_score_percent": 100.0,
+  "reviewer": "JARVIS",
+  "file_sha256": {
+    "memory/mcp_server_v4.py": "d72718ac72d33134e2b083c57e4a65cccce1814b44796214d2561439d6efa9bf",
+    "memory/instinct_cron.py": "0a5eecdbb5cebe0d24104ec8c1f25436966c64b0b3bb7c9f2e14e462793da48f",
+    "memory/tests/check_mcp_surface_recovery_mutants.py": "9962bc82b39bbe07d7986a5597d4e4fe43932c77a9d6acc62de186b3e56399d1",
+    "memory/tests/check_recall_lessons_lane_mutants.py": "8fda6cdbd7add7077b6ed91867a00d85bed9c8e2f5c4eb768dea659263614e8a",
+    "tools/seal_memory_files_ingest.py": "ce3309d8697277fb3110aaf3bdc87f87d55e34db025825984a83f00d7dd729fb",
+    "memory/tests/test_mcp_surface_recovery_20260903.py": "a911ec93957f746133d92a0bbd5f87b448cfb84a57b6d3b5fe1ca8db05faf9ba",
+    "memory/tests/test_active_recall_hook.py": "64350b038ff9de0cd665c84894e4b7744ca3ad193ff4d88234cc6034a0584b3c",
+    "memory/tests/test_recall_lessons_lane.py": "976aab067d77ceb80a1ee1f24334a20afe1e76b27a35c81be19c89cee44da651",
+    "memory/tests/test_memory_files_ingest_author.py": "af375b27fd7eb2c9483730b9e8366be004b9482d5d0aa71329f1b4289b11d8ee"
+  },
+  "detail": {
+    "mcp_surface": {
+      "total": 11,
+      "killed": 11,
+      "survived": 0,
+      "suspicious": 0
+    },
+    "lessons_lane": {
+      "total": 8,
+      "killed": 8,
+      "survived": 0,
+      "suspicious": 0
+    },
+    "positive_controls": [
+      "unmutated MCP recovery 6/6 PASS",
+      "unmutated lessons lane 5/5 PASS"
+    ],
+    "negative_control": "broken import classified suspicious, never as killed",
+    "memory_files_ingest_author_tanda_owner_ADA": {
+      "total": 5,
+      "killed": 5,
+      "survived": 0,
+      "suspicious": 0,
+      "mutantes": [
+        "no lee author del frontmatter (el defecto original)",
+        "idempotencia solo por sha256 (el fix no repararia nada)",
+        "ingested_by vuelve al literal JARVIS",
+        "_norm_author copia el nombre crudo",
+        "el frontmatter pierde prioridad sobre el cuerpo"
+      ],
+      "_nota": "Corridos por ADA sobre copias aisladas en /tmp; el arbol vivo se verifico intacto despues."
+    }
+  },
+  "mutation_target": "isolated_copy",
+  "revision_independiente_JARVIS": {
+    "_doc": "Bloque del revisor; acompana la evidencia del owner, no la reemplaza. Mutantes sobre COPIA en tempdir.",
+    "canario": "raise al importar tools/seal_memory_files_ingest.py -> 1 error (la suite ejecuta el sujeto)",
+    "ronda_1": {
+      "control": "13 passed",
+      "muertos": [
+        "literal 'JARVIS' en ingested_by (1 failed)",
+        "autor buscado en el BODY (6 failed)",
+        "exige el campo SIN indentar (6 failed)"
+      ],
+      "sobrevivio": "quitar re.I: 'Author:' en mayuscula volvia a unknown y ningun test lo comprobaba"
+    },
+    "ronda_2": {
+      "control": "16 passed",
+      "muertos": [
+        "sin re.I (2 failed)",
+        "literal JARVIS (1 failed)",
+        "autor en el BODY (9 failed)"
+      ],
+      "resultado": "3 de 3; el sobreviviente de la ronda 1 ahora muere"
+    },
+    "atribucion": "el manifiesto declaraba independent_reviewer=JASON; me negue a firmar bajo un nombre ajeno y el owner lo corrigio a JARVIS"
+  }
+}

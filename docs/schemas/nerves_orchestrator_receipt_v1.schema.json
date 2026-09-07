@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seal.local/schemas/nerves_orchestrator_receipt_v1.schema.json",
+  "title": "SEAL NERVES native orchestrator receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "mission_id",
+    "idempotency_key",
+    "handoff_sha256",
+    "claim_id",
+    "worker_kind",
+    "worker_id",
+    "platform_worker_id",
+    "runtime_attestation",
+    "status",
+    "tools_used",
+    "evidence_sha256",
+    "provenance_sha256",
+    "started_at",
+    "finished_at",
+    "output",
+    "verifier_verdict"
+  ],
+  "properties": {
+    "schema": {
+      "const": "seal.nerves.orchestrator-receipt.v1"
+    },
+    "mission_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 160
+    },
+    "handoff_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "claim_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "worker_kind": {
+      "const": "native_subagent"
+    },
+    "worker_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9_.:@/+~-]+$"
+    },
+    "platform_worker_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9_.:@/+~-]+$"
+    },
+    "runtime_attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "profile",
+        "profile_sha256",
+        "tools_configured",
+        "skills_configured",
+        "mcp_servers_configured",
+        "max_turns",
+        "parent_transcript_prefix_sha256",
+        "parent_transcript_prefix_bytes",
+        "parent_transcript_snapshot_path",
+        "child_transcript_prefix_sha256",
+        "child_transcript_prefix_bytes",
+        "child_transcript_snapshot_path",
+        "child_agent_id",
+        "tool_events",
+        "hook_commands_observed"
+      ],
+      "properties": {
+        "platform": {
+          "const": "claude_code_agent_tool"
+        },
+        "profile": {
+          "const": "nerves-jarvis-reasoner"
+        },
+        "profile_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "tools_configured": {
+          "const": ["SendMessage"]
+        },
+        "skills_configured": {
+          "const": []
+        },
+        "mcp_servers_configured": {
+          "const": []
+        },
+        "max_turns": {
+          "const": 1
+        },
+        "parent_transcript_prefix_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "parent_transcript_prefix_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        },
+        "parent_transcript_snapshot_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "child_transcript_prefix_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "child_transcript_prefix_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        },
+        "child_transcript_snapshot_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "child_agent_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_.:@/+~-]+$"
+        },
+        "tool_events": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "const": "SendMessage:main"
+          }
+        },
+        "hook_commands_observed": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+          "pattern": "^(PreToolUse:Agent|SubagentStart|SubagentStop):[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "failed", "abstained"]
+    },
+    "tools_used": {
+      "type": "array",
+      "maxItems": 1,
+      "items": {
+        "const": "SendMessage"
+      }
+    },
+    "evidence_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "provenance_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "findings"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "findings": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      }
+    },
+    "verifier_verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "rationale"],
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "enum": ["accepted", "rejected", "abstained"]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        }
+      }
+    }
+  }
+}

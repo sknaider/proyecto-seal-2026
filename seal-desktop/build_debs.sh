@@ -21,6 +21,7 @@ rm -rf "$PKG/usr/share/seal-companion"
 mkdir -p "$PKG/usr/share/seal-companion"
 cp -r "$SCRIPT_DIR/companion_core/companion_core" "$PKG/usr/share/seal-companion/"
 cp "$SCRIPT_DIR/companion_core/requirements.txt" "$PKG/usr/share/seal-companion/"
+find "$PKG/usr/share/seal-companion" \( -type d -name '__pycache__' -o -type f -name '*.pyc' \) -prune -exec rm -rf {} +
 # Copy companion_core UI dist
 mkdir -p "$PKG/usr/share/seal-companion/ui"
 cp -r "$SCRIPT_DIR/companion_core/ui/dist/"* "$PKG/usr/share/seal-companion/ui/"

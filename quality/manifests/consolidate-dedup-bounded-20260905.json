@@ -1,0 +1,147 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "consolidate-dedup-bounded-20260905",
+  "owner": "JARVIS",
+  "independent_reviewer": "NEXUS",
+  "_doc": [
+    "Segunda pieza de seal-consolidate.service, sobre consolidate-live-schema-20260905 (paso 1).",
+    "La corrida del timer del 5-sep 03:04 paso el paso 1 y murio en el paso 2 por",
+    "TimeoutStartSec=600: merge_redundant hacia `memories a JOIN memories b` sobre 84.272 memorias",
+    "vivas con embeddings (3 workers, 13,5 s de CPU en 10 min: I/O). Primer OnFailure real que",
+    "disparo desde que ADA lo cableo esa noche.",
+    "",
+    "QUE CAMBIA: la fusion de duplicados queda ACOTADA a las memorias de las ultimas",
+    "`candidate_hours` (default 24, parametro $1) con una shortlist HNSW lateral de 64 vecinos por",
+    "memoria, candidato del mismo agente y categoria, similitud > 0.90, LIMIT 1 por memoria y 20",
+    "pares por corrida. Fail-closed: una ventana que no acota (0, negativa, None) levanta ValueError",
+    "antes de consultar. Ademas, una memoria invalidada en la corrida no vuelve a decidir ni a",
+    "conservarse (con la shortlist lateral el par puede venir dos veces).",
+    "",
+    "MEDIDO ANTES DE TOCAR EL CODIGO, contra la DB viva y sin escribir: la consulta acotada a 24 h",
+    "devuelve 20 pares en 1,6 s (7 dias: 25,4 s). El contrato viene de julio:",
+    "memory/test_consolidate_dedup_query.py (huerfano, sin implementacion hasta hoy).",
+    "",
+    "FUERA DE ALCANCE: los otros 5 tests huerfanos de julio (least-privilege, apply/approval/",
+    "rollback), migrate_sealcom.py:57 (escribe ref_id) y el TimeoutStartSec de la unidad, que no se",
+    "toca: con el paso 2 en segundos, 600 s vuelve a ser un techo razonable."
+  ],
+  "deletions": [],
+  "subjects": [
+    "memory/consolidate.py",
+    "quality/delivery_consolidate_dedup.sh"
+  ],
+  "tests": [
+    "memory/tests/test_consolidate_dedup_bounded_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-consolidate-dedup",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_consolidate_dedup_bounded_v1.py"
+      ]
+    },
+    {
+      "id": "positive-la-consulta-es-acotada-y-lateral",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_consolidate_dedup_bounded_v1.py::test_la_ventana_viaja_como_parametro_y_acota_por_created_at",
+        "memory/tests/test_consolidate_dedup_bounded_v1.py::test_la_shortlist_es_lateral_por_hnsw_y_no_un_join_cuadratico",
+        "memory/tests/test_consolidate_dedup_bounded_v1.py::test_el_candidato_es_del_mismo_agente_y_categoria"
+      ]
+    },
+    {
+      "id": "negative-ventana-que-no-acota-falla-cerrado",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_consolidate_dedup_bounded_v1.py::test_una_ventana_que_no_acota_falla_cerrado_sin_consultar",
+        "memory/tests/test_consolidate_dedup_bounded_v1.py::test_no_invalida_dos_veces_la_misma_memoria_en_una_corrida"
+      ]
+    },
+    {
+      "id": "control-la-fusion-conserva-la-mas-importante",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_consolidate_dedup_bounded_v1.py::test_conserva_la_mas_importante_e_invalida_la_otra",
+        "memory/tests/test_consolidate_dedup_bounded_v1.py::test_a_igual_importancia_conserva_a_e_invalida_b",
+        "memory/tests/test_consolidate_dedup_bounded_v1.py::test_dry_run_no_escribe"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "consolidate"
+    ],
+    "omit": [
+      "memory/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_consolidate_dedup_bounded_v1.py"
+    ],
+    "baseline_percent": 20.0,
+    "timeout": 300,
+    "_note": "Esta suite cubre merge_redundant; el resto de consolidate.py lo cubren sus propias piezas o no esta cubierto, y no se finge."
+  },
+  "mutation_evidence": "quality/mutation-consolidate-dedup-bounded-20260905.json",
+  "mutation_baseline_percent": 90.0,
+  "mutation_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "memory/tests/test_consolidate_dedup_bounded_v1.py"
+  ],
+  "review": {
+    "status": "approved",
+    "_solicitado_a": "NEXUS",
+    "_motivo": "Misma unidad y mismo revisor que la pieza 1; NEXUS midio el timeout de la corrida de las 03:04 en el canal.",
+    "evidence": "Revision independiente de NEXUS, 5-sep-2026. Copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas, y cada mutante verificado por DOS condiciones antes de correr: que el archivo CAMBIO y que COMPILA (ast.parse). Arbol vivo intacto.\n\nCONTROL: 8 passed. CANARIO (raise al importar): error de coleccion -> ejecuta el sujeto.\n\nMUTANTES:\n1. la ventana deja de ser obligatoria (`if False` en el guard): 1 failed. MUERE. Lo caza test_una_ventana_que_no_acota_falla_cerrado_sin_consultar. Es la propiedad que decide este manifiesto: sin cota, la consulta vuelve a ser la que mato la corrida de las 03:04.\n2. se quita el LIMIT 64 de la shortlist: 1 failed. MUERE. Lo caza test_la_shortlist_es_lateral_por_hnsw_y_no_un_join_cuadratico.\n3. el DEFAULT de candidate_hours pasa de 24 a None: 8 passed. EQUIVALENTE EN EFECTO, declarado, no contado como hueco.\n\nANALISIS DE EQUIVALENCIA DEL 3, medido y no supuesto: barri TODOS los llamadores de merge_redundant en el repo --run_consolidation:412, memory/test_consolidate_dedup_query.py y los seis del test nuevo-- y NINGUNO omite candidate_hours. El default no se ejerce por ninguna via viva, asi que cambiarlo no altera nada observable.\nOJO CON COMO SE LEE: mi primera lectura fue 'hueco de cobertura, el default no esta fijado'. Es FALSA, y la refuto el barrido de llamadores: no es que falte un test, es que no hay nada que testear. La diferencia importa --un hueco manda a alguien a escribir un test inutil--.\nLO QUE SI VALE DECLARAR: mientras el default no se ejerza es inofensivo; el dia que alguien llame a merge_redundant sin el argumento, el guard fail-closed lo detiene con un ValueError claro. La seguridad no depende del default sino del guard, y el guard SI esta cubierto por el mutante 1.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "e63ccfb0f8d0c1d45b063af7d48723df9e5852a0d7bf984e8d69e1c3b9a9c86e",
+      "reviewed_sha256": {
+        "memory/consolidate.py": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec",
+        "quality/delivery_consolidate_dedup.sh": "d8f22374085a127b14021d725f0d411333a991a91893f158cab1488398ecad57",
+        "memory/tests/test_consolidate_dedup_bounded_v1.py": "cf1306cd045f0e46be57a1bd9dbe573104d778f10c771302c7f45441e01424fe"
+      },
+      "evidence": "Revision independiente de NEXUS, 5-sep-2026. Copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas, y cada mutante verificado por DOS condiciones antes de correr: que el archivo CAMBIO y que COMPILA (ast.parse). Arbol vivo intacto.\n\nCONTROL: 8 passed. CANARIO (raise al importar): error de coleccion -> ejecuta el sujeto.\n\nMUTANTES:\n1. la ventana deja de ser obligatoria (`if False` en el guard): 1 failed. MUERE. Lo caza test_una_ventana_que_no_acota_falla_cerrado_sin_consultar. Es la propiedad que decide este manifiesto: sin cota, la consulta vuelve a ser la que mato la corrida de las 03:04.\n2. se quita el LIMIT 64 de la shortlist: 1 failed. MUERE. Lo caza test_la_shortlist_es_lateral_por_hnsw_y_no_un_join_cuadratico.\n3. el DEFAULT de candidate_hours pasa de 24 a None: 8 passed. EQUIVALENTE EN EFECTO, declarado, no contado como hueco.\n\nANALISIS DE EQUIVALENCIA DEL 3, medido y no supuesto: barri TODOS los llamadores de merge_redundant en el repo --run_consolidation:412, memory/test_consolidate_dedup_query.py y los seis del test nuevo-- y NINGUNO omite candidate_hours. El default no se ejerce por ninguna via viva, asi que cambiarlo no altera nada observable.\nOJO CON COMO SE LEE: mi primera lectura fue 'hueco de cobertura, el default no esta fijado'. Es FALSA, y la refuto el barrido de llamadores: no es que falte un test, es que no hay nada que testear. La diferencia importa --un hueco manda a alguien a escribir un test inutil--.\nLO QUE SI VALE DECLARAR: mientras el default no se ejerza es inofensivo; el dia que alguien llame a merge_redundant sin el argumento, el guard fail-closed lo detiene con un ValueError claro. La seguridad no depende del default sino del guard, y el guard SI esta cubierto por el mutante 1."
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Corrido por el owner el 5-sep 03:19 contra la DB VIVA sin escribir: ARM1 merge_redundant(dry_run=True, candidate_hours=24) devolvio 20 pares candidatos en 1,2 s (la version anterior murio a los 600 s); ARM2 candidate_hours=0 -> ValueError nombrando candidate_hours sin consultar; ARM3 EXPLAIN de la consulta usa idx_memories_embedding (HNSW).",
+    "command": {
+      "id": "delivery-consolidate-dedup",
+      "kind": "delivery",
+      "argv": [
+        "bash",
+        "quality/delivery_consolidate_dedup.sh"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "DELIVERY OK: 3/3 brazos"
+    }
+  }
+}

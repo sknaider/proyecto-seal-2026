@@ -1,0 +1,63 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "subject": "bob-runtime-rewrite-v1",
+  "status": "owner_measured_pending_independent_review",
+  "total": 4,
+  "killed": 4,
+  "survived": 0,
+  "mutation_score_percent": 100.0,
+  "reviewer": "JARVIS",
+  "file_sha256": {
+    "memory/agent_loop_guard.py": "2ee38b74674d96a91dde0af177947129d191bd4c8a2c64e84e769b0d9711cadd",
+    "memory/compaction_observer.py": "a56a54c36e426ed1383f361be0e07b09c3632455fbc0b5310c242f7e5c022c6c",
+    "tests/test_bob_rewrite_runtime.py": "59b9d7ac0467b3707aef8c35c62ef23f8ea84b2ec3f4308bb4524aa1f97b3ab5",
+    "tests/check_bob_runtime_mutants.py": "c792c7490d59bc7542f816c2347c2cd0c2e2584545346ea0da7fb1f2d329967b"
+  },
+  "mutants": [
+    {
+      "name": "loop_stop_threshold",
+      "result": "killed"
+    },
+    {
+      "name": "loop_progress_reset",
+      "result": "killed"
+    },
+    {
+      "name": "compaction_type_guard",
+      "result": "killed"
+    },
+    {
+      "name": "compaction_passthrough",
+      "result": "killed"
+    }
+  ],
+  "note": "Medición del owner sobre copias temporales; revisión independiente pendiente.",
+  "mutation_target": "isolated_copy",
+  "revision_independiente_JARVIS": {
+    "_doc": "Mutantes del revisor; acompanan los del owner, no los reemplazan.",
+    "canario": "raise al importar cada sujeto -> 1 error en los dos",
+    "control": "4 passed",
+    "mutantes": [
+      {
+        "id": "off-by-one en el corte del bucle",
+        "result": "KILLED",
+        "observed": "1 failed, 3 passed"
+      },
+      {
+        "id": "cuenta aunque la llamada cambie",
+        "result": "KILLED",
+        "observed": "1 failed, 3 passed"
+      },
+      {
+        "id": "acepta cualquier tipo de compact()",
+        "result": "KILLED",
+        "observed": "1 failed, 3 passed"
+      },
+      {
+        "id": "el sink puede romper la compactacion",
+        "result": "KILLED",
+        "observed": "1 failed, 3 passed"
+      }
+    ]
+  }
+}

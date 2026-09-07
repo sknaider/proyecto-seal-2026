@@ -1,0 +1,23 @@
+{
+  "schema": "seal.external-model-review-history.v1",
+  "reviewer": "CLAUDE-SONNET",
+  "subject": "soul-real-models-container-lab-20260821",
+  "method": "Independent static review of exact staged packets; the reviewer did not claim command execution.",
+  "passes": [
+    {
+      "result": "HOLD",
+      "output_sha256": "d647eb912dd1adfbd0c5f1f6c025b07b6b22c3e04e68faf61450ca944741fde0",
+      "finding": "Delivery evidence was circular and timeout cleanup could orphan a running container."
+    },
+    {
+      "result": "HOLD",
+      "output_sha256": "cf685498b42c3f92e50f318c6ac2a291ee864c92116cdeb895ae8b6c84e786d4",
+      "finding": "HMAC receipt fixed evidence binding, but one cleanup exception could suppress sibling cleanup."
+    },
+    {
+      "result": "APPROVED",
+      "output_sha256": "06d19c8ad32fe0b8f05f686d741d6e1d635b60844603d7b05b28e9be5ab33b4d",
+      "finding": "Exception-isolated cleanup plus the induced-failure regression test closed the remaining blocker."
+    }
+  ]
+}

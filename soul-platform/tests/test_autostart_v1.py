@@ -1,24 +1,56 @@
 from __future__ import annotations
 
+import base64
+import json
 import plistlib
+import socket
+import subprocess
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+
 from soul_platform.autostart import (
     AutostartContract,
-    _authenticated_probe,
     _clean_path,
-    _request_shutdown,
-    _windows_roaming_root,
     activate_descriptor,
     deactivate_descriptor,
-    descriptor_path,
     disable_descriptor,
-    disable_tray_descriptor,
     install_descriptor,
-    tray_descriptor_path,
+    stop_descriptor,
 )
+
+
+class _ProxyTrap(BaseHTTPRequestHandler):
+    captured: list[tuple[str, str | None]] = []
+
+    def _capture(self):
+        type(self).captured.append((self.path, self.headers.get("Authorization")))
+        self.send_response(200)
+        self.send_header("Content-Length", "2")
+        self.end_headers()
+        self.wfile.write(b"{}")
+
+    do_GET = _capture
+    do_POST = _capture
+
+    def log_message(self, *_args):
+        return
+
+
+def _start_proxy_trap(monkeypatch):
+    _ProxyTrap.captured = []
+    trap = ThreadingHTTPServer(("127.0.0.1", 0), _ProxyTrap)
+    thread = threading.Thread(target=trap.serve_forever, daemon=True)
+    thread.start()
+    proxy = f"http://127.0.0.1:{trap.server_port}"
+    for name in ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"):
+        monkeypatch.setenv(name, proxy)
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+    return trap, thread
 
 
 def _contract(tmp_path: Path, monkeypatch, **proxy_overrides) -> AutostartContract:
@@ -42,15 +74,12 @@ def _contract(tmp_path: Path, monkeypatch, **proxy_overrides) -> AutostartContra
         "[soul]\n"
         f'name = "MachineSoul"\ndb = "{data / "MachineSoul.db"}"\n'
         'machine_soul_id = "12345678-1234-5678-1234-567812345678"\n'
-        '[embedding]\nprovider = "bge-m3"\ndimensions = 1024\nmodel = "bge-m3"\n'
-        'url = "http://127.0.0.1:11434/api/embed"\ntimeout_seconds = 60\n'
-        'vector_index = "auto"\n'
         "[proxy]\n"
         + "\n".join(
-            f"{key} = {str(value).lower() if isinstance(value, bool) else repr(value)}"
+            f'{key} = {str(value).lower() if isinstance(value, bool) else repr(value)}'
             for key, value in proxy.items()
         )
-        + '\n[upstream]\nbase_url = "http://127.0.0.1:11434/v1"\nmodel = "brain"\n'
+        + "\n[upstream]\nbase_url = \"http://127.0.0.1:11434/v1\"\nmodel = \"brain\"\n"
     )
     config.chmod(0o600)
     return AutostartContract.load(config, python=str(python))
@@ -85,9 +114,7 @@ def test_autostart_rejects_weak_or_shared_token(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("platform", ["linux", "windows", "macos"])
-def test_install_is_per_user_and_disable_preserves_soul(
-    tmp_path, monkeypatch, platform
-):
+def test_install_is_per_user_and_disable_preserves_soul(tmp_path, monkeypatch, platform):
     contract = _contract(tmp_path, monkeypatch)
     home = tmp_path / "User Home"
     target = install_descriptor(contract, platform, home=home)
@@ -99,86 +126,10 @@ def test_install_is_per_user_and_disable_preserves_soul(
     assert contract.config.exists() and contract.token_file.exists()
 
 
-def test_windows_tray_descriptor_can_be_disabled_without_touching_soul(tmp_path):
-    home = tmp_path / "User Home"
-    target = tray_descriptor_path("windows", home)
-    assert target is not None
-    target.parent.mkdir(parents=True)
-    target.write_text("launcher")
-    soul_data = home / "soul.db"
-    soul_data.write_text("memory")
-    assert disable_tray_descriptor("windows", home=home) == target
-    assert not target.exists()
-    assert soul_data.read_text() == "memory"
-    assert disable_tray_descriptor("linux", home=home) is None
-
-
-def test_windows_startup_uses_redirected_appdata(tmp_path, monkeypatch):
-    redirected = tmp_path / "Redirected Roaming"
-    monkeypatch.setattr("soul_platform.autostart.sys.platform", "win32")
-    monkeypatch.setenv("APPDATA", str(redirected))
-    assert _windows_roaming_root(tmp_path / "home") == redirected
-    assert redirected in descriptor_path("windows", tmp_path / "home").parents
-    assert redirected in tray_descriptor_path("windows", tmp_path / "home").parents
-
-
-def test_ipv6_loopback_probe_and_shutdown_use_bracketed_urls(tmp_path, monkeypatch):
-    contract = _contract(tmp_path, monkeypatch, host="::1")
-    urls = []
-
-    class Response:
-        status = 200
-
-        def __init__(self, payload):
-            self.payload = payload
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def read(self):
-            return self.payload
-
-    def open_request(request, **_kwargs):
-        urls.append(request.full_url)
-        if request.full_url.endswith("/v1/models"):
-            return Response(b'{"object":"list","data":[{"id":"brain"}]}')
-        if request.full_url.endswith("/ready"):
-            return Response(b'{"ready":true}')
-        return Response(b"{}")
-
-    monkeypatch.setattr("soul_platform.autostart.urllib.request.urlopen", open_request)
-    _authenticated_probe(contract, timeout_seconds=0.1)
-    _request_shutdown(contract)
-    assert urls == [
-        "http://[::1]:11435/v1/models",
-        "http://[::1]:11435/ready",
-        "http://[::1]:11435/admin/shutdown",
-    ]
-
-
-def test_shutdown_read_timeout_defers_to_listener_stop_gate(tmp_path, monkeypatch):
+def test_descriptors_use_absolute_python_config_and_loopback_contract(tmp_path, monkeypatch):
     contract = _contract(tmp_path, monkeypatch)
-
-    def timed_out(*_args, **_kwargs):
-        raise TimeoutError("peer closed after accepting shutdown")
-
-    monkeypatch.setattr("soul_platform.autostart.urllib.request.urlopen", timed_out)
-    _request_shutdown(contract)
-
-
-def test_descriptors_use_absolute_python_config_and_loopback_contract(
-    tmp_path, monkeypatch
-):
-    contract = _contract(tmp_path, monkeypatch)
-    linux = install_descriptor(
-        contract, "linux", home=tmp_path / "linux-home"
-    ).read_text()
-    windows = install_descriptor(
-        contract, "windows", home=tmp_path / "win-home"
-    ).read_text()
+    linux = install_descriptor(contract, "linux", home=tmp_path / "linux-home").read_text()
+    windows = install_descriptor(contract, "windows", home=tmp_path / "win-home").read_text()
     mac = plistlib.loads(
         install_descriptor(contract, "macos", home=tmp_path / "mac-home").read_bytes()
     )
@@ -189,9 +140,13 @@ def test_descriptors_use_absolute_python_config_and_loopback_contract(
         assert "proxy.token" not in rendered
     assert "NoNewPrivileges=true" in linux
     assert "ProtectSystem=strict" in linux
-    assert "WScript.Shell" in windows and "pythonw.exe" not in windows
-    assert windows.count("Chr(34)") == 4
-    assert '-m" "soul_platform.proxy' in linux
+    windows_payload = json.loads(windows)
+    assert windows_payload["schema"] == "soul.windows-autostart.v2"
+    assert windows_payload["task_name"] == "SOUL Platform"
+    assert windows_payload["run_level"] == "LeastPrivilege"
+    assert windows_payload["hidden"] is True
+    assert windows_payload["restart_count"] == 3
+    assert "-m\" \"soul_platform.proxy" in linux
 
 
 def test_newline_in_path_is_rejected(tmp_path, monkeypatch):
@@ -199,9 +154,7 @@ def test_newline_in_path_is_rejected(tmp_path, monkeypatch):
         _clean_path(str(tmp_path / "safe") + "\nbad", "test.path")
 
 
-def test_symlinked_descriptor_parent_and_systemd_specifier_are_rejected_or_escaped(
-    tmp_path, monkeypatch
-):
+def test_symlinked_descriptor_parent_and_systemd_specifier_are_rejected_or_escaped(tmp_path, monkeypatch):
     contract = _contract(tmp_path, monkeypatch)
     home = tmp_path / "home"
     home.mkdir()
@@ -215,9 +168,7 @@ def test_symlinked_descriptor_parent_and_systemd_specifier_are_rejected_or_escap
     percent_root.mkdir()
     percent_root.chmod(0o700)
     percent_contract = _contract(percent_root, monkeypatch)
-    unit = install_descriptor(
-        percent_contract, "linux", home=tmp_path / "safe-home"
-    ).read_text()
+    unit = install_descriptor(percent_contract, "linux", home=tmp_path / "safe-home").read_text()
     assert "percent%%h" in unit
     assert "percent%h" not in unit.replace("percent%%h", "")
 
@@ -227,15 +178,18 @@ def test_linux_lifecycle_enables_starts_stops_and_preserves_data(tmp_path, monke
     home = tmp_path / "home"
     target = install_descriptor(contract, "linux", home=home)
     commands = []
+    scripts = []
 
     def fake_run(command, **kwargs):
         commands.append(command)
-        return SimpleNamespace(returncode=0)
+        scripts.append(kwargs.get("input_text", ""))
+        return SimpleNamespace(
+            returncode=0,
+            stdout="SOUL_TASK_RECEIPT_V1\nSOUL_PREVIOUS_TASK_XML=\n",
+        )
 
     monkeypatch.setattr("soul_platform.autostart._run", fake_run)
-    monkeypatch.setattr(
-        "soul_platform.autostart._authenticated_probe", lambda contract: None
-    )
+    monkeypatch.setattr("soul_platform.autostart._authenticated_probe", lambda contract: None)
     monkeypatch.setattr("soul_platform.autostart._wait_stopped", lambda contract: None)
     assert activate_descriptor(contract, "linux", home=home) == target
     assert ["systemctl", "--user", "enable", "--now", target.name] in commands
@@ -244,6 +198,290 @@ def test_linux_lifecycle_enables_starts_stops_and_preserves_data(tmp_path, monke
     assert ["systemctl", "--user", "disable", "--now", target.name] in commands
     assert not target.exists()
     assert contract.config.exists() and contract.token_file.exists()
+
+
+def test_stop_descriptor_stops_runtime_without_removing_descriptor(tmp_path, monkeypatch):
+    contract = _contract(tmp_path, monkeypatch)
+    home = tmp_path / "home"
+    target = install_descriptor(contract, "linux", home=home)
+    commands = []
+
+    def fake_run(command, **kwargs):
+        commands.append((command, kwargs))
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr("soul_platform.autostart._run", fake_run)
+    monkeypatch.setattr("soul_platform.autostart._wait_stopped", lambda contract: None)
+    stop_descriptor(contract, "linux", home=home)
+    assert commands == [
+        (["systemctl", "--user", "stop", target.name], {"check": False})
+    ]
+    assert target.exists()
+    assert contract.config.exists() and contract.token_file.exists()
+
+
+def test_windows_lifecycle_uses_limited_restartable_task_and_removes_legacy_launcher(
+    tmp_path, monkeypatch
+):
+    contract = _contract(tmp_path, monkeypatch)
+    home = tmp_path / "home"
+    target = install_descriptor(contract, "windows", home=home)
+    legacy = (
+        home
+        / "AppData"
+        / "Roaming"
+        / "Microsoft"
+        / "Windows"
+        / "Start Menu"
+        / "Programs"
+        / "Startup"
+        / "SOUL Platform.vbs"
+    )
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text("legacy")
+    commands = []
+    scripts = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        scripts.append(kwargs.get("input_text", ""))
+        return SimpleNamespace(
+            returncode=0,
+            stdout="SOUL_TASK_RECEIPT_V1\nSOUL_PREVIOUS_TASK_XML=\n",
+        )
+
+    monkeypatch.setattr("soul_platform.autostart._run", fake_run)
+    monkeypatch.setattr("soul_platform.autostart._request_shutdown", lambda contract: None)
+    monkeypatch.setattr("soul_platform.autostart._wait_stopped", lambda contract: None)
+    monkeypatch.setattr("soul_platform.autostart._authenticated_probe", lambda contract: None)
+
+    assert activate_descriptor(contract, "windows", home=home) == target
+    snapshot = scripts[0]
+    register = scripts[1]
+    assert commands[0][-2:] == ["-Command", "-"]
+    assert "SOUL_TASK_RECEIPT_V1" in snapshot
+    assert "Export-ScheduledTask" in snapshot
+    assert "New-ScheduledTaskTrigger -AtLogOn" in register
+    assert "WindowsIdentity]::GetCurrent" in register
+    assert "$identity.User.Value" in register
+    assert "S-1-5-18" in register
+    assert "-AtLogOn -User $sid" in register
+    assert "-RunLevel Limited" in register
+    assert "-RunLevel Highest" not in register
+    assert "New-ScheduledTaskSettingsSet -Hidden" in register
+    assert "-RestartCount 3" in register
+    assert "pythonw.exe" not in register
+    assert str(contract.python) in register
+    assert not legacy.exists()
+
+    assert deactivate_descriptor(contract, "windows", home=home) == target
+    remove = scripts[2]
+    assert "Unregister-ScheduledTask" in remove
+    assert not target.exists()
+    assert contract.config.exists() and contract.token_file.exists()
+
+
+def test_windows_task_quotes_hostile_config_as_one_argument(tmp_path, monkeypatch):
+    root = tmp_path / "hostile ' & $ ; path"
+    root.mkdir()
+    contract = _contract(root, monkeypatch)
+    from soul_platform.autostart import _windows_task_script
+
+    script = _windows_task_script(contract, action="register")
+    expected = subprocess.list2cmdline(
+        ["-m", "soul_platform.proxy", "--config", str(contract.config)]
+    ).replace("'", "''")
+    assert expected in script
+
+
+def test_windows_probe_failure_rolls_back_and_keeps_legacy(tmp_path, monkeypatch):
+    contract = _contract(tmp_path, monkeypatch)
+    home = tmp_path / "home"
+    install_descriptor(contract, "windows", home=home)
+    legacy = (
+        home / "AppData" / "Roaming" / "Microsoft" / "Windows"
+        / "Start Menu" / "Programs" / "Startup" / "SOUL Platform.vbs"
+    )
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text("legacy")
+    commands = []
+    scripts = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        scripts.append(kwargs.get("input_text", ""))
+        return SimpleNamespace(
+            returncode=0,
+            stdout="SOUL_TASK_RECEIPT_V1\nSOUL_PREVIOUS_TASK_XML=\n",
+        )
+
+    monkeypatch.setattr("soul_platform.autostart._run", fake_run)
+    monkeypatch.setattr("soul_platform.autostart._request_shutdown", lambda contract: None)
+    monkeypatch.setattr("soul_platform.autostart._wait_stopped", lambda contract: None)
+    monkeypatch.setattr(
+        "soul_platform.autostart._authenticated_probe",
+        lambda contract: (_ for _ in ()).throw(RuntimeError("probe failed")),
+    )
+    with pytest.raises(RuntimeError, match="probe failed"):
+        activate_descriptor(contract, "windows", home=home)
+    assert len(commands) == 3
+    rollback = scripts[2]
+    assert "Unregister-ScheduledTask" in rollback
+    assert legacy.exists()
+
+
+def test_windows_unregister_failure_retains_descriptor(tmp_path, monkeypatch):
+    contract = _contract(tmp_path, monkeypatch)
+    home = tmp_path / "home"
+    target = install_descriptor(contract, "windows", home=home)
+
+    def fail_remove(*_args, **_kwargs):
+        raise subprocess.CalledProcessError(1, "powershell.exe")
+
+    monkeypatch.setattr("soul_platform.autostart._run", fail_remove)
+    with pytest.raises(subprocess.CalledProcessError):
+        deactivate_descriptor(contract, "windows", home=home)
+    assert target.exists()
+
+
+def test_windows_probe_failure_does_not_hide_rollback_failure(tmp_path, monkeypatch):
+    contract = _contract(tmp_path, monkeypatch)
+    home = tmp_path / "home"
+    target = install_descriptor(contract, "windows", home=home)
+    calls = 0
+
+    def fail_rollback(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return SimpleNamespace(
+                returncode=0,
+                stdout="SOUL_TASK_RECEIPT_V1\nSOUL_PREVIOUS_TASK_XML=\n",
+            )
+        if calls == 2:
+            return SimpleNamespace(returncode=0, stdout="")
+        raise subprocess.CalledProcessError(1, "powershell.exe")
+
+    monkeypatch.setattr("soul_platform.autostart._run", fail_rollback)
+    monkeypatch.setattr("soul_platform.autostart._request_shutdown", lambda contract: None)
+    monkeypatch.setattr("soul_platform.autostart._wait_stopped", lambda contract: None)
+    monkeypatch.setattr(
+        "soul_platform.autostart._authenticated_probe",
+        lambda contract: (_ for _ in ()).throw(RuntimeError("probe failed")),
+    )
+    with pytest.raises(subprocess.CalledProcessError):
+        activate_descriptor(contract, "windows", home=home)
+    assert target.exists()
+
+
+def test_windows_task_receipt_is_fail_closed_and_restored_task_is_started(tmp_path, monkeypatch):
+    contract = _contract(tmp_path, monkeypatch)
+    from soul_platform.autostart import _previous_windows_task, _windows_task_script
+
+    with pytest.raises(RuntimeError, match="marker"):
+        _previous_windows_task("SOUL_PREVIOUS_TASK_XML=")
+    with pytest.raises(RuntimeError, match="incomplete"):
+        _previous_windows_task("SOUL_TASK_RECEIPT_V1")
+
+    xml = "<Task><Principals /></Task>"
+    encoded = base64.b64encode(xml.encode("utf-16le")).decode("ascii")
+    assert _previous_windows_task(
+        f"SOUL_TASK_RECEIPT_V1\nSOUL_PREVIOUS_TASK_XML={encoded}\n"
+    ) == xml
+    rollback = _windows_task_script(contract, action="rollback", previous_xml=xml)
+    assert "Register-ScheduledTask" in rollback
+    assert "Start-ScheduledTask" in rollback
+
+
+def test_windows_invalid_snapshot_receipt_mutates_nothing(tmp_path, monkeypatch):
+    contract = _contract(tmp_path, monkeypatch)
+    home = tmp_path / "home"
+    install_descriptor(contract, "windows", home=home)
+    commands = []
+    scripts = []
+    shutdown = []
+
+    def bad_snapshot(command, **kwargs):
+        commands.append(command)
+        scripts.append(kwargs.get("input_text", ""))
+        return SimpleNamespace(returncode=0, stdout="truncated")
+
+    monkeypatch.setattr("soul_platform.autostart._run", bad_snapshot)
+    monkeypatch.setattr(
+        "soul_platform.autostart._request_shutdown", lambda contract: shutdown.append(True)
+    )
+    with pytest.raises(RuntimeError, match="receipt marker"):
+        activate_descriptor(contract, "windows", home=home)
+    assert len(commands) == 1
+    snapshot = scripts[0]
+    assert "Export-ScheduledTask" in snapshot
+    assert "Register-ScheduledTask" not in snapshot
+    assert shutdown == []
+
+
+def test_shutdown_timeout_defers_to_port_stop_verification(tmp_path, monkeypatch):
+    contract = _contract(tmp_path, monkeypatch)
+    from soul_platform.autostart import _request_shutdown
+
+    monkeypatch.setattr(
+        "soul_platform.autostart._local_urlopen",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(TimeoutError("slow shutdown")),
+    )
+    # A timed-out response is ambiguous: caller must continue to _wait_stopped.
+    # The request helper therefore returns without misreporting success/failure.
+    assert _request_shutdown(contract) is None
+
+
+def test_authenticated_control_requests_ignore_proxy_environment(tmp_path, monkeypatch):
+    with socket.socket() as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        unavailable_port = reservation.getsockname()[1]
+    contract = _contract(tmp_path, monkeypatch, port=unavailable_port)
+    from soul_platform.autostart import _authenticated_probe, _request_shutdown
+
+    trap, thread = _start_proxy_trap(monkeypatch)
+    try:
+        with pytest.raises(RuntimeError, match="failed authenticated startup probe"):
+            _authenticated_probe(contract, timeout_seconds=0.05)
+        assert _request_shutdown(contract) is None
+    finally:
+        trap.shutdown()
+        thread.join(timeout=2)
+        trap.server_close()
+    assert _ProxyTrap.captured == []
+
+
+def test_windows_large_previous_xml_uses_stdin_and_recovers_launch_failure(
+    tmp_path, monkeypatch
+):
+    contract = _contract(tmp_path, monkeypatch)
+    home = tmp_path / "home"
+    install_descriptor(contract, "windows", home=home)
+    previous_xml = "<Task>" + ("x" * 100_000) + "</Task>"
+    encoded = base64.b64encode(previous_xml.encode("utf-16le")).decode("ascii")
+    calls = []
+
+    def transport(command, **kwargs):
+        calls.append((command, kwargs.get("input_text", "")))
+        if len(calls) == 1:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=f"SOUL_TASK_RECEIPT_V1\nSOUL_PREVIOUS_TASK_XML={encoded}\n",
+            )
+        if len(calls) == 2:
+            raise OSError("CreateProcess failed")
+        return SimpleNamespace(returncode=0, stdout="")
+
+    monkeypatch.setattr("soul_platform.autostart._run", transport)
+    monkeypatch.setattr("soul_platform.autostart._request_shutdown", lambda contract: None)
+    monkeypatch.setattr("soul_platform.autostart._wait_stopped", lambda contract: None)
+    with pytest.raises(OSError, match="CreateProcess"):
+        activate_descriptor(contract, "windows", home=home)
+    assert len(calls) == 3
+    assert all(sum(len(part) for part in command) < 256 for command, _script in calls)
+    assert len(calls[1][1]) > 100_000
+    assert "Register-ScheduledTask" in calls[2][1]
+    assert "Start-ScheduledTask" in calls[2][1]
 
 
 def test_failed_stop_retains_descriptor(tmp_path, monkeypatch):

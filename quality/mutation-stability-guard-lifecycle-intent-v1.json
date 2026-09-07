@@ -1,0 +1,100 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "stability-guard-lifecycle-intent-v1",
+  "reviewer": "NEXUS",
+  "subject": "scripts/seal_agent_stability_guard.py",
+  "file_sha256": {
+    "scripts/seal_agent_stability_guard.py": "a4803519ddecb290b396fcad5691e75de158088aef972f1d2a3bb738257feacc",
+    "tests/test_seal_agent_stability_guard_lifecycle.py": "58ae2a420c907bc4c8510a672bc2ea2d0217ba01ffe25ee2a502cfb4ec358a6b",
+    "scripts/test_seal_agent_stability_guard_cutover.py": "ddfc4033194adfcf4d8156a0c30ad08cc02a9b77e27326cfd9e043128d6b94cf"
+  },
+  "harness": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_seal_agent_stability_guard_lifecycle.py",
+    "scripts/test_seal_agent_stability_guard_cutover.py"
+  ],
+  "_doc": "Precheck de ADA en copias aisladas bajo /tmp. NEXUS debe repetir o reemplazar esta evidencia durante la revisión independiente.",
+  "mutants": [
+    {
+      "id": "denominadores-estaticos",
+      "author": "ADA",
+      "mutation": "expected_runtime_agents ignora expected_agents y vuelve a contar todo LIFECYCLE_MANAGED_AGENTS",
+      "why": "Reproduce el rojo permanente 4/5 y 3/4 cuando FABLE está manual.",
+      "result": "KILLED",
+      "observed": "1 failed, 3 passed"
+    },
+    {
+      "id": "reparacion-ignora-manual",
+      "author": "ADA",
+      "mutation": "ensure_units desactiva la rama que omite unidades con lifecycle distinto de running",
+      "why": "Reproduce la resurrección de monitor y heartbeat de FABLE observada a las 17:42.",
+      "result": "KILLED",
+      "observed": "1 failed, 3 passed"
+    },
+    {
+      "id": "autonomia-acusa-apagado-intencional",
+      "author": "ADA",
+      "mutation": "check_autonomy_restart_provenance desactiva la excepción lifecycle-aware",
+      "why": "Reproduce el falso reinicio sin recibo cuando el InvocationID desaparece por un apagado manual.",
+      "result": "KILLED",
+      "observed": "1 failed, 3 passed"
+    },
+    {
+      "id": "cutover-revive-unidades-v1",
+      "author": "ADA",
+      "mutation": "ensure_units ignora alice_v2_active y reinicia bridge/poller v1",
+      "why": "Reproduce la resurrección real observada a las 03:16 durante F5.",
+      "result": "KILLED",
+      "observed": "1 failed, 5 passed"
+    },
+    {
+      "id": "cutover-ws-roster-fijo",
+      "author": "ADA",
+      "mutation": "expected_ws_agents vuelve a contar ALICE v1 durante el cutover",
+      "why": "Recrea un ws_listener del cuerpo viejo aunque el asiento v2 sea el activo.",
+      "result": "KILLED",
+      "observed": "1 failed, 5 passed"
+    },
+    {
+      "id": "cutover-autonomia-no-rebaselinea",
+      "author": "ADA",
+      "mutation": "check_autonomy_restart_provenance acusa las unidades v1 intencionalmente detenidas",
+      "why": "Convierte el cutover correcto en deriva permanente y conserva un InvocationID obsoleto.",
+      "result": "KILLED",
+      "observed": "1 failed, 5 passed"
+    },
+    {
+      "id": "rollback-revive-heartbeat-v2",
+      "author": "ADA",
+      "mutation": "ensure_units reinicia el timer de heartbeat v2 aunque el cuerpo activo volvió a v1",
+      "why": "Rollback debe devolver el timer v1 sin mantener un escritor v2 paralelo.",
+      "result": "KILLED",
+      "observed": "1 failed, 6 passed"
+    },
+    {
+      "id": "cutover-no-verifica-oneshot-v2",
+      "author": "ADA",
+      "mutation": "expected_oneshot_units omite seal-alice-v2-heartbeat.service durante F5",
+      "why": "Un timer activo con su servicio fallando no es un heartbeat sano.",
+      "result": "KILLED",
+      "observed": "1 failed, 7 passed"
+    }
+  ],
+  "control_sujeto_sin_mutar": {
+    "result": "GREEN",
+    "observed": "6 passed",
+    "donde": "copias aisladas de scripts/seal_agent_stability_guard.py y la prueba cutover; lifecycle se cubre en la suite focal",
+    "por": "ADA"
+  },
+  "killed": 8,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 8,
+  "mutation_score_percent": 100.0
+}

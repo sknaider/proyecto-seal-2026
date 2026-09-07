@@ -1,0 +1,11 @@
+[Unit]
+Description=FABLE ledger — ingesta de veredictos y resolución de resultados (calibración del juez)
+Documentation=file:///home/dadito/IA/proyecto-seal/docs/specs/SPEC_FABLE_JUEZ_A_DEMANDA_v1.md
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/fable/fable_ledger.py ingest --days 7
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/fable/fable_ledger.py outcomes
+StandardOutput=append:/home/dadito/IA/proyecto-seal/messages/fable_ledger.log
+StandardError=append:/home/dadito/IA/proyecto-seal/messages/fable_ledger.log

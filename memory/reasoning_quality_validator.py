@@ -9,7 +9,7 @@ Basado en: KisMATH paper (Saha et al., 2026) — arxiv.org/abs/2507.11408
 """
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -265,6 +265,107 @@ def validate_trace(trace: str, question: str = "", conclusion: str = "") -> dict
         "node_count": report.node_count,
         "connected_count": report.connected_count,
     }
+
+
+MISSING_PREMISE_MARKERS = (
+    "assumed",
+    "assume",
+    "assumption",
+    "not verified",
+    "unverified",
+    "without verifying",
+    "without checking",
+    "missing premise",
+    "missing evidence",
+    "unknown",
+    "no evidence",
+    "no se verific",
+    "sin verificar",
+    "premisa faltante",
+    "falta evidencia",
+)
+
+
+def detect_missing_premise_gap(reasoning: str, premises: list[str] | None = None) -> dict[str, Any]:
+    """Detect obvious missing-premise markers in a stored reasoning trace."""
+    lower = (reasoning or "").lower()
+    markers = [marker for marker in MISSING_PREMISE_MARKERS if marker in lower]
+    premise_text = " ".join(str(p).lower() for p in (premises or []))
+    assumed_terms = re.findall(r"\b([a-z0-9_ -]{3,40}?)\s+(?:is|was|est[aá])\s+assumed\b", lower)
+    missing_terms = []
+    for term in assumed_terms:
+        cleaned = re.sub(r"\s+", " ", term).strip(" .:-")
+        if cleaned and cleaned not in premise_text:
+            missing_terms.append(cleaned)
+    detected = bool(markers or missing_terms)
+    return {
+        "missing_premise_detected": detected,
+        "markers": markers,
+        "missing_terms": missing_terms[:5],
+        "note": "missing verified premise before conclusion" if detected else "",
+    }
+
+
+def validate_trace_with_gap_awareness(
+    trace: str,
+    question: str = "",
+    conclusion: str = "",
+    premises: list[str] | None = None,
+) -> dict[str, Any]:
+    """Validate causal quality and add explicit missing-premise diagnosis."""
+    report = validate_trace(trace, question, conclusion)
+    gap = detect_missing_premise_gap(trace, premises)
+    report.update(gap)
+    if gap["missing_premise_detected"]:
+        report["quality_score"] = min(float(report.get("quality_score") or 0.0), 0.35)
+        report["gap_annotation"] = "[GAP: missing verified premise before conclusion]"
+    return report
+
+
+async def score_and_update_reasoning_trace(conn: Any, trace_id: int) -> dict[str, Any]:
+    """Score one reasoning_trace row and persist quality/gap annotation."""
+    row = await conn.fetchrow(
+        """
+        SELECT task, premises, reasoning, conclusion
+        FROM soul_v3.reasoning_traces
+        WHERE id=$1
+        """,
+        trace_id,
+    )
+    if not row:
+        raise ValueError(f"reasoning_trace not found: {trace_id}")
+    premises = row["premises"]
+    if isinstance(premises, str):
+        import json
+
+        premises = json.loads(premises)
+    premises = [str(p) for p in (premises or [])]
+    reasoning = row["reasoning"] or ""
+    report = validate_trace_with_gap_awareness(
+        reasoning,
+        row["task"] or "",
+        row["conclusion"] or "",
+        premises=premises,
+    )
+    updated_reasoning = reasoning
+    annotation = report.get("gap_annotation")
+    if annotation and annotation.lower() not in updated_reasoning.lower():
+        updated_reasoning = f"{updated_reasoning}\n{annotation}"
+    await conn.execute(
+        """
+        UPDATE soul_v3.reasoning_traces
+        SET causal_quality_score=$2,
+            exploration_regime=$3,
+            reasoning=$4,
+            updated_at=NOW()
+        WHERE id=$1
+        """,
+        trace_id,
+        float(report.get("quality_score") or 0.0),
+        report.get("exploration_regime") or "unknown",
+        updated_reasoning,
+    )
+    return report
 
 
 if __name__ == "__main__":

@@ -1,0 +1,29 @@
+{
+  "domain_separator_hex": "534f554c2d49442d4d414e49464553542d563100",
+  "vectors": [
+    {
+      "name": "numbers-and-string",
+      "value": {
+        "numbers": [333333333.3333333, 1e+30, 4.5, 0.002, 1e-27],
+        "string": "€$\u000f\nA\"\\/",
+        "literals": [null, true, false]
+      },
+      "canonical": "{\"literals\":[null,true,false],\"numbers\":[333333333.3333333,1e+30,4.5,0.002,1e-27],\"string\":\"€$\\u000f\\nA\\\"\\\\/\"}",
+      "domain_sha256": "sha256:4f77bbcbc53223d801bbecc53bac395fb731c3915b9de39874f5e8b04223a673"
+    },
+    {
+      "name": "utf16-order",
+      "value": {
+        "דּ": "hebrew",
+        "😀": "emoji",
+        "€": "euro",
+        "ö": "latin",
+        "": "control",
+        "1": "one",
+        "\r": "cr"
+      },
+      "canonical": "{\"\\r\":\"cr\",\"1\":\"one\",\"\":\"control\",\"ö\":\"latin\",\"€\":\"euro\",\"😀\":\"emoji\",\"דּ\":\"hebrew\"}",
+      "domain_sha256": "sha256:ad018669a525b25fb613b4d7b1b09004483d1fa5b5f46e8de4c4531089b4ac6e"
+    }
+  ]
+}

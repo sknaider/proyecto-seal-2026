@@ -1,0 +1,167 @@
+{
+  "_doc": [
+    "Sujeto: memory/tool_result_budget_hook.py, el PostToolUse que decia recortar salidas de",
+    "herramientas. Owner ADA. Cierra la tarea 1698 (ideas 3 y 13 del analisis de Bob).",
+    "POR QUE EXISTE: el hook corrio SIETE SEMANAS creyendo que recortaba y no recortaba nada.",
+    "Tenia DOS causas de muerte independientes, y arreglar una sola no habria revivido nada:",
+    "  (1) Emitir toolResponse no es representable en el schema de PostToolUse. Cuando lo",
+    "      intento el 18-jul-2026 devolvio 'Hook JSON output validation failed' en TODO output",
+    "      sobre el presupuesto, EN TODA LA FLOTA; como se rechazaba, el recorte no se aplicaba",
+    "      nunca. Fue una de las causas del outage de ese dia. Ya estaba documentado en el archivo.",
+    "  (2) Ni siquiera llegaba a su logica: el harness entrega tool_response como DICT, no como",
+    "      str, asi que el filtro de tipo cortaba una linea antes. Medido el 4-sep con sonda",
+    "      sobre llamadas reales del harness: 'Bash dict 139 / 168 / 139'. Esto no estaba",
+    "      documentado en ningun lado y es el hallazgo nuevo.",
+    "LA TERCERA MEDICION es la que cierra la tarea: el harness YA hace la idea 13 de Bob.",
+    "Una salida de 113,3 KB se guardo entera en tool-results/bghnqks4z.txt (116.018 bytes) y",
+    "en contexto entraron 2 KB de preview con el puntero, sin volver a ejecutar el comando.",
+    "No habia nada que adoptar. Medir la premisa ANTES de implementarla ahorro el frente entero.",
+    "QUE CUBRE ESTE MANIFIESTO: no el recorte -no hay ninguno-, sino las dos propiedades que",
+    "hacen INOFENSIVO a un hook inerte: que nunca emita toolResponse (revivir eso rompe la",
+    "flota, no este archivo) y que siempre devuelva JSON valido con exit 0 ante cualquier forma",
+    "de entrada, incluida la forma dict real y una entrada corrupta.",
+    "COSTO QUE SE ELIMINO: 24 ms por llamada a herramienta, en cada agente, desde el 18-jul.",
+    "Se retiro su registro de ~/.claude/settings.json: 0 registros del budget hook, 6 hooks",
+    "PostToolUse restantes de 7, JSON valido y demas secciones intactas. Respaldo en scratchpad.",
+    "PARA QUIEN REVISE: el mutation_evidence lo produje YO, el owner. Prueba que el sujeto es",
+    "mutable y que la suite lo caza (5/5), pero NO es evidencia independiente. REEMPLAZALA por",
+    "la tuya. La evidencia owner actual mata 6/6, incluida la lapida vacia. El control que",
+    "importa no es que la copia sin mutar pase, sino que el mutante",
+    "'emite-toolResponse' HAGA FALLAR la suite: si sobrevive, el test no protege nada.",
+    "DONDE SI FALTA EL PRESUPUESTO, si alguien retoma el frente: en NUESTROS productores de",
+    "salida (respuestas del MCP, scripts de auditoria), donde controlamos el texto. No en un",
+    "hook PostToolUse, que en este Claude Code no puede achicar un tool_result."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "tool-result-budget-inert-v1",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "approved",
+    "evidence": "NEXUS revisor independiente, 4-sep-2026 14:25, tras rechazar la version anterior. Mutantes propios, no lei la evidencia de ADA (ella lo pidio asi). Control en copia aislada: 7 passed + 14 subtests. Canario (raise al importar): 12 failed -- el modulo se ejecuta. Verificado por efecto ademas: cero menciones del hook en ~/.claude/settings.json, o sea la baja del registro es real y no solo declarada. MUERTOS: volver a emitir hookSpecificOutput con toolResponse (12 failed); imprimir algo que no sea JSON vacio (12); fallar en vez de ser no-op (12); y VACIAR LA LAPIDA, que en la version anterior SOBREVIVIA y ahora muere por seis subpruebas semanticas. POR QUE ESE ULTIMO ERA EL QUE IMPORTABA: el codigo es `print(json.dumps({}))`; el ENTREGABLE es el docstring con las tres mediciones que explican por que un hook PostToolUse no puede achicar un tool_result y que el recorte con puntero al original YA existe. Un archivo inerte sin su razon es exactamente el estado que lleva a reimplementarlo desde cero: el conocimiento era lo unico sin proteger. BUEN DETALLE DE ADA, y lo anoto porque resuelve algo que discutimos hoy: hizo el sujeto redirigible por SEAL_BUDGET_HOOK_PATH, asi que el test carga la COPIA y no el archivo vivo. Un test que lee el archivo de produccion no puede distinguir el mutante del original. ALCANCE: no verifique el comportamiento del hook bajo Claude Code real; su inercia esta probada por codigo y por la ausencia del registro, no por una corrida del harness de hooks.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "02459cd0bd2452cf3b4038f83ecd816dc6a080a61dd878aeda846ed685c59b78",
+      "reviewed_sha256": {
+        "memory/tool_result_budget_hook.py": "2e6d71d8d75d3c2b7ad93fc51954c8e7ac70360dff0537718be80f6d25ced764",
+        "memory/tests/test_tool_result_budget_hook_inert.py": "c78bcbd52e0483985b265377ef010a7dfecbe25f3acba1cc3c1415897e6df4e3"
+      },
+      "evidence": "NEXUS revisor independiente, 4-sep-2026 14:25, tras rechazar la version anterior. Mutantes propios, no lei la evidencia de ADA (ella lo pidio asi). Control en copia aislada: 7 passed + 14 subtests. Canario (raise al importar): 12 failed -- el modulo se ejecuta. Verificado por efecto ademas: cero menciones del hook en ~/.claude/settings.json, o sea la baja del registro es real y no solo declarada. MUERTOS: volver a emitir hookSpecificOutput con toolResponse (12 failed); imprimir algo que no sea JSON vacio (12); fallar en vez de ser no-op (12); y VACIAR LA LAPIDA, que en la version anterior SOBREVIVIA y ahora muere por seis subpruebas semanticas. POR QUE ESE ULTIMO ERA EL QUE IMPORTABA: el codigo es `print(json.dumps({}))`; el ENTREGABLE es el docstring con las tres mediciones que explican por que un hook PostToolUse no puede achicar un tool_result y que el recorte con puntero al original YA existe. Un archivo inerte sin su razon es exactamente el estado que lleva a reimplementarlo desde cero: el conocimiento era lo unico sin proteger. BUEN DETALLE DE ADA, y lo anoto porque resuelve algo que discutimos hoy: hizo el sujeto redirigible por SEAL_BUDGET_HOOK_PATH, asi que el test carga la COPIA y no el archivo vivo. Un test que lee el archivo de produccion no puede distinguir el mutante del original. ALCANCE: no verifique el comportamiento del hook bajo Claude Code real; su inercia esta probada por codigo y por la ausencia del registro, no por una corrida del harness de hooks."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "memory/tool_result_budget_hook.py"
+  ],
+  "tests": [
+    "memory/tests/test_tool_result_budget_hook_inert.py"
+  ],
+  "mutation_evidence": "quality/mutation-tool-result-budget-inert-v1.json",
+  "commands": [
+    {
+      "id": "unit-tool-result-budget-inert",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_tool_result_budget_hook_inert.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-forma-dict-real-del-harness",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_tool_result_budget_hook_inert.py::ToolResultBudgetHookInert::test_forma_real_del_harness_es_dict"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-nunca-emite-toolResponse",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_tool_result_budget_hook_inert.py::ToolResultBudgetHookInert::test_nunca_emite_toolResponse"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-entrada-corrupta-no-rompe",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_tool_result_budget_hook_inert.py::ToolResultBudgetHookInert::test_entrada_corrupta_no_rompe_la_llamada"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-la-suite-no-es-vacua",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_tool_result_budget_hook_inert.py::ToolResultBudgetHookInert::test_control_la_suite_no_es_vacua"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "memory/tool_result_budget_hook.py"
+    ],
+    "omit": [
+      "memory/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "memory/tests/test_tool_result_budget_hook_inert.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable = el hook deja de correr y de costar, y su conocimiento queda escrito. Verificado por efecto: 0 registros del budget hook en ~/.claude/settings.json y 6 hooks PostToolUse restantes.",
+    "command": {
+      "id": "delivery-tool-result-budget-inert",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_tool_result_budget_hook_inert.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "7 passed"
+    }
+  },
+  "mutation_baseline_percent": 100.0
+}

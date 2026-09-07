@@ -15,13 +15,20 @@ import json
 import os
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch, MagicMock
+
+MEMORY_DIR = Path(__file__).resolve().parents[1]
+if str(MEMORY_DIR) not in sys.path:
+    sys.path.insert(0, str(MEMORY_DIR))
+
+from seal_secrets import pg_dsn
 
 # Ensure the hook module is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from active_recall_hook import detect_agent, active_recall, main
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = pg_dsn(required=True)
 
 
 # ─── Unit tests: detect_agent ────────────────────────────────────────────────
@@ -56,13 +63,13 @@ class TestDetectAgent(unittest.TestCase):
                     result = detect_agent()
                     assert result is None
 
-    def test_cwd_memory_returns_jarvis(self):
+    def test_cwd_memory_is_shared_and_returns_none(self):
         env = {k: v for k, v in os.environ.items() if k != "SEAL_AGENT"}
         with patch.dict(os.environ, env, clear=True):
             with patch("builtins.open", side_effect=Exception("no proc")):
                 with patch("os.getcwd", return_value="/home/dadito/IA/proyecto-seal/memory"):
                     result = detect_agent()
-                    assert result == "JARVIS"
+                    assert result is None
 
     def test_cwd_alice_returns_alice(self):
         env = {k: v for k, v in os.environ.items() if k != "SEAL_AGENT"}
@@ -78,53 +85,60 @@ class TestDetectAgent(unittest.TestCase):
 class TestActiveRecallIntegration(unittest.IsolatedAsyncioTestCase):
     """Integration tests — hit real DB at :5433."""
 
+    JARVIS_MARKER = "CORE_GUARD_JARVIS_TEST_CORRECTION_20260903"
+    ADA_MARKER = "CORE_GUARD_ADA_TEST_CORRECTION_20260903"
+    INSTINCT_MARKER = "CORE_GUARD_JARVIS_TEST_TRIGGER_20260903"
+
     async def asyncSetUp(self):
         import asyncpg
         self.conn = await asyncpg.connect(DB_URL)
-        # Insert isolated test data for JARVIS_TEST agent (won't collide)
+        # Use existing FK-valid agents with exact, uniquely-scoped markers.
         await self.conn.execute("""
             INSERT INTO memories(agent, category, content, importance)
-            VALUES ('JARVIS_TEST', 'correction', 'JARVIS test correction content', 9)
-            ON CONFLICT DO NOTHING
-        """)
+            VALUES ('JARVIS', 'correction', $1, 10)
+        """, self.JARVIS_MARKER)
         await self.conn.execute("""
             INSERT INTO memories(agent, category, content, importance)
-            VALUES ('ADA_TEST', 'correction', 'ADA test correction content', 9)
-            ON CONFLICT DO NOTHING
-        """)
+            VALUES ('ADA', 'correction', $1, 10)
+        """, self.ADA_MARKER)
         await self.conn.execute("""
-            INSERT INTO instincts(agent, trigger_condition, response, confidence, active)
-            VALUES ('JARVIS_TEST', 'test trigger', 'test response', 0.95, true)
-            ON CONFLICT DO NOTHING
-        """)
+            INSERT INTO instincts(agent, trigger_condition, action, strength)
+            VALUES ('JARVIS', $1, 'test response', 0.95)
+        """, self.INSTINCT_MARKER)
 
     async def asyncTearDown(self):
-        await self.conn.execute("DELETE FROM memories WHERE agent IN ('JARVIS_TEST', 'ADA_TEST')")
-        await self.conn.execute("DELETE FROM instincts WHERE agent = 'JARVIS_TEST'")
+        await self.conn.execute(
+            "DELETE FROM memories WHERE content = ANY($1::text[])",
+            [self.JARVIS_MARKER, self.ADA_MARKER],
+        )
+        await self.conn.execute(
+            "DELETE FROM instincts WHERE trigger_condition = $1",
+            self.INSTINCT_MARKER,
+        )
         await self.conn.close()
 
     async def test_corrections_filtered_by_agent(self):
         """JARVIS_TEST sees its own corrections, not ADA_TEST's."""
-        with patch("active_recall_hook.detect_agent", return_value="JARVIS_TEST"):
+        with patch("active_recall_hook.detect_agent", return_value="JARVIS"):
             result = await active_recall("test prompt for recall")
-        assert "JARVIS test correction content" in result
-        assert "ADA test correction content" not in result
+        assert self.JARVIS_MARKER in result
+        assert self.ADA_MARKER not in result
 
     async def test_cross_agent_isolation(self):
         """ADA_TEST corrections do NOT appear in JARVIS_TEST recall."""
-        with patch("active_recall_hook.detect_agent", return_value="JARVIS_TEST"):
+        with patch("active_recall_hook.detect_agent", return_value="JARVIS"):
             result = await active_recall("checking isolation")
-        assert "ADA test correction content" not in result
+        assert self.ADA_MARKER not in result
 
     async def test_instincts_filtered_by_agent(self):
         """Instincts appear for the correct agent."""
-        with patch("active_recall_hook.detect_agent", return_value="JARVIS_TEST"):
+        with patch("active_recall_hook.detect_agent", return_value="JARVIS"):
             result = await active_recall("trigger something")
-        assert "test trigger" in result or "test response" in result
+        assert self.INSTINCT_MARKER in result or "test response" in result
 
     async def test_rules_are_global(self):
         """Rules section does NOT filter by agent — all critical/high rules appear."""
-        with patch("active_recall_hook.detect_agent", return_value="JARVIS_TEST"):
+        with patch("active_recall_hook.detect_agent", return_value="JARVIS"):
             result = await active_recall("rules check")
         # Rules section should appear as long as there are critical/high rules in DB
         # Just verify the section header appears (rules are global)
@@ -139,10 +153,10 @@ class TestActiveRecallIntegration(unittest.IsolatedAsyncioTestCase):
 
     async def test_result_format_includes_agent_and_timing(self):
         """Result header includes agent name and timing."""
-        with patch("active_recall_hook.detect_agent", return_value="JARVIS_TEST"):
+        with patch("active_recall_hook.detect_agent", return_value="JARVIS"):
             result = await active_recall("anything here")
         if result:
-            assert "JARVIS_TEST" in result
+            assert "JARVIS" in result
             assert "ms" in result
 
 

@@ -1,0 +1,18 @@
+PROTOTIPO - Creador/Personalizador de Agente SOUL
+==================================================
+Que hace: crea un agente PERSONALIZABLE sobre el alma que ya instalaste en el VM,
+y lo deja listo para que un Claude Code lo "encienda".
+
+Personalizable en: nombre, rol, personalidad (los 5 rasgos OCEAN 0-1, desde cero o
+clonando la de un agente existente), a que memorias accede (todas/de un agente/propias),
+modelo (Claude/Codex/local), y reglas base.
+
+COMO PROBARLO:
+ 1) Doble-click en  crear-agente.bat  (necesita Python; si falta, el .bat te dice de donde bajarlo).
+ 2) Responde el wizard (nombre, personalidad, etc.). Puedes basarla en NEXUS/JARVIS/ADA/ALICE/DUM.
+ 3) Se genera un .mcp.json + un AGENTE_<nombre>.txt en esta carpeta.
+ 4) Copia el .mcp.json a la carpeta donde corres 'claude' y arranca Claude ahi.
+    Tu agente ya tiene su personalidad + acceso a la memoria local (las 105k memorias).
+
+Es un PROTOTIPO: pruebalo y dinos que cambiar. La UI bonita (sliders) la agrega ALICE despues.
+Seguridad: el acceso a memoria (MEMORY_SCOPE) es forzado por el servidor, no lo puede escalar el agente.

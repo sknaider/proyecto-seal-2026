@@ -1,0 +1,95 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "guardian-solo-posicion-ejecutable-v1",
+  "owner": "NEXUS",
+  "reviewer": "JARVIS",
+  "_doc": "Mutantes corridos sobre una COPIA (mktemp con memory/ y su test), control primero, PYTHONDONTWRITEBYTECODE=1 y borrado de __pycache__ entre corridas, y con VERIFICACION DE QUE EL ARCHIVO CAMBIO despues de cada mutacion. Ese ultimo chequeo no es adorno: dos de los cuatro mutantes NO se aplicaron en el primer intento --un marcador ausente y un SyntaxError de comillas-- y la corrida que siguio fue del archivo ORIGINAL con '22 passed'. Sin el assert los habria anotado como SOBREVIVIENTES.",
+  "control_sujeto_sin_mutar": "29 passed",
+  "canario": {
+    "descripcion": "raise al importar pre_tool_hook",
+    "resultado": "error de coleccion",
+    "lectura": "la suite ejecuta el sujeto; no lo lee como texto"
+  },
+  "mutants": [
+    {
+      "id": "sin-chequeo-de-ejecutores",
+      "author": "NEXUS",
+      "result": "KILLED",
+      "observed": "12 failed, 17 passed",
+      "mutation": "_es_solo_una_cita deja de mirar _EJECUTORES",
+      "why": "eximiria lo citado dentro de eval/bash -c/-c, que SI se ejecuta: el agujero peor que el defecto original"
+    },
+    {
+      "id": "contencion-por-solapamiento",
+      "author": "NEXUS",
+      "result": "KILLED",
+      "observed": "4 failed, 25 passed",
+      "mutation": "la contencion ENTERA pasa a ser solapamiento parcial",
+      "why": "es la version ingenua de 'si esta entre comillas es dato': eximiria un borrado con destino entrecomillado"
+    },
+    {
+      "id": "sin-patron-de-ruta-por-variable",
+      "author": "NEXUS",
+      "result": "KILLED",
+      "observed": "4 failed, 18 passed",
+      "mutation": "el patron de destino por $VARIABLE deja de matchear",
+      "why": "es el typo del 9-ago que casi borra /home/dadito y origino la regla de oro de William"
+    },
+    {
+      "id": "ancla-sin-comilla-de-cierre",
+      "author": "NEXUS",
+      "result": "KILLED",
+      "observed": "3 failed, 19 passed",
+      "mutation": "el ancla vuelve a \\\\s*$ y no ve el fin de un argumento entrecomillado",
+      "why": "era el falso negativo original: eval con el borrado entrecomillado pasaba"
+    },
+    {
+      "id": "sin-ejecutores-remotos",
+      "author": "NEXUS",
+      "result": "KILLED",
+      "observed": "4 failed, 25 passed",
+      "mutation": "se saca ssh/tmux send-keys/at/watch de _EJECUTORES",
+      "why": "hallazgo de JARVIS revisando: el payload entrecomillado de un ssh se ejecuta en otra maquina"
+    }
+  ],
+  "killed": 5,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 5,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "memory/pre_tool_hook.py": "360986e3bab6b1322aec9eb5ceceedc7dc5b002b92eece0e3c862964a7f235ff",
+    "quality/delivery_guardian_posicion_ejecutable.py": "32074069dc0312525a22cbe46ac369c452ff74a5ec72d1bf244d6005963ea33d",
+    "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "1c8604ce22d60dd800a6ac22a6362faafadbfa02118914f3f9b61ce32f6838cb"
+  },
+  "mutation_target": "isolated_copy",
+  "revision_independiente_JARVIS": {
+    "control": "29 passed",
+    "canario": "raise al importar -> 1 error",
+    "mutantes": [
+      {
+        "id": "M1 nunca exime (cadena entera)",
+        "result": "KILLED",
+        "observed": "3 failed"
+      },
+      {
+        "id": "M2 exime siempre (fail-open)",
+        "result": "KILLED",
+        "observed": "7 failed"
+      },
+      {
+        "id": "M3 quita ssh de los ejecutores",
+        "result": "KILLED",
+        "observed": "1 failed, 28 passed"
+      }
+    ],
+    "corpus_15_casos": "CITAR 4/4 permite · EJECUTAR 4/4 deniega · ANIDADO 5/5 deniega (incl. ssh) · inocuo permite",
+    "hueco_heredado_fuera_del_carril": "descarga canalizada a interprete: nunca estuvo en la lista fija; decision de William",
+    "residual": "mencionar eval/source en un texto anula la exencion (fail-closed a proposito)"
+  },
+  "_ronda2": "2da ronda tras la REFUTACION de JARVIS: `ssh <host> \"<patron>\"` se eximia porque el payload va entre comillas y la region lo marcaba como dato -- pero lo que viaja entre comillas de un ssh SE EJECUTA EN OTRA MAQUINA. Verificado por mi antes de arreglar: ssh, tmux send-keys, at now y watch estaban PERMITIENDO. Se agregaron a _EJECUTORES con su brazo y con un CONTROL de que no estorban la operacion normal (`ssh dgx 'uptime'`, `watch -n5 nvidia-smi` siguen pasando): sin ese control, meter ssh en la lista se veria igual de verde aunque bloqueara el dia a dia.\nSe re-corrieron TODOS los mutantes, no solo el nuevo: es la regla que adopte hoy tras ver que cerrar un hueco puede destapar otro a cinco lineas.",
+  "_residual_declarado": "COSTO CONOCIDO, fijado con test: nombrar la palabra `eval` o `source` en un mensaje que ADEMAS cita un patron anula la exencion y bloquea. Le paso a JARVIS revisando este carril. Se deja a proposito: distinguir 'la palabra eval como texto' de 'eval como verbo' exige el parser de shell que este guardian deliberadamente NO es, y el error barato es un bloqueo de mas. El test lo documenta para que, si alguien lo hace pasar, sea con la decision tomada."
+}

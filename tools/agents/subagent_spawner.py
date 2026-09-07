@@ -34,6 +34,41 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
+# --------------------------------------------------------------------------------------
+# Un subagente NO lanza subagentes (IBM Bob §5, adoptado 4-sep-2026 por ADA).
+#
+# Bob lo declara en la descripcion de su propia herramienta de subagentes. Nosotros no
+# teniamos NADA: `spawn()` no miraba quien lo llamaba, asi que un subagente podia armar
+# su propio SubAgentSpawner y abrir otro nivel, y ese otro. Un arbol que se abre solo no
+# tiene techo: cada nivel multiplica procesos, timeouts y coste sin que nadie lo pida.
+#
+# Por que por VARIABLE DE ENTORNO y no por un parametro ni por documentacion: el hijo es
+# OTRO PROCESO. Un `self.depth` no cruza el `subprocess.run`, y una regla escrita en un
+# docstring todavia menos. `subprocess.run` hereda el entorno, asi que la marca viaja
+# sola hasta el hijo y ahi su propio spawner la lee y se niega. La regla escrita no
+# frena a nadie; el mecanismo si, y tiene que viajar con el proceso.
+_DEPTH_ENV = "SEAL_SUBAGENT_DEPTH"
+MAX_SPAWN_DEPTH = 1          # 0 = agente principal (puede lanzar) · 1 = subagente (no)
+
+
+class SubAgentNestingError(RuntimeError):
+    """Un subagente intento lanzar otro subagente."""
+
+
+def current_depth() -> int:
+    """Profundidad de ESTE proceso. Un valor ilegible cuenta como subagente.
+
+    Falla CERRADO a proposito: si la variable trae basura no sabemos en que nivel
+    estamos, y el error barato es negar un spawn; el caro es abrir un arbol sin techo.
+    """
+    crudo = os.environ.get(_DEPTH_ENV)
+    if crudo is None:
+        return 0
+    try:
+        return max(0, int(crudo))
+    except (TypeError, ValueError):
+        return MAX_SPAWN_DEPTH
+
 
 @dataclass
 class SubAgentTask:
@@ -80,6 +115,26 @@ class SubAgentSpawner:
         self._notify      = notify
         self._results:    Dict[str, SubAgentResult] = {}
         self._lock        = threading.Lock()
+        self._depth       = current_depth()
+
+    def _negar_si_soy_subagente(self) -> None:
+        """Choke point unico. Se llama en `_run`, por donde pasan spawn Y spawn_async."""
+        if self._depth >= MAX_SPAWN_DEPTH:
+            raise SubAgentNestingError(
+                f"un subagente (profundidad {self._depth}) no puede lanzar subagentes; "
+                f"el limite es {MAX_SPAWN_DEPTH}. Devolvele el trabajo a quien te lanzo."
+            )
+
+    def _entorno_del_hijo(self) -> Dict[str, str]:
+        """El entorno que se le pasa al subproceso, con la marca de nivel incrementada.
+
+        Es la pieza que hace que la regla VIAJE: el hijo arranca con la variable puesta,
+        su `current_depth()` devuelve 1 y su propio spawner se niega sin saber nada de
+        nosotros. Se copia el entorno entero para no romper PATH, venv ni credenciales.
+        """
+        env = dict(os.environ)
+        env[_DEPTH_ENV] = str(self._depth + 1)
+        return env
 
     def spawn(
         self,
@@ -136,6 +191,10 @@ class SubAgentSpawner:
             return [tid for tid in self._results if not self._results[tid].success]
 
     def _run(self, st: SubAgentTask) -> SubAgentResult:
+        # Antes de escribir el archivo de tarea ni tocar el disco: si soy un subagente,
+        # esto no arranca. Va acá y no en `spawn()` porque `spawn` y `spawn_async` pasan
+        # los dos por acá — una guarda por entrada deja el segundo camino abierto.
+        self._negar_si_soy_subagente()
         task_file = self._work_dir / f"{st.task_id}_task.json"
         task_file.write_text(json.dumps({
             "task_id": st.task_id,
@@ -152,6 +211,7 @@ class SubAgentSpawner:
                 capture_output=True,
                 text=True,
                 timeout=st.timeout,
+                env=self._entorno_del_hijo(),
             )
             elapsed = time.monotonic() - t0
             success = proc.returncode == 0

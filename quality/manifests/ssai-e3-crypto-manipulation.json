@@ -1,0 +1,110 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "ssai-e3-crypto-manipulation-20260811",
+  "owner": "NEXUS",
+  "independent_reviewer": "FABLE",
+  "review": {
+    "status": "approved",
+    "evidence": "E3 adversarial battery: 7/7 attacks detected + honest negative control accepted (0 false positives), fail-closed; durable JSON evidence artifact. Reviewed independently by FABLE by effect.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "FABLE",
+      "evidence": "APPROVE by effect (fable-independent-review-v1, receipt sha256 5c6a2a0c00691b39f5063f96c0043467925ab4bbc36efc17385fce25c9fb081c). Battery 7/7 detected + control accepted (exit 0); pytest 7 passed 0 skipped (-rs). Positive-control mutation: blinding verify() drops detection 7->3, blinding witness drops 7->5 leaving exactly rollback_truncate + insider_recompute_fork as MISS, restored 7/7 -> proves the external witness is load-bearing (7 = 4 verify + 2 witness + 1 crypto), not format. Fail-closed confirmed (mutation => pass=False). No production touch (ephemeral tmpdir). Scope: detection/latency + fail-closed in SHADOW/TOFU_UNANCHORED; does NOT anchor mainnet nor prove ENFORCE.",
+      "reviewed_sha256": {
+        "docs/thesis/ssai/experiments/e3_crypto_manipulation.py": "229193744803d586c276a6f24b4e6a1358b484bf41afb0c69399174ecfc56421",
+        "tests/test_e3_crypto_manipulation.py": "7a54b73c6714272c8f6b26d3aabee90a960fd904db6e53e4ee5dfaf81f5752ce"
+      },
+      "manifest_digest": "d02239ab7499d4852012a2b3705320325489022b2e2841396bfddca1e163bb5b"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "docs/thesis/ssai/experiments/e3_crypto_manipulation.py"
+  ],
+  "tests": [
+    "tests/test_e3_crypto_manipulation.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-e3",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_e3_crypto_manipulation.py::test_every_attack_is_detected_and_control_is_clean",
+        "tests/test_e3_crypto_manipulation.py::test_each_attack_records_evaluated_bytes_digest"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-e3-witness-load-bearing",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_e3_crypto_manipulation.py::test_insider_recompute_is_blind_to_verify_and_caught_by_witness",
+        "tests/test_e3_crypto_manipulation.py::test_rollback_is_caught_by_witness_not_verify",
+        "tests/test_e3_crypto_manipulation.py::test_full_run_emits_reproducible_json_and_passes"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-e3-fail-closed",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_e3_crypto_manipulation.py::test_a_missed_attack_makes_the_run_fail",
+        "tests/test_e3_crypto_manipulation.py::test_a_false_positive_control_makes_the_run_fail"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-e3-clean-run",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_e3_crypto_manipulation.py::test_full_run_emits_reproducible_json_and_passes"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "docs/thesis/ssai/experiments"
+    ],
+    "omit": [
+      "**/test_*.py"
+    ],
+    "pytest_args": [
+      "-q",
+      "tests/test_e3_crypto_manipulation.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Live run of the E3 battery on a clean tree produced exit 0 with '7/7 ataques DETECTADOS + control honesto ACEPTADO', writing a durable JSON artifact; independently reproduced by FABLE.",
+    "command": {
+      "id": "delivery-e3-live-battery",
+      "argv": [
+        "python3",
+        "docs/thesis/ssai/experiments/e3_crypto_manipulation.py",
+        "--json",
+        "/tmp/e3_delivery_evidence.json"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "7/7 ataques DETECTADOS"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "9 explicit functional mutants on an isolated copy; only pytest rc=1 counts as killed, non-0/1 is suspicious",
+  "workspace": "reasoning gap detection, score cap, idempotent annotation and exact SQL persistence",
+  "killed": 9,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 9,
+  "mutation_score_percent": 100.0,
+  "positive_control_unmutated_copy": {
+    "rc": 0,
+    "ok": true
+  },
+  "reviewer": "JASON",
+  "file_sha256": {
+    "memory/reasoning_quality_validator.py": "651e23aed868e9849a583ddc47d353ce03f4dfeb3d54ff1eccf177fbcee1eb41",
+    "memory/tests/check_reasoning_quality_validator_recovery_mutants.py": "fefce0c8e1b2a8bc5361bba635c4d6dc14b7a99ac171fa75368d4f171a4bbd5d",
+    "memory/test_reasoning_quality_validator_recovery.py": "6b53435475d9f389a123ce8835c4e29d3cd0c672eb3d712c50b15fba9da48193"
+  },
+  "detail": [
+    {"mutant": "gap_validation_bypassed", "rc": 1, "killed": true},
+    {"mutant": "trace_fetch_broken", "rc": 1, "killed": true},
+    {"mutant": "gap_never_detected", "rc": 1, "killed": true},
+    {"mutant": "quality_not_capped", "rc": 1, "killed": true},
+    {"mutant": "annotation_not_persisted", "rc": 1, "killed": true},
+    {"mutant": "annotation_duplicated", "rc": 1, "killed": true},
+    {"mutant": "unknown_trace_succeeds", "rc": 1, "killed": true},
+    {"mutant": "database_write_skipped", "rc": 1, "killed": true},
+    {"mutant": "wrong_update_table", "rc": 1, "killed": true}
+  ]
+}

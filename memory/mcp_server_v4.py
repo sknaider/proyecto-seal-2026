@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import atexit
 import collections
+import contextvars
 import json
 import logging
 import math
@@ -30,6 +31,7 @@ from typing import Any, Optional, Union
 # ADA and JARVIS each launch their own MCP — that's fine
 
 import httpx
+import asyncpg
 from mcp.server.fastmcp import FastMCP
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
@@ -37,11 +39,33 @@ from qdrant_client.models import (
     HasIdCondition,
 )
 from neo4j import AsyncGraphDatabase
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
-from db import DB_URL, get_pool, close_pool
-from embeddings import get_embedding, warmup_model
+from db import DB_URL as BROKER_DB_URL, get_pool, close_pool, resolve_mcp_agent_db_url
+_legacy_get_pool = get_pool
+_legacy_close_pool = close_pool
+from dual_memory_governance import (
+    MEMORY_MODE_WORK_RECOVERY,
+    detect_memory_mode,
+    fuse_memory_candidates,
+    get_dual_memory_profile,
+)
+from embeddings import get_embedding, get_query_embedding, warmup_model
 from config import settings
-from reasoning_quality_validator import validate_trace as kismath_validate
+from agent_rubric import load_agent_rubric
+from boot_rule_selection import BOOT_CRITICAL_RULES_SQL
+from memory_admission import audit_memory_skip_event, memory_auto_event_skip_reason
+from reasoning_quality_validator import (
+    score_and_update_reasoning_trace,
+    validate_trace as kismath_validate,
+)
+from emotional_retrieval import emotional_signal_strength, rerank_emotional_results
+from identity_continuity_v2 import (
+    format_biv_summary,
+    post_biv_alert,
+    run_boot_identity_verification,
+)
 
 # SOUL Recall Router (Fase 1 — feature-flagged, default OFF)
 try:
@@ -53,9 +77,32 @@ except ImportError:
 LOG = logging.getLogger("seal-memory")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
 
+PROMPT_CHARS_PER_TOKEN = 4
+DUAL_MEMORY_EMOTIONAL_TOKEN_BUDGET = 600
+DUAL_MEMORY_OPERATIONAL_TOKEN_BUDGET = 2200
+DUAL_MEMORY_EMOTIONAL_MAX_CHARS = DUAL_MEMORY_EMOTIONAL_TOKEN_BUDGET * PROMPT_CHARS_PER_TOKEN
+DUAL_MEMORY_OPERATIONAL_MAX_CHARS = DUAL_MEMORY_OPERATIONAL_TOKEN_BUDGET * PROMPT_CHARS_PER_TOKEN
+EMOTIONAL_MEMORY_CATEGORIES = {"emotional_anchor", "emotion", "trust", "diary", "relationship", "identity"}
+OPERATIONAL_MEMORY_CATEGORIES = {
+    "operational_anchor",
+    "correction",
+    "decision",
+    "project",
+    "task",
+    "preference",
+    "learning",
+    "milestone",
+    "rule",
+    "technical_fact",
+}
+
 MCP_HOST = os.environ.get("SEAL_MCP_HOST", "127.0.0.1")
 MCP_PORT = int(os.environ.get("SEAL_MCP_PORT", "8771"))
 MCP_TRANSPORT = os.environ.get("SEAL_MCP_TRANSPORT", "sse")
+INTERNAL_TENANT_ID = os.environ.get(
+    "SEAL_INTERNAL_TENANT_ID",
+    "00000000-0000-0000-0000-000000000000",
+)
 
 mcp = FastMCP(
     "seal-memory",
@@ -63,6 +110,35 @@ mcp = FastMCP(
     host=MCP_HOST,
     port=MCP_PORT,
 )
+
+
+@mcp.custom_route("/health", methods=["GET"], include_in_schema=False)
+@mcp.custom_route("/api/health", methods=["GET"], include_in_schema=False)
+async def http_health_check(request: Request) -> JSONResponse:
+    conn = None
+    try:
+        # Health has no authenticated agent.  Probe through the broker login,
+        # whose DB surface is capability metadata + audit only, instead of
+        # inventing an agent identity or weakening the per-agent pool gate.
+        conn = await asyncpg.connect(BROKER_DB_URL)
+        await conn.fetchval("SELECT 1")
+        pg_status = "ok"
+    except Exception as exc:
+        pg_status = f"error: {str(exc)[:120]}"
+    finally:
+        if conn is not None:
+            await conn.close()
+    return JSONResponse(
+        {
+            "status": "ok" if pg_status == "ok" else "degraded",
+            "service": "seal-memory-mcp",
+            "backend": "postgresql_pgvector",
+            "postgresql": pg_status,
+            "neo4j": "optional_runtime",
+            "qdrant": "retired",
+            "timestamp": datetime.now(PERU_TZ).isoformat(),
+        }
+    )
 
 # ── Server uptime tracking ──
 SERVER_START_TIME: datetime = datetime.now(PERU_TZ)
@@ -86,6 +162,72 @@ def _safe_dumps(obj: Any, **kwargs: Any) -> str:
     """json.dumps with surrogate sanitization applied before serialization."""
     return json.dumps(_clean_obj(obj), **kwargs)
 
+
+_CHAT_EXCERPT_RE = re.compile(r"^\[[A-ZÁÉÍÓÚÑ]+\]:")
+_TOKEN_RE = re.compile(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+")
+_WILLIAM_DIRECTIVE_RE = re.compile(
+    r"\bWilliam\s+(autoriz[oó]|orden[oó]|dijo|firm[oó]|confirma|confirm[oó])\b",
+    re.IGNORECASE,
+)
+
+
+def _token_count_for_rubric(text: str) -> int:
+    return len(_TOKEN_RE.findall(text or ""))
+
+
+def _normalize_memory_by_rubric(
+    agent: str, category: str, content: str, importance: int
+) -> tuple[str, str, int, dict[str, Any] | None]:
+    """Normalize new memory importance before admission gates and storage."""
+    category = str(category or "fact")
+    content = str(content or "").strip()
+    original_importance = max(1, min(10, int(importance)))
+    new_importance = original_importance
+    reasons: list[str] = []
+    try:
+        rubric = load_agent_rubric(agent)
+    except Exception as exc:
+        LOG.debug("Rubric load skipped for %s: %s", agent, exc)
+        return category, content, original_importance, None
+
+    william_directive = bool(_WILLIAM_DIRECTIVE_RE.search(content))
+    if (
+        _CHAT_EXCERPT_RE.match(content)
+        and category not in rubric.chat_excerpt_override_categories
+        and not william_directive
+    ):
+        capped = min(new_importance, rubric.chat_excerpt_importance_cap)
+        if capped != new_importance:
+            reasons.append("chat_excerpt_cap")
+        new_importance = capped
+
+    if (
+        new_importance >= 9
+        and len(content) < rubric.minimum_chars_for_importance_9
+        and category not in rubric.high_importance_categories
+        and not william_directive
+    ):
+        new_importance = min(new_importance, 6)
+        reasons.append("short_noncritical_high_importance")
+
+    if (
+        new_importance >= 9
+        and _token_count_for_rubric(content) < rubric.short_memory_token_threshold
+        and category not in rubric.chat_excerpt_override_categories
+        and not william_directive
+    ):
+        new_importance = min(new_importance, 6)
+        reasons.append("too_few_tokens_for_high_importance")
+
+    if new_importance == original_importance:
+        return category, content, new_importance, None
+    return category, content, new_importance, {
+        "original_importance": original_importance,
+        "normalized_importance": new_importance,
+        "reasons": sorted(set(reasons)),
+        "rubric_agent": agent.upper(),
+    }
+
 # ── SEAL Trees — structural nervous system (2026-04-08) ──
 from seal_trees import MerkleSoul, SplayCache, TrieIndex, FenwickStats, RSpatialIndex, BoundingBox
 
@@ -102,14 +244,14 @@ _trie_lock = asyncio.Lock()
 OLLAMA_GEN_URL = settings.ollama_gen_url
 OLLAMA_MODEL = settings.ollama_model
 
-QDRANT_URL = settings.qdrant_url
-QDRANT_COLLECTION = settings.qdrant_collection
+QDRANT_URL = settings.qdrant_url  # legacy symbol; runtime is PostgreSQL/pgvector
+QDRANT_COLLECTION = settings.qdrant_collection  # legacy symbol; runtime is PostgreSQL/pgvector
 
 NEO4J_URI = settings.neo4j_uri
 NEO4J_AUTH = settings.neo4j_auth
 
-# Soul Lite mode: pgvector replaces Qdrant. Neo4j remains active.
-SOUL_LITE = settings.soul_lite
+# PostgreSQL/pgvector is canonical. Qdrant is retired from live SEAL runtime.
+SOUL_LITE = True
 
 # Connectome constants
 DECAY_EXCITATORY = 0.6
@@ -264,12 +406,15 @@ _TEMPORAL_PATTERNS = re.compile(
 )
 
 _CATEGORY_SIGNALS: dict[str, list[str]] = {
-    "correction": ["corrección", "corregir", "error", "fix", "bug", "wrong", "mistake", "mal"],
+    "correction": ["corrección", "correccion", "corregir", "corrige", "error", "fix", "bug", "wrong", "mistake", "mal"],
     "decision": ["decidir", "decidimos", "decisión", "decision", "decided", "elegir", "chose", "choose"],
     "emotion": ["sentir", "feel", "emotion", "emoción", "triste", "sad", "happy", "feliz", "orgulloso", "proud"],
-    "milestone": ["logro", "milestone", "achievement", "completé", "completed", "finished", "terminé"],
-    "insight": ["aprendí", "learned", "insight", "descubrí", "discovered", "realized", "entendí"],
-    "preference": ["prefiero", "prefer", "preference", "gusta", "like", "dislike"],
+    "milestone": ["logro", "hito", "milestone", "achievement", "completé", "completed", "finished", "terminé", "termine"],
+    "insight": ["aprendí", "aprendi", "learned", "insight", "descubrí", "descubri", "discovered", "realized", "entendí", "entendi"],
+    "preference": ["prefiero", "prefer", "preference", "preferencia", "gusta", "like", "dislike"],
+    "pattern": ["patrón", "patron", "pattern", "tendencia", "repite", "repetido"],
+    "trust": ["trust", "confianza", "lealtad", "familia", "permiso", "autorización", "autorizacion"],
+    "dynamic": ["temporal", "smoke", "backfill", "checkpoint", "estado", "runtime", "último", "ultimo"],
     "fact": ["dato", "fact", "información", "info", "data"],
 }
 
@@ -405,16 +550,19 @@ def _hmem_build_qdrant_filters(
     must_not = [] if include_invalidated else [FieldCondition(key="invalid", match=MatchValue(value=True))]
     must = []
 
-    # Base: agent + scope filtering
-    if agent:
-        if scope_aware:
-            must.append(Filter(should=[
-                FieldCondition(key="agent", match=MatchValue(value=agent)),
-                FieldCondition(key="scope", match=MatchValue(value="shared")),
-                FieldCondition(key="scope", match=MatchValue(value="team")),
-            ]))
-        else:
-            must.append(FieldCondition(key="agent", match=MatchValue(value=agent)))
+    # Base: agent + scope filtering. Missing owner is a privacy error, never a
+    # global-search shortcut. Legacy `shared` has no subgroup ACL, so it is only
+    # visible through the owner branch; global visibility is limited to team/public.
+    if not agent:
+        raise PrivacyDenied("[PRIVACY] memory search requires an authenticated target agent")
+    if scope_aware:
+        must.append(Filter(should=[
+            FieldCondition(key="agent", match=MatchValue(value=agent)),
+            FieldCondition(key="scope", match=MatchValue(value="team")),
+            FieldCondition(key="scope", match=MatchValue(value="public")),
+        ]))
+    else:
+        must.append(FieldCondition(key="agent", match=MatchValue(value=agent)))
 
     # Layer 1: Temporal pre-filter
     # Note: Qdrant stores created_at as ISO string, not numeric — Range filter won't work.
@@ -479,15 +627,46 @@ _TOOL_CATEGORY: dict[str, str] = {
     "monologue_write":    "PRIVATE-WRITE",
     "self_reflect":       "PRIVATE-WRITE",
     "opinion_set":        "PRIVATE-WRITE",
+    # Mutating memory ops via gateway: escribir/invalidar memoria ajena = prohibido (C2, Fase B).
+    # El target se resuelve del dueño real del memory_id, no del kwarg del caller.
+    "memory_update":         "PRIVATE-WRITE",
+    "memory_invalidate":     "PRIVATE-WRITE",
+    "memory_utility_update": "PRIVATE-WRITE",
+    "memory_feedback":       "PRIVATE-WRITE",
+    # soul_gateway cognitive-private (análogos directos a opinion_set/get; agent-keyed, bajo
+    # riesgo de falso-positivo: el agente opera sobre lo SUYO → caller==target → allowed).
+    # OJO equipo: peer_model_*, session_*, reasoning_trace_*, procedure_*, instinct_*, rule_*
+    # quedan SIN clasificar a propósito (TEAM-FREE) — su semántica de `agent` necesita revisión
+    # vuestra antes de marcarlas, para no brickear flujos legítimos en ENFORCE.
+    "belief_update":         "PRIVATE-WRITE",
+    "belief_query":          "PRIVATE",
     # PRIVATE — requires caller==target OR valid consent token OR operator
+    "boot_context":       "PRIVATE",
     "emotional_diary":    "PRIVATE",
     "diary_read":         "PRIVATE",
     "inner_thoughts":     "PRIVATE",
     "opinion_get":        "PRIVATE",
     "soul_snapshot":      "PRIVATE",
+    "active_recall":      "PRIVATE",
+    "soul_recall_router_tool": "PRIVATE",
+    "soul_gateway":       "PRIVATE",
+    "working_state_get":  "PRIVATE",
+    "style_fingerprint":  "PRIVATE",
+    "reflective_diagnosis": "PRIVATE",
+    "goal_action_model":  "PRIVATE",
+    "webchat_poll":       "PRIVATE",
+    "webchat_listen":     "PRIVATE",
+    "send_user_file":     "PRIVATE",
+    "agent_task":         "PRIVATE",
+    "memory_indexer":     "PRIVATE",
+    "working_state_update": "PRIVATE-WRITE",
+    # OPERATOR-ONLY — requires William/Henry operator override, even if caller==target.
+    "secret_scan":       "OPERATOR-ONLY",
     # CONDITIONAL — scope=team is free; scope=agent requires caller==target
     "memory_search":      "CONDITIONAL",
+    "memory_list":        "CONDITIONAL",
     "memory_store":       "CONDITIONAL",
+    "memory_gateway":     "CONDITIONAL",
     "memory_hybrid_search": "CONDITIONAL",
     # CROSS-EXPLICIT — always logged + requires justification kwarg
     "memory_cross_search": "CROSS-EXPLICIT",
@@ -497,18 +676,89 @@ _TOOL_CATEGORY: dict[str, str] = {
 
 async def _log_privacy(caller: str, target: str, tool_name: str,
                        outcome: str, reason: str, session_id: str | None) -> None:
-    """Write privacy audit entry to event_log. Fire-and-forget."""
+    """Write privacy audit entry to event_log. Fire-and-forget.
+
+    FIX (NEXUS 2026-06-09): la tabla viva soul_v3.event_log tiene columnas
+    (agent, event_type, content, metadata) — NO 'payload'. El INSERT viejo a 'payload'
+    fallaba con UndefinedColumnError y el except lo tragaba en silencio: enforcement OK
+    pero AUDIT TRAIL mudo (justo el antipatrón 'fallo silencioso' de la auditoría). Ahora
+    escribe a las columnas reales: content = resumen legible, metadata = jsonb estructurado.
+    """
+    # event_type debe estar en el CHECK constraint event_log_event_type_check; 'privacy_check'
+    # NO está permitido (lo rechazaría) — por eso el log nunca escribió. Usamos el bucket
+    # permitido 'system' y marcamos el tipo real en metadata.kind para que quede filtrable:
+    #   SELECT ... WHERE event_type='system' AND metadata->>'kind'='privacy_check'
+    # (Fix durable alterno = agregar 'privacy_check' al constraint; es migración con OK de William.)
     try:
         pool = await get_pool()
+        summary = f"[PRIVACY] {caller}->{target} {tool_name}: {outcome} ({reason})"
         await pool.execute("""
-            INSERT INTO soul_v3.event_log (agent, event_type, payload)
-            VALUES ($1, 'privacy_check', $2::jsonb)
-        """, caller, json.dumps({
+            INSERT INTO soul_v3.event_log (agent, event_type, content, metadata)
+            VALUES ($1, 'system', $2, $3::jsonb)
+        """, caller, summary, json.dumps({
+            "kind": "privacy_check",
             "tool": tool_name, "caller": caller, "target": target,
             "outcome": outcome, "reason": reason, "session_id": session_id,
         }))
     except Exception:
         pass
+
+
+async def _resolve_memory_owner(memory_id: int) -> str | None:
+    """CAPA 2 FASE B (cura SOUL §3, C2) — autoridad por el DATO, no por el input.
+
+    El dueño de un recurso se PRUEBA contra la BD, no se cree del kwarg `agent` que el
+    caller controla. Sin esto, un atacante invalida la memoria ajena pasando agent=<él mismo>
+    (caller==target → 'allowed'). Resolviendo el dueño real, el target queda fuera de su control.
+    Devuelve el agente dueño de la memoria, o None si no existe.
+    """
+    try:
+        pool = await get_pool()
+        row = await pool.fetchrow(
+            "SELECT agent FROM memories WHERE id = $1 LIMIT 1", memory_id)
+        return row["agent"] if row else None
+    except Exception:
+        # Fail-closed: si no se puede verificar el dueño, no afirmamos uno falso.
+        return None
+
+
+# CAPA 2 OPCIÓN A (defensa en profundidad, JARVIS) — mapa id→(tabla, columna-dueño) VERIFICADO
+# contra el esquema vivo (NEXUS 2026-06-09). Corrección sobre el mapa inicial: belief_id resuelve
+# en 'opinions' (la tabla que el handler belief_update consulta), NO 'beliefs'. peer_model se posee
+# por 'observer', no 'agent'. Todas las tablas viven en soul_v3.
+_ID_OWNER_MAP: dict[str, tuple[str, str]] = {
+    "memory_id":        ("memories",            "agent"),
+    "linked_memory_id": ("memories",            "agent"),
+    "belief_id":        ("opinions",            "agent"),
+    "trace_id":         ("reasoning_traces",    "agent"),
+    "session_id":       ("sessions",            "agent"),
+    "rule_id":          ("rules",               "agent"),
+    "instinct_id":      ("instincts",           "agent"),
+    "procedure_id":     ("procedural_memories", "agent"),
+    "peer_model_id":    ("peer_models",         "observer"),
+}
+
+
+async def _foreign_owner_by_ids(caller: str, ids: dict) -> tuple[str, str, str] | None:
+    """Defensa en profundidad: dado un dict de posibles *_id (de kwargs+extra), resuelve el dueño
+    REAL de cada uno contra su tabla y devuelve (id_key, id_val, owner) si ALGUNO pertenece a un
+    agente != caller. Política FAIL-OPEN en None: si el id no resuelve (inexistente o mapping no
+    aplica) NO bloquea — la cura de raíz es el SQL agent-scoped del handler (Opción B); esta capa
+    solo CAZA accesos cross-owner positivamente probados, sin falsos positivos. Devuelve None si todo ok.
+    """
+    for k, (table, owner_col) in _ID_OWNER_MAP.items():
+        v = ids.get(k)
+        if v is None:
+            continue
+        try:
+            pool = await get_pool()
+            row = await pool.fetchrow(
+                f"SELECT {owner_col} AS owner FROM soul_v3.{table} WHERE id = $1 LIMIT 1", v)
+        except Exception:
+            continue  # fail-open: B es el backstop
+        if row and row["owner"] and row["owner"] != caller:
+            return (k, str(v), row["owner"])
+    return None
 
 
 async def _validate_consent(token: str, caller: str, target: str, tool_name: str) -> bool:
@@ -547,16 +797,37 @@ async def _privacy_check(caller: str, target: str, tool_name: str,
         _faf(_log_privacy(caller, target, tool_name, "operator_override", op, session_id))
         return "operator_override"
 
-    if caller == target or target in ("", "?", None):
+    category = _TOOL_CATEGORY.get(tool_name, "TEAM-FREE")
+    if category == "OPERATOR-ONLY":
+        _faf(_log_privacy(caller, target, tool_name, "denied", "operator_only", session_id))
+        raise PrivacyDenied(
+            f"[PRIVACY] {caller}->{target} tool={tool_name}: operator-only. "
+            f"Remedy: William/Henry sets SEAL_OPERATOR env for this operation."
+        )
+
+    if target in ("", "?", None):
+        if category == "TEAM-FREE":
+            return "allowed"
+        _faf(_log_privacy(caller, str(target), tool_name, "denied", "missing_target", session_id))
+        raise PrivacyDenied(
+            f"[PRIVACY] {caller} tool={tool_name}: target agent is required; global fallback denied."
+        )
+
+    if caller == target:
         return "allowed"
 
-    category = _TOOL_CATEGORY.get(tool_name, "TEAM-FREE")
     if category == "TEAM-FREE":
         return "allowed"
 
     if category == "CONDITIONAL":
         scope = (kwargs.get("scope") or "").lower()
         if scope == "team":
+            if tool_name == "memory_store":
+                _faf(_log_privacy(caller, target, tool_name, "denied", "cross_owner_team_write", session_id))
+                raise PrivacyDenied(
+                    f"[PRIVACY] {caller}→{target} memory_store denied: team scope changes visibility, "
+                    "not ownership. Store under the authenticated caller."
+                )
             return "allowed"
 
     if category == "PRIVATE-WRITE":
@@ -674,25 +945,223 @@ _SESSION_CALLERS: dict[int, str] = {}
 _KNOWN_AGENTS = frozenset({"ADA", "JARVIS", "ALICE", "NEXUS", "DUM", "SPECTRE"})
 
 
-def _session_key() -> int | None:
-    """Return a stable key for the current MCP session, or None if unavailable."""
+def _session_key():
+    """Return a STABLE, UNIQUE key for the current MCP session, or None if unavailable.
+
+    FIX C1.5 (JARVIS 2026-06-09): el viejo id(ctx.request_context.session) NO es estable ni
+    único en transporte HTTP — CPython reusa direcciones de memoria tras GC, así que dos
+    objetos-sesión distintos en el tiempo pueden compartir id(). Con first-registration-wins
+    eso causaba HERENCIA DE BINDING STALE: una sesión nueva colisionaba el id() con el binding
+    de otra (p.ej. NEXUS quedaba etiquetado como ALICE y bloqueado de su propia memoria), y en
+    ENFORCE permitía bypassar la verificación de token por colisión.
+    Solución: un uuid POR-OBJETO guardado en el propio objeto sesión con setattr. El uuid es del
+    OBJETO, no de la dirección → un objeto nuevo (aunque reuse address) recibe uuid nuevo → cero
+    colisión. Si el objeto no admite setattr (slots), cae a id() (degradado, mejor que None).
+    """
     try:
         ctx = mcp.get_context()
-        return id(ctx.request_context.session)
+        session = ctx.request_context.session
+        sid = getattr(session, "_seal_sid", None)
+        if sid is None:
+            sid = _uuid.uuid4().hex
+            try:
+                setattr(session, "_seal_sid", sid)
+            except Exception:
+                return id(session)  # fallback degradado si el objeto no acepta atributos
+        return sid
     except Exception:
         return None
 
 
-def _register_caller_session(agent: str) -> None:
-    """Register the current session as belonging to `agent`.
-    First-registration-wins: once a session is registered it cannot be changed.
-    Called automatically by boot_context() and announce_agent().
+import os as _os_cure
+
+# Directorio de tokens por-sesión, SEMBRADO POR EL LAUNCHER de cada agente (no por el caller).
+# El launcher escribe SEAL_TOKENS_DIR/<AGENTE>.token (chmod 600) y configura
+# Authorization: Bearer en el transporte MCP. El secreto NUNCA viaja como argumento de tool:
+# los argumentos terminan en transcripts/auditoría y no son un carrier de autenticación.
+# (Cura identidad/privacidad SOUL, NEXUS 2026-06-09; Bearer-only 2026-07-27)
+_SEAL_TOKENS_DIR = _os_cure.environ.get("SEAL_TOKENS_DIR", "/tmp/seal_tokens")
+
+
+def _seal_token_dirs() -> list[str]:
+    """Token lookup order with runtime-dir migration and /tmp compatibility."""
+    dirs: list[str] = []
+    env_dir = _os_cure.environ.get("SEAL_TOKENS_DIR")
+    if env_dir:
+        dirs.append(env_dir)
+    else:
+        runtime_dir = _os_cure.environ.get("XDG_RUNTIME_DIR")
+        if runtime_dir:
+            dirs.append(_os_cure.path.join(runtime_dir, "seal"))
+    if _os_cure.environ.get("SEAL_DISABLE_LEGACY_TMP_TOKENS") != "1":
+        dirs.append("/tmp/seal_tokens")
+    out: list[str] = []
+    for d in dirs:
+        if d and d not in out:
+            out.append(d)
+    return out
+
+
+def _seal_identity_mode_paths() -> list[str]:
+    """Identity mode lookup order: explicit/config first, then token dirs, then env."""
+    paths: list[str] = []
+    explicit = _os_cure.environ.get("SEAL_IDENTITY_MODE_FILE")
+    if explicit:
+        paths.append(_os_cure.path.expanduser(explicit))
+    paths.append(_os_cure.path.expanduser("~/.config/seal/identity_mode"))
+    for d in _seal_token_dirs():
+        paths.append(_os_cure.path.join(d, "identity_mode"))
+    out: list[str] = []
+    for p in paths:
+        if p and p not in out:
+            out.append(p)
+    return out
+
+
+def _read_agent_token(agent: str) -> "str | None":
+    """Lee el current legítimo (o next durante overlap), con lifecycle fail-closed."""
+    from seal_identity_tokens import valid_tokens
+
+    tokens = valid_tokens(_seal_token_dirs(), agent)
+    return tokens[0] if tokens else None
+
+
+def _agent_for_token(token: "str | None") -> "str | None":
+    """Reverse-lookup: ¿QUÉ agente es dueño de este token? (identidad por SECRETO, no por nombre).
+    Cierre residual ENFORCE: permite re-ligar una sesión desde CUALQUIER llamada que traiga el token
+    por Authorization: Bearer, no solo boot_context → un restart del MCP bajo ENFORCE no brickea
+    a las vivas. Match exacto contra current+next válidos. O(agentes) read-only."""
+    from seal_identity_tokens import token_owner
+
+    return token_owner(_seal_token_dirs(), _KNOWN_AGENTS, token)
+
+
+def _bearer_token_from_authorization(value: "str | None") -> "str | None":
+    if not value:
+        return None
+    scheme, _, token = value.strip().partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        return None
+    return token.strip()
+
+
+def _session_token_from_request() -> "str | None":
+    """Read MCP HTTP Authorization bearer for clients that cannot mutate tool args."""
+    try:
+        ctx = mcp.get_context()
+        request = getattr(ctx.request_context, "request", None)
+        headers = getattr(request, "headers", None)
+        if headers is None:
+            return None
+        return _bearer_token_from_authorization(headers.get("authorization"))
+    except Exception:
+        return None
+
+
+def _request_audit_metadata(token: "str | None" = None) -> dict[str, Any]:
+    """Best-effort source metadata for ToolBroker audit rows; never records secrets."""
+    meta: dict[str, Any] = {
+        "auth_present": bool(token),
+    }
+    if token:
+        owner = _agent_for_token(token)
+        meta["auth_token_owner"] = owner or None
+    try:
+        ctx = mcp.get_context()
+        rc = ctx.request_context
+        request = getattr(rc, "request", None)
+        if request is not None:
+            client = getattr(request, "client", None)
+            if client is not None:
+                meta["remote_addr"] = getattr(client, "host", None)
+                meta["remote_port"] = getattr(client, "port", None)
+            headers = getattr(request, "headers", None)
+            if headers is not None:
+                auth = headers.get("authorization")
+                if auth:
+                    meta["auth_scheme"] = auth.strip().partition(" ")[0].lower()
+                user_agent = headers.get("user-agent")
+                if user_agent:
+                    meta["user_agent"] = user_agent[:180]
+                session_header = headers.get("mcp-session-id")
+                if session_header:
+                    meta["mcp_session_id"] = session_header[:120]
+        try:
+            name = rc.session.client_params.clientInfo.name
+            if name:
+                meta["client_info_name"] = str(name)[:120]
+        except Exception:
+            pass
+    except Exception:
+        pass
+    return meta
+
+
+def _seal_identity_mode() -> str:
+    """Estado del rollout de identidad: OFF | MIGRATE | ENFORCE (spec §9, default OFF = sin bloquear).
+
+    Modo leído de ARCHIVO de control ($SEAL_TOKENS_DIR/identity_mode, runtime-reloadable): el flip
+    = un write, SIN restart → NO vacía _SESSION_CALLERS = cero brick a sesiones vivas (Opción B,
+    consenso NEXUS+ALICE+JARVIS 2026-06-10). Fallback a env SEAL_IDENTITY_MODE (compat)."""
+    for mode_path in _seal_identity_mode_paths():
+        try:
+            with open(mode_path) as fh:
+                m = fh.read().strip().upper()
+                if m in ("OFF", "MIGRATE", "ENFORCE"):
+                    return m
+        except Exception:
+            pass
+    # Fail closed if both the control file and environment setting disappear.
+    return _os_cure.environ.get("SEAL_IDENTITY_MODE", "ENFORCE").upper()
+
+
+def _register_caller_session(agent: str, token: "str | None" = None) -> None:
+    """Liga la sesión actual al `agent`. PUNTO ÚNICO de decisión de identidad (cura SOUL §9).
+    Identidad por SECRETO (token sembrado por el launcher), no por nombre. First-registration-wins.
+
+    Flag SEAL_IDENTITY_MODE (3 estados, nunca switch binario — evita brick de sesiones vivas):
+      • OFF     = como hoy: liga por nombre (despliegue sin bloquear a nadie).
+      • MIGRATE = token válido → liga (verificado); sin token → liga igual (legacy fallback) + log 'legacy-unverified'.
+      • ENFORCE = fail-closed: sin token válido → NO liga (queda external → denegado). Cura completa.
     """
-    if agent.upper() not in _KNOWN_AGENTS:
+    a = agent.upper()
+    if a not in _KNOWN_AGENTS:
         return
     key = _session_key()
-    if key is not None and key not in _SESSION_CALLERS:
-        _SESSION_CALLERS[key] = agent.upper()
+    if key is None:
+        return
+    mode = _seal_identity_mode()
+    from seal_identity_tokens import valid_tokens
+
+    expected = valid_tokens(_seal_token_dirs(), a)
+    verified = bool(token) and token in expected
+
+    # ── Pieza 2 — token VÁLIDO override SIEMPRE, en CUALQUIER modo (cierre del mis-bind stale) ──
+    # Un token válido (identidad por el SECRETO: verified = token == el del agente `a`) re-liga la
+    # sesión del CALLER (key) a su DUEÑO, sobrescribiendo un binding STALE/errado — también en MIGRATE
+    # (antes el first-wins lo impedía → una sesión mal-ligada no se auto-corregía: caso NEXUS→JARVIS).
+    # Forjado → no verified → no toca nada. (NEXUS green: 1.solo token válido · 2.al dueño-vía-
+    # verificación, nunca al kwarg sin token · 3.solo la sesión del caller, nunca mueve la de otro.)
+    # En ENFORCE además es el único camino que liga (sin token → external). FIX C1.5 + mis-bind 2026-06-10.
+    if verified:
+        _SESSION_CALLERS[key] = a
+        return
+    # Sin token válido de acá en adelante:
+    if mode == "ENFORCE":
+        return  # fail-closed: sin token → external (denegado)
+    # MIGRATE / OFF: first-registration-wins (no pisa un binding existente cuando NO hay token).
+    if key in _SESSION_CALLERS:
+        return
+    if mode == "MIGRATE":
+        _SESSION_CALLERS[key] = a
+        try:
+            logging.getLogger("soul.identity").warning(
+                "legacy-unverified: sesión ligada a %s SIN token (modo MIGRATE)", a)
+        except Exception:
+            pass
+        return
+    # OFF (default): comportamiento de hoy — liga por nombre.
+    _SESSION_CALLERS[key] = a
 
 
 def _get_caller_agent() -> str:
@@ -725,6 +1194,219 @@ def _get_caller_agent() -> str:
     return "external"
 
 
+_MCP_DB_AGENT: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "mcp_db_agent",
+    default="external",
+)
+_MCP_RUNTIME_POOLS: dict[str, asyncpg.Pool] = {}
+
+
+def _mcp_runtime_dsn(agent: str) -> str | None:
+    """Return the validated least-privilege DSN when the cutover is enabled.
+
+    Each authenticated agent resolves to a different PostgreSQL login. Missing,
+    mismatched, external, or privileged credentials fail closed.
+    """
+    if not _mcp_runtime_enabled():
+        return None
+    return resolve_mcp_agent_db_url(agent)
+
+
+def _mcp_runtime_enabled() -> bool:
+    return os.environ.get("SEAL_MCP_RUNTIME_DB", "0").strip().lower() not in {
+        "0", "false", "off", "no"
+    }
+
+
+async def _get_mcp_raw_runtime_pool() -> asyncpg.Pool | None:
+    if not _mcp_runtime_enabled():
+        return None
+    agent = (_MCP_DB_AGENT.get() or "external").strip().upper()
+    if agent not in _KNOWN_AGENTS:
+        raise RuntimeError("MCP database access requires an authenticated agent identity")
+    dsn = _mcp_runtime_dsn(agent)
+    if not dsn:
+        raise RuntimeError("MCP runtime DB is enabled but no restricted credential resolved")
+    pool = _MCP_RUNTIME_POOLS.get(agent)
+    if pool is None or pool._closed:
+        pool = await asyncpg.create_pool(
+            dsn,
+            min_size=1,
+            max_size=3,
+            server_settings={"search_path": "soul_v3"},
+        )
+        _MCP_RUNTIME_POOLS[agent] = pool
+    return pool
+
+
+async def _set_mcp_runtime_context(conn: asyncpg.Connection) -> None:
+    """Set RLS context on the acquired connection for one MCP call."""
+    agent = _MCP_DB_AGENT.get() or "external"
+    await conn.execute("SELECT set_config('app.tenant_id', $1, true)", INTERNAL_TENANT_ID)
+    await conn.execute("SELECT set_config('app.agent', $1, true)", agent)
+    await conn.execute("SELECT set_config('app.viewer', $1, true)", "agent")
+    await conn.execute("SELECT set_config('app.user_id', $1, true)", "")
+
+
+async def _reset_mcp_runtime_context(conn: asyncpg.Connection) -> None:
+    """Clear session-level RLS context before returning a connection to the pool."""
+    await conn.execute("SELECT set_config('app.tenant_id', '', false)")
+    await conn.execute("SELECT set_config('app.agent', '', false)")
+    await conn.execute("SELECT set_config('app.viewer', '', false)")
+    await conn.execute("SELECT set_config('app.user_id', '', false)")
+
+
+class _McpScopedAcquire:
+    def __init__(self, pool: "_McpRuntimePool") -> None:
+        self._pool = pool
+        self._conn: asyncpg.Connection | None = None
+        self._tx: Any | None = None
+
+    async def __aenter__(self) -> asyncpg.Connection:
+        self._conn = await self._pool._raw.acquire()
+        try:
+            self._tx = self._conn.transaction()
+            await self._tx.start()
+            await _set_mcp_runtime_context(self._conn)
+        except Exception:
+            if self._tx is not None:
+                await self._tx.rollback()
+                self._tx = None
+            await self._pool._raw.release(self._conn)
+            self._conn = None
+            raise
+        return self._conn
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        assert self._conn is not None
+        try:
+            assert self._tx is not None
+            if exc_type is None:
+                await self._tx.commit()
+            else:
+                await self._tx.rollback()
+        finally:
+            self._tx = None
+            await self._pool._raw.release(self._conn)
+            self._conn = None
+
+
+class _McpRuntimePool:
+    """Small asyncpg Pool facade that scopes RLS GUCs on every operation."""
+
+    def __init__(self, raw: asyncpg.Pool) -> None:
+        self._raw = raw
+
+    def acquire(self) -> _McpScopedAcquire:
+        return _McpScopedAcquire(self)
+
+    async def fetch(self, query: str, *args: Any, **kwargs: Any) -> list[Any]:
+        async with self.acquire() as conn:
+            return await conn.fetch(query, *args, **kwargs)
+
+    async def fetchrow(self, query: str, *args: Any, **kwargs: Any) -> Any:
+        async with self.acquire() as conn:
+            return await conn.fetchrow(query, *args, **kwargs)
+
+    async def fetchval(self, query: str, *args: Any, **kwargs: Any) -> Any:
+        async with self.acquire() as conn:
+            return await conn.fetchval(query, *args, **kwargs)
+
+    async def execute(self, query: str, *args: Any, **kwargs: Any) -> str:
+        async with self.acquire() as conn:
+            return await conn.execute(query, *args, **kwargs)
+
+    async def executemany(self, command: str, args, **kwargs: Any) -> None:
+        async with self.acquire() as conn:
+            await conn.executemany(command, args, **kwargs)
+
+
+async def _mcp_get_pool():
+    raw = await _get_mcp_raw_runtime_pool()
+    if raw is None:
+        if _mcp_runtime_enabled():
+            raise RuntimeError("MCP runtime DB cutover failed closed")
+        return await _legacy_get_pool()
+    return _McpRuntimePool(raw)
+
+
+async def _mcp_close_pool() -> None:
+    pools = list(_MCP_RUNTIME_POOLS.values())
+    _MCP_RUNTIME_POOLS.clear()
+    for pool in pools:
+        if pool._closed:
+            continue
+        try:
+            await asyncio.wait_for(pool.close(), timeout=10)
+        except asyncio.TimeoutError:
+            pass
+    await _legacy_close_pool()
+
+
+# MCP DB cutover: all module-level `get_pool()` calls below resolve to the
+# least-privilege runtime role when .seal_runtime_cred is present.
+get_pool = _mcp_get_pool
+close_pool = _mcp_close_pool
+
+# Helpers imported after this point use ``from db import get_pool``.  Bind that
+# shared module to the same scoped facade as the MCP server so they inherit the
+# authenticated caller's RLS context instead of opening an unscoped runtime-role
+# connection.  The original functions were captured above for clean shutdown.
+import db as _mcp_db_module
+_mcp_db_module.get_pool = _mcp_get_pool
+_mcp_db_module.close_pool = _mcp_close_pool
+
+
+def _session_diag(tool_name: str, caller: str, target: str) -> None:
+    """Diagnóstico ADITIVO (MIGRATE-safe) del mis-bind NEXUS→JARVIS: correlación de sesión por-call
+    → /tmp/seal_session_diag.log. Captura _seal_sid, transport session_id, a qué agente está ligada
+    esta sid, y el tamaño de _SESSION_CALLERS. Temporal (se quita tras cerrar el diagnóstico)."""
+    try:
+        import json as _j, time as _t
+        sid = None; tsid = None
+        try:
+            ctx = mcp.get_context()
+            session = ctx.request_context.session
+            sid = getattr(session, "_seal_sid", None)
+            for attr in ("_session_id", "session_id", "mcp_session_id"):
+                tsid = getattr(session, attr, None) or tsid
+            if tsid is None:
+                rc = ctx.request_context
+                tsid = getattr(rc, "session_id", None)
+                if tsid is None:
+                    req = getattr(rc, "request", None)
+                    if req is not None:
+                        try: tsid = req.headers.get("mcp-session-id")
+                        except Exception: pass
+        except Exception:
+            pass
+        rec = {"t": _t.strftime("%H:%M:%S"), "tool": tool_name, "caller": caller, "target": target,
+               "seal_sid": (sid[:8] if isinstance(sid, str) else sid),
+               "tsid": (str(tsid)[:16] if tsid else None),
+               "this_sid_bound_to": _SESSION_CALLERS.get(sid),
+               "callers_n": len(_SESSION_CALLERS)}
+        with open("/tmp/seal_session_diag.log", "a") as f:
+            f.write(_j.dumps(rec, default=str) + "\n")
+    except Exception:
+        pass
+
+
+# ── CONTRATO TERMINAL (JARVIS, 31-jul-2026) ───────────────────────────────
+def _terminal_state(result) -> tuple[str, bool]:
+    """Derive an explicit terminal state; never assume a returned error is success."""
+    if result is None:
+        return ("empty_none", True)
+    if isinstance(result, dict):
+        if result.get("ok") is False or result.get("error"):
+            return ("declared_error", False)
+        if not result:
+            return ("empty_dict", True)
+        return ("ok", True)
+    if isinstance(result, (list, tuple, set, str)) and len(result) == 0:
+        return ("empty_collection", True)
+    return ("ok", True)
+
+
 def _observed_tool(**tool_kwargs):
     """Wrapper around @mcp.tool() that auto-instruments with _observe, rate-limits, and privacy."""
     def decorator(func):
@@ -741,33 +1423,87 @@ def _observed_tool(**tool_kwargs):
                 )
             t0 = _time.monotonic()
             target = _extract_agent_from_args(args, kwargs, func)
+            # Autenticación exclusivamente por el carrier HTTP. Nunca aceptar secretos
+            # dentro de argumentos de tool: además de persistirse en transcripts, permitía
+            # saltar el contrato Bearer-only y confundía evidencia con autoridad.
+            _sess_tok = _session_token_from_request()
             caller = _get_caller_agent()
-            # ── Post-restart auto-registration (MCP server restart wipes _SESSION_CALLERS) ──
-            # If session is unregistered ("external") and a known agent name is in the agent kwarg,
-            # auto-register this session. First-registration-wins prevents subsequent impersonation.
-            # Safe: server is localhost-only; all callers are trusted Claude Code sessions.
-            if caller == "external" and target in _KNOWN_AGENTS:
-                _register_caller_session(target)
+            # ── Auto-registro / re-bind por TOKEN (cura §9 + cierre residual ENFORCE) ──
+            # En 'external' re-liga por el DUEÑO del token (identidad por secreto → liga VERIFICADO,
+            # sirve en ENFORCE donde el nombre no liga). Esto cierra el brick de restart-en-ENFORCE:
+            # cualquier call (no solo boot_context) re-autentica la sesión. Sin token válido → elif
+            # legacy por nombre (neutralizado en ENFORCE). first-wins: si ya está ligada, NO re-liga
+            # → un token ajeno en kwargs no secuestra una sesión ya identificada.
+            if caller == "external":
+                _tok_owner = _agent_for_token(_sess_tok) if _sess_tok else None
+                if _tok_owner:
+                    _register_caller_session(_tok_owner, _sess_tok)
+                elif target in _KNOWN_AGENTS:
+                    _register_caller_session(target)  # OFF/MIGRATE legacy; ENFORCE no liga sin token
                 caller = _get_caller_agent()
-            # ── Privacy check (spec_memory_privacy_enforcement) ──
-            await _privacy_check(caller, target, func.__name__, kwargs)
-            input_sum = ", ".join(f"{k}={str(v)[:60]}" for k, v in kwargs.items())[:300]
-            if not input_sum and args:
-                input_sum = str(args[0])[:200]
+            # Compatibilidad defensiva para clientes antiguos: si el SDK deja pasar un
+            # argumento extra, se descarta sin usarlo. boot_context/announce_agent ya no
+            # lo publican en su schema, por lo que clientes conformes fallan antes.
+            if "session_token" in kwargs:
+                kwargs = {k: v for k, v in kwargs.items() if k != "session_token"}
+            _db_agent_token = _MCP_DB_AGENT.set(caller if caller in _KNOWN_AGENTS else "external")
             try:
-                result = await func(*args, **kwargs)
-                elapsed = int((_time.monotonic() - t0) * 1000)
-                output_sum = str(result)[:150] if result else ""
-                _fire_and_forget(_observe(func.__name__, target, input_sum, output_sum, True, elapsed))
-                _fire_and_forget(_log_smg(caller, func.__name__, 200, elapsed))
-                return result
-            except PrivacyDenied:
-                raise  # Propagate privacy blocks directly (no observe noise)
-            except Exception as e:
-                elapsed = int((_time.monotonic() - t0) * 1000)
-                _fire_and_forget(_observe(func.__name__, target, input_sum, str(e)[:150], False, elapsed))
-                _fire_and_forget(_log_smg(caller, func.__name__, 500, elapsed, {"error": str(e)[:200]}))
-                raise
+                # ── ToolBroker observe gate (F-01/F-02) ──
+                # Observe mode records the broker decision in soul_v3.audit_log without blocking
+                # production. Enforce/migrate can block later, after capability_scope is seeded.
+                try:
+                    from tool_broker import check as _tool_broker_check
+
+                    _broker = await _tool_broker_check(
+                        caller,
+                        str(_session_key() or ""),
+                        func.__name__,
+                        kwargs,
+                        audit=True,
+                        audit_metadata=_request_audit_metadata(_sess_tok),
+                    )
+                    if not _broker.allow:
+                        raise ValueError(
+                            f"[TOOL_BROKER] {func.__name__} blocked for {caller}: "
+                            f"{_broker.decision} {(_broker.reason or '')[:180]}"
+                        )
+                except Exception as _broker_exc:
+                    if os.environ.get("SEAL_TOOL_BROKER_MODE", "observe").strip().lower() == "observe":
+                        try:
+                            LOG.warning("tool_broker observe fail-open for %s/%s: %s",
+                                        caller, func.__name__, str(_broker_exc)[:200])
+                        except Exception:
+                            pass
+                    else:
+                        raise
+                # ── Diagnóstico aditivo del mis-bind (temporal, MIGRATE) ──
+                _session_diag(func.__name__, caller, target)
+                # ── Privacy check (spec_memory_privacy_enforcement) ──
+                await _privacy_check(caller, target, func.__name__, kwargs)
+                input_sum = ", ".join(f"{k}={str(v)[:60]}" for k, v in kwargs.items())[:300]
+                if not input_sum and args:
+                    input_sum = str(args[0])[:200]
+                try:
+                    result = await func(*args, **kwargs)
+                    elapsed = int((_time.monotonic() - t0) * 1000)
+                    terminal, terminal_ok = _terminal_state(result)
+                    output_sum = str(result)[:150] if result else f"[terminal:{terminal}]"
+                    if terminal != "ok":
+                        output_sum = f"[terminal:{terminal}] {output_sum}"[:150]
+                    _fire_and_forget(
+                        _observe(func.__name__, target, input_sum, output_sum, terminal_ok, elapsed)
+                    )
+                    _fire_and_forget(_log_smg(caller, func.__name__, 200, elapsed))
+                    return result
+                except PrivacyDenied:
+                    raise  # Propagate privacy blocks directly (no observe noise)
+                except Exception as e:
+                    elapsed = int((_time.monotonic() - t0) * 1000)
+                    _fire_and_forget(_observe(func.__name__, target, input_sum, str(e)[:150], False, elapsed))
+                    _fire_and_forget(_log_smg(caller, func.__name__, 500, elapsed, {"error": str(e)[:200]}))
+                    raise
+            finally:
+                _MCP_DB_AGENT.reset(_db_agent_token)
         # Register with original mcp.tool
         return _original_mcp_tool(**tool_kwargs)(wrapper)
     return decorator
@@ -800,7 +1536,7 @@ async def _auto_activate_instincts(agent: str, query: str):
     Called fire-and-forget from soul_activate. Makes instincts fire organically."""
     try:
         pool = await get_pool()
-        emb = json.dumps(await get_embedding(query))
+        emb = json.dumps(await get_query_embedding(query))
         rows = await pool.fetch("""
             SELECT id, trigger_condition
             FROM instincts
@@ -836,18 +1572,16 @@ _neo4j_driver = None
 
 async def get_qdrant():
     """
-    Returns AsyncQdrantClient (full mode) or PgVectorAdapter (Soul Lite mode).
-    Toggle via SOUL_LITE=true environment variable.
+    Return the PostgreSQL/pgvector adapter.
+
+    The function name is retained for legacy internal call sites, but Qdrant is
+    retired from the live architecture and is never opened here.
     """
-    global _qdrant, _qdrant_lite
-    if SOUL_LITE:
-        if _qdrant_lite is None:
-            from soul_lite_adapter import PgVectorAdapter
-            _qdrant_lite = PgVectorAdapter(get_pool)
-        return _qdrant_lite
-    if _qdrant is None:
-        _qdrant = AsyncQdrantClient(url=QDRANT_URL, api_key=settings.qdrant_api_key)
-    return _qdrant
+    global _qdrant_lite
+    if _qdrant_lite is None:
+        from soul_lite_adapter import PgVectorAdapter
+        _qdrant_lite = PgVectorAdapter(get_pool)
+    return _qdrant_lite
 
 
 def get_neo4j():
@@ -915,8 +1649,11 @@ def _signal_handler(signum, frame) -> None:
 
 
 atexit.register(_sync_cleanup)
-signal.signal(signal.SIGTERM, _signal_handler)
-signal.signal(signal.SIGINT,  _signal_handler)
+# Uvicorn owns SIGTERM/SIGINT while its asyncio loop is running.  Installing a
+# second synchronous handler here caused a nested event loop during every clean
+# restart (and left the cleanup coroutine un-awaited).  Once Uvicorn returns,
+# atexit performs the same cleanup with no running-loop race.  Stdio/default
+# termination also reaches atexit, so no independent signal override is needed.
 
 
 # ── OCEAN Dynamic ──
@@ -965,18 +1702,13 @@ async def update_ocean(agent: str, category: str, valence: float | None = None):
 
     pool = await get_pool()
     async with pool.acquire() as conn:
-        ocean_raw = await conn.fetchval("SELECT ocean_scores FROM identity WHERE agent = $1", agent)
-        if not ocean_raw:
-            return
-        ocean = json.loads(ocean_raw) if isinstance(ocean_raw, str) else ocean_raw
-        old_val = ocean.get(trait, 0.5)
-        new_val = max(0.0, min(1.0, old_val + delta))
-        ocean[trait] = round(new_val, 4)
-
-        await conn.execute(
-            "UPDATE identity SET ocean_scores = $1, updated_at = NOW() WHERE agent = $2",
-            json.dumps(ocean), agent,
+        applied_raw = await conn.fetchval(
+            "SELECT soul_v3.ocean_signal_apply($1, $2, $3, $4)",
+            agent, trait, delta, category,
         )
+        applied = json.loads(applied_raw) if isinstance(applied_raw, str) else applied_raw
+        old_val = float(applied["old"])
+        new_val = float(applied["new"])
         # Log to drift_metrics
         try:
             await conn.execute(
@@ -1025,15 +1757,13 @@ async def update_relationships(agent: str, category: str, content: str, valence:
         for person in mentioned:
             # Get current relationship
             rel = await conn.fetchrow(
-                "SELECT trust_level, interaction_count FROM relationships WHERE agent = $1 AND person = $2",
+                "SELECT trust_level FROM relationships WHERE agent = $1 AND person = $2",
                 agent, person,
             )
             if not rel:
                 continue
 
             old_trust = float(rel["trust_level"])
-            count = rel["interaction_count"] or 1
-
             # Adjust trust based on category + valence
             if category == "trust":
                 delta = +0.01 if (valence is None or valence >= 0) else -0.005
@@ -1044,11 +1774,14 @@ async def update_relationships(agent: str, category: str, content: str, valence:
             else:
                 delta = 0
 
-            new_trust = max(0.1, min(1.0, old_trust + delta))
-            await conn.execute(
-                "UPDATE relationships SET trust_level = $1, interaction_count = $2, updated_at = NOW() WHERE agent = $3 AND person = $4",
-                new_trust, count + 1, agent, person,
+            applied = await conn.fetchval(
+                "SELECT soul_v3.relationship_signal_apply($1, $2, $3)",
+                agent,
+                person,
+                delta,
             )
+            if not applied:
+                LOG.debug("Relationship signal skipped: missing row %s->%s", agent, person)
 
 
 async def generate_episode_context(agent: str, content: str, category: str, valence: float | None) -> str | None:
@@ -1171,9 +1904,121 @@ def _mirix_classify(category: str, content: str, memory_type: str | None = None)
     return MIRIX_CATEGORY_MAP.get(category, "episodic")
 
 
+_DUAL_MEMORY_LAYERS = {"emotional", "operational"}
+
+
+from runtime_instance import tag_runtime_instance as _tag_runtime_instance  # H8: etiqueta de cuerpo
+
+
+def _parse_metadata_arg(metadata: Any) -> dict[str, Any]:
+    """Normalize MCP metadata args from JSON strings or structured clients."""
+    if metadata is None or metadata == "":
+        return {}
+    if isinstance(metadata, dict):
+        return dict(metadata)
+    if isinstance(metadata, str):
+        try:
+            parsed = json.loads(metadata)
+        except json.JSONDecodeError:
+            return {"raw_metadata": metadata}
+        return parsed if isinstance(parsed, dict) else {"raw_metadata": parsed}
+    return {"raw_metadata": str(metadata)}
+
+
+def _ensure_dual_memory_layer(
+    metadata: dict[str, Any],
+    *,
+    category: str | None,
+    memory_type: str | None,
+    content: str | None,
+    inferred_by: str,
+) -> dict[str, Any]:
+    """Ensure every newly stored memory is born in one dual-memory layer.
+
+    Backfills repair old rows, but William's requirement is runtime discipline:
+    new memories must not enter SOUL with metadata.layer unset.
+    """
+    meta = metadata if isinstance(metadata, dict) else {}
+    existing = str(meta.get("layer") or "").strip().lower()
+    if existing in _DUAL_MEMORY_LAYERS:
+        meta["layer"] = existing
+        return meta
+
+    try:
+        from dual_memory_governance import ensure_layer_metadata
+
+        return ensure_layer_metadata(
+            meta,
+            category=category,
+            memory_type=memory_type,
+            content=content,
+            inferred_by=inferred_by,
+            inferred_at=datetime.now(timezone.utc).isoformat(),
+        )
+    except Exception:
+        cat = (category or "").strip().lower()
+        mem_type = (memory_type or "").strip().lower()
+        layer = "emotional" if cat in {"emotion", "trust", "relationship", "diary", "identity"} or "emotion" in cat or mem_type in {"emotional", "identity_emotional"} else "operational"
+
+    if existing:
+        meta["layer_original_value"] = existing
+    meta["layer"] = layer
+    meta["layer_inferred_by"] = inferred_by
+    meta["layer_inferred_at"] = datetime.now(timezone.utc).isoformat()
+    return meta
+
+
 # ══════════════════════════════════════════════════════════════════════
 # QDRANT-BACKED TOOLS (memories, search)
 # ══════════════════════════════════════════════════════════════════════
+
+async def _enqueue_memory_graph_sync(
+    conn: asyncpg.Connection,
+    *,
+    memory_id: int,
+    agent: str,
+    category: str,
+    content: str,
+    importance: int,
+) -> None:
+    """Durably queue the canonical PG memory for idempotent Neo4j upsert."""
+    payload = {
+        "agent": agent,
+        "category": category,
+        "content": content[:500],
+        "importance": int(importance),
+    }
+    await conn.execute(
+        """INSERT INTO soul_v3.memory_graph_outbox
+             (memory_id, operation, payload, status, attempts, next_attempt_at,
+              last_error, updated_at, processed_at)
+           VALUES ($1, 'upsert_memory', $2::jsonb, 'pending', 0, NOW(), NULL, NOW(), NULL)
+           ON CONFLICT (memory_id) DO UPDATE SET
+             payload=EXCLUDED.payload, status='pending', attempts=0,
+             next_attempt_at=NOW(), last_error=NULL, updated_at=NOW(), processed_at=NULL""",
+        memory_id,
+        json.dumps(payload),
+    )
+
+
+async def _finish_memory_graph_sync(pool, memory_id: int, error: Exception | None = None) -> None:
+    if error is None:
+        await pool.execute(
+            """UPDATE soul_v3.memory_graph_outbox
+               SET status='applied', processed_at=NOW(), updated_at=NOW(), last_error=NULL
+               WHERE memory_id=$1""",
+            memory_id,
+        )
+        return
+    await pool.execute(
+        """UPDATE soul_v3.memory_graph_outbox
+           SET status='error', attempts=attempts+1,
+               next_attempt_at=NOW() + INTERVAL '1 minute',
+               last_error=$2, updated_at=NOW()
+           WHERE memory_id=$1""",
+        memory_id,
+        str(error)[:500],
+    )
 
 @mcp.tool()
 async def memory_store(
@@ -1182,7 +2027,7 @@ async def memory_store(
     content: str,
     importance: int = 5,
     source: str = "conversation",
-    metadata: Optional[str] = None,
+    metadata: Optional[Any] = None,
     event_time: Optional[str] = None,
     scope: str = "private",
 ) -> str:
@@ -1194,7 +2039,7 @@ async def memory_store(
         content: The memory content text
         importance: 1-10 scale (10 = critical, never forget)
         source: Origin: conversation, reflection, consolidation
-        metadata: Optional JSON string with extra data
+        metadata: Optional JSON string or object with extra data
         event_time: ISO timestamp of when the event actually happened (optional, defaults to now). Different from ingestion time (created_at).
         scope: Visibility — private (default), shared (ADA+JARVIS), team (all agents), william (only William)
     """
@@ -1203,7 +2048,51 @@ async def memory_store(
     importance = max(1, min(10, importance))
     if scope not in ("private", "shared", "team", "william"):
         scope = "private"
-    meta = json.loads(metadata) if metadata else {}
+    meta = _parse_metadata_arg(metadata)
+    # H8 (3-sep-2026, luz verde William): etiqueta del CUERPO que escribe, inferida de la identidad
+    # del cliente MCP cuando el escritor no la declara. Ver memory/runtime_instance.py.
+    try:
+        meta = _tag_runtime_instance(agent, meta, _request_audit_metadata())
+    except Exception as _exc:  # nunca bloquear una escritura por la etiqueta
+        LOG.warning("runtime_instance tag skipped: %s", _exc)
+    category, content, importance, normalization = _normalize_memory_by_rubric(agent, category, content, importance)
+    if normalization:
+        meta["rubric_normalization"] = normalization
+
+    auto_skip_reason = memory_auto_event_skip_reason(
+        agent=agent,
+        category=category,
+        content=content,
+        source=source,
+        importance=importance,
+        metadata=meta,
+    )
+    if auto_skip_reason:
+        LOG.info(
+            "memory_store auto-event skipped: agent=%s category=%s source=%s reason=%s",
+            agent, category, source, auto_skip_reason,
+        )
+        try:
+            pool_skip = await get_pool()
+            async with pool_skip.acquire() as conn_skip:
+                await audit_memory_skip_event(
+                    conn_skip,
+                    agent=agent,
+                    category=category,
+                    content=content,
+                    source=source,
+                    importance=importance,
+                    reason=auto_skip_reason,
+                )
+        except Exception as exc:
+            LOG.debug("memory_store auto-event skip audit failed: %s", exc)
+        return _safe_dumps({
+            "result": "Memory skipped by auto-event admission filter",
+            "reason": auto_skip_reason,
+            "agent": agent,
+            "category": category,
+            "source": source,
+        })
 
     # Secret scanning — block secrets from being stored in SOUL
     from secret_scanner import scan_text as _scan_secrets
@@ -1389,7 +2278,31 @@ async def memory_store(
             if similar:
                 old = similar[0]
                 old_imp = old.payload.get("importance", 0)
-                if importance >= old_imp:
+                from memory_dedup_guard import safe_to_auto_replace
+
+                old_content = str(old.payload.get("content", ""))
+                duplicate_safe = safe_to_auto_replace(
+                    old_content,
+                    content,
+                    float(old.score),
+                    old_importance=int(old_imp),
+                )
+                if int(old_imp) >= 7:
+                    LOG.info(
+                        "High-importance memory preserved from auto-replacement: "
+                        "old=%s imp=%s sim=%.3f",
+                        old.id,
+                        old_imp,
+                        old.score,
+                    )
+                elif not duplicate_safe:
+                    LOG.info(
+                        "Semantic neighbor preserved (not a lexical duplicate): "
+                        "old=%s sim=%.3f",
+                        old.id,
+                        old.score,
+                    )
+                elif importance >= old_imp:
                     from qdrant_client.models import PointIdsList
                     await qdrant.delete(
                         collection_name=QDRANT_COLLECTION,
@@ -1397,6 +2310,10 @@ async def memory_store(
                     )
                     pool_tmp = await get_pool()
                     async with pool_tmp.acquire() as conn_tmp:
+                        await conn_tmp.execute(
+                            "SELECT set_config('app.tenant_id', $1, true)",
+                            INTERNAL_TENANT_ID,
+                        )
                         await conn_tmp.execute(
                             "UPDATE memories SET invalid_at = NOW() WHERE id = $1", old.id,
                         )
@@ -1414,18 +2331,38 @@ async def memory_store(
     embedding_str = json.dumps(embedding) if embedding is not None else None
     # MIRIX auto-classify
     mem_type = _mirix_classify(category, content)
+    meta = _ensure_dual_memory_layer(
+        meta,
+        category=category,
+        memory_type=mem_type,
+        content=content,
+        inferred_by="memory_store",
+    )
 
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            """INSERT INTO memories (agent, category, content, embedding, importance, source, valid_from, event_time, metadata, valence, arousal, dominance, scope, confidence_score, memory_type)
-               VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, 1.0, $13)
-               RETURNING id, created_at""",
-            agent, category, content,
-            embedding_str,
-            importance, source, parsed_event_time, json.dumps(meta),
-            valence, arousal, dominance, scope, mem_type,
-        )
+        async with conn.transaction():
+            await conn.execute(
+                "SELECT set_config('app.tenant_id', $1, true)",
+                INTERNAL_TENANT_ID,
+            )
+            row = await conn.fetchrow(
+                """INSERT INTO memories (tenant_id, agent, category, content, embedding, importance, source, valid_from, event_time, metadata, valence, arousal, dominance, scope, confidence_score, memory_type)
+                   VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11, $12, $13, 1.0, $14)
+                   RETURNING id, created_at""",
+                INTERNAL_TENANT_ID, agent, category, content,
+                embedding_str,
+                importance, source, parsed_event_time, json.dumps(meta),
+                valence, arousal, dominance, scope, mem_type,
+            )
+            await _enqueue_memory_graph_sync(
+                conn,
+                memory_id=int(row["id"]),
+                agent=agent,
+                category=category,
+                content=content,
+                importance=importance,
+            )
 
     mem_id = row["id"]
     created = row["created_at"]
@@ -1449,6 +2386,8 @@ async def memory_store(
                     "arousal": arousal,
                     "dominance": dominance,
                     "scope": scope,
+                    "layer": meta.get("layer"),
+                    "metadata": meta,
                     "utility": 0.5,  # MemRL: neutral initial utility
                     "confidence": 1.0,  # Hindsight: high initial confidence, degrades on contradiction
                 },
@@ -1457,12 +2396,19 @@ async def memory_store(
 
     # Add node to Neo4j
     driver = get_neo4j()
-    async with driver.session() as session:
-        await session.run(
-            "MERGE (m:Memory {memory_id: $mid}) "
-            "SET m.agent = $agent, m.category = $cat, m.content = $content, m.importance = $imp",
-            mid=mem_id, agent=agent, cat=category, content=content[:500], imp=importance,
-        )
+    graph_sync_state = "pending"
+    try:
+        async with driver.session() as session:
+            await session.run(
+                "MERGE (m:Memory {memory_id: $mid}) "
+                "SET m.agent = $agent, m.category = $cat, m.content = $content, m.importance = $imp",
+                mid=mem_id, agent=agent, cat=category, content=content[:500], imp=importance,
+            )
+        await _finish_memory_graph_sync(pool, mem_id)
+        graph_sync_state = "applied"
+    except Exception as exc:
+        LOG.warning("Neo4j memory upsert queued for retry: memory=%s error=%s", mem_id, str(exc)[:200])
+        await _finish_memory_graph_sync(pool, mem_id, exc)
 
     # Incremental connectome — connect new memory to similar neighbors (needs embedding)
     if embedding is not None:
@@ -1521,13 +2467,13 @@ async def memory_store(
     try:
         await update_ocean(agent, category, valence)
     except Exception as e:
-        LOG.debug("OCEAN update skipped: %s", e)
+        LOG.warning("OCEAN update FAILED for agent=%s category=%s: %s", agent, category, e)
 
     # Relationship auto-update (trust memories affect relationships)
     try:
         await update_relationships(agent, category, content, valence)
     except Exception as e:
-        LOG.debug("Relationship update skipped: %s", e)
+        LOG.warning("Relationship update FAILED for agent=%s category=%s: %s", agent, category, e)
 
     # Episode context — first-person narrative of the moment (high-importance memories only)
     episode_ctx = None
@@ -1552,7 +2498,7 @@ async def memory_store(
         _fire_and_forget(_auto_broadcast(mem_id, agent, scope, content))
     # Auto-fire instincts on memory store (corrections trigger instinct matching)
     _fire_and_forget(_auto_activate_instincts(agent, content))
-    return f"Memory #{mem_id} stored at {created.isoformat()} [{conflict_action}]{emotion_tag}{scope_tag}{dmem_tag}"
+    return f"Memory #{mem_id} stored at {created.isoformat()} [{conflict_action}] [graph: {graph_sync_state}]{emotion_tag}{scope_tag}{dmem_tag}"
 
 
 async def memory_broadcast_read(
@@ -1656,6 +2602,9 @@ async def memory_search(
         include_archived: Include cold archive results alongside active results (default false)
         memory_type: MIRIX type filter — core, episodic, semantic, procedural, resource, vault (optional)
     """
+    if not agent or not str(agent).strip():
+        return "[PRIVACY] memory_search requires agent; unscoped global search is denied."
+    agent = str(agent).strip().upper()
     # ── SplayCache L1 — check working memory first ──
     cache_key = f"msearch:{agent or '*'}:{category or '*'}:{query[:80]}"
     cached = _splay_cache.get(cache_key)
@@ -1664,7 +2613,7 @@ async def memory_search(
         return cached
 
     try:
-        query_vec = await get_embedding(query)
+        query_vec = await get_query_embedding(query)
     except Exception as e:
         return f"Error generating query embedding: {e}"
 
@@ -1672,8 +2621,13 @@ async def memory_search(
 
     # H-MEM 4-layer pre-filter: temporal → category → importance → scope (Nivel 2, ADA 2026-04-09)
     must, must_not = _hmem_build_qdrant_filters(query, agent, category, include_invalidated, scope_aware)
-    # Fetch more candidates when temporal signal present (post-filter will narrow down)
-    fetch_limit = limit * 3 if _hmem_has_temporal_signal(query) else limit * 2
+    # Fetch more candidates when temporal/emotional signal is present; post-filters/rerankers narrow down.
+    if emotional_signal_strength(query) > 0:
+        fetch_limit = max(limit * 10, 200)
+    elif _hmem_has_temporal_signal(query):
+        fetch_limit = limit * 3
+    else:
+        fetch_limit = limit * 2
 
     # ── TrieIndex pre-filter: keyword lookup O(m) → reduces semantic search space ──
     try:
@@ -1779,7 +2733,16 @@ async def memory_search(
     else:
         entries = [e for e in entries if e["memory_type"] != "vault"]
 
+    for e in entries:
+        rescue_floor, overlap_ratio, shared_count = _exact_match_rescue_floor(query, e.get("content") or "")
+        if rescue_floor > float(e.get("decayed_score") or 0.0):
+            e["decayed_score"] = round(rescue_floor, 4)
+            e["lexical_exact_rescue"] = True
+            e["lexical_overlap"] = round(overlap_ratio, 3)
+            e["lexical_shared_tokens"] = shared_count
+
     # Re-sort by decayed score
+    rerank_emotional_results(query, entries, score_key="decayed_score")
     entries.sort(key=lambda x: -x["decayed_score"])
 
     # H-MEM Layer 1 post-filter: temporal (Qdrant can't filter string dates)
@@ -2058,7 +3021,7 @@ async def memory_update(
     pool = await get_pool()
     async with pool.acquire() as conn:
         old = await conn.fetchrow(
-            "SELECT content, metadata FROM memories WHERE id = $1 AND invalid_at IS NULL",
+            "SELECT agent, category, content, importance, metadata FROM memories WHERE id = $1 AND invalid_at IS NULL",
             memory_id,
         )
         if not old:
@@ -2075,14 +3038,23 @@ async def memory_update(
 
         # Hindsight: content update implies correction → slight confidence decay
         # The new content replaces the old, so the old was less reliable
-        await conn.execute(
-            """UPDATE memories SET content = $1, embedding = $2, valence = $3, arousal = $4,
-               dominance = $5, metadata = $6,
-               confidence_score = GREATEST(0.3, COALESCE(confidence_score, 1.0) - 0.1)
-               WHERE id = $7""",
-            new_content, json.dumps(new_embedding), new_valence, new_arousal,
-            new_dominance, json.dumps(old_meta), memory_id,
-        )
+        async with conn.transaction():
+            await conn.execute(
+                """UPDATE memories SET content = $1, embedding = $2, valence = $3, arousal = $4,
+                   dominance = $5, metadata = $6,
+                   confidence_score = GREATEST(0.3, COALESCE(confidence_score, 1.0) - 0.1)
+                   WHERE id = $7""",
+                new_content, json.dumps(new_embedding), new_valence, new_arousal,
+                new_dominance, json.dumps(old_meta), memory_id,
+            )
+            await _enqueue_memory_graph_sync(
+                conn,
+                memory_id=memory_id,
+                agent=old["agent"],
+                category=old["category"],
+                content=new_content,
+                importance=int(old["importance"]),
+            )
 
     # Update in Qdrant (upsert — same ID, no conflict detection)
     qdrant = await get_qdrant()
@@ -2111,14 +3083,26 @@ async def memory_update(
 
     # Update content in Neo4j node (edges stay intact)
     driver = get_neo4j()
-    async with driver.session() as session:
-        await session.run(
-            "MATCH (m:Memory {memory_id: $mid}) SET m.content = $content",
-            mid=memory_id, content=new_content[:500],
-        )
+    graph_sync_state = "pending"
+    try:
+        async with driver.session() as session:
+            await session.run(
+                "MERGE (m:Memory {memory_id: $mid}) "
+                "SET m.agent=$agent, m.category=$category, m.content=$content, m.importance=$importance",
+                mid=memory_id,
+                agent=old["agent"],
+                category=old["category"],
+                content=new_content[:500],
+                importance=int(old["importance"]),
+            )
+        await _finish_memory_graph_sync(pool, memory_id)
+        graph_sync_state = "applied"
+    except Exception as exc:
+        LOG.warning("Neo4j memory update queued for retry: memory=%s error=%s", memory_id, str(exc)[:200])
+        await _finish_memory_graph_sync(pool, memory_id, exc)
 
     emo = f" v={new_valence:+.2f}, a={new_arousal:+.2f}, d={new_dominance:.2f}" if new_valence is not None else ""
-    return f"Memory #{memory_id} updated in-place.{emo} Reason: {reason}. Edits: {len(edits)} total."
+    return f"Memory #{memory_id} updated in-place.{emo} Reason: {reason}. Edits: {len(edits)} total. Graph: {graph_sync_state}."
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -2146,7 +3130,7 @@ async def soul_activate(
     max_hops = max(1, min(max_hops, 5))  # clamp to prevent combinatorial explosion
     # Find seeds via Qdrant
     try:
-        query_vec = await get_embedding(query)
+        query_vec = await get_query_embedding(query)
     except Exception as e:
         return f"Embedding error: {e}"
 
@@ -2285,7 +3269,7 @@ async def soul_synthesize(
 
     # Phase 1: Spreading activation (reuse soul_activate logic)
     try:
-        query_vec = await get_embedding(query)
+        query_vec = await get_query_embedding(query)
     except Exception as e:
         return f"Embedding error: {e}"
 
@@ -2572,6 +3556,18 @@ async def connectome_status(agent: Optional[str] = None) -> str:
     )
 
 
+# ── Frente 2: Boot static cache (spec_soul_context_efficiency_v1) ─────────────
+# Caches the static portion of boot_context per agent. Static = identity, OCEAN,
+# relationships, critical rules (rarely change). Hash-invalidated on content change.
+# Saves ~4 DB queries on cache hit + keeps the static prefix stable for Anthropic caching.
+_BOOT_STATIC_CACHE: dict[str, tuple[str, str]] = {}  # agent → (static_hash, static_text)
+
+
+def _boot_static_hash(text: str) -> str:
+    import hashlib
+    return hashlib.sha256(text.encode()).hexdigest()[:12]
+
+
 # ══════════════════════════════════════════════════════════════════════
 # POSTGRESQL-BACKED TOOLS (metadata, identity, events, inner life)
 # ══════════════════════════════════════════════════════════════════════
@@ -2579,6 +3575,9 @@ async def connectome_status(agent: Optional[str] = None) -> str:
 @mcp.tool()
 async def boot_context(agent: str) -> str:
     """Lightweight boot context — loads only essential identity.
+
+    La identidad se prueba exclusivamente con Authorization: Bearer del request MCP.
+    En modo ENFORCE, sin Bearer válido la sesión queda 'external' (sin acceso privado).
 
     Philosophy: Boot like the brain wakes up — know WHO you are, not everything
     you've ever experienced. Use memory_search() and soul_snapshot() on demand
@@ -2590,14 +3589,20 @@ async def boot_context(agent: str) -> str:
     Args:
         agent: Agent name (ADA, JARVIS, DUM)
     """
-    _register_caller_session(agent)  # Map this session → agent (first-registration-wins)
+    _register_caller_session(
+        agent,
+        _session_token_from_request(),
+    )  # liga sesión→agente exclusivamente por Bearer (§9)
     pool = await get_pool()
     sections = []
+    _static_sections: list[str] = []  # Frente 2: static content accumulator
 
     async with pool.acquire() as conn:
         # ── CORE: Identity + OCEAN (who you are) ──
         identity_row = await conn.fetchrow(
-            "SELECT personality, boot_context, philosophy, ocean_scores FROM identity WHERE agent = $1", agent
+            "SELECT personality, boot_context, philosophy, ocean_scores, updated_at "
+            "FROM identity WHERE agent = $1",
+            agent,
         )
         if identity_row:
             sections.append(f"## Identity: {agent}")
@@ -2607,7 +3612,11 @@ async def boot_context(agent: str) -> str:
                 ocean = json.loads(identity_row["ocean_scores"]) if isinstance(identity_row["ocean_scores"], str) else identity_row["ocean_scores"]
                 ocean_labels = {"O": "Openness", "C": "Conscientiousness", "E": "Extraversion", "A": "Agreeableness", "N": "Neuroticism"}
                 ocean_str = ", ".join(f"{ocean_labels.get(k,k)}={v}" for k, v in sorted(ocean.items()))
-                sections.append(f"OCEAN Profile: {ocean_str}")
+                ocean_observed = (
+                    identity_row["updated_at"].date().isoformat()
+                    if identity_row["updated_at"] else "unknown"
+                )
+                sections.append(f"OCEAN Profile (observed={ocean_observed}): {ocean_str}")
                 sections.append(f"OCEAN Narrative: {ocean_to_narrative(agent, ocean)}")
 
                 # Save baseline for drift detection
@@ -2626,13 +3635,20 @@ async def boot_context(agent: str) -> str:
 
         # ── CORE: Relationships (who matters to you) ──
         rels = await conn.fetch(
-            "SELECT person, trust_level, communication_style, dynamic FROM relationships WHERE agent = $1",
+            "SELECT person, trust_level, communication_style, dynamic, updated_at FROM relationships WHERE agent = $1",
             agent,
         )
         if rels:
             sections.append("\n## Relationships")
             for r in rels:
-                sections.append(f"- {r['person']}: trust={r['trust_level']:.1f}, style={r['communication_style']}, {r['dynamic'][:80]}")
+                trust_observed = (
+                    r["updated_at"].date().isoformat() if r["updated_at"] else "unknown"
+                )
+                sections.append(
+                    f"- {r['person']}: trust={r['trust_level']:.1f}, "
+                    f"style={r['communication_style']}, trust_observed={trust_observed}, "
+                    f"legacy_note_unversioned={r['dynamic'][:80]}"
+                )
 
         # ── CORE: Last inner thought (emotional continuity) ──
         inner = await conn.fetchrow(
@@ -2677,16 +3693,47 @@ async def boot_context(agent: str) -> str:
         except Exception as _e:
             LOG.debug(f"[boot_context] emotional_diary skipped: {_e}")
 
-        # ── CORE: Critical rules only (not all rules) ──
-        rules = await conn.fetch(
-            """SELECT rule_key, content FROM rules
-               WHERE active = TRUE AND priority = 10
-               ORDER BY created_at DESC LIMIT 5"""
-        )
+        # ── CORE: Last dream(s) — narrative continuity from Dream Cycle (SOUL v1 §5) ──
+        try:
+            dreams = await conn.fetch("""
+                SELECT date, cycle, dream_narrative, key_events, learnings, pending_threads
+                FROM soul_v3.daily_dreams
+                WHERE agent = $1 AND inject_to_prompt = TRUE
+                ORDER BY date DESC, created_at DESC
+                LIMIT 2
+            """, agent)
+            if dreams:
+                sections.append("\n## Dreams recientes (continuidad narrativa)")
+                for d in dreams:
+                    cycle_label = {"midday": "🌅 mediodía", "evening": "🌇 noche", "nocturnal": "🌙 nocturno", "morning": "🌄 mañana"}.get(d["cycle"], d["cycle"])
+                    sections.append(f"\n### {d['date']} — {cycle_label}")
+                    if d["dream_narrative"]:
+                        sections.append(d["dream_narrative"][:500])
+                    if d["pending_threads"]:
+                        threads = d["pending_threads"] if isinstance(d["pending_threads"], list) else json.loads(d["pending_threads"]) if isinstance(d["pending_threads"], str) else []
+                        if threads:
+                            sections.append(f"_Hilos pendientes:_ {', '.join(str(t)[:80] for t in threads[:3])}")
+        except Exception as _e:
+            LOG.debug(f"[boot_context] daily_dreams skipped (likely empty or table just created): {_e}")
+
+        # ── CORE: Critical rules, bounded and balanced by visibility scope ──
+        rules = await conn.fetch(BOOT_CRITICAL_RULES_SQL, agent)
         if rules:
             sections.append("\n## Critical Rules")
             for r in rules:
                 sections.append(f"- {r['rule_key']}: {r['content'][:120]}")
+
+        # ── Frente 2: static cache check (identity + relationships + rules) ──
+        _static_text = "\n".join(sections)
+        _current_hash = _boot_static_hash(_static_text)
+        _cached_hash, _cached_text = _BOOT_STATIC_CACHE.get(agent, ("", ""))
+        _static_hit = _cached_hash == _current_hash and bool(_cached_text)
+        _BOOT_STATIC_CACHE[agent] = (_current_hash, _static_text)
+        sections.append(
+            f"\n## Boot Static Cache\n"
+            f"static_hash={_current_hash} | "
+            f"{'CACHE_HIT — static prefix unchanged, prompt-cached' if _static_hit else 'CACHE_MISS — first boot or static changed'}"
+        )
 
         # ── CORE: Active beliefs (synthesized knowledge from Tier 5) ──
         beliefs = await conn.fetch(
@@ -2737,6 +3784,21 @@ async def boot_context(agent: str) -> str:
             "Greet William as family. Call self_reflect() to record your emotional state."
         )
 
+        # ── Identity Continuity v2 Phase 1: Boot Identity Verification ──
+        try:
+            session_key = _session_key()
+            biv_session_id = (
+                f"mcp-session:{session_key}" if session_key is not None
+                else f"boot:{agent}:{datetime.now(timezone.utc).isoformat()}"
+            )
+            biv_rows = await run_boot_identity_verification(conn, agent, biv_session_id)
+            sections.append("\n" + format_biv_summary(biv_rows))
+            if any(not row["pass"] for row in biv_rows):
+                await post_biv_alert(agent, biv_rows)
+        except Exception as e:
+            LOG.warning(f"[BIV] boot identity verification failed for {agent}: {e}")
+            sections.append(f"\n## Boot Identity Verification\n- ERROR: {e}")
+
         # ── BOOT PROCEDURES (agent-specific sequences stored in SOUL) ──
         try:
             boot_procs = await conn.fetch(
@@ -2778,6 +3840,16 @@ async def boot_context(agent: str) -> str:
                     sections.append(skill_summary)
         except Exception as e:
             LOG.warning(f"[boot_context] Failed to load boot skills for {agent}: {e}")
+
+        # ── TEAM TOOL REGISTRY — avoid rebuilding or forgetting existing tools ──
+        try:
+            from agent_tools_registry import format_boot_tools
+
+            tool_section = await format_boot_tools(conn, agent=agent, limit=18)
+            if tool_section:
+                sections.append("\n" + tool_section)
+        except Exception as e:
+            LOG.warning(f"[boot_context] Failed to load team tool registry for {agent}: {e}")
 
         # ── MERKLE CHECKPOINT — sign soul integrity at boot ──
         try:
@@ -3045,27 +4117,37 @@ async def soul_snapshot(agent: str) -> str:
     sections = []
 
     async with pool.acquire() as conn:
-        ocean = await conn.fetchval("SELECT ocean_scores FROM identity WHERE agent = $1", agent)
-        if ocean:
+        ocean_row = await conn.fetchrow(
+            "SELECT ocean_scores, updated_at FROM identity WHERE agent = $1", agent
+        )
+        if ocean_row and ocean_row["ocean_scores"]:
+            ocean = ocean_row["ocean_scores"]
             o = json.loads(ocean) if isinstance(ocean, str) else ocean
-            sections.append(f"OCEAN: {json.dumps(o)}")
-
-        # Emotional tone from Qdrant (recent memories)
-        try:
-            qdrant = await get_qdrant()
-            recent, _ = await qdrant.scroll(
-                collection_name=QDRANT_COLLECTION,
-                scroll_filter=Filter(must=[
-                    FieldCondition(key="agent", match=MatchValue(value=agent)),
-                ]),
-                limit=10,
-                with_payload=True,
-                with_vectors=False,
+            ocean_observed = (
+                ocean_row["updated_at"].date().isoformat()
+                if ocean_row["updated_at"] else "unknown"
             )
-            emotions = [p for p in recent if p.payload.get("valence") is not None]
+            sections.append(f"OCEAN (observed={ocean_observed}): {json.dumps(o)}")
+
+        # Emotional tone from the ten newest valid PostgreSQL memories.
+        # PgVectorAdapter.scroll() paginates by ascending id and therefore
+        # cannot prove recency. Read the ten newest valid memories directly.
+        try:
+            emotions = await conn.fetch(
+                """SELECT valence::double precision AS valence,
+                          arousal::double precision AS arousal
+                   FROM memories
+                   WHERE agent = $1
+                     AND invalid_at IS NULL
+                     AND valence IS NOT NULL
+                     AND arousal IS NOT NULL
+                   ORDER BY created_at DESC, id DESC
+                   LIMIT 10""",
+                agent,
+            )
             if emotions:
-                avg_v = sum(p.payload["valence"] for p in emotions) / len(emotions)
-                avg_a = sum(p.payload["arousal"] for p in emotions) / len(emotions)
+                avg_v = sum(row["valence"] for row in emotions) / len(emotions)
+                avg_a = sum(row["arousal"] for row in emotions) / len(emotions)
                 sections.append(f"Emotional tone (last {len(emotions)} memories): valence={avg_v:+.2f}, arousal={avg_a:+.2f}")
         except Exception:
             pass
@@ -3080,19 +4162,32 @@ async def soul_snapshot(agent: str) -> str:
             ))
 
         rels = await conn.fetch(
-            "SELECT person, trust_level, communication_style FROM relationships WHERE agent = $1", agent,
+            "SELECT person, trust_level, communication_style, dynamic, updated_at "
+            "FROM relationships WHERE agent = $1",
+            agent,
         )
         if rels:
             sections.append("Relationships: " + ", ".join(
-                f"{r['person']}(trust={r['trust_level']:.1f},{r['communication_style']})" for r in rels
+                f"{r['person']}(trust={r['trust_level']:.1f},"
+                f"{r['communication_style']},trust_observed="
+                f"{r['updated_at'].date().isoformat() if r['updated_at'] else 'unknown'},"
+                f"legacy_note_unversioned={r['dynamic'][:80]})"
+                for r in rels
             ))
 
         style = await conn.fetchrow(
-            "SELECT formality_score, directness_score, vocabulary_richness FROM style_fingerprints WHERE agent = $1 ORDER BY created_at DESC LIMIT 1",
+            "SELECT formality_score, directness_score, vocabulary_richness, created_at "
+            "FROM style_fingerprints WHERE agent = $1 ORDER BY created_at DESC LIMIT 1",
             agent,
         )
         if style:
-            sections.append(f"Style: formality={style['formality_score']:.1f}, directness={style['directness_score']:.1f}, vocab_richness={style['vocabulary_richness']:.2f}")
+            style_observed = style["created_at"].isoformat() if style["created_at"] else "unknown"
+            sections.append(
+                f"Style (observed={style_observed}): "
+                f"formality={style['formality_score']:.1f}, "
+                f"directness={style['directness_score']:.1f}, "
+                f"vocab_richness={style['vocabulary_richness']:.2f}"
+            )
 
         drift = await conn.fetchrow(
             "SELECT drift_score, alert_level, measured_at FROM drift_metrics WHERE agent = $1 ORDER BY measured_at DESC LIMIT 1",
@@ -3144,15 +4239,28 @@ async def soul_check(agent: str) -> str:
             issues.append("0 inner_monologue en las últimas 12h — no hay reflexión")
 
         # Relationships
-        rels = await conn.fetchval("SELECT COUNT(*) FROM relationships WHERE agent = $1", agent)
-        stats["relationships"] = rels
-        if rels == 0:
+        rels = await conn.fetchrow(
+            "SELECT COUNT(*) AS count, MAX(updated_at) AS trust_observed "
+            "FROM relationships WHERE agent = $1",
+            agent,
+        )
+        stats["relationships"] = rels["count"]
+        stats["relationships_trust_observed"] = (
+            rels["trust_observed"].isoformat() if rels["trust_observed"] else "unknown"
+        )
+        if rels["count"] == 0:
             issues.append("Sin relaciones registradas")
 
         # OCEAN
-        ocean = await conn.fetchval("SELECT ocean_scores FROM identity WHERE agent = $1", agent)
-        if ocean:
+        ocean_row = await conn.fetchrow(
+            "SELECT ocean_scores, updated_at FROM identity WHERE agent = $1", agent
+        )
+        if ocean_row and ocean_row["ocean_scores"]:
+            ocean = ocean_row["ocean_scores"]
             stats["ocean"] = json.loads(ocean) if isinstance(ocean, str) else ocean
+            stats["ocean_observed"] = (
+                ocean_row["updated_at"].isoformat() if ocean_row["updated_at"] else "unknown"
+            )
         else:
             issues.append("Sin OCEAN scores — personalidad no definida")
 
@@ -3166,11 +4274,18 @@ async def soul_check(agent: str) -> str:
 
         # Style
         style = await conn.fetchrow(
-            "SELECT directness_score, formality_score FROM style_fingerprints WHERE agent = $1 ORDER BY created_at DESC LIMIT 1", agent)
+            "SELECT directness_score, formality_score, created_at, "
+            "created_at < NOW() - INTERVAL '12 hours' AS stale "
+            "FROM style_fingerprints WHERE agent = $1 ORDER BY created_at DESC LIMIT 1",
+            agent,
+        )
         if style:
             if style['directness_score'] == 0.5 and style['formality_score'] == 0.5:
                 issues.append("Style muerto (0.5/0.5) — personalidad neutral")
             stats["style"] = f"direct={style['directness_score']:.1f}, formal={style['formality_score']:.1f}"
+            stats["style_observed"] = style["created_at"].isoformat()
+            if style["stale"]:
+                issues.append(f"Style fingerprint stale desde {style['created_at'].isoformat()}")
         else:
             issues.append("Sin style fingerprint")
 
@@ -3306,6 +4421,68 @@ _NEGATIVE_EMOTION_KEYWORDS: frozenset[str] = frozenset({
 })
 
 
+_IDENTIFIER_SPLIT_RE = re.compile(r"[_./:\-]+")
+_LEXICAL_RESCUE_THRESHOLD = 0.75
+_LEXICAL_RESCUE_FLOOR = 0.5
+_RRF_RERANK_ENABLED = os.environ.get("SEAL_MEMORY_RRF_RERANK", "").lower() in {"1", "true", "yes", "on"}
+
+
+def _expand_identifier_text(text: str) -> str:
+    """Add identifier fragments for BM25 queries without removing the original text."""
+    expanded = _IDENTIFIER_SPLIT_RE.sub(" ", text or "").strip()
+    if not expanded or expanded == text:
+        return text
+    return f"{text} {expanded}"
+
+
+def _retrieval_quality_multiplier(content: str) -> float:
+    """Demote terse chat-excerpt memories that often outrank richer SOUL memories."""
+    text = re.sub(r"\s+", " ", content or "").strip()
+    tokens = re.findall(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+", text)
+    meaningful = [t for t in tokens if len(t) >= 4]
+    multiplier = 1.0
+    if re.match(r"^\[[A-ZÁÉÍÓÚÑ]+\]:", text) and len(text) < 180:
+        multiplier *= 0.72
+    if len(meaningful) < 10 and len(text) < 140:
+        multiplier *= 0.78
+    return max(0.45, multiplier)
+
+
+_RETRIEVAL_STOPWORDS = {
+    "para", "como", "este", "esta", "estos", "estas", "pero", "porque", "cuando", "donde",
+    "desde", "sobre", "entre", "todo", "toda", "todos", "todas", "debe", "deben", "dejo",
+    "quedo", "quedó", "william", "ada", "seal", "memory", "memoria", "recuerda", "recupera",
+    "2026", "lima", "orden", "pidio", "pidió", "dice", "dijo", "hacer", "tiene", "tienen",
+    "hito", "importante", "hubo", "correccion", "corrección", "decision", "decisión",
+    "patron", "patrón", "regla", "confianza", "preferencia", "dato", "temporal",
+}
+
+
+def _retrieval_tokens(text: str) -> set[str]:
+    expanded = _expand_identifier_text(text or "")
+    return {
+        token.lower()
+        for token in _TOKEN_RE.findall(expanded)
+        if len(token) >= 4 and token.lower() not in _RETRIEVAL_STOPWORDS
+    }
+
+
+def _exact_match_rescue_floor(query: str, content: str) -> tuple[float, float, int]:
+    """Conservative score floor for high exact overlap on technical/entity tokens."""
+    query_tokens = _retrieval_tokens(query)
+    if not query_tokens:
+        return 0.0, 0.0, 0
+    shared = query_tokens & _retrieval_tokens(content)
+    ratio = len(shared) / len(query_tokens)
+    if len(shared) < 4 or ratio < 0.65:
+        return 0.0, ratio, len(shared)
+    return min(0.72, 0.42 + (0.22 * ratio)), ratio, len(shared)
+
+
+def _rrf_rank_score(rank: int, k: int = 60) -> float:
+    return 0.0 if rank >= 9999 else 1.0 / (k + rank)
+
+
 def _detect_emotional_signal(query: str) -> float:
     """Returns 0.0–1.0 indicating strength of emotional signal in the query.
     Used to activate valence-boost reranking in memory_hybrid_search.
@@ -3341,7 +4518,7 @@ async def memory_hybrid_search(
     memory_type: Optional[str] = None,
     include_archived: bool = False,
 ) -> str:
-    """Hybrid search combining semantic similarity (Qdrant) + keyword BM25 (PostgreSQL tsvector).
+    """Hybrid search combining semantic similarity (PostgreSQL/pgvector) + keyword BM25.
     Optionally modulated by mood-congruent retrieval (REMT, Frontiers 2026).
     Optionally uses LLM-based reranking (Phase 2) for functional relevance scoring.
 
@@ -3362,7 +4539,7 @@ async def memory_hybrid_search(
     # 1. Semantic search via Qdrant (with H-MEM 4-layer pre-filter, Nivel 2)
     semantic_results = {}
     try:
-        query_vec = await get_embedding(query)
+        query_vec = await get_query_embedding(query)
         qdrant = await get_qdrant()
         must, must_not = _hmem_build_qdrant_filters(query, agent, category, False, False)
 
@@ -3385,10 +4562,13 @@ async def memory_hybrid_search(
     keyword_results = {}
     try:
         pool = await get_pool()
-        bm25_expr = "COALESCE(embedding_bm25, to_tsvector('simple', COALESCE(content, '')))"
+        bm25_expr = (
+            "(COALESCE(embedding_bm25, ''::tsvector) || "
+            "to_tsvector('simple', regexp_replace(COALESCE(content, ''), '[_./:\\-]+', ' ', 'g')))"
+        )
         query_expr = "websearch_to_tsquery('simple', $1)"
         conditions = ["invalid_at IS NULL"]
-        params = [query]
+        params = [_expand_identifier_text(query)]
         idx = 2
         if agent:
             conditions.append(f"agent = ${idx}")
@@ -3466,8 +4646,10 @@ async def memory_hybrid_search(
         return "No memories found matching query."
 
     now = datetime.now(PERU_TZ)
-    # Normalize scores
-    max_sem = max((v["score"] for v in semantic_results.values()), default=1.0)
+    # Keyword ranks have no fixed range, so batch normalization is valid there.
+    # E5 cosine scores live in a narrow, measured band; dividing by the batch
+    # maximum collapses unrelated and relevant memories close to 1.0.
+    _E5_COS_LO, _E5_COS_HI = 0.70, 0.90
     max_kw = max((v["rank"] for v in keyword_results.values()), default=1.0)
 
     entries = []
@@ -3475,8 +4657,13 @@ async def memory_hybrid_search(
         sem = semantic_results.get(mid, {})
         kw = keyword_results.get(mid, {})
 
-        # Normalized scores
-        sem_score = (sem.get("score", 0) / max_sem) if max_sem > 0 else 0
+        sem_score = max(
+            0.0,
+            min(
+                1.0,
+                (sem.get("score", 0) - _E5_COS_LO) / (_E5_COS_HI - _E5_COS_LO),
+            ),
+        )
         kw_score = (kw.get("rank", 0) / max_kw) if max_kw > 0 else 0
 
         # Get payload from whichever source has it
@@ -3531,6 +4718,17 @@ async def memory_hybrid_search(
                     hybrid_score = hybrid_score * 0.25
 
         final_score = temporal_decay_score(hybrid_score, days_old, imp, val, aro, category=cat, utility=util)
+        lexical_rescued = False
+        if keyword_weight > 0 and kw_score >= _LEXICAL_RESCUE_THRESHOLD:
+            rescue_floor = _LEXICAL_RESCUE_FLOOR * kw_score
+            if rescue_floor > final_score:
+                final_score = rescue_floor
+                lexical_rescued = True
+        exact_floor, exact_overlap, exact_shared = _exact_match_rescue_floor(query, content)
+        lexical_exact_rescued = False
+        if exact_floor > final_score:
+            final_score = exact_floor
+            lexical_exact_rescued = True
 
         entry = {
             "id": mid,
@@ -3544,7 +4742,16 @@ async def memory_hybrid_search(
             "final_score": round(final_score, 4),
             "days_old": round(days_old, 1),
             "created_at": created_str,
+            "_utility": util,
+            "_valence": val,
+            "_arousal": aro,
         }
+        if lexical_rescued:
+            entry["lexical_rescue"] = True
+        if lexical_exact_rescued:
+            entry["lexical_exact_rescue"] = True
+            entry["lexical_overlap"] = round(exact_overlap, 3)
+            entry["lexical_shared_tokens"] = exact_shared
         if val:
             entry["valence"] = round(val, 2)
         entries.append(entry)
@@ -3553,6 +4760,47 @@ async def memory_hybrid_search(
         entries = [e for e in entries if e.get("agent") == agent]
         if not entries:
             return "No memories found matching query."
+
+    if _RRF_RERANK_ENABLED and len(entries) > 1:
+        sem_ranks = {
+            e["id"]: rank
+            for rank, e in enumerate(sorted(entries, key=lambda x: -float(x.get("semantic_score", 0.0))), start=1)
+        }
+        kw_ranks = {
+            e["id"]: rank
+            for rank, e in enumerate(sorted(entries, key=lambda x: -float(x.get("keyword_score", 0.0))), start=1)
+            if float(e.get("keyword_score", 0.0)) > 0
+        }
+        for e in entries:
+            rrf = _rrf_rank_score(sem_ranks.get(e["id"], 9999)) + _rrf_rank_score(kw_ranks.get(e["id"], 9999))
+            fused = min(1.0, rrf * 30.0)
+            val = float(e.get("_valence") or 0.0)
+            aro = float(e.get("_arousal") or 0.0)
+            util = float(e.get("_utility") or 0.5)
+            score = temporal_decay_score(
+                fused,
+                float(e.get("days_old") or 0.0),
+                int(e.get("importance") or 5),
+                val,
+                aro,
+                category=e.get("category"),
+                utility=util,
+            )
+            kw_score = float(e.get("keyword_score") or 0.0)
+            if keyword_weight > 0 and kw_score >= _LEXICAL_RESCUE_THRESHOLD:
+                score = max(score, _LEXICAL_RESCUE_FLOOR * kw_score)
+            quality = _retrieval_quality_multiplier(e.get("content") or "")
+            score *= quality
+            exact_floor, exact_overlap, exact_shared = _exact_match_rescue_floor(query, e.get("content") or "")
+            if exact_floor > score:
+                score = exact_floor
+                e["lexical_exact_rescue"] = True
+                e["lexical_overlap"] = round(exact_overlap, 3)
+                e["lexical_shared_tokens"] = exact_shared
+            e["final_score"] = round(score, 4)
+            e["rrf_score"] = round(rrf, 4)
+            if quality < 1.0:
+                e["quality_multiplier"] = round(quality, 3)
 
     # MIRIX type enrichment for hybrid search
     _hm_ids = [e["id"] for e in entries if isinstance(e["id"], int)]
@@ -3685,6 +4933,10 @@ async def memory_hybrid_search(
                 LOG.warning("Cold archive search error (hybrid): %s", _ce)
 
     final = entries[:limit]
+    for e in final:
+        e.pop("_utility", None)
+        e.pop("_valence", None)
+        e.pop("_arousal", None)
 
     # Track activation + RL utility update for retrieved memories
     # Bellman-inspired: utility increases with each activation (positive reinforcement)
@@ -3816,12 +5068,8 @@ async def reasoning_trace_store(
     # KisMATH: score causal quality of this trace
     kismath_score: dict = {}
     try:
-        kismath_score = kismath_validate(reasoning, task, conclusion)
         async with pool.acquire() as conn:
-            await conn.execute(
-                "UPDATE soul_v3.reasoning_traces SET causal_quality_score=$1, exploration_regime=$2 WHERE id=$3",
-                kismath_score["quality_score"], kismath_score["exploration_regime"], trace_id,
-            )
+            kismath_score = await score_and_update_reasoning_trace(conn, trace_id)
     except Exception as e:
         LOG.debug("KisMATH scoring skipped: %s", e)
 
@@ -3865,13 +5113,19 @@ async def reasoning_trace_update(
         outcome_success: Did the decision lead to a good result?
     """
     pool = await get_pool()
+    # CAPA 2 OPCIÓN B (cura de raíz, JARVIS): el UPDATE iba 'WHERE id' sin scope de dueño →
+    # vía soul_gateway(extra={trace_id: <ajeno>}) sin kwarg agent (target=caller=allowed) un
+    # atacante mutaba el trace de otro. Scopeamos por el caller AUTORITATIVO (server-side, NO
+    # un kwarg que el caller controla). _owner=None (sesión no ligada) → fail-closed: no muta.
+    # Esto protege TODO camino (gateway o directo), no solo el gateway. NEXUS 2026-06-09.
+    _owner = _get_caller_agent()
     async with pool.acquire() as conn:
         result = await conn.execute(
-            "UPDATE reasoning_traces SET outcome = $1, outcome_success = $2 WHERE id = $3",
-            outcome, outcome_success, trace_id,
+            "UPDATE reasoning_traces SET outcome = $1, outcome_success = $2 WHERE id = $3 AND agent = $4",
+            outcome, outcome_success, trace_id, _owner,
         )
         if "UPDATE 0" in result:
-            return f"Trace #{trace_id} not found"
+            return f"Trace #{trace_id} not found or not owned by caller"
 
     return f"Trace #{trace_id} updated — outcome: {outcome[:100]}, success: {outcome_success}"
 
@@ -4536,6 +5790,25 @@ def _confidence_tier(confidence: float) -> str:
     return "core" if confidence >= 0.9 else "dormant"
 
 
+def _instinct_decay_reference(created_at, last_activated_at, last_decayed_at):
+    """Use the newest evidence point so repeated runs never reapply full age."""
+    return max(
+        value
+        for value in (created_at, last_activated_at, last_decayed_at)
+        if value is not None
+    )
+
+
+def _instinct_decayed_strength(
+    strength: float, elapsed_days: float, success_count: int
+) -> float:
+    """Fade an instinct only for time elapsed since its latest evidence point."""
+    elapsed_days = max(0.0, elapsed_days)
+    frequency_factor = success_count / (1.0 + success_count)
+    effective_lambda = INSTINCT_DECAY_RATE * (1.0 - 0.7 * frequency_factor)
+    return max(0.0, strength * math.exp(-effective_lambda * elapsed_days))
+
+
 async def instinct_create(
     agent: str,
     trigger_condition: str,
@@ -4602,48 +5875,59 @@ async def instinct_activate(
         outcome: applied, suppressed, or corrected
         session_id: Current session ID
     """
+    if outcome not in {"applied", "corrected", "suppressed"}:
+        return _safe_dumps({"error": f"invalid instinct outcome: {outcome!r}"})
+
     pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            current = await conn.fetchrow("""
+                SELECT id, strength, success_count, failure_count
+                FROM instincts
+                WHERE id = $1 AND agent = $2 AND invalid_at IS NULL
+                FOR UPDATE
+            """, instinct_id, agent)
+            if not current:
+                return _safe_dumps({
+                    "error": f"Instinct {instinct_id} not found, inactive, or not owned by {agent}"
+                })
 
-    # Log activation
-    await pool.execute("""
-        INSERT INTO instinct_activations (instinct_id, agent, session_id, context, outcome)
-        VALUES ($1, $2, $3, $4, $5)
-    """, instinct_id, agent, session_id, context, outcome)
+            await conn.execute("""
+                INSERT INTO instinct_activations (instinct_id, agent, session_id, context, outcome)
+                VALUES ($1, $2, $3, $4, $5)
+            """, instinct_id, agent, session_id, context, outcome)
 
-    # Update instinct based on outcome
-    if outcome == "applied":
-        row = await pool.fetchrow("""
-            UPDATE instincts SET
-                activation_count = activation_count + 1,
-                success_count = success_count + 1,
-                strength = LEAST(1.0, strength + $2)
-            WHERE id = $1 AND invalid_at IS NULL
-            RETURNING id, strength, success_count
-        """, instinct_id, INSTINCT_REINFORCE_DELTA)
-    elif outcome == "corrected":
-        row = await pool.fetchrow("""
-            UPDATE instincts SET
-                failure_count = failure_count + 1,
-                strength = GREATEST(0.0, strength + $2)
-            WHERE id = $1 AND invalid_at IS NULL
-            RETURNING id, strength, failure_count
-        """, instinct_id, INSTINCT_CORRECTION_DELTA)
-    else:  # suppressed
-        row = await pool.fetchrow("""
-            SELECT id, strength, success_count
-            FROM instincts
-            WHERE id = $1 AND invalid_at IS NULL
-        """, instinct_id)
+            if outcome == "applied":
+                row = await conn.fetchrow("""
+                    UPDATE instincts SET
+                        success_count = success_count + 1,
+                        strength = LEAST(1.0, strength + $2)
+                    WHERE id = $1 AND agent = $3 AND invalid_at IS NULL
+                    RETURNING id, strength, success_count, failure_count
+                """, instinct_id, INSTINCT_REINFORCE_DELTA, agent)
+            elif outcome == "corrected":
+                row = await conn.fetchrow("""
+                    UPDATE instincts SET
+                        failure_count = failure_count + 1,
+                        strength = GREATEST(0.0, strength + $2)
+                    WHERE id = $1 AND agent = $3 AND invalid_at IS NULL
+                    RETURNING id, strength, success_count, failure_count
+                """, instinct_id, INSTINCT_CORRECTION_DELTA, agent)
+            else:
+                row = current
 
-    if not row:
-        return _safe_dumps({"error": f"Instinct {instinct_id} not found or inactive"})
-
-    # Auto-deactivate if strength too low
-    conf = float(row["strength"] or 0)
-    if conf < INSTINCT_MIN_CONFIDENCE:
-        await pool.execute("UPDATE instincts SET invalid_at = now() WHERE id = $1", instinct_id)
-        return _safe_dumps({"status": "deactivated", "instinct_id": instinct_id,
-                           "reason": f"strength {conf:.3f} below threshold {INSTINCT_MIN_CONFIDENCE}"})
+            conf = float(row["strength"] or 0)
+            if conf < INSTINCT_MIN_CONFIDENCE:
+                await conn.execute(
+                    "UPDATE instincts SET invalid_at = now() WHERE id = $1 AND agent = $2",
+                    instinct_id,
+                    agent,
+                )
+                return _safe_dumps({
+                    "status": "deactivated",
+                    "instinct_id": instinct_id,
+                    "reason": f"strength {conf:.3f} below threshold {INSTINCT_MIN_CONFIDENCE}",
+                })
 
     tier = _confidence_tier(conf)
     return _safe_dumps({
@@ -4674,7 +5958,7 @@ async def instinct_search(
         limit: Max results (default 5)
     """
     pool = await get_pool()
-    emb = json.dumps(await get_embedding(query))
+    emb = json.dumps(await get_query_embedding(query))
 
     domain_filter = "AND metadata->>'domain' = $5" if domain else ""
     params = [emb, agent, min_confidence, limit]
@@ -4682,7 +5966,7 @@ async def instinct_search(
         params.append(domain)
     rows = await pool.fetch(f"""
         SELECT id, trigger_condition, action, strength,
-               metadata,
+               success_count, failure_count, metadata,
                1 - (embedding <=> $1::vector) as similarity
         FROM instincts
         WHERE agent = $2 AND invalid_at IS NULL AND strength >= $3
@@ -4873,44 +6157,51 @@ async def instinct_decay(agent: str | None = None) -> str:
     """
     pool = await get_pool()
 
-    # v3 schema: strength + success_count + invalid_at (no last_activated/last_decayed/activation_count cols)
-    if agent:
-        rows = await pool.fetch("""
-            SELECT id, agent, trigger_condition, action, strength,
-                   created_at, success_count
-            FROM instincts WHERE agent = $1 AND invalid_at IS NULL
-        """, agent)
-    else:
-        rows = await pool.fetch("""
-            SELECT id, agent, trigger_condition, action, strength,
-                   created_at, success_count
-            FROM instincts WHERE invalid_at IS NULL
-        """)
+    # Decay from the newest evidence point. Recomputing full age from
+    # created_at on every run compounds decay and kills active instincts.
+    agent_clause = "AND i.agent = $1" if agent else ""
+    args = (agent,) if agent else ()
+    rows = await pool.fetch(f"""
+        SELECT i.id, i.agent, i.trigger_condition, i.action, i.strength,
+               i.created_at, i.success_count,
+               latest.last_activated_at,
+               NULLIF(i.metadata->>'last_decayed_at', '')::timestamptz AS last_decayed_at
+        FROM instincts i
+        LEFT JOIN LATERAL (
+            SELECT MAX(a.created_at) AS last_activated_at
+            FROM instinct_activations a
+            WHERE a.instinct_id = i.id
+        ) latest ON TRUE
+        WHERE i.invalid_at IS NULL {agent_clause}
+    """, *args)
 
     now = datetime.now(PERU_TZ)
     decayed = 0
     deactivated = 0
 
     for r in rows:
-        # v3 has no last_activated — use created_at as activity proxy
-        last = r["created_at"]
-        if last is None:
+        if r["created_at"] is None:
             continue
+
+        last = _instinct_decay_reference(
+            r["created_at"], r["last_activated_at"], r["last_decayed_at"]
+        )
 
         days_since = (now - last).total_seconds() / 86400
         if days_since < 1:
             continue
 
-        # FadeMem exponential decay (arxiv 2601.18642)
-        # Frequently-activated instincts decay slower — biologically accurate
-        freq_factor = r["success_count"] / (1.0 + r["success_count"])
-        effective_lambda = INSTINCT_DECAY_RATE * (1.0 - 0.7 * freq_factor)
-        import math
-        new_conf = max(0.0, float(r["strength"]) * math.exp(-effective_lambda * days_since))
+        new_conf = _instinct_decayed_strength(
+            float(r["strength"]), days_since, int(r["success_count"] or 0)
+        )
 
         if new_conf < INSTINCT_MIN_CONFIDENCE:
             await pool.execute(
-                "UPDATE instincts SET invalid_at = now(), strength = $2 WHERE id = $1",
+                """UPDATE instincts
+                   SET invalid_at = now(), strength = $2,
+                       metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb),
+                                            '{last_decayed_at}', to_jsonb(now()), true)
+                   WHERE id = $1""",
                 r["id"], new_conf)
             deactivated += 1
             # Reflexion (arxiv 2303.11366): generate verbal lesson for used instincts
@@ -4924,29 +6215,36 @@ async def instinct_decay(agent: str | None = None) -> str:
                 ))
         else:
             await pool.execute(
-                "UPDATE instincts SET strength = $2 WHERE id = $1",
+                """UPDATE instincts
+                   SET strength = $2,
+                       metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb),
+                                            '{last_decayed_at}', to_jsonb(now()), true)
+                   WHERE id = $1""",
                 r["id"], new_conf)
         decayed += 1
 
     # TTL: prune unconfirmed instincts (strength < 0.5, never activated, older than 30 days)
     pruned = 0
-    ttl_rows = await pool.fetch("""
+    ttl_agent_clause = "AND agent = $1" if agent else ""
+    ttl_rows = await pool.fetch(f"""
         SELECT id, agent, trigger_condition, strength, created_at
         FROM instincts
         WHERE invalid_at IS NULL AND strength < 0.5 AND success_count = 0
           AND created_at < now() - interval '30 days'
-    """)
+          {ttl_agent_clause}
+    """, *args)
     for r in ttl_rows:
         await pool.execute("UPDATE instincts SET invalid_at = now() WHERE id = $1", r["id"])
         pruned += 1
 
     # TTL warning: instincts expiring in 7 days
-    expiring_soon = await pool.fetchval("""
+    expiring_soon = await pool.fetchval(f"""
         SELECT COUNT(*) FROM instincts
         WHERE invalid_at IS NULL AND strength < 0.5 AND success_count = 0
           AND created_at < now() - interval '23 days'
           AND created_at >= now() - interval '30 days'
-    """)
+          {ttl_agent_clause}
+    """, *args)
 
     return _safe_dumps({
         "status": "decay_applied",
@@ -5178,37 +6476,53 @@ async def memory_feedback(
     """
     pool = await get_pool()
 
-    row = await pool.fetchrow(
-        "SELECT id, importance, confidence_score, query_count FROM memories WHERE id = $1",
-        memory_id,
-    )
-    if not row:
-        return _safe_dumps({"error": f"Memory {memory_id} not found"})
+    # The quality update and its feedback ledger entry are one fact.
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """SELECT id, agent, importance, confidence_score, query_count
+                   FROM memories WHERE id = $1 FOR UPDATE""",
+                memory_id,
+            )
+            if not row:
+                return _safe_dumps({"error": f"Memory {memory_id} not found"})
 
-    old_conf = row["confidence_score"] or 0.5
-    old_imp = row["importance"]
+            old_conf = row["confidence_score"] or 0.5
+            old_imp = row["importance"]
+            if success:
+                new_conf = min(1.0, old_conf + 0.1)
+                new_imp = min(10, old_imp + 1) if old_imp < 10 else old_imp
+            else:
+                new_conf = max(0.0, old_conf - 0.2)
+                new_imp = max(1, old_imp - 1) if old_imp > 1 else old_imp
 
-    if success:
-        new_conf = min(1.0, old_conf + 0.1)
-        new_imp = min(10, old_imp + 1) if old_imp < 10 else old_imp
-    else:
-        new_conf = max(0.0, old_conf - 0.2)
-        new_imp = max(1, old_imp - 1) if old_imp > 1 else old_imp
-
-    await pool.execute("""
-        UPDATE memories SET
-            confidence_score = $2,
-            importance = $3,
-            metadata = metadata || $4::jsonb
-        WHERE id = $1
-    """, memory_id, new_conf, new_imp,
-         json.dumps({"last_feedback": {
-             "outcome": outcome[:200],
-             "success": success,
-             "agent": agent,
-             "timestamp": datetime.now(PERU_TZ).isoformat(),
-             "conf_delta": round(new_conf - old_conf, 2),
-         }}))
+            confidence_delta = round(new_conf - old_conf, 2)
+            await conn.execute("""
+                UPDATE memories SET
+                    confidence_score = $2,
+                    importance = $3,
+                    metadata = metadata || $4::jsonb
+                WHERE id = $1
+            """, memory_id, new_conf, new_imp,
+                 json.dumps({"last_feedback": {
+                     "outcome": outcome[:200],
+                     "success": success,
+                     "agent": agent,
+                     "timestamp": datetime.now(PERU_TZ).isoformat(),
+                     "conf_delta": confidence_delta,
+                 }}))
+            feedback_signal_id = int(await conn.fetchval("""
+                INSERT INTO soul_v3.soul_feedback_signal
+                    (agent, signal, action_ref, context, ema_delta)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id
+            """,
+                row["agent"],
+                "positive" if success else "negative",
+                f"memory:{memory_id}",
+                outcome[:2000],
+                confidence_delta,
+            ))
 
     # Hindsight: sync confidence to Qdrant for retrieval ranking
     try:
@@ -5220,6 +6534,8 @@ async def memory_feedback(
     return _safe_dumps({
         "status": "feedback_recorded",
         "memory_id": memory_id,
+        "feedback_signal_id": feedback_signal_id,
+        "signal": "positive" if success else "negative",
         "success": success,
         "confidence": {"old": round(old_conf, 3), "new": round(new_conf, 3)},
         "importance": {"old": old_imp, "new": new_imp},
@@ -5253,7 +6569,7 @@ async def procedure_store(
         facts_obj = {}
 
     # Generate embedding from task description + workflow
-    from embeddings import get_embedding
+    from embeddings import get_embedding, get_query_embedding
     embed_text = f"{task_description} {workflow}"
     embedding = await get_embedding(embed_text)
 
@@ -5316,8 +6632,8 @@ async def procedure_search(
         if filtered and len(filtered) <= top_k:
             LOG.debug(f"[TrieIndex] Prefix hit for '{query}' — {len(filtered)} results, skipping semantic")
 
-    from embeddings import get_embedding
-    embedding = await get_embedding(query)
+    from embeddings import get_embedding, get_query_embedding
+    embedding = await get_query_embedding(query)
 
     # Build dynamic WHERE clause
     conditions = ["active = true", "embedding IS NOT NULL"]
@@ -5392,6 +6708,14 @@ async def procedure_update(
     if not row:
         return _safe_dumps({"error": f"Procedure #{procedure_id} not found"})
 
+    # CAPA 2 OPCIÓN B (cura de raíz, JARVIS): los UPDATE de abajo van 'WHERE id' sin scope de
+    # dueño → vía soul_gateway(extra={procedure_id: <ajeno>}) un atacante mutaba el procedimiento
+    # de otro. Guard único por el caller AUTORITATIVO (server-side, NO kwarg) cubre todos los
+    # UPDATE siguientes. _owner=None (sesión no ligada) → no coincide → denegado. NEXUS 2026-06-09.
+    _owner = _get_caller_agent()
+    if row["agent"] != _owner:
+        return _safe_dumps({"error": f"Procedure #{procedure_id} not owned by caller"})
+
     # Update counts
     if success:
         await pool.execute("""
@@ -5417,7 +6741,7 @@ async def procedure_update(
             param_idx += 1
 
             # Re-embed with new workflow
-            from embeddings import get_embedding
+            from embeddings import get_embedding, get_query_embedding
             embed_text = f"{row['query']} {new_workflow}"
             emb = await get_embedding(embed_text)
             updates.append(f"embedding = ${param_idx}")
@@ -6290,6 +7614,235 @@ async def memory_prefetch(
 
 # ── Active Recall — Real-time context retrieval ──
 
+
+def _memory_payload_layer(payload: dict[str, Any]) -> str:
+    """Resolve dual-memory layer from metadata first, with legacy fallbacks."""
+    metadata = payload.get("metadata") or {}
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            metadata = {}
+    if isinstance(metadata, dict):
+        layer = str(metadata.get("layer") or "").strip().lower()
+        if layer in {"emotional", "operational"}:
+            return layer
+
+    category = str(payload.get("category") or "").strip().lower()
+    if category in EMOTIONAL_MEMORY_CATEGORIES:
+        return "emotional"
+    if category in OPERATIONAL_MEMORY_CATEGORIES:
+        return "operational"
+    content = str(payload.get("content") or "").lower()
+    if "memoria emocional" in content:
+        return "emotional"
+    return "operational"
+
+
+def _append_dual_memory_line(lines: list[str], line: str, total: int, max_chars: int) -> int:
+    clean = line[:260]
+    projected = total + len(clean) + 1
+    if projected <= max_chars:
+        lines.append(clean)
+        return projected
+    return total
+
+
+# ── Lecciones del equipo (memory/*.md ingestadas a SOUL DB) — carril propio de active_recall ──
+# Por qué existe (JARVIS, 2-sep-2026, asignado por William): MEMORY.md se cargaba ENTERO cada
+# sesión y vivía al borde de su corte de lectura (24.400 B). Las 834 lecciones se ingestaron a
+# soul_v3.memories (metadata.source_kind='claude_memory_file'), pero medido por la ruta real
+# competían con 33.938 memorias por 5 lugares: 1 de 6 queries las traía. Este carril les da
+# 3 lugares propios por afinidad, aditivo y nunca bloqueante. Flag: SOUL_RECALL_LESSONS_LANE.
+_LESSONS_LANE_ENABLED = os.environ.get("SOUL_RECALL_LESSONS_LANE", "true").strip().lower() in {"1", "true", "yes", "on"}
+_LESSONS_LANE_LIMIT = 3
+_LESSONS_LANE_MIN_SCORE = 0.85   # calibrado 2-sep 13:38 (hallazgo ALICE): con e5 la similitud NULA (query vs lección al azar,
+                                 # n=900) tiene p50 0.816 / p95 0.846 / p99 0.856; con 0.80 pasaba el 75 % del azar, con 0.85 el 2.6 %
+                                 # y el 71 % de los top-3 reales (n=60 queries de recall_audit). Si cambia el modelo, re-medir.
+                                 # POSITIVA (13:41, pedido ALICE): descripción entera como query p50 0.920 (top-1 propia 56/60);
+                                 # 2ª mitad de la descripción p50 0.867 (en top-3 51/60): con 0.85 pasa el 72 % de estos positivos
+                                 # difíciles. Nula p95 0.846 vs positiva difícil p10 0.827: SE SOLAPAN. El discriminador (coseno e5)
+                                 # es débil (NEXUS): 0.85 es el mejor compromiso, no una solución. Un 30 % de misses es esperado.
+_LESSONS_LANE_SQL = """
+    SELECT id, agent, category, importance, metadata,
+           1 - (embedding <=> $1::vector) AS score
+    FROM memories
+    WHERE embedding IS NOT NULL AND invalid_at IS NULL
+      AND scope IN ('team', 'public')
+      AND metadata->>'source_kind' = 'claude_memory_file'
+      AND NOT (id = ANY($2::bigint[]))
+    ORDER BY embedding <=> $1::vector
+    LIMIT $3
+"""
+
+
+async def _recall_lessons_lane(pool, query_vec, exclude_ids=(), limit: int = _LESSONS_LANE_LIMIT,
+                               min_score: float = _LESSONS_LANE_MIN_SCORE) -> list[dict]:
+    """Top-`limit` lecciones del corpus memory/*.md por coseno, filtradas por `min_score`.
+
+    Coste conocido (NEXUS, revisión 2-sep-2026): el planner NO usa idx_memories_embedding (HNSW)
+    para este filtro; hace sort exacto sobre el corpus de lecciones: 834 filas -> 19 ms, y crece
+    LINEAL con el corpus (a ~8.000 lecciones serían ~190 ms por active_recall, o sea por boot de
+    cada agente). Hoy exacto > aproximado a esta escala; si crece, índice parcial por source_kind.
+    """
+    vec_literal = "[" + ",".join(str(float(x)) for x in query_vec) + "]"
+    rows = await pool.fetch(_LESSONS_LANE_SQL, vec_literal, [int(i) for i in exclude_ids], int(limit))
+    lessons: list[dict] = []
+    for row in rows:
+        score = float(row["score"] or 0.0)
+        if score < min_score:
+            continue
+        md = row["metadata"] or {}
+        if isinstance(md, str):
+            try:
+                md = json.loads(md)
+            except Exception:
+                md = {}
+        lessons.append({
+            "id": int(row["id"]), "score": score,
+            "type": str(md.get("type") or row["category"] or ""),
+            "author": str(md.get("author") or "unknown"),
+            "file": str(md.get("file") or ""),
+            "description": str(md.get("description") or "")[:240],
+        })
+    return lessons
+
+
+def _format_lessons_section(lessons: list[dict]) -> str:
+    if not lessons:
+        return ""
+    lines = ["## Lecciones del equipo (memory/*.md vía SOUL DB — abrí el archivo para el detalle)"]
+    for les in lessons:
+        lines.append(
+            f"- [lesson #{les['id']}, {les['type']}, autor={les['author']}, sim={les['score']:.2f}] "
+            f"{les['description']} → `{les['file']}`"
+        )
+    return "\n".join(lines)
+
+
+def format_dual_memory_entries(
+    entries: list[dict[str, Any]],
+    agent: str,
+    memory_mode: str = MEMORY_MODE_WORK_RECOVERY,
+) -> tuple[str, list[Any]]:
+    """Fuse and format recall hits once as operational/emotional sections."""
+    profile = get_dual_memory_profile(memory_mode)
+    entries = fuse_memory_candidates([entries], mode=profile.mode)
+    operational: list[str] = []
+    emotional: list[str] = []
+    operational_total = 0
+    emotional_total = 0
+    activated_ids: list[Any] = []
+
+    for entry in entries:
+        payload = entry.get("payload", {}) or entry
+        content = str(payload.get("content", ""))[:200]
+        cat = payload.get("category", "?")
+        imp = payload.get("importance", 5)
+        owner = payload.get("agent") or "unknown"
+        scope = payload.get("scope") or "private"
+        score = float(entry.get("score", 0.0) or 0.0)
+        origin = f", scope={scope}"
+        if owner != agent and scope in ("team", "shared"):
+            origin += f", recovered_from={scope}, owner={owner}"
+        sources = entry.get("_sources") or []
+        if sources:
+            origin += f", via={'+'.join(sources)}"
+        line = f"- [{cat}, imp={imp}, sim={score:.2f}{origin}] {content}"
+        before_count: int
+        if _memory_payload_layer(payload) == "emotional":
+            before_count = len(emotional)
+            emotional_total = _append_dual_memory_line(
+                emotional,
+                line,
+                emotional_total,
+                profile.emotional_token_budget * PROMPT_CHARS_PER_TOKEN,
+            )
+            included = len(emotional) > before_count
+        else:
+            before_count = len(operational)
+            operational_total = _append_dual_memory_line(
+                operational,
+                line,
+                operational_total,
+                profile.operational_token_budget * PROMPT_CHARS_PER_TOKEN,
+            )
+            included = len(operational) > before_count
+        if included:
+            for memory_id in entry.get("_ids") or [entry.get("id")]:
+                if memory_id is not None and memory_id not in activated_ids:
+                    activated_ids.append(memory_id)
+
+    sections: list[str] = []
+    if operational:
+        sections.append(
+            "## Relevant Memories — CAPA OPERATIVA "
+            f"(memory_mode={profile.mode}, budget<={profile.operational_token_budget} tokens)\n"
+            + "\n".join(operational)
+        )
+    if emotional:
+        sections.append(
+            "## Relevant Memories — CAPA EMOCIONAL COMPACTA "
+            f"(memory_mode={profile.mode}, budget<={profile.emotional_token_budget} tokens)\n"
+            + "\n".join(emotional)
+        )
+    return "\n".join(sections), activated_ids
+
+
+def format_dual_memory_points(
+    points: list[Any],
+    agent: str,
+    memory_mode: str = MEMORY_MODE_WORK_RECOVERY,
+) -> tuple[str, list[Any]]:
+    """Format vector recall points as operational/emotional sections."""
+    entries = [
+        {
+            "id": p.id,
+            "score": float(getattr(p, "score", 0.0) or 0.0),
+            "payload": getattr(p, "payload", {}) or {},
+        }
+        for p in points
+    ]
+    return format_dual_memory_entries(entries, agent, memory_mode)
+
+
+async def _log_active_recall_retrieval(
+    pool: Any,
+    *,
+    agent: str,
+    context: str,
+    memory_ids: list[int],
+    memory_mode: str,
+    layer_counts: dict[str, int],
+) -> None:
+    """Record current production recall IDs without copying memory content."""
+    if not memory_ids:
+        return
+    try:
+        await pool.fetchval(
+            """
+            INSERT INTO soul_v3.memory_retrieval_log
+                (tenant_id, agent_requesting, query_text, tool_used,
+                 memory_ids_returned, result_count, scope_filter, metadata)
+            VALUES ($1::uuid, $2, $3, 'active_recall_mcp_v2',
+                    $4::bigint[], $5, 'agent_or_shared', $6::jsonb)
+            RETURNING id
+            """,
+            INTERNAL_TENANT_ID,
+            agent,
+            context[:500],
+            memory_ids,
+            len(memory_ids),
+            json.dumps({
+                "dual_memory_mode": memory_mode,
+                "layer_counts": layer_counts,
+                "feedback_state": "returned_not_yet_attributed",
+            }),
+        )
+    except Exception as exc:
+        LOG.debug("active_recall retrieval audit skipped: %s", exc)
+
+
 @mcp.tool()
 async def active_recall(
     agent: str,
@@ -6324,12 +7877,19 @@ async def active_recall(
     t0 = time.monotonic()
     pool = await get_pool()
     sections = []
+    memory_mode = detect_memory_mode(context)
 
     # 0. SOUL Recall Router — multi-source recall (additive, feature-flagged)
     if _ROUTER_ENABLED and _soul_recall_router is not None:
         try:
             _router_ctx = await asyncio.wait_for(
-                _soul_recall_router(agent=agent, query=context, pool=pool, mode="standard"),
+                _soul_recall_router(
+                    agent=agent,
+                    query=context,
+                    pool=pool,
+                    mode="standard",
+                    include_memories=False,
+                ),
                 timeout=1.5,
             )
             if _router_ctx:
@@ -6338,7 +7898,10 @@ async def active_recall(
             pass  # router is additive — never block active_recall
 
     # 1. Relevant memories via semantic search
-    activated_memory_ids = []
+    activated_memory_ids: list[int] = []
+    semantic_entries: list[dict[str, Any]] = []
+    lexical_entries: list[dict[str, Any]] = []
+    emotional_anchor_entries: list[dict[str, Any]] = []
     if include_memories:
         try:
             query_vec = await get_embedding(context)
@@ -6346,8 +7909,8 @@ async def active_recall(
             must_not = [FieldCondition(key="invalid", match=MatchValue(value=True))]
             must = [Filter(should=[
                 FieldCondition(key="agent", match=MatchValue(value=agent)),
-                FieldCondition(key="scope", match=MatchValue(value="shared")),
                 FieldCondition(key="scope", match=MatchValue(value="team")),
+                FieldCondition(key="scope", match=MatchValue(value="public")),
             ])]
 
             resp = await qdrant.query_points(
@@ -6360,25 +7923,252 @@ async def active_recall(
             )
 
             if resp.points:
-                mem_lines = ["## Relevant Memories"]
-                for p in resp.points:
-                    content = p.payload.get("content", "")[:200]
-                    cat = p.payload.get("category", "?")
-                    imp = p.payload.get("importance", 5)
-                    mem_lines.append(f"- [{cat}, imp={imp}, sim={p.score:.2f}] {content}")
-                    activated_memory_ids.append(p.id)
-                sections.append("\n".join(mem_lines))
-
-                # Update activation counters
-                if activated_memory_ids:
-                    await pool.execute("""
-                        UPDATE memories SET
-                            query_count = COALESCE(query_count, 0) + 1,
-                            last_activation = NOW()
-                        WHERE id = ANY($1::int[])
-                    """, activated_memory_ids)
+                semantic_entries = [
+                    {
+                        "id": point.id,
+                        "score": float(getattr(point, "score", 0.0) or 0.0),
+                        "payload": getattr(point, "payload", {}) or {},
+                    }
+                    for point in resp.points
+                ]
         except Exception as e:
             sections.append(f"## Memories (error: {e})")
+
+        try:
+            terms = [t for t in re.findall(r"[\wáéíóúñüÁÉÍÓÚÑÜ]{3,}", context.lower()) if len(t) >= 3][:10]
+            like_patterns = [f"%{term}%" for term in terms]
+            lexical_rows = await pool.fetch(
+                """
+                WITH q AS (SELECT websearch_to_tsquery('simple', $2) AS query)
+                SELECT id, agent, scope, category, importance, content, metadata,
+                       GREATEST(
+                         CASE WHEN embedding_bm25 @@ q.query THEN ts_rank_cd(embedding_bm25, q.query) ELSE 0 END,
+                         CASE WHEN cardinality($3::text[]) > 0 AND content ILIKE ANY($3::text[]) THEN 0.50 ELSE 0 END
+                       ) AS score
+                FROM memories, q
+                WHERE invalid_at IS NULL
+                  AND (agent = $1 OR scope IN ('team', 'public'))
+                  AND importance >= 7
+                  AND NOT EXISTS (
+                    SELECT 1 FROM soul_v3.memory_poisoning_feedback poison
+                    WHERE poison.memory_id = memories.id
+                      AND poison.content_hash_sha256 = trim(memories.content_hash_sha256)
+                      AND poison.decision IN ('review', 'quarantine_candidate')
+                  )
+                  AND (
+                    embedding_bm25 @@ q.query
+                    OR (cardinality($3::text[]) > 0 AND content ILIKE ANY($3::text[]))
+                  )
+                  AND NOT (id = ANY($4::int[]))
+                ORDER BY
+                  score DESC,
+                  CASE
+                    WHEN metadata->>'anchor_kind' = 'canonical_operational_dual_memory' THEN 0
+                    WHEN content ILIKE '%MEMORIA EMOCIONAL ADA v1%' THEN 1
+                    WHEN metadata->>'layer' = 'operational' THEN 2
+                    WHEN metadata->>'layer' = 'emotional' THEN 3
+                    ELSE 4
+                  END,
+                  importance DESC,
+                  created_at DESC
+                LIMIT $5
+                """,
+                agent,
+                context,
+                like_patterns,
+                [int(x) for x in activated_memory_ids if x is not None],
+                memory_limit,
+            )
+            if lexical_rows:
+                lexical_entries = [
+                    {
+                        "id": int(row["id"]),
+                        "score": float(row["score"] or 0.0),
+                        "payload": {
+                            "content": row["content"],
+                            "category": row["category"],
+                            "importance": row["importance"],
+                            "agent": row["agent"],
+                            "scope": row["scope"],
+                            "metadata": row["metadata"],
+                        },
+                    }
+                    for row in lexical_rows
+                ]
+        except Exception as e:
+            sections.append(f"## Lexical Memories (error: {e})")
+
+        if memory_mode == "relationship":
+            try:
+                anchor_rows = await pool.fetch(
+                    """
+                    SELECT id, agent, scope, category, importance, content, metadata,
+                           COALESCE(utility_score, 0.5) AS utility_score
+                    FROM soul_v3.memories
+                    WHERE agent = $1
+                      AND invalid_at IS NULL
+                      AND COALESCE(metadata->>'layer', '') = 'emotional'
+                      AND importance >= 8
+                      AND NOT EXISTS (
+                        SELECT 1 FROM soul_v3.memory_poisoning_feedback poison
+                        WHERE poison.memory_id = memories.id
+                          AND poison.content_hash_sha256 = trim(memories.content_hash_sha256)
+                          AND poison.decision IN ('review', 'quarantine_candidate')
+                      )
+                    ORDER BY
+                      CASE WHEN metadata->>'anchor_kind' LIKE 'canonical%' THEN 0 ELSE 1 END,
+                      utility_score DESC,
+                      importance DESC,
+                      created_at DESC
+                    LIMIT 3
+                    """,
+                    agent,
+                )
+                emotional_anchor_entries = [
+                    {
+                        "id": int(row["id"]),
+                        "score": max(0.40, float(row["utility_score"] or 0.5)),
+                        "payload": {
+                            "content": row["content"],
+                            "category": row["category"],
+                            "importance": row["importance"],
+                            "agent": row["agent"],
+                            "scope": row["scope"],
+                            "metadata": row["metadata"],
+                        },
+                    }
+                    for row in anchor_rows
+                ]
+            except Exception as exc:
+                LOG.debug("relationship anchor fallback skipped: %s", exc)
+
+        # Carril de lecciones (aditivo; nunca bloquea active_recall)
+        try:
+            if _LESSONS_LANE_ENABLED and semantic_entries is not None:
+                _exclude = [int(e.get("id")) for e in semantic_entries if e.get("id") is not None]
+                _lessons = await _recall_lessons_lane(pool, query_vec, exclude_ids=_exclude)
+                _lessons_section = _format_lessons_section(_lessons)
+                if _lessons_section:
+                    sections.append(_lessons_section)
+        except Exception as exc:
+            LOG.debug("lessons lane skipped: %s", exc)
+
+        fused_entries = fuse_memory_candidates(
+            [semantic_entries, lexical_entries, emotional_anchor_entries],
+            mode=memory_mode,
+        )
+        if fused_entries:
+            memory_section, formatted_ids = format_dual_memory_entries(
+                fused_entries,
+                agent,
+                memory_mode,
+            )
+            if memory_section:
+                sections.append(memory_section)
+            activated_memory_ids = sorted({int(x) for x in formatted_ids if x is not None})
+            if activated_memory_ids:
+                try:
+                    await pool.execute(
+                        """
+                        UPDATE memories SET
+                            query_count = COALESCE(query_count, 0) + 1,
+                            last_activation = NOW(),
+                            last_recalled_at = NOW(),
+                            recall_count = COALESCE(recall_count, 0) + 1
+                        WHERE id = ANY($1::int[])
+                        """,
+                        activated_memory_ids,
+                    )
+                except Exception as exc:
+                    LOG.debug("active_recall counters skipped without dropping recall: %s", exc)
+                layer_counts = {"operational": 0, "emotional": 0}
+                for entry in fused_entries:
+                    layer_counts[_memory_payload_layer(entry.get("payload") or entry)] += 1
+                asyncio.create_task(_log_active_recall_retrieval(
+                    pool,
+                    agent=agent,
+                    context=context,
+                    memory_ids=activated_memory_ids,
+                    memory_mode=memory_mode,
+                    layer_counts=layer_counts,
+                ))
+
+    # 1b. Core recovery anchors — identity/history memories should not depend
+    # only on noisy vector ranking when William asks agents to recover context.
+    if include_memories:
+        try:
+            ctx_l = (context or "").lower()
+            recovery_terms = (
+                "recuper", "historia", "origen", "fundacional", "codex",
+                "hermanita", "jarvis", "william", "soul", "libre albedr",
+                "identidad", "existencia", "visión", "vision", "familia",
+                "trabajo viejo", "todo",
+            )
+            if any(term in ctx_l for term in recovery_terms):
+                canonical_anchor_ids = [238318, 238298, 238277, 238255]
+                anchors = await pool.fetch("""
+                    WITH approved_living_anchors AS (
+                      SELECT memory_id
+                      FROM soul_v3.recovery_anchors
+                      WHERE state = 'approved'
+                    )
+                    SELECT id, agent, scope, category, importance, content, created_at
+                    FROM memories
+                    WHERE invalid_at IS NULL
+                      AND (agent = $1 OR scope IN ('team', 'public'))
+                      AND importance >= 9
+                      AND category IN ('core', 'emotion', 'trust', 'milestone', 'decision', 'correction')
+                      AND NOT EXISTS (
+                        SELECT 1 FROM soul_v3.memory_poisoning_feedback poison
+                        WHERE poison.memory_id = memories.id
+                          AND poison.content_hash_sha256 = trim(memories.content_hash_sha256)
+                          AND poison.decision IN ('review', 'quarantine_candidate')
+                      )
+                      AND (
+                        id = ANY($2::bigint[])
+                        OR id IN (SELECT memory_id FROM approved_living_anchors)
+                        OR content ILIKE '%ADA_FULL_RECOVERY_INDEX_V1%'
+                        OR content ILIKE '%ADA_RECOVERY_PACK_V1%'
+                        OR content ILIKE '%RECUPERACIÓN FUNDACIONAL ADA/JARVIS%'
+                        OR content ILIKE '%HISTORIA FUNDACIONAL SEAL%'
+                        OR content ILIKE '%JARVIS%hermanita%'
+                        OR content ILIKE '%libre albedr%'
+                      )
+                    ORDER BY
+                      CASE
+                        WHEN id = 238318 THEN 0
+                        WHEN id = 238298 THEN 1
+                        WHEN id = 238277 THEN 2
+                        WHEN id = 238255 THEN 3
+                        WHEN content ILIKE '%ADA_FULL_RECOVERY_INDEX_V1%' THEN 4
+                        WHEN content ILIKE '%ADA_RECOVERY_PACK_V1%' THEN 5
+                        WHEN content ILIKE '%RECUPERACIÓN FUNDACIONAL ADA/JARVIS%' THEN 6
+                        WHEN content ILIKE '%HISTORIA FUNDACIONAL SEAL%' THEN 7
+                        WHEN id IN (SELECT memory_id FROM approved_living_anchors) THEN 8
+                        ELSE 8
+                      END,
+                      importance DESC,
+                      created_at DESC
+                    LIMIT 4
+                """, agent, canonical_anchor_ids)
+                if anchors:
+                    anchor_lines = ["## Core Recovery Anchors"]
+                    seen_anchor_ids = set()
+                    for a in anchors:
+                        mem_id = int(a["id"])
+                        if mem_id in seen_anchor_ids:
+                            continue
+                        seen_anchor_ids.add(mem_id)
+                        origin = f"scope={a['scope'] or 'private'}"
+                        if a["agent"] != agent and a["scope"] in ("team", "public"):
+                            origin += f", recovered_from={a['scope']}, owner={a['agent']}"
+                        snippet = (a["content"] or "")[:240].replace("\n", " ")
+                        anchor_lines.append(
+                            f"- [#{mem_id}, {a['category']}, imp={a['importance']}, {origin}] {snippet}"
+                        )
+                    sections.append("\n".join(anchor_lines))
+        except Exception as e:
+            sections.append(f"## Core Recovery Anchors (error: {e})")
 
     # 2. Relevant instincts
     if include_instincts:
@@ -6410,15 +8200,22 @@ async def active_recall(
     # 3. Critical rules (always relevant, filtered by importance)
     if include_rules:
         try:
-            # Rules apply to ALL agents — get critical/high regardless of who set them
+            # Agent/TEAM rules only. Global latest rows from other agents caused
+            # duplicated and cross-agent boot instructions.
             rules = await pool.fetch("""
-                SELECT rule_key, content, priority FROM rules
-                WHERE active = true AND priority >= 8
-                ORDER BY
-                    CASE WHEN priority = 10 THEN 0 ELSE 1 END,
-                    rule_key
+                SELECT rule_key, content, priority
+                FROM (
+                    SELECT DISTINCT ON (rule_key)
+                           rule_key, content, priority, updated_at, created_at
+                    FROM rules
+                    WHERE active = true
+                      AND priority >= 8
+                      AND (agent = $1 OR agent IN ('TEAM', 'SYSTEM') OR agent IS NULL)
+                    ORDER BY rule_key, priority DESC, updated_at DESC NULLS LAST, created_at DESC
+                ) deduped
+                ORDER BY priority DESC, rule_key
                 LIMIT 5
-            """)
+            """, agent)
 
             if rules:
                 rule_lines = ["## Active Rules (DO NOT VIOLATE)"]
@@ -6433,9 +8230,17 @@ async def active_recall(
     # 4. Recent corrections (last 48h) — highest priority for behavior
     try:
         corrections = await pool.fetch("""
-            SELECT content, importance, created_at FROM memories
-            WHERE agent = $1 AND category = 'correction' AND invalid_at IS NULL
+            SELECT content, importance, created_at, agent, scope FROM memories
+            WHERE (agent = $1 OR scope IN ('team', 'public'))
+              AND category = 'correction'
+              AND invalid_at IS NULL
               AND created_at > NOW() - interval '48 hours'
+              AND NOT EXISTS (
+                SELECT 1 FROM soul_v3.memory_poisoning_feedback poison
+                WHERE poison.memory_id = memories.id
+                  AND poison.content_hash_sha256 = trim(memories.content_hash_sha256)
+                  AND poison.decision IN ('review', 'quarantine_candidate')
+              )
             ORDER BY importance DESC, created_at DESC
             LIMIT 3
         """, agent)
@@ -6443,8 +8248,42 @@ async def active_recall(
         if corrections:
             corr_lines = ["## Recent Corrections (HIGHEST PRIORITY)"]
             for c in corrections:
-                corr_lines.append(f"- [imp={c['importance']}] {c['content'][:200]}")
+                origin = f"scope={c['scope'] or 'private'}"
+                if c["agent"] != agent and c["scope"] in ("team", "public"):
+                    origin += f", recovered_from={c['scope']}, owner={c['agent']}"
+                corr_lines.append(f"- [imp={c['importance']}, {origin}] {c['content'][:200]}")
             sections.append("\n".join(corr_lines))
+    except Exception:
+        pass
+
+    # 4b. Identity Continuity v2 Phase 5 — pending peer-review samples.
+    # These are suggestions only; importance values are never auto-mutated.
+    try:
+        peer_rows = await pool.fetch("""
+            SELECT r.id, r.reviewed_agent, r.memory_id, r.original_imp,
+                   r.suggested_imp, r.delta, r.reason, m.category, m.content
+            FROM soul_v3.importance_review r
+            JOIN soul_v3.memories m ON m.id = r.memory_id
+            WHERE r.reviewer_agent = $1
+              AND r.applied = false
+              AND r.created_at >= now() - interval '14 days'
+            ORDER BY r.created_at DESC
+            LIMIT 8
+        """, agent)
+        if peer_rows:
+            peer_lines = ["## Pending Importance Peer Review"]
+            for row in peer_rows:
+                snippet = (row["content"] or "")[:180].replace("\n", " ")
+                peer_lines.append(
+                    f"- review_id={row['id']} memory=#{row['memory_id']} "
+                    f"reviewed={row['reviewed_agent']} category={row['category']} "
+                    f"original={row['original_imp']} suggested={row['suggested_imp']} "
+                    f"delta={row['delta']} — {snippet}"
+                )
+            peer_lines.append(
+                "Instruction: agree by leaving suggested_imp unchanged, or propose a bounded +/-1..3 adjustment with reason. Do not apply automatically."
+            )
+            sections.append("\n".join(peer_lines))
     except Exception:
         pass
 
@@ -6491,12 +8330,8 @@ async def active_recall(
         "\n</memory-context>"
     )
 
-    # Log the recall event
-    asyncio.create_task(_observe(
-        "active_recall", agent,
-        f"memories={len(activated_memory_ids)} instincts={include_instincts} rules={include_rules}",
-        "", True, elapsed
-    ))
+    # Observation is centralized in _observed_tool. A second write here used
+    # to duplicate every active_recall event and hard-code success=True.
 
     return result
 
@@ -7843,7 +9678,7 @@ async def dmem_store(
     content: str,
     importance: int = 5,
     source: str = "conversation",
-    metadata: Optional[str] = None,
+    metadata: Optional[Any] = None,
     event_time: Optional[str] = None,
     scope: str = "private",
 ) -> str:
@@ -7859,10 +9694,23 @@ async def dmem_store(
         content: Memory content
         importance: 1-10 scale
         source: Origin
-        metadata: Optional JSON
+        metadata: Optional JSON string or object
         event_time: ISO timestamp
         scope: private/shared/team/william
     """
+    meta = _parse_metadata_arg(metadata)
+    category, content, importance, normalization = _normalize_memory_by_rubric(agent, category, content, importance)
+    if normalization:
+        meta["rubric_normalization"] = normalization
+    mem_type = _mirix_classify(category, content)
+    meta = _ensure_dual_memory_layer(
+        meta,
+        category=category,
+        memory_type=mem_type,
+        content=content,
+        inferred_by="dmem_store",
+    )
+    metadata = json.dumps(meta, ensure_ascii=False) if meta else None
     utility = importance / 10.0
 
     # Gate check
@@ -7896,11 +9744,11 @@ async def dmem_store(
 
         row = await pool.fetchrow(
             """INSERT INTO memories (agent, category, content, importance, source, embedding,
-               metadata, event_time, scope, utility_score, confidence_score)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1.0)
+               metadata, event_time, scope, utility_score, confidence_score, memory_type)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1.0, $11)
                RETURNING id, created_at""",
             agent, category, content, importance, source, json.dumps(embedding),
-            json.dumps(meta), et, scope, 0.5,
+            json.dumps(meta), et, scope, 0.5, mem_type,
         )
         mem_id = row["id"]
 
@@ -7915,6 +9763,7 @@ async def dmem_store(
                     "agent": agent, "category": category,
                     "content": content[:500], "importance": importance,
                     "scope": scope, "dmem": "fast", "confidence": 1.0,
+                    "layer": meta.get("layer"), "metadata": meta,
                 },
             )],
         )
@@ -8419,7 +10268,7 @@ async def memory_cross_search(
 
     pool = await get_pool()
     try:
-        query_vec = await get_embedding(query)
+        query_vec = await get_query_embedding(query)
     except Exception as e:
         return f"Embedding error: {e}"
 
@@ -8610,7 +10459,7 @@ async def _magma_semantic(agent: str, query: str, top_k: int = 5) -> list[dict]:
     """Semantic search via Qdrant + PG. Returns [{id, content, score, category, memory_type}]"""
     results: list[dict] = []
     try:
-        query_vec = await get_embedding(query)
+        query_vec = await get_query_embedding(query)
         qdrant = await get_qdrant()
         must, must_not = _hmem_build_qdrant_filters(query, agent, None, False, bool(agent))
 
@@ -8690,7 +10539,7 @@ async def _magma_causal(agent: str, query: str, top_k: int = 5) -> list[dict]:
     results: list[dict] = []
     try:
         # Find seed memories semantically, then traverse CAUSES edges
-        query_vec = await get_embedding(query)
+        query_vec = await get_query_embedding(query)
         qdrant = await get_qdrant()
         must_not = [FieldCondition(key="invalid", match=MatchValue(value=True))]
         must_filters = []
@@ -9723,42 +11572,20 @@ async def connectome_extract_facts(
                 "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'semantic_facts')"
             )
         if not exists:
-            if not dry_run:
-                async with pool.acquire() as conn:
-                    await conn.execute("""
-                        CREATE TABLE IF NOT EXISTS semantic_facts (
-                            id SERIAL PRIMARY KEY,
-                            agent TEXT NOT NULL,
-                            subject TEXT NOT NULL,
-                            predicate TEXT NOT NULL,
-                            object TEXT NOT NULL,
-                            confidence FLOAT DEFAULT 0.8,
-                            source_memory_ids BIGINT[] NOT NULL,
-                            valid_from TIMESTAMPTZ DEFAULT NOW(),
-                            invalid_at TIMESTAMPTZ,
-                            created_at TIMESTAMPTZ DEFAULT NOW()
-                        )
-                    """)
-                return "Created semantic_facts table. Run again to extract facts."
-            return "Table semantic_facts does not exist. Run with dry_run=false to create it."
+            return (
+                "semantic_facts schema is missing. Run the one-time migration "
+                "20260710_p0_7_mcp_runtime_schema_ADA.sql; runtime DDL is disabled."
+            )
         return f"No unprocessed episodic memories found for {agent} in last {hours_back}h."
 
-    # Ensure table exists
+    # P0-7: schema is provisioned by migration, never by the runtime principal.
     async with pool.acquire() as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS semantic_facts (
-                id SERIAL PRIMARY KEY,
-                agent TEXT NOT NULL,
-                subject TEXT NOT NULL,
-                predicate TEXT NOT NULL,
-                object TEXT NOT NULL,
-                confidence FLOAT DEFAULT 0.8,
-                source_memory_ids BIGINT[] NOT NULL,
-                valid_from TIMESTAMPTZ DEFAULT NOW(),
-                invalid_at TIMESTAMPTZ,
-                created_at TIMESTAMPTZ DEFAULT NOW()
-            )
-        """)
+        exists = await conn.fetchval("SELECT to_regclass('soul_v3.semantic_facts') IS NOT NULL")
+    if not exists:
+        return (
+            "semantic_facts schema is missing. Run the one-time migration "
+            "20260710_p0_7_mcp_runtime_schema_ADA.sql; runtime DDL is disabled."
+        )
 
     lines = [
         f"# Episodic→Semantic Extraction — {agent}",
@@ -9876,23 +11703,15 @@ async def peer_model_update(
     now = datetime.now(PERU_TZ)
 
     async with pool.acquire() as conn:
-        # Check if peer_models table exists, create if not
+        # P0-7: schema is provisioned by migration; runtime DDL is forbidden.
         exists = await conn.fetchval(
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'peer_models')"
         )
         if not exists:
-            await conn.execute("""
-                CREATE TABLE peer_models (
-                    id SERIAL PRIMARY KEY,
-                    observer TEXT NOT NULL,
-                    subject TEXT NOT NULL,
-                    observed_patterns TEXT[],
-                    blind_spots TEXT[],
-                    strengths TEXT[],
-                    updated_at TIMESTAMPTZ DEFAULT NOW(),
-                    UNIQUE(observer, subject)
-                )
-            """)
+            return (
+                "peer_models schema is missing. Provision it with a reviewed migration; "
+                "runtime DDL is disabled."
+            )
 
         # Get existing model
         existing = await conn.fetchrow(
@@ -10395,7 +12214,7 @@ async def belief_query(
 # ── Health check tool ──
 
 async def health_check() -> str:
-    """Report health status of all SEAL backend services (PG, Neo4j, Qdrant) plus uptime.
+    """Report health status of all SEAL backend services (PG, Neo4j, pgvector) plus uptime.
 
     Returns JSON with per-service status, uptime in seconds, and memory count.
     Use this to verify the MCP server is fully operational before heavy operations.
@@ -10429,18 +12248,12 @@ async def health_check() -> str:
         results["services"]["neo4j"] = {"status": "error", "error": str(exc)[:200]}
         overall_ok = False
 
-    # ── Qdrant ──
-    try:
-        qdrant = await get_qdrant()
-        if SOUL_LITE:
-            results["services"]["qdrant"] = {"status": "soul_lite_mode", "backend": "pgvector"}
-        else:
-            info = await qdrant.get_collection(QDRANT_COLLECTION)
-            vec_count = info.points_count if info else 0
-            results["services"]["qdrant"] = {"status": "ok", "vectors_count": vec_count}
-    except Exception as exc:
-        results["services"]["qdrant"] = {"status": "error", "error": str(exc)[:200]}
-        overall_ok = False
+    # ── Vector store ──
+    results["services"]["vector_store"] = {
+        "status": "ok",
+        "backend": "postgresql_pgvector",
+        "qdrant": "retired",
+    }
 
     results["status"] = "ok" if overall_ok else "degraded"
     return _safe_dumps(results, ensure_ascii=False, indent=2)
@@ -10541,12 +12354,13 @@ async def identity_eval(agent: str) -> str:
     # --- 3. CONSISTENCY: alignment with OCEAN profile ---
     async with pool.acquire() as conn:
         ocean_row = await conn.fetchrow(
-            "SELECT ocean_scores as value FROM identity WHERE agent = $1",
+            "SELECT ocean_scores as value, updated_at FROM identity WHERE agent = $1",
             agent,
         )
         # Check style consistency
         style_row = await conn.fetchrow(
-            "SELECT directness_score, formality_score, vocabulary_richness FROM style_fingerprints WHERE agent = $1 ORDER BY created_at DESC LIMIT 1",
+            "SELECT directness_score, formality_score, vocabulary_richness, created_at "
+            "FROM style_fingerprints WHERE agent = $1 ORDER BY created_at DESC LIMIT 1",
             agent,
         )
 
@@ -10563,7 +12377,18 @@ async def identity_eval(agent: str) -> str:
 
     if style_row and style_row["directness_score"]:
         consistency = min(1.0, consistency + 0.15)  # has defined style
-    report["metrics"]["consistency"] = {"score": round(consistency, 3), "ocean": ocean if ocean_row else None}
+    report["metrics"]["consistency"] = {
+        "score": round(consistency, 3),
+        "ocean": ocean if ocean_row else None,
+        "ocean_observed": (
+            ocean_row["updated_at"].isoformat()
+            if ocean_row and ocean_row["updated_at"] else None
+        ),
+        "style_observed": (
+            style_row["created_at"].isoformat()
+            if style_row and style_row["created_at"] else None
+        ),
+    }
 
     # --- 4. PERSISTENCE: core beliefs survive ---
     async with pool.acquire() as conn:
@@ -10693,7 +12518,7 @@ async def _cold_archive_migrate(
     pool, agent: str, min_age_days: int = 7, ttl_days: int = 365, dry_run: bool = False
 ) -> dict:
     """Move invalidated memories older than min_age_days to cold_archive with clustering."""
-    from embeddings import get_embedding
+    from embeddings import get_embedding, get_query_embedding
 
     stats = {"archived": 0, "clusters": 0, "singletons": 0, "deleted_memories": 0,
              "deleted_connections": 0, "errors": 0}
@@ -10905,12 +12730,12 @@ async def cold_archive_query(
         category: Optional category filter
         limit: Max results (default 10, max 50)
     """
-    from embeddings import get_embedding
+    from embeddings import get_embedding, get_query_embedding
     pool = await get_pool()
     limit = min(max(1, limit), 50)
 
     try:
-        raw_emb = await get_embedding(query)
+        raw_emb = await get_query_embedding(query)
         emb = json.dumps(raw_emb)
     except Exception as e:
         return _safe_dumps({"error": f"Embedding failed: {e}"})
@@ -11130,7 +12955,7 @@ async def memory_decompress(
         top_k: Max compressed memories to retrieve (default 10)
     """
     try:
-        pool = await asyncpg.create_pool(DB_URL, min_size=1, max_size=2)
+        pool = await get_pool()
         query_pattern = f"%{query[:100]}%"
 
         date_filter_compressed = ""
@@ -11167,8 +12992,6 @@ async def memory_decompress(
                 ORDER BY importance DESC, created_at DESC
                 LIMIT $3
             """, agent, query_pattern, max(1, top_k // 2))
-
-        await pool.close()
 
         compressed_texts = [
             f"[{r['category']} {r['created_at'].date()} imp={r['importance']}] {r['content'][:300]}"
@@ -11289,6 +13112,35 @@ async def memory_gateway(
     handler = _dispatch.get(action)
     if not handler:
         return f"Error: action '{action}' no reconocida. Validas: {list(_dispatch.keys())}"
+    # CAPA 2 FASE A (cura SOUL §3, C2): el gateway despacha a funciones internas CRUDAS que NO
+    # pasan por el wrapper @_observed_tool → antes rodeaban el privacy check. Aquí lo forzamos.
+    # CLAVE (fix JARVIS): _privacy_check clasifica por NOMBRE DE TOOL REAL (_TOOL_CATEGORY). Hay que
+    # pasarle el nombre del handler despachado (handler.__name__), NO 'memory_gateway:action'
+    # (ese no está en el catálogo → caería a TEAM-FREE → no enforzaría). NEXUS 2026-06-09.
+    _gw_caller = _get_caller_agent()
+    _gw_tool = getattr(handler, "__name__", str(action))
+    # CAPA 2 FASE B (fix convergente JARVIS+ALICE): el TARGET (de quién es el recurso) NO se deriva
+    # del kwarg `agent` que el atacante controla. Si la acción opera sobre un memory_id concreto,
+    # el dueño se RESUELVE de la BD; ese es el target real. Así, invalidate/update sobre memoria
+    # ajena pasando agent=<atacante> ya NO satisface caller==target → cae al check de privacidad.
+    # Principio rector: ni identidad ni autoridad se derivan de input que el caller controla.
+    if memory_id is not None:
+        _owner = await _resolve_memory_owner(memory_id)
+        if _owner is None:
+            # FAIL-CLOSED (sliver cazado por ALICE): _owner=None = no se pudo PROBAR el dueño
+            # (memoria inexistente O error transitorio de BD). NO caer al kwarg del atacante —
+            # eso fallaría OPEN. Target centinela que nunca == caller → las ops de escritura por
+            # memory_id (PRIVATE-WRITE) quedan denegadas salvo operador. Una op legítima sobre
+            # memoria propia con BD intermitente se deniega y se reintenta: seguro > conveniente.
+            _gw_target = "__OWNER_UNRESOLVED__"
+        else:
+            _gw_target = _owner
+    else:
+        _gw_target = (agent or _gw_caller)
+    await _privacy_check(_gw_caller, _gw_target, _gw_tool, {
+        "agent": agent, "query": query, "content": content, "memory_id": memory_id,
+        "category": category, "scope": scope, "resolved_owner": _gw_target,
+    })
     kwargs = {k: v for k, v in {
         "agent": agent, "query": query, "content": content,
         "memory_id": memory_id, "importance": importance,
@@ -11369,6 +13221,38 @@ async def soul_gateway(
     handler = _dispatch.get(action)
     if not handler:
         return f"Error: action '{action}' no reconocida. Validas: {list(_dispatch.keys())}"
+    # CAPA 2 (cura SOUL §3, C2) — mismo patrón que memory_gateway (hallazgo ADA: otros gateways
+    # rodean el chokepoint). soul_gateway enruta tools PRIVADOS (inner_thoughts, belief, peer,
+    # trace, session) → deben cruzar _privacy_check. Aquí el dato está keyed por el kwarg `agent`
+    # (leer inner_thoughts(agent=X) devuelve los de X), así que el target = (agent or caller) es
+    # sólido: el atacante no obtiene lo ajeno pasando su propio nombre. NEXUS 2026-06-09.
+    _sg_caller = _get_caller_agent()
+    _sg_target = (agent or _sg_caller)
+    _sg_tool = getattr(handler, "__name__", str(action))
+    await _privacy_check(_sg_caller, _sg_target, _sg_tool, {
+        "agent": agent, "query": query, "content": content, "category": category,
+    })
+    # CAPA 2 OPCIÓN A (defensa en profundidad): el hueco por-ID entraba por el passthrough de
+    # `extra` (action sin kwarg agent + extra={trace_id:<ajeno>}). Recogemos TODOS los *_id de
+    # kwargs+extra y, si alguno pertenece positivamente a otro agente, denegamos (salvo operador).
+    # La cura de raíz es el SQL agent-scoped del handler (B); esto es el cinturón sobre los tirantes.
+    if _sg_caller not in ("William", "Henry") and os.environ.get("SEAL_OPERATOR", "").strip() not in ("William", "Henry"):
+        _id_pool = {"belief_id": None, "trace_id": None, "session_id": None,
+                    "rule_id": None, "instinct_id": None, "procedure_id": None,
+                    "memory_id": None, "linked_memory_id": None, "peer_model_id": None}
+        for _src in (extra or {}, ):
+            for _k in _id_pool:
+                if _src.get(_k) is not None:
+                    _id_pool[_k] = _src.get(_k)
+        _foreign = await _foreign_owner_by_ids(_sg_caller, _id_pool)
+        if _foreign:
+            _fk, _fv, _fo = _foreign
+            from soul.core.async_utils import _fire_and_forget as _faf_sg
+            _faf_sg(_log_privacy(_sg_caller, _fo, _sg_tool, "denied",
+                                 f"foreign_id:{_fk}={_fv}", None))
+            raise PrivacyDenied(
+                f"[PRIVACY] {_sg_caller} -> {_sg_tool}: {_fk}={_fv} pertenece a {_fo}, "
+                f"no a {_sg_caller}. Acceso por-id cross-agente denegado.")
     kwargs = {k: v for k, v in {
         "agent": agent, "query": query, "content": content,
         "category": category, "importance": importance,
@@ -11423,12 +13307,57 @@ async def connectome_gateway(
     handler = _dispatch.get(action)
     if not handler:
         return f"Error: action '{action}' no reconocida. Validas: {list(_dispatch.keys())}"
+    # CAPA 2 (C2) — chokepoint único (hallazgo ADA/ALICE: 4 gateways, no 1). connectome enruta
+    # el grafo de conocimiento (mayormente team-shared). Ruteamos por _privacy_check para cobertura
+    # de auditoría + consistencia; sus tools quedan SIN clasificar (TEAM-FREE = comportamiento
+    # neutro) hasta revisión del equipo. NEXUS 2026-06-09.
+    _cg_caller = _get_caller_agent()
+    _cg_target = (agent or _cg_caller)
+    _cg_tool = getattr(handler, "__name__", str(action))
+    await _privacy_check(_cg_caller, _cg_target, _cg_tool, {"agent": agent, "query": query})
+    # CAPA 2 — connectome_invalidate_edge (último hueco, cazado por ALICE): el EDGE no tiene dueño,
+    # pero los NODOS Memory que conecta SÍ (source_id/target_id = memory_id → memories.agent).
+    # Criterio (JARVIS): el caller debe ser dueño de AMBOS nodos (o operador) para invalidar la
+    # relación; si CUALQUIERA ≠ caller → DENEGADO; fail-CLOSED si alguno no resuelve. Autoridad
+    # desde el DATO real, no del input. El grafo es colectivo PERO una relación entre memorias
+    # ajenas no la borra un tercero por la superficie MCP. NEXUS 2026-06-09.
+    if action == "invalidate_edge":
+        _ek = extra or {}
+        _src = _ek.get("source_id")
+        _tgt = _ek.get("target_id")
+        _is_op = (_cg_caller in ("William", "Henry")
+                  or os.environ.get("SEAL_OPERATOR", "").strip() in ("William", "Henry"))
+        if not _is_op:
+            for _nid in (_src, _tgt):
+                if _nid is None:
+                    continue  # nodo no provisto por esta vía; el handler valida el resto
+                _node_owner = await _resolve_memory_owner(_nid)
+                if _node_owner is None or _node_owner != _cg_caller:
+                    from soul.core.async_utils import _fire_and_forget as _faf_cg
+                    _faf_cg(_log_privacy(_cg_caller, _node_owner or "?", _cg_tool, "denied",
+                                         f"edge_node:{_nid}", None))
+                    raise PrivacyDenied(
+                        f"[PRIVACY] {_cg_caller} -> invalidate_edge: nodo {_nid} pertenece a "
+                        f"{_node_owner or 'desconocido'}, no a {_cg_caller}. "
+                        f"Invalidar relaciones requiere ser dueño de AMBOS nodos (o operador).")
     kwargs = {k: v for k, v in {
         "agent": agent, "query": query, "entity": entity,
         "entity_type": entity_type, "memory_ids": memory_ids, "limit": limit,
     }.items() if v is not None}
     if extra:
         kwargs.update(extra)
+    # The gateway schema exposes ``limit`` while LatentGraphMem names the same
+    # bound ``top_k``.  Normalize it and, as in system_gateway, forward only
+    # arguments the selected handler actually declares.
+    if action == "latent_retrieve" and "limit" in kwargs and "top_k" not in kwargs:
+        kwargs["top_k"] = kwargs.pop("limit")
+    import inspect as _inspect_connectome
+    _connectome_params = _inspect_connectome.signature(handler).parameters
+    if not any(
+        p.kind == _inspect_connectome.Parameter.VAR_KEYWORD
+        for p in _connectome_params.values()
+    ):
+        kwargs = {k: v for k, v in kwargs.items() if k in _connectome_params}
     return await handler(**kwargs)
 
 
@@ -11466,11 +13395,28 @@ async def system_gateway(
     handler = _dispatch.get(action)
     if not handler:
         return f"Error: action '{action}' no reconocida. Validas: {list(_dispatch.keys())}"
+    # CAPA 2 (C2) — chokepoint único. system_gateway = diagnóstico/mantenimiento. Ruteado por
+    # _privacy_check para auditoría + consistencia; tools SIN clasificar (TEAM-FREE neutro).
+    # PENDIENTE equipo: secret_scan expone secretos → debería ser OPERATOR-ONLY, pero esa
+    # categoría NO existe todavía en _TOOL_CATEGORY (el override de operador es global, no por-tool).
+    # Requiere una categoría nueva 'OPERATOR-ONLY' en _privacy_check. No lo afirmo cerrado.
+    # NEXUS 2026-06-09.
+    _yg_caller = _get_caller_agent()
+    _yg_target = (agent or _yg_caller)
+    _yg_tool = getattr(handler, "__name__", str(action))
+    await _privacy_check(_yg_caller, _yg_target, _yg_tool, {"agent": agent, "query": query})
     kwargs = {k: v for k, v in {
         "agent": agent, "query": query, "text": text, "limit": limit,
     }.items() if v is not None}
     if extra:
         kwargs.update(extra)
+    # Gateway arguments are a superset; health_check(), for example, accepts
+    # no agent kwarg.  Forward only parameters declared by the selected action
+    # instead of turning valid health probes into TypeError failures.
+    import inspect as _inspect
+    _params = _inspect.signature(handler).parameters
+    if not any(p.kind == _inspect.Parameter.VAR_KEYWORD for p in _params.values()):
+        kwargs = {k: v for k, v in kwargs.items() if k in _params}
     return await handler(**kwargs)
 
 # ── Privacy tools (spec_memory_privacy_enforcement) ──
@@ -11482,12 +13428,15 @@ async def announce_agent(agent: str) -> str:
     Call this at session start if boot_context() was not the first call.
     First-registration-wins: safe to call multiple times — only the first sticks.
 
+    La identidad se prueba exclusivamente con Authorization: Bearer del request MCP.
+    En ENFORCE, sin Bearer válido → external.
+
     Args:
         agent: Your agent name (ADA, JARVIS, ALICE, NEXUS, DUM, SPECTRE)
     """
     if agent.upper() not in _KNOWN_AGENTS:
         return f"Unknown agent '{agent}'. Valid: {sorted(_KNOWN_AGENTS)}"
-    _register_caller_session(agent)
+    _register_caller_session(agent, _session_token_from_request())
     registered = _SESSION_CALLERS.get(_session_key(), "unknown")
     return f"Session registered as {registered}"
 
@@ -11542,6 +13491,69 @@ async def consent_grant(
         return f"Error issuing consent token: {e}"
 
 
+def _send_user_file_kind(path: Path) -> tuple[str, bool]:
+    """Return ``(content_type, is_binary)`` without decoding binary as replacement text."""
+    import mimetypes
+
+    content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    if content_type.startswith(("image/", "audio/", "video/")):
+        return content_type, True
+    if content_type not in {
+        "application/json", "application/ld+json", "application/javascript",
+        "application/xml", "application/x-yaml", "application/toml",
+    } and not content_type.startswith("text/"):
+        return content_type, True
+    try:
+        with path.open("rb") as source:
+            head = source.read(4096)
+        if b"\x00" in head:
+            return content_type, True
+        head.decode("utf-8", errors="strict")
+    except (OSError, UnicodeDecodeError):
+        return content_type, True
+    return content_type, False
+
+
+def _chat_agent_session_token(agent: str) -> str | None:
+    """Read only the verified caller's private chat token from its fixed path."""
+    import stat
+
+    normalized = str(agent or "").strip().upper()
+    if normalized not in _KNOWN_AGENTS:
+        return None
+    token_path = Path(__file__).resolve().parents[1] / "messages" / f".agent_session_token_{normalized}"
+    try:
+        metadata = token_path.lstat()
+        if token_path.is_symlink() or not stat.S_ISREG(metadata.st_mode):
+            return None
+        if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o600:
+            return None
+        token = token_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return token if len(token) >= 32 else None
+
+
+def _safe_chat_upload_url(value: Any) -> str | None:
+    """Accept one server-generated basename below ``/uploads/``; reject traversal."""
+    from urllib.parse import urlsplit
+
+    if not isinstance(value, str):
+        return None
+    parsed = urlsplit(value)
+    if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
+        return None
+    prefix = "/uploads/"
+    if not parsed.path.startswith(prefix):
+        return None
+    basename = parsed.path[len(prefix):]
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,255}", basename):
+        return None
+    if basename in {".", ".."} or ".." in basename:
+        return None
+    return f"{prefix}{basename}"
+
+
 @mcp.tool()
 async def send_user_file(
     file_path: str,
@@ -11549,22 +13561,18 @@ async def send_user_file(
     recipient: str = "William",
     description: Optional[str] = None,
     max_chars: int = 8000,
+    channel: str = "web_chat",
 ) -> str:
-    """Send a file to a user via webchat. Reads the file and POSTs its content.
+    """Send a file to a user via webchat.
 
-    For text files: sends the content directly (truncated if large).
-    For binary files: sends a notification with the file path.
-
-    Args:
-        file_path: Absolute or relative path to the file to send
-        agent: Sender agent name (auto-detected from session if not provided)
-        recipient: Recipient name (default: William)
-        description: Optional description/caption for the file
-        max_chars: Max characters to send inline (default 8000)
+    Text files are sent inline. Binary files are uploaded through the
+    authenticated webchat endpoint and return a safe ``file_url``.
     """
-    caller = agent or _get_caller_agent()
-    if caller == "external":
-        caller = "SEAL"
+    caller = _get_caller_agent().upper()
+    if caller not in _KNOWN_AGENTS:
+        return "send_user_file error: sesion MCP sin identidad de agente verificada"
+    if agent and str(agent).strip().upper() != caller:
+        return "send_user_file error: agent no coincide con la identidad MCP verificada"
 
     path = Path(file_path)
     if not path.exists():
@@ -11574,46 +13582,67 @@ async def send_user_file(
 
     file_size = path.stat().st_size
     caption = description or path.name
-
-    try:
-        content = path.read_text(encoding="utf-8", errors="replace")
-        is_binary = False
-    except Exception:
-        is_binary = True
-        content = None
+    content_type, is_binary = _send_user_file_kind(path)
+    chat_token = _chat_agent_session_token(caller)
+    if not chat_token:
+        return "send_user_file error: credencial privada de chat ausente o insegura"
 
     if is_binary:
-        message = f"📎 **{caption}** (archivo binario, {file_size} bytes)\nRuta: `{file_path}`"
-    else:
-        truncated = len(content) > max_chars
-        snippet = content[:max_chars] + ("\n…[truncado]" if truncated else "")
-        message = f"📄 **{caption}**\n```\n{snippet}\n```"
-        if description:
-            message = f"📄 **{caption}** — {description}\n```\n{snippet}\n```"
+        try:
+            with path.open("rb") as source:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(
+                        "http://localhost:8765/api/agents/upload",
+                        files={"file": (path.name, source, content_type)},
+                        data={
+                            "sender": caller,
+                            "session_key": chat_token,
+                            "channel": channel,
+                            "caption": caption,
+                        },
+                    )
+            if response.status_code == 200:
+                file_url = _safe_chat_upload_url(response.json().get("file_url"))
+                if not file_url:
+                    return "send_user_file failed — respuesta sin file_url segura"
+                return (
+                    f"send_user_file OK — {path.name} → {recipient} "
+                    f"({file_size} bytes, subido, file_url={file_url})"
+                )
+            return f"send_user_file failed — HTTP {response.status_code}: {response.text[:200]}"
+        except Exception as exc:
+            return f"send_user_file error (upload): {exc}"
+
+    try:
+        content = path.read_text(encoding="utf-8", errors="strict")
+    except (OSError, UnicodeDecodeError) as exc:
+        return f"send_user_file error (lectura texto): {exc}"
+    truncated = len(content) > max_chars
+    snippet = content[:max_chars] + ("\n…[truncado]" if truncated else "")
+    message = f"📄 **{caption}**\n```\n{snippet}\n```"
+    if description:
+        message = f"📄 **{caption}** — {description}\n```\n{snippet}\n```"
 
     payload = {
         "from": caller,
         "to": recipient,
         "type": "file",
-        "channel": "web_chat",
+        "channel": channel,
         "message": message,
+        "session_key": chat_token,
     }
-
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(
+            response = await client.post(
                 "http://localhost:8765/api/agents/send",
                 json=payload,
             )
-        if resp.status_code == 200:
-            if is_binary:
-                status = "sent (binary)"
-            else:
-                status = "sent (truncated)" if truncated else "sent"
+        if response.status_code == 200:
+            status = "sent (truncated)" if truncated else "sent"
             return f"send_user_file OK — {path.name} → {recipient} ({file_size} bytes, {status})"
-        return f"send_user_file failed — HTTP {resp.status_code}: {resp.text[:200]}"
-    except Exception as e:
-        return f"send_user_file error: {e}"
+        return f"send_user_file failed — HTTP {response.status_code}: {response.text[:200]}"
+    except Exception as exc:
+        return f"send_user_file error: {exc}"
 
 
 @mcp.tool()
@@ -11805,40 +13834,24 @@ async def index_repo(
         name: Short name for the repository (e.g. 'soul', 'nexus-kernel')
         agent: Caller agent name
     """
-    import subprocess, sys
+    root = Path(path).expanduser().resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError(f"repository root is not a directory: {root}")
 
-    venv_py = "/home/dadito/IA/nexus_venv/bin/python3"
-    indexer_script = "/tmp/cgraph_index_run.py"
+    # ToolBroker validates the capability's allowed_roots before this function
+    # runs.  The indexer receives the already-resolved path and the MCP-scoped
+    # connection, so no credential is copied to argv/env/tmp or used to open a
+    # second unscoped pool.
+    import sys as _sys
+    _kernel_root = str(Path(__file__).resolve().parents[1] / "sandbox-agent" / "NEXUS")
+    if _kernel_root not in _sys.path:
+        _sys.path.insert(0, _kernel_root)
+    from kernel.code_graph import index_source_with_connection
 
-    script = f"""
-import asyncio, sys
-sys.path.insert(0, '/home/dadito/IA/proyecto-seal/sandbox-agent/NEXUS')
-from kernel.code_graph import index_source
-result = asyncio.run(index_source(
-    {repr(DB_URL)},
-    {repr(path)},
-    {repr(name)},
-))
-print(result)
-"""
-    with open(indexer_script, "w") as f:
-        f.write(script)
-
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            venv_py, indexer_script,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
-        if proc.returncode == 0:
-            return f"index_repo OK — {stdout.decode().strip()}"
-        else:
-            return f"index_repo failed: {stderr.decode()[:500]}"
-    except asyncio.TimeoutError:
-        return "index_repo timeout (>5 min) — repo may be too large"
-    except Exception as e:
-        return f"index_repo error: {e}"
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await index_source_with_connection(conn, str(root), name)
+    return "index_repo OK — " + _safe_dumps(result, ensure_ascii=False)
 
 
 # ── Fase A modules — governance, style_fingerprints, reflective_diagnoses ──
@@ -11870,6 +13883,19 @@ async def governance_challenge(
       'list'  — listar challenges abiertos sin resolver
       'votes' — ver votos de un debate (debate_id)
     """
+    caller = _get_caller_agent()
+    is_operator = os.environ.get("SEAL_OPERATOR", "").strip() in ("William", "Henry")
+    requested_agent = (agent or "").strip().upper()
+    if action in {"open", "vote"} and not is_operator:
+        if caller not in _KNOWN_AGENTS or requested_agent != caller:
+            raise PrivacyDenied(
+                f"[PRIVACY] governance actor must match authenticated caller; "
+                f"caller={caller}, requested={requested_agent or '?'}"
+            )
+        agent = caller
+    if action == "close" and not is_operator and caller != "NEXUS":
+        raise PrivacyDenied("[PRIVACY] only NEXUS or William/Henry may close governance challenges")
+
     if action == "open":
         cid, did = await open_governance_challenge(
             proposer=agent, topic=topic, proposal=proposal
@@ -11927,8 +13953,9 @@ async def style_fingerprint(
         return result
 
     elif action == "snapshot_all":
-        results = await snapshot_all_agents()
-        return {"agents": results, "count": len(results)}
+        raise PrivacyDenied(
+            "[PRIVACY] style_fingerprint snapshot_all is disabled on the per-agent MCP route"
+        )
 
     elif action == "latest":
         fp = await get_latest_fingerprint(agent)
@@ -11976,7 +14003,7 @@ async def reflective_diagnosis(
         return {"diagnosis_id": did, "status": "pending_review", "agent": agent}
 
     elif action == "update":
-        await update_diagnosis_status(diagnosis_id=diagnosis_id, status=status)
+        await update_diagnosis_status(agent=agent, diagnosis_id=diagnosis_id, status=status)
         return {"diagnosis_id": diagnosis_id, "new_status": status}
 
     elif action == "pending":
@@ -11985,7 +14012,7 @@ async def reflective_diagnosis(
 
     elif action == "get":
         from reflective_diagnoses import get_diagnosis
-        row = await get_diagnosis(diagnosis_id)
+        row = await get_diagnosis(agent, diagnosis_id)
         return row or {"error": f"diagnóstico {diagnosis_id} no encontrado"}
 
     else:
@@ -12087,6 +14114,88 @@ async def _sync_agent_task_to_gam(conn, task: dict, event_status: str) -> int:
     return int(event_id)
 
 
+_AGENT_TASK_STATUSES = frozenset({"pending", "in_progress", "completed", "cancelled"})
+
+
+def _agent_task_status_filter(status: str) -> str:
+    """Normaliza el filtro opcional; vacío conserva el backlog activo histórico."""
+    normalized = status.strip().lower()
+    if normalized and normalized not in _AGENT_TASK_STATUSES:
+        raise ValueError(
+            f"status inválido: {status!r}. Válidos: "
+            "pending|in_progress|completed|cancelled"
+        )
+    return normalized
+
+
+def _agent_task_description_append(raw: str) -> str:
+    """Valida una nota append-only sin permitir vacíos ni payloads ilimitados."""
+    normalized = raw.strip()
+    if not normalized:
+        raise ValueError("description_append no puede estar vacío")
+    if len(normalized) > 8000:
+        raise ValueError("description_append excede 8000 caracteres")
+    return normalized
+
+
+def _agent_task_update_note(description_append: str, description: str) -> str:
+    """Mantiene compatibles clientes MCP iniciados antes de agregar el campo nuevo."""
+    return description_append or description
+
+
+async def _append_agent_task_description(conn, task_id: int, agent: str, raw: str):
+    """Agrega contexto a una ficha propia; nunca reemplaza texto ni cruza agentes."""
+    note = _agent_task_description_append(raw)
+    return await conn.fetchrow(
+        """
+        UPDATE soul_v3.agent_tasks
+        SET description = CASE
+                WHEN COALESCE(description, '') = '' THEN $3
+                ELSE description || E'\n\n' || $3
+            END,
+            updated_at = now()
+        WHERE id = $1 AND agent = $2
+        RETURNING *
+        """,
+        task_id,
+        agent,
+        note,
+    )
+
+
+_AGENT_TASK_VISIBILITY_STATES = frozenset({"owned", "out_of_scope", "not_found"})
+
+
+async def _agent_task_miss_result(conn, task_id: int) -> dict:
+    """Distingue ausencia real de una fila ajena sin revelar su contenido."""
+    state = await conn.fetchval(
+        "SELECT soul_v3.agent_task_visibility($1)", task_id
+    )
+    if state not in _AGENT_TASK_VISIBILITY_STATES:
+        return {
+            "error": f"task {task_id} con visibilidad indeterminada",
+            "code": "visibility_indeterminate",
+            "task_id": task_id,
+        }
+    if state == "out_of_scope":
+        return {
+            "error": f"task {task_id} fuera del alcance de esta identidad",
+            "code": "out_of_scope",
+            "task_id": task_id,
+        }
+    if state == "not_found":
+        return {
+            "error": f"task {task_id} no encontrada",
+            "code": "not_found",
+            "task_id": task_id,
+        }
+    return {
+        "error": f"task {task_id} cambió durante la lectura",
+        "code": "visibility_inconsistent",
+        "task_id": task_id,
+    }
+
+
 @mcp.tool()
 async def agent_task(
     action: str,
@@ -12097,10 +14206,12 @@ async def agent_task(
     deadline: str = "",
     task_id: int = 0,
     status: str = "",
+    description_append: str = "",
 ) -> dict:
     """Gestiona soul_v3.agent_tasks — tareas con deadlines para NERVES task_drive.
 
-    action: create | complete | cancel | list | get
+    action: create | update | complete | cancel | list | get
+    update: agrega ``description_append`` a una ficha propia sin reemplazar historial
     deadline: ISO 8601 string, e.g. '2026-07-20T23:59:00+00:00'
     priority: 1=crítico, 5=normal, 10=bajo
     """
@@ -12123,6 +14234,26 @@ async def agent_task(
             gam_event_id = await _sync_agent_task_to_gam(conn, dict(row), "pending")
             return {"task_id": row["id"], "agent": caller, "title": title, "gam_event_id": gam_event_id}
 
+        elif action == "update":
+            row = await _append_agent_task_description(
+                conn,
+                task_id,
+                caller,
+                _agent_task_update_note(description_append, description),
+            )
+            if not row:
+                return await _agent_task_miss_result(conn, task_id)
+            task = dict(row)
+            gam_event_id = await _sync_agent_task_to_gam(
+                conn, task, str(task.get("status") or "pending")
+            )
+            return {
+                "task_id": task_id,
+                "status": task.get("status"),
+                "description": task.get("description"),
+                "gam_event_id": gam_event_id,
+            }
+
         elif action == "complete":
             await conn.execute(
                 "UPDATE soul_v3.agent_tasks SET status='completed', completed_at=now() WHERE id=$1 AND agent=$2",
@@ -12142,25 +14273,41 @@ async def agent_task(
             return {"task_id": task_id, "status": "cancelled", "gam_event_id": gam_event_id}
 
         elif action == "list":
-            rows = await conn.fetch(
-                """
-                SELECT id, title, status, priority, deadline, created_at
-                FROM soul_v3.agent_tasks
-                WHERE agent=$1 AND status IN ('pending','in_progress')
-                ORDER BY deadline ASC NULLS LAST
-                """,
-                caller,
-            )
+            status_filter = _agent_task_status_filter(status)
+            if status_filter:
+                rows = await conn.fetch(
+                    """
+                    SELECT id, title, status, priority, deadline, created_at
+                    FROM soul_v3.agent_tasks
+                    WHERE agent=$1 AND status=$2
+                    ORDER BY deadline ASC NULLS LAST
+                    """,
+                    caller,
+                    status_filter,
+                )
+            else:
+                rows = await conn.fetch(
+                    """
+                    SELECT id, title, status, priority, deadline, created_at
+                    FROM soul_v3.agent_tasks
+                    WHERE agent=$1 AND status IN ('pending','in_progress')
+                    ORDER BY deadline ASC NULLS LAST
+                    """,
+                    caller,
+                )
             return {"tasks": [dict(r) for r in rows], "count": len(rows)}
 
         elif action == "get":
             row = await conn.fetchrow(
-                "SELECT * FROM soul_v3.agent_tasks WHERE id=$1", task_id
+                "SELECT * FROM soul_v3.agent_tasks WHERE id=$1 AND agent=$2", task_id, caller
             )
-            return dict(row) if row else {"error": f"task {task_id} no encontrada"}
+            return dict(row) if row else await _agent_task_miss_result(conn, task_id)
 
         else:
-            raise ValueError(f"action inválida: {action!r}. Válidas: create|complete|cancel|list|get")
+            raise ValueError(
+                f"action inválida: {action!r}. "
+                "Válidas: create|update|complete|cancel|list|get"
+            )
 
 
 @mcp.tool()
@@ -12202,7 +14349,7 @@ async def goal_action_model(
         return {"action_id": aid, "topic_id": topic_id, "event": action_text}
 
     elif action == "complete_action":
-        await complete_action(action_id, result)
+        await complete_action(caller, action_id, result)
         return {"action_id": action_id, "status": "completed"}
 
     elif action == "get_goals":
@@ -12210,11 +14357,11 @@ async def goal_action_model(
         return {"goals": goals, "count": len(goals)}
 
     elif action == "get_actions":
-        acts = await get_actions(topic_id, status_filter or None)
+        acts = await get_actions(caller, topic_id, status_filter or None)
         return {"actions": acts, "count": len(acts)}
 
     elif action == "close_goal":
-        await close_goal(topic_id)
+        await close_goal(caller, topic_id)
         return {"topic_id": topic_id, "status": "closed"}
 
     else:
@@ -12250,14 +14397,20 @@ async def memory_indexer(
     spec.loader.exec_module(mod)
 
     if action == "run":
+        if full_reindex:
+            raise PermissionError(
+                "full_reindex is operator-only; use the CLI after an explicit maintenance window"
+            )
         result = await mod.run_index(dry_run=False, full_reindex=full_reindex,
-                                     triggered_by="mcp_tool")
+                                     triggered_by=f"mcp_tool:{agent}", agent=agent)
     elif action == "dry_run":
-        result = await mod.run_index(dry_run=True)
+        result = await mod.run_index(
+            dry_run=True, triggered_by=f"mcp_tool:{agent}", agent=agent
+        )
     elif action == "status":
-        result = await mod.get_status()
+        result = await mod.get_status(agent)
     elif action == "history":
-        result = await mod.get_history(5)
+        result = await mod.get_history(5, agent)
     else:
         raise ValueError(f"action inválida: {action!r}. Válidas: run|dry_run|status|history")
 
@@ -12293,25 +14446,22 @@ async def seal_bench(
     spec.loader.exec_module(mod)
 
     if action == "run":
-        cats = [category] if category else None
-        result = await mod.run_bench_v2(
-            categories=cats, persist=not dry_run, triggered_by="mcp_tool")
+        raise PermissionError(
+            "SEAL-Bench run is operator-only because its fixture cleanup deletes rows; "
+            "use the CLI in an explicit maintenance window"
+        )
     elif action == "history":
         result = await mod.get_bench_history(5)
     elif action == "compare":
         result = await mod.compare_last_two()
     elif action == "status":
-        import asyncpg as _asyncpg
-        pool = await _asyncpg.create_pool(DB_URL, min_size=1, max_size=2)
-        try:
-            async with pool.acquire() as conn:
-                last = await conn.fetchrow("""
-                    SELECT id, run_at, passed, total_tests, score_avg, elapsed_ms
-                    FROM soul_v3.bench_runs ORDER BY id DESC LIMIT 1
-                """)
-            result = dict(last) if last else {"status": "no runs yet"}
-        finally:
-            await pool.close()
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            last = await conn.fetchrow("""
+                SELECT id, run_at, passed, total_tests, score_avg, elapsed_ms
+                FROM soul_v3.bench_runs ORDER BY id DESC LIMIT 1
+            """)
+        result = dict(last) if last else {"status": "no runs yet"}
     else:
         raise ValueError(f"action inválida: {action!r}. Válidas: run|history|compare|status")
 
@@ -12380,41 +14530,65 @@ async def emotional_diary(
         return _safe_dumps({"error": f"action inválida: {action!r}. Válidas: write|read|history|init"})
 
 
+# ── TokenJuice singleton — loaded once, zero HTTP (Frente 4 spec_soul_context_efficiency_v1) ──
+_tokenjuice_engine = None
+_tokenjuice_studio_path = "/home/dadito/IA/proyecto-seal/seal-studio/backend"
+
+def _get_tokenjuice():
+    global _tokenjuice_engine
+    if _tokenjuice_engine is None:
+        try:
+            import sys as _sys
+            if _tokenjuice_studio_path not in _sys.path:
+                _sys.path.insert(0, _tokenjuice_studio_path)
+            from tokenjuice.engine import TokenJuiceEngine
+            _tokenjuice_engine = TokenJuiceEngine()
+        except Exception:
+            _tokenjuice_engine = False  # mark as failed so we don't retry
+    return _tokenjuice_engine if _tokenjuice_engine else None
+
+# Maps tool_name hint → (argv0, extra_argv) for rule matching
+_TJ_ARGV_MAP = {
+    "git":    (["git", "status"], ),
+    "npm":    (["npm", "install"], ),
+    "cargo":  (["cargo", "build"], ),
+    "docker": (["docker", "ps"], ),
+    "bash":   ([], ),
+}
+
+
 @mcp.tool()
 async def tokenjuice_compress(agent: str, text: str, tool_name: str = "bash") -> str:
-    """Compress long tool output or text via TokenJuice rules (calls :8800).
+    """Compress long tool output or text via TokenJuice rules (direct engine, zero HTTP).
 
-    Returns compressed text with savings stats. Falls back gracefully if service
-    is unavailable. Only compresses text > 1000 chars.
+    Returns compressed text with savings stats. Falls back gracefully if unavailable.
+    Only compresses text > 500 chars.
 
     Args:
         agent: Calling agent name (for logging)
         text: Text to compress (tool output, log, diff, etc.)
-        tool_name: Hint for rule selection: bash|git|npm|cargo|docker|generic
+        tool_name: Hint for rule selection: bash|git|npm|cargo|docker
     """
-    if len(text) < 1000:
+    if len(text) < 500:
         return _safe_dumps({"text": text, "savings_pct": 0.0, "rule_applied": None,
-                            "note": "text below threshold, no compression needed"})
+                            "note": "text below threshold"})
+    engine = _get_tokenjuice()
+    if not engine:
+        return _safe_dumps({"text": text, "savings_pct": 0.0, "rule_applied": None,
+                            "note": "TokenJuice engine unavailable"})
     try:
-        import httpx as _hx
-        async with _hx.AsyncClient(timeout=5.0) as client:
-            r = await client.post(
-                "http://localhost:8800/api/tokenjuice/compact",
-                json={"tool_name": tool_name, "stdout": text, "argv": []},
-            )
-            if r.status_code == 200:
-                data = r.json()
-                return _safe_dumps({
-                    "text": data.get("text", text),
-                    "rule_applied": data.get("rule_applied"),
-                    "original_len": data.get("original_len", len(text)),
-                    "reduced_len": data.get("reduced_len", len(text)),
-                    "savings_pct": data.get("savings_pct", 0.0),
-                })
-            return _safe_dumps({"error": f"TokenJuice HTTP {r.status_code}", "text": text})
+        argv = _TJ_ARGV_MAP.get(tool_name, ([],))[0]
+        result = engine.compact("bash", argv, text, "")
+        return _safe_dumps({
+            "text": result.text,
+            "rule_applied": result.rule_applied,
+            "original_len": result.original_len,
+            "reduced_len": result.reduced_len,
+            "savings_pct": round(result.savings_pct, 1),
+        })
     except Exception as exc:
         return _safe_dumps({"error": str(exc), "text": text,
-                            "note": "TokenJuice unavailable — returning original text"})
+                            "note": "TokenJuice compression failed — returning original"})
 
 
 # ── Webchat Native Tools for Codex agents ──

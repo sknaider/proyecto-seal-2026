@@ -1,0 +1,16 @@
+[Unit]
+Description=SEAL SOUL Memory SDK Gateway Production Port
+After=network.target seal-memory-sdk-api.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dadito/IA/proyecto-seal/memory
+Environment=PYTHONPATH=/home/dadito/IA/proyecto-seal/memory
+Environment=SOUL_GATEWAY_LEGACY_URL=http://127.0.0.1:8768
+Environment=SOUL_GATEWAY_SDK_URL=http://127.0.0.1:8768
+ExecStart=/usr/bin/python3 -m uvicorn soul_memory_sdk_gateway:app --host 172.22.0.1 --port 8767
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

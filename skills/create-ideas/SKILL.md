@@ -1,4 +1,5 @@
 ---
+name: create-ideas
 auto_invoke: true
 description: Generate ideas in one shot using creative sampling
 argument-hint: Topic or problem to generate ideas for. Optional amount of ideas to generate.

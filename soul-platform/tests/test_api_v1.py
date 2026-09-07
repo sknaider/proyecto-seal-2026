@@ -13,26 +13,41 @@ from soul_platform.receipts import ReceiptCheckpointStore, ReceiptSigner
 
 async def test_api_core_roundtrip(tmp_path, monkeypatch):
     monkeypatch.setenv("SOUL_PLATFORM_DATA", str(tmp_path))
+    token = tmp_path / "local.token"
+    token.write_text("A" * 48)
+    token.chmod(0o600)
+    monkeypatch.setenv("SOUL_PLATFORM_LOCAL_TOKEN_FILE", str(token))
+    headers = {"Authorization": f"Bearer {token.read_text()}"}
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        assert (await client.get("/api/health")).json()["agency_default"] == "disabled"
-        created = await client.post("/api/souls", json={"name": "Maya"})
+        assert (await client.get("/api/health")).json() == {"ok": True}
+        assert (await client.get("/api/souls")).status_code == 401
+        created = await client.post("/api/souls", headers=headers, json={"name": "Maya"})
         assert created.status_code == 200
         stored = await client.post(
-            "/api/souls/Maya/remember", json={"content": "likes astronomy", "importance": 8}
+            "/api/souls/Maya/remember", headers=headers,
+            json={"content": "likes astronomy", "importance": 8}
         )
         assert stored.status_code == 200
-        boot = await client.get("/api/souls/Maya/boot")
+        boot = await client.get("/api/souls/Maya/boot", headers=headers)
         assert boot.status_code == 200 and "Maya" in boot.json()["boot_context"]
 
 
 async def test_api_rejects_path_like_names(tmp_path, monkeypatch):
     monkeypatch.setenv("SOUL_PLATFORM_DATA", str(tmp_path))
+    token = tmp_path / "local.token"
+    token.write_text("B" * 48)
+    token.chmod(0o600)
+    monkeypatch.setenv("SOUL_PLATFORM_LOCAL_TOKEN_FILE", str(token))
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        assert (await client.post("/api/souls", json={"name": "../escape"})).status_code == 422
+        response = await client.post(
+            "/api/souls", headers={"X-Soul-Token": token.read_text()},
+            json={"name": "../escape"},
+        )
+        assert response.status_code == 422
 
 
 async def test_dm_api_derives_actor_and_tenant_from_signed_token(tmp_path, monkeypatch):

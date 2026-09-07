@@ -1,0 +1,11 @@
+[Unit]
+Description=SEAL ALICE v2 heartbeat — isolated active body only
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/scripts/alice_v2_heartbeat.py
+StandardOutput=journal
+StandardError=journal
+Nice=10

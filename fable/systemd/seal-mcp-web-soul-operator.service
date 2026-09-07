@@ -1,0 +1,46 @@
+[Unit]
+Description=SOUL native browser authenticated approval operator
+After=seal-audit-witness.service
+Requires=seal-audit-witness.service
+
+[Service]
+Type=simple
+User=seal-mcp-web-operator
+Group=seal-mcp-web-operator
+SupplementaryGroups=seal-audit-client seal-mcp-web-control
+WorkingDirectory=/usr/local/libexec/seal
+LoadCredential=operator.dsn:/etc/seal/mcp-web-soul-operator/operator.dsn
+Environment=MCP_WEB_SOUL_OPERATOR_STATE_ROOT=/var/lib/seal-mcp-web-soul-operator
+Environment=MCP_WEB_SOUL_CONTROL_PATH=/var/lib/seal-mcp-web-cdp/control/control.sqlite3
+Environment=MCP_WEB_SOUL_CONTROL_GROUP=seal-mcp-web-control
+Environment=MCP_WEB_SOUL_OPERATOR_REQUIRE_CURSOR=1
+ExecStartPre=/usr/bin/test -S /run/seal-audit-witness/witness.sock
+ExecStart=/opt/seal/mcp-web-soul/current/bin/python3 /usr/local/libexec/seal/mcp_web_soul_operator.py
+Restart=on-failure
+RestartSec=2
+# Shared control.sqlite3 is the only group-writable object; operator state and
+# credentials remain explicitly 0600/0700.
+UMask=0007
+StateDirectory=seal-mcp-web-soul-operator
+StateDirectoryMode=0700
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/seal-mcp-web-cdp/control
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

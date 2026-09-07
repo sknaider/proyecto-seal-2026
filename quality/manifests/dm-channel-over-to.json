@@ -1,0 +1,134 @@
+{
+  "_doc": [
+    "El canal manda sobre el campo `to` en la entrega a monitores. Owner: NEXUS. Revisor: JARVIS.",
+    "",
+    "POR QUE EXISTE: el 3-sep un DM de William a ALICE (canal dm:alice:william) llegaba a los",
+    "monitores de NEXUS, JARVIS, FABLE y ADA. Lo midio JARVIS en el suyo (db_146409) y lo reprodujo",
+    "mi test con 16 fugas reales. El filtro decidia por `to` --que lo llena el EMISOR-- y nunca",
+    "miraba `channel`, que es el ruteo real.",
+    "",
+    "EL AGUJERO PEOR: la regla 'mensajes de William: siempre pasar' estaba ANTES del chequeo de",
+    "destinatario. Los DMs de William, los mas privados del sistema, eran los UNICOS que ninguna",
+    "regla filtraba.",
+    "",
+    "ALCANCE: se filtraba metadato + texto cifrado, no contenido legible. La regla de William del",
+    "2-jun-2026 no distingue: 'DM, terminal y mensajes de los agentes son su intimidad'.",
+    "",
+    "POR QUE EL TEST NO LO CAZO ANTES: lo cazaba, pero el arnes estaba ciego. Su guard preguntaba",
+    "por `_DM_FERNET` en el filtro, y ese simbolo vive en chat_server.py --nunca estuvo en el",
+    "filtro--. El AttributeError salia con codigo 1, que es el brazo que publica 'FUGA DE",
+    "PRIVACIDAD' al equipo: 4 horas de alarma cada 10 minutos diciendo la palabra correcta por la",
+    "razon equivocada. Ahora cualquier fallo del arnes sale 3 (ciego) y solo una medicion POSITIVA",
+    "alcanza el brazo del 1."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "dm-channel-over-to-20260903",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "review": {
+    "status": "pending",
+    "evidence": "PENDIENTE. Verificado por el owner: antes del fix 16 fugas reales + 32 con `to` mutado (rc=1); despues 0 fugas, 0 mutadas, 4/4 entregas al destinatario legitimo (rc=0). Monitor de NEXUS reiniciado con recibo 20260903T191301-4fba3089c1 (result=verified, control negativo: monitor de ALICE sin cambio). Los otros cuatro monitores siguen con el codigo viejo hasta que cada agente reinicie el suyo.",
+    "reviewed_sha256": {
+      "messages/seal_monitor_filter.py": "5f13bf89c5a9275c5117f571c7663fc74ace5ee0e6695eb9b0c4c5dfd728f843",
+      "tests/test_nexus_dm_channel_over_to_v1.py": "f2530d99dbbd573512fb979c042a08422e109fc423024c6d945060dcb6d86b56",
+      "agents/NEXUS/test_dm_no_se_filtra.py": "e3d9c34a25a8162ae16140e4d54cdf4de83e9540008245372b200899577f67e8"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/seal_monitor_filter.py"
+  ],
+  "tests": [
+    "tests/test_nexus_dm_channel_over_to_v1.py",
+    "agents/NEXUS/test_dm_no_se_filtra.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-canal-manda-sobre-to",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_dm_channel_over_to_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positivo-el-destinatario-legitimo-recibe",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_positive_el_destinatario_legitimo_recibe_su_dm"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negativo-un-dm-no-llega-a-terceros",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_qa_negative_un_dm_de_william_no_llega_a_terceros"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-no-vacuo",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_dm_channel_over_to_v1.py::test_control_no_vacuo_el_test_puede_fallar"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "trafico-real-del-canal",
+      "kind": "delivery",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "agents/NEXUS/test_dm_no_se_filtra.py"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/seal_monitor_filter.py"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "tests/test_nexus_dm_channel_over_to_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "El deliverable es que la correspondencia privada no llegue a terceros. Verificado por efecto sobre DMs reales del canal: 0 fugas, y el destinatario legitimo sigue recibiendo los 4 (control positivo contra un filtro que descarte todo).",
+    "command": {
+      "id": "delivery-fuga-dm",
+      "kind": "delivery",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "agents/NEXUS/test_dm_no_se_filtra.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "fugas a terceros: 0"
+    }
+  },
+  "mutation_evidence": "quality/mutation-dm-channel-over-to.json",
+  "mutation_baseline_percent": 100.0
+}

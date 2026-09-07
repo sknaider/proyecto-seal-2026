@@ -24,7 +24,21 @@ MESSAGES_DIR = Path(__file__).parent
 CONTINUITY_DIR = MESSAGES_DIR / "continuity"
 CONTINUITY_DIR.mkdir(exist_ok=True)
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+# El DSN sale de seal_secrets (mismo patron que session_checkpoint.py, 3-sep).
+# POR QUE: el literal que estaba aca tenia una contrasena vieja y la unidad
+# seal-continuity@ADA fallaba con InvalidPasswordError. Fail-closed: sin
+# credencial en seal_secrets ni SEAL_DB_URL, el snapshot no corre y lo dice.
+sys.path.insert(0, str(SEAL_DIR / "memory"))
+try:
+    from seal_secrets import pg_dsn as _seal_pg_dsn
+    DB_URL = _seal_pg_dsn()
+except Exception as _exc:
+    DB_URL = os.environ.get("SEAL_DB_URL", "")
+    if not DB_URL:
+        raise RuntimeError(
+            "sin credencial: seal_secrets no disponible y SEAL_DB_URL vacia. "
+            f"causa original: {_exc!r}"
+        ) from _exc
 MCP_PYTHON = "/home/dadito/IA/seal-spark/.venv/bin/python3"
 SCHEMA_VERSION = 1
 SNAPSHOT_MAX_KB = 50

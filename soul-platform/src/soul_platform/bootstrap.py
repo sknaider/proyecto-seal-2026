@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import secrets
+import sys
 import tempfile
 import uuid
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Literal
 
 from soul_platform.autostart import (
     AutostartContract,
@@ -18,7 +21,6 @@ from soul_platform.autostart import (
     activate_descriptor,
     deactivate_descriptor,
     disable_descriptor,
-    disable_tray_descriptor,
     install_descriptor,
     restart_descriptor,
 )
@@ -36,9 +38,7 @@ class BootstrapResult:
     created: bool
 
 
-def default_root(
-    platform: PlatformName | None = None, *, home: Path | None = None
-) -> Path:
+def default_root(platform: PlatformName | None = None, *, home: Path | None = None) -> Path:
     platform = platform or _current_platform()
     home = (home or Path.home()).resolve()
     if platform == "windows":
@@ -100,6 +100,17 @@ def render_config(settings: ProxySettings) -> str:
         f"auto_store = {str(settings.auto_store).lower()}\n"
         f"max_request_bytes = {settings.max_request_bytes}\n\n"
         f"max_response_bytes = {settings.max_response_bytes}\n\n"
+        "[memory_egress]\n"
+        f"mode = {_toml_string(settings.t5_mode)}\n"
+        f"tenant = {_toml_string(settings.t5_tenant)}\n"
+        f"owner_subject = {_toml_string(settings.t5_owner_subject)}\n"
+        f"state_db = {_toml_string(settings.t5_state_path)}\n"
+        + (
+            f"principal_keys_file = {_toml_string(settings.t5_principal_keys_file)}\n"
+            if settings.t5_principal_keys_file is not None
+            else ""
+        )
+        + "\n"
         "[upstream]\n"
         f"kind = {_toml_string(settings.upstream_kind)}\n"
         f"base_url = {_toml_string(settings.upstream_base_url)}\n"
@@ -146,11 +157,7 @@ def initialize(
         raise ValueError(f"refusing symlinked SOUL directory: {root}")
     root = root.resolve()
     _private_dir(root)
-    config, token, database = (
-        root / "proxy.toml",
-        root / "proxy.token",
-        root / "MachineSoul.db",
-    )
+    config, token, database = root / "proxy.toml", root / "proxy.token", root / "MachineSoul.db"
     created = False
     if config.exists():
         settings = ProxySettings.from_toml(config)
@@ -158,17 +165,16 @@ def initialize(
             raise ValueError("existing config points outside the canonical SOUL root")
     else:
         if token.exists() or token.is_symlink():
-            raise ValueError(
-                "token exists without a config; refusing ambiguous partial install"
-            )
+            raise ValueError("token exists without a config; refusing ambiguous partial install")
         token_created = False
         try:
             _create_token(token)
             token_created = True
+            machine_soul_id = str(uuid.uuid4())
             settings = ProxySettings(
                 soul_name="MachineSoul",
                 soul_db=database,
-                machine_soul_id=str(uuid.uuid4()),
+                machine_soul_id=machine_soul_id,
                 host="127.0.0.1",
                 port=11435,
                 require_auth=True,
@@ -176,6 +182,10 @@ def initialize(
                 upstream_kind=upstream_kind,
                 upstream_base_url=upstream_base_url.rstrip("/"),
                 upstream_model=upstream_model,
+                t5_mode="compatibility-single-owner",
+                t5_tenant="local-machine",
+                t5_owner_subject=f"local-owner:{machine_soul_id}",
+                t5_state_db=root / "MachineSoul.t5-egress.sqlite3",
             )
             settings.validate()
             _atomic_config(config, render_config(settings))
@@ -186,30 +196,13 @@ def initialize(
             raise
     autostart = None
     if enable_autostart:
-        contract = AutostartContract.load(config, python=python)
-        try:
-            autostart = install_descriptor(contract, platform, home=home)
-            if activate_autostart:
-                activate_descriptor(contract, platform, home=home)
-        except Exception as original:
-            # A failed first boot must not leave a login launcher that retries a
-            # broken brain forever. Preserve identity/token/memory, but fail
-            # closed by stopping the candidate and removing its descriptor.
-            if autostart is not None:
-                try:
-                    deactivate_descriptor(contract, platform, home=home)
-                except (OSError, RuntimeError, ValueError) as rollback_error:
-                    try:
-                        disable_descriptor(platform, home=home)
-                    except (OSError, ValueError) as disable_error:
-                        original.add_note(
-                            "failed bootstrap rollback could not remove the "
-                            f"autostart descriptor: {disable_error}"
-                        )
-                    original.add_note(
-                        f"failed bootstrap stop during rollback: {rollback_error}"
-                    )
-            raise
+        autostart = install_descriptor(
+            AutostartContract.load(config, python=python), platform, home=home
+        )
+        if activate_autostart:
+            activate_descriptor(
+                AutostartContract.load(config, python=python), platform, home=home
+            )
     return BootstrapResult(
         root=root,
         config=config,
@@ -254,24 +247,73 @@ def switch_upstream(
             raise RuntimeError("brain switch changed the machine soul invariant")
         if restart:
             restart_descriptor(
-                AutostartContract.load(config),
-                platform or _current_platform(),
-                home=home,
+                AutostartContract.load(config), platform or _current_platform(), home=home
             )
         return reloaded
-    except Exception as original:
+    except Exception:
         _atomic_config(config, previous)
         if restart:
             try:
                 restart_descriptor(
-                    AutostartContract.load(config),
-                    platform or _current_platform(),
-                    home=home,
+                    AutostartContract.load(config), platform or _current_platform(), home=home
                 )
-            except (OSError, RuntimeError, ValueError) as rollback_error:
-                original.add_note(
-                    f"prior brain restart rollback failed: {rollback_error}"
-                )
+            except Exception:
+                pass
+        raise
+
+
+def upgrade_config(config: Path) -> ProxySettings:
+    """Add current fail-closed sections to an older config without moving its soul.
+
+    The only automatic compatibility promotion is the existing single-owner
+    local machine profile.  Explicit ``locked`` or ``enforce`` configurations
+    are never weakened.
+    """
+
+    config = config.expanduser().resolve()
+    before_bytes = config.read_bytes()
+    before_text = before_bytes.decode("utf-8")
+    current = ProxySettings.from_toml(config)
+    if "[memory_egress]" in before_text:
+        return current
+    changed = replace(
+        current,
+        t5_mode="compatibility-single-owner",
+        t5_tenant="local-machine",
+        t5_owner_subject=f"local-owner:{current.machine_soul_id}",
+        t5_state_db=config.parent / "MachineSoul.t5-egress.sqlite3",
+        t5_principal_keys_file=None,
+    )
+    changed.validate()
+    digest = hashlib.sha256(before_bytes).hexdigest()[:16]
+    backup = config.with_name(f"{config.name}.pre-t5-{digest}.bak")
+    if backup.exists() and backup.read_bytes() != before_bytes:
+        raise RuntimeError("existing config backup does not match current legacy bytes")
+    if not backup.exists():
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        fd = os.open(backup, flags, 0o600)
+        try:
+            os.write(fd, before_bytes)
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        if os.name != "nt":
+            os.chmod(backup, 0o600)
+    _atomic_config(config, render_config(changed))
+    try:
+        verified = ProxySettings.from_toml(config)
+        if (
+            verified.machine_soul_id != current.machine_soul_id
+            or verified.soul_db != current.soul_db
+            or verified.token_file != current.token_file
+            or verified.embedding_provider != current.embedding_provider
+            or verified.embedding_dimensions != current.embedding_dimensions
+            or verified.embedding_model != current.embedding_model
+        ):
+            raise RuntimeError("config upgrade changed a machine-soul invariant")
+        return verified
+    except Exception:
+        _atomic_config(config, before_text)
         raise
 
 
@@ -289,6 +331,8 @@ def main() -> None:
     switch.add_argument("--kind", required=True)
     switch.add_argument("--base-url", required=True)
     switch.add_argument("--model", required=True)
+    upgrade = actions.add_parser("upgrade-config")
+    upgrade.add_argument("--config")
     for name in ("disable-autostart", "uninstall"):
         disable = actions.add_parser(name)
         disable.add_argument("--config")
@@ -316,26 +360,30 @@ def main() -> None:
         )
         print(f"brain={result.upstream_kind}:{result.upstream_model}")
         print(f"machine_soul_id={result.machine_soul_id} (unchanged)")
+    elif args.action == "upgrade-config":
+        config = (
+            Path(args.config).expanduser().resolve()
+            if args.config
+            else default_root() / "proxy.toml"
+        )
+        result = upgrade_config(config)
+        print(f"config={config}")
+        print(f"memory_egress={result.t5_mode}")
+        print(f"machine_soul_id={result.machine_soul_id} (unchanged)")
     else:
-        platform = _current_platform()
         config = (
             Path(args.config).expanduser().resolve()
             if args.config
             else default_root() / "proxy.toml"
         )
         if config.exists():
-            target = deactivate_descriptor(AutostartContract.load(config), platform)
+            target = deactivate_descriptor(
+                AutostartContract.load(config), _current_platform()
+            )
         else:
-            target = disable_descriptor(platform)
-        tray_target = disable_tray_descriptor(platform)
-        action = (
-            "runtime uninstalled"
-            if args.action == "uninstall"
-            else "autostart disabled"
-        )
+            target = disable_descriptor(_current_platform())
+        action = "runtime uninstalled" if args.action == "uninstall" else "autostart disabled"
         print(f"{action}; soul data preserved: {target}")
-        if tray_target is not None:
-            print(f"tray autostart disabled: {tray_target}")
 
 
 if __name__ == "__main__":

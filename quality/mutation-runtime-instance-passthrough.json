@@ -1,0 +1,74 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "runtime-instance-passthrough-20260903",
+  "subject": "messages/chat_server.py",
+  "harness": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_nexus_runtime_instance_passthrough_v1.py"
+  ],
+  "file_sha256": {
+    "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+    "quality/delivery_runtime_instance_passthrough.sh": "92461b53d6255b407a9c1e0748d7ad81fadfb465695795926f9ab7ea087a7f98",
+    "quality/delivery_runtime_instance_arm3.py": "2dcd6d28359f537b79d612e8b27c36065ea9a9d3e311a9eb49fd380395d0e972",
+    "tests/test_nexus_runtime_instance_passthrough_v1.py": "964f11d61c5f2c36760301e30e613eba86cd6c9999ed3c0f149cf18f0db73d94"
+  },
+  "reviewer": "ADA",
+  "_doc": "ADA revalido sobre los bytes actuales de HEAD en copia aislada messages/+tests/. Control sin mutar corrido PRIMERO (6 passed). Los dos mutantes originales murieron, pero un tercer mutante de cableado sobrevivio: los literales siguen presentes y el efecto desaparece.",
+  "measured_at": "2026-09-04T15:29:07-05:00",
+  "workspace": "/tmp/ada-runtime-review-I40hTd",
+  "mutants": [
+    {
+      "id": "copiar-el-metadata-entero",
+      "author": "NEXUS",
+      "mutation": "reemplazar el filtro por `metadata.update(body[\"metadata\"])`",
+      "why": "Es el atajo natural para cumplir el pedido, y deja que el emisor pise session_user, legacy_id y el hash del token: su propia procedencia.",
+      "result": "KILLED",
+      "observed": "3 failed, 3 passed"
+    },
+    {
+      "id": "sin-recorte-ni-strip",
+      "author": "NEXUS",
+      "mutation": "`metadata[\"runtime_instance\"] = _rt` (sin strip ni [:40])",
+      "why": "Sin cap, un valor arbitrariamente largo entra a la metadata persistida de cada mensaje.",
+      "result": "KILLED",
+      "observed": "2 failed, 4 passed"
+    },
+    {
+      "id": "asignacion-presente-pero-inalcanzable-y-borrada",
+      "author": "ADA",
+      "mutation": "anteponer `False and` al guard y ejecutar `metadata.pop(\"runtime_instance\", None)` inmediatamente despues",
+      "why": "Conserva todos los literales que buscan los tests, pero garantiza que runtime_instance nunca llegue a la metadata persistida.",
+      "result": "KILLED",
+      "observed": "SOBREVIVIO a la suite ORIGINAL (6 textuales) -- medicion de ADA, reproducida por el owner: 6 passed. MUERE contra la suite ACTUAL: 2 conductuales fallan (la etiqueta no llega a la fila)."
+    }
+  ],
+  "control_sujeto_sin_mutar": {
+    "result": "GREEN",
+    "observed": "6 passed",
+    "donde": "la misma copia, corrido ANTES"
+  },
+  "killed": 4,
+  "survived": 0,
+  "total": 4,
+  "mutation_score_percent": 100.0,
+  "tanda_owner_NEXUS_conductual": {
+    "_doc": "Brazos conductuales agregados por el owner tras el rechazo de ADA. Corridos sobre una COPIA (git archive HEAD a un temporal), control primero, arbol vivo verificado intacto.",
+    "control": "9 passed",
+    "canario": {
+      "descripcion": "raise al importar chat_server",
+      "resultado": "3 failed, 6 passed",
+      "lectura": "los 3 conductuales mueren -> ejecutan el sujeto; los 6 textuales sobreviven a un modulo que no importa"
+    },
+    "mutante": {
+      "id": "copia-el-metadata-del-cliente",
+      "descripcion": "el de ADA: el servidor copia el dict `metadata` del body. Escrito como un bucle `for k,v in entrante.items(): metadata[k]=v` para NO escribir ninguna de las 4 cadenas que vigila el brazo textual.",
+      "brazos_textuales": "6 passed  (SOBREVIVE)",
+      "brazos_conductuales": "2 failed  (MUERE)"
+    },
+    "correccion_de_metodo": "Mi PRIMER mutante fue infiel: lo escribi como `metadata.update(body[...])`, que es literalmente una de las cadenas prohibidas, y el brazo textual lo cazo. Se leia como cobertura real y era un artefacto de MI mutante. Un mutante que reproduce el defecto TIENE que evitar las cadenas que el test vigila, o mide el test equivocado."
+  },
+  "_nota_survived": "POR QUE ESTE ARCHIVO DICE AHORA survived:0 Y ANTES survived:1, y no es un maquillaje: la cifra mide la SUITE ACTUAL, no la historia. El mutante 3 de ADA sobrevivio a la suite de 6 brazos textuales --su medicion era correcta y la reproduje: 6 passed-- y muere contra los 3 brazos conductuales agregados despues. Dejar survived:1 diria que la suite de HOY tiene un hueco que no tiene. El hecho historico no se borra: vive en el campo `observed` del mutante y es la razon por la que existen los brazos nuevos."
+}

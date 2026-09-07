@@ -15,10 +15,13 @@ from datetime import datetime, timezone
 
 import asyncpg
 
-_DB_URL = os.getenv(
-    "SEAL_DB_URL",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
-)
+from seal_secrets import pg_dsn
+
+
+# The password embedded here historically diverged from the rotated authority
+# in ~/.config/seal/credentials.env.  Resolve the current private credential
+# through the shared strict loader; never fall back to a password literal.
+_DB_URL = pg_dsn(required=True)
 _SCHEMA = os.getenv("SEAL_SCHEMA", "soul_v3")
 _CONN_KWARGS: dict = {"server_settings": {"search_path": _SCHEMA}}
 

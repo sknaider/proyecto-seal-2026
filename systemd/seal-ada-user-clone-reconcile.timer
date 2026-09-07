@@ -1,0 +1,14 @@
+[Unit]
+Description=Reconcile SEAL clone assignments every 15 seconds
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=15s
+# Wall-clock recurrence survives a reboot even if the monotonic chain is lost.
+OnCalendar=*-*-* *:*:00/15
+AccuracySec=2s
+Persistent=true
+Unit=seal-ada-user-clone-reconcile.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,70 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "past-attribution-harness-20260819",
+  "owner": "ADA",
+  "independent_reviewer": "DARWIN",
+  "review": {
+    "status": "approved",
+    "evidence": "Independent DARWIN review on exact staged bytes: 32/32 unit, positive 2/2, negative 4/4, control 6/6, synthetic six-arm delivery pathway_supported, 83.073% branch coverage and 14/14 real isolated adversarial mutants killed. Callback metadata smuggling is hash-only; no causal or production-held-out claim is accepted.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "DARWIN",
+      "evidence": "Exact byte-bound rerun of four QA arms, delivery, branch coverage and fourteen isolated adversarial mutations; all passed or were killed as required.",
+      "reviewed_sha256": {
+        "memory/past_attribution_harness.py": "62b39f756d2c3aa9b1bac91f225e7e9b89a9f4a48fef4e1529255b9ca8b07de6",
+        "memory/past_live_adapter.py": "53d1a4b93f3f88718bc1478607c9d28c9876e9b6a167b6295a1118d3b2043391",
+        "memory/test_past_attribution_harness.py": "a7a3d6d48b8af0da956e99b468ea1fe433997886f19a2c9de69212ca7bfde4f2",
+        "memory/test_past_live_adapter.py": "6f40da991b27b458056732097d9dcc5dde4fe292e2f9bbed3331bf5c9ae0094f"
+      },
+      "manifest_digest": "25523662dda1351eca613453837cda95b50b7586506b930a17c7699388f44815"
+    }
+  },
+  "deletions": [],
+  "subjects": ["memory/past_attribution_harness.py", "memory/past_live_adapter.py"],
+  "tests": ["memory/test_past_attribution_harness.py", "memory/test_past_live_adapter.py"],
+  "commands": [
+    {
+      "id": "unit-past-all",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "memory/test_past_attribution_harness.py", "memory/test_past_live_adapter.py"],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-past-pathway",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "memory/test_past_attribution_harness.py::test_pathway_supported_when_only_valid_persistence_works", "memory/test_past_live_adapter.py::test_live_adapter_runs_six_arms_with_fixed_hash_attestations"],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-past-fail-closed",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "memory/test_past_attribution_harness.py::test_answer_that_succeeds_without_memory_is_not_attributed", "memory/test_past_live_adapter.py::test_missing_expected_target_fails_before_model_execution", "memory/test_past_live_adapter.py::test_model_prompt_hash_mismatch_fails_closed", "memory/test_past_live_adapter.py::test_grader_hash_mismatch_fails_closed"],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-past-seals-and-readonly",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "memory/test_past_attribution_harness.py::test_config_and_dataset_are_sealed_and_seed_sensitive", "memory/test_past_attribution_harness.py::test_counterfactual_arms_record_hashed_mutations_without_raw_content", "memory/test_past_attribution_harness.py::test_untrusted_case_and_observation_metadata_are_hash_only", "memory/test_past_live_adapter.py::test_live_callback_metadata_cannot_smuggle_raw_content_into_report", "memory/test_past_live_adapter.py::test_real_retriever_wrapper_uses_fetch_only_and_no_mutation", "memory/test_past_live_adapter.py::test_private_dataset_is_rejected"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["memory.past_attribution_harness", "memory.past_live_adapter"],
+    "omit": ["memory/test_*.py"],
+    "pytest_args": ["-q", "--noconftest", "memory/test_past_attribution_harness.py", "memory/test_past_live_adapter.py"],
+    "baseline_percent": 82.745,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-past-attribution-harness.json",
+  "mutation_baseline_percent": 69.59,
+  "delivery": {
+    "status": "verified",
+    "evidence": "The synthetic canary executes all six matched arms and emits a content-redacted pathway-supported report. This is infrastructure evidence, not the pending held-out experiment.",
+    "command": {
+      "id": "delivery-past-synthetic-canary",
+      "argv": ["python3", "-m", "pytest", "-q", "--noconftest", "memory/test_past_attribution_harness.py::test_pathway_supported_when_only_valid_persistence_works"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

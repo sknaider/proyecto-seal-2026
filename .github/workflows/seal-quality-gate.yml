@@ -1,0 +1,52 @@
+name: SEAL Golden Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main, feat/soul-spec-v1]
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Activate and prove the repository hook
+        run: |
+          git config core.hooksPath .githooks
+          python scripts/seal_quality_gate.py hook-status | tee quality-hook-receipt.json
+      - name: Install locked quality tools
+        run: python -m pip install -r quality/requirements.lock
+      - name: Unit, QA arms and measured coverage
+        run: |
+          set -o pipefail
+          python scripts/seal_quality_gate.py audit --policy quality/policy.json --execute \
+            | tee quality-audit-receipt.json
+      - name: Gate changed code against immutable base
+        env:
+          QUALITY_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          base="$QUALITY_BASE"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            base="$(git rev-list --max-parents=0 HEAD)"
+          fi
+          python scripts/seal_quality_gate.py diff --policy quality/policy.json --base "$base" \
+            | tee quality-diff-receipt.json
+      - name: Mutation testing for the gate itself
+        run: |
+          mutmut run
+          mutmut export-cicd-stats
+          python scripts/seal_quality_gate.py mutation-audit \
+            quality/manifests/quality-gate-bootstrap.json \
+            --stats mutants/mutmut-cicd-stats.json \
+            | tee quality-mutation-receipt.json
+      - name: Preserve quality receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seal-quality-receipts-${{ github.sha }}
+          path: quality-*-receipt.json

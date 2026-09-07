@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
-"""alice_monitor.py u2014 Monitoreo autu00f3nomo para ALICE.
-Corre vu00eda systemd timer cada 15min. 0 tokens Claude.
+"""alice_monitor.py — Monitoreo autónomo para ALICE.
+Corre vía systemd timer cada 15min. 0 tokens Claude.
 Reporta a webchat solo si salience_score > 0.6.
 Implementa pedido #3 de ALICE: existir entre conversaciones.
 Autorizado por William, 26-abr-2026.
 """
 import asyncio
+import hashlib
+import json
 import socket
+import subprocess
 from datetime import datetime
+from pathlib import Path
 
-import aiohttp
 import asyncpg
+from memory_admission import audit_memory_skip_event, memory_auto_event_skip_reason
+from seal_secrets import pg_dsn
 
-CHAT_API = "http://localhost:8765/api/agents/send"
-PG_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+PG_DSN = pg_dsn(required=True)
+SEAL_SEND = (
+    Path("/home/dadito/IA/proyecto-seal") / "scripts/seal_send.py"
+)
 
 MONITOR_SERVICES = {
     "webchat": ("localhost", 8765),
@@ -53,35 +60,79 @@ def gpu_stats() -> dict:
 
 
 async def post_webchat(message: str) -> bool:
-    payload = {
-        "from": "ALICE",
-        "to": "William",
-        "type": "observation",
-        "channel": "web_chat",
-        "message": message,
-    }
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(CHAT_API, json=payload, timeout=aiohttp.ClientTimeout(total=5)) as r:
-                return r.status == 200
-    except Exception:
-        return False
+    """Deliver an authenticated alert; success requires a server ACK."""
+    key = "alice-monitor-" + hashlib.sha256(
+        message.encode("utf-8")
+    ).hexdigest()[:32]
+
+    def _send() -> bool:
+        try:
+            completed = subprocess.run(
+                [
+                    "python3",
+                    str(SEAL_SEND),
+                    "ALICE",
+                    "William",
+                    message,
+                    "--channel",
+                    "dm:alice:william",
+                    "--type",
+                    "observation",
+                    "--idempotency-key",
+                    key,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+        except Exception:
+            return False
+        if completed.returncode != 0:
+            return False
+        try:
+            payload = json.loads(completed.stdout.strip().splitlines()[-1])
+        except (IndexError, json.JSONDecodeError):
+            return False
+        return payload.get("ok") is True
+
+    return await asyncio.to_thread(_send)
 
 
 async def store_memory(content: str, importance: int = 5):
+    pool = None
     try:
         pool = await asyncpg.create_pool(PG_DSN, min_size=1, max_size=2)
         async with pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO memories (agent, memory_type, category, content, importance, scope, created_at)
-                VALUES ('ALICE', 'semantic', 'insight', $1, $2, 'agent', NOW())
-                """,
-                content, importance
+            skip_reason = memory_auto_event_skip_reason(
+                agent="ALICE",
+                category="insight",
+                content=content,
+                source="alice_monitor",
+                importance=importance,
             )
-        await pool.close()
+            if skip_reason:
+                await audit_memory_skip_event(
+                    conn,
+                    agent="ALICE",
+                    category="insight",
+                    content=content,
+                    source="alice_monitor",
+                    importance=importance,
+                    reason=skip_reason,
+                )
+            else:
+                await conn.execute(
+                    """
+                    INSERT INTO memories (agent, memory_type, category, content, importance, scope, created_at)
+                    VALUES ('ALICE', 'semantic', 'insight', $1, $2, 'private', NOW())
+                    """,
+                    content, importance
+                )
     except Exception as e:
-        print(f"[alice_monitor] memory_store error: {e}")
+        raise RuntimeError("alice_monitor_memory_store_failed") from e
+    finally:
+        if pool is not None:
+            await pool.close()
 
 
 async def main():
@@ -120,20 +171,6 @@ async def main():
 
         findings.append(f"GPU: {util}% util, {temp}C, {mem_used/1024:.1f}/{mem_total/1024:.1f}GB VRAM")
 
-    # 3. PostgreSQL u2014 conteo de memorias del equipo en la ultima hora
-    try:
-        pool = await asyncpg.create_pool(PG_DSN, min_size=1, max_size=2)
-        async with pool.acquire() as conn:
-            count = await conn.fetchval(
-                "SELECT COUNT(*) FROM memories WHERE created_at > NOW() - INTERVAL '1 hour'"
-            )
-            if count and count > 100:
-                findings.append(f"{count} memorias escritas en la ultima hora")
-                salience_score += 0.2
-        await pool.close()
-    except Exception:
-        pass
-
     timestamp = datetime.now().strftime("%H:%M")
 
     # Siempre guardar como memoria interna (0 tokens Claude)
@@ -146,14 +183,22 @@ async def main():
 
     # Solo postear al webchat si salience > 0.6
     if salience_score > 0.6:
-        report_lines = [f"[ALICE] Monitor autonomo {timestamp} u2014 hallazgos:"]
+        report_lines = [f"[ALICE] Monitor autónomo {timestamp} — hallazgos:"]
         report_lines.extend(
             f"  - {f}" for f in findings if not f.startswith("GPU:")
         )
-        await post_webchat("\n".join(report_lines))
-        print(f"[alice_monitor] Reportado al webchat (salience={salience_score:.2f})")
+        delivered = await post_webchat("\n".join(report_lines))
+        if not delivered:
+            raise RuntimeError("alice_monitor_alert_not_delivered")
+        print(
+            "[alice_monitor] Reportado por DM autenticado "
+            f"(salience={salience_score:.2f})"
+        )
     else:
-        print(f"[alice_monitor] Sin anomalias (salience={salience_score:.2f}) u2014 solo memoria interna")
+        print(
+            "[alice_monitor] Sin anomalías "
+            f"(salience={salience_score:.2f}) — solo memoria interna"
+        )
 
     print(summary)
 

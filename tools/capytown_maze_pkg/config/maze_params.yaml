@@ -1,0 +1,100 @@
+maze_navigator:
+  ros__parameters:
+    # --- challenge mode ---
+    course_mode: "loop_boxes" # current Henry challenge: loop around island + loose boxes
+    # --- wall-following ---
+    side: "right"            # "right" or "left" hand rule (guaranteed exit on simply-connected maze)
+    wall_target: 0.20        # LiDAR->wall confirmed by Henry for robot 9
+    wall_block: 0.14         # side too close below this (m)
+    wall_lost: 0.55          # side opening/corner in ~60cm corridor
+    wall_align_enabled: true # compare front/back side rays to stay parallel to right wall
+    wall_align_tol: 0.04     # m delta considered aligned
+    wall_align_kp: 1.2       # angular correction from side-wall skew
+    wall_align_w_max: 0.18   # max angular correction from wall alignment
+    wall_align_max_range: 0.50 # only trust alignment while wall is close/visible
+    corner_align_enabled: true # stop turns when front open + rear wall + right wall
+    corner_rear_max: 0.45    # rear wall visible after a correct corner
+    corner_side_max: 0.38    # followed wall visible on the right
+    corner_min_turn_t: 0.45  # ignore corner detector at turn start
+    # --- front ---
+    front_block: 0.30        # front blocked below this (m)
+    front_slow: 0.50         # begin slowing / preparing avoidance below this (m)
+    front_clear: 0.38        # hysteresis: front clear above this (m)
+    # --- control gains (PD) ---
+    kp: 0.70           # proportional: lower = less weave / random spinning
+    kd: 1.60           # derivative damping; moderate for short wall target
+    deadband: 0.10     # m: banda ancha anti-ondulacion (queja #1 de Henry); con kp=0.70 va recto sin zigzag. Punto de arranque; afinar 0.08-0.14 por efecto.
+    v_max: 0.18              # m/s, conservative for 60cm corridor
+    v_min: 0.06
+    w_max: 1.5              # rad/s (follow steering clamp)
+    turn_speed: 0.9         # rad/s during 90/180 odom turns
+    # --- LiDAR sectors (deg, 0=forward +CCW) ---
+    front_sector: 12.0      # +/- around forward; avoids side-wall false TURN_IN
+    front_angle_offset: 0.0 # deg; set if LiDAR front is rotated vs robot front
+    side_sector_lo: 50.0
+    side_sector_hi: 100.0
+    range_min: 0.12          # MS200 reports range_min=0.12 in robot9 /scan
+    range_max: 8.0          # MS200 max usable
+    control_hz: 10.0         # match MS200 ~10Hz (running faster acts on stale scans -> overshoot)
+    # --- physical safety guards ---
+    scan_timeout: 0.5        # stop if /scan freezes
+    require_odom: true       # do not move until odom is present and fresh
+    odom_timeout: 1.0        # stop if odom freezes
+    turn_timeout: 6.0        # max seconds for one odom-based turn
+    emerg_dist: 0.15         # hard stop if front is closer than this
+    sector_drop: 2           # drop closest rays to suppress LiDAR spikes
+    front_block_persist: 0.35 # seconds before entering TURN_IN
+    stuck_t: 2.5
+    stuck_dpos: 0.03
+    recovery_t: 1.0
+    recover_persist: 3.0     # loop_boxes: do not treat a box as an immediate dead-end
+    # --- cajas/obstaculos en pista abierta ---
+    obstacle_detect: 0.35     # localized box threshold; lower avoids treating walls as boxes
+    obstacle_clear: 0.65      # finish veer only when front is clearly free
+    box_shoulder_sector_lo: 18.0 # front shoulders distinguish box vs broad wall
+    box_shoulder_sector_hi: 45.0
+    box_shoulder_margin: 0.12
+    min_side_clearance: 0.23  # side space needed to pass a box
+    veer_gain: 1.2
+    veer_min_w: 0.55          # sustained turn; avoids tiny left/right wobble
+    veer_timeout: 4.0
+    veer_min_dist: 0.85       # pass the right-wall protrusion by distance, not by a large turn
+    veer_min_t: 2.3           # do not exit veer immediately when front clears
+    veer_out_angle: 4.0       # tiny lane shift; avoids 90/120-degree-looking dodge
+    veer_out_speed: 0.10      # m/s during OUT; smooth shallow arc
+    veer_out_kp: 1.0          # proportional yaw control for OUT
+    veer_turn_speed: 0.08     # rad/s max while turning out
+    veer_pass_speed: 0.08     # m/s while passing alongside the box
+    veer_max_yaw_delta: 25.0  # anti-180 guard during bypass
+    veer_finish_yaw_tol: 25.0 # must still face the original route before finishing
+    veer_force_away_from_wall: true # right-wall course: dodge left, never into the wall box
+    veer_back_enabled: false  # pass straight, then let wall-follower reacquire right wall
+    veer_resume_t: 0.0        # protrusion mode: return control to wall-follower immediately
+    veer_grace_t: 0.8         # suppress same-box re-detect while wall-follow reacquires
+    post_veer_reacquire_t: 3.0    # suppress fake TURN_OUT corner after passing a right-wall box
+    post_veer_reacquire_dist: 0.30 # move forward before normal FSM can turn again
+    post_veer_wall_max: 0.42       # right wall distance that counts as reacquired
+    post_veer_w_max: 0.10          # gentle correction only; never 90-degree turn
+    veer_resume_speed: 0.12   # forward speed during resume/grace
+    enable_obstacle_veer: true # loop_boxes: go around boxes instead of 180 RECOVER
+    disable_recover_180: true  # loop_boxes has no dead-end; never rotate 180 because of one box
+    open_space_straight: false # keep maze wall-follower as the main behavior
+    straight_when_no_wall: true # if both sides are open, drive straight until a wall is reacquired
+    heading_kp: 1.2
+    heading_w_max: 0.45
+    debug_report_enabled: true
+    debug_report_path: "/tmp/capytown_maze_report.log"
+    debug_report_period: 0.5
+    # --- robot 9 calibration ---
+    robot_width: 0.16
+    robot_length: 0.22
+    wall_clearance: 0.12     # robot edge -> wall; yields ~0.20m LiDAR->wall
+    corridor_width: 0.60     # approximate maze corridor width
+    # --- topics ---
+    scan_topic: "/scan"
+    odom_topic: "/odom_raw"
+    cmd_vel_topic: "/cmd_vel"
+    target_laps: 10
+    loop_away_dist: 0.30
+    loop_min_path: 1.0
+    lap_topic: "/capytown_lap"

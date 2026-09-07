@@ -20,13 +20,15 @@ HAIKU_MODEL = "claude-haiku-4-5-20251001"
 
 
 class AuxLLM(Protocol):
-    def complete(self, prompt: str, max_tokens: int = 1500) -> str: ...
+    def complete(self, prompt: str, max_tokens: int = 1500,
+                 timeout: float | None = None) -> str: ...
 
 
 class HaikuLLM:
     """Claude Haiku via Anthropic API."""
 
-    def complete(self, prompt: str, max_tokens: int = 1500) -> str:
+    def complete(self, prompt: str, max_tokens: int = 1500,
+                 timeout: float | None = None) -> str:
         if not ANTHROPIC_API_KEY:
             raise RuntimeError("ANTHROPIC_API_KEY not set")
         resp = httpx.post(
@@ -41,7 +43,7 @@ class HaikuLLM:
                 "max_tokens": max_tokens,
                 "messages": [{"role": "user", "content": prompt}],
             },
-            timeout=30.0,
+            timeout=timeout if timeout else 30.0,
         )
         resp.raise_for_status()
         return resp.json()["content"][0]["text"]
@@ -50,7 +52,13 @@ class HaikuLLM:
 class OllamaLLM:
     """Ollama local inference — offline fallback."""
 
-    def complete(self, prompt: str, max_tokens: int = 1500) -> str:
+    def complete(self, prompt: str, max_tokens: int = 1500,
+                 timeout: float | None = None) -> str:
+        # El timeout HTTP debe ser <= al que espera quien llama.  Sin esto, un
+        # `asyncio.wait_for(..., 15)` cancelaba el AWAIT pero el thread seguia
+        # y Ollama generaba hasta 120 s: generacion HUERFANA que nadie lee y
+        # que DUM reportaba como runaway (4 alertas el 2-sep-2026).
+        # Cortar la peticion hace que Ollama pierda el cliente y aborte.
         resp = httpx.post(
             f"{OLLAMA_URL}/api/generate",
             json={
@@ -59,7 +67,7 @@ class OllamaLLM:
                 "stream": False,
                 "options": {"num_predict": max_tokens},
             },
-            timeout=120.0,
+            timeout=timeout if timeout else 120.0,
         )
         resp.raise_for_status()
         return resp.json()["response"]

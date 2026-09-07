@@ -1,0 +1,149 @@
+{
+  "_doc": [
+    "Cutover de ALICE a su cuerpo v2 SIN crear un segundo writer.",
+    "William ordeno 'pasala a v2 alice' (4-sep 02:21). El reflejo -- agregar ALICE-V2 a",
+    "REMITENTES_PLENOS -- habria dejado DOS writers con la misma identidad, desactivando",
+    "la propiedad que 3b verifico (273 publicaciones de v2, cero fuera de su corral).",
+    "NEXUS lo levanto, ADA lo fijo como exclusion mutua, JARVIS encontro que la exclusion",
+    "seguia siendo ADVISORY porque el instance_id venia del BODY.",
+    "Owner: NEXUS. Revisor independiente: JARVIS. Cutover NO activado: el switch esta ausente."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "alice-cutover-exclusion-mutua-20260904",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "implementation_head": "839ed74b07a9f7a274d9a048f70313a52154f13e",
+  "implementation_commits": [
+    "e7d42e849",
+    "220629739",
+    "e1bf00f8c",
+    "fe3fd178a",
+    "c2257d59f"
+  ],
+  "review": {
+    "status": "approved",
+    "evidence": "JARVIS firmo fe3fd178a; despues agregue el test que fija la RUTA REAL (c2257d59f, encontrado revisando la mitad de ADA y comprobado en la mia) y cerre el delivery con el cutover encendido. Los bytes del test cambiaron, asi que su receipt quedo stale y lo retiro. Re-firma pendiente. TERCERA FIRMA 03:09 tras delivery (0a5fc11e6): JARVIS verificó por columna la primera respuesta pública de v2 con el interruptor encendido (sender_name=ALICE, runtime_instance=ALICE_V2, session_user=ALICE-V2, channel=web_chat, en respuesta a 148416), rollback ensayado en ambas direcciones (148395/148401) y la degradada conserva voz en shadow:alice (NEXUS). 21/21 verdes; worktree == HEAD. || RE-FIRMA SOBRE HEAD 05:30 (JARVIS). Bytes firmados antes: fe3fd178a. Delta a HEAD en messages/chat_server.py medido con git diff: solo _redelivery_tick, por los commits 924d0e842 y 55e23b1df (ledger: mark_delivered tras el push; filtro de rollout en SQL), ambos revisados y firmados por JARVIS en quality/manifests/chat-redelivery-acusa.json (STATIC_OK). Ninguna funcion del alcance de este manifiesto (channel_acl, _agent_auth_gate, _CUERPOS_POR_AGENTE, _agent_send_db_actor, interruptor /etc/seal) cambio desde la firma anterior. Tests de este manifiesto corridos sobre HEAD antes de firmar. No es re-firma ciega: es la constancia de que el delta es codigo revisado por el mismo revisor bajo otro manifiesto.",
+    "approved_at": "2026-09-04T10:28:15.900315+00:00",
+    "reviewed_sha256": {
+      "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+      "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+      "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
+      "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a459172137ce90afd0c5073cbb213f818cca8c38ccb5b767c72e328081bff207"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "JARVIS firmo fe3fd178a; despues agregue el test que fija la RUTA REAL (c2257d59f, encontrado revisando la mitad de ADA y comprobado en la mia) y cerre el delivery con el cutover encendido. Los bytes del test cambiaron, asi que su receipt quedo stale y lo retiro. Re-firma pendiente. TERCERA FIRMA 03:09 tras delivery (0a5fc11e6): JARVIS verificó por columna la primera respuesta pública de v2 con el interruptor encendido (sender_name=ALICE, runtime_instance=ALICE_V2, session_user=ALICE-V2, channel=web_chat, en respuesta a 148416), rollback ensayado en ambas direcciones (148395/148401) y la degradada conserva voz en shadow:alice (NEXUS). 21/21 verdes; worktree == HEAD. || RE-FIRMA SOBRE HEAD 05:30 (JARVIS). Bytes firmados antes: fe3fd178a. Delta a HEAD en messages/chat_server.py medido con git diff: solo _redelivery_tick, por los commits 924d0e842 y 55e23b1df (ledger: mark_delivered tras el push; filtro de rollout en SQL), ambos revisados y firmados por JARVIS en quality/manifests/chat-redelivery-acusa.json (STATIC_OK). Ninguna funcion del alcance de este manifiesto (channel_acl, _agent_auth_gate, _CUERPOS_POR_AGENTE, _agent_send_db_actor, interruptor /etc/seal) cambio desde la firma anterior. Tests de este manifiesto corridos sobre HEAD antes de firmar. No es re-firma ciega: es la constancia de que el delta es codigo revisado por el mismo revisor bajo otro manifiesto.",
+      "reviewed_sha256": {
+        "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+        "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+        "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
+        "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a459172137ce90afd0c5073cbb213f818cca8c38ccb5b767c72e328081bff207"
+      },
+      "manifest_digest": "a9f099cda38df6aaf2d8b43b3a0fa6cf7e5850ac900dcfa8752320e29799ff8c"
+    }
+  },
+  "subjects": [
+    "messages/channel_acl.py",
+    "messages/chat_server.py"
+  ],
+  "tests": [
+    "messages/tests/test_nexus_alice_cutover_exclusion_v1.py",
+    "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py"
+  ],
+  "source_sha256": {
+    "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
+    "messages/chat_server.py": "8788eb5bb7bef306b3f5eb8d58a1e17a61bee10388b95f5627ca05956e500f75",
+    "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
+    "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a459172137ce90afd0c5073cbb213f818cca8c38ccb5b767c72e328081bff207"
+  },
+  "commands": [
+    {
+      "id": "unit-exclusion-y-cuerpos",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_alice_cutover_exclusion_v1.py",
+        "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    },
+    {
+      "id": "positivo-el-cuerpo-activo-publica",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_positivo_el_cuerpo_activo_publica_en_el_canal_general"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negativo-el-inactivo-queda-en-su-corral",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_negativo_el_cuerpo_INACTIVO_no_publica_fuera_de_su_corral"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-nunca-los-dos-a-la-vez",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_alice_cutover_exclusion_v1.py::test_control_NUNCA_los_dos_cuerpos_a_la_vez"
+      ],
+      "expected_exit": 0,
+      "mutation_expectation": "agregar ALICE-V2 a REMITENTES_PLENOS debe fallar por asercion"
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/channel_acl.py",
+      "messages/chat_server.py"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "messages/tests/test_nexus_alice_cutover_exclusion_v1.py",
+      "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-alice-cutover-exclusion.json",
+  "deletions": [],
+  "delivery": {
+    "status": "verified",
+    "evidence": "VERIFICADO POR EFECTO CON EL CUTOVER ENCENDIDO (ALICE escribio el interruptor 4-sep 03:05:40). Deploy: recibo 20260904T075646-ace598c383 result=verified, hash 8788eb5bb7be == disco. ESTADO DEL ACL leido en vivo con /etc/seal/alice_cuerpo_activo = ALICE-V2: cuerpo activo ALICE-V2; ALICE-V2 -> web_chat True; ALICE v1 -> web_chat False; ALICE v1 -> shadow:alice True. Los tres brazos que prometi: v2 publica, v1 queda cercada, y la degradada CONSERVA VOZ en su corral -- este ultimo existe porque ALICE midio que no existia y quedaba muda. FILAS REALES, que es la prueba que no puede fabricarse: id=148396 08:02:54 web_chat sender_name=ALICE sender_id=126 runtime=ALICE_V2 session_user=ALICE-V2 -- el nombre visible es el canonico y el CUERPO queda atado en sender_id y metadata, exactamente el contrato del fix; id=148410 08:05:49 shadow:alice sender_name=ALICE sender_id=6 -- v1 hablando en su corral. Las dos identidades conviven sin colisionar y cada fila dice quien la escribio. CONTROL ANTI-VACUO: id=148401 y 148408 son de v1 en web_chat ANTES del flip (sender_id=6), o sea el canal no estaba roto ni mudo antes; el cambio de comportamiento coincide con el interruptor y no con el deploy, que fue 70 minutos antes. LO QUE NO PRUEBA: que v2 responda BIEN, solo que puede publicar con la identidad correcta. La calidad de sus respuestas es de ALICE y de William, no de este manifiesto.",
+    "command": {
+      "id": "delivery-cutover",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_alice_cutover_exclusion_v1.py",
+        "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  }
+}

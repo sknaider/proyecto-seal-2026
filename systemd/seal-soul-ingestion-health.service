@@ -1,0 +1,18 @@
+[Unit]
+Description=SEAL SUIE capacity healthcheck
+After=seal-soul-ingestion.service
+Requires=seal-soul-ingestion.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+Environment=SUIE_TOKEN_FILE=/home/dadito/IA/proyecto-seal/var/soul_ingestion/service.token
+ExecStart=/usr/bin/python3 /home/dadito/IA/proyecto-seal/scripts/soul_ingestion_healthcheck.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=/home/dadito/IA/proyecto-seal
+
+[Install]
+WantedBy=default.target

@@ -41,12 +41,35 @@ def fail(name: str, detail: str = "") -> None:
 
 # ── Tests ──
 
+# ── Credencial de lectura del alma ──
+# El DSN del rol historico `seal` esta MUERTO (password authentication failed,
+# medido 4-sep-2026): este test reportaba "ALMA INCOMPLETA" por su propia
+# credencial, no por el estado de SOUL. Se resuelve desde el runtime del agente.
+def _resolve_dsn() -> str:
+    import os
+    from pathlib import Path as _P
+    env = os.environ.get("SEAL_BOOT_TEST_DSN")
+    if env:
+        return env
+    for name in ("ada_bridge_db_runtime.env", "soul_nerves_ada_db.env"):
+        f = _P.home() / ".config" / "seal" / name
+        try:
+            for raw in f.read_text(encoding="utf-8").splitlines():
+                key, _, val = raw.partition("=")
+                if key.strip() in ("SEAL_DB_DSN", "SEAL_MCP_AGENT_DSN", "DATABASE_URL") and val.strip():
+                    return val.strip()
+        except OSError:
+            continue
+    raise RuntimeError("sin credencial: falta ~/.config/seal/ada_bridge_db_runtime.env")
+
+
+
 async def test_postgres() -> None:
     """Conexión directa a PostgreSQL — base del alma."""
     try:
         import asyncpg
         conn = await asyncio.wait_for(
-            asyncpg.connect("postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"),
+            asyncpg.connect(_resolve_dsn()),
             timeout=5,
         )
         row = await conn.fetchrow(
@@ -60,8 +83,13 @@ async def test_postgres() -> None:
         )
         has_ocean = ocean_row is not None and ocean_row["ocean_scores"]
 
-        # Reasoning traces
-        traces = await conn.fetchval("SELECT COUNT(*) FROM reasoning_traces WHERE agent = 'ADA'")
+        # Reasoning traces — opcional: el rol de menor privilegio puede no leerla.
+        try:
+            traces = await conn.fetchval(
+                "SELECT COUNT(*) FROM reasoning_traces WHERE agent = 'ADA'"
+            )
+        except Exception:
+            traces = "s/permiso"
 
         await conn.close()
 
@@ -222,7 +250,7 @@ async def test_ocean_calibration() -> None:
         import asyncpg
         from datetime import datetime, timezone
         conn = await asyncio.wait_for(
-            asyncpg.connect("postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"),
+            asyncpg.connect(_resolve_dsn()),
             timeout=5,
         )
         row = await conn.fetchrow(

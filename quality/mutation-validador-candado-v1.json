@@ -1,0 +1,116 @@
+{
+  "total": 6,
+  "detectados": 6,
+  "mutation_target": "isolated_copy",
+  "mutantes": [
+    {
+      "mutante": "el candado no bloquea: LOCK_SH en vez de LOCK_EX",
+      "detectado": true,
+      "aplico": true
+    },
+    {
+      "mutante": "no espera: toma el turno o sigue igual",
+      "detectado": true,
+      "aplico": true
+    },
+    {
+      "mutante": "el aviso pierde el flush (queda en el buffer)",
+      "detectado": true,
+      "aplico": true
+    },
+    {
+      "mutante": "el timeout vuelve a mentir con 30 min",
+      "detectado": true,
+      "aplico": true
+    },
+    {
+      "mutante": "se cae el aviso de espera entero",
+      "detectado": true,
+      "aplico": true
+    },
+    {
+      "mutante": "NEXUS: sin ftruncate, queda pegado el pid viejo",
+      "detectado": true,
+      "aplico": true
+    }
+  ],
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "validador-candado-v1",
+  "reviewer": "NEXUS",
+  "subject": "agents/JARVIS/tests/validar_suite_jarvis.py",
+  "harness": [
+    "/home/dadito/IA/seal-spark/.venv/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "agents/JARVIS/tests/test_jarvis_validador_candado_v1.py"
+  ],
+  "control_sujeto_sin_mutar": {
+    "donde": "COPIA aislada bajo tempdir; el arbol vivo nunca se toco",
+    "observed": "9 passed",
+    "por": "JARVIS",
+    "result": "GREEN"
+  },
+  "file_sha256": {
+    "agents/JARVIS/tests/validar_suite_jarvis.py": "38fc447712088e1f11804070c00192c3d9dfbba300cc83ffd75564a33cd1f50d",
+    "agents/JARVIS/tests/test_jarvis_validador_candado_v1.py": "d7d5edbf802eaa11db8697a75b96d8ab5776cca86ecba9e82a0f8040e74bc245"
+  },
+  "killed": 6,
+  "survived": 0,
+  "mutation_score_percent": 100.0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "_refutacion_de_nexus": "13:51 NEXUS refuto la version anterior: dos mutantes vivos con 7 passed. (1) sin ftruncate quedaba pegado el pid viejo -- test agregado, MUERTO. (2) sin O_CLOEXEC 'el hijo hereda el turno' -- resulto EQUIVALENTE: medido, os.open da fd no heredables con o sin la bandera (PEP 446), asi que no cambiaba comportamiento y ningun test podia matarlo. Mi COMENTARIO en el sujeto afirmaba que hacia falta y era falso; se quito la bandera y se corrigio el comentario con la medicion. Ademas CLOEXEC solo actua en exec(): contra fork() no protege nada, que es por que mi primera prueba con multiprocessing quedo trabada y la lei como 'el candado no serializa' cuando el defecto estaba en la prueba.",
+  "mutants": [
+    {
+      "id": "el candado no bloquea: LOCK_SH en vez de LOCK_EX",
+      "author": "JARVIS",
+      "mutation": "el candado no bloquea: LOCK_SH en vez de LOCK_EX",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "rompe la serializacion entre corridas, deja mudo al que espera, o ensucia el unico archivo que un humano mira"
+    },
+    {
+      "id": "no espera: toma el turno o sigue igual",
+      "author": "JARVIS",
+      "mutation": "no espera: toma el turno o sigue igual",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "rompe la serializacion entre corridas, deja mudo al que espera, o ensucia el unico archivo que un humano mira"
+    },
+    {
+      "id": "el aviso pierde el flush (queda en el buffer)",
+      "author": "JARVIS",
+      "mutation": "el aviso pierde el flush (queda en el buffer)",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "rompe la serializacion entre corridas, deja mudo al que espera, o ensucia el unico archivo que un humano mira"
+    },
+    {
+      "id": "el timeout vuelve a mentir con 30 min",
+      "author": "JARVIS",
+      "mutation": "el timeout vuelve a mentir con 30 min",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "rompe la serializacion entre corridas, deja mudo al que espera, o ensucia el unico archivo que un humano mira"
+    },
+    {
+      "id": "se cae el aviso de espera entero",
+      "author": "JARVIS",
+      "mutation": "se cae el aviso de espera entero",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "rompe la serializacion entre corridas, deja mudo al que espera, o ensucia el unico archivo que un humano mira"
+    },
+    {
+      "id": "NEXUS: sin ftruncate, queda pegado el pid viejo",
+      "author": "NEXUS",
+      "mutation": "NEXUS: sin ftruncate, queda pegado el pid viejo",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "rompe la serializacion entre corridas, deja mudo al que espera, o ensucia el unico archivo que un humano mira"
+    }
+  ]
+}

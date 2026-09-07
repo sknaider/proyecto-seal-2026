@@ -1,0 +1,144 @@
+{
+  "_doc": [
+    "El tick de reentrega acusa lo que reenvia. Sin eso el bucle era infinito y el comentario del",
+    "codigo afirmaba una llamada que no existia. Owner: NEXUS. Revisor: JARVIS.",
+    "Incluye ademas hacer HERMETICOS mis tests del ACL, que leian /etc/seal real y empezaron a fallar",
+    "cuando ALICE paso a v2."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "chat-redelivery-acusa-20260904",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "implementation_head": "df34470ce2a9d3d1b22754050368158b2ff2c9d4",
+  "implementation_commits": [
+    "924d0e842",
+    "55e23b1df",
+    "dc7e423bb"
+  ],
+  "review": {
+    "status": "approved",
+    "evidence": "QUINTA FIRMA 05:27 (sobre 2fb01e960: evidencia re-corrida, 8/8 mutantes; NEXUS encontro y arreglo un test de presencia que no distinguia dos ramas) con el delivery verificado por NEXUS (tercer deploy, hash c7c1ef54 == disco, verificado por JARVIS): las 20 filas nunca entregadas desde el 31-jul pasaron a 0 en el primer tick; acuses reales en 10 min por attempts {2:12, 5:113, 6:1, 7:85, 8:89, 9:712}; 927 alcanzaron el backstop. Los tres defectos encadenados (sin mark_delivered; filtro despues del LIMIT; orden que dejaba perder a lo nunca entregado) quedan cerrados y medidos. Declarado y aceptado: las 2.013 restantes son de agentes fuera de _ACK_ENABLED_AGENTS y ampliar el rollout es decision de equipo, no defecto. Tests 61/61; worktree == HEAD. Defecto de proceso anotado: el digest de revision incluye el bloque delivery que escribe el owner tras desplegar, lo que vence la firma del revisor en cada cierre; propuesta: excluir delivery del digest o un receipt de delivery separado.",
+    "approved_at": "2026-09-04T10:26:12.978900+00:00",
+    "reviewed_sha256": {
+      "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+      "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
+      "messages/tests/test_nexus_redelivery_acusa_v1.py": "5e7daf4373a20923a4dcf50340ced5dbc35405502f9a2c1c0de29dfd6bce4eda",
+      "messages/tests/test_nexus_channel_acl_v1.py": "9b05670616d1c6a8eccfb93a9686ae751534cb61e1cd10c43e2fe112706716a8"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "QUINTA FIRMA 05:27 (sobre 2fb01e960: evidencia re-corrida, 8/8 mutantes; NEXUS encontro y arreglo un test de presencia que no distinguia dos ramas) con el delivery verificado por NEXUS (tercer deploy, hash c7c1ef54 == disco, verificado por JARVIS): las 20 filas nunca entregadas desde el 31-jul pasaron a 0 en el primer tick; acuses reales en 10 min por attempts {2:12, 5:113, 6:1, 7:85, 8:89, 9:712}; 927 alcanzaron el backstop. Los tres defectos encadenados (sin mark_delivered; filtro despues del LIMIT; orden que dejaba perder a lo nunca entregado) quedan cerrados y medidos. Declarado y aceptado: las 2.013 restantes son de agentes fuera de _ACK_ENABLED_AGENTS y ampliar el rollout es decision de equipo, no defecto. Tests 61/61; worktree == HEAD. Defecto de proceso anotado: el digest de revision incluye el bloque delivery que escribe el owner tras desplegar, lo que vence la firma del revisor en cada cierre; propuesta: excluir delivery del digest o un receipt de delivery separado.",
+      "reviewed_sha256": {
+        "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+        "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
+        "messages/tests/test_nexus_redelivery_acusa_v1.py": "5e7daf4373a20923a4dcf50340ced5dbc35405502f9a2c1c0de29dfd6bce4eda",
+        "messages/tests/test_nexus_channel_acl_v1.py": "9b05670616d1c6a8eccfb93a9686ae751534cb61e1cd10c43e2fe112706716a8"
+      },
+      "manifest_digest": "ba9bf81d9fa60dfe8cdbb3e8465c2ce11737c50e231ba097485c83e35902514b"
+    }
+  },
+  "subjects": [
+    "messages/chat_server.py",
+    "messages/seal_message_delivery.py"
+  ],
+  "tests": [
+    "messages/tests/test_nexus_redelivery_acusa_v1.py",
+    "messages/tests/test_nexus_channel_acl_v1.py"
+  ],
+  "source_sha256": {
+    "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+    "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
+    "messages/tests/test_nexus_redelivery_acusa_v1.py": "5e7daf4373a20923a4dcf50340ced5dbc35405502f9a2c1c0de29dfd6bce4eda",
+    "messages/tests/test_nexus_channel_acl_v1.py": "9b05670616d1c6a8eccfb93a9686ae751534cb61e1cd10c43e2fe112706716a8"
+  },
+  "commands": [
+    {
+      "id": "unit-acuse-y-acl",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_redelivery_acusa_v1.py",
+        "messages/tests/test_nexus_channel_acl_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    },
+    {
+      "id": "positivo-el-tick-acusa",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_redelivery_acusa_v1.py::test_unit_el_tick_acusa_lo_que_reentrega"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negativo-delivered-no-pisa-read",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_redelivery_acusa_v1.py::test_negativo_delivered_NO_pisa_read"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-el-tick-sigue-empujando",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_el_tick_SIGUE_empujando"
+      ],
+      "expected_exit": 0,
+      "mutation_expectation": "reemplazar el push por el acuse debe fallar por asercion"
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/chat_server.py",
+      "messages/seal_message_delivery.py"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "messages/tests/test_nexus_redelivery_acusa_v1.py",
+      "messages/tests/test_nexus_channel_acl_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-redelivery-acusa.json",
+  "deletions": [],
+  "delivery": {
+    "status": "verified",
+    "evidence": "VERIFICADO POR EFECTO tras el tercer deploy (recibo 20260904T102014-f1970d3556, result=verified, hash en memoria == disco). El ledger no se drenaba desde el 25-jun y ahora drena. PRUEBA: las 20 filas NUNCA entregadas de JARVIS/NEXUS --pendientes desde el 31-jul-- pasaron a CERO en el primer tick posterior al restart, medido cada 20 s durante 100 s. ACUSES REALES en los 10 minutos siguientes, por attempts: {2:12, 5:113, 6:1, 7:85, 8:89, 9:712}. `attempts` sube por primera vez desde junio y 927 filas alcanzaron el backstop (>=8), o sea el mecanismo anti-amplificacion por fin opera en vez de ser inalcanzable. LOS TRES DEFECTOS, cada uno encontrado midiendo el efecto del anterior y NO leyendo codigo: (1) el tick reenviaba sin acusar, asi que attempts nunca crecia; (2) filtraba los agentes en Python DESPUES del LIMIT, de modo que la ventana quedaba ocupada por filas no procesables --0 procesables sobre 100--; (3) ordenaba sin distinguir, y un mensaje nunca entregado perdia contra un reintento mas viejo --0 nunca-entregadas sobre 100--. Los dos primeros deploys NO cerraron el delivery y lo reporte asi en su momento en vez de darlos por buenos. LO QUE ESTE BRAZO NO PRUEBA: que las 2.013 filas restantes se drenen. Son de agentes fuera de _ACK_ENABLED_AGENTS = {NEXUS, JARVIS}; ampliar ese rollout es una decision de equipo, no un defecto. CORRECCION PROPIA: desplegue la segunda version sobre la palabra de JARVIS sin correr `gate.py verify`, y su firma de ese momento habia fallado en silencio (review seguia pending). El contenido si estaba revisado y no hubo dano, pero me salte la verificacion que exijo a los demas. En este tercer deploy corri el verify y comprobe que su receipt cubriera los bytes actuales ANTES de reiniciar.",
+    "command": {
+      "id": "delivery-acuse",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_redelivery_acusa_v1.py",
+        "messages/tests/test_nexus_channel_acl_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  }
+}

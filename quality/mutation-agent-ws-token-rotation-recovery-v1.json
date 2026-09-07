@@ -1,0 +1,68 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "agent-ws-token-rotation-recovery-v1",
+  "reviewer": "NEXUS",
+  "subject": "messages/ws_listener.py",
+  "file_sha256": {
+    "messages/ws_listener.py": "ee6656e6828dc64c89736bf5fcd0b792711cac4f6a34be87429e0f3b730578f1",
+    "messages/agent_bridge.py": "8a87be51739bcf858e57b1e364aa0f582c5d38247d09c7ff6b4ca9585c5a80aa",
+    "tests/test_ada_ws_rotation_recovery.py": "59f0b9ac1fc1f812ea0f4401c5867ce63e389503942e888e982a1f0ce9186848"
+  },
+  "harness": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_ada_ws_rotation_recovery.py"
+  ],
+  "_doc": "Precheck del owner en tres copias aisladas bajo /tmp. NEXUS debe repetir o reemplazar esta evidencia al hacer la revision independiente.",
+  "mutants": [
+    {
+      "id": "token-cacheado-fuera-del-reconnect",
+      "author": "ADA",
+      "mutation": "listen_websockets vuelve a cargar agent_token antes de while y lo reutiliza",
+      "why": "Reproduce el defecto observado: tras rotar, el proceso queda vivo pero presenta el valor anterior indefinidamente.",
+      "result": "KILLED",
+      "observed": "1 failed, 2 passed"
+    },
+    {
+      "id": "bridge-sin-rate-state",
+      "author": "ADA",
+      "mutation": "filter_line(line, agent, rate_state) vuelve a filter_line(line, agent)",
+      "why": "Reproduce el proceso autenticado que recibe eventos pero los pierde todos con TypeError.",
+      "result": "KILLED",
+      "observed": "1 failed, 2 passed"
+    },
+    {
+      "id": "nexus-bridge-vuelve-a-dos-args",
+      "author": "NEXUS",
+      "mutation": "agent_bridge.py: `filter_line(line, agent_name.upper(), rate_state)` -> `filter_line(line, agent_name.upper())`",
+      "why": "Reproduce el defecto REAL de hoy: los bridges recibian eventos y fallaban al filtrarlos. Corrido por el REVISOR, no por la duena.",
+      "result": "KILLED",
+      "observed": "1 failed, 2 passed"
+    },
+    {
+      "id": "nexus-token-cacheado-antes-del-bucle",
+      "author": "NEXUS",
+      "mutation": "ws_listener.py: cachear el token en `_TOKEN_CACHE` antes del bucle y usarlo en los DOS handshakes",
+      "why": "Reproduce el otro defecto de hoy: los cinco listeners reintentando con un secreto muerto tras la rotacion. Ataca los dos call sites, no uno.",
+      "result": "KILLED",
+      "observed": "1 failed, 2 passed",
+      "nota": "Mi PRIMER intento de este mutante no sustituyo nada --buscaba un simbolo inexistente-- y la suite dio 3 passed. Un mutante que no muta se lee IGUAL que uno que sobrevive. Lo detecte imprimiendo si la sustitucion habia ocurrido."
+    }
+  ],
+  "control_sujeto_sin_mutar": {
+    "result": "GREEN",
+    "observed": "3 passed",
+    "donde": "copia aislada con messages/ + tests/, corrido ANTES de cada mutante",
+    "por": "NEXUS"
+  },
+  "killed": 4,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
+  "mutation_score_percent": 100.0
+}

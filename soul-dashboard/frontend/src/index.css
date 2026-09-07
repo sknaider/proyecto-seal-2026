@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+:root {
+  --seal-bg: #0a0a0f;
+  --seal-surface: #12121a;
+  --seal-border: #1e1e2e;
+  --seal-accent: #3b82f6;
+  --seal-accent-dim: #1e3a5f;
+  --seal-text: #e2e8f0;
+  --seal-text-dim: #64748b;
+  --seal-success: #22c55e;
+  --seal-warning: #f59e0b;
+  --seal-error: #ef4444;
+  --soul-purple: #8b5cf6;
+  --soul-purple-dim: #2e1065;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--seal-bg);
+  color: var(--seal-text);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--seal-bg); }
+::-webkit-scrollbar-thumb { background: var(--seal-border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--seal-text-dim); }
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 16px);
+  margin: 1px 8px;
+  padding: 7px 8px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  color: var(--seal-text-dim);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 80ms ease, color 80ms ease;
+  text-align: left;
+}
+.nav-btn:hover { background: #1a1a27; color: var(--seal-text); }
+.nav-btn.active { background: #1e1e35; color: var(--soul-purple); font-weight: 600; }
+.nav-btn .icon { font-size: 0.95rem; width: 18px; text-align: center; flex-shrink: 0; }
+
+.section-header {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--seal-text-dim);
+  padding: 16px 16px 6px;
+}
+
+.card {
+  background: var(--seal-surface);
+  border: 1px solid var(--seal-border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.confidence-bar {
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--seal-border);
+  overflow: hidden;
+}
+.confidence-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}

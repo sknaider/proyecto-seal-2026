@@ -72,6 +72,28 @@ def filter_line(line: str, agent: str, rate_state: dict) -> str | None:
         d.pop("file_url", None)
         msg_type = "conversation"
 
+    # EL CANAL MANDA SOBRE `to` -- y va ANTES que cualquier otra regla.
+    #
+    # Medido el 3-sep-2026: un DM de William a ALICE (`dm:alice:william`) llegaba
+    # a los monitores de NEXUS, JARVIS, FABLE y ADA. Dos agujeros, y el segundo
+    # es el que dolia:
+    #
+    #   1. `to` lo llena el EMISOR; `channel` es RUTEO. Un cliente que ponga
+    #      to='equipo' en un canal dm: abria la correspondencia entera.
+    #   2. La regla "mensajes de William: siempre pasar" estaba ANTES del
+    #      chequeo de destinatario -> los DMs de William, que son exactamente
+    #      los mas privados, eran los UNICOS que ninguna regla filtraba.
+    #
+    # Lo que se filtraba era metadato + texto cifrado, no contenido legible.
+    # Sigue siendo correspondencia privada de William llegando a terceros, y su
+    # regla del 2-jun no distingue: "DM, terminal y mensajes de los agentes son
+    # su intimidad".
+    canal = str(d.get("channel") or "")
+    if canal.lower().startswith("dm:"):
+        participantes = {t.strip().upper() for t in canal[3:].split(":") if t.strip()}
+        if participantes and agent.upper() not in participantes:
+            return None
+
     to_field = (d.get("to") or "").upper()
     from_field = (d.get("from") or "").upper()
     msg_text = (d.get("message") or d.get("content") or "")

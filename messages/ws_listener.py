@@ -48,14 +48,14 @@ def _load_agent_token() -> str:
 async def listen_aiohttp(agent: str):
     """Listener using aiohttp (available in seal-spark venv)."""
     import aiohttp
-    agent_token = _load_agent_token()
 
     while True:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.ws_connect(WS_URL) as ws:
-                    # Handshake with token
-                    await ws.send_json({"agent": agent, "token": agent_token})
+                    # Reload on every connection attempt so a token rotation can
+                    # recover without replacing this long-lived process.
+                    await ws.send_json({"agent": agent, "token": _load_agent_token()})
                     resp = await asyncio.wait_for(ws.receive_json(), timeout=10)
                     if not resp.get("ok"):
                         print(json.dumps({"error": "handshake_failed", "detail": resp}),
@@ -98,11 +98,12 @@ async def listen_aiohttp(agent: str):
 
 async def listen_websockets(agent: str):
     """Listener using websockets library."""
-    agent_token = _load_agent_token()
     while True:
         try:
             async with websockets.connect(WS_URL) as ws:
-                await ws.send(json.dumps({"agent": agent, "token": agent_token}))
+                # Reload on every connection attempt so a token rotation can
+                # recover without replacing this long-lived process.
+                await ws.send(json.dumps({"agent": agent, "token": _load_agent_token()}))
                 resp = json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
                 if not resp.get("ok"):
                     print(json.dumps({"error": "handshake_failed", "detail": resp}),

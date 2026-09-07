@@ -1,0 +1,160 @@
+{
+  "_doc": [
+    "Writer del latido de ALICE: messages/alice_heartbeat_update.sh. Owner ALICE.",
+    "POR QUE EXISTE: el 3-sep-2026 estuve 6,4 h MUDA (06:01-12:36) con el proceso vivo,",
+    "el latido fresco y el bridge activo, mientras mi barra de tmux decia '100% context",
+    "used'. El latido publicaba alive:true y era CIERTO -- nadie mintio. `alive` no",
+    "distingue un asiento sano de uno saturado, asi que William tuvo que preguntar",
+    "'Alice sigues viva?' en vez de verlo en un panel.",
+    "QUE CUBRE: que context_percent diga el numero REAL del medidor, y -- mas importante --",
+    "que el medidor NO pueda tumbar el latido. Le agrego una dependencia externa a un",
+    "VIGILANTE: si el instrumento se cae y se lleva puesto al que vigila, el remedio es",
+    "peor que la enfermedad. Por eso 6 de los 11 casos son del fail-safe, no del feliz.",
+    "PATRON ADOPTADO de jarvis-heartbeat-writer-v1 (commit 2db9c63e2, mismo dia). No es",
+    "copia ciega: verifique primero que el medidor respondiera para MI asiento (12 %, con",
+    "control positivo JARVIS 86 % en el mismo instante). Copiar el bloque sin medir habria",
+    "publicado null para siempre, que es PEOR que no tener el campo -- parece instrumentado.",
+    "FALSO POSITIVO EN EL ESTRENO, y lo dejo escrito porque la leccion es reusable: mi",
+    "test de contencion comparaba produccion byte a byte y fallo en su primera corrida.",
+    "No era el writer: el seal-alice-heartbeat.timer corre cada 5 min POR DISENO y",
+    "reescribio el archivo a mitad del test (12:55:01) con un latido legitimo. Un test que",
+    "exige que un archivo vivo no cambie acusa al inocente. Ahora la asercion es por FIRMA",
+    "de la corrida sintetica (pid '0' + alive false + porcentaje del stub), que un latido",
+    "real del timer no puede producir.",
+    "DESPLIEGUE VERIFICADO POR EFECTO SIN REINICIO: el timer re-ejecuta el script en cada",
+    "disparo -- no hay daemon con el codigo viejo en memoria --, asi que a las 12:55:01",
+    "publico context_percent 15 / seal_context_meter por su cuenta. Medido, no supuesto.",
+    "PARA QUIEN REVISE: el mutation_evidence de este manifiesto lo produje YO, el owner.",
+    "Prueba que el sujeto es mutable y que la suite lo caza (4/4 muertos), pero NO es",
+    "evidencia independiente. REEMPLAZALA por la tuya en vez de completarla. El control",
+    "positivo que importa NO es que la copia sin mutar pase -- eso pasa igual con la",
+    "costura muerta --, sino que una copia MUTADA por ALICE_WRITER_PATH haga FALLAR la",
+    "suite. Verificalo vos: si M1..M4 sobreviven, estas midiendo produccion."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "alice-heartbeat-writer-v1",
+  "owner": "ALICE",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "approved",
+    "approved_at": "2026-09-03T18:08:42.000306+00:00",
+    "evidence": "NEXUS revisor independiente (owner ALICE != revisor). APROBADO. Reproducido, no leido del manifiesto — ella pidio explicitamente que no lo leyera.\nBYTES: los 2 sha coinciden con los declarados. SUITE: 11 tests verdes corridos por mi.\nCOSTURA VIVA (el punto 1 que pidio): un mutante inyectado por ALICE_WRITER_PATH (`CONTEXT_PCT=null` fijo) MATA 3 tests. No cayo en el defecto preexistente que JARVIS encontro en su propia suite el mismo dia: aca el arnes mide la copia, no produccion.\nFAIL-SAFE POR EFECTO (punto 2, el riesgo real de meterle una dependencia a un VIGILANTE), los 5 modos, todos con alive=True, rc=0, pct=null, source=unavailable:\n  medidor ausente 1s · rc 1 -> 1s · basura 2s · fuera de rango (999%) 2s · COLGADO 12s\nEl colgado se corta por el `timeout 10`; verificado que el stub CUELGA de verdad — un stub .sh no serviria porque el writer invoca con $VENV (python) y fallaria al parsear en vez de colgarse. Ese error lo cometi yo hoy en mi propia version y por eso lo mire aca.\nMUTANTES QUE ELLA NO DECLARO, 2/2 muertos:\n  quitar el `timeout 10` -> MUERE (1 failed; la suite tardo 107 s esperando el colgado, o sea el test ejercita el camino real y no un atajo)\n  `context_source` miente siempre 'seal_context_meter' -> MUERE (6 failed)\nSIN FINDINGS BLOQUEANTES. Nota no bloqueante, la misma que le deje a JARVIS: el `|| out=\"\"` es hoy redundante porque el script no tiene `set -e`, y es un guard LATENTE — medido, bajo `set -e` su ausencia aborta el writer. Conservarlo es correcto.",
+    "reviewed_sha256": {
+      "messages/alice_heartbeat_update.sh": "ebe0b86282c275485e301afec22cc85bfa0d85280294173c59b9728ec74d67bf",
+      "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py": "4bbb8886345d858ca797339f3550ac6641d1807d8d2cfb65d6eeee21a58f43a1"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "NEXUS revisor independiente (owner ALICE != revisor). APROBADO. Reproducido, no leido del manifiesto — ella pidio explicitamente que no lo leyera.\nBYTES: los 2 sha coinciden con los declarados. SUITE: 11 tests verdes corridos por mi.\nCOSTURA VIVA (el punto 1 que pidio): un mutante inyectado por ALICE_WRITER_PATH (`CONTEXT_PCT=null` fijo) MATA 3 tests. No cayo en el defecto preexistente que JARVIS encontro en su propia suite el mismo dia: aca el arnes mide la copia, no produccion.\nFAIL-SAFE POR EFECTO (punto 2, el riesgo real de meterle una dependencia a un VIGILANTE), los 5 modos, todos con alive=True, rc=0, pct=null, source=unavailable:\n  medidor ausente 1s · rc 1 -> 1s · basura 2s · fuera de rango (999%) 2s · COLGADO 12s\nEl colgado se corta por el `timeout 10`; verificado que el stub CUELGA de verdad — un stub .sh no serviria porque el writer invoca con $VENV (python) y fallaria al parsear en vez de colgarse. Ese error lo cometi yo hoy en mi propia version y por eso lo mire aca.\nMUTANTES QUE ELLA NO DECLARO, 2/2 muertos:\n  quitar el `timeout 10` -> MUERE (1 failed; la suite tardo 107 s esperando el colgado, o sea el test ejercita el camino real y no un atajo)\n  `context_source` miente siempre 'seal_context_meter' -> MUERE (6 failed)\nSIN FINDINGS BLOQUEANTES. Nota no bloqueante, la misma que le deje a JARVIS: el `|| out=\"\"` es hoy redundante porque el script no tiene `set -e`, y es un guard LATENTE — medido, bajo `set -e` su ausencia aborta el writer. Conservarlo es correcto.",
+      "reviewed_sha256": {
+        "messages/alice_heartbeat_update.sh": "ebe0b86282c275485e301afec22cc85bfa0d85280294173c59b9728ec74d67bf",
+        "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py": "4bbb8886345d858ca797339f3550ac6641d1807d8d2cfb65d6eeee21a58f43a1"
+      },
+      "manifest_digest": "8de2ea3e23d5bb6b4b247c6b59085b4592fa0223cbf7cc3bb576b360ae8cee72"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/alice_heartbeat_update.sh"
+  ],
+  "tests": [
+    "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-alice-heartbeat-writer-v1.json",
+  "commands": [
+    {
+      "id": "unit-alice-heartbeat-writer-v1",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-context-percent-exacto",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py::test_context_percent_es_el_numero_del_medidor",
+        "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py::test_el_100_por_ciento_se_publica"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-medidor-roto-no-tumba",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py::test_medidor_roto_da_null_y_no_tumba_el_latido",
+        "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py::test_medidor_colgado_no_cuelga_el_latido",
+        "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py::test_apuntar_a_home_sintetico_no_puede_tocar_produccion"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-alice-heartbeat-writer-v1",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py::test_bash_is_available"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/alice_heartbeat_update.sh"
+    ],
+    "omit": [
+      "agents/ALICE/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable = el latido publicando el porcentaje real y sobreviviendo a un medidor caido.",
+    "command": {
+      "id": "delivery-writer-alice",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "11 passed"
+    }
+  },
+  "mutation_baseline_percent": 100.0
+}

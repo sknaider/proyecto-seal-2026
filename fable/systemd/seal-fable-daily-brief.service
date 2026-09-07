@@ -1,0 +1,12 @@
+[Unit]
+Description=FABLE daily verification-debt brief
+After=network.target seal-chat.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+Environment=HOME=/home/dadito
+Environment=SEAL_AGENT=FABLE
+ExecStart=/usr/bin/python3 /home/dadito/IA/proyecto-seal/fable/brief/brief_matutino.py
+StandardOutput=journal
+StandardError=journal

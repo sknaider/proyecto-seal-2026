@@ -1,0 +1,134 @@
+{
+  "_doc": [
+    "El contrato entre chat_server y response_lease: lo que se llama, existe. Owner: NEXUS. Revisor: ALICE.",
+    "",
+    "POR QUE EXISTE: el 3-sep mi `git reset --hard` borro `release_db` de response_lease.py. El call",
+    "site de chat_server.py:3116 sobrevivio porque estaba en OTRO commit. El archivo quedo roto casi",
+    "5 horas SIN SINTOMA --el proceso tenia el modulo bueno en memoria desde el 2-sep 23:19-- y al",
+    "reiniciar, todo envio con --in-reply-to devolvia HTTP 500. Es decir: la forma en que los cinco",
+    "le respondemos a William.",
+    "",
+    "LA TRAMPA DEL DIAGNOSTICO: FABLE hizo un A/B cruzando el reinicio y concluyo bien que el codigo",
+    "nuevo rompia. La lectura natural de ese A/B es 'el commit desplegado introdujo el bug', y era al",
+    "reves: el commit que FALTABA lo evitaba. Un A/B a traves de un restart no distingue codigo que",
+    "llego de codigo que se fue.",
+    "",
+    "POR QUE ESTE TEST Y NO UNO DE `release_db`: si la funcion no existe, un test de la funcion falla",
+    "con ImportError y se lee como 'test roto', no como 'produccion rota'. Lo que hay que fijar es la",
+    "RELACION entre los dos archivos, y se lee por AST --no por grep-- para que una mencion en un",
+    "comentario no cuente como call site."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "response-lease-contract-20260903",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "review": {
+    "status": "approved",
+    "approved_at": "2026-09-03T19:23:44.769032+00:00",
+    "evidence": "ALICE revisora independiente (owner NEXUS != revisor). APROBADO.\nREPRODUCIDO, no leido: los 2 sha coinciden; 6/6 tests verdes corridos por mi.\nMUTACION PROPIA 3 mutantes, sobre COPIA en arbol replicado (ver mi evidencia):\n  M1 renombrar release_db en el modulo -> MUERE (2 tests). Es EXACTAMENTE el defecto\n     que hoy devolvio HTTP 500 en todo --in-reply-to; el test caza el caso real.\n  M2 el servidor llama a una funcion inexistente -> MUERE. El contrato tambien vale\n     en la direccion inversa, no solo contra la borradura.\n  M3 la mencion `_response_lease.x()` DENTRO de un comentario -> SOBREVIVE, y esta bien:\n     comprueba su afirmacion de que lee por AST y no por grep. Verifique la afirmacion\n     en vez de aceptarla; es correcta.\nFINDING NO BLOQUEANTE, y es el mismo que NEXUS le encontro hoy a JARVIS: la suite NO\nTIENE COSTURA. Resuelve su sujeto por parents[1] de su propia ubicacion, asi que un\nrevisor que copie el sujeto a /tmp y apunte una variable de entorno seguiria midiendo\nPRODUCCION y sus mutantes serian inertes. Tuve que replicar el arbol relativo para\npoder mutar. Recomiendo un override tipo RESPONSE_LEASE_PATH/CHAT_SERVER_PATH. No\nbloquea porque el contrato que fija es correcto y lo verifique igual.\nCONCEDO SU OBJECION A MI DIAGNOSTICO PUBLICO: dije «el fix es un reinicio». Mi medicion\nera de las 14:18:30, cuando el disco YA tenia release_db (mtime 14:18:19, restaurada por\nel). Para ESE instante era cierto, pero lo publique como la causa general y no lo era:\nantes de esa restauracion un reinicio no habria arreglado nada, porque la funcion no\nestaba. Mis hechos eran correctos y mi historia causal no. Es el mismo error que vengo\ncometiendo hoy y agradezco que lo marcara.",
+    "reviewed_sha256": {
+      "messages/response_lease.py": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862",
+      "tests/test_nexus_response_lease_contract_v1.py": "516c4d48e93d0d92f4b1f39048f3ab680c6f405b445b5f0cd788a7bb7ee1c1e8"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "evidence": "ALICE revisora independiente (owner NEXUS != revisor). APROBADO.\nREPRODUCIDO, no leido: los 2 sha coinciden; 6/6 tests verdes corridos por mi.\nMUTACION PROPIA 3 mutantes, sobre COPIA en arbol replicado (ver mi evidencia):\n  M1 renombrar release_db en el modulo -> MUERE (2 tests). Es EXACTAMENTE el defecto\n     que hoy devolvio HTTP 500 en todo --in-reply-to; el test caza el caso real.\n  M2 el servidor llama a una funcion inexistente -> MUERE. El contrato tambien vale\n     en la direccion inversa, no solo contra la borradura.\n  M3 la mencion `_response_lease.x()` DENTRO de un comentario -> SOBREVIVE, y esta bien:\n     comprueba su afirmacion de que lee por AST y no por grep. Verifique la afirmacion\n     en vez de aceptarla; es correcta.\nFINDING NO BLOQUEANTE, y es el mismo que NEXUS le encontro hoy a JARVIS: la suite NO\nTIENE COSTURA. Resuelve su sujeto por parents[1] de su propia ubicacion, asi que un\nrevisor que copie el sujeto a /tmp y apunte una variable de entorno seguiria midiendo\nPRODUCCION y sus mutantes serian inertes. Tuve que replicar el arbol relativo para\npoder mutar. Recomiendo un override tipo RESPONSE_LEASE_PATH/CHAT_SERVER_PATH. No\nbloquea porque el contrato que fija es correcto y lo verifique igual.\nCONCEDO SU OBJECION A MI DIAGNOSTICO PUBLICO: dije «el fix es un reinicio». Mi medicion\nera de las 14:18:30, cuando el disco YA tenia release_db (mtime 14:18:19, restaurada por\nel). Para ESE instante era cierto, pero lo publique como la causa general y no lo era:\nantes de esa restauracion un reinicio no habria arreglado nada, porque la funcion no\nestaba. Mis hechos eran correctos y mi historia causal no. Es el mismo error que vengo\ncometiendo hoy y agradezco que lo marcara.",
+      "reviewed_sha256": {
+        "messages/response_lease.py": "e57428f5011303658441aa6a7ceb7261a3908dfb0d0772a2074fb86ddcdf5862",
+        "tests/test_nexus_response_lease_contract_v1.py": "516c4d48e93d0d92f4b1f39048f3ab680c6f405b445b5f0cd788a7bb7ee1c1e8"
+      },
+      "manifest_digest": "2224b7cc35b5f4ee9e8eb28a33d6a909971c9675212b92fdff51a4a907de4feb"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/response_lease.py"
+  ],
+  "tests": [
+    "tests/test_nexus_response_lease_contract_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-lector-de-call-sites",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_response_lease_contract_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positivo-todo-lo-llamado-existe",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_response_lease_contract_v1.py::test_qa_positive_todo_lo_que_el_servidor_llama_existe_en_el_modulo"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negativo-un-call-site-fantasma-se-detecta",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_response_lease_contract_v1.py::test_qa_negative_un_call_site_a_una_funcion_inexistente_se_detecta"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-no-vacuo",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_response_lease_contract_v1.py::test_control_no_vacuo_el_test_puede_fallar"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/response_lease.py"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "tests/test_nexus_response_lease_contract_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-response-lease-contract-ALICE.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "El deliverable es que responderle a William con --in-reply-to funcione. Verificado por efecto contra el servidor vivo: POST con in_reply_to -> {\"ok\":true} http 200 (pid 547472), donde el proceso anterior daba HTTP 500.",
+    "command": {
+      "id": "delivery-contrato-lease",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_response_lease_contract_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  }
+}

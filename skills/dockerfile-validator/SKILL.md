@@ -1,5 +1,4 @@
 ---
-auto_invoke: true
 name: dockerfile-validator
 description: Comprehensive toolkit for validating, linting, and securing Dockerfiles. Use this skill when validating Dockerfile syntax, checking security best practices, optimizing image builds. Applies to all Dockerfile variants (Dockerfile, Dockerfile.prod, Dockerfile.dev, etc.).
 ---
@@ -207,8 +206,9 @@ docker run --rm -i hadolint/hadolint < Dockerfile
 The validation script automatically installs Checkov in an isolated Python venv if not found. For permanent installation:
 
 ```bash
-# Install directly
-pip3 install checkov
+# Install in a dedicated environment (PEP 668 safe)
+python3 -m venv ~/.local/share/checkov-venv
+~/.local/share/checkov-venv/bin/python -m pip install --upgrade pip checkov
 
 # macOS Homebrew
 brew install checkov
@@ -523,8 +523,9 @@ The validation script automatically installs tools if not found. No manual insta
 # Install hadolint
 brew install hadolint  # macOS
 
-# Install Checkov
-pip3 install checkov
+# Install Checkov in a dedicated environment (PEP 668 safe)
+python3 -m venv ~/.local/share/checkov-venv
+~/.local/share/checkov-venv/bin/python -m pip install --upgrade pip checkov
 ```
 
 **Minimum Versions:**

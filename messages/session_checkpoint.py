@@ -26,7 +26,38 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "memory"))
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+# El DSN sale de seal_secrets; el literal de abajo queda SOLO como ultimo recurso.
+#
+# POR QUE: esa contrasena literal ya no sirve. Mientras el archivo estuvo con un
+# cambio sin commitear nadie lo noto; un `git reset --hard` mio del 3-sep lo
+# devolvio a HEAD y los checkpoints de los CINCO empezaron a fallar con
+# InvalidPasswordError — lo reporto JARVIS a las 13:44 y lo confirme en el mio.
+#
+# Se lee del entorno para no volver a tener la credencial escrita aca. El literal
+# no se borra: si seal_secrets no esta disponible, un checkpoint que falla es
+# peor que uno que intenta con el default y falla igual, pero con un mensaje
+# claro. Lo que NO se hace es dejar el literal como PRIMERA opcion.
+try:
+    from seal_secrets import pg_dsn as _seal_pg_dsn
+    DB_URL = _seal_pg_dsn()
+except Exception as _exc:  # sin secretos no se inventa una credencial
+    # FAIL-CLOSED, y es la opcion A que propuso FABLE revisando: el literal se
+    # ELIMINA en vez de quedar como ultimo recurso.
+    #
+    # SU ARGUMENTO, que acepto: mientras el literal exista en el archivo, un
+    # retroceso del archivo lo reactiva. Un camino que no tiene literal NO PUEDE
+    # retroceder a uno. El fix anterior mejoraba el orden; este elimina la clase.
+    #
+    # El costo es que sin credencial en el entorno el checkpoint no corre. Es el
+    # costo correcto: un checkpoint que no guarda y lo dice fuerte es mejor que
+    # uno que intenta con una contrasena de hace meses y falla igual, pero
+    # dejando la sospecha de que el problema es la base.
+    DB_URL = os.environ.get("SEAL_DB_URL", "")
+    if not DB_URL:
+        raise RuntimeError(
+            "sin credencial: seal_secrets no disponible y SEAL_DB_URL vacia. "
+            f"causa original: {_exc!r}"
+        ) from _exc
 MESSAGES_DIR = Path(__file__).parent
 CHECKPOINT_DIR = MESSAGES_DIR / "checkpoints"
 CHECKPOINT_DIR.mkdir(exist_ok=True)

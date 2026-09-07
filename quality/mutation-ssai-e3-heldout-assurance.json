@@ -1,0 +1,52 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "WEGENER isolated-copy fault injection plus pytest",
+  "workspace": "Exact staged E3 held-out source/catalog copied to ephemeral directories; no live ledger, witness, database or daemon touched",
+  "killed": 6,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 6,
+  "mutation_score_percent": 100.0,
+  "reviewer": "WEGENER",
+  "file_sha256": {
+    "docs/thesis/ssai/experiments/E3_HELDOUT_CASES.json": "26a016530cc426fa0f970757d3998304db87eefe07b768c8737e44bee8bc96a5",
+    "docs/thesis/ssai/experiments/E3_HELDOUT_EVIDENCE.json": "491be2db055901cb1abb51a73c7defe685e9e8526fdcad9a17970c18275c392a",
+    "docs/thesis/ssai/experiments/e3_heldout_assurance.py": "1ab2ff2c1e0cd036fc192e3636840f25eeb1af3ef927de064d0ed501d9dd0aea",
+    "tests/test_e3_heldout_assurance.py": "2649bbe964f7d6b69be938c4424cada95505ee4225ef988100dc1a972628cb46"
+  },
+  "mutants": [
+    {
+      "id": "crypto-verifier-bypass-copy",
+      "result": "killed",
+      "evidence": "mutant sha256 4d84acc321cd06764a74dea3c20de9dead71fe74daba74ef03c033429b9841c0; 5/8 detected; exit 1"
+    },
+    {
+      "id": "ledger-verifier-bypass-copy",
+      "result": "killed",
+      "evidence": "mutant sha256 831d823dfd62cbf79943a7507caf20e845a609f58a2ea7a74f74ce251534aeb4; 5/8 detected; exit 1"
+    },
+    {
+      "id": "witness-verifier-bypass-copy",
+      "result": "killed",
+      "evidence": "mutant sha256 9c795321ad5487f1d0598b37974a36c46f33c25dc6e0973a0e3c14509cf036b0; 6/8 detected; exit 1"
+    },
+    {
+      "id": "catalog-hash-tamper-copy",
+      "result": "killed",
+      "evidence": "load failed closed with held-out case set hash mismatch; exit 1"
+    },
+    {
+      "id": "reviewer-detector-map-drift-rehashed",
+      "result": "killed",
+      "evidence": "reviewer-originated catalog sha256 3751bb7a04e1e1200b4729a0440e6d6935bbac2e4fe7276da160cdeb5051bb02; 3 pytest failures"
+    },
+    {
+      "id": "reviewer-case-omission-rehashed",
+      "result": "killed",
+      "evidence": "reviewer-originated catalog sha256 c3990283c871a95f2f0e616ea4fbb8fc0b0a23a0316b02f49b7f39a823494918; 3 pytest failures"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded: ~
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 0.5
+      Plane Cell Count: 20
+      Color: 160; 160; 164
+    - Class: rviz_default_plugins/LaserScan
+      Name: LaserScan (/scan)
+      Enabled: true
+      Topic:
+        Value: /scan
+        Depth: 5
+        Reliability Policy: Best Effort
+        History Policy: Keep Last
+      Style: Points
+      Size (m): 0.02
+      Color: 255; 255; 255
+      Color Transformer: FlatColor
+    - Class: rviz_default_plugins/PoseArray
+      Name: Cajas censadas (/cajas_avistadas_pos)
+      Enabled: true
+      Topic:
+        Value: /cajas_avistadas_pos
+        Depth: 5
+        Reliability Policy: Reliable
+        History Policy: Keep Last
+      Shape: Axes
+      Axes Length: 0.2
+      Axes Radius: 0.03
+      Color: 255; 25; 0
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+  Global Options:
+    Fixed Frame: odom
+    Background Color: 48; 48; 48
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/FocusCamera
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: TopDown
+      Scale: 90
+      Angle: 0
+      X: 0
+      Y: 0
+Window Geometry:
+  Height: 800
+  Width: 1200

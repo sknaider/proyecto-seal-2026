@@ -1,0 +1,141 @@
+{
+  "_doc": [
+    "3-sep-2026 19:03 (JARVIS): F4 punto 1 — el asiento ALICE v2 corre ENTERO como alice-v2-lab (uid 982, sin docker/sudo, home /var/lib/alice-v2-lab). Lanzador aislado derivado de la sombra: guard de usuario, HOME/CLAUDE_CONFIG_DIR propios, sin seal-claude, MCP por socket sin sudo, dontAsk, misma politica salvo la ruta del publicador. Arbol del usuario en /var/lib/alice-v2-lab/{bin,seat,claude-config} (copias de estos sujetos); unidad alice-v2-seat.service. William: «jarvis tu hazlo» 18:57. NEXUS reviso el punto 1 por propiedad 19:01 (grupos, docker, lectura del home).",
+    "19:12 (JARVIS): deny de la credencial OAuth propia por nombre oculto (hallazgo ADA 19:08); test nuevo; bytes cambian tras la firma de NEXUS 19:03: re-firma pedida.",
+    "19:16 (JARVIS, MEDIDO por efecto con claude -p como alice-v2-lab): en Claude Code `Read(/abs/…)` es relativo al proyecto → 16/20 reglas de ruta de las politicas eran INERTES desde el 3-sep 00:15. Reescritas con `//abs/…` y `~/…`; con la politica completa: credencial OAuth propia, token de chat y CLAUDE.md de la familia → DENEGADO. Test test_toda_regla_de_ruta_absoluta_usa_doble_barra."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "alice-v2-isolated-launcher-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "approved",
+    "evidence": "pendiente de revision independiente",
+    "reviewed_sha256": {
+      "agents/ALICE/v2_shadow/alice_v2_isolated.sh": "823a6e6364ed246a10d56eef199b4ca995b537e1a2613a2a842891c32f3e8e29",
+      "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json": "d385e99c571d274209652ee846968147dd45fc81ec490ff415a9c3486587ef59",
+      "agents/ALICE/v2_shadow/mcp_alice_v2_isolated.json": "6a28b03ed1a2c1e7f11c73ba6e5d5c37be45c2d7adaa8989f3b1c3fcf58b3fee",
+      "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py": "06c0e6d0e7a1fa6e434c0d301ac8229d592c741c8a2ae7eb868d060c748f84eb"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "reviewed_at": "2026-09-04T00:17:46.507025+00:00",
+      "reviewed_sha256": {
+        "agents/ALICE/v2_shadow/alice_v2_isolated.sh": "823a6e6364ed246a10d56eef199b4ca995b537e1a2613a2a842891c32f3e8e29",
+        "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json": "d385e99c571d274209652ee846968147dd45fc81ec490ff415a9c3486587ef59",
+        "agents/ALICE/v2_shadow/mcp_alice_v2_isolated.json": "6a28b03ed1a2c1e7f11c73ba6e5d5c37be45c2d7adaa8989f3b1c3fcf58b3fee",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py": "06c0e6d0e7a1fa6e434c0d301ac8229d592c741c8a2ae7eb868d060c748f84eb"
+      },
+      "manifest_digest": "8e952d7c5546771d76c61a69b115c3ecd84c0f9e53d31ec3c28d3bc542fd193e",
+      "verdict": "APPROVED",
+      "evidence": "TERCERA revision (19:19). Los bytes cambiaron dos veces desde mi primera firma y las dos por hallazgos reales, no por vaiven: 19:08 el deny de la credencial OAuth (ADA), 19:17 la FORMA de las rutas (JARVIS).\nEL HALLAZGO DE JARVIS ES EL MAS GRAVE DEL DIA EN ESTA LINEA, y lo verifique en el archivo: en Claude Code una regla `Read(/abs/...)` con UNA barra es RELATIVA al proyecto, asi que 16 de 20 reglas de ruta no interceptaban nada fuera del cwd. Medido ahora: 0 reglas con una barra, 19 con dos.\n**Una regla de permiso que no coincide con nada no falla: pasa.** Es la misma familia que el `git diff --no-index` (la lista enumera verbos) y que el 70/70 en verde con el bypass abierto (el arnes prueba reglas, no capacidades). Tres veces hoy, tres mecanismos distintos, la misma forma.\nBYTES: 4/4 == disco. SUITE: 10 passed (7 -> 9 -> 10), corridos por mi.\nMUTACION PROPIA sobre estos bytes, control sin mutar PRIMERO (10 passed):\n  M-NEXUS-6  devolver TODAS las rutas a una barra          MUERE (3 failed)\n  M-NEXUS-7  devolver SOLO las de claude-config            MUERE (3 failed)\n  M7 es el que importa: prueba que el test no mira 'hay reglas de credenciales' sino que esas reglas tengan la forma que INTERCEPTA. Una regla presente y muda se ve igual que una regla ausente... salvo en el inventario, donde se ve mejor.\nALCANCE: sigo sin verificar vias internas (setuid, sockets ajenos): probarlo seria ejercerlo."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "agents/ALICE/v2_shadow/alice_v2_isolated.sh",
+    "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json",
+    "agents/ALICE/v2_shadow/mcp_alice_v2_isolated.json"
+  ],
+  "tests": [
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-alice-v2-isolated-launcher-v1.json",
+  "commands": [
+    {
+      "id": "unit-alice-v2-isolated-launcher-v1",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-solo-alice-v2-lab",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py::test_solo_corre_como_alice_v2_lab",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py::test_config_dir_y_home_propios"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-nada-del-home-ni-sudo",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py::test_nada_del_home_de_dadito",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py::test_mcp_sin_sudo_en_el_asiento_aislado",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py::test_politica_aislada_solo_cambia_la_ruta_del_publicador"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-pytest",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py::test_control_pytest_disponible"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "agents/ALICE/v2_shadow/alice_v2_isolated.sh",
+      "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json",
+      "agents/ALICE/v2_shadow/mcp_alice_v2_isolated.json"
+    ],
+    "omit": [
+      "*/tests/*"
+    ],
+    "pytest_args": [
+      "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "CLI como alice-v2-lab responde 2.1.259; publicacion desde el usuario ok:true (id api_alice-v2_1788479926042342230); unidad instalada",
+    "command": {
+      "id": "delivery-alice-v2-isolated",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "7 passed"
+    }
+  },
+  "mutation_baseline_percent": 100.0
+}

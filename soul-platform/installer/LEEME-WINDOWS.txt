@@ -1,4 +1,4 @@
-SOUL PLATFORM 0.4.0 — INSTALACION EN WINDOWS
+SOUL PLATFORM 0.5.0 — INSTALACION EN WINDOWS
 ==============================================
 
 Requisitos:
@@ -19,8 +19,7 @@ El instalador:
 - no pide administrador ni modifica el Python del sistema;
 - conserva identidad y memorias al actualizar o reinstalar;
 - escucha solamente en 127.0.0.1:11435 y exige token.
-- instala la interfaz de bandeja para prender/apagar el alma, elegir un modelo
-  Ollama y copiar el endpoint/token sin usar la terminal.
+- instala SOUL Tray al iniciar sesion como el usuario normal, nunca SYSTEM.
 
 Si no detecta un modelo Ollama, instala el programa sin arrancar el proxy. Luego:
 

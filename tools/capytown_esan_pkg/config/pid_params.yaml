@@ -1,0 +1,16 @@
+# CapyTown — Ganancias del controlador PID y misión.
+# Sintoniza UN parámetro por prueba (primero kp, luego kd, al final ki),
+# grabando un ros2 bag por cada cambio.
+lane_controller:
+  ros__parameters:
+    kp: 2.5              # proporcional (muy alto -> zigzag; muy bajo -> tarda)
+    ki: 0.0             # integral (activar solo si hay sesgo sostenido: 0.01-0.1)
+    kd: 0.3             # derivativo (amortigua; muy alto amplifica ruido)
+    linear_speed: 0.22  # m/s (mínimo del reto 0.20; 0.22 deja margen)
+    max_angular: 2.0    # rad/s (saturación de omega)
+    integral_limit: 0.5 # anti-windup del término integral
+    error_timeout: 0.5  # s sin /lane_error -> frena por seguridad
+    control_rate: 30.0  # Hz del lazo
+    num_vueltas: 3      # RC-2 exige 3 vueltas autónomas
+    metros_por_vuelta: 6.4
+    odom_topic: "/odom" # verifica con: ros2 topic list | grep -i odom

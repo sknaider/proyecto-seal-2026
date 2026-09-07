@@ -1,0 +1,10 @@
+[Unit]
+Description=SOUL Dream Cycle — Morning (7am Lima = 12:00 UTC)
+
+[Timer]
+OnCalendar=*-*-* 12:00:00
+Persistent=true
+Unit=seal-dream-cycle@morning.service
+
+[Install]
+WantedBy=timers.target

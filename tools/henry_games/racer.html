@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SEAL Racer 🏎️</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0f1a;color:#e2e8f0;font-family:system-ui,Segoe UI,sans-serif;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;user-select:none;}
+  h1{font-size:1rem;letter-spacing:.05em;margin:.4rem 0;color:#38bdf8;}
+  #wrap{position:relative;}
+  canvas{background:#1b2233;border:2px solid #334155;border-radius:12px;display:block;box-shadow:0 10px 40px rgba(0,0,0,.5);}
+  #hud{position:absolute;top:8px;left:10px;font-size:.85rem;font-weight:600;text-shadow:0 1px 2px #000;}
+  #hud .best{color:#fbbf24;}
+  #over{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(11,15,26,.82);border-radius:12px;text-align:center;}
+  #over h2{margin:.2rem;font-size:1.4rem;color:#fb7185;}
+  #over p{margin:.2rem;color:#94a3b8;}
+  button{margin-top:.7rem;background:#38bdf8;color:#062033;border:none;border-radius:9px;padding:.55rem 1.1rem;
+    font-weight:700;cursor:pointer;font-size:.95rem;}
+  .hint{color:#64748b;font-size:.72rem;margin-top:.4rem;}
+</style>
+</head>
+<body>
+<h1>🏎️ SEAL RACER</h1>
+<div id="wrap">
+  <canvas id="c" width="360" height="560"></canvas>
+  <div id="hud">Puntos: <span id="score">0</span> · Vel: <span id="spd">1.0</span>x<br><span class="best">Récord: <span id="best">0</span></span></div>
+  <div id="over">
+    <h2 id="oTitle">💥 ¡Chocaste!</h2>
+    <p>Puntaje: <b id="oScore">0</b></p>
+    <p id="oBest"></p>
+    <button id="again">Jugar de nuevo ⟳</button>
+    <div class="hint">← → (o A/D) para mover · toca los lados en móvil</div>
+  </div>
+</div>
+<div class="hint">Flechas ← → para esquivar. Cuanto más rápido, más puntos.</div>
+
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d");
+const W=c.width,H=c.height,LANES=3,LW=W/LANES;
+const CARW=42,CARH=70;
+let player,obs,score,speed,running,best=+(localStorage.getItem("sealracer_best")||0),roadY=0,spawnT=0,keys={};
+document.getElementById("best").textContent=best;
+function reset(){
+  player={lane:1,x:LW*1+LW/2-CARW/2,y:H-CARH-16};
+  obs=[];score=0;speed=1;running=true;roadY=0;spawnT=0;
+  document.getElementById("over").style.display="none";
+}
+function laneX(l){return l*LW+LW/2-CARW/2;}
+function rr(a,b){return a+Math.random()*(b-a);}
+function spawn(){
+  const lane=Math.floor(Math.random()*LANES);
+  const col=["#fb7185","#a78bfa","#34d399","#f59e0b"][Math.floor(Math.random()*4)];
+  obs.push({lane,x:laneX(lane),y:-CARH,col});
+}
+function carShape(px,py,body,cabin){
+  x.fillStyle=body;x.beginPath();x.roundRect(px,py,CARW,CARH,9);x.fill();
+  x.fillStyle=cabin;x.beginPath();x.roundRect(px+7,py+12,CARW-14,22,5);x.fill();
+  x.fillStyle="#0b0f1a";x.fillRect(px+4,py+CARH-14,6,10);x.fillRect(px+CARW-10,py+CARH-14,6,10);
+  x.fillRect(px+4,py+6,6,10);x.fillRect(px+CARW-10,py+6,6,10);
+}
+function loop(){
+  if(!running)return;
+  x.clearRect(0,0,W,H);
+  // road + lane dashes
+  roadY=(roadY+speed*4)%40;
+  x.strokeStyle="#3b4763";x.lineWidth=3;x.setLineDash([18,22]);
+  for(let l=1;l<LANES;l++){x.beginPath();x.moveTo(l*LW,roadY-40);x.lineTo(l*LW,H);x.stroke();}
+  x.setLineDash([]);
+  // move player toward target lane
+  const tx=laneX(player.lane);player.x+=(tx-player.x)*0.35;
+  // obstacles
+  spawnT-=speed; if(spawnT<=0){spawn();spawnT=rr(48,84)/Math.min(speed,2.2);}
+  for(const o of obs){o.y+=speed*4.2; carShape(o.x,o.y,o.col,"#0b0f1a");}
+  obs=obs.filter(o=>{
+    if(o.y>H){score++;return false;}
+    // collision
+    if(Math.abs(o.x-player.x)<CARW-8 && o.y+CARH>player.y+8 && o.y<player.y+CARH-8){gameOver();}
+    return true;
+  });
+  carShape(player.x,player.y,"#38bdf8","#bae6fd");
+  speed=1+score*0.02;
+  document.getElementById("score").textContent=score;
+  document.getElementById("spd").textContent=speed.toFixed(1);
+  requestAnimationFrame(loop);
+}
+function gameOver(){
+  running=false;
+  if(score>best){best=score;localStorage.setItem("sealracer_best",best);document.getElementById("oTitle").textContent="🏆 ¡Nuevo récord!";}
+  else document.getElementById("oTitle").textContent="💥 ¡Chocaste!";
+  document.getElementById("best").textContent=best;
+  document.getElementById("oScore").textContent=score;
+  document.getElementById("oBest").textContent="Récord: "+best;
+  document.getElementById("over").style.display="flex";
+}
+function move(dir){if(!running)return;player.lane=Math.max(0,Math.min(LANES-1,player.lane+dir));}
+addEventListener("keydown",e=>{
+  if(["ArrowLeft","a","A"].includes(e.key))move(-1);
+  if(["ArrowRight","d","D"].includes(e.key))move(1);
+});
+c.addEventListener("pointerdown",e=>{const r=c.getBoundingClientRect();move(e.clientX-r.left<W/2?-1:1);});
+document.getElementById("again").addEventListener("click",()=>{reset();loop();});
+reset();loop();
+</script>
+</body>
+</html>

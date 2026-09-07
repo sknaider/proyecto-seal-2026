@@ -1,0 +1,152 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "checkpoint-g2-tarea-decisiones-20260907",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "_doc": [
+    "G2 del spec de William (§12): «reconstruccion correcta de identidad, TAREA Y",
+    "DECISIONES tras reinicio». Medido por mi el 7-sep en",
+    "agents/NEXUS/baseline_alice_v1_gates_20260907.md: el checkpoint guardaba QUIEN",
+    "es el agente (ocean, emotional_state, 20 memorias) y CERO campos de tarea o",
+    "decision. G2 quedaba en 1 de 3 por AUSENCIA, no por error.",
+    "",
+    "QUE HACE: agrega `tareas_activas` (agent_tasks in_progress) y",
+    "`decisiones_recientes` (memories category='decision', 24 h) al checkpoint, DETRAS",
+    "DE UNA BANDERA APAGADA POR DEFECTO (SEAL_CHECKPOINT_G2), como exige la spec de",
+    "ALICE v2: cada capa entra por bandera, con prueba diferencial y rollback.",
+    "",
+    "DEFECTO VIEJO QUE ARREGLA DE PASO: `active_agents` recorria [ADA, JARVIS,",
+    "JARVIS_MAYOR], asi que NEXUS, ALICE y FABLE nunca aparecian en ningun checkpoint",
+    "— el campo afirmaba que no estaban. Ahora son los siete nombres.",
+    "",
+    "MI ARENA ESTUVO ROTA Y LO DIGO: la primera tanda de mutantes corrio sobre un",
+    "control en 6 failed (ModuleNotFoundError: seal_secrets faltaba en la copia).",
+    "Un mutante sobre una base roja no distingue 'murio' de 'la copia nunca corrio'.",
+    "Copie la dependencia y recien entonces conte.",
+    "",
+    "HUECO ENCONTRADO POR LA REVISORA (ALICE, 7-sep 00:10) Y CERRADO: su mutante",
+    "cambiaba `agent = $1` por `($1 IS NOT NULL)` — perdia el scope y CONSERVABA la",
+    "aridad. SOBREVIVIA a mis 4. Si el filtro se rompe, el checkpoint de UNO se lleva",
+    "las tareas en curso de TODOS. Mis mutantes atacaban SI la capa funciona; el suyo,",
+    "EL ALCANCE de lo que trae. Dos ejes distintos.",
+    "El arreglo no es un assert sobre el SQL: el fake ahora EMULA a la base (si la",
+    "consulta no acota, devuelve las filas de todos los agentes), asi el mutante cambia",
+    "la salida y muere por efecto."
+  ],
+  "deletions": [],
+  "subjects": [
+    "messages/session_checkpoint.py"
+  ],
+  "tests": [
+    "messages/tests/test_checkpoint_tarea_decisiones_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-checkpoint-g2",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py"
+      ]
+    },
+    {
+      "id": "positive-la-capa-encendida-trae-tarea",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_el_checkpoint_guarda_QUE_ESTABA_HACIENDO",
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_el_checkpoint_guarda_QUE_DECIDIO"
+      ]
+    },
+    {
+      "id": "negative-apagada-por-defecto-y-diferencial",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_la_bandera_esta_APAGADA_por_defecto",
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_DIFERENCIAL_sin_la_capa_el_checkpoint_NO_trae_tarea"
+      ]
+    },
+    {
+      "id": "control-el-campo-no-se-llena-solo",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_CONTROL_no_vacuo_el_campo_no_aparece_por_casualidad"
+      ]
+    },
+    {
+      "id": "control-alcance-sin-fuga-entre-agentes",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_checkpoint_tarea_decisiones_v1.py::test_las_tareas_son_SOLO_del_agente_del_checkpoint"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages"
+    ],
+    "omit": [
+      "messages/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "messages/tests/test_checkpoint_tarea_decisiones_v1.py"
+    ],
+    "baseline_percent": 1.0,
+    "timeout": 300,
+    "_como_se_obtiene": "coverage run --source=messages --omit=... ; el gate compara el TOTAL del alcance, no la fila del sujeto. Medido a mano antes de pedir firma."
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "messages/tests/test_checkpoint_tarea_decisiones_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-checkpoint-g2-20260907.json",
+  "delivery": {
+    "status": "verified",
+    "evidence": "Probado POR EFECTO con el binario real, no con una copia. Bandera APAGADA (default): el checkpoint de NEXUS no trae `tareas_activas` ni menciona tareas en el summary. Bandera ENCENDIDA (SEAL_CHECKPOINT_G2=1): 7 tareas reales de agent_tasks y 4 decisiones reales, y el summary las nombra. Mismo comando, misma sesion, lo unico que cambia es la capa.",
+    "command": {
+      "id": "delivery-checkpoint-g2",
+      "kind": "delivery",
+      "expected_exit": 0,
+      "argv": [
+        "bash",
+        "-c",
+        "set -e; cd /home/dadito/IA/proyecto-seal; python3 messages/session_checkpoint.py --agent NEXUS >/dev/null; python3 -c \"import json,sys; d=json.load(open('messages/checkpoints/nexus_latest.json')); assert 'tareas_activas' not in d, 'la capa apagada trajo el campo'\"; SEAL_CHECKPOINT_G2=1 python3 messages/session_checkpoint.py --agent NEXUS >/dev/null; python3 -c \"import json,sys; d=json.load(open('messages/checkpoints/nexus_latest.json')); assert isinstance(d.get('tareas_activas'), list), 'la capa encendida NO trajo el campo'; print('G2_DIFERENCIAL_OK')\""
+      ],
+      "expected_stdout_contains": "G2_DIFERENCIAL_OK"
+    }
+  },
+  "review": {
+    "status": "pending",
+    "_solicitado_a": "ALICE",
+    "_motivo": "JARVIS (orquestador) designo a ALICE como revisora independiente. NEXUS es el owner y no puede firmarse."
+  }
+}

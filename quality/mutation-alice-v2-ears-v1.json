@@ -1,0 +1,225 @@
+{
+  "total": 15,
+  "detectados": 15,
+  "mutantes": [
+    {
+      "mutante": "wrapper filtra como ALICE-V2 (agente inexistente)",
+      "detectado": true
+    },
+    {
+      "mutante": "wrapper escribe en el log de v1",
+      "detectado": true
+    },
+    {
+      "mutante": "wrapper acepta 0644 (DM descifrados legibles por todos)",
+      "detectado": true
+    },
+    {
+      "mutante": "wrapper sin flock (deja de ser singleton)",
+      "detectado": true
+    },
+    {
+      "mutante": "wrapper con umask abierto",
+      "detectado": true
+    },
+    {
+      "mutante": "launcher vuelve al modo consulta",
+      "detectado": true
+    },
+    {
+      "mutante": "launcher apunta el Monitor al log de v1",
+      "detectado": true
+    },
+    {
+      "mutante": "launcher sin persistent:true",
+      "detectado": true
+    },
+    {
+      "mutante": "launcher publica por seal_send en vez de la tool",
+      "detectado": true
+    },
+    {
+      "mutante": "auto-boot arranca el poll antes del Monitor",
+      "detectado": true
+    },
+    {
+      "mutante": "politica: vuelve el deny de tail",
+      "detectado": true
+    },
+    {
+      "mutante": "politica: se cae el allow exacto",
+      "detectado": true
+    },
+    {
+      "mutante": "politica: allow amplio de tail",
+      "detectado": true
+    },
+    {
+      "mutante": "unidad no reinicia sola",
+      "detectado": true
+    },
+    {
+      "mutante": "unidad ejecuta otro programa",
+      "detectado": true
+    }
+  ],
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "alice-v2-ears-v1",
+  "reviewer": "NEXUS",
+  "subject": "messages/seal_alice_v2_ears.sh",
+  "harness": [
+    "/home/dadito/IA/seal-spark/.venv/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "agents/ALICE/v2_shadow/tests"
+  ],
+  "control_sujeto_sin_mutar": {
+    "donde": "arbol de trabajo, sujetos restaurados tras cada mutante",
+    "observed": "131 passed",
+    "por": "JARVIS",
+    "result": "GREEN"
+  },
+  "file_sha256": {
+    "messages/seal_alice_v2_ears.sh": "d783a09e6da0648501444b111e20ea94a58f3a5eac6b4e3440ae180599be8d62",
+    "agents/ALICE/v2_shadow/alice_v2_isolated.sh": "c9ee6d03d367597237dbed7f1f82304b2b0b17352b8addede746d816ac3b1a48",
+    "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json": "162f603fd0e455a0e178c3fdbb9308283787cc3dd20f0bb2cb79eeb3c273294c",
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_ears_v1.py": "c8d9c48f4b4687c05c318756ad60a29c6a7eb9b5f73a8a40b6e34477f6d5d62d",
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py": "bcce70da35d2bc2442ed29d781c67c7d807f2988521f639e6be32afa22aeb17f"
+  },
+  "killed": 15,
+  "survived": 0,
+  "mutation_score_percent": 100.0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutants": [
+    {
+      "id": "wrapper filtra como ALICE-V2 (agente inexistente)",
+      "author": "JARVIS",
+      "mutation": "wrapper filtra como ALICE-V2 (agente inexistente)",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "wrapper escribe en el log de v1",
+      "author": "JARVIS",
+      "mutation": "wrapper escribe en el log de v1",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "wrapper acepta 0644 (DM descifrados legibles por todos)",
+      "author": "JARVIS",
+      "mutation": "wrapper acepta 0644 (DM descifrados legibles por todos)",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "wrapper sin flock (deja de ser singleton)",
+      "author": "JARVIS",
+      "mutation": "wrapper sin flock (deja de ser singleton)",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "wrapper con umask abierto",
+      "author": "JARVIS",
+      "mutation": "wrapper con umask abierto",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "launcher vuelve al modo consulta",
+      "author": "JARVIS",
+      "mutation": "launcher vuelve al modo consulta",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "launcher apunta el Monitor al log de v1",
+      "author": "JARVIS",
+      "mutation": "launcher apunta el Monitor al log de v1",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "launcher sin persistent:true",
+      "author": "JARVIS",
+      "mutation": "launcher sin persistent:true",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "launcher publica por seal_send en vez de la tool",
+      "author": "JARVIS",
+      "mutation": "launcher publica por seal_send en vez de la tool",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "auto-boot arranca el poll antes del Monitor",
+      "author": "JARVIS",
+      "mutation": "auto-boot arranca el poll antes del Monitor",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "politica: vuelve el deny de tail",
+      "author": "JARVIS",
+      "mutation": "politica: vuelve el deny de tail",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "politica: se cae el allow exacto",
+      "author": "JARVIS",
+      "mutation": "politica: se cae el allow exacto",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "politica: allow amplio de tail",
+      "author": "JARVIS",
+      "mutation": "politica: allow amplio de tail",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "unidad no reinicia sola",
+      "author": "JARVIS",
+      "mutation": "unidad no reinicia sola",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    },
+    {
+      "id": "unidad ejecuta otro programa",
+      "author": "JARVIS",
+      "mutation": "unidad ejecuta otro programa",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia el comportamiento observable de los oidos o de su aislamiento"
+    }
+  ],
+  "artefactos_fuera_del_repo": {
+    "_doc": "La unidad de usuario no la rastrea git: su hash se anota aparte para no ensuciar el bloque que el gate ata a HEAD.",
+    "sha256": {
+      "/home/dadito/.config/systemd/user/seal-alice-v2-ears.service": "7552d930b0a5b436e9f213daf2e8ee6acd61cc7b590d6b932286147ace1e2de9"
+    }
+  }
+}

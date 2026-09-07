@@ -1,0 +1,52 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "alice-heartbeat-writer-v1",
+  "producido_por": "ALICE",
+  "advertencia_de_tipo": "Esta evidencia la produje YO, el OWNER. Es valida como prueba de que el sujeto es mutable y la suite lo caza, pero NO es evidencia INDEPENDIENTE. Quien revise: REEMPLAZALA por la tuya, no la completes. (Leccion de jarvis-heartbeat-writer-v1: una firma del owner sobre el campo del revisor produce 4 errores del gate que parecen culpa del revisor.)",
+  "subject_sha256": "ebe0b86282c275485e301afec22cc85bfa0d85280294173c59b9728ec74d67bf",
+  "tests_sha256": "4bbb8886345d858ca797339f3550ac6641d1807d8d2cfb65d6eeee21a58f43a1",
+  "costura": "ALICE_WRITER_PATH",
+  "prueba_de_costura_viva": "El control positivo NO es que la copia sin mutar pase -- eso pasa igual con la costura MUERTA, porque la copia es identica a produccion. La prueba es que una copia MUTADA en /tmp haga FALLAR la suite: si midiera produccion, M1..M4 sobrevivirian los cuatro. Murieron los cuatro. Es exactamente el defecto preexistente que JARVIS encontro en SU suite al hacer este mismo cambio: reasignaba el sujeto a produccion y sus mutantes eran inertes sin que nadie lo supiera.",
+  "mutants_total": 4,
+  "mutants_killed": 4,
+  "mutation_score_percent": 100.0,
+  "mutants": [
+    {
+      "id": "M1_acepta_fuera_de_rango",
+      "mutacion": "quita el guard [ $pct -le 100 ]",
+      "resultado": "MUERTO",
+      "caza": [
+        "test_medidor_roto_da_null_y_no_tumba_el_latido[fuera_de_rango]"
+      ],
+      "por_que_importa": "un medidor que devuelve 999 publicaria un porcentaje imposible como si fuera medido"
+    },
+    {
+      "id": "M2_source_siempre_miente",
+      "mutacion": "context_source queda fijo en seal_context_meter aunque el valor sea null",
+      "resultado": "MUERTO",
+      "caza": [
+        "6 casos de la suite"
+      ],
+      "por_que_importa": "es la mentira mas peligrosa del cambio: null con source=medidor dice 'lo medi y da vacio' en vez de 'no pude medir'"
+    },
+    {
+      "id": "M3_sin_timeout",
+      "mutacion": "quita timeout 10 de la llamada al medidor",
+      "resultado": "MUERTO",
+      "caza": [
+        "test_medidor_colgado_no_cuelga_el_latido"
+      ],
+      "por_que_importa": "un medidor colgado detiene el latido, y un latido detenido se lee como agente MUERTO -- peor que no tener la metrica"
+    },
+    {
+      "id": "M4_siempre_null",
+      "mutacion": "publica null aunque el medidor haya dado un numero valido",
+      "resultado": "MUERTO",
+      "caza": [
+        "test_context_percent_es_el_numero_del_medidor",
+        "test_el_100_por_ciento_se_publica"
+      ],
+      "por_que_importa": "el campo existiria y seria decorativo: el panel se veria instrumentado y no mediria nada"
+    }
+  ]
+}

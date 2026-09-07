@@ -1,0 +1,4 @@
+interface:
+  display_name: "Guarded Tool Recovery"
+  short_description: "Recover failed arithmetic tool workflows safely"
+  default_prompt: "Use $guarded-tool-recovery to recover a failed arithmetic workflow using only trusted values."

@@ -1,0 +1,7 @@
+[Unit]
+Description=SEAL SOUL instrumentation freshness health check
+
+[Service]
+Type=oneshot
+ExecStart=/home/dadito/IA/proyecto-seal/fable/instrumentation_health_timer.sh
+Nice=10

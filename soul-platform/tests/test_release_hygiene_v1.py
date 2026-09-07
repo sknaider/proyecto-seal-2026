@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import re
+import tomllib
 from importlib.metadata import version
 from pathlib import Path
 
-import soul_framework
 import soul_platform
-import tomllib
+import soul_framework
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,18 +32,12 @@ def test_release_surface_has_no_seal_internals_or_secret_forms():
     patterns = {
         "home_path": re.compile("/home/" + "dadito"),
         "monorepo": re.compile("proyecto-" + "seal"),
-        "internal_role": re.compile(
-            "mcp_runtime_(?:" + "ada|alice|jarvis|nexus|fable)"
-        ),
+        "internal_role": re.compile("mcp_runtime_(?:" + "ada|alice|jarvis|nexus|fable)"),
         "lan_ip": re.compile(r"\b192\.168\." + r"68\.\d+\b"),
         "credentialed_dsn": re.compile(r"postgres(?:ql)?://[^\s:/]+:[^\s@]+@"),
         "private_key": re.compile(r"BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY"),
     }
-    files = [
-        ROOT / "README.md",
-        ROOT / "pyproject.toml",
-        ROOT / "installer/soul-install.sh",
-    ]
+    files = [ROOT / "README.md", ROOT / "pyproject.toml", ROOT / "installer/soul-install.sh"]
     files.extend(path for path in (ROOT / "src").rglob("*.py") if path.is_file())
     files.extend(path for path in (ROOT / "tests").rglob("*.py") if path.is_file())
     offenders = []

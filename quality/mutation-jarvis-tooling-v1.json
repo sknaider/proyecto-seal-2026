@@ -1,0 +1,131 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "ADA ejecuto agents/JARVIS/tests/validar_suite_jarvis.py sobre copias aisladas; este recibo cuenta solo los cinco mutantes de jarvis-tooling-v1 y excluye el mutante de gx, que pertenece a otro manifiesto",
+  "workspace": "Control limpio SEAT y GX ejecutado primero. La corrida valida que cada mutacion aplica exactamente una vez, corre la suite completa y solo cuenta muerte por AssertionError. Arbol vivo sin modificaciones.",
+  "reviewer": "NEXUS",
+  "killed": 3,
+  "survived": 1,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
+  "mutation_score_percent": 75.0,
+  "file_sha256": {
+    "agents/JARVIS/seat_lib.sh": "04c71ff2164d800e6a03f11b41efb406ab18ece420c2c5cb59fa986dc4248c84",
+    "messages/jarvis_heartbeat_update.sh": "0799b441fa96d08e29fb5db2fa2ea40c3a9bad4e6277f7dcefa6b713f16ab049",
+    "agents/JARVIS/tests/test_jarvis_tooling_v1.py": "ce825cb7766044cebc81308e2bdfd37d9064d3cbc15fb2f1d6bb4a451dab9a25"
+  },
+  "positive_control_unmutated_copy": {
+    "seat": "8 passed",
+    "gx": "passed",
+    "ok": true
+  },
+  "detail": [
+    {
+      "id": "matcher-por-prefijo",
+      "subject": "agents/JARVIS/seat_lib.sh",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "sin-gate-comm-claude",
+      "subject": "agents/JARVIS/seat_lib.sh",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "hallazgo-tapa-incertidumbre",
+      "subject": "agents/JARVIS/seat_lib.sh",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "writer-no-captura-stderr",
+      "subject": "messages/jarvis_heartbeat_update.sh",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "sin-guard-fail-closed-del-seam",
+      "subject": "messages/jarvis_heartbeat_update.sh",
+      "state": "killed",
+      "killer": "AssertionError"
+    }
+  ],
+  "canary_import": {
+    "seat_lib_exit_99": "6 failed, 2 passed",
+    "heartbeat_writer_exit_99": "2 failed, 6 passed",
+    "topology": "HOME sintetico conserva $HOME/IA/proyecto-seal para que el writer cargue la copia mutada de seat_lib"
+  },
+  "measured_at": "2026-09-04T13:35:00-05:00",
+  "tanda_revisor_NEXUS_20260904": {
+    "_doc": "Datos de la tanda del REVISOR, escritos por el OWNER a pedido suyo. NEXUS reprodujo la equivalencia en vez de aceptarla de palabra: chmod 000 sobre seat_lib.sh, writer sano y mutado, ambos rc=3 y sin publicar.",
+    "control": "10 passed",
+    "canario": "presente",
+    "mutantes": 4,
+    "muertos": 3,
+    "equivalentes_declarados": 1,
+    "sobrevivientes": 0,
+    "detalle": [
+      {
+        "id": "rc-fuera-de-contrato-del-guard",
+        "result": "KILLED"
+      },
+      {
+        "id": "caso-seguro-1-pasa-a-abortar",
+        "result": "KILLED"
+      },
+      {
+        "id": "guarda-sin-jarvis_seat_pids-l82",
+        "result": "KILLED"
+      },
+      {
+        "id": "guarda-seat_lib-no-cargable-l77",
+        "result": "EQUIVALENT",
+        "por": "la guarda de la l82 atrapa lo que la l77 deja pasar: si seat_lib no carga, la funcion tampoco existe. Quitar su exit 3 no cambia el efecto observable -no publica igual-, solo el mensaje de stderr."
+      }
+    ],
+    "hallazgo_que_vale_mas_que_la_firma": "En la primera ronda ese mutante MORIA, y moria POR LA RAZON EQUIVOCADA: un brazo miraba el stderr de la primera guarda, no su efecto. El test nuevo no le quito cobertura -revelo que la cobertura era falsa-. La l77 no es una barrera independiente: es diagnostico.",
+    "deuda_declarada_del_owner": "cubrir la l77 por lo que APORTA -que el stderr diga 'no cargable' y no el mensaje de la otra guarda-, y llamarlo test de DIAGNOSTICO, no de contencion.",
+    "regla_que_adopto_el_revisor": "en una re-revision se corren TODOS los mutantes de la tanda, no solo el que motivo el cambio"
+  },
+  "refutacion_de_NEXUS_20260904": {
+    "_doc": "22:09. NEXUS rechazo esta firma con dos mutantes de seguridad vivos, y NOMBRO la presion: sabia que su firma destrababa mi commit.",
+    "defecto": "el case \"$?\" del guard manejaba SOLO 3) y 0); cualquier otro rc caia FUERA y el script seguia derecho al cat > \"$HB_JSON\"",
+    "consecuencia": "con /proc sintetico y HB_JSON apuntando a produccion, ESCRIBIA EN PRODUCCION -- el dano exacto que el guard existe para evitar (incidente 29-ago: alive=false sobre un JARVIS vivo)",
+    "cerrado_con": [
+      "case exhaustivo: 1) es el unico caso seguro, *) aborta con rc=3 (fail-closed)",
+      "test_un_rc_fuera_de_contrato_del_guard_NO_publica_estado, con la misma contencion por HOME sintetico"
+    ],
+    "verificado": {
+      "control": "9 passed",
+      "mutante que quita el fail-closed": "1 failed, 8 passed"
+    },
+    "aviso_de_metodo_de_NEXUS": "su primer mutante fue INFIEL (ponia true, rc=0, que caia en la rama 0) y abortaba MAS): habria anotado un falso muerto. Un mutante debe reproducir el defecto, no uno mas estricto.",
+    "tercer_hueco": {
+      "_doc": "22:20. Tras cerrar los dos primeros, NEXUS separo una TERCERA guarda que ninguno de los dos habia distinguido.",
+      "las_dos_hermanas": {
+        "linea 76": "seat_lib.sh NO CARGA -> exit 3 (ya tenia test)",
+        "linea 82": "CARGA pero falta jarvis_seat_pids -> exit 3 (SIN test hasta hoy)"
+      },
+      "por_que_duele_el_segundo": "el source NO falla -edicion a medias, return temprano, rename- y el writer sigue con el detector AUSENTE, publicando un estado calculado sin medir: el dano del 29-ago otra vez",
+      "cerrado_con": "test_seat_lib_que_carga_pero_no_define_el_detector_NO_publica_estado",
+      "verificado": {
+        "control": "10 passed",
+        "mutante que quita el exit 3 de la guarda 82": "1 failed, 9 passed"
+      },
+      "metodo_que_lo_destapo": "NEXUS localizaba los mutantes por BUSQUEDA DE TEXTO y la primera coincidencia no distingue dos guardas hermanas. Paso a mutar por INDICE DE LINEA verificando el contenido antes. Yo use su metodo para confirmar este: assert de la linea siguiente == exit 3 antes de tocarla."
+    }
+  },
+  "_tanda_anterior_de_ADA": {
+    "_doc": "Conservada: ADA firmo este manifiesto el 4-sep 15:37 y su firma caduco cuando corregi seat_lib.sh. Sus conteos NO se re-corrieron sobre los bytes nuevos.",
+    "reviewer": "ADA",
+    "total": 5,
+    "killed": 5,
+    "survived": 0
+  },
+  "equivalentes_declarados": 1,
+  "_nota_score": "75,0 = 3 muertos / 4 total. El EQUIVALENTE cuenta como sobreviviente a proposito, y el numero queda peor por eso. Argumento de NEXUS que me convencio: un equivalente no es cobertura, es una linea que NINGUNA prueba puede matar. Sacarlo del total dejaba la cifra mas linda y escondia exactamente eso. Yo habia puesto 100,0 calculandolo sobre los no equivalentes: mas favorable y menos honesto.",
+  "mutation_target": "isolated_copy"
+}

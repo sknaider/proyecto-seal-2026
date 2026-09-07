@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import tarfile
 import zipfile
 from pathlib import Path
 
@@ -24,6 +25,7 @@ def _fake_root(tmp_path: Path) -> tuple[Path, Path, Path]:
         '[project]\nname="soul-platform"\nversion="9.8.7"\n'
     )
     (installer / "Install-Soul.ps1").write_text("installer")
+    (installer / "Soul-Installer-Recovery.psm1").write_text("recovery")
     (installer / "Instalar-SOUL-Windows.bat").write_text("launcher")
     (installer / "LEEME-WINDOWS.txt").write_text("SOUL PLATFORM 9.8.7")
     wheel = tmp_path / "soul_platform-9.8.7-py3-none-any.whl"
@@ -47,6 +49,7 @@ def test_bundle_is_checksum_bound_and_deterministic(tmp_path):
         names = archive.namelist()
         assert names == [
             "Install-Soul.ps1",
+            "Soul-Installer-Recovery.psm1",
             "Instalar-SOUL-Windows.bat",
             "LEEME-WINDOWS.txt",
             wheel.name,
@@ -78,3 +81,26 @@ def test_bundle_rejects_wrong_core_wheel(tmp_path):
     wrong.write_bytes(b"wrong")
     with pytest.raises(ValueError, match="Core wheel 0.4.2"):
         MODULE.build_bundle(root, wheel, wrong, tmp_path / "bad-core.zip")
+
+
+def test_unix_bundle_is_deterministic_and_contains_verified_installer(tmp_path):
+    root, wheel, core_wheel = _fake_root(tmp_path)
+    (root / "installer" / "soul-install.sh").write_text("#!/bin/sh\necho SOUL\n")
+    first, second = tmp_path / "first.tar.gz", tmp_path / "second.tar.gz"
+    result = MODULE.build_unix_bundle(root, wheel, core_wheel, first)
+    MODULE.build_unix_bundle(root, wheel, core_wheel, second)
+    assert first.read_bytes() == second.read_bytes()
+    assert result["unix_bundle_sha256"] == hashlib.sha256(first.read_bytes()).hexdigest()
+    with tarfile.open(first, "r:gz") as archive:
+        members = archive.getmembers()
+        assert [member.name for member in members] == [
+            "bundle/soul-install.sh",
+            f"bundle/{wheel.name}",
+            f"bundle/{wheel.name}.sha256",
+            f"bundle/{core_wheel.name}",
+            f"bundle/{core_wheel.name}.sha256",
+        ]
+        assert members[0].mode == 0o755
+        checksum = archive.extractfile(f"bundle/{wheel.name}.sha256")
+        assert checksum is not None
+        assert checksum.read().decode().startswith(hashlib.sha256(b"wheel-bytes").hexdigest())

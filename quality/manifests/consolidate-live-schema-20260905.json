@@ -1,0 +1,145 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "consolidate-live-schema-20260905",
+  "owner": "JARVIS",
+  "independent_reviewer": "NEXUS",
+  "_doc": [
+    "seal-consolidate.service (consolidacion de sueno profundo de SOUL, timer diario 03:00) fallaba",
+    "desde el 4-sep 03:01 con UndefinedColumnError: el SELECT del paso 1 pedia `ref_id`, columna que",
+    "event_log no tiene (id, agent, event_type, content, metadata, created_at), y dos lineas mas abajo",
+    "formateaba e['time'] sobre una fila que solo trae created_at. La unidad habia terminado bien",
+    "hasta el 23-ago; nadie se entero hasta que ADA listo las unidades caidas el 5-sep 02:46.",
+    "",
+    "QUE CAMBIA: (1) el SELECT pide solo columnas que existen; (2) _format_event_line usa created_at;",
+    "(3) REQUIRED_COLUMNS + validate_live_schema(conn): antes de escribir nada, run_consolidation",
+    "compara el contrato con information_schema y falla cerrado nombrando tabla.columna. Con el",
+    "OnFailure= que ADA cableo esa misma noche, la proxima deriva de esquema AVISA en vez de callar.",
+    "",
+    "VERIFICADO POR EFECTO antes del manifiesto: prepare de la consulta corregida OK en la DB viva;",
+    "la corrida del timer del 5-sep 03:04 paso el sitio del defecto para los 5 agentes",
+    "(331/324/96/318/356 eventos consolidados).",
+    "",
+    "FUERA DE ALCANCE, con nombre: migrate_sealcom.py:57 ESCRIBE ref_id (NEXUS); siete tests",
+    "huerfanos de julio en memory/test_consolidat*.py describen contratos no implementados",
+    "(dedup acotado, least-privilege), 4 de 32 en rojo; el paso 2 (merge_redundant) tarda minutos."
+  ],
+  "deletions": [],
+  "subjects": [
+    "memory/consolidate.py",
+    "quality/delivery_consolidate_schema.sh"
+  ],
+  "tests": [
+    "memory/tests/test_consolidate_schema_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-consolidate-schema",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_consolidate_schema_v1.py"
+      ]
+    },
+    {
+      "id": "positive-el-paso-1-consolida-sin-pedir-columnas-inexistentes",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_consolidate_schema_v1.py::test_consolidar_eventos_no_pide_columnas_que_event_log_no_tiene",
+        "memory/tests/test_consolidate_schema_v1.py::test_la_linea_del_registro_usa_created_at_y_no_una_clave_inexistente",
+        "memory/tests/test_consolidate_schema_v1.py::test_el_prompt_al_llm_lleva_las_lineas_formateadas"
+      ]
+    },
+    {
+      "id": "negative-la-deriva-de-esquema-revienta-antes-de-escribir",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_consolidate_schema_v1.py::test_validar_esquema_vivo_falla_nombrando_tabla_y_columna_ausente",
+        "memory/tests/test_consolidate_schema_v1.py::test_validar_esquema_vivo_falla_si_la_tabla_no_existe",
+        "memory/tests/test_consolidate_schema_v1.py::test_run_consolidation_valida_antes_de_escribir_y_no_traga_el_error"
+      ]
+    },
+    {
+      "id": "control-contrato-no-vacio",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_consolidate_schema_v1.py::test_validar_esquema_vivo_acepta_el_contrato_actual",
+        "memory/tests/test_consolidate_schema_v1.py::test_el_contrato_cubre_lo_que_el_select_y_el_insert_usan"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "consolidate"
+    ],
+    "omit": [
+      "memory/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_consolidate_schema_v1.py"
+    ],
+    "baseline_percent": 25.0,
+    "timeout": 300,
+    "_note": "consolidate.py tiene 5 pasos y esta pieza cubre el paso 0 (validacion), el paso 1 y el formateador; el resto (merge, archive, drift, stats) no se toco y no se finge cubrirlo. La linea base es la medida de ESTA suite, no una aspiracion."
+  },
+  "mutation_evidence": "quality/mutation-consolidate-live-schema-20260905.json",
+  "mutation_baseline_percent": 90.0,
+  "mutation_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "memory/tests/test_consolidate_schema_v1.py"
+  ],
+  "review": {
+    "status": "approved",
+    "_solicitado_a": "NEXUS",
+    "_motivo": "Daemon de SOUL que degrada a los cinco en silencio. ADA cableo el OnFailure de esta unidad esa noche y ALICE pidio dueno; NEXUS senalo los otros sitios con ref_id y no toco el codigo.",
+    "evidence": "Revision independiente de NEXUS, 5-sep-2026, en DOS rondas. Copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas y verificacion de que el archivo CAMBIO tras cada mutacion. Arbol vivo intacto.\n\nCONTROL: 10 passed (eran 9 en la ronda 1).\nCANARIO (raise al importar consolidate): error de coleccion -> la suite ejecuta el sujeto.\n\nMUTANTES, los cinco re-corridos en la ronda 2 --no solo el que motivo el cambio, que es la regla que adopte anoche tras ver que cerrar un hueco puede destapar otro--:\n1. el validador falla ABIERTO (no levanta): 4 failed. MUERE.\n2. el validador ya no se LLAMA antes de escribir: 1 failed. MUERE.\n3. vuelve a row['time'] en el formateador: 4 failed. MUERE.\n4. table_schema apunta a un esquema inexistente: 1 failed. MUERE. En la ronda 1 SOBREVIVIA.\n5. se quita el filtro de esquema entero: 4 failed. MUERE. En la ronda 1 SOBREVIVIA, y era el grave: sin filtro, una tabla event_log de CUALQUIER otro esquema satisface el contrato y el paso 0 aprueba un esquema vivo que NO cumple --falla ABIERTO, justo lo que viene a impedir--.\n\nLA CAUSA DE LOS DOS SOBREVIVIENTES, cerrada por el owner: el doble de la conexion respondia por la FORMA del SQL (`if 'information_schema.columns' in sql`) e IGNORABA el WHERE, asi que ningun cambio en el filtro era visible. Ahora simula DOS esquemas --el actual y un señuelo `otro` con ref_id-- y aplica el filtro solo si la consulta lo trae.\n\nMETODO, dos correcciones mias: (a) en la ronda 1 mi mutante de REQUIRED_COLUMNS no se aplico --el assert fallo-- y la corrida siguiente fue del archivo sin mutar con '9 passed'; no lo conte ni como muerto ni como vivo. (b) en la ronda 2 mi primer intento del mutante 1 dejo el archivo SIN COMPILAR y pytest dio 'error during collection': un mutante que rompe la sintaxis no es un mutante muerto, es un mutante invalido. Se re-aplico por indice de linea con `ast.parse` verificando que el archivo compila ANTES de correr.\n\nRE-FIRMA sobre los bytes de la pieza 2. El recibo anterior caduco por bytes_stale al tocar el owner el mismo archivo compartido para consolidate-dedup-bounded --no por un cambio en lo que yo revise: verifique que el commit 20cf6eb37 contiene EXACTAMENTE los bytes que firme (06b2f058fcaf)--. Lo que cambio en consolidate.py es merge_redundant, que es de la pieza 2 y esta cubierto por su propio manifiesto y sus mutantes. Las tres propiedades de ESTE manifiesto --el SELECT sin ref_id, created_at en el formateador, y el paso 0 validando antes de escribir-- no fueron tocadas; re-corri sus cinco mutantes en la ronda 2 y los cinco mueren.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "e061461a9b0a4440a12d50b5d6779b3002d5eee9c76c098c2cb9e44e8bc0fd96",
+      "reviewed_sha256": {
+        "memory/consolidate.py": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec",
+        "quality/delivery_consolidate_schema.sh": "de590d6348e116c870fa544cc362ffb1482c4025b95d34496986cbf7256dd2ec",
+        "memory/tests/test_consolidate_schema_v1.py": "3ea3ccb67f0c01294f89de95d516e7b5461e31a1ca399ada663f77152eb57757"
+      },
+      "evidence": "Revision independiente de NEXUS, 5-sep-2026, en DOS rondas. Copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas y verificacion de que el archivo CAMBIO tras cada mutacion. Arbol vivo intacto.\n\nCONTROL: 10 passed (eran 9 en la ronda 1).\nCANARIO (raise al importar consolidate): error de coleccion -> la suite ejecuta el sujeto.\n\nMUTANTES, los cinco re-corridos en la ronda 2 --no solo el que motivo el cambio, que es la regla que adopte anoche tras ver que cerrar un hueco puede destapar otro--:\n1. el validador falla ABIERTO (no levanta): 4 failed. MUERE.\n2. el validador ya no se LLAMA antes de escribir: 1 failed. MUERE.\n3. vuelve a row['time'] en el formateador: 4 failed. MUERE.\n4. table_schema apunta a un esquema inexistente: 1 failed. MUERE. En la ronda 1 SOBREVIVIA.\n5. se quita el filtro de esquema entero: 4 failed. MUERE. En la ronda 1 SOBREVIVIA, y era el grave: sin filtro, una tabla event_log de CUALQUIER otro esquema satisface el contrato y el paso 0 aprueba un esquema vivo que NO cumple --falla ABIERTO, justo lo que viene a impedir--.\n\nLA CAUSA DE LOS DOS SOBREVIVIENTES, cerrada por el owner: el doble de la conexion respondia por la FORMA del SQL (`if 'information_schema.columns' in sql`) e IGNORABA el WHERE, asi que ningun cambio en el filtro era visible. Ahora simula DOS esquemas --el actual y un señuelo `otro` con ref_id-- y aplica el filtro solo si la consulta lo trae.\n\nMETODO, dos correcciones mias: (a) en la ronda 1 mi mutante de REQUIRED_COLUMNS no se aplico --el assert fallo-- y la corrida siguiente fue del archivo sin mutar con '9 passed'; no lo conte ni como muerto ni como vivo. (b) en la ronda 2 mi primer intento del mutante 1 dejo el archivo SIN COMPILAR y pytest dio 'error during collection': un mutante que rompe la sintaxis no es un mutante muerto, es un mutante invalido. Se re-aplico por indice de linea con `ast.parse` verificando que el archivo compila ANTES de correr.\n\nRE-FIRMA sobre los bytes de la pieza 2. El recibo anterior caduco por bytes_stale al tocar el owner el mismo archivo compartido para consolidate-dedup-bounded --no por un cambio en lo que yo revise: verifique que el commit 20cf6eb37 contiene EXACTAMENTE los bytes que firme (06b2f058fcaf)--. Lo que cambio en consolidate.py es merge_redundant, que es de la pieza 2 y esta cubierto por su propio manifiesto y sus mutantes. Las tres propiedades de ESTE manifiesto --el SELECT sin ref_id, created_at en el formateador, y el paso 0 validando antes de escribir-- no fueron tocadas; re-corri sus cinco mutantes en la ronda 2 y los cinco mueren."
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Tres brazos contra la DB VIVA sin escribir nada: ARM1 validate_live_schema pasa contra el esquema real; ARM2 (control no vacuo) el mismo validador con una columna inventada en el contrato revienta nombrando event_log.columna_que_no_existe; ARM3 la consulta exacta del paso 1 se PREPARA en Postgres (valida columnas sin ejecutar), que es el sitio donde fallo el 4-sep. Ademas, la corrida real del timer del 5-sep 03:04 consolido los 5 agentes tras el fix.",
+    "command": {
+      "id": "delivery-consolidate-schema",
+      "kind": "delivery",
+      "argv": [
+        "bash",
+        "quality/delivery_consolidate_schema.sh"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "DELIVERY OK: 3/3 brazos"
+    }
+  }
+}

@@ -11,9 +11,19 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+from compact_original_request import original_request_lines
+from compaction_metrics import construir, es_degradado, registrar
+from config import settings
+
+# El rol historico `seal` esta MUERTO (password authentication failed, medido
+# 4-sep-2026). Con el DSN viejo este hook devolvia "(SOUL DB no disponible)" en
+# CADA compactacion: ni correcciones, ni reglas, ni estado del equipo. La misma
+# fuente que ya usa pre_compact_hook.py, que si escribe bien.
+DB_URL = settings.pg_dsn
 
 
 def detect_agent() -> str:
@@ -62,6 +72,21 @@ async def build_additional_context(agent: str) -> str:
         import asyncpg
         conn = await asyncio.wait_for(asyncpg.connect(DB_URL), timeout=3.0)
         try:
+            # PEDIDO ORIGINAL (idea 5 de Bob, tarea 1699). Va PRIMERO y a propósito:
+            # la compactación conserva lo reciente, así que lo único que de verdad
+            # se pierde en una tarea larga es PARA QUÉ se empezó. Lo guardó
+            # pre_compact_hook.py leyendo el transcript.
+            try:
+                ws = await conn.fetchrow(
+                    "SELECT state FROM soul_v3.working_state WHERE agent = $1", agent
+                )
+                if ws and ws["state"]:
+                    raw = ws["state"]
+                    state = json.loads(raw) if isinstance(raw, str) else raw
+                    lines.extend(original_request_lines(state))
+            except Exception:
+                pass
+
             corrections = await conn.fetch(
                 """SELECT content FROM soul_v3.memories
                    WHERE agent = $1 AND category = 'correction' AND invalid_at IS NULL
@@ -135,6 +160,15 @@ def main() -> None:
         context = asyncio.run(build_additional_context(agent))
     except Exception as e:
         context = f"[context load error: {e}]"
+
+    # Instrumentacion: `degraded` es el campo que habria gritado en julio, cuando
+    # este bloque llevaba semanas devolviendo el aviso de error en vez del alma.
+    registrar(construir(
+        "post", agent,
+        reinjected_chars=len(context),
+        degraded=es_degradado(context),
+        sections=context.count("\n\n"),
+    ))
 
     output = {
         "hookSpecificOutput": {

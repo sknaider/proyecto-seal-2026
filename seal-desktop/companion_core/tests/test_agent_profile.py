@@ -154,6 +154,52 @@ async def test_get_emotional_state():
     assert 0.0 <= data["arousal"] <= 1.0
 
 
+@pytest.mark.asyncio
+async def test_get_avatar_profile_defaults_and_options():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.get("/api/avatar/profile")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ok"] is True
+    assert data["avatar"]["variant"] == "orb"
+    assert data["avatar"]["primary_color"].startswith("#")
+    assert "leaf" in data["options"]["variants"]
+    assert "headset" in data["options"]["accessories"]
+
+
+@pytest.mark.asyncio
+async def test_patch_avatar_profile_persists():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.patch("/api/avatar/profile", json={
+            "variant": "leaf",
+            "primary_color": "#14b8a6",
+            "secondary_color": "#0f766e",
+            "accent_color": "#f59e0b",
+            "accessory": "headset",
+            "motion": "expressive",
+        })
+        assert r.status_code == 200
+        assert set(r.json()["updated"]) == {
+            "variant", "primary_color", "secondary_color", "accent_color", "accessory", "motion"
+        }
+        r2 = await client.get("/api/avatar/profile")
+    avatar = r2.json()["avatar"]
+    assert avatar["variant"] == "leaf"
+    assert avatar["primary_color"] == "#14b8a6"
+    assert avatar["accessory"] == "headset"
+
+
+@pytest.mark.asyncio
+async def test_patch_avatar_profile_rejects_invalid_values():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        bad_variant = await client.patch("/api/avatar/profile", json={"variant": "dragon"})
+        bad_color = await client.patch("/api/avatar/profile", json={"primary_color": "red"})
+        bad_accessory = await client.patch("/api/avatar/profile", json={"accessory": "../x"})
+    assert bad_variant.status_code == 400
+    assert bad_color.status_code == 400
+    assert bad_accessory.status_code == 400
+
+
 # ── User profile ──────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

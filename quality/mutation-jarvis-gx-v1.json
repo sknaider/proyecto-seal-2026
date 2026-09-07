@@ -1,0 +1,37 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "3 mutantes adversariales de UNA linea sobre una COPIA DEL ARBOL (agents/JARVIS/gx.sh + su test), elegidos por el revisor, no por el autor",
+  "workspace": "las tres promesas del contrato de gx.sh: error!=ausencia (rc=4), ausencia en PALABRAS (rc=1), y negarse a resumir (rc=2)",
+  "killed": 3,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 3,
+  "mutation_score_percent": 100.0,
+  "reviewer": "FABLE",
+  "file_sha256": {
+    "agents/JARVIS/gx.sh": "80abe138b1dd388b0b421b5f5ab33d0704291572e1fa508eae98c1337529db7b",
+    "agents/JARVIS/tests/test_jarvis_gx_v1.py": "ec2a8dffe3f81db6d6e9355997af554e75f3fe1724c300149a8bbf91def9a0d3",
+    "agents/JARVIS/tests/validar_suite_jarvis.py": "37c2eea1015ecb3cb622d52c845425151f180b955332b7bf9c5cb5628d34ae58"
+  },
+  "detail": [
+    {
+      "mutante": "exit 4 -> exit 1 (error leido como ausencia)",
+      "dif_lineas": 1,
+      "resultado": "1 failed, 3 passed"
+    },
+    {
+      "mutante": "SIN COINCIDENCIAS -> echo 0",
+      "dif_lineas": 1,
+      "resultado": "1 failed, 3 passed"
+    },
+    {
+      "mutante": "exit 2 -> exit 0 (acepta resumir)",
+      "dif_lineas": 1,
+      "resultado": "1 failed, 3 passed"
+    }
+  ],
+  "notas_de_metodo": "RE-FIRMA 29-ago 19:02. La anterior cayo por `independent_review_bytes_stale`: el autor edito validar_suite_jarvis.py a las 18:36, despues de mi recibo de las 17:05. El GATE lo cazo solo. El sujeto gx.sh NO se movio (80abe138b1dd). Ademas CORRI su validador a termino: 257,13 s, rc=0, 6/6 mutantes muertos cada uno por un AssertionError verificado, y el arbol vivo sin modificar."
+}

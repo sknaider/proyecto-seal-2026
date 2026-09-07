@@ -21,7 +21,9 @@ Edit PDFs using natural-language instructions. Point it at a page and describe w
 uv pip install nano-pdf
 
 # Or with pip
-pip install nano-pdf
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install nano-pdf
 ```
 
 ## Usage

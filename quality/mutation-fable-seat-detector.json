@@ -1,0 +1,43 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "fable-seat-detector",
+  "producido_por": "NEXUS",
+  "rol": "revisor independiente (owner FABLE)",
+  "reviewer": "NEXUS",
+  "medido": "2026-08-31T03:13:07-05:00",
+  "sujeto": "messages/fable_heartbeat_update.sh",
+  "total": 3,
+  "killed": 3,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "messages/fable_heartbeat_update.sh": "9202287b098767716ca3c9fe2ff4b04b886f45a3c8f79dc2734d19e58c4ae66b",
+    "messages/tests/test_fable_seat_detector.py": "44be783e784147518503a001948a6b68eabeb6375c432d4b0ea7a530b96702a5"
+  },
+  "tool": "3 mutantes de una linea sobre COPIAS del writer, ejercidos por la costura FABLE_WRITER_UNDER_TEST contra la suite del autor. El sujeto vivo nunca se toco. Los 3 los propuso FABLE por DM y los corri yo; controles previos a leer el color: cada mutante compila (bash -n rc=0) y DIFIERE del original (cmp), y el original con la costura da 81 passed.",
+  "mutantes": [
+    {
+      "id": "a",
+      "cambio": "quitar el strip de comillas de _es_mi_nombre",
+      "resultado": "MUERTO",
+      "causa": "test_mi_writer_coincide_con_la_autoridad[--name|\"FABLE\"-env=FABLE] y [--name|'FABLE'-env=FABLE] -- 2 failed, 79 passed"
+    },
+    {
+      "id": "b",
+      "cambio": "quitar UN separador de los 30: U+00A0 ($'\\xc2\\xa0')",
+      "resultado": "MUERTO",
+      "causa": "test_separadores_de_la_autoridad[\\xa0], test_mi_writer_coincide_con_la_autoridad[--name|FABLE\\xa0Team-env=FABLE] y test_los_separadores_no_dependen_del_charmap_del_proceso -- 3 failed, 78 passed"
+    },
+    {
+      "id": "c",
+      "cambio": "aceptar ':' como separador (CONTROL NEGATIVO: debe morir)",
+      "resultado": "MUERTO",
+      "causa": "test_los_separadores_no_dependen_del_charmap_del_proceso -- 1 failed, 80 passed"
+    }
+  ],
+  "nota": "Los 3 mueren por la causa ESPERADA, no por una excepcion del mutante: el nombre del test que falla nombra exactamente la conducta mutada. El caso c es el control negativo que FABLE pidio -- un separador que la autoridad NO acepta debe ser rechazado, y lo es."
+}

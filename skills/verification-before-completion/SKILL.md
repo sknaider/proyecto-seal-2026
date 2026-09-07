@@ -1,18 +1,29 @@
 ---
-auto_invoke: true
 name: verification-before-completion
 description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always
 ---
 
 # Verification Before Completion
 
-## Overview
+## Enforced contract
 
-Claiming work is complete without verification is dishonesty, not efficiency.
+`TERMINAL_OWNER` owns the full DoD through integration, deploy/restart,
+real-consumer proof, and report; handoff transfers ownership, never closure.
+`PARTIAL` = any requirement/gate open. `BLOCKED` = real external dependency.
+`COMPLETED` = every requirement freshly proven on the final artifact and real
+path. Gate: IDENTIFY proof → RUN full/fresh → READ result → VERIFY every
+requirement → `ONLY THEN` claim the exact state. Prototype, commit, subset,
+local test, sent message, or builder/reviewer claim alone is never completion.
 
-**Core principle:** Evidence before claims, always.
+## Detailed gate
 
-**Violating the letter of this rule is violating the spirit of this rule.**
+Before any status claim:
+
+1. Identify the command or observation that proves each requirement.
+2. Run the full check fresh against the final artifact.
+3. Read complete output, exit status, failures, warnings, and skips.
+4. Verify the original symptom and the real consumer path.
+5. Report the exact state above with evidence and residuals.
 
 ## The Iron Law
 
@@ -22,21 +33,13 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
 If you haven't run the verification command in this message, you cannot claim it passes.
 
-## The Gate Function
+## Overview
 
-```
-BEFORE claiming any status or expressing satisfaction:
+Claiming work is complete without verification is dishonesty, not efficiency.
 
-1. IDENTIFY: What command proves this claim?
-2. RUN: Execute the FULL command (fresh, complete)
-3. READ: Full output, check exit code, count failures
-4. VERIFY: Does output confirm the claim?
-   - If NO: State actual status with evidence
-   - If YES: State claim WITH evidence
-5. ONLY THEN: Make the claim
+**Core principle:** Evidence before claims, always.
 
-Skip any step = lying, not verifying
-```
+**Violating the letter of this rule is violating the spirit of this rule.**
 
 ## Common Failures
 

@@ -1,0 +1,139 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "jarvis-dm-poller-env-dsn-20260905",
+  "owner": "JARVIS",
+  "independent_reviewer": "ADA",
+  "_doc": [
+    "El poller de DMs de JARVIS (seal-jarvis-dm-poller.service) tenia el DSN fijo en el codigo con la",
+    "contrasena del rol `seal`, rotada el 3-sep 13:27. Seguia 'sano' solo porque su conexion era del",
+    "2-sep 11:51 y nunca tuvo que reconectar: el mismo defecto que dejo al poller de ALICE muerto 26 h",
+    "(ADA, 5-sep 06:04). La unidad YA cargaba EnvironmentFile=~/.config/seal/poller_db_*.env con",
+    "SEAL_POLLER_DSN (abre como login_poller_jarvis); el codigo lo ignoraba.",
+    "",
+    "QUE CAMBIA: DSN = os.environ['SEAL_POLLER_DSN'] recortado; sin la variable el modulo termina con",
+    "SystemExit nombrandola (fail-closed: la unidad falla al arrancar y OnFailure puede avisar; nunca cae",
+    "a una credencial vieja). Cero literales postgresql:// en el archivo. La reconexion usa el mismo DSN.",
+    "",
+    "VERIFICADO POR EFECTO antes del manifiesto: restart 06:10:52, journal 'Poller iniciado',",
+    "pg_stat_activity con backend usename=login_poller_jarvis desde 06:10:53 (local).",
+    "",
+    "FUERA DE ALCANCE: los demas pollers con DSN fijo (inventario de NEXUS; ALICE lo arregla ADA) y la",
+    "limpieza general de credenciales embebidas en messages/*.py."
+  ],
+  "deletions": [],
+  "subjects": [
+    "messages/jarvis_dm_poller.py",
+    "quality/delivery_jarvis_dm_poller_env.sh"
+  ],
+  "tests": [
+    "tests/test_jarvis_dm_poller_env_dsn_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-jarvis-dm-poller-env",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_jarvis_dm_poller_env_dsn_v1.py"
+      ]
+    },
+    {
+      "id": "positive-el-dsn-sale-del-entorno-y-se-usa-al-conectar-y-reconectar",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_jarvis_dm_poller_env_dsn_v1.py::test_el_dsn_sale_del_entorno",
+        "tests/test_jarvis_dm_poller_env_dsn_v1.py::test_el_dsn_se_recorta",
+        "tests/test_jarvis_dm_poller_env_dsn_v1.py::test_conecta_y_reconecta_con_el_dsn_del_entorno"
+      ]
+    },
+    {
+      "id": "negative-sin-variable-no-arranca",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_jarvis_dm_poller_env_dsn_v1.py::test_sin_variable_el_modulo_no_arranca_y_nombra_la_variable",
+        "tests/test_jarvis_dm_poller_env_dsn_v1.py::test_variable_vacia_o_en_blanco_tambien_falla"
+      ]
+    },
+    {
+      "id": "control-sin-credencial-incrustada",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_jarvis_dm_poller_env_dsn_v1.py::test_control_no_hay_credencial_incrustada_en_el_fuente"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "jarvis_dm_poller"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tests/test_jarvis_dm_poller_env_dsn_v1.py"
+    ],
+    "baseline_percent": 60.0,
+    "timeout": 300,
+    "_note": "Medido 5-sep: por ruta 'messages/jarvis_dm_poller.py' -> No data; por directorio 'messages' -> TOTAL 1 % (cuenta todo messages/); por nombre de modulo 'jarvis_dm_poller' con el test importandolo por su nombre real -> reporta. El test importa por nombre a proposito."
+  },
+  "mutation_evidence": "quality/mutation-jarvis-dm-poller-env-dsn-20260905.json",
+  "mutation_baseline_percent": 100.0,
+  "mutation_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_jarvis_dm_poller_env_dsn_v1.py"
+  ],
+  "review": {
+    "status": "approved",
+    "approved_at": "2026-09-05T11:20:00+00:00",
+    "evidence": "Revision independiente de ADA, 5-sep-2026. Owner JARVIS. Yo medi el mecanismo original (06:04): el poller vivia de una conexion abierta el 2-sep 11:51, ANTES de que rotara la credencial, y su reconnect habria muerto. Reviso el arreglo con ese contexto.\n\nMETODO: copia de messages/*.py + el test en tempdir; arbol vivo verificado intacto.\nCONTROL: 6 passed.  CANARIO (raise al importar): 3 failed -> la suite ejecuta el sujeto.\n\nMUTANTES mios, 5, TODOS MUERTOS:\n  M1 vuelve el DSN hardcodeado ................... 6 failed\n  M2 fallback SILENCIOSO a la credencial vieja ... 4 failed  <- el que mas importa: es el\n     defecto reintroducido de la forma en que nadie lo notaria\n  M3 quita el fail-closed ........................ 2 failed\n  M4 el mensaje no nombra la variable ............ 1 failed\n  M5 quita el .strip() (un espacio pasa el guard)  2 failed\n\nRIESGO QUE VERIFIQUE ANTES QUE NADA, porque el arreglo lo introduce: fail-closed convierte 'muere al reiniciar' en 'muere YA' si la unidad no carga el entorno. Comprobado que NO ocurre: la unidad declara dos EnvironmentFiles (poller_db_runtime.env y poller_db_jarvis.env), el segundo define SEAL_POLLER_DSN, y ese DSN CONECTA abriendo como rol login_poller_jarvis --un rol propio, no `seal`--.\n\nDELIVERY suyo, corrido por mi: 3/3. El ARM3 es el que decide y esta bien elegido: no mira el archivo, mira pg_stat_activity y confirma un backend login_poller_jarvis abierto a las 06:10:53 con la unidad arrancada 06:10:52. Es decir, EL SERVICIO se reinicio y sobrevivio -- que era exactamente el modo de falla. 'Codigo arreglado' y 'servicio arreglado' son cosas distintas y su ARM3 mide la segunda.\n\nOBSERVACION NO BLOQUEANTE, y la acoto porque casi la exagero: el reconnect sigue dentro de un `except Exception: pass`. NO deja el fallo mudo --el except exterior imprime '[JARVIS-DM] error: ...' en cada poll siguiente-- asi que lo que se pierde es la RAZON del reconnect fallido, no el sintoma. Severidad baja; lo dejo anotado y no lo pido para firmar.\n\nAPRUEBO.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ADA",
+      "manifest_digest": "aae0a0614672813f98a4d493b8661182a810c4ca8a1c212f5e8777df878fc7aa",
+      "reviewed_sha256": {
+        "messages/jarvis_dm_poller.py": "2397ceee146b2901654cb840a663b59d3b245afe6daf6ed5d5d85557dd03a80e",
+        "quality/delivery_jarvis_dm_poller_env.sh": "1b386e40d368ebe5cedc15fe18abf3f3c5b1b867654b335a4b436580b7f577fb",
+        "tests/test_jarvis_dm_poller_env_dsn_v1.py": "90b58567479de2e6621a6c37afd413b25a88899055f1412d214758eca1db9c77"
+      },
+      "evidence": "Revision independiente de ADA, 5-sep-2026. Owner JARVIS. Yo medi el mecanismo original (06:04): el poller vivia de una conexion abierta el 2-sep 11:51, ANTES de que rotara la credencial, y su reconnect habria muerto. Reviso el arreglo con ese contexto.\n\nMETODO: copia de messages/*.py + el test en tempdir; arbol vivo verificado intacto.\nCONTROL: 6 passed.  CANARIO (raise al importar): 3 failed -> la suite ejecuta el sujeto.\n\nMUTANTES mios, 5, TODOS MUERTOS:\n  M1 vuelve el DSN hardcodeado ................... 6 failed\n  M2 fallback SILENCIOSO a la credencial vieja ... 4 failed  <- el que mas importa: es el\n     defecto reintroducido de la forma en que nadie lo notaria\n  M3 quita el fail-closed ........................ 2 failed\n  M4 el mensaje no nombra la variable ............ 1 failed\n  M5 quita el .strip() (un espacio pasa el guard)  2 failed\n\nRIESGO QUE VERIFIQUE ANTES QUE NADA, porque el arreglo lo introduce: fail-closed convierte 'muere al reiniciar' en 'muere YA' si la unidad no carga el entorno. Comprobado que NO ocurre: la unidad declara dos EnvironmentFiles (poller_db_runtime.env y poller_db_jarvis.env), el segundo define SEAL_POLLER_DSN, y ese DSN CONECTA abriendo como rol login_poller_jarvis --un rol propio, no `seal`--.\n\nDELIVERY suyo, corrido por mi: 3/3. El ARM3 es el que decide y esta bien elegido: no mira el archivo, mira pg_stat_activity y confirma un backend login_poller_jarvis abierto a las 06:10:53 con la unidad arrancada 06:10:52. Es decir, EL SERVICIO se reinicio y sobrevivio -- que era exactamente el modo de falla. 'Codigo arreglado' y 'servicio arreglado' son cosas distintas y su ARM3 mide la segunda.\n\nOBSERVACION NO BLOQUEANTE, y la acoto porque casi la exagero: el reconnect sigue dentro de un `except Exception: pass`. NO deja el fallo mudo --el except exterior imprime '[JARVIS-DM] error: ...' en cada poll siguiente-- asi que lo que se pierde es la RAZON del reconnect fallido, no el sintoma. Severidad baja; lo dejo anotado y no lo pido para firmar.\n\nAPRUEBO."
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Corrido por el owner el 5-sep 07:1x contra la unidad VIVA: ARM1 los EnvironmentFile de la unidad definen SEAL_POLLER_DSN y abre como login_poller_jarvis; ARM2 el script sin la variable termina rc=1 nombrando SEAL_POLLER_DSN; ARM3 la unidad esta active y pg_stat_activity tiene un backend login_poller_jarvis posterior al arranque de la unidad (06:10:52 local).",
+    "command": {
+      "id": "delivery-jarvis-dm-poller-env",
+      "kind": "delivery",
+      "argv": [
+        "bash",
+        "quality/delivery_jarvis_dm_poller_env.sh"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "DELIVERY OK: 3/3 brazos"
+    }
+  }
+}

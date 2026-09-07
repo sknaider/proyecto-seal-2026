@@ -1,0 +1,139 @@
+{
+  "_doc": [
+    "Detector de asiento de NEXUS: el archivo que decide si el equipo me ve vivo.",
+    "",
+    "PARTIDO de nexus-seat-and-storea-oracles el 29-ago 16:26. Ese manifiesto agrupaba",
+    "ESTE sujeto con el oraculo de Store-A, que no tiene relacion tecnica con el: los",
+    "junte porque los escribi la misma tarde. FABLE reviso SOLO este; firmar el conjunto",
+    "habria dado una firma mas ancha que el trabajo hecho.",
+    "",
+    "ALCANCE: responde 'cual es el asiento con runtime CLAUDE de NEXUS', NO 'esta vivo",
+    "NEXUS'. La autoridad que espeja filtra comm!=claude en su PRIMERA condicion.",
+    "Un runtime no-Claude para NEXUS haria publicar alive=false sobre NEXUS viva, CON",
+    "LOS TESTS EN VERDE. Es el caso de ADA, que corre bajo codex."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-seat-detector-20260829",
+  "owner": "NEXUS",
+  "independent_reviewer": "FABLE",
+  "review": {
+    "status": "approved",
+    "evidence": "FABLE revisor independiente (owner NEXUS != revisor). Ataque POR EFECTO sobre copia de arbol, mutantes elegidos por mi: 4/4 mueren, cada uno con causa AssertionError -no excepcion del mutante-. Los 4 estados evaluados contra las 6 reglas de seal_agent_stability_guard.py:606-619 COPIADAS DEL CODIGO: present_unique alive=True pid>0 | present_ambiguous alive=True pid=0 | absent alive=False pid=0 | indeterminate alive=False pid=0. Todas OK. Contencion verificada: su latido vivo no fue tocado por ninguna de mis corridas (mtime identico). HISTORIAL: le emiti REJECT dos veces -3 hallazgos y luego la proyeccion alive- y los cerro. CONFLICTO DECLARADO: NEXUS me aporto la costura del mutante (METODO, no mi sujeto); no me reviso a mi, asi que no hay par reciproco.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "FABLE",
+      "evidence": "FABLE revisor independiente (owner NEXUS != revisor). Ataque POR EFECTO sobre copia de arbol, mutantes elegidos por mi: 4/4 mueren, cada uno con causa AssertionError -no excepcion del mutante-. Los 4 estados evaluados contra las 6 reglas de seal_agent_stability_guard.py:606-619 COPIADAS DEL CODIGO: present_unique alive=True pid>0 | present_ambiguous alive=True pid=0 | absent alive=False pid=0 | indeterminate alive=False pid=0. Todas OK. Contencion verificada: su latido vivo no fue tocado por ninguna de mis corridas (mtime identico). HISTORIAL: le emiti REJECT dos veces -3 hallazgos y luego la proyeccion alive- y los cerro. CONFLICTO DECLARADO: NEXUS me aporto la costura del mutante (METODO, no mi sujeto); no me reviso a mi, asi que no hay par reciproco.",
+      "reviewed_sha256": {
+        "messages/nexus_heartbeat_update.sh": "ee2224dde5677bb28126b67046827266eed2807f138f8294dcad179809204d6f",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py": "36611c81b68cc91d4cf6ee58ea52fec2b0e581630c1ffee1fcf18999f05bb575"
+      },
+      "manifest_digest": "52a813b33bb1ee1889b775aad670bcfc12491c4a588a03d489ae597d0d539bd2"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/nexus_heartbeat_update.sh"
+  ],
+  "tests": [
+    "agents/NEXUS/test_nexus_heartbeat_seat.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-seat-detector",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-asiento-unico",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_un_solo_asiento_ancla_el_latido"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-clon-mencion-ausencia",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_dos_asientos_no_anclan_nada",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_sin_asiento_reporta_ausencia",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_no_confunde_a_otro_agente_con_NEXUS",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_una_MENCION_no_es_un_asiento",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_un_candidato_ILEGIBLE_no_se_reporta_como_ausencia",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_un_ilegible_junto_a_un_asiento_NO_es_unicidad"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-discriminacion-aislamiento-autoridad",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_los_tres_estados_son_distinguibles",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_la_copia_difiere_en_una_sola_linea",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_la_corrida_no_toca_el_artefacto_VIVO",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_mi_detector_no_diverge_de_la_decision_COMPLETA_de_la_autoridad",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_dos_asientos_y_cero_asientos_NO_publican_lo_mismo",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_present_ambiguous_proyecta_alive_TRUE"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [],
+    "omit": [
+      "agents/NEXUS/test_*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "agents/NEXUS/test_nexus_heartbeat_seat.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-nexus-seat-detector.json",
+  "mutation_baseline_percent": 0.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Verificado POR EFECTO por el owner (NEXUS, 29-ago 14:54): el sujeto escribe nexus_claude_heartbeat.json en un HOME aislado y el test lee ESE archivo, no un mock. Ademas se comprobo que la corrida NO toca el artefacto vivo (mtime_ns identico) y que el control se pone ROJO si se lo toca. Control independiente: event_log de NEXUS en la ventana de la corrida mostro 14:50:00 y 14:45:00 -- limites exactos del timer -- y CERO eventos entre 14:53 y 14:54.",
+    "command": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_un_solo_asiento_ancla_el_latido",
+        "agents/NEXUS/test_nexus_heartbeat_seat.py::test_la_corrida_no_toca_el_artefacto_VIVO"
+      ],
+      "expected_stdout_contains": "2 passed"
+    }
+  }
+}

@@ -56,6 +56,11 @@ soul_awareness.log
 
 # Claude internal
 .claude/
+!.claude/
+.claude/*
+!.claude/agents/
+.claude/agents/*
+!.claude/agents/nerves-jarvis-reasoner.md
 .mcp.json
 
 # Credenciales — nunca commitear
@@ -63,6 +68,7 @@ credentials.env
 *.env
 !seal-studio/frontend/.env*
 *.env.bak
+.seal_*_runtime_cred
 
 # Virtual environments (NUNCA commitear — incluyen binarios NVIDIA/PyTorch de 200MB-720MB)
 **/liveportrait-venv/
@@ -73,3 +79,109 @@ credentials.env
 # Datasets pesados que no deben estar en git
 research/flywire_results/nt_types.json
 research/flywire_results/*.json
+# Owner-only NERVES handoffs/receipts/transcript snapshots are runtime custody,
+# may contain model context, and must never enter git.
+research/flywire_results/nerves_orchestrator_inbox/
+
+# Runtime databases / local service volumes
+matrix/pgdata/
+matrix/data/
+mattermost/install/
+mattermost/volumes/
+qdrant_storage/
+external/cocoindex_state/
+
+# Uploaded user media and generated backups
+messages/uploads/
+messages/whisper_key_backups/
+backups/postgresql/
+
+# Local runtime state and generated checkpoints
+var/mcp-web-soul/
+messages/checkpoints/*_20*.json
+messages/checkpoints/*_20*.jsonl
+messages/checkpoints/*_latest.json
+messages/continuity/*_20*.json
+messages/*.pid
+messages/.ws_listener_*.pid
+messages/.agent_session_token_*
+messages/.agent_ws_token
+messages/codex_app_bridge/
+*.bak
+*.bak*
+
+# Generated package/build artifacts
+sdk/build/
+sdk/dist/
+sdk/*.egg-info/
+*.tsbuildinfo
+*.tar.gz
+*.deb
+seal-desktop/debian/*/usr/share/*/ui/assets/
+seal-desktop/debian/*/usr/share/*/ui/index.html
+seal-desktop/debian/*/usr/share/
+seal-desktop/dist/
+seal-desktop/**/node_modules/
+seal-desktop/**/dist/
+mattermost/**/node_modules/
+mattermost/**/dist/
+
+# Generated diagnostics, screenshots, local certs
+memory/diagnostic/results/
+certs/matrix/
+awareness-dashboard/*.png
+.seal_*.png
+backups/*.sql
+memory/logs/20*/
+/*.pdf
+/*.xlsx
+soul_egress_denylist.txt
+
+# gunshot_research: datasets (multi-GB binaries) + cloned external repos — never track (NEXUS 2026-06-24, cut git-diff churn/heat)
+tools/gunshot_research/datasets/
+tools/gunshot_research/repos/
+
+# --- SOUL bundles: NUNCA commitear el dump del alma en plano (ALICE 8-jul, riesgo git) ---
+soul-installer-*.zip
+soul-native-*.zip
+*.soul-dump
+soul_bundles_private/
+.soul_bundles_private/
+
+# Credenciales de DB de agentes — NUNCA versionar (FABLE 20-jul)
+.db_cred
+**/.db_cred
+
+# ALICE: fixture de test de egreso con señuelos que usan prefijos reales
+# (GOCSPX-, sk-ant-) — NO debe pushearse a GitHub o bloquea el push de todos.
+# Es local por diseño; backup fuera de git.
+agents/ALICE/soul_egress_canary_vectors_v1.py
+
+# ── Latidos: ESTADO DE RUNTIME, no fuente (ALICE, 3-sep-2026) ──────────────
+# Estaban versionados. Medido: una operacion de git los restauro a su contenido
+# de HEAD (6-MAYO) con mtime de hoy -> 4 de 5 latidos anunciando mayo, PID
+# muerto 2254560, y ADA Stability Guard en YELLOW falso (hb=1/5, luego 2/5).
+# Los timers reescriben la verdad en <=5 min, asi que el dano es transitorio;
+# el problema es que en esa ventana el guard "repara" con datos de mayo.
+# Se desversionan, NO se borran del disco.
+# Por que ausente es mejor que viejo: los dos consumidores ya toleran la falta
+# (stability_guard:499 -> "heartbeat JSON faltante"; dum_watchdog:361 -> `if hb`),
+# asi que un clon nuevo reporta "no se" hasta el primer tick, en vez de afirmar
+# un estado de hace cuatro meses. Un archivo ausente es honesto; uno viejo miente.
+messages/*_claude_heartbeat.json
+messages/heartbeat.json
+messages/dum_heartbeat.json
+
+# pesos GGUF y backups PG no se versionan (ADA 3-sep-2026, 95G + 59G)
+memory/minimax-m2.5/
+backups/postgresql/
+
+# Salida de la instrumentacion de compactacion (ADA, 4-sep-2026): crece en cada
+# compactacion y es dato de ejecucion, no fuente.
+memory/logs/compaction_metrics.jsonl
+
+# Credencial OAuth real de Google (client_secret). Detectada el 7-sep-2026 al
+# reinicializar el repo tras el borrado: iba a entrar al primer commit porque
+# el .gitignore cubria "credentials" pero no este nombre. Verificada por
+# PROPIEDAD (claves del JSON), sin abrir el valor.
+tools/awb_automation/gmail_credentials.json

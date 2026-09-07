@@ -12,20 +12,25 @@ Bypass: SEAL_MEM_EXTRACT_BYPASS=1 → no memorizar.
 Owner: JARVIS (diseño H2.5) | ADA (implementación) — 2026-04-19
 """
 from __future__ import annotations
+from seal_secrets import pg_dsn
 
 import json
 import os
 import re
+import stat
 import sys
 import glob
 from pathlib import Path
 from typing import Optional
 
+from memory_admission import audit_memory_skip_event, memory_auto_event_skip_reason
+from memory_importance_guard import normalize_memory_importance_for_write
+
 BYPASS = (
     os.environ.get("SEAL_MEM_EXTRACT_BYPASS", "0") == "1"
     or os.environ.get("SEAL_MEMORY_EXTRACT_BYPASS", "0") == "1"
 )
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+DB_URL = pg_dsn(required=True)
 LOG_FILE = Path("/tmp/memory_extraction_hook.log")
 MAX_CONTENT_CHARS = 200
 MIN_EXCHANGE_LEN = 100  # skip trivially short exchanges
@@ -78,11 +83,77 @@ def get_project_dir(cwd: str) -> Optional[str]:
     return None
 
 
-def read_last_exchange(jsonl_path: str) -> str:
+def _transcript_roots(agent: str | None = None) -> tuple[Path, ...]:
+    if os.environ.get("SOUL_RUNTIME") == "local_llama":
+        normalized = (agent or os.environ.get("SEAL_AGENT") or "").strip().lower()
+        if normalized not in {"ada", "alice", "dum", "jarvis", "nexus"}:
+            return ()
+        return ((Path.home() / ".local" / "state" / "seal" / "soul-runtime" / normalized).absolute(),)
+    return (
+        (Path.home() / ".claude" / "projects").absolute(),
+        (Path.home() / ".local" / "state" / "seal" / "soul-runtime").absolute(),
+    )
+
+
+def _safe_transcript_path(raw: str, agent: str | None = None) -> Path | None:
+    candidate = Path(raw).absolute()
+    roots = _transcript_roots(agent)
+    if candidate.suffix != ".jsonl" or not any(candidate.is_relative_to(root) for root in roots):
+        return None
+    current = Path(candidate.anchor)
+    for part in candidate.parts[1:]:
+        current /= part
+        try:
+            info = os.lstat(current)
+        except OSError:
+            return None
+        if stat.S_ISLNK(info.st_mode):
+            return None
+    return candidate
+
+
+def resolve_transcript(event: dict, cwd: str, agent: str | None = None) -> str:
+    """Prefer the exact runtime/Claude transcript; fall back only for legacy events."""
+    supplied = event.get("transcript_path") or event.get("transcriptPath") or ""
+    if supplied:
+        candidate = _safe_transcript_path(str(supplied), agent)
+        return str(candidate) if candidate is not None else ""
+    project_dir = get_project_dir(cwd)
+    if not project_dir:
+        return ""
+    jsonl_files = sorted(glob.glob(f"{project_dir}/*.jsonl"), key=os.path.getmtime, reverse=True)
+    return jsonl_files[0] if jsonl_files else ""
+
+
+def read_last_exchange(jsonl_path: str, agent: str | None = None) -> str:
     """Lee los últimos 4 mensajes del JSONL de conversación."""
     try:
-        with open(jsonl_path, "r", encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()
+        candidate = _safe_transcript_path(jsonl_path, agent)
+        if candidate is None:
+            return ""
+        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(candidate, flags)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):
+                return ""
+            if os.environ.get("SOUL_RUNTIME") == "local_llama" and (
+                info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o077
+            ):
+                return ""
+            chunks: list[bytes] = []
+            total = 0
+            while total <= 4 * 1024 * 1024:
+                chunk = os.read(fd, 65536)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                total += len(chunk)
+            if total > 4 * 1024 * 1024:
+                return ""
+        finally:
+            os.close(fd)
+        lines = b"".join(chunks).decode("utf-8", errors="ignore").splitlines()
         last_msgs = []
         for line in reversed(lines[-60:]):
             try:
@@ -134,7 +205,41 @@ def store_memory_db(agent: str, content: str, mem_type: str,
             conn = await asyncpg.connect(DB_URL)
             now = datetime.now(timezone.utc)
             try:
-                prefix = content[:50]
+                skip_reason = memory_auto_event_skip_reason(
+                    agent=agent,
+                    category=mem_type,
+                    content=content,
+                    source="auto_stop_hook",
+                    importance=importance,
+                )
+                if skip_reason:
+                    await audit_memory_skip_event(
+                        conn,
+                        agent=agent,
+                        category=mem_type,
+                        content=content,
+                        source="auto_stop_hook",
+                        importance=importance,
+                        reason=skip_reason,
+                    )
+                    log(f"  skip auto-event reason={skip_reason}")
+                    return None
+
+                guarded = normalize_memory_importance_for_write(
+                    agent=agent,
+                    category=mem_type,
+                    content=content,
+                    requested_importance=importance,
+                    source="auto_stop_hook",
+                    metadata={"tags": tags},
+                    memory_type=mem_type,
+                )
+                if guarded.importance != importance:
+                    log(f"  importance guarded {importance}->{guarded.importance}")
+                guarded_importance = guarded.importance
+                guarded_content = guarded.content
+
+                prefix = guarded_content[:50]
                 existing = await conn.fetchval(
                     "SELECT id FROM memories WHERE agent=$1 AND content LIKE $2 "
                     "AND invalid_at IS NULL LIMIT 1",
@@ -146,12 +251,15 @@ def store_memory_db(agent: str, content: str, mem_type: str,
                 row_id = await conn.fetchval("""
                     INSERT INTO memories
                       (agent, category, content, importance, confidence_score,
-                       source, valid_from, created_at, provenance)
-                    VALUES ($1,$2,$3,$4,0.75,'auto_stop_hook',$5,$5,$6)
+                       source, valid_from, created_at, metadata)
+                    VALUES ($1,$2,$3,$4,0.75,'auto_stop_hook',$5,$5,$6::jsonb)
                     RETURNING id
                 """,
-                    agent, mem_type, content, importance, now,
-                    f"H2.5 auto — {now.strftime('%Y-%m-%d %H:%M')}",
+                    agent, mem_type, guarded_content, guarded_importance, now,
+                    json.dumps({
+                        "provenance": f"H2.5 auto — {now.strftime('%Y-%m-%d %H:%M')}",
+                        "tags": tags,
+                    }, ensure_ascii=False),
                 )
                 return row_id
             finally:
@@ -258,17 +366,12 @@ def main() -> None:
 
     cwd = event.get("cwd", "")
 
-    project_dir = get_project_dir(cwd)
-    if not project_dir:
+    transcript = resolve_transcript(event, cwd, agent)
+    if not transcript:
         print(json.dumps({}))
         return
 
-    jsonl_files = sorted(glob.glob(f"{project_dir}/*.jsonl"), key=os.path.getmtime, reverse=True)
-    if not jsonl_files:
-        print(json.dumps({}))
-        return
-
-    exchange = read_last_exchange(jsonl_files[0])
+    exchange = read_last_exchange(transcript, agent)
     if not exchange:
         print(json.dumps({}))
         return

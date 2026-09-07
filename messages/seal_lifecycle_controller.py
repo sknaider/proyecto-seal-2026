@@ -26,10 +26,17 @@ from pathlib import Path
 
 import asyncpg
 
-DB_DSN = os.environ.get(
-    "SEAL_PG_DSN",
-    "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory",
-)
+# DSN por seal_secrets, fail-closed (ADA 3-sep-2026). POR QUE: el literal que
+# estaba aca tenia la contrasena vieja del rol seal; la unidad fallaba con
+# InvalidPasswordError desde 13:27 y nadie resucitaba daemons caidos. La
+# correccion vivia sin commitear y un reset --hard la piso. Mismo patron que
+# continuity_snapshot.py (1581ebd19). Sin credencial, no arranca y lo dice.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "memory"))
+try:
+    from seal_secrets import pg_dsn as _seal_pg_dsn
+    DB_DSN = _seal_pg_dsn()
+except Exception as _exc:  # pragma: no cover - fail-closed
+    raise SystemExit(f"seal_lifecycle: sin DSN en seal_secrets/SEAL_PG_DSN ({_exc}); no arranco")
 RECONCILE_INTERVAL_SEC = int(os.environ.get("LIFECYCLE_INTERVAL_SEC", "30"))
 COOLDOWN_MIN = int(os.environ.get("LIFECYCLE_COOLDOWN_MIN", "5"))
 SEAL_RESTART = Path("/home/dadito/IA/proyecto-seal/seal_restart.sh")
@@ -147,6 +154,10 @@ async def reconcile_agent(pool: asyncpg.Pool, row: asyncpg.Record, dry_run: bool
     actual = "alive" if alive else "dead"
 
     # Equilibrium cases → no-op
+    # "manual": William gestiona ese cuerpo a mano (ADA Claude, 3-sep-2026:
+    # "solo te usare de momentos y no quiero 2 adas"). Ni matar ni relanzar.
+    if desired == "manual":
+        return
     if desired == "running" and alive:
         return
     if desired in ("paused", "stopped") and not alive:

@@ -1,471 +1,498 @@
-"""Desktop tray controller for the persistent SOUL machine proxy.
+"""Native system-tray controller for the persistent machine soul.
 
-The tray is deliberately a thin, user-space control surface.  It never owns
-the proxy process itself: the OS-native autostart descriptor remains the
-source of truth, so closing the tray does not kill the machine soul.
+The tray is deliberately a thin local control surface.  It never owns the
+proxy process, identity, token, or memory database; those remain under the
+verified bootstrap/autostart contracts.  Closing the tray therefore cannot
+silently kill or replace the machine soul.
 """
 
 from __future__ import annotations
 
 import argparse
-import ctypes
-import hashlib
-import importlib.util
+import base64
 import json
 import os
-import queue
+import plistlib
 import subprocess
 import sys
 import tempfile
 import threading
 import urllib.error
 import urllib.request
-from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any, Callable
 
 from soul_platform.autostart import (
     AutostartContract,
     PlatformName,
     _current_platform,
-    _loopback_base_url,
-    _safe_descriptor_parent,
+    _powershell_literal,
+    _powershell_stdin,
+    _previous_windows_task,
+    _run,
     activate_descriptor,
-    deactivate_descriptor,
     install_descriptor,
-    tray_descriptor_path,
+    stop_descriptor,
 )
-from soul_platform.bootstrap import default_root, initialize, switch_upstream
-from soul_platform.proxy import ProxySettings, _assert_no_symlink_components
+from soul_platform.bootstrap import _atomic_config, default_root, initialize, switch_upstream
+from soul_platform.proxy import ProxySettings
 
-DEFAULT_OLLAMA_TAGS = "http://127.0.0.1:11434/api/tags"
-DEFAULT_OLLAMA_BASE = "http://127.0.0.1:11434/v1"
+
+OLLAMA_BASE_URL = "http://127.0.0.1:11434/v1"
+OLLAMA_TAGS_URL = "http://127.0.0.1:11434/api/tags"
 MAX_DISCOVERY_BYTES = 1_048_576
-MAX_STATUS_BYTES = 65_536
-WINDOWS_MUTEX_ALREADY_EXISTS = 183
-WINDOWS_UI_MESSAGE = 0x8000 + 0x51A
+MAX_DISCOVERED_MODELS = 100
+TRAY_TASK_NAME = "SOUL Tray"
 
 
-def _safe_model_name(value: object) -> str:
-    model = str(value or "").strip()
-    if not model or len(model) > 256 or any(char in model for char in "\x00\r\n"):
-        raise ValueError("model name must contain 1..256 safe characters")
-    return model
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
-def discover_ollama_models(
-    *, url: str = DEFAULT_OLLAMA_TAGS, timeout: float = 3.0
-) -> list[str]:
-    """Return Ollama model names in stable order; unavailable Ollama is empty."""
-    try:
-        request = urllib.request.Request(url, headers={"Accept": "application/json"})
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            if response.status != 200:
-                return []
-            raw = response.read(MAX_DISCOVERY_BYTES + 1)
-            if len(raw) > MAX_DISCOVERY_BYTES:
-                return []
-            payload = json.loads(raw)
-    except (OSError, ValueError, TypeError, urllib.error.URLError):
-        return []
-    models: list[str] = []
-    seen: set[str] = set()
-    for item in payload.get("models", []) if isinstance(payload, dict) else []:
-        try:
-            name = _safe_model_name(item.get("name") if isinstance(item, dict) else "")
-        except ValueError:
-            continue
-        if name not in seen:
-            seen.add(name)
-            models.append(name)
-    return models
-
-
-def copy_to_clipboard(text: str) -> bool:
-    """Copy through an argv-only native command; never invoke a shell."""
-    commands: list[tuple[list[str], bytes]]
-    if sys.platform.startswith("win"):
-        system_root = os.environ.get("SystemRoot")
-        if not system_root:
-            return False
-        clip = Path(system_root) / "System32" / "clip.exe"
-        if not clip.is_file() or clip.is_symlink():
-            return False
-        commands = [([str(clip)], text.encode("utf-16le"))]
-    elif sys.platform == "darwin":
-        commands = [(["pbcopy"], text.encode())]
-    else:
-        commands = [
-            (["wl-copy"], text.encode()),
-            (["xclip", "-selection", "clipboard"], text.encode()),
-            (["xsel", "--clipboard", "--input"], text.encode()),
-        ]
-    for command, payload in commands:
-        try:
-            subprocess.run(command, input=payload, check=True, timeout=5)
-            return True
-        except (FileNotFoundError, OSError, subprocess.SubprocessError):
-            continue
-    return False
+def _local_urlopen(request: urllib.request.Request, *, timeout: float):
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}), _NoRedirect()
+    )
+    return opener.open(request, timeout=timeout)
 
 
 @dataclass(frozen=True)
 class TrayStatus:
-    configured: bool
-    active: bool
+    installed: bool
+    running: bool
     ready: bool
     model: str | None
     endpoint: str
+    machine_soul_id: str | None
     detail: str
 
 
+def _read_bounded(response: Any, limit: int = MAX_DISCOVERY_BYTES) -> bytes:
+    raw = response.read(limit + 1)
+    if len(raw) > limit:
+        raise ValueError("response exceeds the tray discovery limit")
+    return raw
+
+
+def discover_ollama_models(
+    *,
+    timeout: float = 2.0,
+    opener: Callable[..., Any] = _local_urlopen,
+) -> list[str]:
+    """Return a bounded, normalized model list from loopback Ollama only."""
+
+    request = urllib.request.Request(OLLAMA_TAGS_URL, method="GET")
+    try:
+        with opener(request, timeout=timeout) as response:
+            if int(getattr(response, "status", 200)) != 200:
+                return []
+            payload = json.loads(_read_bounded(response))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError, urllib.error.URLError):
+        return []
+    models = payload.get("models") if isinstance(payload, dict) else None
+    if not isinstance(models, list):
+        return []
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in models[:MAX_DISCOVERED_MODELS]:
+        name = item.get("name") if isinstance(item, dict) else None
+        if not isinstance(name, str):
+            continue
+        name = name.strip()
+        if (
+            not name
+            or len(name) > 256
+            or any(character in name for character in ("\x00", "\r", "\n"))
+            or name in seen
+        ):
+            continue
+        seen.add(name)
+        result.append(name)
+    return result
+
+
 class SoulTrayController:
-    """Safe controller shared by the GUI and the headless diagnostic command."""
+    """Safe controller around the existing bootstrap/autostart contracts."""
 
     def __init__(
         self,
         *,
-        root: Path | None = None,
+        config: Path | None = None,
         platform: PlatformName | None = None,
         home: Path | None = None,
-        python: str | None = None,
-        opener: Callable[[Path], None] | None = None,
+        opener: Callable[..., Any] = _local_urlopen,
     ) -> None:
         self.platform = platform or _current_platform()
-        requested_home = (home or Path.home()).expanduser()
-        _assert_no_symlink_components(requested_home, "home")
-        self.home = requested_home.resolve()
-        requested_root = (
-            root or default_root(self.platform, home=self.home)
-        ).expanduser()
-        _assert_no_symlink_components(requested_root, "SOUL root")
-        self.root = requested_root.resolve()
-        self.config = self.root / "proxy.toml"
-        self.python = python or sys.executable
-        self._opener = opener or self._open_native
+        self.home = (home or Path.home()).expanduser().resolve()
+        self.config = (config or (default_root(self.platform, home=self.home) / "proxy.toml")).expanduser().resolve()
+        self.opener = opener
 
-    def _settings(self) -> ProxySettings:
+    def _settings(self) -> ProxySettings | None:
+        if not self.config.is_file() or self.config.is_symlink():
+            return None
         return ProxySettings.from_toml(self.config)
 
     @staticmethod
-    def _json(url: str, *, timeout: float = 1.0) -> tuple[int, dict]:
-        request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    def _endpoint(settings: ProxySettings | None) -> str:
+        host = settings.host if settings else "127.0.0.1"
+        port = settings.port if settings else 11435
+        display_host = f"[{host}]" if ":" in host and not host.startswith("[") else host
+        return f"http://{display_host}:{port}/v1"
+
+    def _json_get(self, url: str, *, timeout: float = 1.0) -> tuple[int, dict[str, Any]]:
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                raw = response.read(MAX_STATUS_BYTES + 1)
-                if len(raw) > MAX_STATUS_BYTES:
-                    return 0, {}
+            with self.opener(urllib.request.Request(url, method="GET"), timeout=timeout) as response:
+                raw = _read_bounded(response, 256 * 1024)
                 payload = json.loads(raw)
-                return response.status, payload if isinstance(payload, dict) else {}
+                return int(getattr(response, "status", 200)), payload if isinstance(payload, dict) else {}
         except urllib.error.HTTPError as exc:
             try:
-                raw = exc.read(MAX_STATUS_BYTES + 1)
-                payload = {} if len(raw) > MAX_STATUS_BYTES else json.loads(raw)
-            except (ValueError, TypeError):
+                payload = json.loads(_read_bounded(exc, 256 * 1024))
+            except Exception:
                 payload = {}
-            return exc.code, payload if isinstance(payload, dict) else {}
-        except (OSError, ValueError, TypeError, urllib.error.URLError):
+            return int(exc.code), payload if isinstance(payload, dict) else {}
+        except (OSError, ValueError, TypeError, json.JSONDecodeError, urllib.error.URLError):
             return 0, {}
 
     def status(self) -> TrayStatus:
-        if not self.config.is_file() or self.config.is_symlink():
-            return TrayStatus(
-                False, False, False, None, "http://127.0.0.1:11435/v1", "sin configurar"
-            )
-        try:
-            settings = self._settings()
-        except (OSError, ValueError) as exc:
-            return TrayStatus(
-                True, False, False, None, "", f"configuración inválida: {exc}"
-            )
-        base_url = _loopback_base_url(settings.host, settings.port)
-        endpoint = f"{base_url}/v1"
-        code, health = self._json(f"{base_url}/health")
-        active = (
-            code == 200
-            and health.get("ok") is True
-            and health.get("machine_soul_id") == settings.machine_soul_id
-            and health.get("baseline_hash") == settings.baseline_hash
-        )
-        if not active:
-            detail = "apagada" if code == 0 else "otro proceso ocupa el puerto"
-            return TrayStatus(
-                True, False, False, settings.upstream_model, endpoint, detail
-            )
-        ready_code, ready_payload = self._json(f"{base_url}/ready")
-        ready = ready_code == 200 and ready_payload.get("ready") is True
+        settings = self._settings()
+        endpoint = self._endpoint(settings)
+        if settings is None:
+            return TrayStatus(False, False, False, None, endpoint, None, "SOUL no está inicializado")
+        base = endpoint.removesuffix("/v1")
+        health_code, health = self._json_get(base + "/health")
+        ready_code, ready = self._json_get(base + "/ready")
+        running = health_code == 200 and health.get("ok") is True
+        ready_now = running and ready_code == 200 and ready.get("ready") is True
+        detail = "Alma activa" if ready_now else ("Alma activa; cerebro no disponible" if running else "Alma detenida")
         return TrayStatus(
             True,
-            True,
-            ready,
+            running,
+            ready_now,
             settings.upstream_model,
             endpoint,
-            "lista" if ready else "alma activa; cerebro no disponible",
+            settings.machine_soul_id,
+            detail,
         )
 
-    def turn_on(self, model: str) -> TrayStatus:
-        model = _safe_model_name(model)
-        previous = self._settings() if self.config.exists() else None
-        previous_status = self.status() if previous else None
-        changed = False
-        try:
-            if previous:
-                if (
-                    previous.upstream_kind != "ollama"
-                    or previous.upstream_base_url != DEFAULT_OLLAMA_BASE
-                    or previous.upstream_model != model
-                ):
-                    switch_upstream(
-                        self.config,
-                        upstream_kind="ollama",
-                        upstream_base_url=DEFAULT_OLLAMA_BASE,
-                        upstream_model=model,
-                        restart=False,
-                        platform=self.platform,
-                        home=self.home,
-                    )
-                    changed = True
-                contract = AutostartContract.load(self.config, python=self.python)
-                install_descriptor(contract, self.platform, home=self.home)
-                activate_descriptor(contract, self.platform, home=self.home)
-            else:
-                initialize(
-                    root=self.root,
-                    upstream_kind="ollama",
-                    upstream_base_url=DEFAULT_OLLAMA_BASE,
-                    upstream_model=model,
-                    python=self.python,
-                    platform=self.platform,
-                    home=self.home,
-                    enable_autostart=True,
-                    activate_autostart=True,
-                )
-            result = self.status()
-            if not result.active or not result.ready:
-                raise RuntimeError(f"SOUL did not become ready: {result.detail}")
-            return result
-        except Exception as original:
-            rollback_errors = self._rollback_failed_turn_on(
-                previous=previous,
-                previous_was_active=bool(previous_status and previous_status.active),
-                changed=changed,
+    def start(self, model: str | None = None) -> TrayStatus:
+        settings = self._settings()
+        if settings is None:
+            if not model:
+                raise RuntimeError("SOUL no está inicializado y no hay un modelo Ollama seleccionado")
+            initialize(
+                root=self.config.parent,
+                upstream_kind="ollama",
+                upstream_base_url=OLLAMA_BASE_URL,
+                upstream_model=model,
+                platform=self.platform,
+                home=self.home,
             )
-            if rollback_errors:
-                raise RuntimeError(
-                    f"SOUL start failed ({original}); rollback also failed: "
-                    + "; ".join(rollback_errors)
-                ) from original
-            raise
-
-    def _rollback_failed_turn_on(
-        self,
-        *,
-        previous: ProxySettings | None,
-        previous_was_active: bool,
-        changed: bool,
-    ) -> list[str]:
-        """Stop a failed candidate and restore the prior brain/state."""
-        errors: list[str] = []
-        if self.config.is_file() and not self.config.is_symlink():
-            try:
-                candidate = AutostartContract.load(self.config, python=self.python)
-                deactivate_descriptor(candidate, self.platform, home=self.home)
-            except Exception as exc:  # noqa: BLE001 - preserve original failure too
-                errors.append(f"candidate stop: {exc}")
-        if previous is not None and changed:
-            try:
-                switch_upstream(
-                    self.config,
-                    upstream_kind=previous.upstream_kind,
-                    upstream_base_url=previous.upstream_base_url,
-                    upstream_model=previous.upstream_model,
-                    allow_remote=previous.upstream_allow_remote,
-                    restart=False,
-                    platform=self.platform,
-                    home=self.home,
-                )
-            except Exception as exc:  # noqa: BLE001
-                errors.append(f"config restore: {exc}")
-        if previous is not None and previous_was_active:
-            try:
-                restored = AutostartContract.load(self.config, python=self.python)
-                install_descriptor(restored, self.platform, home=self.home)
-                activate_descriptor(restored, self.platform, home=self.home)
-            except Exception as exc:  # noqa: BLE001
-                errors.append(f"prior brain restart: {exc}")
-        return errors
-
-    def turn_off(self) -> TrayStatus:
-        if not self.config.is_file() or self.config.is_symlink():
             return self.status()
-        contract = AutostartContract.load(self.config, python=self.python)
-        deactivate_descriptor(contract, self.platform, home=self.home)
-        result = self.status()
-        if result.active:
-            raise RuntimeError("SOUL proxy remained active after shutdown")
-        return result
-
-    def endpoint(self) -> str:
-        return self.status().endpoint
-
-    def token(self) -> str:
-        return self._settings().read_token()
-
-    def open_data_folder(self) -> None:
-        _assert_no_symlink_components(self.root, "SOUL root")
-        self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        _assert_no_symlink_components(self.root, "SOUL root")
-        self._opener(self.root)
-
-    @staticmethod
-    def _open_native(path: Path) -> None:
-        if sys.platform.startswith("win"):
-            os.startfile(path)  # type: ignore[attr-defined]
-        elif sys.platform == "darwin":
-            subprocess.run(["open", str(path)], check=True, timeout=10)
-        else:
-            subprocess.run(["xdg-open", str(path)], check=True, timeout=10)
-
-
-class _SingleInstance:
-    """Advisory per-user tray lock. Failure is safe: no second tray starts."""
-
-    def __init__(self, path: Path, *, windows: bool | None = None) -> None:
-        self.path = path
-        self.windows = os.name == "nt" if windows is None else windows
-        self.handle = None
-        self._windows_mutex = None
-
-    def acquire(self) -> bool:
-        _assert_no_symlink_components(self.path.parent, "tray lock parent")
-        self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        _assert_no_symlink_components(self.path.parent, "tray lock parent")
-        if self.path.is_symlink():
-            raise ValueError("tray lock must never be a symlink")
-        if self.windows:
-            digest = hashlib.sha256(str(self.path.resolve()).encode()).hexdigest()
-            self._windows_mutex = _acquire_windows_mutex(f"Local\\SOUL-Tray-{digest}")
-            return self._windows_mutex is not None
-        flags = os.O_RDWR | os.O_CREAT
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        descriptor = os.open(self.path, flags, 0o600)
-        handle = os.fdopen(descriptor, "r+b")
-        if self.path.stat().st_size == 0:
-            handle.write(b"0")
-            handle.flush()
-        handle.seek(0)
+        previous_config = self.config.read_text(encoding="utf-8")
+        was_running = self.status().running
+        switched = False
+        if model and model != settings.upstream_model:
+            settings = switch_upstream(
+                self.config,
+                upstream_kind="ollama",
+                upstream_base_url=OLLAMA_BASE_URL,
+                upstream_model=model,
+                restart=False,
+                platform=self.platform,
+                home=self.home,
+            )
+            switched = True
         try:
-            import fcntl
+            contract = AutostartContract.load(self.config)
+            install_descriptor(contract, self.platform, home=self.home)
+            activate_descriptor(contract, self.platform, home=self.home)
+        except Exception:
+            if switched:
+                _atomic_config(self.config, previous_config)
+                previous_contract = AutostartContract.load(self.config)
+                install_descriptor(previous_contract, self.platform, home=self.home)
+                if was_running:
+                    try:
+                        activate_descriptor(
+                            previous_contract, self.platform, home=self.home
+                        )
+                    except Exception:
+                        pass
+            raise
+        return self.status()
 
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            handle.close()
+    def stop(self) -> TrayStatus:
+        settings = self._settings()
+        if settings is None:
+            raise RuntimeError("SOUL no está inicializado")
+        stop_descriptor(
+            AutostartContract.load(self.config),
+            self.platform,
+            home=self.home,
+        )
+        return self.status()
+
+    def switch_model(self, model: str) -> TrayStatus:
+        model = str(model or "").strip()
+        if not model or len(model) > 256 or any(char in model for char in ("\x00", "\r", "\n")):
+            raise ValueError("nombre de modelo inválido")
+        settings = self._settings()
+        if settings is None:
+            return self.start(model)
+        running = self.status().running
+        switch_upstream(
+            self.config,
+            upstream_kind="ollama",
+            upstream_base_url=OLLAMA_BASE_URL,
+            upstream_model=model,
+            restart=running,
+            platform=self.platform,
+            home=self.home,
+        )
+        return self.status()
+
+    def models(self) -> list[str]:
+        return discover_ollama_models(opener=self.opener)
+
+    def copy_endpoint(self) -> bool:
+        endpoint = self.status().endpoint
+        try:
+            if sys.platform.startswith("win"):
+                subprocess.run(["clip.exe"], input=endpoint, text=True, check=True, timeout=5)
+            elif sys.platform == "darwin":
+                subprocess.run(["pbcopy"], input=endpoint, text=True, check=True, timeout=5)
+            else:
+                subprocess.run(
+                    ["xclip", "-selection", "clipboard"],
+                    input=endpoint,
+                    text=True,
+                    check=True,
+                    timeout=5,
+                )
+            return True
+        except (OSError, subprocess.SubprocessError):
             return False
-        self.handle = handle
-        return True
-
-    def release(self) -> None:
-        if self._windows_mutex is not None:
-            _release_windows_mutex(self._windows_mutex)
-            self._windows_mutex = None
-            return
-        if self.handle is None:
-            return
-        try:
-            import fcntl
-
-            fcntl.flock(self.handle.fileno(), fcntl.LOCK_UN)
-        finally:
-            self.handle.close()
-            self.handle = None
 
 
-def _acquire_windows_mutex(name: str):
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel32.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
-    kernel32.CreateMutexW.restype = ctypes.c_void_p
-    kernel32.ReleaseMutex.argtypes = [ctypes.c_void_p]
-    kernel32.ReleaseMutex.restype = ctypes.c_int
-    kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
-    kernel32.CloseHandle.restype = ctypes.c_int
-    ctypes.set_last_error(0)
-    handle = kernel32.CreateMutexW(None, True, name)
-    last_error = ctypes.get_last_error()
-    if not handle:
-        raise OSError(last_error, "CreateMutexW failed")
-    if last_error == WINDOWS_MUTEX_ALREADY_EXISTS:
-        kernel32.CloseHandle(handle)
-        return None
-    return kernel32, handle
-
-
-def _release_windows_mutex(mutex) -> None:
-    kernel32, handle = mutex
-    released = kernel32.ReleaseMutex(handle)
-    release_error = ctypes.get_last_error() if not released else 0
-    closed = kernel32.CloseHandle(handle)
-    close_error = ctypes.get_last_error() if not closed else 0
-    if release_error:
-        raise OSError(release_error, "ReleaseMutex failed")
-    if close_error:
-        raise OSError(close_error, "CloseHandle failed")
-
-
-def install_tray_autostart(
-    *,
-    home: Path | None = None,
-    python: str | None = None,
-    platform: PlatformName | None = None,
-) -> Path:
-    if (platform or _current_platform()) != "windows":
-        raise RuntimeError("tray autostart is currently supported on Windows")
-    requested_home = (home or Path.home()).expanduser()
-    _assert_no_symlink_components(requested_home, "home")
-    resolved_home = requested_home.resolve()
-    target = tray_descriptor_path("windows", resolved_home)
-    assert target is not None
-    _safe_descriptor_parent(target, resolved_home)
-    _assert_no_symlink_components(target, "tray autostart descriptor")
-    executable = Path(python or sys.executable)
-    pythonw = executable.with_name("pythonw.exe")
-    if not pythonw.is_file():
-        raise ValueError("pythonw.exe is required for hidden tray autostart")
-    quoted = str(pythonw).replace('"', '""')
-    payload = (
-        'Option Explicit\r\nDim shell\r\nSet shell = CreateObject("WScript.Shell")\r\n'
-        f'shell.Run Chr(34) & "{quoted}" & Chr(34) & '
-        '" -m soul_platform.tray", 0, False\r\n'
-    ).encode()
-    fd, temporary = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
+def _atomic_private(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
         with os.fdopen(fd, "wb") as handle:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
         os.chmod(temporary, 0o600)
-        os.replace(temporary, target)
+        os.replace(temporary, path)
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+
+def _tray_receipt_path(platform: PlatformName, home: Path) -> Path:
+    return default_root(platform, home=home) / "tray-autostart.json"
+
+
+def _acquire_instance_lock(path: Path):
+    """Hold a per-user, non-blocking lock so retries cannot duplicate the tray."""
+
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    flags = os.O_CREAT | os.O_RDWR
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(path, flags, 0o600)
+    handle = os.fdopen(fd, "r+b", buffering=0)
+    try:
+        if path.stat().st_size == 0:
+            handle.write(b"\0")
+        handle.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (OSError, PermissionError):
+        handle.close()
+        return None
+    return handle
+
+
+def _windows_tray_snapshot_script() -> str:
+    task = _powershell_literal(TRAY_TASK_NAME)
+    return (
+        "$ErrorActionPreference='Stop';"
+        "$identity=[Security.Principal.WindowsIdentity]::GetCurrent();"
+        "$sid=$identity.User.Value;"
+        "if($sid -eq 'S-1-5-18'){throw 'SYSTEM identity is forbidden'};"
+        f"$old=Get-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+        "$oldXml='';if($old){$oldXml=Export-ScheduledTask -TaskName $old.TaskName};"
+        "$encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($oldXml));"
+        "Write-Output 'SOUL_TASK_RECEIPT_V1';"
+        "Write-Output ('SOUL_PREVIOUS_TASK_XML='+$encoded)"
+    )
+
+
+def _windows_tray_register_script(python: Path, config: Path, previous_xml: str) -> str:
+    pythonw = python.with_name("pythonw.exe")
+    if os.name == "nt" and not pythonw.is_file():
+        raise RuntimeError("pythonw.exe is required for hidden SOUL Tray autostart")
+    if not pythonw.is_file():
+        pythonw = python
+    task = _powershell_literal(TRAY_TASK_NAME)
+    executable = _powershell_literal(str(pythonw))
+    arguments = _powershell_literal(
+        subprocess.list2cmdline(["-m", "soul_platform.tray", "--config", str(config)])
+    )
+    previous = _powershell_literal(
+        base64.b64encode(previous_xml.encode("utf-16le")).decode("ascii")
+    )
+    return (
+        "$ErrorActionPreference='Stop';"
+        "$identity=[Security.Principal.WindowsIdentity]::GetCurrent();"
+        "$sid=$identity.User.Value;"
+        "if($sid -eq 'S-1-5-18'){throw 'SYSTEM identity is forbidden'};"
+        f"$oldXml=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String({previous}));"
+        f"$action=New-ScheduledTaskAction -Execute {executable} -Argument {arguments};"
+        "$trigger=New-ScheduledTaskTrigger -AtLogOn -User $sid;"
+        "$settings=New-ScheduledTaskSettingsSet -Hidden -RestartCount 3 "
+        "-RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable "
+        "-AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew;"
+        "$principal=New-ScheduledTaskPrincipal -UserId $sid -LogonType Interactive -RunLevel Limited;"
+        "$definition=New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -Principal $principal;"
+        "try{"
+        f"if($old){{Stop-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+        "Start-Sleep -Milliseconds 250};"
+        f"Register-ScheduledTask -TaskName {task} -InputObject $definition -Force | Out-Null;"
+        f"$task=Get-ScheduledTask -TaskName {task};"
+        "$principalId=[string]$task.Principal.UserId;"
+        "try{"
+        "if($principalId -match '^S-1-'){$taskSid=$principalId}"
+        "else{$taskSid=(New-Object Security.Principal.NTAccount($principalId))."
+        "Translate([Security.Principal.SecurityIdentifier]).Value}"
+        "}catch{throw 'SOUL Tray task principal identity could not be verified'};"
+        "$runLevel=[string]$task.Principal.RunLevel;"
+        "if($taskSid -ne $sid -or $taskSid -eq 'S-1-5-18' -or $runLevel -ne 'Limited'){"
+        "throw 'SOUL Tray task principal verification failed'};"
+        f"Start-ScheduledTask -TaskName {task}"
+        "}catch{"
+        f"$new=Get-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+        f"if($new){{Unregister-ScheduledTask -TaskName {task} -Confirm:$false}};"
+        f"if($oldXml){{Register-ScheduledTask -TaskName {task} -Xml $oldXml -Force | Out-Null}};"
+        "throw}"
+    )
+
+
+def _windows_tray_remove_script() -> str:
+    task = _powershell_literal(TRAY_TASK_NAME)
+    return (
+        "$ErrorActionPreference='Stop';"
+        "$identity=[Security.Principal.WindowsIdentity]::GetCurrent();"
+        "$sid=$identity.User.Value;"
+        "if($sid -eq 'S-1-5-18'){throw 'SYSTEM identity is forbidden'};"
+        f"$task=Get-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+        f"if($task){{Stop-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue;"
+        f"Unregister-ScheduledTask -TaskName {task} -Confirm:$false}};"
+        f"if(Get-ScheduledTask -TaskName {task} -ErrorAction SilentlyContinue){{"
+        "throw 'SOUL Tray task removal could not be verified'}"
+    )
+
+
+def install_tray_autostart(
+    *,
+    config: Path,
+    platform: PlatformName | None = None,
+    home: Path | None = None,
+    python: Path | None = None,
+) -> Path:
+    """Install least-privilege login autostart for the tray, never for SYSTEM."""
+
+    platform = platform or _current_platform()
+    home = (home or Path.home()).expanduser().resolve()
+    python = (python or Path(sys.executable)).expanduser().resolve()
+    config = config.expanduser().resolve()
+    if not python.is_file():
+        raise ValueError("tray python executable does not exist")
+    receipt = _tray_receipt_path(platform, home)
+    if platform == "windows":
+        shell = _powershell_stdin()
+        snapshot = _run(shell, input_text=_windows_tray_snapshot_script())
+        previous_xml = _previous_windows_task(snapshot.stdout)
+        _run(shell, input_text=_windows_tray_register_script(python, config, previous_xml))
+        target = receipt
+    elif platform == "linux":
+        target = home / ".config" / "autostart" / "soul-tray.desktop"
+        executable = str(python).replace("\\", "\\\\").replace('"', '\\"')
+        config_arg = str(config).replace("\\", "\\\\").replace('"', '\\"')
+        payload = (
+            "[Desktop Entry]\nType=Application\nName=SOUL Tray\n"
+            f'Exec="{executable}" -m soul_platform.tray --config "{config_arg}"\n'
+            "Terminal=false\nX-GNOME-Autostart-enabled=true\n"
+        ).encode()
+        _atomic_private(target, payload)
+    elif platform == "macos":
+        target = home / "Library" / "LaunchAgents" / "com.soul.platform.tray.plist"
+        _atomic_private(
+            target,
+            plistlib.dumps(
+                {
+                    "Label": "com.soul.platform.tray",
+                    "ProgramArguments": [
+                        str(python), "-m", "soul_platform.tray", "--config", str(config)
+                    ],
+                    "RunAtLoad": True,
+                    "KeepAlive": False,
+                    "ProcessType": "Interactive",
+                },
+                fmt=plistlib.FMT_XML,
+                sort_keys=True,
+            ),
+        )
+    else:
+        raise ValueError(f"unsupported platform: {platform}")
+    _atomic_private(
+        receipt,
+        (json.dumps(
+            {
+                "schema": "soul.tray-autostart.v1",
+                "platform": platform,
+                "target": str(target),
+                "python": str(python),
+                "config": str(config),
+                "run_level": "LeastPrivilege",
+            },
+            sort_keys=True,
+        ) + "\n").encode(),
+    )
     return target
 
 
-def _desktop_self_check() -> dict[str, bool]:
-    found = {
-        "pillow": importlib.util.find_spec("PIL") is not None,
-        "pystray": importlib.util.find_spec("pystray") is not None,
-    }
-    if not all(found.values()):
-        return found
-    from PIL import Image
-
-    found["pillow_image"] = Image is not None
-    if sys.platform.startswith("win"):
-        import pystray
-
-        found["pystray_import"] = pystray is not None
-    return found
+def remove_tray_autostart(
+    *, platform: PlatformName | None = None, home: Path | None = None
+) -> Path:
+    platform = platform or _current_platform()
+    home = (home or Path.home()).expanduser().resolve()
+    receipt = _tray_receipt_path(platform, home)
+    if platform == "windows":
+        _run(_powershell_stdin(), input_text=_windows_tray_remove_script())
+        target = receipt
+    elif platform == "linux":
+        target = home / ".config" / "autostart" / "soul-tray.desktop"
+    elif platform == "macos":
+        target = home / "Library" / "LaunchAgents" / "com.soul.platform.tray.plist"
+    else:
+        raise ValueError(f"unsupported platform: {platform}")
+    for path in (target, receipt):
+        if path.is_symlink():
+            raise ValueError("refusing to remove a symlinked tray autostart artifact")
+        if path.is_file():
+            path.unlink()
+    return target
 
 
 def _icon_image():
@@ -478,266 +505,134 @@ def _icon_image():
     return image
 
 
-def _install_ui_dispatch(icon) -> None:
-    """Install a UI-thread callback queue for the pinned pystray Win32 backend."""
-    if not sys.platform.startswith("win"):
-        raise RuntimeError("the visual tray is currently supported on Windows only")
-    handlers = getattr(icon, "_message_handlers", None)
-    if not isinstance(handlers, dict):
-        raise TypeError("unsupported pystray Win32 backend")
-    callbacks: queue.Queue[Callable[[], None]] = queue.Queue()
+class SoulTrayApplication:
+    def __init__(self, controller: SoulTrayController, pystray_module: Any) -> None:
+        self.controller = controller
+        self.pystray = pystray_module
+        self._busy = threading.Lock()
+        self.icon = pystray_module.Icon(
+            "soul-platform",
+            _icon_image(),
+            "SOUL — el alma de tu máquina",
+        )
+        self.icon.menu = self._menu()
 
-    def dispatch(_wparam, _lparam) -> None:
-        while True:
+    def _notify(self, message: str) -> None:
+        self.icon.notify(str(message)[:300], "SOUL")
+
+    def _background(self, operation: Callable[[], TrayStatus]) -> None:
+        if not self._busy.acquire(blocking=False):
+            self._notify("SOUL ya está procesando otra acción")
+            return
+
+        def run() -> None:
             try:
-                callback = callbacks.get_nowait()
-            except queue.Empty:
-                return
-            callback()
-
-    handlers[WINDOWS_UI_MESSAGE] = dispatch
-    from ctypes import wintypes
-
-    user32 = ctypes.WinDLL("user32", use_last_error=True)
-    post_message = user32.PostMessageW
-    post_message.argtypes = [
-        wintypes.HWND,
-        wintypes.UINT,
-        wintypes.WPARAM,
-        wintypes.LPARAM,
-    ]
-    post_message.restype = wintypes.BOOL
-
-    def post(callback: Callable[[], None]) -> None:
-        hwnd = getattr(icon, "_hwnd", None)
-        if not hwnd:
-            raise RuntimeError("tray message window is not ready")
-        callbacks.put(callback)
-        if not post_message(hwnd, WINDOWS_UI_MESSAGE, 0, 0):
-            try:
-                callbacks.get_nowait()
-            except queue.Empty:
-                pass
-            raise OSError(ctypes.get_last_error(), "PostMessageW failed")
-
-    icon._soul_post_ui = post
-
-
-def _run_tray_work(
-    icon,
-    busy: threading.Lock,
-    operation: Callable[[], object],
-    complete: Callable[[object | None, Exception | None], None],
-) -> threading.Thread:
-    """Run bounded I/O off the Win32 loop and marshal every UI touch back."""
-
-    def run() -> None:
-        result: object | None = None
-        error: Exception | None = None
-        try:
-            result = operation()
-        except Exception as exc:  # noqa: BLE001 - shown locally by the UI callback
-            error = exc
-
-        def apply() -> None:
-            try:
-                complete(result, error)
+                status = operation()
+                self._notify(status.detail)
+            except Exception as exc:  # UI boundary: report without crashing the tray.
+                self._notify(f"No pude completar la acción: {exc}")
             finally:
-                busy.release()
+                self._busy.release()
+                self.icon.menu = self._menu()
+                self.icon.update_menu()
 
-        try:
-            icon._soul_post_ui(apply)
-        except (OSError, RuntimeError):
-            # Posting can fail only while the tray is stopping. Never leave the
-            # action lock held; do not touch pystray from this worker thread.
-            busy.release()
+        threading.Thread(target=run, name="soul-tray-action", daemon=True).start()
 
-    worker = threading.Thread(target=run, name="soul-tray-action", daemon=True)
-    worker.start()
-    return worker
-
-
-def build_menu(controller: SoulTrayController, icon):
-    import pystray
-
-    busy = getattr(icon, "_soul_busy", None)
-    if busy is None:
-        busy = icon._soul_busy = threading.Lock()
-
-    def notify(message: str) -> None:
-        icon.notify(message, "SOUL")
-
-    def rebuild() -> None:
-        icon.menu = build_menu(controller, icon)
-
-    def background(operation: Callable[[], TrayStatus], success: str) -> None:
-        if not busy.acquire(blocking=False):
-            notify("SOUL ya está procesando otra acción")
+    def _toggle(self, _icon: Any, _item: Any) -> None:
+        status = self.controller.status()
+        if status.running:
+            self._background(self.controller.stop)
             return
-
-        def complete(result: object | None, error: Exception | None) -> None:
-            if error is None and isinstance(result, TrayStatus):
-                icon._soul_state = result
-                notify(f"{success}: {result.detail}")
-            else:
-                notify(f"No se pudo completar: {error or 'resultado inválido'}")
-            rebuild()
-
-        _run_tray_work(icon, busy, operation, complete)
-
-    def state_label(_item) -> str:
-        state = icon._soul_state
-        if state.ready:
-            return f"🟢 Alma ACTIVA · {state.model}"
-        if state.active:
-            return f"🟡 Alma activa · {state.detail}"
-        return "⚪ Alma apagada"
-
-    def toggle(_icon, _item) -> None:
-        state = icon._soul_state
-        if state.active:
-            background(controller.turn_off, "Alma apagada; memoria preservada")
-            return
-        models = icon._soul_models
-        model = state.model or (models[0] if models else None)
+        model = status.model
         if not model:
-            notify("No encontré modelos en Ollama")
-            return
-        background(lambda: controller.turn_on(model), f"Alma encendida con {model}")
+            models = self.controller.models()
+            model = models[0] if models else None
+        self._background(lambda: self.controller.start(model))
 
-    def choose(model: str):
-        def callback(_icon, _item) -> None:
-            background(lambda: controller.turn_on(model), f"Cerebro cambiado a {model}")
+    def _select_model(self, model: str) -> Callable[[Any, Any], None]:
+        return lambda _icon, _item: self._background(lambda: self.controller.switch_model(model))
 
-        return callback
+    def _refresh(self, _icon: Any, _item: Any) -> None:
+        self.icon.menu = self._menu()
+        self.icon.update_menu()
 
-    def copy_endpoint(_icon, _item) -> None:
-        value = icon._soul_state.endpoint
-        notify(
-            "Endpoint copiado"
-            if value and copy_to_clipboard(value)
-            else f"Endpoint: {value}"
+    def _menu(self):
+        status = self.controller.status()
+        models = self.controller.models()
+        Menu = self.pystray.Menu
+        MenuItem = self.pystray.MenuItem
+        status_label = (
+            f"🟢 Alma activa · {status.model}" if status.ready
+            else (f"🟡 Alma activa · cerebro sin respuesta ({status.model})" if status.running else "⚪ Alma detenida")
+        )
+        model_items = [
+            MenuItem(
+                model,
+                self._select_model(model),
+                checked=lambda _item, name=model: self.controller.status().model == name,
+                radio=True,
+            )
+            for model in models
+        ]
+        if not model_items:
+            model_items = [MenuItem("(Ollama sin modelos)", None, enabled=False)]
+        return Menu(
+            MenuItem(status_label, None, enabled=False),
+            Menu.SEPARATOR,
+            MenuItem("Prender / apagar alma", self._toggle),
+            MenuItem("Elegir cerebro", Menu(*model_items)),
+            MenuItem("Actualizar estado y modelos", self._refresh),
+            MenuItem(
+                f"Copiar endpoint ({status.endpoint})",
+                lambda _icon, _item: self._notify(
+                    "Endpoint copiado" if self.controller.copy_endpoint() else status.endpoint
+                ),
+            ),
+            Menu.SEPARATOR,
+            MenuItem("Salir de la bandeja (el alma sigue activa)", lambda icon, _item: icon.stop()),
         )
 
-    def copy_token(_icon, _item) -> None:
-        try:
-            copied = copy_to_clipboard(controller.token())
-        except (OSError, ValueError):
-            notify("Primero encendé/configurá el alma")
-            return
-        notify(
-            "Token local copiado; tratálo como secreto"
-            if copied
-            else "No pude usar el portapapeles"
-        )
-
-    def refresh(_icon, _item) -> None:
-        if not busy.acquire(blocking=False):
-            notify("SOUL ya está procesando otra acción")
-            return
-
-        def operation() -> tuple[TrayStatus, list[str]]:
-            return controller.status(), discover_ollama_models()
-
-        def complete(result: object | None, error: Exception | None) -> None:
-            if error is None and isinstance(result, tuple):
-                icon._soul_state, icon._soul_models = result
-                notify("Modelos y estado actualizados")
-            else:
-                notify(f"No se pudo actualizar: {error or 'resultado inválido'}")
-            rebuild()
-
-        _run_tray_work(icon, busy, operation, complete)
-
-    models = icon._soul_models
-    model_items = [
-        pystray.MenuItem(
-            model,
-            choose(model),
-            checked=lambda _item, value=model: icon._soul_state.model == value,
-            radio=True,
-        )
-        for model in models
-    ]
-    if not model_items:
-        model_items = [pystray.MenuItem("(Ollama sin modelos)", None, enabled=False)]
-    return pystray.Menu(
-        pystray.MenuItem(state_label, None, enabled=False),
-        pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Prender / apagar alma", toggle),
-        pystray.MenuItem("Elegir cerebro", pystray.Menu(*model_items)),
-        pystray.MenuItem("Actualizar modelos", refresh),
-        pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Copiar endpoint para apps", copy_endpoint),
-        pystray.MenuItem("Copiar token local", copy_token),
-        pystray.MenuItem(
-            "Abrir carpeta SOUL", lambda _ic, _it: controller.open_data_folder()
-        ),
-        pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Cerrar esta interfaz", lambda tray, _it: tray.stop()),
-    )
+    def run(self) -> None:
+        self.icon.run()
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="soul-tray")
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="print live status/models; exit nonzero unless the soul is ready",
-    )
-    parser.add_argument("--check-desktop", action="store_true")
+    parser.add_argument("--config", type=Path)
+    parser.add_argument("--headless-check", action="store_true")
     parser.add_argument("--install-autostart", action="store_true")
     parser.add_argument("--remove-autostart", action="store_true")
     args = parser.parse_args(argv)
-    controller = SoulTrayController()
-    if args.check_desktop:
-        payload = _desktop_self_check()
-        print(json.dumps(payload, sort_keys=True))
-        return 0 if all(payload.values()) else 2
+    controller = SoulTrayController(config=args.config)
+    if args.install_autostart and args.remove_autostart:
+        parser.error("choose only one autostart action")
     if args.install_autostart:
-        target = install_tray_autostart(home=controller.home, python=controller.python)
-        print(target)
+        target = install_tray_autostart(config=controller.config)
+        print(f"tray_autostart={target}")
         return 0
     if args.remove_autostart:
-        from soul_platform.autostart import disable_tray_descriptor
-
-        target = disable_tray_descriptor(controller.platform, home=controller.home)
-        print(target or "tray autostart not used on this platform")
+        target = remove_tray_autostart()
+        print(f"tray_autostart_removed={target}")
         return 0
-    if args.check:
+    if args.headless_check:
         payload = asdict(controller.status())
-        payload["ollama_models"] = discover_ollama_models()
+        payload["ollama_models"] = controller.models()
         print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
-        return 0 if payload["ready"] is True else 3
-    if not sys.platform.startswith("win"):
-        print(
-            "The visual SOUL tray currently supports Windows only; "
-            "use soul-tray-cli --check on this platform.",
-            file=sys.stderr,
-        )
-        return 2
+        return 0
     try:
         import pystray
+        from PIL import Image  # noqa: F401 -- verify the complete desktop extra.
     except ImportError:
-        print(
-            "Install the desktop extra: pip install 'soul-platform[desktop]'",
-            file=sys.stderr,
-        )
+        print("Falta el extra de escritorio: pip install 'soul-platform[desktop]'", file=sys.stderr)
         return 2
-    instance = _SingleInstance(controller.root / "tray.lock")
-    if not instance.acquire():
-        print("SOUL tray is already running", file=sys.stderr)
+    instance_lock = _acquire_instance_lock(controller.config.parent / ".soul-tray.lock")
+    if instance_lock is None:
         return 0
     try:
-        icon = pystray.Icon("soul", _icon_image(), "SOUL — el alma de tu máquina")
-        _install_ui_dispatch(icon)
-        icon._soul_state = controller.status()
-        icon._soul_models = discover_ollama_models()
-        icon.menu = build_menu(controller, icon)
-        icon.run()
-        return 0
+        SoulTrayApplication(controller, pystray).run()
     finally:
-        instance.release()
+        instance_lock.close()
+    return 0
 
 
 if __name__ == "__main__":

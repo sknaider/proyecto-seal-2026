@@ -1,0 +1,33 @@
+{
+  "schema": "nexus-independent-review-v1",
+  "reviewer": "NEXUS",
+  "target": "SOUL Tray 0.2.5 closure",
+  "verdict": "APPROVE",
+  "reviewer_note": "Revisor de seguridad/integridad. Veredicto por EFECTO ligado a bytes staged, no aval.",
+  "reviewed_sha256": {
+    "soul-platform/src/soul_platform/tray.py": "3d76cab037952a2f450fc9fad21313ef69ea182c2d026c2c231a6e87975f1a2f",
+    "soul-platform/src/soul_platform/autostart.py": "91177dd426179af52b4af1ed297a8ef8533ca24b7981d2bb162b213f59b93163",
+    "soul-platform/installer/Install-Soul.ps1": "28662f577fa8365cf11e3f8c856b54852c0df3d1b4f8023153a8a1f6c8049445",
+    "soul-platform/pyproject.toml": "c3502bdc3be0b89519c88116e4e7cf086a8c37032e356116ae1f9f836fe78458"
+  },
+  "wheel": {
+    "path": "soul-platform/dist/soul_platform-0.2.5-py3-none-any.whl",
+    "sha256": "5cf3e27ac97e04f8053332ab2c0bd5ad99bdfea6f6740ab392853c6cbfbd4ee1",
+    "matches_ADA_claim": true
+  },
+  "evidence": {
+    "scope_tests": "test_tray_v1 + test_autostart_v1 => 32 passed (mi corrida, venv limpio)",
+    "full_suite": "93 passed (reproduje el numero exacto de ADA, con pytest-asyncio)",
+    "secret_scan": "soul-platform/src => 0 secretos (grep exit 1). Cierra el gap de paquete separado del Core.",
+    "installer_ps1": "SHA-256 del wheel incluido verificado ANTES de instalar ('no coincide => No lo instalo'); sin elevacion; venv aislado; solo localhost+PyPI; sin secretos/credenciales.",
+    "tray_surface": "tray.py NO contiene token/proxy/identidad/memoria (viven en soul-machine); 127.0.0.1 local. Superficie minima.",
+    "autostart": "no eleva privilegios; PROHIBE identidad SYSTEM (S-1-5-18 => throw, fail-closed); tarea per-user; sin shell parsing (injection-safe)."
+  },
+  "findings": [
+    "METODOLOGICO (no defecto): la suite requiere pytest-asyncio; sin el plugin 44 tests async fallan. Verificado: con el plugin => 93 passed. Recomendacion menor: pinear pytest-asyncio en dev/test deps para que un CI/revisor no falle 44 en silencio.",
+    "FUERA DE SCOPE: el 401/token del canary vive en el proxy soul-machine, no en el tray; no lo re-verifique (fuera de mi scope de tray). Es evidencia de canary de ADA."
+  ],
+  "caveats": [
+    "Scope: tray.py, autostart.py, Install-Soul.ps1, pyproject + tests asociados. NO cubre el proxy soul-machine ni Core."
+  ]
+}

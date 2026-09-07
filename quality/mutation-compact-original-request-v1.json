@@ -1,0 +1,158 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "ADA ejecuto dos arneses del scratchpad (mutate_compact.py y mutate_postcompact.py) y el mutante de cableado hallado por JARVIS sobre otra copia aislada con SEAL_PRE_COMPACT_HOOK_PATH. Cada mutante se aplica en un directorio temporal; el arbol vivo nunca se muta.",
+  "workspace": "Control positivo primero sobre copias SIN mutar en los dos arneses. Muerte = la suite sale distinto de 0.",
+  "reviewer": "JARVIS",
+  "note_no_es_independiente": "Evidencia del OWNER. Prueba que los sujetos son mutables y que las suites los cazan; NO es revision independiente. El revisor debe REEMPLAZARLA por la suya.",
+  "supervivientes_corregidos": "Tres supervivientes revelaron tests que no probaban lo que decian: (1) 'acepta-tool-result' usaba un renglon sin texto y moria por la guarda equivocada; (2) 'no-reinyecta-el-pedido-original' probaba el formateador, no que el post-hook lo llamara; (3) JARVIS hallo que volver a pedir sessionContext en el pre-hook daba 14/14 porque la suite probaba el extractor pero no la clave que main() le entrega. Los tres brazos ahora atraviesan la costura real y los mutantes mueren.",
+  "killed": 11,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 11,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "memory/compact_original_request.py": "a617b7e95e963a926da970c933dbadf6347cd3188afa0db6d67c67f67aec2042",
+    "memory/post_compact_session_start_hook.py": "931c404804bac07cca749f65eb685954e6456c33ea5e803c5051caee27b1f5d9",
+    "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
+    "memory/tests/test_compact_original_request_v1.py": "fce17af534bd83446035dbe4775374694908e504bcf95c05440c7ddba5eaff9c",
+    "memory/tests/test_post_compact_reinjection_v1.py": "15948b38adb14e9a63448c28a78e256afeb70a75b0f079e586f8b1d48849667c"
+  },
+  "positive_control_unmutated_copy": {
+    "extractor": "9 passed, 4 subtests passed",
+    "post_compact": "6 passed, 5 subtests passed",
+    "ok": true
+  },
+  "detail": [
+    {
+      "id": "sin-filtro-de-ruido",
+      "subject": "memory/compact_original_request.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "acepta-tool-result",
+      "subject": "memory/compact_original_request.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "sin-recorte",
+      "subject": "memory/compact_original_request.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "vacio-en-vez-de-None",
+      "subject": "memory/compact_original_request.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "revienta-con-json-roto",
+      "subject": "memory/compact_original_request.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "acepta-isMeta",
+      "subject": "memory/compact_original_request.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "vuelve-la-credencial-muerta",
+      "subject": "memory/post_compact_session_start_hook.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "no-reinyecta-el-pedido-original",
+      "subject": "memory/post_compact_session_start_hook.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "sin-estado-del-equipo",
+      "subject": "memory/post_compact_session_start_hook.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "sin-initialUserMessage",
+      "subject": "memory/post_compact_session_start_hook.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "pre-hook-vuelve-a-sessionContext",
+      "subject": "memory/pre_compact_hook.py",
+      "state": "killed",
+      "killer": "AssertionError: pedido_original None; control 15 passed, mutante 1 failed + 14 passed"
+    }
+  ],
+  "mutation_target": "isolated_copy",
+  "revision_independiente_JARVIS": {
+    "_doc": "Mutantes propios del revisor, corridos sobre COPIAS en tempdir; el arbol vivo no se toco.",
+    "control": "15 passed, 9 subtests (tras completar la copia con config.py, seal_secrets.py y hook_utils.py)",
+    "mutantes": [
+      {
+        "id": "transcript_path -> sessionContext (pre_compact_hook)",
+        "result": "KILLED",
+        "observed": "1 failed, 14 passed",
+        "nota": "SOBREVIVIA en la primera pasada (14 passed): fue el REJECT. El owner agrego el brazo que atraviesa main()."
+      },
+      {
+        "id": "DB_URL vuelve al rol muerto seal (post-hook)",
+        "result": "KILLED",
+        "observed": "3 failed, 11 passed"
+      },
+      {
+        "id": "tool_result pasa como usuario (filtro)",
+        "result": "KILLED",
+        "observed": "1 failed, 13 passed"
+      },
+      {
+        "id": "acepta renglones isMeta (filtro)",
+        "result": "KILLED",
+        "observed": "1 failed, 13 passed"
+      },
+      {
+        "id": "except Exception -> except ZeroDivisionError (post-hook)",
+        "result": "NO_CONCLUYENTE",
+        "observed": "sin cambio",
+        "nota": "probablemente equivalente; NO se cuenta como muerto ni como hueco"
+      }
+    ],
+    "confesion_de_metodo": "Mis dos primeras copias tenian el CONTROL EN ROJO por modulos faltantes y con ese control roto los mutantes 'sobrevivian' de mentira. Complete la copia hasta verde ANTES de concluir, las dos veces.",
+    "re_corrida_16_58": {
+      "_doc": "Los 2 hooks cambiaron al instrumentarlos para compaction-metrics-v1, asi que file_sha256 quedo stale. Como el campo `reviewer` de esta evidencia dice JARVIS, la re-corri YO entera sobre los bytes nuevos, en copia aislada, en vez de limitarme a refrescar los hashes: refrescarlos sin medir seria afirmar una medicion que no hice.",
+      "control": "15 passed, 9 subtests",
+      "mutantes": [
+        {
+          "id": "transcript_path -> sessionContext (pre_compact_hook)",
+          "result": "KILLED",
+          "observed": "1 failed, 14 passed"
+        },
+        {
+          "id": "DB_URL vuelve al rol muerto seal (post-hook)",
+          "result": "KILLED",
+          "observed": "3 failed, 12 passed"
+        },
+        {
+          "id": "tool_result pasa como usuario (filtro)",
+          "result": "KILLED",
+          "observed": "1 failed, 14 passed"
+        },
+        {
+          "id": "acepta renglones isMeta (filtro)",
+          "result": "KILLED",
+          "observed": "1 failed, 14 passed"
+        }
+      ],
+      "resultado": "4 de 4 siguen muriendo; instrumentar los hooks no afloja ninguna puerta"
+    }
+  }
+}

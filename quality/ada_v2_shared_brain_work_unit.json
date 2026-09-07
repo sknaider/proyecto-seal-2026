@@ -1,0 +1,13 @@
+{
+  "schema": "seal-work-unit/v1",
+  "work_unit_id": "ada-v2-shared-brain-20260902",
+  "agent": "ADA",
+  "task_id": 1644,
+  "implementation_repo": "/home/dadito/IA/soul-v2-lab",
+  "implementation_commit": "9e631e822953c039b92b1f0cd83d32a2b98f79f2",
+  "evidence": "/home/dadito/IA/soul-v2-lab/evidence/capability/ada_v2_shared_canonical_continuity.json",
+  "canonical_identity": "ADA",
+  "runtime_instance": "ADA_V2",
+  "scope": "private",
+  "status": "verified_live"
+}

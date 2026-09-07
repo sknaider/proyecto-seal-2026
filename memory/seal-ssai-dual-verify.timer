@@ -1,0 +1,12 @@
+[Unit]
+Description=Verify ADA SSAI identity every minute during DUAL_VERIFY
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Persistent=true
+Unit=seal-ssai-dual-verify.service
+
+[Install]
+WantedBy=timers.target

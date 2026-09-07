@@ -16,9 +16,16 @@ import argparse
 import subprocess
 from datetime import datetime, timezone
 
-PG_DSN = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+import os
+# DSN desde el EnvironmentFile de la unidad (rol least-privilege
+# login_infra_watchdog, ya provisto), fail-closed (ADA 3-sep-2026). POR QUE:
+# el literal del rol seal tenia la contrasena vieja y la unidad fallaba con
+# InvalidPasswordError desde 13:30; el auto-fix de secuencias quedaba ciego.
+PG_DSN = os.environ.get("SEAL_DB_URL", "").strip()
+if not PG_DSN:
+    sys.exit("seal_infra_watchdog: SEAL_DB_URL ausente; fail-closed, no corro")
 CHAT_URL = "http://localhost:8765"
-MCP_URL = "http://localhost:8766"
+MCP_URL = "http://localhost:8771"  # ADA 3-sep-2026: 8766 no escucha nadie; el MCP vive en 8771 (medido: /health 200)
 VENV_PY = "/home/dadito/IA/seal-spark/.venv/bin/python3"
 
 
@@ -135,11 +142,12 @@ async def check_mcp_server() -> dict:
     """Verify MCP SSE server is reachable."""
     import urllib.request
     try:
-        req = urllib.request.Request(f"{MCP_URL}/sse")
-        req.add_header("Accept", "text/event-stream")
+        # ADA 3-sep-2026: el transporte es HTTP streamable (/mcp), no SSE; /sse da 404.
+        # La salud se lee en /health -> {"status":"ok",...} (medido).
+        req = urllib.request.Request(f"{MCP_URL}/health")
         with urllib.request.urlopen(req, timeout=3) as r:
-            line = r.readline().decode()
-            return {"check": "mcp_server", "ok": "endpoint" in line}
+            body = json.loads(r.read().decode() or "{}")
+            return {"check": "mcp_server", "ok": body.get("status") == "ok", "postgresql": body.get("postgresql")}
     except Exception as e:
         return {"check": "mcp_server", "ok": False, "error": str(e)}
 

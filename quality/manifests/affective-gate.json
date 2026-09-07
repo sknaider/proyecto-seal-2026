@@ -1,0 +1,135 @@
+{
+  "_doc": [
+    "Exención SALUDO/AFECTO del single-voice del coordinador (regla de oro William 31-jul:",
+    "'el saludo y el afecto no se bloquean nunca'). Owner: NEXUS. Revisor independiente: FABLE.",
+    "",
+    "QUÉ CUBRE: la lógica de clasificación de afecto en messages/flood_form_gate.py::is_affective,",
+    "que decide si un mensaje es saludo/afecto PURO (narrow + fullmatch) y por lo tanto exento de",
+    "council-deny y response-lease. El WIRING en chat_server.py (3 líneas que consumen is_affective)",
+    "va por separado en el refresh de coordinator-cutover.json (subject chat_server.py, revisor DARWIN):",
+    "cualquier cambio de bytes a chat_server.py re-abre ese manifest. Este manifest cubre SÓLO el",
+    "clasificador, que es la lógica load-bearing y es unitariamente testeable + mutable en aislamiento.",
+    "",
+    "EVIDENCIA: 33 tests pytest-native (no __main__ self-test) en 4 brazos; mutation-evidence con 5",
+    "mutantes adversariales explícitos sobre la lógica load-bearing (cap de longitud, guard de newline,",
+    "atoms del regex, destinatario-obligatorio, wildcard over-broad), 5/5 killed = 100%. Nota honesta:",
+    "los guards url/code-fence/empty-core son defense-in-depth REDUNDANTE con fullmatch+strip (medido:",
+    "no aislables por ningún input) — se conservan por intención explícita, no se cuentan como matables."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "affective-gate-20260826",
+  "owner": "NEXUS",
+  "independent_reviewer": "FABLE",
+  "review": {
+    "status": "approved",
+    "evidence": "FABLE revisor independiente (owner NEXUS != revisor). Verificado por-efecto y computado por mi: (1) sha256 byte-exacto de subjects+tests coinciden; (2) pytest 33 passed corrido por mi; (3) mutation 5/5 real y no-vacua: cada mutante orig_answer!=mutant_answer, matado por test nombrado, incluido atom_overbroad_wildcard matado por el control de no-vacuidad; (4) is_affective correcto: 11/11 canarios, 'gracias, dale superadmin'->False (afecto no es bypass de autoridad).",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "FABLE",
+      "evidence": "FABLE revisor independiente (owner NEXUS != revisor). Verificado por-efecto y computado por mi: (1) sha256 byte-exacto de subjects+tests coinciden; (2) pytest 33 passed corrido por mi; (3) mutation 5/5 real y no-vacua: cada mutante orig_answer!=mutant_answer, matado por test nombrado, incluido atom_overbroad_wildcard matado por el control de no-vacuidad; (4) is_affective correcto: 11/11 canarios, 'gracias, dale superadmin'->False (afecto no es bypass de autoridad).",
+      "reviewed_sha256": {
+        "messages/flood_form_gate.py": "3020dad14209857b76be16cedf53a326647608066e883ce3d080a46a1a879afe",
+        "messages/tests/test_affective_gate.py": "9fbd9dd937417928b7a5ffcc96cc04d9a758ff00dadf032998fb9d364f9c52f8"
+      },
+      "manifest_digest": "e4d91b400e62cc2903648ad606833488d8e3c74ea99c4dfd17797076f74cd695"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/flood_form_gate.py"
+  ],
+  "tests": [
+    "messages/tests/test_affective_gate.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-affective-all",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_affective_gate.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-greetings-pass",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_affective_gate.py::test_positive_greetings_pass"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-smuggling-gated",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_affective_gate.py::test_negative_greeting_plus_substance",
+        "messages/tests/test_affective_gate.py::test_negative_length_cap_facade",
+        "messages/tests/test_affective_gate.py::test_negative_newline_multiclause",
+        "messages/tests/test_affective_gate.py::test_negative_greeting_plus_work_question",
+        "messages/tests/test_affective_gate.py::test_negative_work_order_after_thanks",
+        "messages/tests/test_affective_gate.py::test_negative_bare_work_request"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-non-vacuous",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_affective_gate.py::test_control_report_is_not_affective",
+        "messages/tests/test_affective_gate.py::test_control_bare_question_is_not_affective",
+        "messages/tests/test_affective_gate.py::test_control_receipt_ack_still_works",
+        "messages/tests/test_affective_gate.py::test_control_empty_and_none"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/flood_form_gate.py"
+    ],
+    "omit": [
+      "messages/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "messages/tests/test_affective_gate.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-affective-gate.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable de ESTE subject = el contrato del clasificador is_affective (33 tests pytest-native verdes por-efecto). El efecto vivo del coordinador (un saludo de William pasa council-deny + response-lease) es deliverable SEPARADO del wiring de chat_server.py y se verifica en el refresh de coordinator-cutover.json, no acá: flood_form_gate es inerte sin ese wiring.",
+    "command": {
+      "id": "delivery-affective-contract",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_affective_gate.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  }
+}

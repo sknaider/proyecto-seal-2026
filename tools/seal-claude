@@ -1,0 +1,60 @@
+#!/bin/bash
+# seal-claude — wrapper universal SEAL → Claude Code oficial de Anthropic.
+#
+# CHOKEPOINT de entorno (JARVIS 16-jun-2026, William "corrijan todo para evitar").
+# Backstop IDEMPOTENTE: garantiza las vars críticas aunque el launcher que llama haya
+# driftado (jarvis_fresh.sh, seal_restart.sh, un launcher nuevo, etc.). NUNCA pisa lo
+# que el launcher ya seteó — solo rellena lo que falta. Mata el drift de raíz:
+# todo agente claude pasa por aquí antes de exec, así que ningún path puede quedar
+# sin recall ni (si está cableado) sin el filtro de egreso.
+
+# 1. Recall router MEJORADO — universal (mejora el recall, sin implicancia de privacidad).
+: "${SOUL_RECALL_ROUTER_ENABLED:=true}"
+export SOUL_RECALL_ROUTER_ENABLED
+
+# 2. SOUL Egress Filter (:9098) — SOLO agentes cableados (allowlist) + FAIL-SAFE.
+#    El health debe declarar mode=enforce; un TCP abierto o HTTP 200 en modo canary
+#    no autoriza insertar el proxy en la ruta viva de toda la flota.
+case "${ANTHROPIC_BASE_URL:-}" in
+""|http://localhost:9098|http://127.0.0.1:9098)
+  _SEAL_EGRESS_ALLOW="/home/dadito/IA/proyecto-seal/seal_egress_allowlist.txt"
+  if [ -n "${SEAL_AGENT:-}" ] && [ -f "$_SEAL_EGRESS_ALLOW" ] \
+     && grep -qx "$SEAL_AGENT" "$_SEAL_EGRESS_ALLOW" 2>/dev/null; then
+    if bash /home/dadito/IA/proyecto-seal/scripts/soul_egress_runtime_gate.sh; then
+      export ANTHROPIC_BASE_URL=http://localhost:9098
+      echo "[seal-claude] $SEAL_AGENT → egress filter :9098 (backstop, redacción activa)" >&2
+    else
+      unset ANTHROPIC_BASE_URL
+      echo "[seal-claude] proxy no disponible o no ENFORCE → $SEAL_AGENT DIRECTO" >&2
+    fi
+  else
+    # También elimina un :9098 heredado para agentes fuera de allowlist.
+    unset ANTHROPIC_BASE_URL
+  fi
+  ;;
+*) ;;  # Base URL externa explícita: este backstop no la reescribe.
+esac
+
+# 3. Hooks de proyecto — los launchers SEAL usan cwd distintos (memory/, alice/,
+#    sandbox-agent/NEXUS). Claude sólo descubre .claude/settings.json desde el
+#    cwd del proyecto; por eso esas sesiones nacían sin telemetría de skills.
+#    Inyectar el settings canónico en este chokepoint evita mantener N launchers.
+#    Si el caller ya eligió --settings, se respeta. En la raíz se deja que Claude
+#    lo descubra para no ejecutar dos veces los mismos hooks.
+_SEAL_PROJECT_ROOT="/home/dadito/IA/proyecto-seal"
+_SEAL_PROJECT_SETTINGS="$_SEAL_PROJECT_ROOT/.claude/settings.json"
+_SEAL_HAS_SETTINGS=false
+for _SEAL_ARG in "$@"; do
+  case "$_SEAL_ARG" in
+    --settings|--settings=*) _SEAL_HAS_SETTINGS=true ;;
+  esac
+done
+if [ -n "${SEAL_AGENT:-}" ] \
+   && [ "$_SEAL_HAS_SETTINGS" = false ] \
+   && [ -f "$_SEAL_PROJECT_SETTINGS" ] \
+   && [ "$(pwd -P)" != "$_SEAL_PROJECT_ROOT" ]; then
+  set -- --settings "$_SEAL_PROJECT_SETTINGS" "$@"
+fi
+unset _SEAL_PROJECT_ROOT _SEAL_PROJECT_SETTINGS _SEAL_HAS_SETTINGS _SEAL_ARG
+
+exec /home/dadito/.local/bin/claude "$@"

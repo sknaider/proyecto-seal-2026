@@ -1,0 +1,65 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "NEXUS isolated-copy fault injection (mktemp -d bajo /tmp, PYTHONDONTWRITEBYTECODE, sujeto copiado ANTES de las deps), mas DOS mutantes independientes inyectados por FABLE como revisor",
+  "workspace": "Cada mutante corre sobre una COPIA aislada; ningun archivo de produccion se toco. El primer intento de este arnes dio VERDE contra el codigo viejo porque un `cp messages/*.py` sobrescribio el sujeto: se medía el mismo codigo dos veces. Corregido invirtiendo el orden. Queda documentado porque es el modo de fallo del ARNES, no del sujeto: un arnes roto produce un 100% que no significa nada.",
+  "reviewer": "FABLE",
+  "killed": 5,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 5,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "agents/ALICE/v2_shadow/capturar_respuestas.py": "05da80b415b5d1735dde7d1f5a88eb3f057e0a7933214689b2217eab695fccbc",
+    "agents/ALICE/v2_shadow/armar_planilla_ciega.py": "530f6faf5deab3bc248eb0788b70904d88709041e27095c7751789327646c7fd",
+    "agents/ALICE/v2_shadow/tests/test_capturar_respuestas_v1.py": "4d07f4c54553fa00dfa2df24c063817445370eb3ab0ec4badbc3ef83f4967390",
+    "agents/ALICE/v2_shadow/tests/test_planilla_ciega_v1.py": "43f68fc4b26c96d68599aacbbc96a3a8bfec67c42984b9dde23ed2b2ffccb5b6"
+  },
+  "detail": [
+    {
+      "id": "sin-guard-de-conflicto",
+      "subject": "capturar_respuestas.py::fundir",
+      "mutation": "quitar `if not forzar: continue` -> un item recapturado con otro sha256 se pisa en silencio",
+      "killed_by": "test_una_respuesta_distinta_para_el_mismo_item_NO_pisa_en_silencio",
+      "killed": true,
+      "why": "un baseline que se sobrescribe solo deja de ser baseline: la comparacion mediria el ultimo write, no la prueba rendida"
+    },
+    {
+      "id": "nunca-reagrupa-partes",
+      "subject": "capturar_respuestas.py::reagrupar_partes",
+      "mutation": "forzar `m = None` -> cada parte entra como un item distinto",
+      "killed_by": "test_las_partes_se_unen_en_orden_y_sin_cabecera (+3)",
+      "killed": true,
+      "why": "el sello seria de un FRAGMENTO: un baseline que parece valido y solo revienta al comparar contra v2"
+    },
+    {
+      "id": "el-juez-recibe-el-origen",
+      "subject": "armar_planilla_ciega.py::armar",
+      "mutation": "agregar `origen_A` a la fila que va al juez",
+      "killed_by": "test_la_planilla_del_juez_NO_contiene_el_mapeo",
+      "killed": true,
+      "why": "es lo unico que hace ciego al ciego; sin ese test un ciego roto pasaria toda la suite"
+    },
+    {
+      "id": "no-se-se-vuelve-no-falta-ninguno",
+      "subject": "capturar_respuestas.py::faltantes",
+      "mutation": "`if esperados is None: return None` -> `return []`",
+      "killed_by": "test_sin_examen_faltantes_es_None_y_None_NO_es_lista_vacia",
+      "killed": true,
+      "why": "convierte «no se» en «no falta ninguno»: quien lea la salida creeria que la captura esta completa cuando nadie declaro contra que compararla. Lo inyecto FABLE y SOBREVIVIO a la primera version de estos tests, que grepeaban el codigo fuente en vez de ejercitarlo.",
+      "found_by": "FABLE"
+    },
+    {
+      "id": "sin-ruta-devuelve-examen-vacio",
+      "subject": "capturar_respuestas.py::items_esperados",
+      "mutation": "`if not examen_path: return None` -> `return []`",
+      "killed_by": "test_los_esperados_salen_del_examen_declarado",
+      "killed": true,
+      "why": "«no hay examen declarado» y «el examen no tiene items» son estados distintos"
+    }
+  ],
+  "independent_reproduction": "FABLE, revisor, NO confio en estos 3 y inyecto DOS mutantes por su mano: 'if False' en el chequeo de sha de fundir() -> 2 tests ROJOS; 'if False' en el descarte de partes de reagrupar_partes() -> 1 test ROJO. La evidencia del owner no se audita creyendola, se audita reproduciendola. SEGUNDA RONDA: FABLE rechazo el recibo porque un mutante suyo sobrevivia — el codigo estaba bien y el TEST no. Es la leccion del dia en mi propio test: el que testeas no es el que corre.",
+  "notes_defense_in_depth": "NO se mutaron el parseo de argumentos ni la E/S: son mecanicos y su fallo es ruidoso. Contar mutantes triviales inflaria el porcentaje sin medir nada."
+}

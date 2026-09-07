@@ -10,10 +10,10 @@ interface Goal {
 type Status = 'active' | 'completed' | 'archived' | 'all'
 
 const STATUS_TABS: { id: Status; label: string }[] = [
-  { id: 'active', label: 'Active' },
-  { id: 'completed', label: 'Done' },
-  { id: 'archived', label: 'Archived' },
-  { id: 'all', label: 'All' },
+  { id: 'active', label: 'Activas' },
+  { id: 'completed', label: 'Listas' },
+  { id: 'archived', label: 'Guardadas' },
+  { id: 'all', label: 'Todas' },
 ]
 
 function priorityBar(p: number) {
@@ -87,7 +87,7 @@ export default function GoalsView() {
         {goals.length === 0 && (
           <div className="flex flex-col items-center justify-center h-40 text-seal-muted text-sm gap-2">
             <div className="text-3xl">🎯</div>
-            <div>No {status !== 'all' ? status : ''} goals</div>
+            <div>No hay metas {status !== 'all' ? STATUS_TABS.find(t => t.id === status)?.label.toLowerCase() : ''}</div>
           </div>
         )}
         {goals.map(g => (
@@ -111,10 +111,10 @@ export default function GoalsView() {
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                 {g.status !== 'completed' && (
-                  <button onClick={() => updateStatus(g.id, 'completed')} className="p-1 text-seal-muted hover:text-green-400 text-xs" title="Mark done">✓</button>
+                  <button onClick={() => updateStatus(g.id, 'completed')} className="p-1 text-seal-muted hover:text-green-400 text-xs" title="Marcar lista">✓</button>
                 )}
                 {g.status === 'active' && (
-                  <button onClick={() => updateStatus(g.id, 'archived')} className="p-1 text-seal-muted hover:text-amber-400" title="Archive">
+                  <button onClick={() => updateStatus(g.id, 'archived')} className="p-1 text-seal-muted hover:text-amber-400" title="Guardar">
                     <Archive size={12} />
                   </button>
                 )}
@@ -131,21 +131,21 @@ export default function GoalsView() {
       {showAdd && (
         <div className="border-t border-seal-border p-3 space-y-2 bg-seal-surface shrink-0">
           <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="Goal title *" className="w-full bg-seal-bg border border-seal-border rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-seal-muted outline-none" />
+            placeholder="Meta *" className="w-full bg-seal-bg border border-seal-border rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-seal-muted outline-none" />
           <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Description (optional)" rows={2}
+            placeholder="Detalle (opcional)" rows={2}
             className="w-full bg-seal-bg border border-seal-border rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-seal-muted outline-none resize-none" />
           <div className="flex gap-2 items-center">
-            <label className="text-xs text-seal-muted shrink-0">Priority</label>
+            <label className="text-xs text-seal-muted shrink-0">Prioridad</label>
             <input type="range" min={1} max={10} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: +e.target.value }))} className="flex-1" />
             <span className="text-xs text-slate-300 w-4">{form.priority}</span>
             <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
               className="bg-seal-bg border border-seal-border rounded-lg px-2 py-1 text-xs text-slate-200 outline-none" />
           </div>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowAdd(false)} className="px-3 py-1 text-sm text-seal-muted hover:text-slate-300">Cancel</button>
+            <button onClick={() => setShowAdd(false)} className="px-3 py-1 text-sm text-seal-muted hover:text-slate-300">Cancelar</button>
             <button onClick={createGoal} disabled={!form.title.trim()}
-              className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 rounded-lg disabled:opacity-30 transition-colors">Add goal</button>
+              className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 rounded-lg disabled:opacity-30 transition-colors">Agregar meta</button>
           </div>
         </div>
       )}
@@ -154,7 +154,7 @@ export default function GoalsView() {
         <div className="p-3 border-t border-seal-border shrink-0">
           <button onClick={() => setShowAdd(true)}
             className="w-full flex items-center justify-center gap-2 py-2 text-sm text-seal-muted hover:text-slate-300 border border-dashed border-seal-border rounded-lg hover:border-slate-500 transition-colors">
-            <Plus size={14} /> Add goal
+            <Plus size={14} /> Agregar meta
           </button>
         </div>
       )}

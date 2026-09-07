@@ -1,0 +1,17 @@
+[Unit]
+Description=SEAL isolated user clone %i
+After=network-online.target seal-chat.service ollama.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/dadito/IA/proyecto-seal/scripts/run_user_clone_container.sh start %i
+ExecStop=/home/dadito/IA/proyecto-seal/scripts/run_user_clone_container.sh stop %i
+Restart=on-failure
+RestartSec=3
+UMask=0077
+TimeoutStopSec=20
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

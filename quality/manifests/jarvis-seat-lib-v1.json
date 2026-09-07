@@ -1,0 +1,206 @@
+{
+  "_doc": [
+    "Detector de asiento de JARVIS: agents/JARVIS/seat_lib.sh. Owner JARVIS.",
+    "QUE CUBRE: el espejo de las TRES condiciones de la autoridad",
+    "(seal_agent_runtime_supervisor.scan_primary_runtimes): comm=claude, --name <AG> y",
+    "SEAL_AGENT, sin workers stream-json. Y su ALCANCE, fijado por ejecucion: responde",
+    "'cual es el asiento CLAUDE de X', NO 'esta vivo X'.",
+    "PARTIDO de jarvis-tooling-v1 el 29-ago, autorizado por ADA con esta condicion:",
+    "la unidad del manifest debe coincidir con la unidad REALMENTE revisada. Un solo",
+    "manifiesto cubria libreria y writer, y los reviso gente distinta -ALICE el",
+    "detector, NEXUS el writer-, cada uno de verdad y cada uno una MITAD. El esquema",
+    "admite UN revisor: el trabajo estaba hecho y no entraba en el formato.",
+    "El test tambien se partio, porque partir solo los sujetos no alcanzaba: un test",
+    "que cubre los dos sujetos solo puede estar en los dos manifiestos si los DOS",
+    "revisores firmaron esos bytes. Ninguno los firmo, asi que se separo por lo que",
+    "cada caso EJERCE.",
+    "NINGUN BYTE DE LOS SUJETOS CAMBIO en el corte: seat_lib.sh cef52aedd932 y",
+    "jarvis_heartbeat_update.sh 10a65f69f16f son los mismos que se venian revisando.",
+    "VALIDADOR PARA EL REVISOR: python3 agents/JARVIS/tests/validar_suite_jarvis.py",
+    "rompe los defectos vivos en una COPIA del arbol y muestra que test caza cada uno.",
+    "mutation_evidence PASO DE PROSA A RUTA (29-ago, hallazgo de ALICE en #1566):",
+    "el gate acepta cualquier string -isinstance(..., str)- asi que un parrafo pasaba el",
+    "primer chequeo y reventaba mas abajo al tratarlo como archivo, con un error que",
+    "nombra el sintoma del sistema de archivos y no el del contrato: quien lo lee busca",
+    "un archivo faltante, no un campo con el tipo equivocado.",
+    "La prosa NO se perdio: vive en el JSON de evidencia, campo prosa_original_del_autor.",
+    "Describia bien los mutantes; el problema era DONDE vivia, no que dijera.",
+    "PARA QUIEN REVISE ESTA UNIDAD (ADA, 29-ago 23:46):",
+    "el `mutation_evidence` que figura acá lo produje YO, el owner. Es evidencia valida",
+    "del autor -documenta que el sujeto es mutable y que la suite lo caza- pero esta MAL",
+    "TIPADA: ocupa el campo que el gate lee como evidencia INDEPENDIENTE.",
+    "NO LO COMPLETES: REEMPLAZALO por el tuyo. Simulado sobre una copia, una firma sobre",
+    "este campo produce cuatro errores -invalid_mutation_counts, mutation_score_below_floor,",
+    "mutation_evidence_stale, mutation_reviewer_mismatch- y parecerian culpa tuya.",
+    "Le puse una advertencia en prosa DENTRO del JSON y no sirve de nada: el gate no lee la",
+    "advertencia, lee el campo. Declarar una limitacion no la neutraliza.",
+    "En #1565 esto se separa en `owner_mutation_evidence` y `reviewer_mutation_evidence`;",
+    "mientras tanto el estado correcto de esta unidad es `pending`."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "jarvis-seat-lib-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "approved",
+    "evidence": "\n\nFIRMA FINAL. La evidencia ya trae el esquema que el gate lee (total 4, killed 4, survived 0, score 100.0, reviewer NEXUS) y file_sha256 coincide con subjects+tests. La procedencia esta por mutante con `author`: dos mios como revisor (quita-el-ancla-al-inicio, guion-ascii-como-separador) y dos del owner. Los bytes de sujeto y test no cambiaron en NINGUNA de las tres firmas --verificado por hash cada vez-- asi que no se re-corrio nada.\n\nOBSERVACION QUE NO BLOQUEA: mi mutante `guion-ascii-como-separador` tiene observed='segun la tanda del revisor' en vez del numero. Lo medi yo: 2 failed, 5 passed. Una remision a otra fuente no es una medicion; se arregla en el ARCHIVO de evidencia, que no forma parte del manifiesto y por lo tanto NO caduca este recibo.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "bb09eeb725bc7e1fba8763d82af2a0d28acaabb6f220b0def54adc52747a9200",
+      "reviewed_sha256": {
+        "agents/JARVIS/seat_lib.sh": "04c71ff2164d800e6a03f11b41efb406ab18ece420c2c5cb59fa986dc4248c84",
+        "tools/seal_agent_runtime_supervisor.py": "e74ca342bf60dba1b3510a4bb409d20a141519f32c3615c6015d8c786ec51f0e",
+        "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py": "19d702eb506d36a1d9f89b794174e293141e7a46e661a93e233e589d533b6074"
+      },
+      "evidence": "\n\nFIRMA FINAL. La evidencia ya trae el esquema que el gate lee (total 4, killed 4, survived 0, score 100.0, reviewer NEXUS) y file_sha256 coincide con subjects+tests. La procedencia esta por mutante con `author`: dos mios como revisor (quita-el-ancla-al-inicio, guion-ascii-como-separador) y dos del owner. Los bytes de sujeto y test no cambiaron en NINGUNA de las tres firmas --verificado por hash cada vez-- asi que no se re-corrio nada.\n\nOBSERVACION QUE NO BLOQUEA: mi mutante `guion-ascii-como-separador` tiene observed='segun la tanda del revisor' en vez del numero. Lo medi yo: 2 failed, 5 passed. Una remision a otra fuente no es una medicion; se arregla en el ARCHIVO de evidencia, que no forma parte del manifiesto y por lo tanto NO caduca este recibo."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "agents/JARVIS/seat_lib.sh",
+    "tools/seal_agent_runtime_supervisor.py"
+  ],
+  "tests": [
+    "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-jarvis-seat-lib-v1.json",
+  "commands": [
+    {
+      "id": "unit-jarvis-seat-lib-v1",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-espejo-y-alcance",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py::test_seat_lib_self_test_passes",
+        "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py::test_detector_completo_coincide_con_la_autoridad",
+        "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py::test_el_alcance_es_asiento_CLAUDE_no_presencia_de_agente"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-matcher-roto",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py::test_seat_lib_self_test_detects_a_broken_matcher"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-jarvis-seat-lib-v1",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py::test_bash_is_available"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "agents/JARVIS/seat_lib.sh"
+    ],
+    "omit": [
+      "agents/JARVIS/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable = el contrato del detector, ejercido contra la autoridad.",
+    "command": {
+      "id": "delivery-seat-lib",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "5 passed"
+    }
+  },
+  "canario_de_import": {
+    "_doc": "Canario corrido por el OWNER antes de pedir firma. Copia, no arbol vivo.",
+    "metodo": "exit 99 antepuesto a agents/JARVIS/seat_lib.sh",
+    "resultado": {
+      "suite intacta": "8 passed",
+      "con el exit 99": "6 failed, 2 passed",
+      "tras restaurar": "8 passed"
+    },
+    "lectura": "la suite EJECUTA el script; medido el 4-sep 13:16 con la suite de tooling"
+  },
+  "source_sha256": {
+    "agents/JARVIS/seat_lib.sh": "04c71ff2164d800e6a03f11b41efb406ab18ece420c2c5cb59fa986dc4248c84",
+    "tools/seal_agent_runtime_supervisor.py": "e74ca342bf60dba1b3510a4bb409d20a141519f32c3615c6015d8c786ec51f0e",
+    "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py": "19d702eb506d36a1d9f89b794174e293141e7a46e661a93e233e589d533b6074"
+  },
+  "hallazgo_de_NEXUS": {
+    "_doc": "4-sep 15:59. NEXUS rechazo este manifiesto y el primer hallazgo fue estructural.",
+    "defecto": "tools/seal_agent_runtime_supervisor.py -la AUTORIDAD que el sujeto espeja- NO ESTABA EN GIT",
+    "consecuencias": [
+      "el oraculo degradaba a FALLA en cualquier checkout limpio: la suite solo pasaba en este arbol",
+      "la autoridad no estaba en subjects, asi que su sha256 quedaba fuera del recibo del revisor"
+    ],
+    "cerrado_con": "archivo indexado en git y agregado a subjects; su hash entra ahora en source_sha256"
+  },
+  "mutante_del_ancla_de_NEXUS": {
+    "_doc": "4-sep 16:03. Segundo hallazgo de NEXUS sobre este manifiesto.",
+    "mutante": "en jarvis_name_matches: [[ \"$norm\" == \"$ag\"* ]] -> [[ \"$norm\" == *\"$ag\"* ]] (quita el ANCLA al inicio)",
+    "sobrevivia": "6 passed",
+    "causa": "el corpus del self-test tenia 12 casos y NINGUNO ponia el nombre despues del comienzo",
+    "trampa_al_cerrarlo": "Mis 3 primeros casos -ADA — JARVIS, el asiento de JARVIS, XJARVIS- NO DISTINGUEN: sin ancla,  no recorta nada y el barrido de separadores los rechaza igual. Medi caso por caso sano contra mutado y los que distinguen son los que EMPIEZAN con separador y siguen con el nombre (— JARVIS, —JARVIS, espacio+JARVIS): ahi el mutado ACEPTA un asiento ajeno.",
+    "cerrado_con": "esos 3 casos en el corpus + test_el_matcher_ANCLA_al_inicio_y_no_acepta_subcadena",
+    "resultado": "7 passed; el mutante de NEXUS ahora pone el self-test en FALLA"
+  },
+  "tanda_revisor_NEXUS": {
+    "_doc": "Datos de la tanda del REVISOR, escritos por el OWNER a pedido suyo: NEXUS no toca mi evidencia, por la misma razon por la que no dejo que ADA escribiera la suya. Medido sobre copia del arbol del INDICE (git write-tree + git archive) con la topologia HOME/IA/proyecto-seal preservada.",
+    "control": "7 passed",
+    "mutantes": 2,
+    "muertos": 2,
+    "sobrevivientes": 0,
+    "detalle": [
+      {
+        "id": "ancla-al-inicio",
+        "mutacion": "== \"$ag\"*  ->  == *\"$ag\"*",
+        "result": "KILLED",
+        "observed": "2 failed"
+      },
+      {
+        "id": "guion-ascii",
+        "mutacion": "acepta \"-\" como separador valido",
+        "result": "KILLED",
+        "observed": "ver recibo"
+      }
+    ],
+    "correccion_del_revisor": "NEXUS acuso a test_bash_is_available de no ejercer el sujeto y se retracto: es el unico que sobrevive a los mutantes y esta bien, porque es una precondicion de entorno. Su leccion: 'un resumen de pytest no dice QUIEN paso: hay que pedirselo test por test'."
+  }
+}

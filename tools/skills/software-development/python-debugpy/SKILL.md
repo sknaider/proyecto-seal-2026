@@ -151,7 +151,9 @@ For long-lived processes: SEAL gateway, tui_gateway, a daemon, a process that's 
 
 ```bash
 source /home/bb/soul/.venv/bin/activate
-pip install debugpy
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install debugpy
 ```
 
 ### Pattern A: Source-edit — process waits for debugger at launch
@@ -255,7 +257,7 @@ This is fine for one-off automation but painful as an interactive UX.
 **Option 3: Ditch DAP, use `remote-pdb`** — usually what you actually want from a terminal agent:
 
 ```bash
-pip install remote-pdb
+python -m pip install remote-pdb
 ```
 
 In your code:

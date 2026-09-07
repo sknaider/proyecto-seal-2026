@@ -1,0 +1,122 @@
+{
+  "_doc": "Carril B de la integracion de Bob (orden de William, orquesta JARVIS). El guardian de comandos mira el patron SOLO donde es ejecutable, no donde se lo CITA -- y de paso cierra el falso NEGATIVO que encontre escribiendo su test.",
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "guardian-solo-posicion-ejecutable-v1",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "review": {
+    "status": "approved",
+    "evidence": "REVISION INDEPENDIENTE JARVIS (carril B de Bob->SOUL), dos rondas, corpus propio corrido DESDE ARCHIVO -- la linea de comandos me la bloqueo el propio guard por mencionar `eval` como texto, dato que va abajo como residual. CANARIO: raise al importar memory/pre_tool_hook.py -> 1 error (la suite lo ejecuta). RONDA 1 -> REJECT con dos huecos del lado EJECUTAR: (a) `ssh host \"<borrado de raiz>\"` PERMITIA porque ssh no estaba en _EJECUTORES y el payload entre comillas se eximia; (b) la canalizacion de una descarga a un interprete PERMITE, y NUNCA estuvo en la lista fija (verificado contra los 10 patrones originales): hueco HEREDADO, fuera del carril, reportado a William como decision de alcance (Bob lo llama remote_exec). RONDA 2 sobre los bytes vigentes (sujeto y tests con mtime 23:32, re-verificado 23:48 antes de esta firma): control 29 passed; ssh anidado ahora DENIEGA; mutante M3 (quitar ssh de los ejecutores) -> 1 failed, 28 passed; M1 (nunca eximir = volver a la cadena entera) -> 3 failed; M2 (eximir siempre = fail-open) -> 7 failed: los dos lados enrojecen por separado, el arreglo esta balanceado. CORPUS (15 casos, 9 deniega / 6 permite): CITAR permite los 4 (mi mensaje bloqueado de las 17:30, heredoc con los tres patrones, script con patrones como datos, mencion de bash -c como texto); EJECUTAR deniega raiz pelada, entre comillas dobles, entre simples, push forzado; ANIDADO deniega bash -c, sh -c, eval, sudo bash -c, ssh; control inocuo permite. RESIDUAL (el owner lo declaro y lo fijo como test en su 2da entrega): la heuristica de ejecutores hace que MENCIONAR `eval` o `source` en un texto anule la exencion y bloquee si ademas se cita un patron. Fail-closed a proposito; costo conocido. NOTA DE PROCESO: mi primera firma (23:45:50) se perdio porque el owner escribio el manifiesto a las 23:45:45 para refrescar su evidencia; re-firmo con el owner detenido por DM. Registrar en policy.json y commitear queda del lado del owner.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "REVISION INDEPENDIENTE JARVIS (carril B de Bob->SOUL), dos rondas, corpus propio corrido DESDE ARCHIVO -- la linea de comandos me la bloqueo el propio guard por mencionar `eval` como texto, dato que va abajo como residual. CANARIO: raise al importar memory/pre_tool_hook.py -> 1 error (la suite lo ejecuta). RONDA 1 -> REJECT con dos huecos del lado EJECUTAR: (a) `ssh host \"<borrado de raiz>\"` PERMITIA porque ssh no estaba en _EJECUTORES y el payload entre comillas se eximia; (b) la canalizacion de una descarga a un interprete PERMITE, y NUNCA estuvo en la lista fija (verificado contra los 10 patrones originales): hueco HEREDADO, fuera del carril, reportado a William como decision de alcance (Bob lo llama remote_exec). RONDA 2 sobre los bytes vigentes (sujeto y tests con mtime 23:32, re-verificado 23:48 antes de esta firma): control 29 passed; ssh anidado ahora DENIEGA; mutante M3 (quitar ssh de los ejecutores) -> 1 failed, 28 passed; M1 (nunca eximir = volver a la cadena entera) -> 3 failed; M2 (eximir siempre = fail-open) -> 7 failed: los dos lados enrojecen por separado, el arreglo esta balanceado. CORPUS (15 casos, 9 deniega / 6 permite): CITAR permite los 4 (mi mensaje bloqueado de las 17:30, heredoc con los tres patrones, script con patrones como datos, mencion de bash -c como texto); EJECUTAR deniega raiz pelada, entre comillas dobles, entre simples, push forzado; ANIDADO deniega bash -c, sh -c, eval, sudo bash -c, ssh; control inocuo permite. RESIDUAL (el owner lo declaro y lo fijo como test en su 2da entrega): la heuristica de ejecutores hace que MENCIONAR `eval` o `source` en un texto anule la exencion y bloquee si ademas se cita un patron. Fail-closed a proposito; costo conocido. NOTA DE PROCESO: mi primera firma (23:45:50) se perdio porque el owner escribio el manifiesto a las 23:45:45 para refrescar su evidencia; re-firmo con el owner detenido por DM. Registrar en policy.json y commitear queda del lado del owner.",
+      "signed_at": "2026-09-05T04:48:31.525621+00:00",
+      "mutation_target": "isolated_copy",
+      "reviewed_sha256": {
+        "memory/pre_tool_hook.py": "360986e3bab6b1322aec9eb5ceceedc7dc5b002b92eece0e3c862964a7f235ff",
+        "quality/delivery_guardian_posicion_ejecutable.py": "32074069dc0312525a22cbe46ac369c452ff74a5ec72d1bf244d6005963ea33d",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "1c8604ce22d60dd800a6ac22a6362faafadbfa02118914f3f9b61ce32f6838cb"
+      },
+      "manifest_digest": "4c9205d729990aab4966585eb7cb7bfd97a1ee33e0ebcb44462d565026b5f8c4"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "memory/pre_tool_hook.py",
+    "quality/delivery_guardian_posicion_ejecutable.py"
+  ],
+  "tests": [
+    "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-guardian-solo-posicion-ejecutable-v1.json",
+  "commands": [
+    {
+      "id": "unit-guardian",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-lo-peligroso-sigue-denegado",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_qa_positive_el_patron_EJECUTABLE_sigue_denegado"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-citar-no-es-ejecutar",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_qa_negative_el_patron_dentro_de_un_literal_NO_se_bloquea",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_qa_negative_CITAR_el_borrado_en_un_mensaje_NO_se_bloquea"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-no-vacuo",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_control_no_vacuo_el_arnes_distingue",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_control_el_patron_del_heredoc_SI_ejerce_el_defecto"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "pre_tool_hook"
+    ],
+    "omit": [
+      "memory/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "command": {
+      "id": "delivery-guardian",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "quality/delivery_guardian_posicion_ejecutable.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "delivery: passed"
+    },
+    "evidence": "Verificado por EFECTO invocando el HOOK REAL por subproceso (JSON por stdin), no la funcion importada: es la puerta que Claude Code ejecuta de verdad. Nueve casos, los dos lados y un control:\n  CITAR un aviso con el patron ......... permite  (el falso positivo que nos enmudecia)\n  heredoc que documenta el peligro ..... permite\n  borrado de la raiz ................... deniega\n  borrado de la raiz ENTRECOMILLADO .... deniega  (falso NEGATIVO hallado el 4-sep)\n  borrado con ruta por VARIABLE ........ deniega  (el typo del 9-ago)\n  eval con el borrado entrecomillado ... deniega\n  un -c con SQL destructivo ............ deniega\n  ls -la ............................... permite  <- CONTROL\n  git archive | tar (rutina real) ...... permite\nEl control de `ls -la` es el que hace valer a los seis 'deniega': sin el, un guardian que denegara TODO los pasaria todos."
+  },
+  "mutation_baseline_percent": 0.0
+}

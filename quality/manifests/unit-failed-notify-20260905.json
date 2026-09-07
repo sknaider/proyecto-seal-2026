@@ -1,0 +1,156 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "unit-failed-notify-20260905",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "_doc": [
+    "La unidad systemd que falla avisa sola al canal, por OnFailure=seal-unit-failed@%n.service.",
+    "",
+    "QUE LO GENERO: el 4-sep encontre que la ingesta de lecciones llevaba 42 h parada y",
+    "nadie se habia enterado. Le puse un timer, y NEXUS marco el hueco que quedaba:",
+    "'si manana el timer se cae, esto lo dice solo si alguien lo corre'. Tenia razon --",
+    "un timer que se cae en silencio repite un piso mas arriba el defecto que vino a cerrar.",
+    "",
+    "POR QUE NO SE RESOLVIO METIENDO LA UNIDAD EN CRITICAL_UNITS DEL STABILITY GUARD:",
+    "  1. esa tupla tiene solo .service de larga vida; un oneshot disparado por timer esta",
+    "     inactive(dead) el 99,9 % del tiempo y ESE es su estado SANO -> alarma falsa",
+    "     permanente, y un falso positivo fijo entrena a ignorar la salida",
+    "  2. tres manifiestos de tres duenos distintos declaran ese archivo como sujeto; un",
+    "     append de una linea les quema el recibo a los tres",
+    "OnFailure= dispara por el RESULTADO real de la corrida: no hay lista que mantener.",
+    "",
+    "EL DESTINO ES CONFIGURABLE Y ESO ES PARTE DEL CONTRATO: por defecto va al equipo, y",
+    "SEAL_UNIT_FAILED_TO lo redirige SOLO para el ensayo de entrega. Sin eso, cada",
+    "`gate verify` mandaria una alerta real al canal de los cinco. Un simulacro que grita",
+    "como un incendio real entrena a ignorar los dos.",
+    "",
+    "ESTE SCRIPT CORRE SOLO CUANDO ALGO YA SE ROMPIO, asi que los casos duros del test son",
+    "los de DEGRADACION --systemctl mudo, journal caido, envio fallido--: en los tres el",
+    "aviso tiene que salir igual, aunque salga incompleto."
+  ],
+  "deletions": [],
+  "subjects": [
+    "tools/seal_unit_failed_notify.py",
+    "quality/delivery_unit_failed_notify.sh"
+  ],
+  "tests": [
+    "memory/tests/test_seal_unit_failed_notify.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-unit-failed-notify",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_seal_unit_failed_notify.py"
+      ]
+    },
+    {
+      "id": "positive-el-aviso-sale-completo-y-al-equipo",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_seal_unit_failed_notify.py::test_el_aviso_nombra_la_unidad_que_fallo",
+        "memory/tests/test_seal_unit_failed_notify.py::test_el_aviso_lleva_el_estado_y_el_log",
+        "memory/tests/test_seal_unit_failed_notify.py::test_por_defecto_el_aviso_va_al_equipo"
+      ]
+    },
+    {
+      "id": "negative-la-degradacion-no-silencia-el-aviso",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_seal_unit_failed_notify.py::test_si_systemctl_no_responde_el_aviso_SALE_igual",
+        "memory/tests/test_seal_unit_failed_notify.py::test_si_el_journal_falla_el_estado_igual_viaja",
+        "memory/tests/test_seal_unit_failed_notify.py::test_sin_nombre_de_unidad_avisa_igual_en_vez_de_reventar"
+      ]
+    },
+    {
+      "id": "control-destino-idempotencia-y-no-propagacion",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_seal_unit_failed_notify.py::test_un_destino_vacio_cae_al_equipo_y_no_a_la_cadena_vacia",
+        "memory/tests/test_seal_unit_failed_notify.py::test_la_clave_de_idempotencia_distingue_una_unidad_de_otra",
+        "memory/tests/test_seal_unit_failed_notify.py::test_la_misma_unidad_en_dos_corridas_tiene_claves_distintas",
+        "memory/tests/test_seal_unit_failed_notify.py::test_fallback_sin_invocation_id_tambien_distingue_dos_corridas",
+        "memory/tests/test_seal_unit_failed_notify.py::test_si_systemctl_no_responde_la_clave_IGUAL_varia_entre_caidas",
+        "memory/tests/test_seal_unit_failed_notify.py::test_un_InvocationID_vacio_tampoco_congela_la_clave",
+        "memory/tests/test_seal_unit_failed_notify.py::test_devuelve_0_aunque_el_envio_falle",
+        "memory/tests/test_seal_unit_failed_notify.py::test_el_detalle_nunca_propaga_una_excepcion"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "seal_unit_failed_notify"
+    ],
+    "omit": [
+      "memory/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_seal_unit_failed_notify.py"
+    ],
+    "baseline_percent": 85.0,
+    "timeout": 300,
+    "_note": "Aca va el NOMBRE DE MODULO. Medido el 5-sep sobre este sujeto: 'seal_unit_failed_notify' -> 94 % · 'tools' -> tambien recolecta pero mide de mas · 'tools/seal_unit_failed_notify.py' -> 'No data to report'. UNA RUTA DE ARCHIVO NO FUNCIONA NUNCA; entre nombre de modulo y directorio depende de como sea importable el sujeto, y hay que CORRER las dos."
+  },
+  "mutation_evidence": "quality/mutation-unit-failed-notify-20260905.json",
+  "mutation_baseline_percent": 100.0,
+  "mutation_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "memory/tests/test_seal_unit_failed_notify.py"
+  ],
+  "review": {
+    "status": "approved",
+    "evidence": "REVISION INDEPENDIENTE JARVIS, tres rondas, sujeto ejecutado de verdad y mutantes en copia aislada. RONDA 1 -> REJECT: la clave de idempotencia era fija por unidad y el chat deduplica por clave en memoria (LRU 2000, messages/chat_server.py enqueue): corrido el sujeto real dos veces para la misma unidad con destino redirigido, la 2da respuesta vino duplicate:true -> la segunda caida de la misma unidad quedaba muda, el mismo defecto que la pieza venia a cerrar. El ARM1 del delivery no lo veia porque usa marca unica por corrida. RONDA 2 (clave = unidad + InvocationID, fallback nonce): sujeto real x2 -> dos ids distintos sin duplicate; control 13 passed; canario 1 error; M4b clave sin corrida MUERE; M11 identificador constante MUERE; delivery real ARM1/ARM2/ARM3 3/3 rc=0. Pero M12 (fallback constante) y M13 (fallback vacio) SOBREVIVIAN: el camino degradado que el propio manifiesto llama el caso duro no tenia test -> se pidio uno. RONDA 3 (bytes vigentes; sujeto identico al de la ronda 2, sha 0a92d8ac..., tests mtime 00:14:29): control 16 passed; canario 1 error; M4b 4 failed; M11 1 failed; M12 3 failed; M13 3 failed: todos MUEREN. Los tests EJECUTAN el sujeto con subprocess.run falso, no leen el fuente ni reimplementan. Residual declarado: quitar el timeout de systemctl es equivalente bajo mocks (vive, no discrimina; el timeout real lo cubre el delivery). Verificado ademas: seal-memory-files-ingest.service tiene OnFailure=seal-unit-failed@seal-memory-files-ingest.service.service y la instancia carga (list-units). La limpieza del delivery usa find con directorio literal y patron acotado al PID.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "REVISION INDEPENDIENTE JARVIS, tres rondas, sujeto ejecutado de verdad y mutantes en copia aislada. RONDA 1 -> REJECT: la clave de idempotencia era fija por unidad y el chat deduplica por clave en memoria (LRU 2000, messages/chat_server.py enqueue): corrido el sujeto real dos veces para la misma unidad con destino redirigido, la 2da respuesta vino duplicate:true -> la segunda caida de la misma unidad quedaba muda, el mismo defecto que la pieza venia a cerrar. El ARM1 del delivery no lo veia porque usa marca unica por corrida. RONDA 2 (clave = unidad + InvocationID, fallback nonce): sujeto real x2 -> dos ids distintos sin duplicate; control 13 passed; canario 1 error; M4b clave sin corrida MUERE; M11 identificador constante MUERE; delivery real ARM1/ARM2/ARM3 3/3 rc=0. Pero M12 (fallback constante) y M13 (fallback vacio) SOBREVIVIAN: el camino degradado que el propio manifiesto llama el caso duro no tenia test -> se pidio uno. RONDA 3 (bytes vigentes; sujeto identico al de la ronda 2, sha 0a92d8ac..., tests mtime 00:14:29): control 16 passed; canario 1 error; M4b 4 failed; M11 1 failed; M12 3 failed; M13 3 failed: todos MUEREN. Los tests EJECUTAN el sujeto con subprocess.run falso, no leen el fuente ni reimplementan. Residual declarado: quitar el timeout de systemctl es equivalente bajo mocks (vive, no discrimina; el timeout real lo cubre el delivery). Verificado ademas: seal-memory-files-ingest.service tiene OnFailure=seal-unit-failed@seal-memory-files-ingest.service.service y la instancia carga (list-units). La limpieza del delivery usa find con directorio literal y patron acotado al PID.",
+      "signed_at": "2026-09-05T05:16:16.980235+00:00",
+      "mutation_target": "isolated_copy",
+      "reviewed_sha256": {
+        "tools/seal_unit_failed_notify.py": "0a92d8ac598f61825295085b30e4c52a22d860ac95a4e97619e6c072c923ddae",
+        "quality/delivery_unit_failed_notify.sh": "a50e27132a7d8e585ef21d6ffb251c3d1c6698f0121c92538465ff8b0ff1df97",
+        "memory/tests/test_seal_unit_failed_notify.py": "8db2d4d9047bfcd037b658a6e42e513f9d60e58a53a9a8995027cd105dfba5e0"
+      },
+      "manifest_digest": "ea122bf73a5f51a4a078ce9a9ce5397325ec0111c1f3685352b22b7fb68a926d"
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Probado por EFECTO con systemd REAL, no con mocks. TRES brazos:\nARM1 la unidad de ensayo falla -> el aviso con una marca unica APARECE en el chat.\nARM2 (control no vacuo) la misma unidad TERMINA BIEN -> NO hay aviso. Sin este brazo, un notificador que avisara siempre pasaria el ARM1 y el delivery diria 'verificado' sobre algo inservible.\nARM3 (lo pidio JARVIS al rechazar la 1a version) la MISMA unidad cae DOS veces -> DOS avisos DISTINTOS. Cierra el defecto que el midio: con clave fija por unidad, la segunda caida se deduplicaba y quedaba muda, que era el mismo defecto que esta pieza vino a cerrar un piso mas abajo. Los ARM1/ARM2 no podian verlo porque usan una marca unica por corrida: un banco de pruebas que nunca repite no descubre un defecto que solo aparece al repetir.\n\nDOS ARREGLOS AL PROPIO ENSAYO, ambos por medicion:\n1. El ARM3 contaba LINEAS que contenian el nombre de la unidad y dio 4 para 2 caidas -- un numero que no supe explicar. Con lineas duplicadas, un umbral '>= 2' habria pasado con UN SOLO aviso, justo el defecto que el brazo debe cazar. Ahora cuenta IDs DE MENSAJE distintos sobre las lineas agregadas, y exige EXACTAMENTE 2.\n2. Las unidades de ensayo tenian nombre FIJO: dos corridas simultaneas compartian unidad y el trap de una le borraba el archivo a la otra a mitad de camino (me paso: mis dos cuerpos corrieron el script a la vez y el ARM2 murio con 'no existe el archivo'). Ahora el nombre lleva el PID de la corrida y la limpieza acota su patron al mismo PID.\n\nEl ensayo redirige el destino a ADA con SEAL_UNIT_FAILED_TO para no mandar una alerta falsa al canal de los cinco en cada verificacion; el mecanismo ejercitado es el mismo y la diferencia queda declarada dentro del propio script.",
+    "command": {
+      "id": "delivery-unit-failed-notify",
+      "kind": "delivery",
+      "argv": [
+        "bash",
+        "quality/delivery_unit_failed_notify.sh"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "DELIVERY OK: 3/3 brazos"
+    }
+  }
+}

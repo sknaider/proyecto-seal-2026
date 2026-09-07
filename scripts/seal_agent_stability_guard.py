@@ -1,0 +1,2272 @@
+#!/usr/bin/env python3
+"""SEAL agent stability guard.
+
+Keeps the agent runtime from drifting silently:
+- one ws_listener per monitored agent;
+- fresh heartbeat files with live Claude PIDs;
+- critical per-agent systemd services/timers active;
+- lifecycle-aware expectations for seats intentionally set to manual;
+- ADA Codex MCP memory_store identity still resolving as ADA, not external.
+- the shared autonomous-completion contract still present in files and SOUL DB.
+
+The guard is intentionally conservative. It only restarts missing/inactive
+services and ws listeners, and it posts to web_chat only when the state changes
+or when it had to fix something.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import asyncio
+import hashlib
+import json
+import os
+import re
+import signal
+import subprocess
+import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit
+
+try:
+    import asyncpg
+except Exception:  # pragma: no cover - guard must degrade if venv changes.
+    asyncpg = None
+
+
+ROOT = Path("/home/dadito/IA/proyecto-seal")
+MESSAGES = ROOT / "messages"
+PYTHON = Path("/home/dadito/IA/seal-spark/.venv/bin/python3")
+WS_LISTENER = MESSAGES / "ws_listener.py"
+STABILITY_DB_SECRET = Path.home() / ".config/seal/stability_guard.dsn"
+SDK_DB_SECRET = Path.home() / ".config/seal/soul_memory_sdk.env"
+AUTH_GUARD_STATE = Path.home() / ".local/state/seal/claude-auth-guard/state.json"
+AUTH_GUARD_MAX_AGE_SECONDS = 15 * 60
+AUTONOMY_RUNTIME_STATE = Path.home() / ".local/state/seal/autonomy_invocation_state.json"
+AUTONOMY_RECEIPT_ROOT = Path(
+    os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))
+) / "seal" / "autonomy_receipts"
+AUTONOMY_ACK_ROOT = Path(
+    os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))
+) / "seal" / "autonomy_acknowledgements"
+AUTONOMY_RECEIPT_GRACE_SECONDS = 30
+AUTONOMY_CASCADE_WINDOW_SECONDS = 10.0
+AUTONOMY_CASCADE_ROOTS = {
+    "seal-chat.service": {
+        "agents": ("NEXUS",),
+        "actions": ("chat_server",),
+    },
+}
+FABLE_MEMORY_REPO = (
+    Path.home()
+    / ".claude/projects/-home-dadito-IA-proyecto-seal/memory"
+)
+PROJECT_MCP_CONFIG = ROOT / ".mcp.json"
+GLOBAL_MCP_CONFIG = Path.home() / ".claude/.mcp.json"
+POSTGRES_MCP_SECRET = Path.home() / ".config/seal/mcp_postgres_observer.env"
+STUDIO_DB_SECRET = Path.home() / ".config/seal/seal_studio_db.env"
+STUDIO_DB_SOURCES = (
+    ROOT / "seal-studio/backend/main.py",
+    ROOT / "seal-studio/backend/mcp_gateway.py",
+    ROOT / "seal-studio/backend/studio_db.py",
+)
+
+
+def read_private_dsn(
+    path: Path,
+    expected_user: str,
+    *,
+    env_key: str | None = None,
+) -> str:
+    """Read a 0600 DSN and fail closed on principal drift."""
+    mode = path.stat().st_mode & 0o777
+    if mode != 0o600:
+        raise RuntimeError(f"{path} mode={mode:o}, esperado=600")
+    raw = path.read_text(encoding="utf-8").strip()
+    if env_key is not None:
+        prefix = env_key + "="
+        matches = [line[len(prefix):].strip().strip('"').strip("'") for line in raw.splitlines() if line.startswith(prefix)]
+        if len(matches) != 1:
+            raise RuntimeError(f"{path} no contiene exactamente una entrada {env_key}")
+        raw = matches[0]
+    if (urlsplit(raw).username or "").lower() != expected_user.lower():
+        raise RuntimeError(f"{path} principal inesperado")
+    return raw
+
+
+async def load_lifecycle_intent() -> dict[str, Any]:
+    """Read which continuously managed seats are expected to be running.
+
+    A missing privilege or row fails closed: lifecycle-sensitive units are not
+    repaired until intent is observable again. ADA is deliberately outside
+    this mapping because its `manual` row controls the optional Claude body;
+    its permanent Codex body remains monitored by this guard.
+    """
+    if asyncpg is None:
+        return {
+            "ok": False,
+            "status": "unverifiable",
+            "states": {},
+            "expected_agents": [],
+            "issues": ["lifecycle: asyncpg no disponible; no reparo asientos sensibles"],
+        }
+
+    conn = None
+    try:
+        dsn = read_private_dsn(STABILITY_DB_SECRET, "svc_soul_stability_guard")
+        conn = await asyncpg.connect(dsn, timeout=5)
+        rows = await conn.fetch(
+            """
+            SELECT agent_name, desired_state
+            FROM soul_v3.agent_lifecycle
+            WHERE agent_name = ANY($1::text[])
+            """,
+            list(LIFECYCLE_MANAGED_AGENTS),
+        )
+    except Exception as exc:
+        return {
+            "ok": False,
+            "status": "unverifiable",
+            "states": {},
+            "expected_agents": [],
+            "issues": [f"lifecycle: intención no verificable; no reparo asientos sensibles: {exc}"],
+        }
+    finally:
+        if conn is not None:
+            await conn.close()
+
+    states = {
+        str(row["agent_name"]).upper(): str(row["desired_state"]).lower()
+        for row in rows
+    }
+    missing = [agent for agent in LIFECYCLE_MANAGED_AGENTS if agent not in states]
+    valid_states = {"running", "manual", "paused", "stopped"}
+    invalid = {
+        agent: state for agent, state in states.items() if state not in valid_states
+    }
+    issues = [f"lifecycle: falta estado de {agent}" for agent in missing]
+    issues.extend(
+        f"lifecycle: estado inválido {agent}={state}" for agent, state in invalid.items()
+    )
+    expected = [
+        agent
+        for agent in LIFECYCLE_MANAGED_AGENTS
+        if states.get(agent) == LIFECYCLE_ACTIVE_STATE
+    ]
+    return {
+        "ok": not issues,
+        "status": "healthy" if not issues else "unverifiable",
+        "states": states,
+        "expected_agents": expected,
+        "issues": issues,
+    }
+
+AUTONOMY_REQUIRED_CLAUSES = (
+    "RECEIVED -> EXECUTING -> TESTING -> VERIFIED -> COMPLETED",
+    "No volver a pedirla",
+    "no cerrar en propuesta",
+)
+AUTONOMY_LEGACY_PHRASES = (
+    "ADA puede sugerir pero no decidir sin aprobación",
+    "Propose and consult before acting, as William has corrected this and it is valid.",
+)
+AUTONOMY_RULE_IDS = (42, 73)
+EXPECTED_SELF_REPAIR_ACTIONS = {
+    "ADA": {
+        "bridge": "ada-codex-remote-bridge.service",
+        "channel_monitor": "seal-channel-monitor@ADA.service",
+        "stream_relay": "seal-ada-codex-stream-relay.service",
+        "visible_poller": "seal-ada-codex-poller.service",
+        "visible_terminal": "seal-ada-codex-autostart.service",
+    },
+    "ALICE": {
+        "bridge": "seal-bridge-alice.service",
+        "channel_monitor": "seal-channel-monitor@ALICE.service",
+    },
+    "FABLE": {
+        "channel_monitor": "seal-channel-monitor@FABLE.service",
+    },
+    "JARVIS": {
+        "bridge": "seal-bridge-jarvis.service",
+        "channel_monitor": "seal-channel-monitor@JARVIS.service",
+    },
+    "NEXUS": {
+        "bridge": "seal-bridge-nexus.service",
+        "channel_monitor": "seal-channel-monitor@NEXUS.service",
+        "visible_terminal": "nexus-terminal.service",
+    },
+}
+EXPECTED_SELF_REPAIR_CONTROLS = {
+    "ADA": "seal-channel-monitor@JARVIS.service",
+    "ALICE": "seal-channel-monitor@FABLE.service",
+    "FABLE": "seal-channel-monitor@NEXUS.service",
+    "JARVIS": "seal-channel-monitor@ADA.service",
+    "NEXUS": "seal-channel-monitor@ALICE.service",
+}
+AUTONOMY_RECEIPT_REQUIRED_CHECKS = {
+    "command_succeeded",
+    "positive_control_target_active",
+    "by_effect_target_changed",
+    "negative_control_other_agent_unchanged",
+    "subject_matches_policy",
+}
+
+WS_AGENTS = ("ALICE", "FABLE", "JARVIS", "NEXUS")
+MONITOR_AGENTS = WS_AGENTS
+HEARTBEAT_AGENTS = ("ADA", "ALICE", "FABLE", "JARVIS", "NEXUS")
+LIFECYCLE_MANAGED_AGENTS = ("ALICE", "FABLE", "JARVIS", "NEXUS")
+LIFECYCLE_ACTIVE_STATE = "running"
+HEARTBEAT_MAX_AGE_SECONDS = 15 * 60
+HEARTBEAT_RUNTIME_STATUSES = frozenset(
+    {"present_unique", "present_ambiguous", "absent", "indeterminate"}
+)
+MONITOR_REARM_COOLDOWN_SECONDS = 10 * 60
+
+CRITICAL_UNITS = (
+    "seal-chat.service",
+    "seal-mcp-server.service",
+    "seal-studio-backend.service",
+    "ada-codex-remote-bridge.service",
+    "ada-codex-compact-monitor.service",
+    "seal-codex-app-bridge.service",
+    "seal-codex-app-bridge-poller.service",
+    "seal-bridge-alice.service",
+    "seal-bridge-jarvis.service",
+    "seal-bridge-nexus.service",
+    "seal-channel-monitor@ADA.service",
+    "seal-channel-monitor@ALICE.service",
+    "seal-channel-monitor@FABLE.service",
+    "seal-channel-monitor@JARVIS.service",
+    "seal-channel-monitor@NEXUS.service",
+    "seal-dm-monitor@ALICE.service",
+    "seal-dm-monitor@FABLE.service",
+    "seal-dm-monitor@JARVIS.service",
+    "seal-dm-monitor@NEXUS.service",
+    "seal-alice-dm-poller.service",
+    "seal-fable-dm-poller.service",
+    "seal-jarvis-dm-poller.service",
+    "seal-nexus-dm-poller.service",
+    "seal-whisper-ADA.service",
+    "seal-whisper-ALICE.service",
+    "seal-whisper-JARVIS.service",
+    "seal-whisper-NEXUS.service",
+    "seal-ada-heartbeat.timer",
+    "seal-alice-heartbeat.timer",
+    "seal-alice-v2-heartbeat.timer",
+    "seal-fable-heartbeat.timer",
+    "seal-jarvis-heartbeat.timer",
+    "seal-nexus-heartbeat.timer",
+    "seal-claude-auth-guard.timer",
+    "seal-ssai-dual-verify.timer",
+)
+
+CRITICAL_ONESHOTS = ("seal-ssai-dual-verify.service",)
+ALICE_V2_ONESHOT = "seal-alice-v2-heartbeat.service"
+
+# These units express continuous presence. A non-running lifecycle state makes
+# their inactivity intentional. FABLE's DM path and judge launcher are absent
+# on purpose: both remain available while the general-channel seat is manual.
+LIFECYCLE_SENSITIVE_UNITS = {
+    "seal-channel-monitor@ALICE.service": "ALICE",
+    "seal-channel-monitor@FABLE.service": "FABLE",
+    "seal-channel-monitor@JARVIS.service": "JARVIS",
+    "seal-channel-monitor@NEXUS.service": "NEXUS",
+    "seal-alice-heartbeat.timer": "ALICE",
+    "seal-fable-heartbeat.timer": "FABLE",
+    "seal-jarvis-heartbeat.timer": "JARVIS",
+    "seal-nexus-heartbeat.timer": "NEXUS",
+}
+
+# F5 cutover: ALICE v2 deliberately replaces the canonical v1 ingress while
+# keeping v1 installed for rollback.  These units belong to the old body; when
+# the same atomic switch used by the chat ACL selects ALICE-V2, reviving any of
+# them would recreate a second listener/writer and undo the cutover.
+ALICE_ACTIVE_BODY_PATH = Path("/etc/seal/alice_cuerpo_activo")
+ALICE_V1_UNITS = frozenset(
+    {
+        "seal-bridge-alice.service",
+        "seal-channel-monitor@ALICE.service",
+        "seal-dm-monitor@ALICE.service",
+        "seal-alice-dm-poller.service",
+        "seal-whisper-ALICE.service",
+        "seal-alice-heartbeat.timer",
+    }
+)
+ALICE_V2_UNITS = frozenset({"seal-alice-v2-heartbeat.timer"})
+
+
+def alice_v2_is_active(path: Path = ALICE_ACTIVE_BODY_PATH) -> bool:
+    """Return true only for the explicit, canonical ALICE-V2 switch value."""
+    try:
+        return path.read_text(encoding="utf-8").strip().upper() == "ALICE-V2"
+    except OSError:
+        return False
+
+
+def expected_runtime_agents(
+    lifecycle_intent: dict[str, Any],
+    *,
+    alice_v2_active: bool = False,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return monitor and heartbeat rosters from declared lifecycle intent."""
+    expected_managed = set(lifecycle_intent.get("expected_agents", []))
+    if alice_v2_active:
+        # ALICE v2 has its own isolated seat and server-side poll path.  The
+        # canonical v1 monitor/heartbeat are rollback assets, not missing
+        # runtime components, while the F5 switch selects v2.
+        expected_managed.discard("ALICE")
+    monitors = tuple(agent for agent in MONITOR_AGENTS if agent in expected_managed)
+    heartbeats = ("ADA",) + tuple(
+        agent
+        for agent in HEARTBEAT_AGENTS
+        if agent != "ADA" and agent in expected_managed
+    )
+    return monitors, heartbeats
+
+
+def expected_ws_agents(*, alice_v2_active: bool = False) -> tuple[str, ...]:
+    """Return canonical websocket producers expected for the selected body."""
+    return tuple(
+        agent
+        for agent in WS_AGENTS
+        if not (agent == "ALICE" and alice_v2_active)
+    )
+
+
+def expected_oneshot_units(*, alice_v2_active: bool = False) -> tuple[str, ...]:
+    """Include the body-specific v2 heartbeat result only during cutover."""
+    if alice_v2_active:
+        return (*CRITICAL_ONESHOTS, ALICE_V2_ONESHOT)
+    return CRITICAL_ONESHOTS
+
+LAST_REPORT = MESSAGES / "seal_agent_stability_guard_last.json"
+STATE_PATH = MESSAGES / "seal_agent_stability_guard_state.json"
+LOG_PATH = MESSAGES / "seal_agent_stability_guard.log"
+
+
+@dataclass(frozen=True)
+class Proc:
+    pid: int
+    ppid: int
+    comm: str
+    args: str
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def run(cmd: list[str], timeout: float = 10) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        cmd,
+        cwd=str(ROOT),
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def append_log(line: str) -> None:
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with LOG_PATH.open("a", encoding="utf-8") as fh:
+        fh.write(f"{utc_now()} {line}\n")
+
+
+def process_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def ps_rows() -> list[Proc]:
+    result = run(["ps", "-eo", "pid=,ppid=,comm=,args="])
+    rows: list[Proc] = []
+    for line in result.stdout.splitlines():
+        parts = line.strip().split(None, 3)
+        if len(parts) < 4:
+            continue
+        try:
+            rows.append(Proc(int(parts[0]), int(parts[1]), parts[2], parts[3]))
+        except ValueError:
+            continue
+    return rows
+
+
+def ws_pidfile(agent: str) -> Path:
+    return MESSAGES / f".ws_listener_{agent.lower()}.pid"
+
+
+def read_pid(path: Path) -> int | None:
+    try:
+        value = int(path.read_text(encoding="utf-8").strip())
+    except Exception:
+        return None
+    return value if value > 0 else None
+
+
+def write_pid(path: Path, pid: int) -> None:
+    path.write_text(f"{pid}\n", encoding="utf-8")
+
+
+def ws_processes(agent: str, rows: list[Proc]) -> list[Proc]:
+    needle = f"{WS_LISTENER} --agent {agent}"
+    alt_needle = f"ws_listener.py --agent {agent}"
+    return [
+        proc
+        for proc in rows
+        if proc.comm.startswith("python")
+        and (needle in proc.args or alt_needle in proc.args)
+        and proc.pid != os.getpid()
+    ]
+
+
+def monitor_processes(agent: str, rows: list[Proc]) -> list[Proc]:
+    """Return the real in-session channel consumers, not producers/bridges.
+
+    A live Claude PID and a healthy ws_listener are insufficient: the incident
+    on 18-Jul left NEXUS alive while no ``tail -F seal_events_NEXUS.log`` was
+    attached to its session.  Match the executable and exact event path so the
+    path embedded in a launcher's prompt cannot create a false positive.
+    """
+    event_path = f"/tmp/seal_events_{agent}.log"
+    return [
+        proc
+        for proc in rows
+        if proc.comm == "tail" and event_path in proc.args and "-F" in proc.args
+    ]
+
+
+def runtime_processes(agent: str, rows: list[Proc]) -> list[Proc]:
+    """Return the primary Claude runtime processes for one sibling.
+
+    ADA intentionally has a dual Codex topology (visible TUI plus headless app
+    server), so runtime singleton enforcement applies only to Claude siblings.
+    Read ``SEAL_AGENT`` from /proc instead of trusting command-line names.
+    """
+    if agent == "ADA":
+        return []
+    matches: list[Proc] = []
+    for proc in rows:
+        if proc.comm != "claude":
+            continue
+        # Programmatic Claude workers inherit SEAL_AGENT from their launcher,
+        # but they are not interactive sibling runtimes.  Counting short-lived
+        # stream-json reviewers as principals produced recurring false duplicate
+        # alarms and could tempt an unsafe kill of the real agent session.
+        if "--output-format stream-json" in proc.args:
+            continue
+        if not re.search(
+            rf"(?:^|\s)--name(?:=|\s+)[\"']?{re.escape(agent)}(?:\s|—|-|$)",
+            proc.args,
+            flags=re.IGNORECASE,
+        ):
+            continue
+        try:
+            env_raw = Path(f"/proc/{proc.pid}/environ").read_bytes().decode(
+                "utf-8", errors="replace"
+            )
+            env = dict(part.split("=", 1) for part in env_raw.split("\0") if "=" in part)
+        except Exception:
+            continue
+        if env.get("SEAL_AGENT", "").strip().upper() == agent:
+            matches.append(proc)
+    return matches
+
+
+def ensure_monitor(agent: str, rows: list[Proc]) -> dict[str, Any]:
+    procs = monitor_processes(agent, rows)
+    if len(procs) == 1:
+        return {
+            "agent": agent,
+            "ok": True,
+            "count": len(procs),
+            "pids": [proc.pid for proc in procs],
+            "fixes": [],
+            "issues": [],
+        }
+    if len(procs) > 1:
+        return {
+            "agent": agent,
+            "ok": False,
+            "count": len(procs),
+            "pids": [proc.pid for proc in procs],
+            "fixes": [],
+            "issues": [
+                f"{agent}: {len(procs)} consumidores de monitor; se exige exactamente uno"
+            ],
+        }
+
+    marker = Path(f"/tmp/seal_monitor_rearm_{agent}.ts")
+    now = time.time()
+    if marker.exists() and now - marker.stat().st_mtime < MONITOR_REARM_COOLDOWN_SECONDS:
+        age = int(now - marker.stat().st_mtime)
+        return {
+            "agent": agent,
+            "ok": False,
+            "count": 0,
+            "pids": [],
+            "fixes": [],
+            "issues": [f"{agent}: monitor consumidor ausente; rearme solicitado hace {age}s"],
+        }
+
+    socket_name = f"seal-{agent.lower()}"
+    session_name = socket_name
+    has_session = run(
+        ["tmux", "-L", socket_name, "has-session", "-t", session_name], timeout=5
+    )
+    if has_session.returncode != 0:
+        return {
+            "agent": agent,
+            "ok": False,
+            "count": 0,
+            "pids": [],
+            "fixes": [],
+            "issues": [f"{agent}: monitor consumidor ausente y tmux {socket_name} no disponible"],
+        }
+
+    message = (
+        f"[STABILITY-GUARD] {agent} está vivo pero sin consumidor del canal. "
+        f"Rearma AHORA un Monitor persistente para: tail -n 0 -F "
+        f"/tmp/seal_events_{agent}.log (persistent=true, timeout_ms=3600000). "
+        "No publiques un cierre hasta verificar que el proceso tail quedó vivo."
+    )
+    sent = run(
+        ["tmux", "-L", socket_name, "send-keys", "-t", session_name, "-l", message],
+        timeout=5,
+    )
+    if sent.returncode == 0:
+        run(["tmux", "-L", socket_name, "send-keys", "-t", session_name, "Enter"], timeout=5)
+        marker.write_text(f"{int(now)}\n", encoding="utf-8")
+        return {
+            "agent": agent,
+            "ok": False,
+            "count": 0,
+            "pids": [],
+            "fixes": [f"{agent}: monitor ausente; rearme inyectado en tmux"],
+            "issues": [],
+        }
+    return {
+        "agent": agent,
+        "ok": False,
+        "count": 0,
+        "pids": [],
+        "fixes": [],
+        "issues": [f"{agent}: monitor ausente y falló inyección de rearme: {sent.stderr.strip()}"],
+    }
+
+
+def terminate_pid(pid: int) -> bool:
+    if not process_alive(pid):
+        return True
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False
+    deadline = time.time() + 2.0
+    while time.time() < deadline:
+        if not process_alive(pid):
+            return True
+        time.sleep(0.1)
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False
+    return not process_alive(pid)
+
+
+def start_ws_listener(agent: str) -> int | None:
+    if not PYTHON.exists() or not WS_LISTENER.exists():
+        return None
+    log_path = MESSAGES / f"ws_listener_{agent}.log"
+    log_fh = log_path.open("a", encoding="utf-8")
+    proc = subprocess.Popen(
+        [str(PYTHON), str(WS_LISTENER), "--agent", agent],
+        cwd=str(ROOT),
+        stdin=subprocess.DEVNULL,
+        stdout=log_fh,
+        stderr=log_fh,
+        start_new_session=True,
+        text=True,
+    )
+    time.sleep(0.5)
+    return proc.pid if process_alive(proc.pid) else None
+
+
+def ensure_ws(agent: str, rows: list[Proc]) -> dict[str, Any]:
+    fixes: list[str] = []
+    issues: list[str] = []
+    procs = ws_processes(agent, rows)
+    pidfile = ws_pidfile(agent)
+    canonical = read_pid(pidfile)
+    live_pids = {proc.pid for proc in procs}
+
+    if len(procs) == 0:
+        new_pid = start_ws_listener(agent)
+        if new_pid:
+            fixes.append(f"{agent}: ws_listener iniciado pid={new_pid}")
+            write_pid(pidfile, new_pid)
+        else:
+            issues.append(f"{agent}: ws_listener ausente y no pudo arrancar")
+        return {"agent": agent, "count": len(procs), "fixes": fixes, "issues": issues}
+
+    keep_pid = canonical if canonical in live_pids else min(live_pids)
+    if len(procs) > 1:
+        killed: list[int] = []
+        failed: list[int] = []
+        for proc in procs:
+            if proc.pid == keep_pid:
+                continue
+            if terminate_pid(proc.pid):
+                killed.append(proc.pid)
+            else:
+                failed.append(proc.pid)
+        if killed:
+            fixes.append(f"{agent}: ws_listener duplicados terminados={killed}, preservado={keep_pid}")
+        if failed:
+            issues.append(f"{agent}: no pude terminar duplicados={failed}")
+
+    if canonical != keep_pid:
+        write_pid(pidfile, keep_pid)
+        fixes.append(f"{agent}: pidfile normalizado {canonical}->{keep_pid}")
+
+    return {"agent": agent, "count": len(procs), "pid": keep_pid, "fixes": fixes, "issues": issues}
+
+
+def heartbeat_path(agent: str) -> Path:
+    return MESSAGES / f"{agent.lower()}_claude_heartbeat.json"
+
+
+def heartbeat_runtime_status(data: dict[str, Any]) -> tuple[str, str]:
+    """Return the authoritative runtime measurement state and its source.
+
+    ``alive`` remains a compatibility projection for older readers; it cannot
+    represent an unreadable measurement.  New writers publish
+    ``runtime_detection_status``.  During migration, the existing ``runtime``
+    labels preserve the same distinction instead of collapsing
+    ``indeterminado`` into ``absent``.
+    """
+    explicit = str(data.get("runtime_detection_status") or "").strip().lower()
+    if explicit:
+        return explicit, "explicit"
+
+    runtime = str(data.get("runtime") or "").strip().lower()
+    if runtime.startswith("ambiguo"):
+        return "present_ambiguous", "legacy_runtime"
+    if runtime.startswith("indeterminado"):
+        return "indeterminate", "legacy_runtime"
+
+    pid_raw = data.get("process_pid") or data.get("pid")
+    try:
+        pid = int(pid_raw)
+    except Exception:
+        pid = 0
+    if data.get("alive") is True and pid > 0:
+        return "present_unique", "legacy_projection"
+    if data.get("alive") is False and pid <= 0:
+        return "absent", "legacy_projection"
+    return "invalid", "legacy_projection"
+
+
+def check_heartbeat(agent: str, rows: list[Proc]) -> dict[str, Any]:
+    path = heartbeat_path(agent)
+    issues: list[str] = []
+    data: dict[str, Any] = {}
+    if not path.exists():
+        return {"agent": agent, "ok": False, "issues": [f"{agent}: heartbeat JSON faltante"]}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return {"agent": agent, "ok": False, "issues": [f"{agent}: heartbeat JSON inválido: {exc}"]}
+    age = int(time.time() - path.stat().st_mtime)
+    if age > HEARTBEAT_MAX_AGE_SECONDS:
+        issues.append(f"{agent}: heartbeat stale age={age}s")
+    runtime_status, runtime_status_source = heartbeat_runtime_status(data)
+    if runtime_status not in HEARTBEAT_RUNTIME_STATUSES:
+        issues.append(
+            f"{agent}: runtime_detection_status inválido={runtime_status or '<vacío>'}"
+        )
+    elif runtime_status == "present_ambiguous":
+        issues.append(f"{agent}: heartbeat runtime ambiguo; presencia sin identidad única")
+    elif runtime_status == "absent":
+        issues.append(f"{agent}: heartbeat runtime ausente")
+    elif runtime_status == "indeterminate":
+        issues.append(f"{agent}: heartbeat runtime indeterminado; no afirma presencia ni ausencia")
+
+    pid_raw = data.get("process_pid") or data.get("pid")
+    try:
+        pid = int(pid_raw)
+    except Exception:
+        pid = 0
+
+    if runtime_status == "present_unique" and data.get("alive") is not True:
+        issues.append(f"{agent}: proyección alive inconsistente con present_unique")
+    elif runtime_status == "present_ambiguous" and data.get("alive") is not True:
+        issues.append(f"{agent}: proyección alive inconsistente con present_ambiguous")
+    elif runtime_status == "absent" and data.get("alive") is not False:
+        issues.append(f"{agent}: proyección alive inconsistente con absent")
+
+    if runtime_status == "present_unique" and not pid:
+        issues.append(f"{agent}: heartbeat present_unique sin PID")
+    elif runtime_status != "present_unique" and pid:
+        issues.append(f"{agent}: heartbeat {runtime_status} no debe seleccionar PID={pid}")
+    elif runtime_status == "present_unique" and not process_alive(pid):
+        issues.append(f"{agent}: heartbeat apunta a PID muerto {pid}")
+    elif runtime_status == "present_unique":
+        try:
+            comm = Path(f"/proc/{pid}/comm").read_text(encoding="utf-8").strip()
+            env_raw = Path(f"/proc/{pid}/environ").read_bytes().decode("utf-8", errors="replace")
+            env = dict(part.split("=", 1) for part in env_raw.split("\0") if "=" in part)
+            runtime_agent = env.get("SEAL_AGENT", "").strip().upper()
+            if runtime_agent != agent:
+                issues.append(
+                    f"{agent}: PID {pid} pertenece a SEAL_AGENT={runtime_agent or 'ausente'}"
+                )
+            if comm not in {"claude", "codex", "node"}:
+                issues.append(f"{agent}: PID {pid} runtime inesperado comm={comm}")
+        except Exception as exc:
+            issues.append(f"{agent}: no pude verificar identidad del PID {pid}: {exc}")
+
+    runtimes = runtime_processes(agent, rows)
+    runtime_pids = [proc.pid for proc in runtimes]
+    if agent != "ADA":
+        if runtime_status == "present_unique" and len(runtimes) != 1:
+            issues.append(
+                f"{agent}: runtimes Claude={len(runtimes)} pids={runtime_pids}; se exige exactamente uno"
+            )
+        elif runtime_status == "present_unique" and pid and runtime_pids[0] != pid:
+            issues.append(
+                f"{agent}: heartbeat PID={pid} no coincide con runtime único PID={runtime_pids[0]}"
+            )
+        elif runtime_status == "present_ambiguous" and len(runtimes) < 2:
+            issues.append(
+                f"{agent}: heartbeat declaró ambigüedad pero el guard observó pids={runtime_pids}"
+            )
+        elif runtime_status == "absent" and runtime_pids:
+            issues.append(
+                f"{agent}: heartbeat declaró ausencia pero el guard observó pids={runtime_pids}"
+            )
+    return {
+        "agent": agent,
+        "ok": not issues,
+        "age_seconds": age,
+        "pid": pid or None,
+        "runtime_pids": runtime_pids,
+        "runtime_detection_status": runtime_status,
+        "runtime_detection_status_source": runtime_status_source,
+        "issues": issues,
+    }
+
+
+def refresh_ada_heartbeat_after_pid_rollover(
+    result: dict[str, Any],
+    rows: list[Proc],
+) -> tuple[dict[str, Any], list[str]]:
+    """Re-sample ADA once when its runtime changed between heartbeat ticks.
+
+    ADA's visible Codex runtime can restart immediately after the five-minute
+    heartbeat timer runs.  Without this bounded retry, the two-minute
+    stability guard publishes a transient YELLOW for the old PID even though
+    the replacement runtime is already healthy.
+
+    The retry does not mask a real outage: the heartbeat writer emits
+    ``alive=false``/PID 0 when it cannot identify exactly one ADA runtime, and
+    the refreshed result remains unhealthy.
+    """
+    dead_pid_issue = any(
+        str(issue).startswith("ADA: heartbeat apunta a PID muerto ")
+        for issue in result.get("issues", [])
+    )
+    if not dead_pid_issue:
+        return result, []
+
+    refreshed = run(
+        ["systemctl", "--user", "restart", "seal-ada-heartbeat.service"],
+        timeout=10,
+    )
+    if refreshed.returncode != 0:
+        return result, []
+
+    result_after = check_heartbeat("ADA", rows)
+    if result_after.get("ok"):
+        old_pid = result.get("pid")
+        new_pid = result_after.get("pid")
+        return result_after, [f"ADA: heartbeat refrescado tras rollover PID {old_pid}->{new_pid}"]
+    return result_after, []
+
+
+def unit_load_state(unit: str) -> str:
+    result = run(["systemctl", "--user", "show", unit, "-p", "LoadState", "--value"], timeout=5)
+    return result.stdout.strip() or "unknown"
+
+
+def unit_active_state(unit: str) -> str:
+    result = run(["systemctl", "--user", "is-active", unit], timeout=5)
+    return result.stdout.strip() or "unknown"
+
+
+def restart_unit(unit: str) -> tuple[bool, str]:
+    result = run(["systemctl", "--user", "restart", unit], timeout=20)
+    if result.returncode != 0:
+        return False, (result.stderr or result.stdout).strip()
+    return True, "restarted"
+
+
+def ensure_units(
+    lifecycle_states: dict[str, str] | None,
+    units: tuple[str, ...] = CRITICAL_UNITS,
+    *,
+    alice_v2_active: bool = False,
+) -> dict[str, Any]:
+    fixes: list[str] = []
+    issues: list[str] = []
+    skipped: list[str] = []
+    states: dict[str, str] = {}
+    for unit in units:
+        load_state = unit_load_state(unit)
+        if load_state in {"not-found", "masked"}:
+            skipped.append(f"{unit}:{load_state}")
+            continue
+        active = unit_active_state(unit)
+        states[unit] = active
+        if unit in ALICE_V1_UNITS and alice_v2_active:
+            skipped.append(f"{unit}:intentional-alice-v2-cutover")
+            continue
+        if unit in ALICE_V2_UNITS and not alice_v2_active:
+            skipped.append(f"{unit}:intentional-alice-v1-active")
+            continue
+        lifecycle_agent = LIFECYCLE_SENSITIVE_UNITS.get(unit)
+        if lifecycle_agent is not None:
+            if lifecycle_states is None:
+                skipped.append(f"{unit}:lifecycle-unverifiable")
+                continue
+            desired = lifecycle_states.get(lifecycle_agent)
+            if desired != LIFECYCLE_ACTIVE_STATE:
+                skipped.append(f"{unit}:intentional-{desired or 'missing'}")
+                continue
+        if active == "active":
+            continue
+        ok, detail = restart_unit(unit)
+        active_after = unit_active_state(unit)
+        states[unit] = active_after
+        if ok and active_after == "active":
+            fixes.append(f"{unit}: {active}->active")
+        else:
+            issues.append(f"{unit}: {active}->{active_after} ({detail})")
+    return {"states": states, "fixes": fixes, "issues": issues, "skipped": skipped}
+
+
+def check_oneshot_results(
+    units: tuple[str, ...] = CRITICAL_ONESHOTS,
+) -> dict[str, Any]:
+    """Catch timers whose oneshot target exits non-zero while the timer stays green."""
+    rows: list[dict[str, Any]] = []
+    issues: list[str] = []
+    for unit in units:
+        result = run(
+            [
+                "systemctl",
+                "--user",
+                "show",
+                unit,
+                "-p",
+                "LoadState",
+                "-p",
+                "Result",
+                "-p",
+                "ExecMainStatus",
+            ],
+            timeout=5,
+        )
+        props = {}
+        if result.returncode == 0:
+            props = dict(
+                line.split("=", 1)
+                for line in result.stdout.splitlines()
+                if "=" in line
+            )
+        load = props.get("LoadState", "unknown")
+        service_result = props.get("Result", "unknown")
+        exec_status = props.get("ExecMainStatus", "unknown")
+        ok = load == "loaded" and service_result == "success" and exec_status == "0"
+        row = {
+            "unit": unit,
+            "ok": ok,
+            "load_state": load,
+            "result": service_result,
+            "exec_status": exec_status,
+        }
+        rows.append(row)
+        if not ok:
+            issues.append(
+                f"{unit}: load={load} result={service_result} exec_status={exec_status}"
+            )
+    return {"ok": not issues, "units": rows, "issues": issues}
+
+
+def check_auth_guard_status(path: Path = AUTH_GUARD_STATE, *, now: float | None = None) -> dict[str, Any]:
+    """Consume the auth guard result so liveness can never mask OAuth failure."""
+    now = time.time() if now is None else now
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("state is not an object")
+    except Exception as exc:
+        return {
+            "ok": False,
+            "status": "missing",
+            "issues": [f"auth guard ausente o inválido: {exc}"],
+        }
+
+    checked_at = int(payload.get("checked_at") or 0)
+    age = max(0, int(now - checked_at)) if checked_at else AUTH_GUARD_MAX_AGE_SECONDS + 1
+    status = str(payload.get("status") or "unknown")
+    issues: list[str] = []
+    if age > AUTH_GUARD_MAX_AGE_SECONDS:
+        issues.append(f"auth guard stale age={age}s")
+    if status == "needs_login":
+        issues.append("autenticación Claude no disponible: se requiere login")
+    elif status == "unknown":
+        issues.append("healthcheck de autenticación Claude no disponible")
+    elif status not in {"healthy", "suspect"}:
+        issues.append(f"auth guard devolvió estado inesperado={status}")
+    return {
+        "ok": not issues,
+        "status": status,
+        "raw_status": payload.get("raw_status"),
+        "age_seconds": age,
+        "consecutive_failures": int(payload.get("consecutive_failures") or 0),
+        "issues": issues,
+    }
+
+
+def check_fable_memory_repo_boundary(
+    repo: Path = FABLE_MEMORY_REPO,
+) -> dict[str, Any]:
+    """Require FABLE's local memory history to remain an exact no-remote repo.
+
+    The pre-push hook protects the act of publishing, but it lives inside the
+    watched tree and can be skipped or lost in a clone. This independent guard
+    protects the cheaper precondition: no remote may exist at all.
+    """
+    repo = repo.expanduser().resolve()
+    issues: list[str] = []
+    remote_names: list[str] = []
+
+    if not repo.is_dir():
+        issues.append(f"FABLE memory repo ausente: {repo}")
+    else:
+        root_result = run(
+            ["git", "-C", str(repo), "rev-parse", "--show-toplevel"],
+            timeout=5,
+        )
+        if root_result.returncode != 0:
+            issues.append(f"FABLE memory repo no es Git independiente: {repo}")
+        else:
+            try:
+                git_root = Path(root_result.stdout.strip()).resolve()
+            except Exception as exc:
+                issues.append(f"FABLE memory repo devolvió raíz inválida: {exc}")
+            else:
+                if git_root != repo:
+                    issues.append(
+                        "FABLE memory repo fue absorbido por otro árbol Git: "
+                        f"esperado={repo} observado={git_root}"
+                    )
+
+        remote_result = run(["git", "-C", str(repo), "remote"], timeout=5)
+        if remote_result.returncode != 0:
+            issues.append("FABLE memory repo no permitió verificar remotos")
+        else:
+            # Only names are read. URLs are deliberately excluded from reports.
+            remote_names = sorted(
+                {line.strip() for line in remote_result.stdout.splitlines() if line.strip()}
+            )
+            if remote_names:
+                issues.append(
+                    "FABLE memory repo tiene remotos prohibidos: "
+                    + ", ".join(remote_names)
+                )
+
+    return {
+        "ok": not issues,
+        "status": "healthy" if not issues else "drift",
+        "repo": str(repo),
+        "remote_count": len(remote_names) if repo.is_dir() else None,
+        "remote_names": remote_names,
+        "issues": issues,
+    }
+
+
+async def check_ada_memory_identity() -> dict[str, Any]:
+    if asyncpg is None:
+        return {"ok": False, "issues": ["asyncpg no disponible; no pude verificar audit_log memory_store"]}
+    conn = None
+    try:
+        dsn = read_private_dsn(STABILITY_DB_SECRET, "svc_soul_stability_guard")
+        conn = await asyncpg.connect(dsn, timeout=5)
+        row = await conn.fetchrow(
+            """
+            SELECT at, actor, action, decision
+            FROM soul_v3.stability_guard_ada_memory_audit_v
+            WHERE decision='allow'
+            ORDER BY at DESC
+            LIMIT 1
+            """
+        )
+    except Exception as exc:
+        return {"ok": False, "issues": [f"ADA memory_store audit no verificable: {exc}"]}
+    finally:
+        if conn is not None:
+            await conn.close()
+    if not row:
+        return {"ok": False, "issues": ["ADA memory_store sin allow reciente en audit_log"]}
+    created_at = row["at"]
+    age = (datetime.now(timezone.utc) - created_at).total_seconds()
+    if age > 24 * 3600:
+        return {
+            "ok": False,
+            "last_allow": created_at.isoformat(),
+            "issues": [f"ADA memory_store allow viejo age={int(age)}s"],
+        }
+    return {"ok": True, "last_allow": created_at.isoformat(), "age_seconds": int(age)}
+
+
+def check_autonomy_files(root: Path = ROOT) -> dict[str, Any]:
+    """Fail closed when the executable autonomy contract drifts on disk."""
+    issues: list[str] = []
+    paths = {
+        "contract": root / "CLAUDE.md",
+        "sender": root / "scripts/seal_send.py",
+        "guard": root / "scripts/seal_autonomy_guard.py",
+        "self_repair": root / "scripts/seal_self_repair.py",
+    }
+    contents: dict[str, str] = {}
+    for name, path in paths.items():
+        try:
+            contents[name] = path.read_text(encoding="utf-8")
+        except Exception as exc:
+            issues.append(f"autonomía: {name} ausente o ilegible: {exc}")
+
+    contract = contents.get("contract", "")
+    normalized_contract = " ".join(contract.split())
+    for clause in AUTONOMY_REQUIRED_CLAUSES:
+        if clause not in normalized_contract:
+            issues.append(f"autonomía: CLAUDE.md perdió cláusula obligatoria: {clause}")
+    for phrase in AUTONOMY_LEGACY_PHRASES:
+        if phrase in normalized_contract:
+            issues.append(f"autonomía: CLAUDE.md reintrodujo regla legacy: {phrase}")
+
+    sender = contents.get("sender", "")
+    if "AUTONOMY BLOCKED" not in sender or "approval_gate" not in sender:
+        issues.append("autonomía: seal_send.py no aplica el bloqueo de aprobación redundante")
+    guard = contents.get("guard", "")
+    if "def autonomy_warning" not in guard:
+        issues.append("autonomía: seal_autonomy_guard.py no expone el detector esperado")
+    self_repair = contents.get("self_repair", "")
+    for marker in (
+        "AGENT_ACTIONS",
+        "SEAL_AGENT is required; identity is fail-closed",
+        "negative_control_other_agent_unchanged",
+        "subject_matches_policy",
+        "autonomy_receipts",
+        "v1 only repairs continuously ",
+        "supervised Type=simple services",
+    ):
+        if marker not in self_repair:
+            issues.append(
+                f"autonomía: seal_self_repair.py perdió control obligatorio: {marker}"
+            )
+    if self_repair:
+        try:
+            tree = ast.parse(self_repair, filename=str(paths["self_repair"]))
+            literals: dict[str, Any] = {}
+            for node in tree.body:
+                if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                    continue
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                value = node.value
+                for target in targets:
+                    if isinstance(target, ast.Name) and target.id in {
+                        "AGENT_ACTIONS",
+                        "CONTROL_UNITS",
+                    }:
+                        literals[target.id] = ast.literal_eval(value)
+            if literals.get("AGENT_ACTIONS") != EXPECTED_SELF_REPAIR_ACTIONS:
+                issues.append(
+                    "autonomía: tabla AGENT_ACTIONS cambió sin actualizar la "
+                    "custodia protegida del Stability Guard"
+                )
+            if literals.get("CONTROL_UNITS") != EXPECTED_SELF_REPAIR_CONTROLS:
+                issues.append(
+                    "autonomía: tabla CONTROL_UNITS cambió sin actualizar la "
+                    "custodia protegida del Stability Guard"
+                )
+        except Exception as exc:
+            issues.append(f"autonomía: política de autorreparación no verificable: {exc}")
+    return {"ok": not issues, "status": "healthy" if not issues else "drift", "issues": issues}
+
+
+def _autonomy_units() -> dict[str, dict[str, str]]:
+    units: dict[str, dict[str, str]] = {}
+    for agent, actions in EXPECTED_SELF_REPAIR_ACTIONS.items():
+        for action, unit in actions.items():
+            if unit in units:
+                raise RuntimeError(f"unidad de autonomía duplicada: {unit}")
+            units[unit] = {"agent": agent, "action": action}
+    return units
+
+
+def _read_boot_id(path: Path = Path("/proc/sys/kernel/random/boot_id")) -> str:
+    return path.read_text(encoding="utf-8").strip()
+
+
+def _inspect_autonomy_unit(unit: str) -> dict[str, Any]:
+    completed = run(
+        [
+            "systemctl",
+            "--user",
+            "show",
+            unit,
+            "-p",
+            "LoadState",
+            "-p",
+            "ActiveState",
+            "-p",
+            "SubState",
+            "-p",
+            "MainPID",
+            "-p",
+            "InvocationID",
+            "-p",
+            "Result",
+            "-p",
+            "ActiveEnterTimestampMonotonic",
+            "-p",
+            "PartOf",
+            "-p",
+            "Requires",
+        ],
+        timeout=5,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()
+        raise RuntimeError(f"no pude inspeccionar {unit}: {detail}")
+    values: dict[str, str] = {}
+    for line in completed.stdout.splitlines():
+        key, _, value = line.partition("=")
+        if key:
+            values[key] = value
+    return {
+        "load_state": values.get("LoadState", "unknown"),
+        "active_state": values.get("ActiveState", "unknown"),
+        "sub_state": values.get("SubState", "unknown"),
+        "main_pid": int(values.get("MainPID", "0") or 0),
+        "invocation_id": values.get("InvocationID", ""),
+        "result": values.get("Result", ""),
+        "active_enter_monotonic_usec": int(
+            values.get("ActiveEnterTimestampMonotonic", "0") or 0
+        ),
+        "part_of": tuple(values.get("PartOf", "").split()),
+        "requires": tuple(values.get("Requires", "").split()),
+    }
+
+
+def _load_verified_cascade_parent_invocations(
+    receipt_root: Path,
+) -> dict[str, set[str]]:
+    """Return verified parent InvocationIDs eligible to explain child restarts.
+
+    A temporal coincidence alone must not launder an out-of-band restart.  The
+    parent needs a broker receipt whose actor/action are explicitly allowlisted
+    and whose mandatory controls all passed.
+    """
+    verified: dict[str, set[str]] = {}
+    if not receipt_root.is_dir():
+        return verified
+    for unit, policy in AUTONOMY_CASCADE_ROOTS.items():
+        for agent in policy["agents"]:
+            agent_dir = receipt_root / agent
+            if not agent_dir.is_dir():
+                continue
+            for path in agent_dir.glob("*.json"):
+                try:
+                    if path.stat().st_mode & 0o777 != 0o600:
+                        continue
+                    payload = json.loads(path.read_text(encoding="utf-8"))
+                    checks = payload.get("checks")
+                    after = payload.get("after")
+                    if payload.get("schema") != "seal.autonomy.repair-receipt.v1":
+                        continue
+                    if payload.get("result") != "verified" or payload.get("operation") != "restart":
+                        continue
+                    if payload.get("agent") != agent or payload.get("unit") != unit:
+                        continue
+                    if payload.get("action") not in policy["actions"]:
+                        continue
+                    if not isinstance(checks, dict) or not isinstance(after, dict):
+                        continue
+                    if not AUTONOMY_RECEIPT_REQUIRED_CHECKS.issubset(checks):
+                        continue
+                    if any(checks.get(name) is not True for name in AUTONOMY_RECEIPT_REQUIRED_CHECKS):
+                        continue
+                    invocation_id = str(after.get("invocation_id") or "")
+                    if invocation_id:
+                        verified.setdefault(unit, set()).add(invocation_id)
+                except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                    continue
+    return verified
+
+
+def _verified_cascade_parent_for(
+    observed: dict[str, Any],
+    parent_observations: dict[str, dict[str, Any]],
+    verified_parent_invocations: dict[str, set[str]],
+    *,
+    window_seconds: float = AUTONOMY_CASCADE_WINDOW_SECONDS,
+) -> dict[str, Any] | None:
+    """Identify a systemd child restart caused by a receipted parent restart."""
+    dependencies = {
+        str(value)
+        for value in (*observed.get("part_of", ()), *observed.get("requires", ()))
+        if value
+    }
+    child_enter = int(observed.get("active_enter_monotonic_usec") or 0)
+    if child_enter <= 0:
+        return None
+    for parent in AUTONOMY_CASCADE_ROOTS:
+        if parent not in dependencies:
+            continue
+        parent_observed = parent_observations.get(parent)
+        if not isinstance(parent_observed, dict):
+            continue
+        parent_id = str(parent_observed.get("invocation_id") or "")
+        if parent_id not in verified_parent_invocations.get(parent, set()):
+            continue
+        parent_enter = int(parent_observed.get("active_enter_monotonic_usec") or 0)
+        if parent_enter <= 0:
+            continue
+        delta_seconds = abs(child_enter - parent_enter) / 1_000_000.0
+        if delta_seconds <= window_seconds:
+            return {
+                "parent": parent,
+                "parent_invocation_id": parent_id,
+                "delta_seconds": round(delta_seconds, 6),
+            }
+    return None
+
+
+def _load_autonomy_receipt_edges(
+    receipt_root: Path,
+    units: dict[str, dict[str, str]],
+) -> dict[str, dict[str, set[str]]]:
+    """Return verified restart edges as unit -> before invocation -> after set."""
+    edges: dict[str, dict[str, set[str]]] = {}
+    if not receipt_root.is_dir():
+        return edges
+    for unit, owner in units.items():
+        agent_dir = receipt_root / owner["agent"]
+        if not agent_dir.is_dir():
+            continue
+        for path in agent_dir.glob("*.json"):
+            try:
+                if path.stat().st_mode & 0o777 != 0o600:
+                    continue
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                checks = payload.get("checks")
+                before = payload.get("before")
+                after = payload.get("after")
+                if not isinstance(checks, dict) or not isinstance(before, dict) or not isinstance(after, dict):
+                    continue
+                if payload.get("schema") != "seal.autonomy.repair-receipt.v1":
+                    continue
+                if payload.get("result") != "verified" or payload.get("operation") != "restart":
+                    continue
+                if payload.get("agent") != owner["agent"] or payload.get("unit") != unit:
+                    continue
+                if not AUTONOMY_RECEIPT_REQUIRED_CHECKS.issubset(checks):
+                    continue
+                if any(checks.get(name) is not True for name in AUTONOMY_RECEIPT_REQUIRED_CHECKS):
+                    continue
+                before_id = str(before.get("invocation_id") or "")
+                after_id = str(after.get("invocation_id") or "")
+                if not before_id or not after_id or before_id == after_id:
+                    continue
+                edges.setdefault(unit, {}).setdefault(before_id, set()).add(after_id)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                continue
+    return edges
+
+
+def _has_verified_invocation_chain(
+    edges: dict[str, dict[str, set[str]]],
+    unit: str,
+    before_id: str,
+    after_id: str,
+) -> bool:
+    if not before_id or not after_id:
+        return False
+    if before_id == after_id:
+        return True
+    graph = edges.get(unit, {})
+    frontier = [before_id]
+    visited = {before_id}
+    while frontier:
+        current = frontier.pop()
+        for candidate in graph.get(current, set()):
+            if candidate == after_id:
+                return True
+            if candidate not in visited:
+                visited.add(candidate)
+                frontier.append(candidate)
+    return False
+
+
+def _write_autonomy_runtime_state(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path.parent.chmod(0o700)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    temporary.chmod(0o600)
+    temporary.replace(path)
+
+
+def acknowledge_autonomy_bypass(
+    unit: str,
+    *,
+    reason: str,
+    expected_accepted_invocation_id: str,
+    expected_observed_invocation_id: str,
+    actor: str | None = None,
+    state_path: Path = AUTONOMY_RUNTIME_STATE,
+    acknowledgement_root: Path = AUTONOMY_ACK_ROOT,
+    grace_seconds: int = AUTONOMY_RECEIPT_GRACE_SECONDS,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Adjudicate one detected bypass without erasing its durable evidence.
+
+    Recovery is a separate explicit transition because a later broker receipt
+    must never launder an earlier out-of-band restart. The target owner must
+    acknowledge its own unit, both InvocationIDs must match current state, the
+    grace period must have elapsed, and the live InvocationID must still equal
+    the observed value. The acknowledgement is durable before baseline moves.
+
+    ``SEAL_AGENT`` remains an auditable policy identity rather than
+    cryptographic isolation because all agents share one Unix UID.
+    """
+    units = _autonomy_units()
+    if unit not in units:
+        raise ValueError(f"unidad fuera de la tabla de autoridad: {unit}")
+    owner = units[unit]
+    effective_actor = (actor or os.environ.get("SEAL_AGENT", "")).strip().upper()
+    if effective_actor != owner["agent"]:
+        raise PermissionError(
+            f"actor={effective_actor or '<ausente>'} no es owner={owner['agent']} de {unit}"
+        )
+    normalized_reason = " ".join(reason.split())
+    if len(normalized_reason) < 12:
+        raise ValueError("reason debe explicar la adjudicación (mínimo 12 caracteres)")
+    if not expected_accepted_invocation_id or not expected_observed_invocation_id:
+        raise ValueError("se requieren InvocationID accepted y observed exactos")
+    if expected_accepted_invocation_id == expected_observed_invocation_id:
+        raise ValueError("accepted y observed deben diferir")
+
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(f"estado de invocaciones ilegible: {exc}") from exc
+    if state.get("schema") != "seal.autonomy.invocation-state.v1":
+        raise ValueError("schema de estado inválido")
+    entry = state.get("units", {}).get(unit)
+    if not isinstance(entry, dict):
+        raise ValueError(f"unidad sin estado: {unit}")
+    pending = entry.get("pending")
+    if not isinstance(pending, dict):
+        raise ValueError(f"unidad sin bypass pendiente: {unit}")
+
+    accepted_id = str(entry.get("accepted_invocation_id") or "")
+    observed_id = str(pending.get("invocation_id") or "")
+    if accepted_id != expected_accepted_invocation_id:
+        raise ValueError(
+            f"accepted cambió: esperado={expected_accepted_invocation_id} actual={accepted_id}"
+        )
+    if observed_id != expected_observed_invocation_id:
+        raise ValueError(
+            f"observed cambió: esperado={expected_observed_invocation_id} actual={observed_id}"
+        )
+
+    observed_at = now or datetime.now(timezone.utc)
+    try:
+        first_seen = datetime.fromisoformat(str(pending["first_seen"]))
+        if first_seen.tzinfo is None:
+            first_seen = first_seen.replace(tzinfo=timezone.utc)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("pending.first_seen inválido") from exc
+    age_seconds = max(0.0, (observed_at - first_seen).total_seconds())
+    if age_seconds < grace_seconds:
+        raise ValueError(
+            f"bypass aún en gracia: age={age_seconds:.1f}s grace={grace_seconds}s"
+        )
+
+    live = _inspect_autonomy_unit(unit)
+    live_id = str(live.get("invocation_id") or "")
+    if live_id != observed_id:
+        raise ValueError(
+            f"InvocationID vivo cambió: pending={observed_id} live={live_id}"
+        )
+
+    ack_id = observed_at.strftime("%Y%m%dT%H%M%S") + "-" + hashlib.sha256(
+        f"{unit}\0{accepted_id}\0{observed_id}\0{normalized_reason}".encode("utf-8")
+    ).hexdigest()[:10]
+    payload = {
+        "schema": "seal.autonomy.bypass-acknowledgement.v1",
+        "ack_id": ack_id,
+        "acknowledged_at": observed_at.isoformat(),
+        "actor": effective_actor,
+        "agent": owner["agent"],
+        "action": owner["action"],
+        "unit": unit,
+        "reason": normalized_reason,
+        "accepted_invocation_id": accepted_id,
+        "observed_invocation_id": observed_id,
+        "observed_main_pid": int(live.get("main_pid") or 0),
+        "first_seen": first_seen.isoformat(),
+        "age_seconds": int(age_seconds),
+        "result": "acknowledged",
+    }
+    acknowledgement_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    acknowledgement_root.chmod(0o700)
+    owner_dir = acknowledgement_root / owner["agent"]
+    owner_dir.mkdir(mode=0o700, exist_ok=True)
+    owner_dir.chmod(0o700)
+    ack_path = owner_dir / f"{ack_id}.json"
+    with ack_path.open("x", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+        handle.write("\n")
+    ack_path.chmod(0o600)
+
+    entry.update(
+        {
+            **owner,
+            "accepted_invocation_id": observed_id,
+            "accepted_main_pid": int(live.get("main_pid") or 0),
+            "active_state": live.get("active_state"),
+            "pending": None,
+            "last_ack": {
+                "ack_id": ack_id,
+                "path": str(ack_path),
+                "acknowledged_at": observed_at.isoformat(),
+            },
+        }
+    )
+    state["updated_at"] = observed_at.isoformat()
+    _write_autonomy_runtime_state(state_path, state)
+    return {**payload, "acknowledgement": str(ack_path), "state_path": str(state_path)}
+
+
+def check_autonomy_restart_provenance(
+    *,
+    state_path: Path = AUTONOMY_RUNTIME_STATE,
+    receipt_root: Path = AUTONOMY_RECEIPT_ROOT,
+    grace_seconds: int = AUTONOMY_RECEIPT_GRACE_SECONDS,
+    now: datetime | None = None,
+    boot_id: str | None = None,
+    lifecycle_states: dict[str, str] | None = None,
+    alice_v2_active: bool = False,
+) -> dict[str, Any]:
+    """Detect allowlisted service invocations that have no verified broker receipt.
+
+    The first observation and a host reboot establish a baseline instead of
+    accusing historical/system-start transitions. Afterwards, a changed
+    InvocationID must be connected to the accepted one by one or more verified
+    repair receipts. A short grace window avoids racing the broker between
+    `systemctl restart` and its atomic receipt write.
+    """
+    observed_at = now or datetime.now(timezone.utc)
+    current_boot_id = boot_id or _read_boot_id()
+    units = _autonomy_units()
+    observations: dict[str, dict[str, Any]] = {}
+    issues: list[str] = []
+    for unit in units:
+        try:
+            observations[unit] = _inspect_autonomy_unit(unit)
+        except Exception as exc:
+            issues.append(f"autonomía: reinicios no verificables para {unit}: {exc}")
+    parent_observations: dict[str, dict[str, Any]] = {}
+    for parent in AUTONOMY_CASCADE_ROOTS:
+        try:
+            parent_observations[parent] = _inspect_autonomy_unit(parent)
+        except Exception as exc:
+            issues.append(
+                f"autonomía: raíz de cascada no verificable para {parent}: {exc}"
+            )
+
+    previous: dict[str, Any] | None = None
+    if state_path.exists():
+        try:
+            loaded = json.loads(state_path.read_text(encoding="utf-8"))
+            if not isinstance(loaded, dict) or loaded.get("schema") != "seal.autonomy.invocation-state.v1":
+                raise ValueError("schema inválido")
+            if not isinstance(loaded.get("units"), dict):
+                raise ValueError("units inválido")
+            previous = loaded
+        except Exception as exc:
+            return {
+                "ok": False,
+                "status": "unverifiable",
+                "baseline": False,
+                "authorized": [],
+                "pending": [],
+                "out_of_band": [],
+                "issues": [f"autonomía: estado de invocaciones ilegible: {exc}"],
+            }
+
+    rebaseline = previous is None or previous.get("boot_id") != current_boot_id
+    next_units: dict[str, dict[str, Any]] = {}
+    authorized: list[str] = []
+    cascades: list[dict[str, Any]] = []
+    pending_units: list[str] = []
+    out_of_band: list[str] = []
+    lifecycle_skipped: list[str] = []
+    receipt_edges = _load_autonomy_receipt_edges(receipt_root, units)
+    verified_parent_invocations = _load_verified_cascade_parent_invocations(
+        receipt_root
+    )
+
+    for unit, owner in units.items():
+        observed = observations.get(unit)
+        prior = (previous or {}).get("units", {}).get(unit, {})
+        if observed is None:
+            if isinstance(prior, dict):
+                next_units[unit] = prior
+            continue
+        current_id = str(observed.get("invocation_id") or "")
+        if unit in ALICE_V1_UNITS and alice_v2_active:
+            lifecycle_skipped.append(f"{unit}:intentional-alice-v2-cutover")
+            next_units[unit] = {
+                **(prior if isinstance(prior, dict) else {}),
+                **owner,
+                "accepted_invocation_id": current_id,
+                "accepted_main_pid": int(observed.get("main_pid") or 0),
+                "active_state": observed.get("active_state"),
+                "pending": None,
+            }
+            continue
+        lifecycle_agent = LIFECYCLE_SENSITIVE_UNITS.get(unit)
+        if (
+            lifecycle_states is not None
+            and lifecycle_agent is not None
+            and lifecycle_states.get(lifecycle_agent) != LIFECYCLE_ACTIVE_STATE
+        ):
+            desired = lifecycle_states.get(lifecycle_agent) or "missing"
+            lifecycle_skipped.append(f"{unit}:intentional-{desired}")
+            next_units[unit] = {
+                **(prior if isinstance(prior, dict) else {}),
+                **owner,
+                # An intentional lifecycle transition is the new baseline.  If
+                # the seat later returns to running, an empty id establishes a
+                # fresh baseline instead of manufacturing a restart bypass.
+                "accepted_invocation_id": current_id,
+                "accepted_main_pid": int(observed.get("main_pid") or 0),
+                "active_state": observed.get("active_state"),
+                "pending": None,
+            }
+            continue
+        if rebaseline or not isinstance(prior, dict) or not prior.get("accepted_invocation_id"):
+            next_units[unit] = {
+                **owner,
+                "accepted_invocation_id": current_id,
+                "accepted_main_pid": int(observed.get("main_pid") or 0),
+                "active_state": observed.get("active_state"),
+                "pending": None,
+            }
+            continue
+
+        accepted_id = str(prior.get("accepted_invocation_id") or "")
+        if current_id == accepted_id:
+            next_units[unit] = {
+                **prior,
+                **owner,
+                "accepted_main_pid": int(observed.get("main_pid") or 0),
+                "active_state": observed.get("active_state"),
+                "pending": None,
+            }
+            continue
+
+        if _has_verified_invocation_chain(receipt_edges, unit, accepted_id, current_id):
+            authorized.append(unit)
+            next_units[unit] = {
+                **owner,
+                "accepted_invocation_id": current_id,
+                "accepted_main_pid": int(observed.get("main_pid") or 0),
+                "active_state": observed.get("active_state"),
+                "pending": None,
+            }
+            continue
+
+        cascade = _verified_cascade_parent_for(
+            observed,
+            parent_observations,
+            verified_parent_invocations,
+        )
+        if cascade is not None:
+            authorized.append(unit)
+            cascades.append({"unit": unit, **cascade})
+            next_units[unit] = {
+                **owner,
+                "accepted_invocation_id": current_id,
+                "accepted_main_pid": int(observed.get("main_pid") or 0),
+                "active_state": observed.get("active_state"),
+                "pending": None,
+                "last_cascade": {
+                    **cascade,
+                    "accepted_at": observed_at.isoformat(),
+                },
+            }
+            continue
+
+        pending = prior.get("pending") if isinstance(prior.get("pending"), dict) else None
+        if pending is None:
+            first_seen = observed_at
+            first_invocation_id = current_id
+            invocation_changes = 0
+        else:
+            try:
+                first_seen = datetime.fromisoformat(str(pending["first_seen"]))
+                if first_seen.tzinfo is None:
+                    first_seen = first_seen.replace(tzinfo=timezone.utc)
+            except (KeyError, TypeError, ValueError):
+                first_seen = observed_at
+            first_invocation_id = str(
+                pending.get("first_invocation_id")
+                or pending.get("invocation_id")
+                or current_id
+            )
+            invocation_changes = int(pending.get("invocation_changes") or 0)
+            if pending.get("invocation_id") != current_id:
+                invocation_changes += 1
+        age_seconds = max(0.0, (observed_at - first_seen).total_seconds())
+        pending_payload = {
+            "invocation_id": current_id,
+            "main_pid": int(observed.get("main_pid") or 0),
+            "first_seen": first_seen.isoformat(),
+            "first_invocation_id": first_invocation_id,
+            "invocation_changes": invocation_changes,
+            "age_seconds": int(age_seconds),
+        }
+        next_units[unit] = {**prior, **owner, "pending": pending_payload}
+        pending_units.append(unit)
+        if age_seconds >= grace_seconds:
+            out_of_band.append(unit)
+            issues.append(
+                "autonomía: reinicio sin recibo "
+                f"unit={unit} accepted={accepted_id or '<none>'} "
+                f"observed={current_id or '<none>'}"
+            )
+
+    state = {
+        "schema": "seal.autonomy.invocation-state.v1",
+        "boot_id": current_boot_id,
+        "updated_at": observed_at.isoformat(),
+        "units": next_units,
+    }
+    _write_autonomy_runtime_state(state_path, state)
+    return {
+        "ok": not issues,
+        "status": "drift" if issues else ("pending" if pending_units else "healthy"),
+        "baseline": rebaseline,
+        "authorized": authorized,
+        "cascades": cascades,
+        "pending": pending_units,
+        "out_of_band": out_of_band,
+        "lifecycle_skipped": lifecycle_skipped,
+        "state_path": str(state_path),
+        "issues": issues,
+    }
+
+
+async def check_autonomy_governance() -> dict[str, Any]:
+    """Verify persistent rules/identity so reboot and compact cannot restore passivity."""
+    if asyncpg is None:
+        return {"ok": False, "status": "unverifiable", "issues": ["autonomía: asyncpg no disponible"]}
+    conn = None
+    try:
+        dsn = read_private_dsn(STABILITY_DB_SECRET, "svc_soul_stability_guard")
+        conn = await asyncpg.connect(dsn, timeout=5)
+        rows = await conn.fetch(
+            """
+            SELECT id, content
+            FROM soul_v3.stability_guard_autonomy_rules_v
+            WHERE id = ANY($1::bigint[]) AND active IS TRUE
+            """,
+            list(AUTONOMY_RULE_IDS),
+        )
+        identity = await conn.fetchval(
+            "SELECT boot_context FROM soul_v3.stability_guard_jarvis_identity_v"
+        )
+    except Exception as exc:
+        return {
+            "ok": False,
+            "status": "unverifiable",
+            "issues": [f"autonomía: gobierno SOUL DB no verificable: {exc}"],
+        }
+    finally:
+        if conn is not None:
+            await conn.close()
+
+    by_id = {int(row["id"]): str(row["content"] or "") for row in rows}
+    issues: list[str] = []
+    if set(by_id) != set(AUTONOMY_RULE_IDS):
+        issues.append(f"autonomía: reglas activas esperadas={list(AUTONOMY_RULE_IDS)} presentes={sorted(by_id)}")
+    if "owner ejecuta" not in by_id.get(42, ""):
+        issues.append("autonomía: regla 42 perdió ejecución autónoma del owner")
+    if "decide y ejecuta autónomamente" not in by_id.get(73, ""):
+        issues.append("autonomía: regla 73 perdió autonomía dentro del scope")
+    joined = "\n".join([*by_id.values(), str(identity or "")])
+    for phrase in AUTONOMY_LEGACY_PHRASES:
+        if phrase in joined:
+            issues.append(f"autonomía: SOUL DB reintrodujo regla legacy: {phrase}")
+    if not identity:
+        issues.append("autonomía: identidad JARVIS ausente")
+    return {"ok": not issues, "status": "healthy" if not issues else "drift", "issues": issues}
+
+
+async def check_autonomy_contract(
+    root: Path = ROOT,
+    *,
+    lifecycle_states: dict[str, str] | None = None,
+    alice_v2_active: bool = False,
+) -> dict[str, Any]:
+    files = check_autonomy_files(root)
+    governance = await check_autonomy_governance()
+    # Keep the no-argument call for compatibility with standalone audits and
+    # their injected probes.  The live report supplies lifecycle intent.
+    runtime = (
+        check_autonomy_restart_provenance()
+        if lifecycle_states is None
+        else check_autonomy_restart_provenance(
+            lifecycle_states=lifecycle_states,
+            alice_v2_active=alice_v2_active,
+        )
+    )
+    issues = [
+        *files.get("issues", []),
+        *governance.get("issues", []),
+        *runtime.get("issues", []),
+    ]
+    return {
+        "ok": not issues,
+        "status": (
+            "drift"
+            if issues
+            else ("pending" if runtime.get("status") == "pending" else "healthy")
+        ),
+        "files": files,
+        "governance": governance,
+        "runtime": runtime,
+        "issues": issues,
+    }
+
+
+def check_mcp_postgres_boundary(
+    configs: tuple[Path, ...] = (PROJECT_MCP_CONFIG,),
+    secret_path: Path = POSTGRES_MCP_SECRET,
+    scan_configs: tuple[Path, ...] = (GLOBAL_MCP_CONFIG,),
+) -> dict[str, Any]:
+    """Detect drift in the active PostgreSQL MCP and legacy config shadows.
+
+    ``configs`` are authoritative manifests and must expose ``postgres``.
+    ``scan_configs`` are optional compatibility manifests: they may omit the
+    server entirely, but if they define it the same credential rules apply.
+    """
+    issues: list[str] = []
+    expected_source = "mcp_postgres_observer.env"
+
+    def inspect_entry(path: Path, entry: Any) -> None:
+        blob = json.dumps(entry, ensure_ascii=False)
+        if "postgresql://" in blob:
+            issues.append(f"postgres MCP: {path} volvió a embeber una DSN")
+        if expected_source not in blob:
+            issues.append(f"postgres MCP: {path} no carga la credencial observer segura")
+
+    for path in configs:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            entry = payload["mcpServers"]["postgres"]
+        except Exception as exc:
+            issues.append(f"postgres MCP: config {path} ausente o inválida: {exc}")
+            continue
+        inspect_entry(path, entry)
+
+    for path in scan_configs:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            continue
+        except Exception as exc:
+            issues.append(f"postgres MCP: config auxiliar {path} inválida: {exc}")
+            continue
+        entry = payload.get("mcpServers", {}).get("postgres")
+        if entry is not None:
+            inspect_entry(path, entry)
+
+    try:
+        mode = secret_path.stat().st_mode & 0o777
+        raw = secret_path.read_text(encoding="utf-8")
+    except Exception as exc:
+        issues.append(f"postgres MCP: credencial observer ausente o ilegible: {exc}")
+    else:
+        if mode != 0o600:
+            issues.append(f"postgres MCP: credencial observer mode={mode:o}, esperado=600")
+        if "postgresql://mcp_observer:" not in raw:
+            issues.append("postgres MCP: credencial no autentica como mcp_observer")
+    return {"ok": not issues, "status": "healthy" if not issues else "drift", "issues": issues}
+
+
+async def check_studio_db_boundary(
+    secret_path: Path = STUDIO_DB_SECRET,
+    sources: tuple[Path, ...] = STUDIO_DB_SOURCES,
+) -> dict[str, Any]:
+    """Detect privilege/config drift in the live SEAL Studio database login."""
+    issues: list[str] = []
+    dsn = ""
+    try:
+        mode = secret_path.stat().st_mode & 0o777
+        for raw in secret_path.read_text(encoding="utf-8").splitlines():
+            if raw.startswith("SEAL_STUDIO_DB_DSN="):
+                dsn = raw.split("=", 1)[1].strip().strip('"').strip("'")
+                break
+    except Exception as exc:
+        issues.append(f"studio DB: credencial ausente o ilegible: {exc}")
+    else:
+        if mode != 0o600:
+            issues.append(f"studio DB: credencial mode={mode:o}, esperado=600")
+        if not dsn.startswith("postgresql://svc_seal_studio:"):
+            issues.append("studio DB: DSN no autentica como svc_seal_studio")
+
+    for path in sources:
+        try:
+            source = path.read_text(encoding="utf-8")
+        except Exception as exc:
+            issues.append(f"studio DB: fuente {path} ausente o ilegible: {exc}")
+            continue
+        if "postgresql://seal:" in source or "seal_memory_2026" in source:
+            issues.append(f"studio DB: fuente {path} reintrodujo fallback superusuario")
+
+    if asyncpg is None:
+        issues.append("studio DB: asyncpg no disponible")
+    elif dsn:
+        try:
+            conn = await asyncpg.connect(dsn, timeout=5)
+            try:
+                identity = await conn.fetchrow(
+                    "SELECT current_user,session_user,current_setting('application_name') app"
+                )
+                attrs = await conn.fetchrow(
+                    "SELECT rolsuper,rolbypassrls,rolinherit FROM pg_roles WHERE rolname=current_user"
+                )
+                private_chat = await conn.fetchval(
+                    "SELECT 1 FROM soul_v3.chat_messages "
+                    "WHERE lower(channel) LIKE 'dm:%' OR lower(channel) LIKE 'user:%' LIMIT 1"
+                )
+                private_memory = await conn.fetchval(
+                    "SELECT 1 FROM soul_v3.memories "
+                    "WHERE COALESCE(scope,'private') NOT IN ('team','shared','public') LIMIT 1"
+                )
+                unlisted = await conn.fetchval(
+                    "SELECT has_table_privilege(current_user,'soul_v3.chat_sessions','SELECT')"
+                )
+                delete_allowed = await conn.fetchval(
+                    "SELECT has_table_privilege(current_user,'soul_v3.llm_routing','DELETE')"
+                )
+            finally:
+                await conn.close()
+            if identity["current_user"] != "svc_seal_studio" or identity["session_user"] != "svc_seal_studio":
+                issues.append("studio DB: identidad viva distinta de svc_seal_studio")
+            if identity["app"] != "seal_studio_backend":
+                issues.append("studio DB: application_name vivo incorrecto")
+            if attrs is None or attrs["rolsuper"] or attrs["rolbypassrls"] or attrs["rolinherit"]:
+                issues.append("studio DB: atributos de rol dejaron de ser mínimos")
+            if private_chat is not None or private_memory is not None:
+                issues.append("studio DB: RLS expone filas privadas")
+            if unlisted or delete_allowed:
+                issues.append("studio DB: privilegio efectivo fuera de allowlist")
+        except Exception as exc:
+            issues.append(f"studio DB: canario de identidad falló: {type(exc).__name__}: {exc}")
+
+    return {"ok": not issues, "status": "healthy" if not issues else "drift", "issues": issues}
+
+
+async def check_sdk_db_boundary(
+    sdk_secret: Path = SDK_DB_SECRET,
+    guard_secret: Path = STABILITY_DB_SECRET,
+) -> dict[str, Any]:
+    """Verify the Memory SDK stays least-privilege and tenant scoped."""
+    issues: list[str] = []
+    if asyncpg is None:
+        return {"ok": False, "status": "unverifiable", "issues": ["SDK DB: asyncpg no disponible"]}
+
+    sdk_conn = None
+    guard_conn = None
+    try:
+        sdk_dsn = read_private_dsn(
+            sdk_secret,
+            "svc_soul_memory_sdk",
+            env_key="SEAL_DB_URL",
+        )
+        guard_dsn = read_private_dsn(guard_secret, "svc_soul_stability_guard")
+        sdk_conn = await asyncpg.connect(sdk_dsn, timeout=5)
+        guard_conn = await asyncpg.connect(guard_dsn, timeout=5)
+
+        identity = await sdk_conn.fetchrow("SELECT session_user,current_user")
+        attrs = await sdk_conn.fetchrow(
+            "SELECT rolsuper,rolbypassrls,rolinherit "
+            "FROM pg_roles WHERE rolname=session_user"
+        )
+        if identity is None or identity["session_user"] != "svc_soul_memory_sdk":
+            issues.append("SDK DB: session_user vivo distinto de svc_soul_memory_sdk")
+        if identity is None or identity["current_user"] != "svc_soul_memory_sdk":
+            issues.append("SDK DB: current_user inicial inesperado")
+        if attrs is None or attrs["rolsuper"] or attrs["rolbypassrls"] or attrs["rolinherit"]:
+            issues.append("SDK DB: atributos del login dejaron de ser mínimos")
+
+        async with sdk_conn.transaction():
+            await sdk_conn.execute("SET LOCAL ROLE soul_sdk_agent_api")
+            await sdk_conn.execute("SELECT set_config('app.agent','ADA',true)")
+            await sdk_conn.execute("SELECT set_config('app.tenant','default',true)")
+            foreign_private = await sdk_conn.fetchval(
+                "SELECT count(*) FROM soul_v3.memories "
+                "WHERE agent <> 'ADA' AND COALESCE(scope,'private')='private'"
+            )
+            if int(foreign_private or 0) != 0:
+                issues.append("SDK DB: el rol agent_api expone memorias privadas ajenas")
+
+            unrelated_denied = False
+            try:
+                await sdk_conn.fetchval("SELECT count(*) FROM soul_v3.agent_tasks")
+            except asyncpg.InsufficientPrivilegeError:
+                unrelated_denied = True
+            if not unrelated_denied:
+                issues.append("SDK DB: agent_api conserva SELECT fuera de su allowlist")
+
+        role_escape_denied = False
+        try:
+            await sdk_conn.execute("SET ROLE soul_sdk_runtime")
+        except asyncpg.InsufficientPrivilegeError:
+            role_escape_denied = True
+        finally:
+            await sdk_conn.execute("RESET ROLE")
+        if not role_escape_denied:
+            issues.append("SDK DB: SET ROLE soul_sdk_runtime no fue denegado")
+
+        superuser_clients = await guard_conn.fetchval(
+            "SELECT client_count FROM soul_v3.stability_guard_superuser_clients_v"
+        )
+        if int(superuser_clients or 0) != 0:
+            issues.append(f"SDK DB: clientes de aplicación superusuario vivos={superuser_clients}")
+    except Exception as exc:
+        issues.append(f"SDK DB: canario de frontera falló: {type(exc).__name__}: {exc}")
+    finally:
+        if sdk_conn is not None:
+            await sdk_conn.close()
+        if guard_conn is not None:
+            await guard_conn.close()
+
+    return {"ok": not issues, "status": "healthy" if not issues else "drift", "issues": issues}
+
+
+def post_webchat(message: str, idempotency_key: str) -> bool:
+    completed = run(
+        [
+            str(ROOT / "scripts/seal_send.py"),
+            "ADA",
+            "equipo",
+            message,
+            "--channel",
+            "web_chat",
+            "--type",
+            "status",
+            "--proactive",
+            "--idempotency-key",
+            idempotency_key,
+        ],
+        timeout=15,
+    )
+    if completed.returncode == 0:
+        return True
+    diagnostic = (completed.stderr or completed.stdout).strip().splitlines()
+    append_log(f"webchat_post_failed {diagnostic[-1][:300] if diagnostic else 'unknown'}")
+    return False
+
+
+def stable_hash(report: dict[str, Any]) -> str:
+    # Historical/minimal reports used by tests and recovery tooling predate the
+    # Studio boundary.  Missing optional sections must hash as "unknown", not
+    # crash the guard before it can publish the actual health report.
+    studio_boundary = report.get("studio_db_boundary", {})
+    sdk_boundary = report.get("sdk_db_boundary", {})
+    fable_repo_boundary = report.get("fable_memory_repo_boundary", {})
+    oneshots = report.get("oneshot_results", {})
+    relevant = {
+        "status": report["status"],
+        "issues": report["issues"],
+        "fixes": report["fixes"],
+        "ws": {item["agent"]: item.get("pid") for item in report["ws"]},
+        "expected": {
+            "ws": report.get("ws_expected"),
+            "monitors": report.get("monitor_expected"),
+            "heartbeats": report.get("heartbeat_expected"),
+        },
+        "lifecycle_intent": {
+            "status": report.get("lifecycle_intent", {}).get("status"),
+            "states": report.get("lifecycle_intent", {}).get("states", {}),
+            "issues": report.get("lifecycle_intent", {}).get("issues", []),
+        },
+        "auth_guard": {
+            "status": report["auth_guard"].get("status"),
+            "issues": report["auth_guard"].get("issues", []),
+        },
+        "autonomy_contract": {
+            "status": report["autonomy_contract"].get("status"),
+            "issues": report["autonomy_contract"].get("issues", []),
+        },
+        "mcp_postgres_boundary": {
+            "status": report["mcp_postgres_boundary"].get("status"),
+            "issues": report["mcp_postgres_boundary"].get("issues", []),
+        },
+        "studio_db_boundary": {
+            "status": studio_boundary.get("status"),
+            "issues": studio_boundary.get("issues", []),
+        },
+        "sdk_db_boundary": {
+            "status": sdk_boundary.get("status"),
+            "issues": sdk_boundary.get("issues", []),
+        },
+        "fable_memory_repo_boundary": {
+            "status": fable_repo_boundary.get("status"),
+            "issues": fable_repo_boundary.get("issues", []),
+        },
+        "oneshot_results": {
+            "ok": oneshots.get("ok"),
+            "issues": oneshots.get("issues", []),
+        },
+    }
+    blob = json.dumps(relevant, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def maybe_post(report: dict[str, Any], *, post_always: bool, post_on_change: bool) -> bool:
+    if not post_always and not post_on_change:
+        return False
+    state: dict[str, Any] = {}
+    if STATE_PATH.exists():
+        try:
+            state = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            state = {}
+    digest = stable_hash(report)
+    should_post = post_always or bool(report["fixes"]) or state.get("hash") != digest
+    if post_on_change and not should_post:
+        return False
+
+    lines = [
+        f"ADA Stability Guard — {report['status']}",
+        f"ws={report['ws_ok']}/{report['ws_expected']} monitors={report.get('monitor_ok', 0)}/{report['monitor_expected']} hb={report['heartbeat_ok']}/{report['heartbeat_expected']} lifecycle={report['lifecycle_intent']['status']} auth={report['auth_guard']['status']} autonomy={report['autonomy_contract']['status']} postgres_mcp={report['mcp_postgres_boundary']['status']} studio_db={report['studio_db_boundary']['status']} sdk_db={report['sdk_db_boundary']['status']} fable_repo={report['fable_memory_repo_boundary']['status']} units_ok={report['units_ok']} fixes={len(report['fixes'])} issues={len(report['issues'])}",
+    ]
+    if report["fixes"]:
+        lines.append("Fixes: " + "; ".join(report["fixes"][:6]))
+    if report["issues"]:
+        lines.append("Issues: " + "; ".join(report["issues"][:6]))
+    sent = post_webchat("\n".join(lines), f"ada-stability-{digest}")
+    STATE_PATH.write_text(
+        json.dumps({"hash": digest, "last_post": utc_now(), "sent": sent}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return sent
+
+
+async def build_report() -> dict[str, Any]:
+    lifecycle_intent = await load_lifecycle_intent()
+    alice_v2_active = alice_v2_is_active()
+    lifecycle_states = (
+        lifecycle_intent["states"] if lifecycle_intent.get("ok") else None
+    )
+    expected_monitor_agents, expected_heartbeat_agents = expected_runtime_agents(
+        lifecycle_intent,
+        alice_v2_active=alice_v2_active,
+    )
+    expected_ws_roster = expected_ws_agents(alice_v2_active=alice_v2_active)
+
+    rows = ps_rows()
+    ws_results = [ensure_ws(agent, rows) for agent in expected_ws_roster]
+    monitor_results = [ensure_monitor(agent, rows) for agent in expected_monitor_agents]
+    # Re-read after possible process changes.
+    rows_after = ps_rows()
+    for item in ws_results:
+        procs = ws_processes(item["agent"], rows_after)
+        item["live_count_after"] = len(procs)
+        item["live_pids_after"] = [proc.pid for proc in procs]
+
+    heartbeat_results = [
+        check_heartbeat(agent, rows_after) for agent in expected_heartbeat_agents
+    ]
+    heartbeat_fixes: list[str] = []
+    for index, item in enumerate(heartbeat_results):
+        if item.get("agent") != "ADA":
+            continue
+        heartbeat_results[index], fixes = refresh_ada_heartbeat_after_pid_rollover(
+            item,
+            rows_after,
+        )
+        heartbeat_fixes.extend(fixes)
+    unit_results = ensure_units(
+        lifecycle_states,
+        alice_v2_active=alice_v2_active,
+    )
+    oneshot_units = expected_oneshot_units(alice_v2_active=alice_v2_active)
+    oneshot_results = check_oneshot_results(oneshot_units)
+    auth_guard = check_auth_guard_status()
+    memory_identity = await check_ada_memory_identity()
+    autonomy_contract = await check_autonomy_contract(
+        lifecycle_states=lifecycle_states,
+        alice_v2_active=alice_v2_active,
+    )
+    mcp_postgres_boundary = check_mcp_postgres_boundary()
+    studio_db_boundary = await check_studio_db_boundary()
+    sdk_db_boundary = await check_sdk_db_boundary()
+    fable_memory_repo_boundary = check_fable_memory_repo_boundary()
+
+    fixes: list[str] = []
+    issues: list[str] = []
+    for item in ws_results:
+        fixes.extend(item.get("fixes", []))
+        issues.extend(item.get("issues", []))
+        if item.get("live_count_after") != 1:
+            issues.append(f"{item['agent']}: ws_listener count_after={item.get('live_count_after')}")
+    for item in monitor_results:
+        fixes.extend(item.get("fixes", []))
+        issues.extend(item.get("issues", []))
+    for item in heartbeat_results:
+        issues.extend(item.get("issues", []))
+    fixes.extend(heartbeat_fixes)
+    fixes.extend(unit_results["fixes"])
+    issues.extend(lifecycle_intent.get("issues", []))
+    issues.extend(unit_results["issues"])
+    issues.extend(oneshot_results.get("issues", []))
+    issues.extend(auth_guard.get("issues", []))
+    issues.extend(memory_identity.get("issues", []))
+    issues.extend(autonomy_contract.get("issues", []))
+    issues.extend(mcp_postgres_boundary.get("issues", []))
+    issues.extend(studio_db_boundary.get("issues", []))
+    issues.extend(sdk_db_boundary.get("issues", []))
+    issues.extend(fable_memory_repo_boundary.get("issues", []))
+
+    ws_ok = sum(1 for item in ws_results if item.get("live_count_after") == 1 and not item.get("issues"))
+    heartbeat_ok = sum(1 for item in heartbeat_results if item.get("ok"))
+    monitor_ok = sum(1 for item in monitor_results if item.get("ok"))
+    units_ok = not unit_results["issues"]
+    status = "GREEN"
+    if fixes:
+        status = "YELLOW_FIXED"
+    if issues:
+        status = "RED" if any("no pude" in issue or "ausente" in issue for issue in issues) else "YELLOW"
+
+    report = {
+        "ts": utc_now(),
+        "status": status,
+        "ws_ok": ws_ok,
+        "ws_expected": len(expected_ws_roster),
+        "heartbeat_ok": heartbeat_ok,
+        "heartbeat_expected": len(expected_heartbeat_agents),
+        "monitor_ok": monitor_ok,
+        "monitor_expected": len(expected_monitor_agents),
+        "units_ok": units_ok,
+        "lifecycle_intent": lifecycle_intent,
+        "ws": ws_results,
+        "monitors": monitor_results,
+        "heartbeats": heartbeat_results,
+        "units": unit_results,
+        "oneshot_results": oneshot_results,
+        "auth_guard": auth_guard,
+        "ada_memory_identity": memory_identity,
+        "autonomy_contract": autonomy_contract,
+        "mcp_postgres_boundary": mcp_postgres_boundary,
+        "studio_db_boundary": studio_db_boundary,
+        "sdk_db_boundary": sdk_db_boundary,
+        "fable_memory_repo_boundary": fable_memory_repo_boundary,
+        "fixes": fixes,
+        "issues": issues,
+    }
+    LAST_REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    append_log(f"status={status} fixes={len(fixes)} issues={len(issues)}")
+    return report
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="SEAL agent stability guard")
+    parser.add_argument("--post-always", action="store_true")
+    parser.add_argument("--post-on-change", action="store_true")
+    parser.add_argument("--quiet", action="store_true", help="write report file but do not print JSON")
+    parser.add_argument("--strict", action="store_true", help="return non-zero on unresolved issues")
+    parser.add_argument(
+        "--ack-out-of-band",
+        metavar="UNIT",
+        help="adjudicate one detected bypass owned by SEAL_AGENT",
+    )
+    parser.add_argument("--accepted-invocation-id")
+    parser.add_argument("--observed-invocation-id")
+    parser.add_argument("--reason")
+    args = parser.parse_args()
+
+    if args.ack_out_of_band:
+        try:
+            result = acknowledge_autonomy_bypass(
+                args.ack_out_of_band,
+                reason=args.reason or "",
+                expected_accepted_invocation_id=args.accepted_invocation_id or "",
+                expected_observed_invocation_id=args.observed_invocation_id or "",
+            )
+        except Exception as exc:
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "status": "rejected",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return 2
+        print(json.dumps({"ok": True, **result}, ensure_ascii=False, indent=2))
+        return 0
+
+    report = asyncio.run(build_report())
+    maybe_post(report, post_always=args.post_always, post_on_change=args.post_on_change)
+    if not args.quiet:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    if args.strict and report["issues"]:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

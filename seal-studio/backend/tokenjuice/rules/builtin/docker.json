@@ -1,0 +1,45 @@
+[
+  {
+    "id": "docker-ps-compact",
+    "priority": 100,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["docker"],
+      "argv_includes": [["ps"]]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 20
+    },
+    "description": "Keep first 20 lines of docker ps"
+  },
+  {
+    "id": "docker-logs-compact",
+    "priority": 90,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["docker"],
+      "argv_includes": [["logs"]]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 40,
+      "preserve_patterns": ["ERROR", "FATAL", "WARN", "Exception"]
+    },
+    "description": "Keep last 40 lines of docker logs, preserve errors"
+  },
+  {
+    "id": "docker-images-compact",
+    "priority": 80,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["docker"],
+      "argv_includes": [["images"]]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 25
+    },
+    "description": "Keep first 25 lines of docker images"
+  }
+]

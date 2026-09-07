@@ -1,0 +1,60 @@
+[
+  {
+    "id": "git-status-compact",
+    "priority": 100,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["git"],
+      "argv_includes": [["status"]]
+    },
+    "reduce": {
+      "strategy": "regex",
+      "pattern": "modified:\\s+(\\S+)",
+      "format": "M: {}",
+      "preserve_patterns": ["CONFLICT", "Untracked files"]
+    },
+    "description": "Compact git status to modified file list"
+  },
+  {
+    "id": "git-log-compact",
+    "priority": 90,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["git"],
+      "argv_includes": [["log"]]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 20
+    },
+    "description": "Keep first 20 lines of git log"
+  },
+  {
+    "id": "git-diff-compact",
+    "priority": 85,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["git"],
+      "argv_includes": [["diff"]]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 80
+    },
+    "description": "Keep first 80 lines of git diff"
+  },
+  {
+    "id": "git-branch-compact",
+    "priority": 80,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["git"],
+      "argv_includes": [["branch"]]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 30
+    },
+    "description": "Keep first 30 lines of git branch list"
+  }
+]

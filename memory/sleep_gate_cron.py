@@ -17,12 +17,31 @@ import asyncio
 import asyncpg
 import argparse
 import json
+import sys
+from pathlib import Path
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 LIMA_TZ = ZoneInfo("America/Lima")
 from neo4j import AsyncGraphDatabase
 
-DB_URL = "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+# La credencial NO se escribe acá. Este archivo tenía el DSN del rol `seal` con la
+# contraseña vieja, y por eso la consolidación nocturna venía fallando TODOS los días:
+#
+#   asyncpg.exceptions.InvalidPasswordError: password authentication failed for user "seal"
+#
+# Es la sexta aparición del mismo defecto en 24 h (boot test, hook post-compactación, job
+# de embeddings, poller de ALICE, poller de JARVIS y éste). Medido el 5-sep:
+#   el DSN hardcodeado -> InvalidPasswordError
+#   settings.pg_dsn    -> conecta (SELECT 1 -> 1)
+#
+# Y esta vez la familia hizo daño VISIBLE, no sólo silencio: el poller de DMs de ALICE
+# murió con este mismo error el 4-sep 03:49 y se perdieron 29 mensajes dirigidos a ella,
+# ninguno de los cuales llegó al outbox (medido por NEXUS). Un secreto escrito en el
+# código es una bomba de tiempo con la fecha puesta en la próxima rotación.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from config import settings  # noqa: E402
+
+DB_URL = settings.pg_dsn
 NEO4J_URI = "bolt://localhost:7687"
 NEO4J_AUTH = ("neo4j", "seal2026soul")
 

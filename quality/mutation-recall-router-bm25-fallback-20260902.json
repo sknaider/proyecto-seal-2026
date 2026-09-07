@@ -1,0 +1,114 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "explicit adversarial mutants (constant regression + text mutation of SQL/branches) on a COPY of memory/recall_router.py in a fresh tmp dir per mutant, -B/PYTHONDONTWRITEBYTECODE (never the live file, never a reused .pyc); killer = named test goes red in a subprocess pytest",
+  "workspace": "carril memories de recall_router: _bm25_or_terms (stopwords, min len, cap), _recall_memories (umbral AND, fallback OR), _MEMORIES_BM25_SQL (ts_rank 32, ORDER BY relevancia x importancia), TIMEOUT_MEMORIES_BM25",
+  "killed": 8,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 8,
+  "oracle_negative_control_broken_import": {
+    "rc": 4,
+    "classified_as_killed": false,
+    "ok": true,
+    "meaning": "un mutante que no corre debe ser SOSPECHOSO, no muerto (H2 NEXUS 2-sep)"
+  },
+  "mutation_score_percent": 100.0,
+  "positive_control_unmutated_copy": {
+    "rc": 0,
+    "ok": true,
+    "meaning": "si la copia sin mutar fallara, el arnés no estaría tocando al sujeto"
+  },
+  "reviewer": "NEXUS",
+  "notes_defense_in_depth": "el except Exception -> [] del carril es defense-in-depth compartido por todos los carriles del router (_safe); no se muta porque su killer requeriría un pool que lance, cubierto por el timeout del _safe.",
+  "file_sha256": {
+    "memory/recall_router.py": "7a3d6f8fbfb382c528d4257f9292ae9615884eef5800252a229ba70baf7f18fc",
+    "memory/tests/test_recall_router_memories_bm25_fallback.py": "347bb5ca0638adcd6002690d0e565dde273204511a3a38522456d1bbb9701b67",
+    "memory/tests/check_recall_router_bm25_mutants.py": "80a9081c1d93df9d0cd2c1673721b631c7ee00d29bce674f4c7ba76d837790fb"
+  },
+  "detail": [
+    {
+      "mutant": "stopwords_removed",
+      "test": "test_or_terms_builder_drops_stopwords_so_the_or_slots_discriminate",
+      "killed": true,
+      "suspicious": false,
+      "rc": 1,
+      "replaced": "or tok in _BM25_STOPWORDS:",
+      "with": "or False:",
+      "note": "sin el filtro, 'del','las','uno' vuelven a ocupar lugares del OR (EXPLAIN 2-sep: 25.670 filas descartadas por RLS)"
+    },
+    {
+      "mutant": "min_token_len_zero",
+      "test": "test_or_terms_builder_drops_short_tokens_and_caps",
+      "killed": true,
+      "suspicious": false,
+      "rc": 1,
+      "replaced": "_BM25_MIN_TOKEN_LEN = 3",
+      "with": "_BM25_MIN_TOKEN_LEN = 0",
+      "note": "'y','a' entran al OR"
+    },
+    {
+      "mutant": "or_cap_removed",
+      "test": "test_or_terms_builder_drops_short_tokens_and_caps",
+      "killed": true,
+      "suspicious": false,
+      "rc": 1,
+      "replaced": "_BM25_OR_MAX_TERMS = 8",
+      "with": "_BM25_OR_MAX_TERMS = 1000",
+      "note": "OR sin tope: medido OR12 294 ms vs OR8 218 ms"
+    },
+    {
+      "mutant": "and_threshold_removed",
+      "test": "test_long_query_goes_straight_to_or",
+      "killed": true,
+      "suspicious": false,
+      "rc": 1,
+      "replaced": "_BM25_AND_MAX_TOKENS = 5",
+      "with": "_BM25_AND_MAX_TOKENS = 100000",
+      "note": "la query larga vuelve a pagar el AND inútil (0/40) antes del OR"
+    },
+    {
+      "mutant": "or_fallback_removed",
+      "test": "test_falls_back_to_or_when_and_is_empty",
+      "killed": true,
+      "suspicious": false,
+      "rc": 1,
+      "replaced": "        if not rows:\n            or_terms = _bm25_or_terms(q",
+      "with": "        if False:\n            or_terms = _bm25_or_terms(quer",
+      "note": "sin fallback: el carril vuelve a estar muerto para texto libre"
+    },
+    {
+      "mutant": "rank_normalization_dropped",
+      "test": "test_sql_ranks_by_relevance_weighted_by_importance",
+      "killed": true,
+      "suspicious": false,
+      "rc": 1,
+      "replaced": "websearch_to_tsquery('simple', $1), 32)",
+      "with": "websearch_to_tsquery('simple', $1), 0)",
+      "note": "ts_rank con normalización 0 no acota ni penaliza longitud (duda de FABLE 2-sep)"
+    },
+    {
+      "mutant": "importance_as_key",
+      "test": "test_sql_ranks_by_relevance_weighted_by_importance",
+      "killed": true,
+      "suspicious": false,
+      "rc": 1,
+      "replaced": "ORDER BY ts_rank(embedding_bm25, websearch_to_tsquery('simpl",
+      "with": "ORDER BY importance DESC, kw_rank DESC",
+      "note": "vuelve al orden viejo: la relevancia sólo desempata"
+    },
+    {
+      "mutant": "lane_timeout_regressed",
+      "test": "test_memories_lane_timeout_covers_the_cold_or_query",
+      "killed": true,
+      "suspicious": false,
+      "rc": 1,
+      "replaced": "TIMEOUT_MEMORIES_BM25 = 1.00",
+      "with": "TIMEOUT_MEMORIES_BM25 = 0.35",
+      "note": "0.35/0.60 cortaban la consulta OR (993 ms en frío tras el reboot)"
+    }
+  ],
+  "tmp_dir": "/tmp/seal-mutants-recall-router-b6i9pdf7"
+}

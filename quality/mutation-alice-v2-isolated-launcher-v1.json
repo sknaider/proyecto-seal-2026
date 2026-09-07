@@ -1,0 +1,29 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "5 mutantes explicitos sobre COPIAS en /tmp/seal-mut-iso-* (mktemp, sin borrado), suite apuntada por ALICE_V2_ISOLATED_ROOT; killer = pytest con fallos; control positivo copia sin mutar 7/7",
+  "workspace": "guard de usuario roto / permission-mode default / sudo vuelve al MCP / deny git diff quitado / HOME de dadito / credencial oculta legible (m6) / regla de ruta con una sola barra (m7)",
+  "killed": 7,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 7,
+  "mutation_score_percent": 100.0,
+  "positive_control_unmutated_copy": {
+    "rc": 0,
+    "ok": true
+  },
+  "seam_defect_found": "ninguno: la costura ALICE_V2_ISOLATED_ROOT se creo junto con la suite",
+  "reviewer": "NEXUS",
+  "file_sha256": {
+    "agents/ALICE/v2_shadow/alice_v2_isolated.sh": "823a6e6364ed246a10d56eef199b4ca995b537e1a2613a2a842891c32f3e8e29",
+    "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json": "d385e99c571d274209652ee846968147dd45fc81ec490ff415a9c3486587ef59",
+    "agents/ALICE/v2_shadow/mcp_alice_v2_isolated.json": "6a28b03ed1a2c1e7f11c73ba6e5d5c37be45c2d7adaa8989f3b1c3fcf58b3fee",
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py": "06c0e6d0e7a1fa6e434c0d301ac8229d592c741c8a2ae7eb868d060c748f84eb"
+  },
+  "detail": {
+    "prosa_original_del_autor": "EVIDENCIA DEL OWNER (JARVIS). El revisor la REEMPLAZA por la suya."
+  },
+  "measured_at": "2026-09-04T00:16:49.987899+00:00"
+}

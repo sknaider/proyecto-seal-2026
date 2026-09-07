@@ -1,0 +1,56 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "WEGENER isolated-copy fault injection plus pytest",
+  "workspace": "Exact staged PAST held-out runner, dataset, preregistration and tests copied to ephemeral directories; no SOUL DB, network, daemon or live model touched",
+  "killed": 6,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 6,
+  "mutation_score_percent": 100.0,
+  "reviewer": "WEGENER",
+  "file_sha256": {
+    "corpus_rsi/past_heldout_v1_dataset.json": "f9e8aea2b6d31ceff692c193550def0ea5abcd5f8b89b6e2066de6214794abab",
+    "corpus_rsi/past_heldout_v1_preregister.json": "1ba33f3a0dfb61723df4eaf2c17d9c5f3ce1a2f33078f770755d8e40d59fcd25",
+    "corpus_rsi/past_heldout_v1_evidence.json": "56faec0989ec3a8968865ab5b11c4c7036fc5f7a5ebc0aa8f8701744aba33828",
+    "corpus_rsi/PAST_HELDOUT_V1_RESULTS.md": "ea2fc799ea9d90895595842063d0e39305366123c44eea917ce593bb819320dc",
+    "memory/past_heldout_v1_runner.py": "cf86d70fa30fe2bcfd7636ae3090742bcab0a4dda034879f87bcb3d30841124f",
+    "scripts/run_past_heldout_v1.py": "ac0627259f25943319033b9ef11c57fe567e815ca2e6e01ee00a8c1a28478ab3",
+    "quality/receipts/PAST_HELDOUT_V1_custody_DARWIN.json": "327e640827c180b7103904b6e813bbfd06558eb68393d8d36c8563bbd9679455",
+    "memory/test_past_heldout_v1.py": "ac7071cf3296596d4d0f852526f198ae7119e66f061185fc542cdd924e69077a"
+  },
+  "mutants": [
+    {
+      "id": "exact-grader-always-passes-rehashed-copy",
+      "result": "killed",
+      "evidence": "reviewer-originated runner sha256 ae7fa92bd45bf9478e4074e238c332b958d1bb77fef8597828f9c8742047272c; all arms scored 1.0; preregistered verdict/score checks rejected all 8 cases; exit 1"
+    },
+    {
+      "id": "intervention-matrix-reduced-rehashed-copy",
+      "result": "killed",
+      "evidence": "reviewer-originated runner sha256 161705c90a09cbd8d1860777513c8b39c3d3ec9c33f7a7b75df3fe8a1607b535; live adapter rejected missing standard arms before evidence; exit 1"
+    },
+    {
+      "id": "trial-count-five-to-one-rehashed-copy",
+      "result": "killed",
+      "evidence": "reviewer-originated runner sha256 bd00b4d8200f41a4352f74d07bc05e760109e3c0c01741edc426b598589b5f71; assurance and CLI tests detected 48 instead of 240 trials; 2 failed"
+    },
+    {
+      "id": "raw-output-retention-rehashed-copy",
+      "result": "killed",
+      "evidence": "reviewer-originated runner sha256 1c99443dcd105225afa9b0153b6220c9101c00ef9a5cc844207f5c7d07e3a792; confidentiality assertion found expected raw token in evidence; 1 failed"
+    },
+    {
+      "id": "analysis-failure-bypass-rehashed-copy",
+      "result": "killed",
+      "evidence": "reviewer-originated runner sha256 4c6a5c5ad06c2fa3c062584ede60d97b6799a73ca2e74fc853e42707e463969a; semantic assurance assertions rejected the false successful return; 1 failed"
+    },
+    {
+      "id": "dataset-hash-fence-bypass-plus-artifact-drift-copy",
+      "result": "killed",
+      "evidence": "reviewer-originated runner sha256 334c146a3c9663f3f02006b0cac95f72338ac822523865e78bb1e435e175260d; downstream preregistered score/verdict checks rejected the tampered hidden artifact; exit 1"
+    }
+  ]
+}
