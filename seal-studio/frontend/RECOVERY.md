@@ -118,6 +118,29 @@ Official references:
 
 ## Following recovery queue (read-only triage)
 
+### Backup and clean restore proof
+
+Commit `83168e7c8abf99aa30da1d4618816da95c0e1051` was pushed to the off-host
+NFS bare repository `/mnt/spark-2/respaldo_git_proyecto_seal.git`, branch
+`recovery/studio-casa-20260907`. `git ls-tree` reports the frontend as
+`040000 tree ff3e3e7ce89e3f632e69fd0e073f36b4a3166e38`, not a gitlink.
+
+That remote commit was extracted to a fresh temporary directory, with no
+copied `node_modules` or build artifacts. Executed there:
+
+```bash
+npm ci --ignore-scripts
+npm run test:unit
+STUDIO_BUILD_DIR=.next-restore-proof npm run build
+```
+
+Results: 157 packages installed, audit reported 0 vulnerabilities; 7/7 Gmail
+tests passed; production compilation, TypeScript and generation of all four
+pages completed successfully. This verifies reconstruction from the actual
+backup, not just the working tree. Secrets remain outside Git as noted above.
+
+### Next applications
+
 An independent worker cross-checked ALICE's recovery inventory. These surviving
 processes must not be mistaken for recoverable services:
 
