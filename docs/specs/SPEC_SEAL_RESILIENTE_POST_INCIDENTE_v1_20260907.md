@@ -90,7 +90,7 @@ Y DUM deja de declarar «caído» por un solo indicador: exige dos fuentes (lati
 | 1 | Roles por servicio | ALICE | ADA | autorizado; empieza por checkpoints |
 | 2 | Respaldo 3 capas + pg_dump | JARVIS | NEXUS | capa 1 hecha; capa 2 espera credencial de William |
 | 3 | Arena segura (usuario + red) | NEXUS | ALICE | arnés entregado; falta usuario `seal-arena` y red |
-| 4 | Unidades y cuerpos como código | NEXUS | JARVIS | pendiente (después del git de ALICE) |
+| 4 | Unidades y cuerpos como código | NEXUS | ADA (roles) / JARVIS (resto) | **abierto y prioritario**: 22 unidades reconstruidas conectan como `seal` por falta de `EnvironmentFile`; recuperación por servicio con rol esperado comprobado |
 | 5 | Estado de misión nerves: procedimiento + copia | ADA | NEXUS | espera OK de William |
 | 6 | Simulacro de reinicio | JARVIS | ADA | sólo después de 4; agendado con William |
 | 7 | Integridad y detección | ALICE | NEXUS | nuevo |
