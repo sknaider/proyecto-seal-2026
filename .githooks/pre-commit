@@ -6,3 +6,32 @@ cd "$repo_root"
 
 python3 scripts/seal_quality_gate.py staged --policy quality/policy.json
 python3 scripts/seal_core_guard.py --pre-commit
+
+# ── Borrados que congelan la sesion o borran el home (William, 7-sep 18:24:
+# «no quiero que vuelva a pasar en el sistema esos borrados»).
+#
+# SOLO SOBRE LINEAS ANADIDAS, y es la decision de diseno: el arbol tiene hoy 19
+# casos preexistentes. Un hook que los mirara TODOS rechazaria cada commit del
+# repo, y un freno que bloquea siempre se termina desactivando -o se rodea con
+# --no-verify, que es como este hook quedo sin efecto la primera vez-. Lo que se
+# corta es la ENTRADA de formas nuevas; las viejas son una deuda con dueno, no
+# una razon para frenar a todos.
+anadidas="$(git diff --cached -U0 --diff-filter=ACM \
+            -- '*.sh' '*.bash' '*.zsh' | grep '^+' | grep -v '^+++' | sed 's/^+//' || true)"
+if [ -n "$anadidas" ]; then
+  tmp_dir="$(mktemp -d /tmp/seal-precommit-XXXXXX)"
+  printf '%s\n' "$anadidas" > "$tmp_dir/anadidas.sh"
+  rc=0
+  python3 tools/seal_detector_borrado_congelante.py "$tmp_dir/anadidas.sh" || rc=$?
+  # GUARDA-DESTRUCTIVA: la forma que la regla manda escribir, no un glob sobre
+  # variable. El detector de arriba rechazaria este mismo hook si usara la otra.
+  case "$tmp_dir" in
+    /tmp/seal-precommit-?*) find "$tmp_dir" -mindepth 1 -delete && rmdir "$tmp_dir" ;;
+  esac
+  if [ "$rc" -ne 0 ]; then
+    echo "pre-commit: hay un borrado que CONGELA la sesion en las lineas anadidas." >&2
+    echo "  en su lugar:  find \"\$DIR\" -mindepth 1 -delete" >&2
+    echo "  o bien:       rm -rf dentro de  case \"\$DIR\" in /tmp/prefijo-*)" >&2
+    exit 1
+  fi
+fi
