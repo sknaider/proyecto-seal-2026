@@ -2,7 +2,7 @@
   "schema": "seal.quality-manifest.v1",
   "change_id": "soul-f2-runtime-orchestrator-20260805",
   "owner": "ADA",
-  "independent_reviewer": "F3_HARNESS_AUDIT",
+  "independent_reviewer": "ALICE",
   "review": {
     "status": "approved",
     "evidence": "Composite independent review: unchanged F2 bytes retain F2_ADVERSARIAL approval; F3_HARNESS_AUDIT approved the updated orchestrator after three adversarial rounds",
@@ -50,32 +50,70 @@
     {
       "id": "unit-f2-bundle",
       "kind": "unit",
-      "argv": ["python3", "-m", "pytest", "-q", "tests/test_seal_secrets.py", "tests/test_soul_memory_admission_dependencies.py", "tests/test_soul_runtime_orchestrator.py", "tests/test_soul_f1_quality.py"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_seal_secrets.py",
+        "tests/test_soul_memory_admission_dependencies.py",
+        "tests/test_soul_runtime_orchestrator.py",
+        "tests/test_soul_f1_quality.py"
+      ],
       "expected_exit": 0
     },
     {
       "id": "positive-restricted-hook-effect",
       "kind": "qa_positive",
-      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_runtime_orchestrator.py::test_hook_executes_with_restricted_identity_and_extracts_context"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_soul_runtime_orchestrator.py::test_hook_executes_with_restricted_identity_and_extracts_context"
+      ],
       "expected_exit": 0
     },
     {
       "id": "negative-superuser-and-path-escape",
       "kind": "qa_negative",
-      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_runtime_orchestrator.py::test_store_rejects_superuser_even_if_name_looks_runtime", "tests/test_soul_runtime_orchestrator.py::test_hook_path_escape_is_rejected"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_soul_runtime_orchestrator.py::test_store_rejects_superuser_even_if_name_looks_runtime",
+        "tests/test_soul_runtime_orchestrator.py::test_hook_path_escape_is_rejected"
+      ],
       "expected_exit": 0
     },
     {
       "id": "control-privileged-env-scrub",
       "kind": "qa_control",
-      "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_runtime_orchestrator.py::test_hook_environment_replaces_all_privileged_db_inputs"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_soul_runtime_orchestrator.py::test_hook_environment_replaces_all_privileged_db_inputs"
+      ],
       "expected_exit": 0
     }
   ],
   "coverage": {
-    "source": ["memory"],
-    "omit": ["memory/test*.py"],
-    "pytest_args": ["-q", "tests/test_seal_secrets.py", "tests/test_soul_memory_admission_dependencies.py", "tests/test_soul_runtime_orchestrator.py", "tests/test_soul_f1_quality.py"],
+    "source": [
+      "memory"
+    ],
+    "omit": [
+      "memory/test*.py"
+    ],
+    "pytest_args": [
+      "-q",
+      "tests/test_seal_secrets.py",
+      "tests/test_soul_memory_admission_dependencies.py",
+      "tests/test_soul_runtime_orchestrator.py",
+      "tests/test_soul_f1_quality.py"
+    ],
     "baseline_percent": 0.0,
     "timeout": 300
   },
@@ -86,9 +124,18 @@
     "evidence": "Live restricted-role registry probe reaches the local llama.cpp health endpoint",
     "command": {
       "id": "delivery-live-f2-probe",
-      "argv": ["env", "PYTHONPATH=memory", "python3", "memory/soul_runtime_orchestrator.py", "--agent", "ADA", "probe"],
+      "argv": [
+        "env",
+        "PYTHONPATH=memory",
+        "python3",
+        "memory/soul_runtime_orchestrator.py",
+        "--agent",
+        "ADA",
+        "probe"
+      ],
       "expected_exit": 0,
       "expected_stdout_contains": "\"superuser\": false"
     }
-  }
+  },
+  "_reasignacion": "7-sep-2026 13:25 JARVIS (orquestador): revisor 'F3_HARNESS_AUDIT' ya no es un agente; reasignado a ALICE. La firma previa, si existe, caduca por bytes."
 }
