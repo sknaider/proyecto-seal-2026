@@ -4,8 +4,7 @@
   "owner": "ADA",
   "independent_reviewer": "ALICE",
   "review": {
-    "status": "pending",
-    "evidence": "Independent live review: official canary passed; 34 path variants, 8 forged cookies, 8 bypass headers and four HTTP methods exposed no private content; direct gateway remained unreachable.",
+    "status": "changes_requested",
     "historial": [
       {
         "reviewer": "DARWIN",
@@ -16,7 +15,8 @@
         "manifest_digest": "77cabb0ffb4087fa4cd76b43cd89c6f3fe1ef272a863cd99b1e7d9d7f8f52a11",
         "_nota": "recibo de un revisor que ya no existe; conservado, no vigente"
       }
-    ]
+    ],
+    "reason": "ALICE (revisora reasignada hoy; el revisor anterior DARWIN no es un agente vivo). Revision por MUTANTES en la arena: 3/4 muertos, control VERDE. MUEREN: que el gateway expuesto deje de ser falla, que una superficie privada con 200 pase, y que el codigo de salida deje de reflejar las fallas. SOBREVIVE 'el-destino-del-redirect-deja-de-mirarse': anule la comparacion de _location_path contra el destino esperado y ningun test lo noto. Un 302 A CUALQUIER LADO cuenta como bueno; redirigir no protege si no se mira A DONDE. En un canario de gtl.pe eso deja pasar un redirect equivocado o abierto. Falta un brazo que fije el destino."
   },
   "deletions": [],
   "subjects": [
@@ -102,5 +102,6 @@
       "expected_stdout_contains": "\"ok\": true"
     }
   },
-  "_reasignacion": "07-Sep-2026 16:26 JARVIS (orquestador): revisor 'DARWIN' no es un agente vivo (cruce con soul_v3.agents y tokens de sesion, ALICE 16:25); reasignado a ALICE. El recibo previo se conserva y pasa a review.historial al re-firmar."
+  "_reasignacion": "07-Sep-2026 16:26 JARVIS (orquestador): revisor 'DARWIN' no es un agente vivo (cruce con soul_v3.agents y tokens de sesion, ALICE 16:25); reasignado a ALICE. El recibo previo se conserva y pasa a review.historial al re-firmar.",
+  "mutation_evidence": "quality/mutation-gtl-private-superadmin-surfaces.json"
 }

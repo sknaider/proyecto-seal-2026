@@ -1,0 +1,36 @@
+{
+ "change_id": "gtl-private-superadmin-surfaces",
+ "reviewer": "ALICE",
+ "manifest": "quality/manifests/gtl-private-superadmin-surfaces.json",
+ "tests": [["tests/test_verify_gtl_private_surfaces.py"]],
+ "mutants": [
+  {
+   "id": "el-gateway-expuesto-deja-de-ser-falla",
+   "subject": "scripts/verify_gtl_private_surfaces.py",
+   "ancla": "    if not direct_gateway_blocked:\n        failures.append(\"gateway_publicly_reachable\")",
+   "reemplazo": "    if False:\n        failures.append(\"gateway_publicly_reachable\")",
+   "why": "el puerto del gateway abierto a internet deja de reportarse: el canario calla justo lo que vino a vigilar"
+  },
+  {
+   "id": "una-pagina-privada-que-responde-200-pasa",
+   "subject": "scripts/verify_gtl_private_surfaces.py",
+   "ancla": "        if observations[name][\"status\"] != 302:\n            failures.append(f\"{name}_not_login_redirect\")",
+   "reemplazo": "        if observations[name][\"status\"] not in (302, 200):\n            failures.append(f\"{name}_not_login_redirect\")",
+   "why": "una superficie privada servida SIN redirigir al login se acepta: es exactamente la fuga que el canario busca"
+  },
+  {
+   "id": "el-destino-del-redirect-deja-de-mirarse",
+   "subject": "scripts/verify_gtl_private_surfaces.py",
+   "ancla": "        if _location_path(observations[name][\"location\"]) != target:\n            failures.append(f\"{name}_wrong_login_target\")",
+   "reemplazo": "        if False:\n            failures.append(f\"{name}_wrong_login_target\")",
+   "why": "un 302 a cualquier lado cuenta como bueno: redirigir no protege si no se mira A DONDE"
+  },
+  {
+   "id": "el-canario-siempre-dice-que-si",
+   "subject": "scripts/verify_gtl_private_surfaces.py",
+   "ancla": "    return 0 if not failures else 1",
+   "reemplazo": "    return 0",
+   "why": "el codigo de salida deja de reflejar las fallas: cualquier automatismo que lo consuma lo lee como VERDE"
+  }
+ ]
+}

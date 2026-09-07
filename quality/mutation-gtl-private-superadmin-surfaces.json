@@ -1,0 +1,124 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "gtl-private-superadmin-surfaces",
+  "reviewer": "ALICE",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 3,
+  "survived": 1,
+  "total": 4,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 75.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "....                                                                     [100%]\n4 passed in 1.59s",
+    "sha_sujetos_antes": {
+      "scripts/verify_gtl_private_surfaces.py": "50a0b7f700f7544413bf8c12da7b6b9cb6c3aac45464e4c617b402d5c8b404a9"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "el-gateway-expuesto-deja-de-ser-falla",
+      "subject": "scripts/verify_gtl_private_surfaces.py",
+      "ancla": "    if not direct_gateway_blocked:\n        failures.append(\"gateway_publicly_reachable\")",
+      "reemplazo": "    if False:\n        failures.append(\"gateway_publicly_reachable\")",
+      "why": "el puerto del gateway abierto a internet deja de reportarse: el canario calla justo lo que vino a vigilar",
+      "registro": {
+        "subject": "scripts/verify_gtl_private_surfaces.py",
+        "ancla": "    if not direct_gateway_blocked:\n        failures.append(\"gateway_publicly_reachable\")",
+        "reemplazo": "    if False:\n        failures.append(\"gateway_publicly_reachable\")",
+        "ancla_sha256": "cd0390ee37cbc98a07ce3d195b81c2f6591ef2f3ac655117a44dd358c8d50667",
+        "sujeto_sha256_antes": "50a0b7f700f7544413bf8c12da7b6b9cb6c3aac45464e4c617b402d5c8b404a9",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_verify_gtl_private_surfaces.py::test_canary_rejects_public_gateway_port"
+      ],
+      "pytest_tail": "E       assert 0 == 1\n\ntests/test_verify_gtl_private_surfaces.py:118: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_verify_gtl_private_surfaces.py::test_canary_rejects_public_gateway_port\n1 failed, 3 passed in 1.60s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "una-pagina-privada-que-responde-200-pasa",
+      "subject": "scripts/verify_gtl_private_surfaces.py",
+      "ancla": "        if observations[name][\"status\"] != 302:\n            failures.append(f\"{name}_not_login_redirect\")",
+      "reemplazo": "        if observations[name][\"status\"] not in (302, 200):\n            failures.append(f\"{name}_not_login_redirect\")",
+      "why": "una superficie privada servida SIN redirigir al login se acepta: es exactamente la fuga que el canario busca",
+      "registro": {
+        "subject": "scripts/verify_gtl_private_surfaces.py",
+        "ancla": "        if observations[name][\"status\"] != 302:\n            failures.append(f\"{name}_not_login_redirect\")",
+        "reemplazo": "        if observations[name][\"status\"] not in (302, 200):\n            failures.append(f\"{name}_not_login_redirect\")",
+        "ancla_sha256": "8f024389471e5c7eb49c9d17bec1dce5279750c50f4bd86595107632cb631e55",
+        "sujeto_sha256_antes": "50a0b7f700f7544413bf8c12da7b6b9cb6c3aac45464e4c617b402d5c8b404a9",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_verify_gtl_private_surfaces.py::test_canary_rejects_public_ada_page"
+      ],
+      "pytest_tail": "E       AssertionError: assert 'ada_page_not_login_redirect' in ['ada_page_wrong_login_target', 'ada_fake_session_wrong_login_target']\n\ntests/test_verify_gtl_private_surfaces.py:109: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_verify_gtl_private_surfaces.py::test_canary_rejects_public_ada_page\n1 failed, 3 passed in 1.60s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "el-destino-del-redirect-deja-de-mirarse",
+      "subject": "scripts/verify_gtl_private_surfaces.py",
+      "ancla": "        if _location_path(observations[name][\"location\"]) != target:\n            failures.append(f\"{name}_wrong_login_target\")",
+      "reemplazo": "        if False:\n            failures.append(f\"{name}_wrong_login_target\")",
+      "why": "un 302 a cualquier lado cuenta como bueno: redirigir no protege si no se mira A DONDE",
+      "registro": {
+        "subject": "scripts/verify_gtl_private_surfaces.py",
+        "ancla": "        if _location_path(observations[name][\"location\"]) != target:\n            failures.append(f\"{name}_wrong_login_target\")",
+        "reemplazo": "        if False:\n            failures.append(f\"{name}_wrong_login_target\")",
+        "ancla_sha256": "e50436937c28a418dc162d1d2c92a5fae231d9a051bd5b54ff6d510f417bb0d7",
+        "sujeto_sha256_antes": "50a0b7f700f7544413bf8c12da7b6b9cb6c3aac45464e4c617b402d5c8b404a9",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "....                                                                     [100%]\n4 passed in 1.58s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "el-canario-siempre-dice-que-si",
+      "subject": "scripts/verify_gtl_private_surfaces.py",
+      "ancla": "    return 0 if not failures else 1",
+      "reemplazo": "    return 0",
+      "why": "el codigo de salida deja de reflejar las fallas: cualquier automatismo que lo consuma lo lee como VERDE",
+      "registro": {
+        "subject": "scripts/verify_gtl_private_surfaces.py",
+        "ancla": "    return 0 if not failures else 1",
+        "reemplazo": "    return 0",
+        "ancla_sha256": "6948b3e6aa26e1b72ce44b2ce516850fa21eaf08838ada12fd60e41f0aeb6bc9",
+        "sujeto_sha256_antes": "50a0b7f700f7544413bf8c12da7b6b9cb6c3aac45464e4c617b402d5c8b404a9",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_verify_gtl_private_surfaces.py::test_canary_rejects_public_ada_page",
+        "tests/test_verify_gtl_private_surfaces.py::test_canary_rejects_public_gateway_port"
+      ],
+      "pytest_tail": "\ntests/test_verify_gtl_private_surfaces.py:118: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_verify_gtl_private_surfaces.py::test_canary_rejects_public_ada_page\nFAILED tests/test_verify_gtl_private_surfaces.py::test_canary_rejects_public_gateway_port\n2 failed, 2 passed in 1.59s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "scripts/verify_gtl_private_surfaces.py": "50a0b7f700f7544413bf8c12da7b6b9cb6c3aac45464e4c617b402d5c8b404a9",
+    "tests/test_verify_gtl_private_surfaces.py": "78cf7f5ea0f5839a432ac4b4954b4a56edb8f02839c9c22bf0517cf9f318fac2"
+  }
+}
