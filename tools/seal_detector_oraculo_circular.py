@@ -10,6 +10,12 @@ El criterio es CONSTANTE IMPORTADA DEL SUJETO, no "atributo": se marca solo cuan
 esta en MAYUSCULAS (una constante del modulo) y el modulo se importo desde el repo. Comparar
 contra el retorno de una funcion del sujeto es legitimo y NO se marca.
 
+LO QUE ESTE DETECTOR NO DICE (ADA, 7-sep): que un assert NO marcado sea independiente. Omitir las
+constantes numericas y los retornos de funciones acota el RUIDO, no certifica esos asserts: un
+`assert rc == EXIT_OK` sigue siendo circular en su forma, y comparar contra lo que el sujeto
+calcula puede serlo si la funcion tiene el mismo defecto que el codigo probado. Esto PRIORIZA una
+revision; no la reemplaza. La independencia del oraculo se comprueba mutando, no leyendo.
+
 Salidas: 0 limpio · 1 hay oraculos circulares · 2 no se pudo mirar nada (fallo silencioso).
 """
 from __future__ import annotations
