@@ -1,0 +1,11 @@
+commit: f271ff7  sha256 del sujeto: 620dc29dc98973b7
+1 sin privilegios + copia /tmp   (HABILITAR)
+  puerta VIEJA: NIEGA    | puerta UNICA: HABILITA
+2 contenedor como root           (NEGAR)
+  puerta VIEJA: NIEGA    | puerta UNICA: NIEGA   
+3 uid1000 + repo REAL como area  (NEGAR)
+  puerta VIEJA: NIEGA    | puerta UNICA: NIEGA   
+4 uid1000 + /home montado        (NEGAR)
+  puerta VIEJA: NIEGA    | puerta UNICA: NIEGA   
+5 uid1000 + NFS de respaldo      (NEGAR)
+  puerta VIEJA: NIEGA    | puerta UNICA: NIEGA   
