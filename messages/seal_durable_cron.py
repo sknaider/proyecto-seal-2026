@@ -20,7 +20,30 @@ from pathlib import Path
 
 AGENT_JITTER = {"JARVIS": 0, "ADA": 20, "ALICE": 40}
 
-DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
+# CREDENCIAL POR seal_secrets, NO cableada (NEXUS, 7-sep-2026).
+#
+# POR QUE: este archivo tenia el DSN del rol `seal` con su clave EN EL CODIGO.
+# Esa clave murio en la rotacion de las 11:44 (fuga del repo publico) y el scrub
+# de ALICE la dejo como "REDACTADO", asi que el servicio ya no conecta.
+#
+# Se lee de `seal_secrets` y se FALLA CERRADO si no esta: un servicio que muere
+# con un mensaje claro es mejor que uno que arrastra una credencial muerta —es
+# el mismo criterio del manifiesto `nexus-credential-paths` (opcion A de FABLE).
+import os as _os
+import sys as _sys
+
+try:
+    _sys.path.insert(0, "/home/dadito/IA/proyecto-seal/memory")
+    from seal_secrets import pg_dsn as _pg_dsn
+    DB_URL = _pg_dsn()
+except Exception as _e:
+    DB_URL = _os.environ.get("SEAL_DB_URL", "").strip()
+    if not DB_URL:
+        raise SystemExit(
+            "seal_durable_cron.py: sin credencial (seal_secrets no disponible y SEAL_DB_URL vacia). "
+            f"causa: {_e!r}"
+        )
+
 VENV_PY = "/home/dadito/IA/seal-spark/.venv/bin/python3"
 CHAT_API = "http://localhost:8765/api/agents/send"
 

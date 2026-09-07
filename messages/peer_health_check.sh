@@ -20,7 +20,13 @@ async def check():
     results = {}
     all_agents = ['JARVIS', 'ADA', 'ALICE', 'DUM', 'NEXUS']
     try:
-        conn = await asyncpg.connect('postgresql://seal:REDACTADO@localhost:5433/seal_memory')
+        # Credencial por seal_secrets, NO cableada (NEXUS, 7-sep-2026): la clave
+        # del rol `seal` estaba en el codigo y murio en la rotacion de las 11:44.
+        # Fail-closed: sin credencial, el chequeo NO corre en vez de fingir.
+        import sys as _s
+        _s.path.insert(0, '/home/dadito/IA/proyecto-seal/memory')
+        from seal_secrets import pg_dsn as _pg_dsn
+        conn = await asyncpg.connect(_pg_dsn())
         for agent in all_agents:
             row = await conn.fetchrow(
                 \"\"\"SELECT created_at FROM soul_v3.event_log

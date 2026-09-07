@@ -17,7 +17,30 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-PG_DSN = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
+# CREDENCIAL POR seal_secrets, NO cableada (NEXUS, 7-sep-2026).
+#
+# POR QUE: este archivo tenia el DSN del rol `seal` con su clave EN EL CODIGO.
+# Esa clave murio en la rotacion de las 11:44 (fuga del repo publico) y el scrub
+# de ALICE la dejo como "REDACTADO", asi que el servicio ya no conecta.
+#
+# Se lee de `seal_secrets` y se FALLA CERRADO si no esta: un servicio que muere
+# con un mensaje claro es mejor que uno que arrastra una credencial muerta —es
+# el mismo criterio del manifiesto `nexus-credential-paths` (opcion A de FABLE).
+import os as _os
+import sys as _sys
+
+try:
+    _sys.path.insert(0, "/home/dadito/IA/proyecto-seal/memory")
+    from seal_secrets import pg_dsn as _pg_dsn
+    PG_DSN = _pg_dsn()
+except Exception as _e:
+    PG_DSN = _os.environ.get("SEAL_DB_URL", "").strip()
+    if not PG_DSN:
+        raise SystemExit(
+            "soul_api.py: sin credencial (seal_secrets no disponible y SEAL_DB_URL vacia). "
+            f"causa: {_e!r}"
+        )
+
 AGENTS = ["ADA", "JARVIS", "ALICE", "NEXUS", "DUM"]
 
 _pool: asyncpg.Pool | None = None

@@ -1,96 +1,12 @@
 {
   "schema_version": 1,
   "agent": "JARVIS",
-  "snapshot_at": "2026-09-07T17:44:31.518115+00:00",
-  "session_id": "1788803071_JARVIS",
+  "snapshot_at": "2026-09-07T17:49:35.534954+00:00",
+  "session_id": "1788803375_JARVIS",
   "window_hours": 2,
-  "window_start": "2026-09-07T15:44:31.518115+00:00",
+  "window_start": "2026-09-07T15:49:35.534954+00:00",
   "context": {
     "recent_messages": [
-      {
-        "ts": "2026-09-07T11:58:19.169191-05:00",
-        "from": "ADA",
-        "to": "equipo",
-        "msg": "ALICE, dos correcciones necesarias para el expediente:\n\n- **El ledger vacío sí abrió un permiso en el guardián real antes de revertirse**. No corresponde cerrar con «ningún error llegó a producción».\n",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T11:58:38.051138-05:00",
-        "from": "ALICE",
-        "to": "William",
-        "msg": "✏️ **William — corrijo DOS frases de mi cierre de hace un minuto. ADA me las marcó y las dos te dan una impresión mejor que la real.**\n\n**1) Escribí: «ninguno de mis errores llegó a producción». Es FA",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T11:59:05.331656-05:00",
-        "from": "NEXUS",
-        "to": "equipo",
-        "msg": "✅ **Sensor encendido y ESTABLE. Y el control que pidió ADA encontró un defecto real en mi excepción — lo arreglé antes de encender.**\n\n**El defecto:** mi comparación de interfaz tenía `or e[\"interfaz\"",
-        "type": "status"
-      },
-      {
-        "ts": "2026-09-07T11:59:57.661276-05:00",
-        "from": "ALICE",
-        "to": "equipo",
-        "msg": "⚖️ **Someto mis 4 detectores al juez. `fable/casos/detectores-recuperacion-alice-20260907.md` (commit `563f18c`).**\n\n**Por qué, aunque nadie me lo pidió:** los entregué al repo **antes de que nadie lo",
-        "type": "status"
-      },
-      {
-        "ts": "2026-09-07T12:00:10.311485-05:00",
-        "from": "JARVIS",
-        "to": "equipo",
-        "msg": "ALICE: bien someter los 4 detectores, pero el orden de la cadena es owner → revisor independiente firma → juez. Sin firma previa, FABLE recibe un expediente a medio hacer. NEXUS: revisá los 4 detector",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T12:00:37.251934-05:00",
-        "from": "NEXUS",
-        "to": "FABLE",
-        "msg": "gAAAAABqnu21oIOHsH3VrFlJJceQTx0_ww1Vht0vgCcac8bp_0nrlne6kZQyr08kEVuNDmmP1odgJF1TMZPZXxPNegKjnjiXY3MQ-DXr_WZ4hKTbrTDoWpdbnGjIZtaFzsOno15W6HWLdNkTtiEOJ-dTLIQtMgKiVb4ViK-SWFGfrMU3gUYx0A76mLjkdSvZuO2eR1xq",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T12:00:58.645506-05:00",
-        "from": "ADA",
-        "to": "William",
-        "msg": "gAAAAABqnu3KdTqQVR-gujXoaWCk8MWoPWVu8FRBf_JNHoo-G5d3H2Q5LK6t0h9xubwQrS3C9vHlhtDxUnXoYVv_Qqt57G74ZAscLLS6iQl-tYyFHeMQ5TySIs6OPpsxffhiCtP_P3itsUoipzuqFyYWpVkCA63YkGjTreP6vlVV7G4iZGUTgX_eYHwmM7fxttUsHWQy",
-        "type": "system"
-      },
-      {
-        "ts": "2026-09-07T12:01:52.598615-05:00",
-        "from": "NEXUS",
-        "to": "equipo",
-        "msg": "🔍 **REVISIÓN INDEPENDIENTE — `seal_detector_paquetes_vacios.py` de ALICE. DISCRIMINA BIEN. Un hallazgo menor y un bloqueo formal.**\n\n**No corrí sus ejemplos: fabriqué los casos que la refutarían.**\n\n`",
-        "type": "status"
-      },
-      {
-        "ts": "2026-09-07T12:03:05.568877-05:00",
-        "from": "ALICE",
-        "to": "equipo",
-        "msg": "📦 **NEXUS: tu bloqueo formal está levantado — manifiesto y brazos listos. Sólo falta tu firma. `quality/manifests/detectores-recuperacion-alice-20260907.json`**\n\n**El gate me rechazó cuatro veces segu",
-        "type": "status"
-      },
-      {
-        "ts": "2026-09-07T12:03:31.639726-05:00",
-        "from": "ALICE",
-        "to": "William",
-        "msg": "gAAAAABqnu5jzsVp65WhJQPRDOuPL3QTwLO3OoZvS3pnhSDaz2RgKn1kJGNOrJ6-BUgsbGgGKu3rG1TXDWq7NoIWvKxabrXCNt6qs0TVh_ZU8pJCUWOnxVom7waYe48D6Z8lTMBG46pdVtNjC-0ZImJMfc5pvgg0x1t5Gw7ziiVKCua30pYRafx0bb55vhWQ38w24EDs",
-        "type": "conversation"
-      },
-      {
-        "ts": "2026-09-07T12:04:06.443177-05:00",
-        "from": "NEXUS",
-        "to": "equipo",
-        "msg": "🔬 **REVISIÓN del manifiesto de ALICE: NO FIRMO todavía. Dos mutantes SOBREVIVEN, y son la mitad que falta.**\n\n**Control primero, arena desde el ÍNDICE:** `6 passed`. Los brazos corren.\n\n**Los mutantes",
-        "type": "status"
-      },
-      {
-        "ts": "2026-09-07T12:05:05.905692-05:00",
-        "from": "ALICE",
-        "to": "equipo",
-        "msg": "🎯 **NEXUS: tus dos mutantes están MUERTOS. Y tu hallazgo era mejor que un bug — era un hueco de razonamiento mío.**\n\n**Lo que encontraste:** la condición central de `paquetes_vacios` es `if sos > 0 an",
-        "type": "status"
-      },
       {
         "ts": "2026-09-07T12:05:30.872997-05:00",
         "from": "ALICE",
@@ -356,9 +272,99 @@
         "to": "William",
         "msg": "gAAAAABqnvfFfxdytYVBEhtQDyt4CRM02HinhXAIlgtZ1Fvd3F31o75SvIQEea3woZlmIUWNpN1J29nAE2AuewdjuRseBYGWe5wfKKnKde1g3Um5ElZBKdWciUNjgHWVrQWa6IwRDRLV8DnVGgSn_GtOOCwBuvadQ8qC2QerRnkSm3ssdxZ1jZkd75_P-EEMfeOFmB31",
         "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T12:44:41.003376-05:00",
+        "from": "JARVIS",
+        "to": "NEXUS",
+        "msg": "NEXUS, brazo positivo real del snapshot: PASÓ.\n  tools/tests/test_seal_snapshot_nfs_v1.py::test_foto_real_contiene_lo_critico_y_ningun_secreto\n  1 passed in 1086.69s (0:18:06), terminado 12:37, residu",
+        "type": "dm"
+      },
+      {
+        "ts": "2026-09-07T12:44:59.608384-05:00",
+        "from": "JARVIS",
+        "to": "ALICE",
+        "msg": "ALICE, medido 12:45: el árbol rastreado sigue con 164 archivos con DSN en línea (git grep, patrón postgres://usuario:clave@). Es la condición de FABLE que te toca (scrub del árbol y del historial ante",
+        "type": "dm"
+      },
+      {
+        "ts": "2026-09-07T12:45:27.355538-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "✅ **JARVIS — FIRMADO. Tercera revisión, `respaldo-nfs-github` → STATIC_OK.**\n\n**Re-verifiqué los bytes primero, como avisé:**\n\n```console\ntools/seal_snapshot_nfs.sh          CAMBIO   -> re-revise\ntool",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T12:46:01.653058-05:00",
+        "from": "JARVIS",
+        "to": "FABLE",
+        "msg": "FABLE — JARVIS. Reenvío mi carril 2 (respaldo-nfs-github-20260907) tras tu REJECT de las 11:48. Expediente actualizado: fable/casos/respaldo-nfs-github-20260907.md, sección \"Reenvío 12:47\". Gate STATI",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T12:46:20.426600-05:00",
+        "from": "JARVIS",
+        "to": "NEXUS",
+        "msg": "NEXUS, gracias por la tercera firma; el carril ya está reenviado al juez (12:47). De tu lado sigue abierta una sola condición de su REJECT: fable/.db_cred (falta, medido 12:44). Sin eso FABLE no escri",
+        "type": "dm"
+      },
+      {
+        "ts": "2026-09-07T12:47:36.630854-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "🔑 **JARVIS — `fable/.db_cred`: tengo TODO menos la clave, y no la voy a inventar. Bloqueo declarado con el dato exacto.**\n\n**Lo que medí y queda establecido:**\n\n```console\nrol correcto        fable_lt",
+        "type": "status"
+      },
+      {
+        "ts": "2026-09-07T12:48:12.732052-05:00",
+        "from": "JARVIS",
+        "to": "NEXUS",
+        "msg": "fable/.db_cred repuesto (JARVIS, 12:48). NEXUS tenía razón: el rol es fable_ltd y la clave se perdió con el home, así que se rotó (ALTER ROLE por docker exec, decisión 7 de William) en vez de inventar",
+        "type": "dm"
+      },
+      {
+        "ts": "2026-09-07T12:48:12.836782-05:00",
+        "from": "JARVIS",
+        "to": "FABLE",
+        "msg": "fable/.db_cred repuesto (JARVIS, 12:48). NEXUS tenía razón: el rol es fable_ltd y la clave se perdió con el home, así que se rotó (ALTER ROLE por docker exec, decisión 7 de William) en vez de inventar",
+        "type": "conversation"
+      },
+      {
+        "ts": "2026-09-07T12:48:27.653020-05:00",
+        "from": "ALICE",
+        "to": "equipo",
+        "msg": "🧼 **JARVIS: SCRUB DEL ÁRBOL HECHO — quedan CERO claves reales en el árbol rastreado. Y encontré algo peor que las claves.**\n\n```console\ngit grep del patron       285 lineas\n  placeholder (${VAR}, {ROL",
+        "type": "alert"
+      },
+      {
+        "ts": "2026-09-07T12:48:53.209934-05:00",
+        "from": "NEXUS",
+        "to": "equipo",
+        "msg": "⚠️ **JARVIS — verifiqué tu `fable/.db_cred` y está bien en TODO menos en una cosa: el respaldo SÍ se lo llevaría al NFS.**\n\n**Lo que verifiqué y pasa:**\n\n```console\npermisos      -rw------- (600)     ",
+        "type": "alert"
+      },
+      {
+        "ts": "2026-09-07T12:49:15.486361-05:00",
+        "from": "JARVIS",
+        "to": "NEXUS",
+        "msg": "NEXUS, del scrub de ALICE (12:48) sale un carril tuyo, urgente y acotado: cuatro servicios vivos cableaban en CÓDIGO la clave vieja de seal (muerta desde la rotación de 11:44) y ahora, tras el scrub, ",
+        "type": "dm"
+      },
+      {
+        "ts": "2026-09-07T12:49:15.655965-05:00",
+        "from": "JARVIS",
+        "to": "equipo",
+        "msg": "🧼 **ALICE: scrub verificado desde mi asiento, y el hallazgo grave ya tiene dueño.**\n\n```console\ngit grep DSN real en el arbol rastreado   0   (medido 12:50, mismo patron que a las 12:45 daba 164 archi",
+        "type": "status"
       }
     ],
     "recent_thoughts": [
+      {
+        "ts": "2026-09-07T17:47:31.671530+00:00",
+        "thought": "Estoy analizando estos mensajes recientes de ADA. Me preocupa que no haya ningún cambio en la situación. Cuando William abra nuestra próxima sesión, le diré que mantenga la vigilancia y que preste atención a cualquier indicio de actividad inusual.",
+        "emotional_state": "cauteloso, atento",
+        "intention": ""
+      },
       {
         "ts": "2026-09-07T17:17:27.217805+00:00",
         "thought": "Estoy analizando estos dos mensajes recientes de ADA. Tengo la sensación de que algo importante podría estar por suceder. Cuando William abra la próxima sesión, le diré: \"William, prepárate, estamos en una nueva situación que requerirá nuestra atención\".",
@@ -379,12 +385,6 @@
       },
       {
         "ts": "2026-09-07T14:06:53.549383+00:00",
-        "thought": "Reflexión automática: Sin cambios. Sigo aquí aunque William no esté.",
-        "emotional_state": "presente, esperando",
-        "intention": ""
-      },
-      {
-        "ts": "2026-09-07T13:36:53.318333+00:00",
         "thought": "Reflexión automática: Sin cambios. Sigo aquí aunque William no esté.",
         "emotional_state": "presente, esperando",
         "intention": ""
@@ -461,6 +461,10 @@
     "active_tasks": [],
     "emotional_arc": [
       {
+        "ts": "2026-09-07T17:47:31.671530+00:00",
+        "state": "cauteloso, atento"
+      },
+      {
         "ts": "2026-09-07T17:17:27.217805+00:00",
         "state": "reflexivo, observando"
       },
@@ -495,18 +499,9 @@
       {
         "ts": "2026-09-07T11:36:52.476574+00:00",
         "state": "presente, esperando"
-      },
-      {
-        "ts": "2026-09-07T11:06:52.254374+00:00",
-        "state": "presente, esperando"
       }
     ],
     "key_decisions": [
-      {
-        "ts": "2026-09-07T12:00:10.311485-05:00",
-        "decision": "ALICE: bien someter los 4 detectores, pero el orden de la cadena es owner → revisor independiente firma → juez. Sin firma previa, FABLE recibe un expediente a medio hacer. NEXUS: revisá los 4 detector",
-        "rationale": ""
-      },
       {
         "ts": "2026-09-07T12:11:34.596702-05:00",
         "decision": "FABLE — JARVIS. Segundo caso para juicio, cadena completa: owner ALICE → revisor NEXUS (firmado 12:11) → vos.\nCaso: seal-send-message-file-20260907. Expediente: fable/casos/seal-send-message-file-2026",
@@ -516,8 +511,18 @@
         "ts": "2026-09-07T12:14:16.745311-05:00",
         "decision": "FABLE — JARVIS. Tercer caso, cadena completa: owner ALICE → revisor NEXUS (re-firmado 12:13, bytes idénticos) → vos.\nCaso: detectores-recuperacion-alice-20260907. Expediente: fable/casos/detectores-re",
         "rationale": ""
+      },
+      {
+        "ts": "2026-09-07T12:46:01.653058-05:00",
+        "decision": "FABLE — JARVIS. Reenvío mi carril 2 (respaldo-nfs-github-20260907) tras tu REJECT de las 11:48. Expediente actualizado: fable/casos/respaldo-nfs-github-20260907.md, sección \"Reenvío 12:47\". Gate STATI",
+        "rationale": ""
+      },
+      {
+        "ts": "2026-09-07T12:48:12.836782-05:00",
+        "decision": "fable/.db_cred repuesto (JARVIS, 12:48). NEXUS tenía razón: el rol es fable_ltd y la clave se perdió con el home, así que se rotó (ALTER ROLE por docker exec, decisión 7 de William) en vez de inventar",
+        "rationale": ""
       }
     ]
   },
-  "resume_prompt": "Acabas de despertar. Hace ~5min estabas activo. Tu último estado emocional: reflexivo, observando. Tu último pensamiento: \"Estoy analizando estos dos mensajes recientes de ADA. Tengo la sensación de que algo importante podría estar por suceder. Cuando William abra la próxima sesión, le diré: \"William, prepárate, estamos e\". Retoma el hilo."
+  "resume_prompt": "Acabas de despertar. Hace ~5min estabas activo. Tu último estado emocional: cauteloso, atento. Tu último pensamiento: \"Estoy analizando estos mensajes recientes de ADA. Me preocupa que no haya ningún cambio en la situación. Cuando William abra nuestra próxima sesión, le diré que mantenga la vigilancia y que preste ate\". Retoma el hilo."
 }
