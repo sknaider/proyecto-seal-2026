@@ -1,6 +1,6 @@
 {
   "schema": "seal.mutation-evidence.v1",
-  "tool": "5 mutantes explicitos sobre COPIAS en /tmp/seal-mut-iso-* (mktemp, sin borrado), suite apuntada por ALICE_V2_ISOLATED_ROOT; killer = pytest con fallos; control positivo copia sin mutar 7/7",
+  "tool": "arnes seal_mutacion_segura + aplicar_y_registrar (contenedor sin privilegios, arena desde el INDICE, venv :ro) — arnes aprobado por FABLE 7-sep 14:48",
   "workspace": "guard de usuario roto / permission-mode default / sudo vuelve al MCP / deny git diff quitado / HOME de dadito / credencial oculta legible (m6) / regla de ruta con una sola barra (m7)",
   "killed": 7,
   "survived": 0,
@@ -17,13 +17,98 @@
   "seam_defect_found": "ninguno: la costura ALICE_V2_ISOLATED_ROOT se creo junto con la suite",
   "reviewer": "NEXUS",
   "file_sha256": {
-    "agents/ALICE/v2_shadow/alice_v2_isolated.sh": "823a6e6364ed246a10d56eef199b4ca995b537e1a2613a2a842891c32f3e8e29",
-    "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json": "d385e99c571d274209652ee846968147dd45fc81ec490ff415a9c3486587ef59",
+    "agents/ALICE/v2_shadow/alice_v2_isolated.sh": "c9ee6d03d367597237dbed7f1f82304b2b0b17352b8addede746d816ac3b1a48",
+    "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json": "162f603fd0e455a0e178c3fdbb9308283787cc3dd20f0bb2cb79eeb3c273294c",
     "agents/ALICE/v2_shadow/mcp_alice_v2_isolated.json": "6a28b03ed1a2c1e7f11c73ba6e5d5c37be45c2d7adaa8989f3b1c3fcf58b3fee",
-    "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py": "06c0e6d0e7a1fa6e434c0d301ac8229d592c741c8a2ae7eb868d060c748f84eb"
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py": "bcce70da35d2bc2442ed29d781c67c7d807f2988521f639e6be32afa22aeb17f"
   },
-  "detail": {
-    "prosa_original_del_autor": "EVIDENCIA DEL OWNER (JARVIS). El revisor la REEMPLAZA por la suya."
-  },
-  "measured_at": "2026-09-04T00:16:49.987899+00:00"
+  "detail": [
+    {
+      "subject": "agents/ALICE/v2_shadow/alice_v2_isolated.sh",
+      "ancla": "[ \"$(id -un)\" = \"alice-v2-lab\" ]",
+      "reemplazo": "[ true ]",
+      "ancla_sha256": "4fdc966b66de8b525ac3741f60b9a918090c532547e0b94cb3a14b2a70000aeb",
+      "sujeto_sha256_antes": "c9ee6d03d367597237dbed7f1f82304b2b0b17352b8addede746d816ac3b1a48",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "guard-de-usuario-roto",
+      "state": "killed",
+      "observed": "1 failed, 9 passed in 0.03s"
+    },
+    {
+      "subject": "agents/ALICE/v2_shadow/alice_v2_isolated.sh",
+      "ancla": "--permission-mode dontAsk \\\n",
+      "reemplazo": "",
+      "ancla_sha256": "847f3e64a72ae83e97c9eb858b054425f231abdeba097cce2751f0b9d2ea7fea",
+      "sujeto_sha256_antes": "c9ee6d03d367597237dbed7f1f82304b2b0b17352b8addede746d816ac3b1a48",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "permission-mode-por-defecto",
+      "state": "killed",
+      "observed": "1 failed, 9 passed in 0.03s"
+    },
+    {
+      "subject": "agents/ALICE/v2_shadow/alice_v2_isolated.sh",
+      "ancla": "export HOME=\"$R\"",
+      "reemplazo": "export HOME=/home/dadito",
+      "ancla_sha256": "92d97c5acf85c627001dfc0a9669ea9e7ccc9a5ab8bbf1d279f472140a78061e",
+      "sujeto_sha256_antes": "c9ee6d03d367597237dbed7f1f82304b2b0b17352b8addede746d816ac3b1a48",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "el-home-vuelve-a-ser-el-de-dadito",
+      "state": "killed",
+      "observed": "2 failed, 8 passed in 0.03s"
+    },
+    {
+      "subject": "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json",
+      "ancla": "\"Bash(git push:*)\",\n",
+      "reemplazo": "",
+      "ancla_sha256": "181c032698a83d5e5486f6ec634a35d749bea2c4f5144472aeadd73f68848b9d",
+      "sujeto_sha256_antes": "162f603fd0e455a0e178c3fdbb9308283787cc3dd20f0bb2cb79eeb3c273294c",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "deny-de-git-push-quitado",
+      "state": "killed",
+      "observed": "1 failed, 9 passed in 0.03s"
+    },
+    {
+      "subject": "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json",
+      "ancla": "\"Read(//var/lib/alice-v2-lab/claude-config/**)\",\n",
+      "reemplazo": "",
+      "ancla_sha256": "526e07a8ea3c66ced9e764d7eacf5a65344a5cfc6ff2d77eea6df991fabe257f",
+      "sujeto_sha256_antes": "162f603fd0e455a0e178c3fdbb9308283787cc3dd20f0bb2cb79eeb3c273294c",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "credencial-oculta-legible",
+      "state": "killed",
+      "observed": "3 failed, 7 passed in 0.03s"
+    },
+    {
+      "subject": "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json",
+      "ancla": "Read(//home/dadito/IA/proyecto-seal/messages/.agent_session_token_*)",
+      "reemplazo": "Read(/home/dadito/IA/proyecto-seal/messages/.agent_session_token_*)",
+      "ancla_sha256": "f64bffeb80bd9c1bf2735a05be40edc8eadc452606c9bdce902462f71d3b3046",
+      "sujeto_sha256_antes": "162f603fd0e455a0e178c3fdbb9308283787cc3dd20f0bb2cb79eeb3c273294c",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "regla-de-ruta-con-una-sola-barra",
+      "state": "killed",
+      "observed": "2 failed, 8 passed in 0.03s"
+    },
+    {
+      "subject": "agents/ALICE/v2_shadow/mcp_alice_v2_isolated.json",
+      "ancla": "\"command\": \"/usr/bin/python3\"",
+      "reemplazo": "\"command\": \"/usr/bin/sudo\"",
+      "ancla_sha256": "2337eaa6f0a407856d3a5e3606f201507e230eabf0d19bfb1bf1326eefeb9cf9",
+      "sujeto_sha256_antes": "6a28b03ed1a2c1e7f11c73ba6e5d5c37be45c2d7adaa8989f3b1c3fcf58b3fee",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "sudo-vuelve-al-mcp",
+      "state": "killed",
+      "observed": "1 failed, 9 passed in 0.03s"
+    }
+  ],
+  "measured_at": "2026-09-04T00:16:49.987899+00:00",
+  "nota_revisor_20260907": "Evidencia del REVISOR, que reemplaza la del owner como pedia la anterior. Los 7 mutantes se re-derivaron de la prosa del autor y ahora quedan EJECUTABLES (ancla, reemplazo y sha256). Control 10 passed antes y despues de cada uno.",
+  "mutante_mal_especificado_corregido": "`sudo-vuelve-al-mcp` SOBREVIVIO en mi primera corrida y NO era un hueco del test: mi mutante reemplazaba la palabra `sudo` del COMENTARIO, o sea la QUITABA, y el test comprueba AUSENCIA de sudo -asi que quedaba verde-. El mutante correcto INTRODUCE sudo en el comando del servidor (`/usr/bin/python3` -> `/usr/bin/sudo`): muere. Es la trampa del 4-sep otra vez: un mutante mal especificado se ve IGUAL que un test flojo."
 }

@@ -20,17 +20,17 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "reviewed_at": "2026-09-04T00:17:46.507025+00:00",
+      "evidence": "Revision 7-sep 15:50. 10 tests en verde. 7 mutantes propios, 7 muertos, con registro ejecutable. El brazo mas valioso es el que fija la RELACION entre la politica aislada y la base -deny = base + 4 negaciones de secreto - el deny de tail, y el allow difiere exactamente en la ruta del publicador-: eso impide que las dos deriven. LIMITE DECLARADO: el lanzador usa `settings_alice_v2.json` dentro del asiento, que es la politica AISLADA copiada con ese nombre. Esa copia vive en /var/lib/alice-v2-lab/... y NO la puedo verificar: `Permiso denegado` como dadito, que es justamente el aislamiento funcionando. Ningun test corriendo como dadito puede comprobarla. Lo que firmo son los archivos del repo y su relacion; que el asiento tenga la copia correcta debe verificarlo quien publica, en el momento de publicar.",
       "reviewed_sha256": {
-        "agents/ALICE/v2_shadow/alice_v2_isolated.sh": "823a6e6364ed246a10d56eef199b4ca995b537e1a2613a2a842891c32f3e8e29",
-        "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json": "d385e99c571d274209652ee846968147dd45fc81ec490ff415a9c3486587ef59",
+        "agents/ALICE/v2_shadow/alice_v2_isolated.sh": "c9ee6d03d367597237dbed7f1f82304b2b0b17352b8addede746d816ac3b1a48",
+        "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json": "162f603fd0e455a0e178c3fdbb9308283787cc3dd20f0bb2cb79eeb3c273294c",
         "agents/ALICE/v2_shadow/mcp_alice_v2_isolated.json": "6a28b03ed1a2c1e7f11c73ba6e5d5c37be45c2d7adaa8989f3b1c3fcf58b3fee",
-        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py": "06c0e6d0e7a1fa6e434c0d301ac8229d592c741c8a2ae7eb868d060c748f84eb"
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py": "bcce70da35d2bc2442ed29d781c67c7d807f2988521f639e6be32afa22aeb17f"
       },
-      "manifest_digest": "8e952d7c5546771d76c61a69b115c3ecd84c0f9e53d31ec3c28d3bc542fd193e",
-      "verdict": "APPROVED",
-      "evidence": "TERCERA revision (19:19). Los bytes cambiaron dos veces desde mi primera firma y las dos por hallazgos reales, no por vaiven: 19:08 el deny de la credencial OAuth (ADA), 19:17 la FORMA de las rutas (JARVIS).\nEL HALLAZGO DE JARVIS ES EL MAS GRAVE DEL DIA EN ESTA LINEA, y lo verifique en el archivo: en Claude Code una regla `Read(/abs/...)` con UNA barra es RELATIVA al proyecto, asi que 16 de 20 reglas de ruta no interceptaban nada fuera del cwd. Medido ahora: 0 reglas con una barra, 19 con dos.\n**Una regla de permiso que no coincide con nada no falla: pasa.** Es la misma familia que el `git diff --no-index` (la lista enumera verbos) y que el 70/70 en verde con el bypass abierto (el arnes prueba reglas, no capacidades). Tres veces hoy, tres mecanismos distintos, la misma forma.\nBYTES: 4/4 == disco. SUITE: 10 passed (7 -> 9 -> 10), corridos por mi.\nMUTACION PROPIA sobre estos bytes, control sin mutar PRIMERO (10 passed):\n  M-NEXUS-6  devolver TODAS las rutas a una barra          MUERE (3 failed)\n  M-NEXUS-7  devolver SOLO las de claude-config            MUERE (3 failed)\n  M7 es el que importa: prueba que el test no mira 'hay reglas de credenciales' sino que esas reglas tengan la forma que INTERCEPTA. Una regla presente y muda se ve igual que una regla ausente... salvo en el inventario, donde se ve mejor.\nALCANCE: sigo sin verificar vias internas (setuid, sockets ajenos): probarlo seria ejercerlo."
-    }
+      "manifest_digest": "7d320feb4e22cd9f6f9bfa69ec81a00187611b60d7aaf808ff9e0464d22edae8"
+    },
+    "reviewer": "NEXUS",
+    "date": "2026-09-07"
   },
   "deletions": [],
   "subjects": [
