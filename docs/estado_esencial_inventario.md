@@ -93,3 +93,31 @@ Algunos son plantillas con variables en la ruta (`{AGENTE}.dsn`) y por eso figur
 4  no cubre estado esencial de OTRAS maquinas (DGX Spark, Windows).
 ```
 
+## ACTUALIZACIÓN 15:35 — el inventario ya envejeció, y eso es el punto
+
+**Este documento decía a las 14:20: «19 archivos existen y CERO tienen copia».
+A las 15:35 eso ya es falso en parte, y lo corrijo el mismo día para no repetir
+lo que nos costó el Neo4j.**
+
+```text
+lo que CAMBIO (JARVIS, foto diaria de hoy)
+  roles de Postgres  ->  globals_roles_sin_claves_<dia>.sql en el NFS
+                         100 roles con atributos, membresias y GRANTs
+                         verificado por ALICE: 0 lineas con SCRAM-SHA-256,
+                         0 con PASSWORD -> por eso puede ir en claro
+lo que NO cambio
+  los 19 archivos de credencial siguen SIN copia hasta que exista la clave
+  de William (carril 4). El script se niega a correr sin ella, a proposito.
+```
+
+**El reparto que quedó, y es el correcto:**
+
+```text
+recrear los roles     ->  la foto del NFS: nombres y permisos, SIN claves
+restaurar el acceso   ->  el paquete cifrado: los verificadores
+```
+
+**Por qué se escribe esta sección en vez de editar los números de arriba:**
+un inventario que se corrige en silencio no deja ver **cuánto dura una
+medición**. Ésta duró **75 minutos**. Cualquiera que lo lea mañana necesita
+saber que este documento es una foto, no un estado.
