@@ -142,3 +142,36 @@ def test_qa_negative_CREDENTIALS_DIRECTORY_la_pone_systemd():
             f"[Service]\nLoadCredential=algo:/tmp/x\nExecStart=/usr/bin/python3 {s}\n")
     r = _corre(a)
     assert r.returncode == 0, f"marco CREDENTIALS_DIRECTORY pese a LoadCredential: {r.stdout}"
+
+
+def test_qa_negative_EnvironmentFile_en_un_DROP_IN_no_se_marca():
+    """Refutador de JARVIS (7-sep 14:48), cerrado leyendo drop-ins del disco.
+
+    `systemctl cat` sólo conoce unidades INSTALADAS; una unidad de arena con su
+    EnvironmentFile en <unidad>.d/10-env.conf caía al archivo principal y se
+    marcaba como sin fuente. Ahora los drop-ins se leen por los dos caminos.
+    """
+    a = _arena()
+    s = _script(a, "d.py", 'import os\nDSN = os.environ["SEAL_MI_DSN"]\n')
+    _unidad(a, "refuta-d.service", f"[Service]\nExecStart=/usr/bin/python3 {s}\n")
+    dropin = a / "u" / "refuta-d.service.d"; dropin.mkdir()
+    (a / "mi.env").write_text("SEAL_MI_DSN=algo\n")
+    (dropin / "10-env.conf").write_text(f"[Service]\nEnvironmentFile={a}/mi.env\n")
+    r = _corre(a)
+    assert r.returncode == 0, f"marco una unidad cuya fuente vive en un drop-in: {r.stdout}"
+
+
+def test_qa_control_el_drop_in_no_silencia_una_credencial_REALMENTE_faltante():
+    """Control de ADA: leer drop-ins no puede volverse un silenciador.
+
+    Misma unidad con drop-in, pero el drop-in NO define la variable que el
+    script exige: tiene que seguir marcandose.
+    """
+    a = _arena()
+    s = _script(a, "d2.py", 'import os\nDSN = os.environ["SEAL_OTRA_DSN"]\n')
+    _unidad(a, "sigue-rota.service", f"[Service]\nExecStart=/usr/bin/python3 {s}\n")
+    dropin = a / "u" / "sigue-rota.service.d"; dropin.mkdir()
+    (a / "otra.env").write_text("VARIABLE_QUE_NO_ES=algo\n")
+    (dropin / "10-env.conf").write_text(f"[Service]\nEnvironmentFile={a}/otra.env\n")
+    r = _corre(a)
+    assert r.returncode == 1 and "DESAJUSTE" in r.stdout, r.stdout

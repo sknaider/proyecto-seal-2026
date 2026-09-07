@@ -114,14 +114,28 @@ def main() -> int:
         # afuera unidades perfectamente sanas (lo midio JARVIS el 7-sep con su
         # seal-jarvis-daily-brief). `systemctl cat` muestra principal + drop-ins;
         # si no esta disponible se cae al archivo, declarandolo.
-        efectivo = txt
+        # Los drop-ins se leen por DOS caminos, porque ninguno cubre los dos casos:
+        #   systemctl cat  -> sirve para unidades INSTALADAS
+        #   <unidad>.d/*.conf en disco -> sirve tambien para unidades que systemd
+        #                                 no conoce (arenas, señuelos de prueba)
+        # JARVIS lo refuto el 7-sep 14:48 con una unidad señuelo: systemctl cat
+        # fallaba y yo caia al archivo principal, perdiendo su drop-in.
+        partes = [txt]
+        dropin_dir = unidad.parent / f"{unidad.name}.d"
+        if dropin_dir.is_dir():
+            for conf in sorted(dropin_dir.glob("*.conf")):
+                try:
+                    partes.append(conf.read_text(errors="replace"))
+                except OSError:
+                    pass
         try:
             r = subprocess.run(["systemctl", "--user", "cat", unidad.name],
                                capture_output=True, text=True, timeout=30)
             if r.returncode == 0 and r.stdout.strip():
-                efectivo = r.stdout
+                partes.append(r.stdout)
         except Exception:
             pass
+        efectivo = "\n".join(partes)
         definidas = set(re.findall(r"^Environment=([A-Z][A-Z0-9_]*)=", efectivo, re.M))
         hubo_ilegible = False
         for ef in re.findall(r"^EnvironmentFile=-?(\S+)", efectivo, re.M):

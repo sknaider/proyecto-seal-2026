@@ -12,10 +12,10 @@
     "tools/tests/test_credencial_sin_fuente_v1.py"
   ],
   "source_sha256": {
-    "tools/seal_detector_credencial_sin_fuente.py": "a87ca663657e9bf95a3d73f75a050387fdf605f5d828a503524550452376c4c1",
-    "tools/tests/test_credencial_sin_fuente_v1.py": "1ef25636ac9590cd8dbfafce8d919bf412e0b07e3aa2ccbfda2e4dddd2927045"
+    "tools/seal_detector_credencial_sin_fuente.py": "af9e0b3a5729fb376a2821717e8c212268ecd20d08cc5a0003bc6e805709fb0d",
+    "tools/tests/test_credencial_sin_fuente_v1.py": "dfe828390da0e8ab6edd5ad99ea514c080226a8b0d7b64486bfdc0736074040d"
   },
-  "implementation_head": "e8a187209d4f8881ce9d4a3de23080111f945e26",
+  "implementation_head": "64597045b81e8242dd1819c9c2cf3dc0918de421",
   "coverage": {
     "source": [
       "tools"
@@ -34,7 +34,7 @@
   },
   "delivery": {
     "status": "verified",
-    "evidence": "Hallazgo REAL: sobre las 223 unidades instaladas encontro 2 candidatos con credencial obligatoria y sin fuente en su unidad. De 11 candidatos iniciales la owner verifico UNO POR UNO y descarto 9 que la obtienen por otra via (seal_secrets o archivo propio); de los 2 restantes, seal-soul-metrics-exporter la tiene por herencia del proceso vivo (no reproducible) y orion-backup no la tiene: su respaldo NO CORRE desde 09:30 y por eso los 842 registros de examenes no tenian copia dedicada. RECORRIDO DEL NUMERO, declarado: 19 (sobre-reporte, contaba opcionales) -> 2 (sub-reporte, perdia el caso de ADA del default vacio) -> 13 -> 11 candidatos -> 1 hallazgo real verificado a mano. La diferencia entre candidato y hallazgo son quince minutos de verificar de a uno.",
+    "evidence": "Hallazgo REAL: sobre las 223 unidades instaladas encontro 2 candidatos con credencial obligatoria y sin fuente en su unidad. De 11 candidatos iniciales la owner verifico UNO POR UNO y descarto 9 que la obtienen por otra via (seal_secrets o archivo propio); de los 2 restantes, seal-soul-metrics-exporter la tiene por herencia del proceso vivo (no reproducible) y orion-backup no la tiene: su respaldo NO CORRE desde 09:30 y por eso los 842 registros de examenes no tenian copia dedicada. RECORRIDO DEL NUMERO, declarado: 19 (sobre-reporte, contaba opcionales) -> 2 (sub-reporte, perdia el caso de ADA del default vacio) -> 13 -> 11 candidatos -> 1 hallazgo real verificado a mano. La diferencia entre candidato y hallazgo son quince minutos de verificar de a uno. CONDICIONES DE FABLE (14:46) cumplidas: (1) se sigue el FALLBACK antes de marcar -de 14 marcadas, 13 corrian con result=success; ahora van a VERIFICAR A MANO y no compiten con las 2 reales-; (3) el detector entro al chequeo maestro, que corre por timer cada hora. Ademas: JARVIS refuto con una unidad cuyo EnvironmentFile vive en un DROP-IN -systemctl cat solo conoce unidades instaladas- y ahora los drop-ins se leen tambien del disco; ADA aporto que un INTERRUPTOR con TOKENS en el nombre no es credencial y que CREDENTIALS_DIRECTORY la provee systemd via LoadCredential. Cuatro brazos nuevos, incluido el CONTROL que exige que leer drop-ins no silencie una credencial realmente faltante.",
     "command": {
       "_doc": "La entrega se afirma por SALIDA: el detector distingue las TRES categorias. Si alguien colapsa 'ilegible' con 'sano', esta cadena desaparece.",
       "expected_exit": 0,
@@ -130,20 +130,54 @@
         "-q",
         "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_entorno_ILEGIBLE_no_cuenta_como_sano"
       ]
+    },
+    {
+      "id": "negative-interruptor-no-es-credencial",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_un_INTERRUPTOR_con_TOKEN_en_el_nombre_no_es_credencial"
+      ]
+    },
+    {
+      "id": "negative-credentials-directory-la-pone-systemd",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_CREDENTIALS_DIRECTORY_la_pone_systemd"
+      ]
+    },
+    {
+      "id": "negative-environmentfile-en-dropin",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_EnvironmentFile_en_un_DROP_IN_no_se_marca"
+      ]
+    },
+    {
+      "id": "control-dropin-no-silencia-una-faltante",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_el_drop_in_no_silencia_una_credencial_REALMENTE_faltante"
+      ]
     }
-  ],
-  "review": {
-    "status": "approved",
-    "receipt": {
-      "schema": "seal.independent-review-receipt.v1",
-      "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T18:32:54.002491+00:00",
-      "evidence": "REVISION INDEPENDIENTE JARVIS 7-sep 13:45. Hashes de sujeto y test iguales al manifiesto. 7 brazos con el venv: unit 1, positivos 2 (sin fuente; desajuste de nombre), negativos 2 (con fuente correcta; default vacio marcado), controles 2 (opcional no se marca; ilegible no es sano): todos passed. REFUTADORES EJERCIDOS sobre un directorio senuelo de unidades bajo /tmp con scripts propios: (a) unidad SIN EnvironmentFile cuyo script hace os.environ['X_DSN'] -> MARCADA (la clase que el primer barrido de la owner no veia); (b) os.environ.get('X_DSN','') seguido de sys.exit si vacio -> MARCADA (caso de ADA); (c) control: EnvironmentFile que define X_DSN -> NO marcada; (f) Environment=X_DSN=... en linea sin EnvironmentFile -> NO marcada (la fuente en linea cuenta; sin falso positivo). rc=1 con 2 hallazgos, exactamente a y b. Corrida real sobre ~/.config/systemd/user: rc=1, 13 SIN FUENTE + 1 DESAJUSTE DE NOMBRE = 14 (CORREGIDO 14:52: en la firma original escribi '1 SIN FUENTE' sin haber visto el conteo, lo lei con tail -6). De las 13, 12 tienen otra fuente que el detector no ve y 1 un drop-in .service.d que no parsea; la unica real: seal-infra-watchdog. Limite: no evalua variables leidas via seal_secrets/pg_dsn() ni archivos propios (la owner lo declara y descarto 9 asi a mano).",
-      "reviewed_sha256": {
-        "tools/seal_detector_credencial_sin_fuente.py": "a87ca663657e9bf95a3d73f75a050387fdf605f5d828a503524550452376c4c1",
-        "tools/tests/test_credencial_sin_fuente_v1.py": "1ef25636ac9590cd8dbfafce8d919bf412e0b07e3aa2ccbfda2e4dddd2927045"
-      },
-      "manifest_digest": "3017ee0e5ba460b725a3d0389a8e22171a9c64e9e3be090c6b1674438a5ccc20"
-    }
-  }
+  ]
 }
