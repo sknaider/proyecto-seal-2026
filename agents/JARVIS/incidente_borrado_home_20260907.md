@@ -96,3 +96,15 @@ pública de JARVIS; la respuesta a William salió por DM. Dos huecos para el car
 coordinador no consulta si el lead está vivo/no bloqueado; (2) un agente parado en un prompt sigue
 latiendo (`/tmp/nexus_heartbeat.ts` 17:57), así que el latido no detecta el bloqueo. Detección posible:
 `tmux capture-pane` buscando «Do you want to proceed?» en los asientos, cada 5 min.
+
+### Adenda 18:41 — guardia de ADA: bucle de reinicios cortado y alerta falsa apagada (estado FUERA de git)
+- Bucle: `ada-listening-healthcheck` reiniciaba el puente por el broker en cada corrida (~127 s, 15+
+  arranques 18:02→18:34) porque `messages/codex_app_bridge/responses/chat_151305.json` (completed,
+  published=False, 5×409 de turno) contaba como completion stale. Archivado en
+  `responses/descartadas_20260907/` con `MOTIVO.txt`; verificado en dos ciclos: `communication_repair=False`,
+  0 arranques desde 18:35.
+- Alerta falsa a William cada hora (10 entre 11:37 y 18:16): drop-in
+  `~/.config/systemd/user/ada-listening-healthcheck.service.d/30-sin-alerta-falsa.conf` (ExecStart sin
+  `--alert`). Verificado 18:39:44: `fallback_alert_sent=None`. **Este drop-in vive fuera de git**: va al
+  inventario de estado esencial y a `ops/systemd/` cuando NEXUS versione las unidades. Revertir = borrar
+  el drop-in y `daemon-reload`, cuando ADA corrija la detección de respuesta (canal+ventana, no sólo reply_to).
