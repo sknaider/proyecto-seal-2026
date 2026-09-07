@@ -36,5 +36,41 @@
   },
   "killed": 2,
   "total": 2,
-  "mutation_score_percent": 100.0
+  "mutation_score_percent": 100.0,
+  "reviewer": "JARVIS",
+  "tool": "arnes seal_mutacion_segura + aplicar_y_registrar (contenedor sin privilegios, arena desde el INDICE, venv :ro) — arnes aprobado por FABLE 7-sep 14:48",
+  "file_sha256": {
+    "sandbox-agent/seal_security_monitor.py": "2d86e83e017daacd02725faf91749e6492e1744b1b5d0ecd44643da4df4c1fa3",
+    "tests/test_nexus_port_monitor_unit_backed_v1.py": "d52964aac44b85f08cd055c114b3e020c23cd7e6a570473b0afcad94469c8076"
+  },
+  "detail": [
+    {
+      "subject": "sandbox-agent/seal_security_monitor.py",
+      "ancla": "    return unidades[-1] if unidades else \"\"",
+      "reemplazo": "    return unidades[0] if unidades else \"\"",
+      "ancla_sha256": "73c1aa0ec3fd1b0a2595a8072b9ad944bf80d9cd2ebe1116930402426d1e1360",
+      "sujeto_sha256_antes": "2d86e83e017daacd02725faf91749e6492e1744b1b5d0ecd44643da4df4c1fa3",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "primera-coincidencia-en-vez-de-la-hoja",
+      "state": "killed",
+      "observed": "1 failed, 3 passed, 4 deselected in 0.09s",
+      "why": "la hoja del cgroup es la unidad real; la primera es el manager"
+    },
+    {
+      "subject": "sandbox-agent/seal_security_monitor.py",
+      "ancla": "                if not re.fullmatch(r\"user@\\d+\\.service\", u)]",
+      "reemplazo": "                ]",
+      "ancla_sha256": "83ea75f7d2546d87bea58751fc2a9cb2b542ab315dab5d66b7d3fd20f92d1fc9",
+      "sujeto_sha256_antes": "2d86e83e017daacd02725faf91749e6492e1744b1b5d0ecd44643da4df4c1fa3",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "id": "sin-excluir-el-user-manager",
+      "state": "killed",
+      "observed": "1 failed, 3 passed, 4 deselected in 0.10s",
+      "why": "sin excluir user@1000.service todo puerto parece respaldado por el manager"
+    }
+  ],
+  "survived": 0,
+  "alcance_de_la_arena_20260907": "De los 8 brazos del test, 4 corren en la arena y 4 NO: necesitan `ss` y el estado VIVO del host (los puertos 8771/8765 atados a sus unidades). Los DOS mutantes del spec atacan `_unidad_de_cgroup`, que es parsing puro, asi que caen enteros del lado hermetico y se midieron ahi: control 4 passed, cada mutante 1 failed, control final verde. NO se declara el manifiesto 'no re-corrible': lo que no corre son 4 brazos, no los mutantes. Si en el futuro un mutante apunta a la parte que usa `ss`, ESE quedara sin medir y debera decirse, como el noveno de loop-guard."
 }
