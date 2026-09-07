@@ -1,0 +1,23 @@
+{
+  "_doc": "Rutas que TIENEN que existir. Si una falta, algo se perdio: el detector de existencia grita aunque el arbol entero haya desaparecido. Complementa a los detectores diferenciales, que no ven un arbol vacio (condicion del veredicto de FABLE, 7-sep-2026).",
+  "rutas": {
+    "CLAUDE.md": "6beaed38d930049201e9d47471d95377853572f5233ac3fcc6a405ab7b264df8",
+    "AGENTS.md": "9847d06221f3ecf9c18069252f9280369c461015305179f3ccb51a6e57df8e99",
+    "quality/policy.json": "e9c4a64460229598a4e502b6e0a34ffbc2115e44d36785ce1d5927e904a44941",
+    "quality_gate/gate.py": "5e979c2585bc1b895483f2ff202287f927bc0956f7b9c9d17f26a4aba0172e74",
+    "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+    "memory/mcp_server_v4.py": "d72718ac72d33134e2b083c57e4a65cccce1814b44796214d2561439d6efa9bf",
+    "scripts/seal_send.py": "8794e9f576febf1f6a76700c784bc20f98c78b4916b4674c3b705aa748a019e3",
+    "scripts/seal_self_repair.py": "eac8559ec87bd4e29bb2be7cd94bab68261e0ff5d479bc34b2c5f0d9c753703e",
+    "tools/seal_arena.sh": "4cad966a3300dc6ca67d71b97e0bd57d5cfffd098fcd239176f0008ca9b0d2c9",
+    "tools/seal_disk_alert.sh": "96c6ea29486fb964415c19a501ae7982ae08f3b4fe477e49a524a9b4dde655f8",
+    "tools/seal_detector_no_versionado.py": "9cace1402fafe39f357cf0355bede2a5195241585848641231b90402365458c8",
+    "tools/seal_detector_credenciales_unidades.py": "51c83a43b53f16e9fa1a3d0cb1b4b5358b2e6cf4d6d99457172e18f6ba12c81f",
+    "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
+    "tools/seal_chequeo_integridad_recuperacion.sh": "bb8ad9b8f14efcb3603ca63097782c089c369f24d2e1eace98ba245c89013af3",
+    "tools/seal_detector_existencia.py": "2539e72dcea011607ff3631be264e0bc050aa8d6d7ac5bbb7396d592ae0d9400",
+    "seal-studio/backend/main.py": "310053ced97b8cd468ee215d70a847de987ad8c2cb53b3518167996b60202568",
+    "seal-studio/frontend/src/app/v2/page.tsx": "17420e890d3f4485d7203941cb105a84133414412a402ffc598e6bbb1413ae5d",
+    "seal-studio/frontend/src/app/v2/ChatView.tsx": "f28acd62e2e1fd3e615b00c309448647e98e45299ee32a5f7a421243c564c3f8"
+  }
+}

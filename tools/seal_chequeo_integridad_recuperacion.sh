@@ -26,6 +26,11 @@ corre "credenciales embebidas en unidades systemd" \
       python3 "$REPO/tools/seal_detector_credenciales_unidades.py"
 corre "paquetes mutilados (importan y estan vacios)" \
       python3 "$REPO/tools/seal_detector_paquetes_vacios.py" "$SP"
+# El de EXISTENCIA va aparte de los tres anteriores a proposito: los otros son
+# diferenciales y un arbol VACIADO les parece sano (lo midio FABLE con un
+# senuelo el 7-sep). Este es el unico que grita cuando ya no queda nada.
+corre "rutas criticas que faltan (arbol vaciado)" \
+      python3 "$REPO/tools/seal_detector_existencia.py"
 
 if [ "$hay" = 0 ]; then
   echo "sin hallazgos en los tres detectores"
