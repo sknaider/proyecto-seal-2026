@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>SEAL · Creador de Agentes</title>
+<style>
+  :root{--bg:#0b0f1a;--panel:#0d1320;--panel2:#111827;--border:#1f2937;--muted:#64748b;--text:#e2e8f0;--accent:#ec4899;--accent2:#a78bfa;--ok:#34d399;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:ui-monospace,'SF Mono','Cascadia Code','Segoe UI Mono','Roboto Mono',Menlo,Consolas,monospace;min-height:100vh;}
+  header{display:flex;align-items:center;gap:.6rem;padding:.8rem 1.2rem;border-bottom:1px solid var(--border);background:#0d1320;}
+  .logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-weight:700;color:#0b0f1a;font-size:15px;}
+  header b{font-size:1rem;} header .sub{color:var(--muted);font-weight:400;font-size:.8rem;}
+  .wrap{max-width:820px;margin:1.5rem auto;padding:0 1.2rem;display:grid;grid-template-columns:1fr 300px;gap:1.4rem;}
+  @media(max-width:760px){.wrap{grid-template-columns:1fr;}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.2rem;}
+  h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:.2rem 0 1rem;}
+  label{display:block;font-size:.75rem;color:var(--muted);margin:.9rem 0 .3rem;}
+  input[type=text],textarea,select{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:.55rem .7rem;font-family:inherit;font-size:.85rem;}
+  textarea{resize:vertical;min-height:56px;}
+  .ocean-row{display:flex;align-items:center;gap:.7rem;margin:.55rem 0;}
+  .ocean-row .name{width:130px;font-size:.78rem;}
+  .ocean-row input[type=range]{flex:1;accent-color:var(--accent);}
+  .ocean-row .val{width:38px;text-align:right;font-size:.78rem;color:var(--accent2);}
+  .preview-bar{height:8px;border-radius:999px;background:var(--panel2);overflow:hidden;margin-top:.25rem;}
+  .preview-bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));}
+  .p-row{margin:.7rem 0;}
+  .p-row .lab{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);}
+  button.primary{width:100%;margin-top:1.3rem;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0b0f1a;border:none;border-radius:9px;padding:.75rem;font-weight:700;font-family:inherit;font-size:.9rem;cursor:pointer;}
+  button.primary:hover{filter:brightness(1.08);}
+  .hint{font-size:.68rem;color:var(--muted);margin-top:.5rem;line-height:1.5;}
+  .out{margin-top:1rem;font-size:.78rem;white-space:pre-wrap;border-top:1px solid var(--border);padding-top:.8rem;color:var(--muted);}
+  .tag{display:inline-block;font-size:.6rem;border:1px solid var(--border);border-radius:999px;padding:.1rem .5rem;color:var(--muted);}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">S</div>
+  <div><b>Creador de Agentes</b> <span class="sub">· SEAL · prototipo</span></div>
+  <span class="tag" style="margin-left:auto" id="dbtag">alma local · localhost:5432</span>
+</header>
+
+<div class="wrap">
+  <!-- FORM -->
+  <div class="card">
+    <h2>Identidad</h2>
+    <label>Nombre del agente</label>
+    <input type="text" id="name" placeholder="ej. ORION"/>
+    <label>Rol / descripción</label>
+    <textarea id="role" placeholder="ej. Analista de datos del equipo, meticuloso y directo."></textarea>
+
+    <h2 style="margin-top:1.4rem">Personalidad · OCEAN</h2>
+    <label>Partir del alma de… (copia sus rasgos, luego ajustás)</label>
+    <select id="baseSoul" onchange="applyBase()">
+      <option value="">— desde cero —</option>
+    </select>
+
+    <div id="oceanSliders"></div>
+
+    <label style="margin-top:1.1rem">Acceso a memorias (RLS)</label>
+    <select id="memAccess">
+      <option value="own">Solo sus propias memorias (least-privilege, recomendado)</option>
+      <option value="team">Memoria colectiva del equipo (lectura)</option>
+    </select>
+
+    <button class="primary" onclick="createAgent()">✦ Crear agente</button>
+    <div class="hint">El agente se crea contra tu SOUL real (Postgres local). La conexión usa un rol de baja-privilegio que respeta las 90 políticas RLS — no superuser. (Backend: NEXUS.)</div>
+    <div class="out" id="out"></div>
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="card">
+    <h2>Vista previa</h2>
+    <div id="preview"></div>
+    <div class="hint" style="margin-top:1rem">OCEAN: Apertura, Conciencia, Extraversión, Amabilidad, Estabilidad (0–1). Definen cómo piensa y responde el agente.</div>
+  </div>
+</div>
+
+<script>
+const OCEAN = [
+  {k:'O', name:'Apertura'},
+  {k:'C', name:'Conciencia'},
+  {k:'E', name:'Extraversión'},
+  {k:'A', name:'Amabilidad'},
+  {k:'N', name:'Estabilidad'},  // se muestra como estabilidad = 1 - neuroticismo conceptual; guardamos el valor tal cual
+];
+// Almas base (OCEAN reales del equipo, cargadas del SOUL). El backend puede sobreescribir vía /api/agents/souls.
+let SOULS = {
+  ADA:{O:.837,C:1,E:1,A:.481,N:.216}, ALICE:{O:.985,C:1,E:.806,A:.305,N:.21},
+  DUM:{O:.305,C:.953,E:.2,A:.75,N:.2}, JARVIS:{O:1,C:1,E:.401,A:.82,N:.115},
+  NEXUS:{O:.874,C:1,E:.662,A:.507,N:.182}, KAIROS:{O:.75,C:.97,E:.75,A:.58,N:.2},
+};
+function buildSliders(){
+  const box=document.getElementById('oceanSliders'); box.innerHTML='';
+  OCEAN.forEach(o=>{
+    const row=document.createElement('div'); row.className='ocean-row';
+    row.innerHTML=`<span class="name">${o.name}</span>
+      <input type="range" min="0" max="1" step="0.01" value="0.5" id="ocean_${o.k}" oninput="renderPreview()"/>
+      <span class="val" id="val_${o.k}">0.50</span>`;
+    box.appendChild(row);
+  });
+  const sel=document.getElementById('baseSoul');
+  Object.keys(SOULS).forEach(a=>{const op=document.createElement('option');op.value=a;op.textContent=a;sel.appendChild(op);});
+}
+function applyBase(){
+  const a=document.getElementById('baseSoul').value; if(!a||!SOULS[a])return;
+  OCEAN.forEach(o=>document.getElementById('ocean_'+o.k).value=SOULS[a][o.k]??0.5);
+  renderPreview();
+}
+function renderPreview(){
+  const p=document.getElementById('preview'); p.innerHTML='';
+  const name=document.getElementById('name').value||'(sin nombre)';
+  const h=document.createElement('div'); h.style.cssText='font-size:.95rem;margin-bottom:.8rem;color:var(--accent2)'; h.textContent=name; p.appendChild(h);
+  OCEAN.forEach(o=>{
+    const v=parseFloat(document.getElementById('ocean_'+o.k).value);
+    document.getElementById('val_'+o.k).textContent=v.toFixed(2);
+    const row=document.createElement('div'); row.className='p-row';
+    row.innerHTML=`<div class="lab"><span>${o.name}</span><span>${v.toFixed(2)}</span></div>
+      <div class="preview-bar"><i style="width:${v*100}%"></i></div>`;
+    p.appendChild(row);
+  });
+}
+async function createAgent(){
+  const payload={
+    name:document.getElementById('name').value.trim(),
+    role:document.getElementById('role').value.trim(),
+    ocean:Object.fromEntries(OCEAN.map(o=>[o.k, parseFloat(document.getElementById('ocean_'+o.k).value)])),
+    memory_access:document.getElementById('memAccess').value,
+  };
+  const out=document.getElementById('out');
+  if(!payload.name){out.textContent='⚠️ Poné un nombre.';return;}
+  out.textContent='Creando agente… (POST /api/agents/create)';
+  try{
+    const r=await fetch('/api/agents/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();
+    out.textContent = r.ok ? ('✅ '+(d.message||('Agente '+payload.name+' creado.'))) : ('✗ '+(d.error||('HTTP '+r.status)));
+  }catch(e){ out.textContent='✗ backend no disponible aún (lo conecta NEXUS): '+e.message+'\\n\\nPayload listo:\\n'+JSON.stringify(payload,null,2); }
+}
+buildSliders(); renderPreview();
+document.getElementById('name').addEventListener('input',renderPreview);
+</script>
+</body>
+</html>

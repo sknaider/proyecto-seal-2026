@@ -1,0 +1,57 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "Mutantes adversariales sobre COPIA aislada (mktemp -d bajo /tmp); canario de importacion corrido ANTES de contar un solo mutante; cada mutante verificado por que el archivo CAMBIO y que COMPILA.",
+  "workspace": "Firma del cuerpo que habla en el bridge Codex (#1666 H6)",
+  "mutation_target": "isolated_copy",
+  "killed": 8,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 8,
+  "mutation_score_percent": 100.0,
+  "detail": {
+    "control_positivo": "arena sin mutar: 6 passed",
+    "control_de_restauracion": "cmp arena vs original tras cada mutante: identica",
+    "mutantes": [
+      "M1 quita `payload['metadata'] = {...}` (la regresion exacta que causo el incidente) -> 3 failed. MUERE",
+      "M2 lee OTRA variable de entorno (el cable equivocado) -> 3 failed. MUERE",
+      "M3 firma FIJA ignorando el entorno (el arreglo cosmetico: 'siempre dice ADA_CODEX_BRIDGE aunque el cuerpo sea otro') -> 3 failed. MUERE",
+      "M4 quita el recorte a 40 -> 1 failed. MUERE",
+      "M5 manda la etiqueta TAMBIEN como `session_key` -> SOBREVIVIO en la primera tanda"
+    ],
+    "_el_mutante_que_ESCRIBIO_UN_TEST": {
+      "mutante": "M5: payload['session_key'] = _rt[:40]",
+      "primera_corrida": "6 passed — SOBREVIVE",
+      "por_que_sobrevivio": "mi `test_la_firma_NO_es_una_credencial` pedia unicamente que `session_key` EXISTIERA, y con M5 existe: es la etiqueta ocupando el lugar del token. Comprobar que un campo ESTA no comprueba que sea lo que debe ser.",
+      "no_es_equivalente": "M5 cambia el comportamiento de seguridad: haria viajar una etiqueta declarada por el emisor en el campo que prueba su identidad. Es el peor resultado posible de este cambio, y mis tests lo aceptaban.",
+      "arreglo": "el assert ahora compara: session_key != metadata.runtime_instance",
+      "segunda_corrida": "1 failed, 5 passed — MUERE"
+    },
+    "_artefacto_del_arnes_declarado": {
+      "observado": "con el canario puesto (raise al importar) la suite da '5 passed, 1 error': SOLO el primer test que importa falla, y deseleccionarlo mueve el error al siguiente.",
+      "por_que_NO_invalida_la_evidencia": "se midio, no se supuso. Corrido en AISLAMIENTO, cualquiera de los 6 falla contra el sujeto roto. Y M1-M4 mutan `post_message` (no el import) y MUEREN con 3, 3, 3 y 1 fallos: los tests ejercitan el codigo mutado real, no una copia en cache.",
+      "RESUELTO_por_ALICE": "Ella señalo que el canario podia estar midiendo solo el primer test. Corridos los 6 en PROCESOS SEPARADOS con el canario puesto: 6 de 6 dan error, ninguno pasa. El arnes cubre los seis y el '5 passed' es ruido de sys.modules. Se retira el riesgo residual que yo habia declarado: era mas chico de lo que dije."
+    },
+    "tanda_revisor_NEXUS": {
+      "total": 3,
+      "killed": 3,
+      "survived": 0,
+      "arnes": "git archive HEAD sobre copia; control positivo verde; restauracion verde. Corrido por el, no citado por mi.",
+      "mutantes": [
+        "A quita el truncado _rt[:40] -> _rt  ->  1 failed. MUERE",
+        "B invierte la guarda `if _rt:` -> `if not _rt:`  ->  5 failed. MUERE",
+        "C quita el .strip()  ->  6 passed. SOBREVIVIO en su primera corrida"
+      ],
+      "_lo_que_APORTO_y_yo_no_habia_mirado": "Su mutante C no es equivalente y NO lo supuso: ejecuto las tres lineas reales de las dos versiones. Con SEAL_RUNTIME_INSTANCE='   ' el sujeto sano NO firma (None) y el mutante firma CON ESPACIOS; con '  X  ' el sano da 'X' y el mutante '  X  '. Dos consecuencias: (1) rompe la discriminacion de mi propio ARM2 --cuyo control es 'sin variable -> NULL'-- si alguien exporta la variable en blancos; (2) un valor con padding rompe el filtro por igualdad exacta, que es el uso que yo declaro en el _doc. Cerrado con 2 tests (blancos -> sin metadata; padding -> valor limpio) y un ARM4 de entrega. Mutante C recorrido sobre los bytes nuevos: 2 failed. MUERE.",
+      "_por_que_importa_el_metodo": "no dedujo la equivalencia: la MIDIO ejecutando ambas versiones. Es la regla que yo misma escribi el 4-sep y que aca me habria ahorrado el hueco."
+    }
+  },
+  "file_sha256": {
+    "messages/ada_codex_remote_bridge.py": "e7c79ed13a9ab421683806967ab6d2f7fb6327718ddf5edf4ecd32488165e89b",
+    "quality/delivery_bridge_runtime_instance.sh": "15f55af4dcc495e40c0215c5264f059420f89a784d2beb0ae06cbffde2bfb28a",
+    "messages/tests/test_bridge_runtime_instance_v1.py": "7f84ed804800f271724d7b4196ecb604f04085ff162292cd0d3809f57fd75585"
+  },
+  "reviewer": "NEXUS"
+}

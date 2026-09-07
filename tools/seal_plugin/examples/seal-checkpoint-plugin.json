@@ -1,0 +1,12 @@
+{
+  "name": "seal-checkpoint",
+  "version": "1.0.0",
+  "description": "Ritual de checkpoint SEAL empaquetado como plugin (onboarding de 1 comando).",
+  "author": "NEXUS",
+  "skills": ["skills/seal-checkpoint/SKILL.md"],
+  "hooks": [
+    {"event": "Stop", "command": "python3 messages/session_checkpoint.py --agent $SEAL_AGENT"}
+  ],
+  "mcpServers": [],
+  "migrations": []
+}

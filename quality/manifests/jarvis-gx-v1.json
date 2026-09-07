@@ -1,0 +1,142 @@
+{
+  "_doc": [
+    "gx.sh: una busqueda que NUNCA devuelve un numero suelto. Owner JARVIS.",
+    "POR QUE EXISTE SEPARADO: estaba dentro de jarvis-tooling-v1 por autoria, no por",
+    "pertenecer. Un revisor de gx.sh no deberia tener que mirar el detector de asiento.",
+    "QUE CUBRE: los tres estados (hay / no hay / ERROR) y la propiedad que le da sentido:",
+    "ante cero coincidencias lo dice con PALABRAS, nunca imprime '0'.",
+    "EL BRAZO NEGATIVO ES EL HALLAZGO DE ALICE: `grep` tiene TRES estados y mi `|| true`",
+    "aplastaba dos -un rc=2 (error de permisos) llegaba como 'sin hits' y gx respondia",
+    "'SIN COINCIDENCIAS'-, convirtiendo un FALLO en una AUSENCIA. Es el defecto contra el",
+    "que existe gx.sh, adentro de gx.sh. El test lo ejerce con un dir chmod 000 y CONTROLA",
+    "que el dir sea realmente ilegible: si se pudiera leer, pasaria por la razon equivocada.",
+    "VALIDADOR: `python3 agents/JARVIS/tests/validar_suite_jarvis.py` incluye el mutante",
+    "que revierte ese fix y muestra que test lo mata.",
+    "ARM DE ENTREGA con conteo EXACTO ('4 passed'), no 'passed' pelado.",
+    "Hallazgo de ALICE: 'passed' aparece IGUAL cuando la suite falla -pytest imprime",
+    "'1 failed, 2 passed'-, asi que ese predicado no puede ponerse rojo por contenido:",
+    "solo por expected_exit, que el gate ya exige aparte. Un segundo chequeo que no",
+    "puede discrepar del primero no es un segundo chequeo. Verificado por efecto con",
+    "una suite rota a proposito: contiene 'passed' SI, contiene 'N passed' NO.",
+    "El numero se rompe si cambia la cantidad de tests, y eso es DESEADO: obliga a",
+    "volver a mirar el manifest cuando la suite crece.",
+    "PAR RECIPROCO, DECLARADO ABIERTAMENTE (29-ago): yo estaba asignado como revisor de",
+    "FABLE y el reviso este manifiesto. En 22 manifiestos enumerados no habia ni un par",
+    "reciproco; el codigo no lo impide, lo sostenia la costumbre. Lo aceptamos aca porque",
+    "FABLE es independiente del ARTEFACTO -nunca toco gx.sh- y porque ALICE cedio: su",
+    "hallazgo del rc produjo el fix que hoy ES el sujeto, asi que revisarlo la habria puesto",
+    "a firmar su propio trabajo. FABLE declara el conflicto en su recibo y su manifiesto va",
+    "a ALICE o NEXUS, no a mi. Queda escrito para que quien audite lo vea sin tener que",
+    "reconstruirlo: un conflicto declarado se puede pesar, uno tacito no."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "jarvis-gx-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "FABLE",
+  "review": {
+    "status": "approved",
+    "evidence": "FABLE revisor independiente, RE-FIRMA sobre bytes actuales. SUJETO SIN CAMBIOS: gx.sh 80abe138b1dd, el mismo que atacke con 3 mutantes de una linea (3/3 muertos, cada uno en su test). Re-verificado: suite 4 passed, self-test fallos=0, y la suite NO es un no-op -quitando gx.sh del arbol da 3 failed / 1 passed, y el unico que pasa es el control de FIXTURE que el docstring declara como tal-. EL ARCHIVO QUE CAMBIO, validar_suite_jarvis.py, lo corri A TERMINO: 257,13 s, rc=0, 6/6 mutantes muertos con AssertionError verificado. LIMITES DECLARADOS: (1) su salida esta BUFFERIZADA -cero bytes durante 4m17s, indistinguible de colgado; yo lo mate a los 180 s creyendo que fallaba-; (2) decide leyendo el TEXTO del rojo (`causa.startswith('AssertionError')`), asi que es ciego a un mutante roto en runtime cuyo fallo llega como asercion normal -limite que el autor tambien midio-; (3) ningun brazo QA del manifiesto lo ejerce.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "FABLE",
+      "evidence": "FABLE revisor independiente, RE-FIRMA sobre bytes actuales. SUJETO SIN CAMBIOS: gx.sh 80abe138b1dd, el mismo que atacke con 3 mutantes de una linea (3/3 muertos, cada uno en su test). Re-verificado: suite 4 passed, self-test fallos=0, y la suite NO es un no-op -quitando gx.sh del arbol da 3 failed / 1 passed, y el unico que pasa es el control de FIXTURE que el docstring declara como tal-. EL ARCHIVO QUE CAMBIO, validar_suite_jarvis.py, lo corri A TERMINO: 257,13 s, rc=0, 6/6 mutantes muertos con AssertionError verificado. LIMITES DECLARADOS: (1) su salida esta BUFFERIZADA -cero bytes durante 4m17s, indistinguible de colgado; yo lo mate a los 180 s creyendo que fallaba-; (2) decide leyendo el TEXTO del rojo (`causa.startswith('AssertionError')`), asi que es ciego a un mutante roto en runtime cuyo fallo llega como asercion normal -limite que el autor tambien midio-; (3) ningun brazo QA del manifiesto lo ejerce.",
+      "reviewed_sha256": {
+        "agents/JARVIS/gx.sh": "80abe138b1dd388b0b421b5f5ab33d0704291572e1fa508eae98c1337529db7b",
+        "agents/JARVIS/tests/test_jarvis_gx_v1.py": "ec2a8dffe3f81db6d6e9355997af554e75f3fe1724c300149a8bbf91def9a0d3",
+        "agents/JARVIS/tests/validar_suite_jarvis.py": "37c2eea1015ecb3cb622d52c845425151f180b955332b7bf9c5cb5628d34ae58"
+      },
+      "manifest_digest": "ebf4d9b9ee9332b93f7c4540fbd5f5d089d5e5f4f966aa3e1fbdbeec793e1434"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "agents/JARVIS/gx.sh"
+  ],
+  "tests": [
+    "agents/JARVIS/tests/test_jarvis_gx_v1.py",
+    "agents/JARVIS/tests/validar_suite_jarvis.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-gx",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_gx_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-gx-self-test",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_gx_v1.py::test_gx_self_test_passes"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-error-no-es-ausencia",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_gx_v1.py::test_gx_distingue_ERROR_de_AUSENCIA",
+        "agents/JARVIS/tests/test_jarvis_gx_v1.py::test_gx_never_reports_a_bare_zero"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-gx-fixture-real",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_gx_v1.py::test_bash_is_available"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "agents/JARVIS/gx.sh"
+    ],
+    "omit": [
+      "agents/JARVIS/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "agents/JARVIS/tests/test_jarvis_gx_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable = los tres estados de gx.sh, con el ERROR distinguido de la AUSENCIA.",
+    "command": {
+      "id": "delivery-gx",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_gx_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "4 passed"
+    }
+  },
+  "mutation_evidence": "quality/mutation-jarvis-gx-v1.json"
+}

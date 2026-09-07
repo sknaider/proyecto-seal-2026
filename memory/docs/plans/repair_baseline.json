@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-04-04T22:33:11.363528+00:00",
+  "pg_total": 2065,
+  "pg_valid": 2065,
+  "pg_by_agent": {
+    "ADA": 1260,
+    "JARVIS": 769,
+    "JARVIS_MAYOR": 14,
+    "TEAM": 12,
+    "DUM": 10
+  },
+  "qdrant_total": 1731,
+  "orphan_pg_count": 334,
+  "orphan_qdrant_count": 0,
+  "neo4j_nodes": 3971,
+  "neo4j_edges": 31542,
+  "neo4j_orphans": 1894
+}

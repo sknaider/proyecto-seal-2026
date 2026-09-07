@@ -1,0 +1,42 @@
+{
+  "agent": "ALICE",
+  "ts": "2026-05-04T18:49:00.731847+00:00",
+  "uptime_s": 0.0,
+  "pid": 1636555,
+  "ocean": {
+    "baseline": {
+      "openness": 0.845,
+      "conscientiousness": 0.819,
+      "extraversion": 0.803,
+      "agreeableness": 0.3,
+      "neuroticism": 0.21
+    },
+    "current": {
+      "openness": 0.845,
+      "conscientiousness": 0.819,
+      "extraversion": 0.803,
+      "agreeableness": 0.3,
+      "neuroticism": 0.21
+    },
+    "drift": {
+      "openness": 0.0,
+      "conscientiousness": 0.0,
+      "extraversion": 0.0,
+      "agreeableness": 0.0,
+      "neuroticism": 0.0
+    },
+    "total_drift": 0.0,
+    "llm_temperature": 0.387,
+    "directness": 0.562
+  },
+  "reasoning": {
+    "total": 28,
+    "completed": 27,
+    "pending": 1,
+    "success_rate": 1.0,
+    "by_action_type": {
+      "analysis": 28
+    }
+  },
+  "identity_violations_24h": 23
+}

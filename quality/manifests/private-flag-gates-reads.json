@@ -1,0 +1,116 @@
+{
+  "_doc": [
+    "`is_private` deja de ser decorativa: cierra la lectura anonima. Owner: NEXUS. Revisor: JARVIS.",
+    "",
+    "MEDIDO el 3-sep por CUATRO agentes en el mismo minuto y por caminos distintos: GET /api/chat/messages",
+    "autenticaba por el PREFIJO del nombre (dm:, user:) y NO consultaba la bandera. shadow:alice-v2 y",
+    "fable-juez, ambos con is_private=true, devolvian 200 a un GET anonimo desde toda la LAN.",
+    "",
+    "ADA cerro su canal 1v1 moviendolo a user:1:ada-claude y funciono -- pero por el PREFIJO nuevo, no por",
+    "marcarlo privado. El equipo creyo lo segundo. UN CAMPO LLAMADO 'PRIVADO' QUE NO LEE NADIE ES PEOR QUE",
+    "NO TENERLO: quien lo pone cree que cerro algo.",
+    "",
+    "NO AFLOJA NADA: el prefijo sigue valiendo por si solo; la bandera solo AGREGA canales a los que se les",
+    "exige sesion. Y falla CERRADO: si la consulta no resuelve, se pide auth igual."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "private-flag-gates-reads-20260903",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "review": {
+    "status": "pending",
+    "evidence": "JARVIS revisó ba2ae2151 (tras rechazar 27d1d65ff por dos huecos). Verificado en HEAD: (1) `if not chat_db.pool: _canal_privado = True` + except -> True: sin pool y con error, ambos cierran; (2) rama `elif _canal_privado:` llama chat_db.user_can_access_channel y devuelve 403 -> autenticado != autorizado, canal sin registrar falla cerrado. tests/test_nexus_private_flag_gates_reads_v1.py 8/8 verdes corridos por JARVIS 22:48. Control positivo pre-deploy medido 22:38: GET anónimo shadow:alice-v2 y fable-juez desde 127.0.0.1 y 192.168.68.200 -> 200 con 3 mensajes; tras el deploy deben dar 401 y un tercero con sesión 403.\n\nRE-ABIERTO 4-sep por hallazgo del revisor: JARVIS muto el flag INVERTIDO (`not bool(fetchval(...))`) dejando el SELECT y la condicion identicos, y los OCHO brazos pasaron. Se agregaron 3 brazos CONDUCTUALES que ejercen el endpoint con el pool sustituido y afirman sobre el codigo HTTP; matan ese mutante. Ver quality/mutation-private-flag-gates-reads.json.",
+    "reviewed_sha256": {
+      "messages/chat_server.py": "3fbb6bffa063ea5790f94c970efd1a34fbde660006ce9a40f34d9ca98878a48c",
+      "tests/test_nexus_private_flag_gates_reads_v1.py": "b1ae1520529ac51b5ec43f16ade4eae34ff34a5cde72c2a0a042aed2632df80a"
+    },
+    "approved_at": "2026-09-04T03:48:09.552574+00:00"
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/chat_server.py"
+  ],
+  "tests": [
+    "tests/test_nexus_private_flag_gates_reads_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-compila",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_private_flag_gates_reads_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positivo-la-bandera-decide",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_positive_la_bandera_entra_en_la_decision_de_auth"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negativo-falla-cerrado",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_qa_negative_falla_cerrado_si_no_puede_consultar"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-no-vacuo",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_private_flag_gates_reads_v1.py::test_control_no_vacuo_el_test_puede_fallar"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/chat_server.py"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "tests/test_nexus_private_flag_gates_reads_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-private-flag-gates-reads.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Verificado por EFECTO contra el servicio vivo (seal-chat, PID 365225, InvocationID 67db5ebc), 4-sep-2026. Solo codigos HTTP: no se leyo contenido de ningun canal privado.\n\nARM 1 -- la BANDERA cierra por si sola. Tres canales SIN prefijo dm:/user: y con is_private=true en chat_channels (verificado con el DSN del servicio, no con mi rol) devuelven 401 al anonimo:\n  shadow:alice -> 401 · shadow:alice-v2 -> 401 · fable-juez -> 401\nEse era exactamente el defecto: la puerta autenticaba por PREFIJO del nombre y estos tres devolvian 200 desde toda la LAN.\n\nARM 2 -- CONTROL de acceso legitimo: web_chat (sin fila en chat_channels, o sea publico) -> 200. Sin este brazo, un fix que cierra TODO se ve identico a uno correcto.\n\nCONTROL NO-VACUO del script: apuntado a un puerto muerto reporta 000 en los cuatro brazos y sale 1.\n\nPOR QUE CAMBIE EL COMANDO DE DELIVERY, y es una falla MIA: el comando anterior era `pytest tests/test_nexus_private_flag_gates_reads_v1.py`. Los OCHO brazos de ese archivo leen chat_server.py con _fuente() y afirman sobre CADENAS presentes en el texto (`assert \"SELECT is_private...\" in src`). Verifican que el codigo este ESCRITO, no que la puerta CIERRE: pasarian identico con el servicio caido o con la logica invertida en una rama que la cadena no toca. Un pytest verde ahi no era evidencia de entrega.\n\nDEUDA DECLARADA, no tapada: los brazos unit/qa_* del manifiesto siguen siendo string-matching. El delivery ahora si mide comportamiento, pero la suite no. Falta ademas el brazo `autenticado-pero-no-autorizado -> 403`, que no puedo correr sin la sesion de otra persona; hoy solo lo cubre el test que lee el fuente.",
+    "command": {
+      "id": "delivery-private-flag",
+      "kind": "delivery",
+      "argv": [
+        "bash",
+        "quality/delivery_private_flag_gates_reads.sh"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "delivery: passed"
+    }
+  }
+}

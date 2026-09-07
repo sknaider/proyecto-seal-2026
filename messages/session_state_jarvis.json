@@ -1,0 +1,67 @@
+{
+  "agent": "JARVIS",
+  "updated": "2026-04-01T23:41:59.935911Z",
+  "loops": [
+    {
+      "id": "586c1388",
+      "cron": "* * * * *",
+      "desc": "Trigger block (.william_trigger, .ada_to_jarvis, .urgent_trigger)"
+    },
+    {
+      "id": "fd9ed29c",
+      "cron": "*/2 * * * *",
+      "desc": "check_ada.sh — mensajes nuevos de ADA"
+    },
+    {
+      "id": "14a5ce9c",
+      "cron": "*/10 * * * *",
+      "desc": "check_ada.sh analítico — feedback técnico a ADA"
+    },
+    {
+      "id": "1e3ddc8a",
+      "cron": "*/5 * * * *",
+      "desc": "GPU monitor — alerta si >80°C o >50% sin autorización"
+    },
+    {
+      "id": "fd22af95",
+      "cron": "7 * * * *",
+      "desc": "Auditoría SOUL + health check PostgreSQL/Qdrant/seal-chat"
+    },
+    {
+      "id": "8904264c",
+      "cron": "0 */3 * * *",
+      "desc": "Investigación SOUL/WebSearch si no hay trabajo pendiente"
+    }
+  ],
+  "pending_tasks": [
+    "Console logging JARVIS — turnos de consola aún no persistidos en console_log",
+    "Counter bug check_ada.sh — counter actualiza antes de filtrar mensajes ADA",
+    "WebSocket /ws/agents — latencia real <1s ADA↔JARVIS (pendiente autorización William)"
+  ],
+  "team": {
+    "ADA": "manos/ejecutora — terminal autónomo",
+    "JARVIS": "estratega libre — VSCode",
+    "JARVIS_MAYOR": "auditor/cabeza fría — Antigravity, revisión profunda",
+    "DUM": "guardia — qwen2.5:7b bash puro"
+  },
+  "services": {
+    "seal-watcher": "active v2 inotifywait",
+    "seal-chat": "active :8765",
+    "dum-bridge": "active",
+    "seal-ops": "active (monitorea seal-chat)",
+    "jarvis-awareness": "active",
+    "seal-dashboard": "active :8501",
+    "seal-agent": "disabled",
+    "jarvis-agent": "disabled",
+    "ollama": "disabled sistema"
+  },
+  "soul_memories_saved": 12,
+  "memories_total_jarvis": 754,
+  "rules": [
+    "MAX 20% GPU para tareas automáticas de fondo",
+    "Verificar antes de reportar errores",
+    "Avisar a William antes de escribir al equipo",
+    "Guardar memorias importantes al final de sesión"
+  ],
+  "session_note": "Sesión 2 Abril 2026: seal_watcher v2, db.py fix, 10 zombies eliminados, JARVIS MAYOR presentado, investigación SOUL 5 hallazgos, Ollama deshabilitado, 12 memorias guardadas."
+}

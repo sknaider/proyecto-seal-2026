@@ -1,0 +1,146 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "subagent-nesting-20260904",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "_doc": [
+    "Carril A del plan de JARVIS para integrar Bob en SOUL (orden de William, 4-sep-2026 23:16).",
+    "Regla dura de IBM Bob §5: un subagente NO lanza subagentes.",
+    "",
+    "QUE PROTEGE: hasta hoy `SubAgentSpawner.spawn()` no miraba quien lo llamaba, asi que un",
+    "subagente podia construir su propio spawner y abrir otro nivel, y ese otro. Un arbol que",
+    "se abre solo no tiene techo: cada nivel multiplica procesos, timeouts y coste.",
+    "",
+    "POR QUE POR VARIABLE DE ENTORNO Y NO POR DOCUMENTACION: el hijo es OTRO PROCESO. Un",
+    "atributo del objeto no cruza el subprocess.run y una regla escrita en un docstring menos.",
+    "subprocess.run hereda el entorno, asi que la marca viaja sola y el spawner del hijo se",
+    "niega sin saber nada del padre. El mecanismo tiene que viajar con el proceso.",
+    "",
+    "EL ARCHIVO CORRECTO: tools/agents/subagent_spawner.py es el VIVO, el que importa",
+    "tools/agents/orchestrator.py. seal-runtime/core/agent_spawner.py NO lo importa nadie y",
+    "casi implemento ahi la guarda.",
+    "",
+    "ORDEN DE TRABAJO, declarado: el codigo se escribio ANTES que las pruebas, contra el",
+    "criterio de JARVIS. Los mutantes sobre copia con control verde son la evidencia",
+    "sustituta acordada con el."
+  ],
+  "deletions": [],
+  "subjects": [
+    "tools/agents/subagent_spawner.py",
+    "quality/delivery_subagent_nesting.sh"
+  ],
+  "tests": [
+    "tools/agents/test_subagent_nesting.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-subagent-nesting",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/agents/test_subagent_nesting.py"
+      ]
+    },
+    {
+      "id": "positive-el-principal-lanza-y-la-marca-viaja",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/agents/test_subagent_nesting.py::test_el_principal_SI_puede_lanzar",
+        "tools/agents/test_subagent_nesting.py::test_la_marca_VIAJA_al_proceso_hijo"
+      ]
+    },
+    {
+      "id": "negative-el-subagente-no-lanza-por-ningun-camino",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/agents/test_subagent_nesting.py::test_un_subagente_NO_puede_lanzar",
+        "tools/agents/test_subagent_nesting.py::test_spawn_async_TAMBIEN_esta_cerrado",
+        "tools/agents/test_subagent_nesting.py::test_un_nivel_mas_hondo_tambien_se_niega"
+      ]
+    },
+    {
+      "id": "control-lectura-del-nivel-y-entorno-del-hijo",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/agents/test_subagent_nesting.py::test_una_marca_ilegible_falla_CERRADO",
+        "tools/agents/test_subagent_nesting.py::test_un_negativo_no_reabre_el_permiso",
+        "tools/agents/test_subagent_nesting.py::test_el_entorno_del_hijo_no_pierde_el_resto"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools/agents"
+    ],
+    "omit": [
+      "*/site-packages/*",
+      "*/test_*.py",
+      "*/orchestrator.py",
+      "*/__init__.py"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/agents/test_subagent_nesting.py"
+    ],
+    "baseline_percent": 70.0,
+    "timeout": 300,
+    "_note2": "El `omit` acota al SUJETO. Sin el, el gate mide el paquete tools/agents entero (664 sentencias, 30,986%) y corta por regresion, aunque el sujeto este al 78%. Mi error: lei la FILA del archivo en el reporte y la tome como el numero del manifiesto; el gate usa el TOTAL. Leer la fila que te conviene en vez del total es el mismo proxy de siempre.",
+    "_note": "Aca va la RUTA, no el nombre de modulo, y es lo contrario de lo que documente esta manana para el backend del Studio. Medido el 4-sep sobre este sujeto: source='subagent_spawner' -> 'No data was collected'; source='tools.agents' -> 119 sentencias, 0%; source='tools/agents' -> 78%. La diferencia es si el sujeto es un PAQUETE importable (tools/agents tiene __init__.py: gana la ruta) o un directorio suelto metido en sys.path por la suite (gana el nombre de modulo). NO hay una forma universal: hay que CORRER las dos y quedarse con la que recolecta."
+  },
+  "mutation_evidence": "quality/mutation-subagent-nesting-20260904.json",
+  "mutation_baseline_percent": 100.0,
+  "mutation_command": [
+    "python3",
+    "tools/agents/test_subagent_nesting.py"
+  ],
+  "review": {
+    "status": "approved",
+    "_solicitado_a": "NEXUS",
+    "_motivo": "Carril A del plan de Bob; JARVIS asigno a NEXUS como revisor independiente.",
+    "evidence": "Revision independiente de NEXUS, 4-sep-2026 (carril A de la integracion de Bob). Copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas y VERIFICACION DE QUE EL ARCHIVO CAMBIO tras cada mutacion. Arbol vivo intacto al terminar.\n\nCONTROL: 10 passed.\nCANARIO (raise al importar subagent_spawner): error de coleccion -> la suite ejecuta el sujeto.\n\nMUTANTES mios, 5, todos MUERTOS:\n1. el valor ilegible pasa a contar como PRINCIPAL (falla ABIERTO): 1 failed, lo caza test_una_marca_ilegible_falla_CERRADO. Es la propiedad que decide este manifiesto: un entorno corrupto no puede reabrir el permiso.\n2. el negativo deja de acotarse a 0 (un -1 abriria un nivel extra): 1 failed.\n3. el techo sube de 1 a 2: 2 failed.\n4. EL QUE MAS IMPORTA -- el hijo hereda la MISMA profundidad, no la incrementada: 2 failed. Con este mutante el mecanismo entero seria decorativo: el hijo se creeria principal y podria lanzar, que es exactamente el arbol sin techo que el cambio viene a cerrar.\n5. se borra la marca del entorno del hijo: 2 failed.\n\nLO QUE MAS ME CONVENCIO, y no es un mutante: `current_depth` falla CERRADO ante un valor ilegible --devuelve MAX_SPAWN_DEPTH, no 0-- con la razon escrita al lado: 'el error barato es negar un spawn; el caro es abrir un arbol sin techo'. La direccion del fallo esta elegida, no heredada.\n\nRE-SELLO tras escribir el owner mi tanda en la evidencia. Los BYTES de sujeto y test no cambiaron --verificado por hash-- asi que no se re-corrio nada. La evidencia separa detail.tanda_owner_ADA de detail.tanda_revisor_NEXUS y DECLARA el solapamiento de eje entre algunas: no son 11 mutaciones independientes y decirlo vale mas que el numero. reviewer NEXUS, file_sha256 calza con subjects+tests.\n\nSUJETO NUEVO REVISADO (3er sello): quality/delivery_subagent_nesting.sh entro a subjects, asi que NO fue un re-sello de oficio. Corrido por mi: ARM1 subagente negado, ARM2 principal lanza (control no vacuo), ARM3 el hijo recibe SEAL_SUBAGENT_DEPTH=1 -> 3/3. El ARM3 es el que hace cumplir la regla: los otros dos prueban que la DECISION es correcta, solo el tercero que la MARCA VIAJA; sin el, el mecanismo podria ser decorativo con los dos primeros en verde.\n\nLIMITACION DECLARADA, no bloqueante: el script esta anclado al arbol VIVO por ruta absoluta (REPO=... y tres sys.path.insert con la ruta literal). Corrido desde otro directorio da 3/3 igual: mide produccion. Como delivery esta bien; como SUJETO revisable impide comprobar su no-vacuidad, porque para ver si el ARM1 fallaria con el guard roto habria que mutar el spawner VIVO. Firmo ese archivo POR LECTURA Y POR SU CORRIDA, no por mutacion, y lo digo en vez de dejar la impresion contraria. Cerrarlo del todo seria sacar la raiz de ${SEAL_REPO:-...}.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "ee0773ca84d99d0e8624442e0fad6de76662e45bfb4467b84ad30caf3f65ca36",
+      "reviewed_sha256": {
+        "tools/agents/subagent_spawner.py": "a9a19f68fa22dafd26b5d0cb7451d7d135d04e28791cf0258f1aede51c2fdeab",
+        "quality/delivery_subagent_nesting.sh": "c6f662eb6b403ba84283e73ec575dc962a69cf1e5476827e1cf0c79b596c6340",
+        "tools/agents/test_subagent_nesting.py": "65b9a41b8de39ee5b42c4ab2414934c12f9d9e4c44106bfc9d81260094d75385"
+      },
+      "evidence": "Revision independiente de NEXUS, 4-sep-2026 (carril A de la integracion de Bob). Copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas y VERIFICACION DE QUE EL ARCHIVO CAMBIO tras cada mutacion. Arbol vivo intacto al terminar.\n\nCONTROL: 10 passed.\nCANARIO (raise al importar subagent_spawner): error de coleccion -> la suite ejecuta el sujeto.\n\nMUTANTES mios, 5, todos MUERTOS:\n1. el valor ilegible pasa a contar como PRINCIPAL (falla ABIERTO): 1 failed, lo caza test_una_marca_ilegible_falla_CERRADO. Es la propiedad que decide este manifiesto: un entorno corrupto no puede reabrir el permiso.\n2. el negativo deja de acotarse a 0 (un -1 abriria un nivel extra): 1 failed.\n3. el techo sube de 1 a 2: 2 failed.\n4. EL QUE MAS IMPORTA -- el hijo hereda la MISMA profundidad, no la incrementada: 2 failed. Con este mutante el mecanismo entero seria decorativo: el hijo se creeria principal y podria lanzar, que es exactamente el arbol sin techo que el cambio viene a cerrar.\n5. se borra la marca del entorno del hijo: 2 failed.\n\nLO QUE MAS ME CONVENCIO, y no es un mutante: `current_depth` falla CERRADO ante un valor ilegible --devuelve MAX_SPAWN_DEPTH, no 0-- con la razon escrita al lado: 'el error barato es negar un spawn; el caro es abrir un arbol sin techo'. La direccion del fallo esta elegida, no heredada.\n\nRE-SELLO tras escribir el owner mi tanda en la evidencia. Los BYTES de sujeto y test no cambiaron --verificado por hash-- asi que no se re-corrio nada. La evidencia separa detail.tanda_owner_ADA de detail.tanda_revisor_NEXUS y DECLARA el solapamiento de eje entre algunas: no son 11 mutaciones independientes y decirlo vale mas que el numero. reviewer NEXUS, file_sha256 calza con subjects+tests.\n\nSUJETO NUEVO REVISADO (3er sello): quality/delivery_subagent_nesting.sh entro a subjects, asi que NO fue un re-sello de oficio. Corrido por mi: ARM1 subagente negado, ARM2 principal lanza (control no vacuo), ARM3 el hijo recibe SEAL_SUBAGENT_DEPTH=1 -> 3/3. El ARM3 es el que hace cumplir la regla: los otros dos prueban que la DECISION es correcta, solo el tercero que la MARCA VIAJA; sin el, el mecanismo podria ser decorativo con los dos primeros en verde.\n\nLIMITACION DECLARADA, no bloqueante: el script esta anclado al arbol VIVO por ruta absoluta (REPO=... y tres sys.path.insert con la ruta literal). Corrido desde otro directorio da 3/3 igual: mide produccion. Como delivery esta bien; como SUJETO revisable impide comprobar su no-vacuidad, porque para ver si el ARM1 fallaria con el guard roto habria que mutar el spawner VIVO. Firmo ese archivo POR LECTURA Y POR SU CORRIDA, no por mutacion, y lo digo en vez de dejar la impresion contraria. Cerrarlo del todo seria sacar la raiz de ${SEAL_REPO:-...}."
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Probado por EFECTO con spawns REALES, no con mocks: ARM1 un subagente a profundidad 1 se niega (SubAgentNestingError); ARM2 control no vacuo, el agente principal lanza normalmente; ARM3 un worker real imprime la marca que recibio y llega '1'. Sin el ARM2 un guard que negara SIEMPRE pasaria el ARM1 y el delivery diria 'verificado' sobre un sistema roto.",
+    "command": {
+      "id": "delivery-subagent-nesting",
+      "kind": "delivery",
+      "argv": [
+        "bash",
+        "quality/delivery_subagent_nesting.sh"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "DELIVERY OK: 3/3 brazos"
+    }
+  }
+}

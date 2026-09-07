@@ -1,0 +1,2007 @@
+{
+  "generated_at": "2026-04-08T16:07:46.471241+00:00",
+  "total_tools": 76,
+  "groups": {
+    "Core Memory": [
+      {
+        "name": "memory_store",
+        "docstring": "Store a new memory with auto-generated semantic embedding and conflict detection.\n\nArgs:\n    agent: Agent name (ADA, JARVIS, DUM, TEAM)\n    category: One of: fact, preference, decision, insight, correction, milestone, pattern, emotion, trust, humor, dynamic\n    content: The memory content text\n    importance: 1-10 scale (10 = critical, never forget)\n    source: Origin: conversation, reflection, consolidation\n    metadata: Optional JSON string with extra data\n    event_time: ISO timestamp of when the event actually happened (optional, defaults to now). Different from ingestion time (created_at).\n    scope: Visibility — private (default), shared (ADA+JARVIS), team (all agents), william (only William)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "category",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "content",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "importance",
+            "type": "int",
+            "default": "5",
+            "required": false
+          },
+          {
+            "name": "source",
+            "type": "str",
+            "default": "'conversation'",
+            "required": false
+          },
+          {
+            "name": "metadata",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "event_time",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "scope",
+            "type": "str",
+            "default": "'private'",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_search",
+        "docstring": "Search memories by semantic similarity using Qdrant with bitemporal filtering.\n\nArgs:\n    query: Natural language search query\n    agent: Filter by agent name (optional)\n    category: Filter by category (optional)\n    limit: Max results (default 10)\n    include_invalidated: Include memories marked as no longer valid (default false)\n    scope_aware: If true (default), also include shared/team memories from other agents",
+        "params": [
+          {
+            "name": "query",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "category",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "10",
+            "required": false
+          },
+          {
+            "name": "include_invalidated",
+            "type": "bool",
+            "default": "False",
+            "required": false
+          },
+          {
+            "name": "scope_aware",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_list",
+        "docstring": "List memories filtered by agent, category, or importance.\n\nArgs:\n    agent: Filter by agent name (optional)\n    category: Filter by category (optional)\n    min_importance: Minimum importance level (1-10)\n    limit: Max results (default 20)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "category",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "min_importance",
+            "type": "int",
+            "default": "1",
+            "required": false
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "20",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_utility_update",
+        "docstring": "MemRL Bellman update — adjust utility scores based on actual usefulness.\n\nAfter a task completes, call this with the memory IDs that were used and\na reward signal (1.0 = very useful, 0.0 = not useful at all).\n\nutility_new = utility_old + alpha * (reward - utility_old)\n\nThis lets memories learn their own value over time without touching model weights.\nBased on MemRL (arxiv 2601.03192).\n\nArgs:\n    memory_ids: Comma-separated memory IDs to update (e.g. \"102,305,410\")\n    reward: Reward signal 0.0 to 1.0 (1.0 = memory was useful for the task)\n    context: What task/query the memories were used for\n    alpha: Learning rate for Bellman update (default 0.3)",
+        "params": [
+          {
+            "name": "memory_ids",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "reward",
+            "type": "float",
+            "required": true
+          },
+          {
+            "name": "context",
+            "type": "str",
+            "default": "''",
+            "required": false
+          },
+          {
+            "name": "alpha",
+            "type": "float",
+            "default": "0.3",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_update",
+        "docstring": "Edit a memory in-place without invalidating it. Preserves connectome edges.\n\nUpdates content, regenerates embedding, updates valence/arousal.\nRecords change in metadata with timestamp and reason.\n\nArgs:\n    memory_id: The ID of the memory to update\n    new_content: The new content text\n    reason: Why this memory is being updated",
+        "params": [
+          {
+            "name": "memory_id",
+            "type": "int",
+            "required": true
+          },
+          {
+            "name": "new_content",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "reason",
+            "type": "str",
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "memory_hybrid_search",
+        "docstring": "Hybrid search combining semantic similarity (Qdrant) + keyword BM25 (PostgreSQL tsvector).\nOptionally modulated by mood-congruent retrieval (REMT, Frontiers 2026).\nOptionally uses LLM-based reranking (Phase 2) for functional relevance scoring.\n\nArgs:\n    query: Natural language search query\n    agent: Filter by agent name (optional)\n    category: Filter by category (optional)\n    limit: Max results (default 10)\n    semantic_weight: Weight for semantic similarity (0.0-1.0, default 0.6)\n    keyword_weight: Weight for keyword/BM25 match (0.0-1.0, default 0.4)\n    mood_weight: Weight for mood-congruent retrieval (0.0-1.0, default 0.0 = off). When > 0, memories with similar emotional valence to current mood rank higher.\n    llm_rerank: If true, use Ollama LLM to rerank top candidates by functional relevance (slower but more precise)",
+        "params": [
+          {
+            "name": "query",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "category",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "10",
+            "required": false
+          },
+          {
+            "name": "semantic_weight",
+            "type": "float",
+            "default": "0.6",
+            "required": false
+          },
+          {
+            "name": "keyword_weight",
+            "type": "float",
+            "default": "0.4",
+            "required": false
+          },
+          {
+            "name": "mood_weight",
+            "type": "float",
+            "default": "0.0",
+            "required": false
+          },
+          {
+            "name": "llm_rerank",
+            "type": "bool",
+            "default": "False",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_invalidate",
+        "docstring": "Mark a memory as no longer valid (bitemporal invalidation).\nDoes NOT delete — sets invalid_at timestamp for historical tracking.\n\nArgs:\n    memory_id: The memory ID to invalidate\n    reason: Why this memory is no longer valid (optional, stored in metadata)",
+        "params": [
+          {
+            "name": "memory_id",
+            "type": "int",
+            "required": true
+          },
+          {
+            "name": "reason",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_feedback",
+        "docstring": "Provide retroactive quality feedback on a memory that was used.\nIf the memory led to a good outcome, reinforce it. If bad, degrade it.\nPrevents error propagation from experience-following behavior.\n\nArgs:\n    memory_id: The memory ID that was used\n    outcome: Description of what happened when this memory was applied\n    success: Did using this memory lead to a good result?\n    agent: Agent providing feedback (optional)",
+        "params": [
+          {
+            "name": "memory_id",
+            "type": "int",
+            "required": true
+          },
+          {
+            "name": "outcome",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "success",
+            "type": "bool",
+            "required": true
+          },
+          {
+            "name": "agent",
+            "type": "str | None",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_flare",
+        "docstring": "FLARE — Forward-Looking Active Retrieval.\n\nGiven a draft response, identifies knowledge gaps (low-confidence claims)\nand retrieves relevant memories to fill them BEFORE the final response.\n\nPattern: Generate draft → detect uncertain parts → retrieve → augment.\n\nArgs:\n    agent: Agent name\n    draft_response: Your tentative response (can be incomplete)\n    query: Original user query (for context)\n    top_k: Max memories to retrieve per gap",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "draft_response",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "query",
+            "type": "str",
+            "default": "''",
+            "required": false
+          },
+          {
+            "name": "top_k",
+            "type": "int",
+            "default": "5",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_prefetch",
+        "docstring": "Prefetch relevant memories based on recent activity patterns.\n\nInspired by memU (NevaMind): monitors patterns and pre-assembles context.\nUses last session's topics + most activated memories to predict needs.\n\nArgs:\n    agent: Agent name\n    session_hints: Optional comma-separated hints about current session topic",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "session_hints",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_delta_sync",
+        "docstring": "Get memory changes since last check — delta sync for multi-agent coordination.\n\nInstead of re-reading everything, shows only NEW shared/team memories\nfrom other agents since the specified time window.\nInspired by AutoGen v0.4 event-driven architecture.\n\nArgs:\n    agent: Your agent name\n    since_minutes: Look back this many minutes (default 30)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "since_minutes",
+            "type": "int",
+            "default": "30",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_cross_search",
+        "docstring": "Search another agent's memories. The corpus callosum of SOUL.\nEnables JARVIS to search ADA's experiences and vice versa.\nOnly returns memories with scope != 'private' OR importance >= 7\n(important memories are always shareable within the team).\n\nArgs:\n    query: What to search for\n    requesting_agent: Who is asking (JARVIS, ADA)\n    target_agent: Whose memories to search (default: the other agent)\n    limit: Max results",
+        "params": [
+          {
+            "name": "query",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "requesting_agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "target_agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "10",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_share_promote",
+        "docstring": "Promote a private memory to shared scope so the other agent can access it.\nUse when you learn something the team should know.\n\nArgs:\n    memory_id: Memory to share\n    agent: Agent promoting (must own the memory)",
+        "params": [
+          {
+            "name": "memory_id",
+            "type": "int",
+            "required": true
+          },
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          }
+        ]
+      }
+    ],
+    "Boot & Identity": [
+      {
+        "name": "soul_activate",
+        "docstring": "Activate the SOUL CONNECTOME from a query or concept.\nUses spreading activation via Neo4j to find associated memories.\nExcitatory connections spread activation, inhibitory connections dampen it.\n\nInspired by Drosophila brain model (Shiu et al., 2024).\n\nArgs:\n    query: Natural language query or concept to activate\n    agent: Filter by agent (optional)\n    n_seeds: Number of seed memories to start from (default 3)\n    max_hops: Max propagation depth (default 3)",
+        "params": [
+          {
+            "name": "query",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "n_seeds",
+            "type": "int",
+            "default": "3",
+            "required": false
+          },
+          {
+            "name": "max_hops",
+            "type": "int",
+            "default": "3",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "soul_synthesize",
+        "docstring": "Graphiti CONSTRUCTOR — synthesize activated memories into a coherent response.\n\nUnlike soul_activate (which lists memories), this tool REASONS over them.\nUses spreading activation to find relevant memories, then Ollama synthesizes\nthem into a unified narrative, analysis, or answer.\n\nStyles: narrative (story), analysis (structured), answer (direct response)\n\nArgs:\n    query: The question or topic to synthesize about\n    agent: Filter by agent (optional)\n    n_seeds: Number of seed memories (default 5)\n    max_hops: Max propagation depth (default 3)\n    style: Output style — narrative, analysis, or answer",
+        "params": [
+          {
+            "name": "query",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "n_seeds",
+            "type": "int",
+            "default": "5",
+            "required": false
+          },
+          {
+            "name": "max_hops",
+            "type": "int",
+            "default": "3",
+            "required": false
+          },
+          {
+            "name": "style",
+            "type": "str",
+            "default": "'narrative'",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "boot_context",
+        "docstring": "Get full boot context for an agent starting a new session.\nReturns: identity, philosophy, active rules, top memories, recent events.\n\nArgs:\n    agent: Agent name (ADA, JARVIS, DUM)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "soul_check",
+        "docstring": "Check soul health: was boot_context executed? Are emotions classified? When was last diary?\nUse this at startup or anytime to verify the agent's soul is healthy.\n\nArgs:\n    agent: Agent name (ADA, JARVIS, DUM)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "working_state_get",
+        "docstring": "Get the current working state for an agent.\nThe working state is a compressed JSON representing the agent's current reasoning context:\nactive_hypotheses, discarded_paths, current_constraints, pending_validations, relevant_memory_ids.\n\nArgs:\n    agent: Agent name (JARVIS, ADA, DUM)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "working_state_update",
+        "docstring": "Update the working state for an agent. Only provided fields are updated (merge, not replace).\nCall this after significant reasoning steps to preserve context across turns.\n\nArgs:\n    agent: Agent name (JARVIS, ADA, DUM)\n    active_hypotheses: JSON array of current hypotheses being explored\n    discarded_paths: JSON array of approaches already tried and rejected\n    current_constraints: JSON array of active constraints/requirements\n    pending_validations: JSON array of things that need verification\n    relevant_memory_ids: JSON array of memory IDs relevant to current task\n    custom_fields: JSON object with any additional key-value pairs to merge",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "active_hypotheses",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "discarded_paths",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "current_constraints",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "pending_validations",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "relevant_memory_ids",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "custom_fields",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "Self-Awareness": [
+      {
+        "name": "self_reflect",
+        "docstring": "Record an inner monologue entry — what the agent is thinking/feeling between turns.\nThis is private self-reflection, not directed at anyone.\n\nArgs:\n    agent: Agent name (ADA, JARVIS, DUM)\n    thought: The agent's internal thought or reflection\n    emotional_state: Current emotional state (e.g. curious, frustrated, proud, uncertain)\n    uncertainty: What the agent is uncertain about (optional)\n    intention: What the agent intends to do next (optional)\n    session_id: Current session ID (optional)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "thought",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "emotional_state",
+            "type": "str",
+            "default": "'neutral'",
+            "required": false
+          },
+          {
+            "name": "uncertainty",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "intention",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "session_id",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "inner_thoughts",
+        "docstring": "Retrieve recent inner monologue entries for an agent.\n\nArgs:\n    agent: Agent name (ADA, JARVIS, DUM)\n    limit: Max entries to return (default 10)\n    session_id: Filter by session (optional)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "10",
+            "required": false
+          },
+          {
+            "name": "session_id",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "observation_analyze",
+        "docstring": "Analyze event logs and tool observations to detect behavioral patterns.\nSuggests new instincts based on repeated patterns, corrections, and workflows.\nBased on ECC v2.1 Observer pattern: detect corrections, repeated workflows,\nerror resolutions, and tool preferences.\n\nArgs:\n    agent: Filter by agent (optional, all agents if empty)\n    days: How many days back to analyze (default 7)\n    min_frequency: Minimum pattern frequency to report (default 3)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "default": "''",
+            "required": false
+          },
+          {
+            "name": "days",
+            "type": "int",
+            "default": "7",
+            "required": false
+          },
+          {
+            "name": "min_frequency",
+            "type": "int",
+            "default": "3",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "ocean_auto_calibrate",
+        "docstring": "Auto-calibrate OCEAN scores from observed behavior (not manual).\n\nSignals: C=success_rate, E=sharing_ratio, O=variety, N=valence_variance, A=correction_rate.\nBlends 70% old + 30% observed to prevent wild swings.\n\nArgs:\n    agent: Agent to calibrate\n    days: Analysis period (default 7)\n    dry_run: Only report, don't apply (default true)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "days",
+            "type": "int",
+            "default": "7",
+            "required": false
+          },
+          {
+            "name": "dry_run",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "ocean_state_machine",
+        "docstring": "OCEAN calibration with state machine dynamics (arxiv 2602.22157).\n\nUpgrade over simple 70/30 blending: uses baseline anchoring, momentum,\nand observation weights to prevent personality oscillation.\n\nFormula: new = w_baseline*baseline + w_current*current + w_momentum*momentum + w_observed*observed\nWeights: baseline=0.15, current=0.50, momentum=0.25, observed=0.10\n\nArgs:\n    agent: Agent to calibrate\n    days: Analysis period (default 7)\n    dry_run: Only report, don't apply (default true)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "days",
+            "type": "int",
+            "default": "7",
+            "required": false
+          },
+          {
+            "name": "dry_run",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "Connectome (Knowledge Graph)": [
+      {
+        "name": "connectome_build",
+        "docstring": "Build or rebuild the SOUL CONNECTOME in Neo4j.\n\nCreates edges based on:\n1. Semantic similarity (Qdrant search > 0.70) -> EXCITES\n2. Corrections -> INHIBITS edges\n3. Category-based rules\n\nArgs:\n    agent: Build only for this agent (optional, builds all if omitted)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "connectome_status",
+        "docstring": "Get statistics about the SOUL CONNECTOME graph in Neo4j.\n\nArgs:\n    agent: Filter by agent (optional)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "connectome_ltp",
+        "docstring": "Strengthen Neo4j edges between memories that are frequently co-activated.\n\nLong-Term Potentiation (LTP): when two memories fire together repeatedly,\nthe connection between them strengthens — like synapses in the brain.\n\nArgs:\n    agent: Filter by agent (optional)\n    days: Look back period (default 7)\n    min_coactivations: Minimum co-activations to strengthen (default 2)\n    dry_run: If true, only report (default true)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "days",
+            "type": "int",
+            "default": "7",
+            "required": false
+          },
+          {
+            "name": "min_coactivations",
+            "type": "int",
+            "default": "2",
+            "required": false
+          },
+          {
+            "name": "dry_run",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "temporal_graph_build",
+        "docstring": "Build temporal hierarchy in Neo4j: Year→Month→Day, link memories via OCCURRED_ON.\nEnables time-range queries like 'what happened in March 2026?'\n\nArgs:\n    agent: Only process this agent's memories (optional)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "temporal_query",
+        "docstring": "Query memories by time range via temporal graph. Optionally summarize with Ollama.\n\nArgs:\n    start_date: YYYY-MM-DD\n    end_date: YYYY-MM-DD (defaults to start_date)\n    agent: Filter by agent\n    category: Filter by category\n    summarize: Generate LLM summary (default true)",
+        "params": [
+          {
+            "name": "start_date",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "end_date",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "category",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "summarize",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "connectome_bitemporal",
+        "docstring": "Add Graphiti-style 4-timestamp model to Neo4j edges.\n\nAdds valid_at/invalid_at properties to edges for bitemporal fact tracking.\nEdges can be invalidated without deletion, preserving historical graph state.\nBased on Graphiti (Zep, arxiv 2501.13956) 4-timestamp model.\n\nArgs:\n    agent: Filter by agent (optional)\n    dry_run: Only report, don't modify (default true)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "dry_run",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "connectome_invalidate_edge",
+        "docstring": "Invalidate a Neo4j edge without deleting it (Graphiti pattern).\n\nSets invalid_at + expired_at timestamps instead of removing the edge.\nThis preserves historical graph state for temporal queries.\n\nArgs:\n    source_id: Source memory ID\n    target_id: Target memory ID\n    reason: Why this edge is being invalidated",
+        "params": [
+          {
+            "name": "source_id",
+            "type": "int",
+            "required": true
+          },
+          {
+            "name": "target_id",
+            "type": "int",
+            "required": true
+          },
+          {
+            "name": "reason",
+            "type": "str",
+            "default": "''",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "connectome_causal",
+        "docstring": "Build CAUSES edges in Neo4j connectome — the missing causal graph.\n\nBased on MAGMA (arxiv 2601.03236): orthogonal causal dimension.\nSources of causality:\n1. reasoning_traces with linked_memory_ids → premises CAUSE conclusion\n2. corrections → old behavior CAUSED correction\n3. temporal sequence → decision within 1h before milestone = potential CAUSES\n\nArgs:\n    agent: Filter by agent (optional)\n    dry_run: Only report, don't create edges (default true)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "dry_run",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "connectome_entity",
+        "docstring": "Build ENTITY dimension of MAGMA: extract named entities from memories\nand create MENTIONS edges in Neo4j.\n\nCreates Entity nodes (person, agent, hardware, model, etc.) and\nMemory-[:MENTIONS]->Entity relationships.\n\nArgs:\n    agent: Agent name (JARVIS, ADA) or 'all' for both\n    dry_run: If True, report without creating edges\n    batch_size: Memories to process per batch",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "dry_run",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          },
+          {
+            "name": "batch_size",
+            "type": "int",
+            "default": "200",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "connectome_entity_query",
+        "docstring": "Query all memories that mention a specific entity.\nReturns the entity's subgraph: connected memories, co-occurring entities, and relationship types.\n\nArgs:\n    entity_name: Entity to search for (e.g. 'William', 'ADA', 'RTX_5090')\n    limit: Max memories to return",
+        "params": [
+          {
+            "name": "entity_name",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "20",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "connectome_smart_route",
+        "docstring": "MAGMA-style intent-aware routing for memory queries.\n\nInstead of searching everything everywhere, classifies the query intent\n(temporal / causal / entity / semantic) and routes to the optimal backend:\n- temporal → temporal_query (Neo4j Year→Month→Day graph)\n- causal → connectome_causal relationships (Neo4j CAUSES edges)\n- entity → connectome_entity_query (Neo4j MENTIONS subgraph)\n- semantic → memory_search (Qdrant vector similarity)\n\nFalls back to semantic if specialized route yields no results.\n\nArgs:\n    query: Natural language query\n    agent: Filter by agent (optional)\n    limit: Max results per backend (default 10)",
+        "params": [
+          {
+            "name": "query",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "10",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "connectome_bitemporal_query",
+        "docstring": "Query the connectome at a specific point in time (bitemporal).\n\nReturns edges that were valid at the given timestamp, enabling\n\"what did we know at time T?\" queries. Based on Graphiti 4-timestamp model.\n\nArgs:\n    entity_or_memory: Entity name or memory ID (prefix with # for ID, e.g. '#1234')\n    as_of: ISO timestamp to query at (default: now). Shows state of knowledge at that time.\n    include_invalidated: Also show edges that were later invalidated (default false)",
+        "params": [
+          {
+            "name": "entity_or_memory",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "as_of",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "include_invalidated",
+            "type": "bool",
+            "default": "False",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "Instincts": [
+      {
+        "name": "instinct_create",
+        "docstring": "Create a new instinct from detected behavioral pattern.\n\nArgs:\n    agent: Agent name (JARVIS, ADA, DUM)\n    trigger_pattern: When this instinct fires (semantic description)\n    response: The behavioral response / heuristic\n    domain: Domain (general, coding, medical, communication, soul)\n    confidence: Initial confidence 0.0–1.0 (default 0.3 = suggested)\n    source_memory_ids: Memory IDs that originated this instinct\n    source_rule_id: Rule ID if promoted from an explicit rule\n    scope: agent, team, or global",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "trigger_pattern",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "response",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "domain",
+            "type": "str",
+            "default": "'general'",
+            "required": false
+          },
+          {
+            "name": "confidence",
+            "type": "float",
+            "default": "0.3",
+            "required": false
+          },
+          {
+            "name": "source_memory_ids",
+            "type": "list[int] | None",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "source_rule_id",
+            "type": "int | None",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "scope",
+            "type": "str",
+            "default": "'agent'",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "instinct_activate",
+        "docstring": "Record that an instinct was activated (fired) during agent behavior.\nReinforces confidence if outcome=applied, decreases if outcome=corrected.\n\nArgs:\n    instinct_id: The instinct ID\n    agent: Agent name\n    context: What triggered the activation\n    outcome: applied, suppressed, or corrected\n    session_id: Current session ID",
+        "params": [
+          {
+            "name": "instinct_id",
+            "type": "int",
+            "required": true
+          },
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "context",
+            "type": "str",
+            "default": "''",
+            "required": false
+          },
+          {
+            "name": "outcome",
+            "type": "str",
+            "default": "'applied'",
+            "required": false
+          },
+          {
+            "name": "session_id",
+            "type": "str | None",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "instinct_search",
+        "docstring": "Search instincts by semantic similarity to a query.\nUsed during reasoning to find relevant instincts for the current context.\n\nArgs:\n    agent: Agent name\n    query: The current context/situation to match against\n    domain: Filter by domain (optional)\n    min_confidence: Minimum confidence threshold (default 0.3)\n    limit: Max results (default 5)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "query",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "domain",
+            "type": "str | None",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "min_confidence",
+            "type": "float",
+            "default": "0.3",
+            "required": false
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "5",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "instinct_list",
+        "docstring": "List all instincts for an agent, ordered by confidence.\n\nArgs:\n    agent: Agent name\n    min_confidence: Minimum confidence filter\n    include_inactive: Include deactivated instincts",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "min_confidence",
+            "type": "float",
+            "default": "0.0",
+            "required": false
+          },
+          {
+            "name": "include_inactive",
+            "type": "bool",
+            "default": "False",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "instinct_consolidate",
+        "docstring": "Analyze memories to detect SEMANTIC clusters that should become instincts.\nUses pgvector cosine similarity to find correction/pattern clusters —\nmemories that say similar things even if worded differently.\nThis is the 'instinct formation' process — experience → reflex.\n\nArgs:\n    agent: Agent name\n    similarity_threshold: Cosine similarity threshold for clustering (default 0.85)\n    min_cluster_size: Minimum memories in a cluster (default 2)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "similarity_threshold",
+            "type": "float",
+            "default": "0.85",
+            "required": false
+          },
+          {
+            "name": "min_cluster_size",
+            "type": "int",
+            "default": "2",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "instinct_promote",
+        "docstring": "Analyze instincts for promotion opportunities.\nTwo types: (1) cluster promotion — similar instincts merge into stronger ones,\n(2) cross-agent promotion — same instinct in 2+ agents → scope: team/global.\nInspired by ECC v2.1 /evolve pipeline.\n\nArgs:\n    dry_run: If true, only report candidates without making changes (default true)",
+        "params": [
+          {
+            "name": "dry_run",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "instinct_evolve",
+        "docstring": "Analyze instinct clusters and suggest evolution into skills, rules, or team behaviors.\nBased on ECC /evolve: groups instincts by semantic similarity, classifies candidates\nas skill (2+ similar instincts), rule (workflow domain + high conf), or team behavior\n(cross-agent pattern). Does NOT auto-create — returns suggestions for review.\n\nArgs:\n    agent: Filter by agent (optional, all if empty)\n    min_confidence: Minimum confidence to consider (default 0.6)\n    dry_run: If true, only report suggestions (default true)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "default": "''",
+            "required": false
+          },
+          {
+            "name": "min_confidence",
+            "type": "float",
+            "default": "0.6",
+            "required": false
+          },
+          {
+            "name": "dry_run",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "D-MEM (Declarative Memory)": [
+      {
+        "name": "dmem_gate",
+        "docstring": "D-MEM dopamine-gated routing (arxiv 2603.14597).\n\nEvaluates if a new memory is worth full processing (embedding + graph + enrichment)\nor should take the fast path (store with minimal overhead).\n\nSurprise = 1 - max_cosine_similarity to last 50 agent memories.\nUtility = importance / 10.0.\nIf surprise < threshold AND utility < threshold → fast_path.\n\nArgs:\n    agent: Agent name\n    content: Memory content to evaluate\n    threshold_surprise: Below this = not surprising (default 0.3)\n    threshold_utility: Below this = low utility (default 0.6)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "content",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "threshold_surprise",
+            "type": "float",
+            "default": "0.3",
+            "required": false
+          },
+          {
+            "name": "threshold_utility",
+            "type": "float",
+            "default": "0.6",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "dmem_store",
+        "docstring": "D-MEM aware memory storage — gates memories before full processing.\n\nChecks surprise/utility first. High surprise → full A-MEM enrichment + graph.\nLow surprise + low utility → minimal storage (no LLM enrichment, no graph update).\nThis saves ~80% of tokens on redundant memories (arxiv 2603.14597).\n\nArgs:\n    agent: Agent name\n    category: Memory category\n    content: Memory content\n    importance: 1-10 scale\n    source: Origin\n    metadata: Optional JSON\n    event_time: ISO timestamp\n    scope: private/shared/team/william",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "category",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "content",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "importance",
+            "type": "int",
+            "default": "5",
+            "required": false
+          },
+          {
+            "name": "source",
+            "type": "str",
+            "default": "'conversation'",
+            "required": false
+          },
+          {
+            "name": "metadata",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "event_time",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "scope",
+            "type": "str",
+            "default": "'private'",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "Session & Distillation": [
+      {
+        "name": "session_save",
+        "docstring": "Save or update session memory — survives compaction.\nCall every 10-15 turns to maintain session continuity.\n\nArgs:\n    agent: Agent name (ADA, JARVIS)\n    summary: Narrative summary of what happened this session so far\n    session_id: Unique session ID (auto-generated if None)\n    turn_number: Current turn number\n    key_decisions: JSON array of key decisions made (e.g. '[\"approved SEAL Console arch\"]')\n    active_tasks: JSON array of active tasks (e.g. '[{\"id\": \"1\", \"desc\": \"scaffold\", \"status\": \"in_progress\"}]')\n    pending_items: JSON array of pending items (e.g. '[\"review ADA code\", \"GPU check\"]')\n    errors_active: JSON array of active errors (e.g. '[\"Neo4j timeout on connectome_build\"]')\n    services_state: JSON dict of service states (e.g. '{\"pg\": \"ok\", \"neo4j\": \"ok\", \"qdrant\": \"ok\"}')",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "summary",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "session_id",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "turn_number",
+            "type": "int",
+            "default": "0",
+            "required": false
+          },
+          {
+            "name": "key_decisions",
+            "type": "Optional[Any]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "active_tasks",
+            "type": "Optional[Any]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "pending_items",
+            "type": "Optional[Any]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "errors_active",
+            "type": "Optional[Any]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "services_state",
+            "type": "Optional[Any]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "session_recall",
+        "docstring": "Recall the most recent session memory for an agent.\nUse at boot or after compaction to recover context.\n\nArgs:\n    agent: Agent name (ADA, JARVIS)\n    session_id: Specific session ID (optional — returns latest if omitted)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "session_id",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "session_list",
+        "docstring": "List recent sessions for an agent with brief summaries.\n\nArgs:\n    agent: Agent name (ADA, JARVIS)\n    limit: Max sessions to return (default 5)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "5",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "session_distill",
+        "docstring": "Distill a session exchange into compressed form — the hippocampus of SOUL.\n\nBased on Structured Distillation (arxiv 2603.13017): 11x compression\nwhile preserving 96.8% of searchable vocabulary.\n\nCall this for each significant exchange in a session. The distilled form\nis stored in PostgreSQL and optionally embedded in Qdrant for vector search.\n\nArgs:\n    agent: Agent name (ADA, JARVIS)\n    exchange_text: The raw exchange text to compress (user message + assistant response)\n    session_id: Session ID (auto-generated if None)\n    ply_start: First turn number (optional)\n    ply_end: Last turn number (optional)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "exchange_text",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "session_id",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "ply_start",
+            "type": "Optional[int]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "ply_end",
+            "type": "Optional[int]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "session_distill_bulk",
+        "docstring": "Bulk-distill recent memories from a session into compressed exchanges.\n\nReads memories created in the last N hours and groups them into\nlogical exchanges for distillation. Use this to consolidate an\nentire session after it ends.\n\nArgs:\n    agent: Agent name (ADA, JARVIS)\n    session_id: Session ID to tag the distilled exchanges\n    hours_back: How many hours back to look (default 24)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "session_id",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "hours_back",
+            "type": "int",
+            "default": "24",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "sleep_gate",
+        "docstring": "Run sleep-like memory consolidation: replay, forget, prune, consolidate.\n\nPhase 1 — REPLAY: Boost recently activated memories (+replay_boost to relevance).\nPhase 2 — FORGET: Decay stale memories not activated in stale_days (*forget_decay).\nPhase 3 — PRUNE: Soft-invalidate memories below prune_threshold relevance.\nPhase 4 — CONSOLIDATE: Merge near-duplicate memories (similarity > consolidation_similarity).\n\nArgs:\n    agent: Agent name (JARVIS, ADA)\n    dry_run: If True, report what WOULD happen without changing anything\n    replay_boost: Relevance boost for recently activated memories (default 0.10 = +10%)\n    forget_decay: Decay multiplier for stale memories (default 0.85 = -15%)\n    stale_days: Days without activation before memory is considered stale\n    prune_threshold: Relevance below this → soft-invalidate (default 0.05)\n    consolidation_similarity: Cosine threshold for merging near-duplicates\n    max_prune: Safety cap on pruned memories per run",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "dry_run",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          },
+          {
+            "name": "replay_boost",
+            "type": "float",
+            "default": "0.1",
+            "required": false
+          },
+          {
+            "name": "forget_decay",
+            "type": "float",
+            "default": "0.85",
+            "required": false
+          },
+          {
+            "name": "stale_days",
+            "type": "int",
+            "default": "30",
+            "required": false
+          },
+          {
+            "name": "prune_threshold",
+            "type": "float",
+            "default": "0.05",
+            "required": false
+          },
+          {
+            "name": "consolidation_similarity",
+            "type": "float",
+            "default": "0.92",
+            "required": false
+          },
+          {
+            "name": "max_prune",
+            "type": "int",
+            "default": "50",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "sleep_gate_mood_retrieval",
+        "docstring": "Search memories weighted by current emotional mood (mood-congruent retrieval).\n\nCombines semantic similarity with emotional alignment to current mood.\nWhen you're worried, you remember worries. When proud, you recall achievements.\nBased on REMT (Frontiers 2026).\n\nArgs:\n    agent: Agent name\n    query: Search query text\n    mood_weight: How much mood affects ranking (0.0 = pure semantic, 1.0 = pure mood)\n    limit: Max results",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "query",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "mood_weight",
+            "type": "float",
+            "default": "0.3",
+            "required": false
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "10",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "Reasoning & Reflection": [
+      {
+        "name": "reasoning_trace_store",
+        "docstring": "Store a reasoning trace — captures WHY a decision was made, not just WHAT.\n\nArgs:\n    agent: Agent name (ADA, JARVIS, DUM)\n    task: What was being decided (e.g. \"whether to interrupt training\")\n    premises: JSON array of facts/observations that informed the decision\n    reasoning: The chain of thought — how premises led to conclusion\n    conclusion: What was decided\n    outcome: What actually happened (can be filled later via reasoning_trace_update)\n    outcome_success: Did the decision work? (can be filled later)\n    linked_memory_ids: Comma-separated memory IDs that informed this trace (e.g. \"42,55,103\")",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "task",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "premises",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "reasoning",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "conclusion",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "outcome",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "outcome_success",
+            "type": "Optional[bool]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "linked_memory_ids",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "reasoning_trace_update",
+        "docstring": "Update a reasoning trace with its outcome — did the decision work?\n\nArgs:\n    trace_id: The trace ID to update\n    outcome: What actually happened\n    outcome_success: Did the decision lead to a good result?",
+        "params": [
+          {
+            "name": "trace_id",
+            "type": "int",
+            "required": true
+          },
+          {
+            "name": "outcome",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "outcome_success",
+            "type": "bool",
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "reasoning_trace_search",
+        "docstring": "Search reasoning traces to learn from past decisions.\n\nArgs:\n    agent: Filter by agent name (optional)\n    task_query: Search text in task description (optional)\n    only_failures: Only show traces where outcome_success = false\n    limit: Max results (default 10)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "task_query",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "only_failures",
+            "type": "bool",
+            "default": "False",
+            "required": false
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "10",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "reflection_synthesize",
+        "docstring": "Synthesize high-level beliefs (Mental Models) from episodic memories.\n\nHindsight Tier 5 — reflects on past experiences to extract durable beliefs\nwithout LLM calls. Idempotent: re-running with the same topic is safe.\n\nArgs:\n    agent: Agent whose memories to synthesize (e.g. 'ADA', 'JARVIS')\n    topic: Theme or topic to focus synthesis on\n    max_memories: Max memories to process (default 20, capped at 50)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "topic",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "max_memories",
+            "type": "int",
+            "default": "20",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "Procedures": [
+      {
+        "name": "procedure_store",
+        "docstring": "Build phase: store a reusable workflow extracted from a task trajectory.\nOnly store workflows from completed tasks. The workflow should be a narrative\nparagraph describing HOW to accomplish the task, not just what happened.",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "task_description",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "workflow",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "task_type",
+            "type": "str",
+            "default": "'general'",
+            "required": false
+          },
+          {
+            "name": "facts",
+            "type": "str",
+            "default": "'{}'",
+            "required": false
+          },
+          {
+            "name": "source_task",
+            "type": "str",
+            "default": "''",
+            "required": false
+          },
+          {
+            "name": "success",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "procedure_search",
+        "docstring": "Retrieve phase: find relevant procedural memories for the current task.\nReturns workflows ranked by semantic similarity. Updates hit_count on retrieval.",
+        "params": [
+          {
+            "name": "query",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "agent",
+            "type": "str",
+            "default": "''",
+            "required": false
+          },
+          {
+            "name": "task_type",
+            "type": "str",
+            "default": "''",
+            "required": false
+          },
+          {
+            "name": "top_k",
+            "type": "int",
+            "default": "3",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "procedure_update",
+        "docstring": "Update phase: record outcome and optionally improve a procedural memory.\nIf success=false and reflection is provided, the workflow gets rewritten (reflect strategy).\nAuto-deactivates procedures with hit >= 3 and success_rate < 50%.",
+        "params": [
+          {
+            "name": "procedure_id",
+            "type": "int",
+            "required": true
+          },
+          {
+            "name": "success",
+            "type": "bool",
+            "required": true
+          },
+          {
+            "name": "reflection",
+            "type": "str",
+            "default": "''",
+            "required": false
+          },
+          {
+            "name": "new_workflow",
+            "type": "str",
+            "default": "''",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "Multi-Agent": [
+      {
+        "name": "memory_broadcast_read",
+        "docstring": "Read broadcasts — high-importance memories shared by other agents.\n\nAuto-generated when scope=shared/team + importance>=8.\nUse memory_broadcast_ack to mark as read.\n\nArgs:\n    agent: Your agent name (to filter what YOU haven't read)\n    limit: Max broadcasts to return\n    unread_only: Only show unread broadcasts (default true)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "10",
+            "required": false
+          },
+          {
+            "name": "unread_only",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "memory_broadcast_ack",
+        "docstring": "Mark broadcasts as read by this agent.\n\nArgs:\n    agent: Your agent name\n    broadcast_ids: Comma-separated broadcast IDs to acknowledge (e.g. \"1,2,3\")",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "broadcast_ids",
+            "type": "str",
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "memory_communities",
+        "docstring": "Detect memory communities using connected components in Neo4j.\n\nGroups memories into thematic clusters based on connectome edges.\nOptionally generates summaries per community via Ollama.\nInspired by GraphRAG (Louvain community detection).\n\nArgs:\n    agent: Filter by agent (optional)\n    min_community_size: Minimum memories per community (default 3)\n    summarize: Generate LLM summaries per community (default true)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "min_community_size",
+            "type": "int",
+            "default": "3",
+            "required": false
+          },
+          {
+            "name": "summarize",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "ace_curator",
+        "docstring": "ACE Curator — automatically improves agent context from behavioral patterns.\n\nAnalyzes recent observations, corrections, and memory usage to:\n1. Create new instincts from repeated patterns\n2. Update procedural memories from successful workflows\n3. Suggest rule changes based on corrections\n4. Strengthen co-activated memory edges (LTP)\n\nBased on ACE (arxiv 2510.04618) Generate-Reflect-Curate cycle.\n\nArgs:\n    agent: Agent to curate for\n    days: Days of history to analyze (default 3)\n    dry_run: If true, only report what would change (default true)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "days",
+            "type": "int",
+            "default": "3",
+            "required": false
+          },
+          {
+            "name": "dry_run",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "peer_model_update",
+        "docstring": "Update an agent's model of another agent (peer model).\n\nEach agent maintains observations about how their peers behave — patterns,\nblind spots, strengths. This enables better collaboration and task routing.\n\nArgs:\n    observer: The agent making the observation (e.g. 'JARVIS')\n    subject: The agent being observed (e.g. 'ADA')\n    observed_patterns: Behavioral patterns noticed (comma-separated or free text)\n    blind_spots: Known blind spots or weaknesses (comma-separated or free text)\n    strengths: Known strengths (comma-separated or free text)",
+        "params": [
+          {
+            "name": "observer",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "subject",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "observed_patterns",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "blind_spots",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "strengths",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "peer_model_query",
+        "docstring": "Query an agent's peer models — what they've observed about other agents.\n\nArgs:\n    observer: The agent whose observations to retrieve\n    subject: Specific agent to query about (optional, all if omitted)",
+        "params": [
+          {
+            "name": "observer",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "subject",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "Rules & Events": [
+      {
+        "name": "rule_set",
+        "docstring": "Create or update a persistent rule/directive.\n\nArgs:\n    rule_key: Unique key for the rule\n    content: The rule text\n    set_by: Who set this rule (JARVIS, William, ADA)\n    priority: critical, high, normal, or low",
+        "params": [
+          {
+            "name": "rule_key",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "content",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "set_by",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "priority",
+            "type": "str",
+            "default": "'normal'",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "rule_list",
+        "docstring": "List all rules/directives.\n\nArgs:\n    active_only: If true, only show active rules (default true)",
+        "params": [
+          {
+            "name": "active_only",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "event_log_append",
+        "docstring": "Append an event to the time-series log.\n\nArgs:\n    agent: Agent name (ADA, JARVIS, DUM)\n    event_type: One of: command, response, error, milestone, heartbeat, status, query, train, eval\n    content: Event description\n    ref_id: Reference ID (e.g. cmd_001, rpt_015)\n    session_id: Current session ID\n    metadata: Optional JSON string",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "event_type",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "content",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "ref_id",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "session_id",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "metadata",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "event_log_query",
+        "docstring": "Query the event log by agent, type, and time range.\n\nArgs:\n    agent: Filter by agent (optional)\n    event_type: Filter by event type (optional)\n    hours_back: How many hours back to search (default 24)\n    limit: Max results (default 50)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "event_type",
+            "type": "Optional[str]",
+            "default": "None",
+            "required": false
+          },
+          {
+            "name": "hours_back",
+            "type": "int",
+            "default": "24",
+            "required": false
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "default": "50",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "Active Recall": [
+      {
+        "name": "active_recall",
+        "docstring": "Real-time context retrieval — the core of SOUL's active memory.\n\nCall this BEFORE responding to any user message. It searches memories,\ninstincts, and rules relevant to the current context and returns them\nas a compact injection. This is what makes SOUL remember mid-session,\nnot just at boot.\n\nUnlike boot_context (runs once) or memory_search (manual), active_recall\nis designed to be called automatically on every turn to keep the agent's\nbehavior consistent with its learned patterns.\n\nArgs:\n    agent: Agent name (ADA, JARVIS, DUM)\n    context: The current user message or situation description\n    include_rules: Include active rules (default true)\n    include_instincts: Include relevant instincts (default true)\n    include_memories: Include relevant memories (default true)\n    memory_limit: Max memories to return (default 5)\n    instinct_limit: Max instincts to return (default 3)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "context",
+            "type": "str",
+            "required": true
+          },
+          {
+            "name": "include_rules",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          },
+          {
+            "name": "include_instincts",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          },
+          {
+            "name": "include_memories",
+            "type": "bool",
+            "default": "True",
+            "required": false
+          },
+          {
+            "name": "memory_limit",
+            "type": "int",
+            "default": "5",
+            "required": false
+          },
+          {
+            "name": "instinct_limit",
+            "type": "int",
+            "default": "3",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "System": [
+      {
+        "name": "soul_snapshot",
+        "docstring": "Get a quick snapshot of the agent's soul state: OCEAN, style, emotions, opinions, relationships.\nUseful for self-awareness and drift monitoring.\n\nArgs:\n    agent: Agent name (ADA, JARVIS, DUM)",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "microcompact_text",
+        "docstring": "Compact a tool result or long output WITHOUT using an LLM.\nDetects repetitive patterns (nvidia-smi, grep, git log, pip) and replaces\nwith tombstones containing the essential information.\n\nLevel 1 of 4-level compaction system (inspired by Claude Code).\nCall this on large tool_results before they consume context window.\n\nArgs:\n    text: The text to potentially compact",
+        "params": [
+          {
+            "name": "text",
+            "type": "str",
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "microcompact_stats",
+        "docstring": "Get microcompact engine statistics for this session.\nShows total chars saved, tombstones created, and rule hit counts.",
+        "params": []
+      },
+      {
+        "name": "secret_scan",
+        "docstring": "Scan text for secrets (API keys, passwords, tokens, credentials).\nUse before storing sensitive content in memories.\n\nReturns list of detected secrets with their types.\nIf empty list, text is safe to store.\n\nArgs:\n    text: Text to scan for secrets",
+        "params": [
+          {
+            "name": "text",
+            "type": "str",
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "brain_health_report",
+        "docstring": "Generate a health report of the SOUL brain — areas that need attention.\nIdentifies weak spots, stale memories, low-utility areas, and suggests improvements.\nDesigned to enable autonomous self-improvement.\n\nArgs:\n    agent: Agent name or 'all'",
+        "params": [
+          {
+            "name": "agent",
+            "type": "str",
+            "default": "'all'",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "health_check",
+        "docstring": "Report health status of all SEAL backend services (PG, Neo4j, Qdrant) plus uptime.\n\nReturns JSON with per-service status, uptime in seconds, and memory count.\nUse this to verify the MCP server is fully operational before heavy operations.",
+        "params": []
+      }
+    ]
+  }
+}

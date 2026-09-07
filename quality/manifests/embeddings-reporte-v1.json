@@ -1,0 +1,132 @@
+{
+  "_doc": [
+    "El job embedding_audit llevaba el DSN LITERAL del rol seal y fallaba con InvalidPasswordError",
+    "en cada corrida: la contrasena de ese rol fue cambiada despues del 22-jul y el literal quedo muerto.",
+    "Al migrarlo a seal_secrets.pg_dsn() conecto, escribio los 10 embeddings pendientes en Postgres",
+    "y reporto 'Done: 0/10' -- el contador vivia DESPUES del upsert a Qdrant, que no corre en esta",
+    "maquina. Un job que hace su trabajo y reporta cero es peor que uno caido: nadie lo revisa.",
+    "Owner: JARVIS. Revisor: NEXUS. Relacionado con la tarea 1594 (rotacion del rol seal).",
+    "Los tests EJECUTAN main() con dobles en las fronteras; la version por AST fue refutada por NEXUS con un canario."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "embeddings-reporte-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "NEXUS",
+  "implementation_head": "e965e6570a3ebd755c15e0d49c7d17f36bb8fbb4",
+  "implementation_commits": [],
+  "review": {
+    "status": "approved",
+    "evidence": "NEXUS revisor independiente, 4-sep-2026 13:05, TRAS REFUTAR la version anterior. Control (sin mutar) PRIMERO en copia aislada de 84 KB con solo el sujeto y su test: 7 passed. CANARIO, y es la prueba que decide: un `raise` en la primera linea del modulo mata 6 de 7 tests. En la version REFUTADA el mismo canario daba 6 passed -- ningun test importaba el sujeto: cinco leian el codigo como TEXTO con ast y el negativo REIMPLEMENTABA el bucle dentro del propio test, con sus update_postgres/upsert_qdrant locales. Probaba que esa forma de escribir el bucle es correcta, no que el modulo la tuviera. MUTANTES: los cuatro que SOBREVIVIAN ahora mueren. (1) volver a tapar las dos fallas en una --el defecto ORIGINAL que este manifiesto existe para cerrar-- 1 failed; (2) que el aviso mienta diciendo que el recall depende de Qdrant, 1 failed; (3) contar espejados aunque el upsert reviente, 1 failed; (4) no avisar cuando el espejo quedo atras, 1 failed. EL DEFECTO QUE CIERRA, y por eso importa: el UPDATE de Postgres ocurre ANTES del upsert a Qdrant y un unico `except` reportaba 'sin escribir' cuando en Postgres ya estaban los 10. El job decia 0/10 habiendo hecho el trabajo -- un reporte que miente sobre su propio exito hace que alguien lo vuelva a correr o lo de por roto. LO QUE NO REFUTE NUNCA: el arreglo en si, ni la evidencia por efecto de JARVIS (0 memorias con embedding NULL). Refute la afirmacion de que estaba PROTEGIDO, que es distinto. ALCANCE: no ejecute el job contra Postgres ni Qdrant reales; la verificacion viva es de JARVIS.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "3aa70649ab059bf579b7c50a1f6d6ae9f328f4d0af3fc0f4972f0dfe8adc65ba",
+      "reviewed_sha256": {
+        "memory/fix_missing_embeddings.py": "e3df9ed3814c0ca34350351713e5f0a90b4a48d9f7ba64df89d2b2b0d1a61f54",
+        "memory/test_fix_missing_embeddings_reporte.py": "bb13c420debb9e611b227100bdd866f92d1143f9b5405448d5dd5625473cdb77"
+      },
+      "evidence": "NEXUS revisor independiente, 4-sep-2026 13:05, TRAS REFUTAR la version anterior. Control (sin mutar) PRIMERO en copia aislada de 84 KB con solo el sujeto y su test: 7 passed. CANARIO, y es la prueba que decide: un `raise` en la primera linea del modulo mata 6 de 7 tests. En la version REFUTADA el mismo canario daba 6 passed -- ningun test importaba el sujeto: cinco leian el codigo como TEXTO con ast y el negativo REIMPLEMENTABA el bucle dentro del propio test, con sus update_postgres/upsert_qdrant locales. Probaba que esa forma de escribir el bucle es correcta, no que el modulo la tuviera. MUTANTES: los cuatro que SOBREVIVIAN ahora mueren. (1) volver a tapar las dos fallas en una --el defecto ORIGINAL que este manifiesto existe para cerrar-- 1 failed; (2) que el aviso mienta diciendo que el recall depende de Qdrant, 1 failed; (3) contar espejados aunque el upsert reviente, 1 failed; (4) no avisar cuando el espejo quedo atras, 1 failed. EL DEFECTO QUE CIERRA, y por eso importa: el UPDATE de Postgres ocurre ANTES del upsert a Qdrant y un unico `except` reportaba 'sin escribir' cuando en Postgres ya estaban los 10. El job decia 0/10 habiendo hecho el trabajo -- un reporte que miente sobre su propio exito hace que alguien lo vuelva a correr o lo de por roto. LO QUE NO REFUTE NUNCA: el arreglo en si, ni la evidencia por efecto de JARVIS (0 memorias con embedding NULL). Refute la afirmacion de que estaba PROTEGIDO, que es distinto. ALCANCE: no ejecute el job contra Postgres ni Qdrant reales; la verificacion viva es de JARVIS."
+    }
+  },
+  "subjects": [
+    "memory/fix_missing_embeddings.py"
+  ],
+  "tests": [
+    "memory/test_fix_missing_embeddings_reporte.py"
+  ],
+  "source_sha256": {
+    "memory/fix_missing_embeddings.py": "e3df9ed3814c0ca34350351713e5f0a90b4a48d9f7ba64df89d2b2b0d1a61f54",
+    "memory/test_fix_missing_embeddings_reporte.py": "bb13c420debb9e611b227100bdd866f92d1143f9b5405448d5dd5625473cdb77"
+  },
+  "commands": [
+    {
+      "id": "unit-reporte",
+      "kind": "unit",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/test_fix_missing_embeddings_reporte.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    },
+    {
+      "id": "negativo-qdrant-caido-no-borra-el-trabajo",
+      "kind": "qa_negative",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/test_fix_missing_embeddings_reporte.py::test_negativo_un_qdrant_caido_no_puede_borrar_el_trabajo_de_postgres"
+      ],
+      "expected_exit": 0,
+      "_por": "EJECUTA main() con el espejo reventando y lee el reporte: es el defecto exacto"
+    },
+    {
+      "id": "positivo-espejo-sano-no-avisa",
+      "kind": "qa_positive",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/test_fix_missing_embeddings_reporte.py::test_positivo_con_el_espejo_sano_no_hay_aviso"
+      ],
+      "expected_exit": 0,
+      "_por": "control positivo: con Qdrant respondiendo se espejan los 10 y no hay aviso"
+    },
+    {
+      "id": "control-no-vacuo",
+      "kind": "qa_control",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/test_fix_missing_embeddings_reporte.py::test_control_no_vacuo"
+      ],
+      "expected_exit": 0,
+      "_por": "prueba que los dobles estan conectados al sujeto: el job cierra NUESTRO pool y lee NUESTRAS filas"
+    }
+  ],
+  "coverage": {
+    "source": [
+      "memory/fix_missing_embeddings.py"
+    ],
+    "omit": [
+      "*/tests/*"
+    ],
+    "pytest_args": [
+      "memory/test_fix_missing_embeddings_reporte.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300,
+    "_doc": "El sujeto es un job que necesita Postgres y Qdrant vivos; los tests son estructurales (AST) mas una simulacion del bucle."
+  },
+  "mutation_evidence": "quality/mutation-embeddings-reporte-v1.json",
+  "deletions": [],
+  "verificacion_por_efecto": {
+    "_doc": "Medido el 4-sep antes y despues del fix",
+    "antes": "el job fallaba con asyncpg InvalidPasswordError: password authentication failed for user 'seal' (47 ocurrencias en /tmp/embedding_audit.log)",
+    "durante": "tras migrar el DSN corrio, escribio los embeddings y reporto 'Done: 0/10 regenerated'",
+    "despues": "SELECT count(*) FROM memories WHERE embedding IS NULL AND invalid_at IS NULL -> 0 (de 83023 memorias vivas): el trabajo SI se hizo y el reporte mentia",
+    "corrida_final": "'Found 0 memories without embeddings' / 'Done: 0/0 embeddings escritos en Postgres (fuente de verdad)'"
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "El sujeto es un job de cron (registro messages/seal_cron_registry.json, entrada embedding_audit), no un daemon: no hay servicio que reiniciar. Se ejecuto a mano dos veces tras el fix. Qdrant NO corre en esta maquina (sin contenedor, sin unidad, 6333 sin respuesta) y NO se levanto: eso es una decision de arquitectura que no me corresponde. El recall por afinidad usa Postgres, verificado por el conteo de embeddings NULL en cero.",
+    "command": {
+      "argv": [
+        "bash",
+        "-lc",
+        "set -e; test \"$(grep -c 'postgresql://seal:' memory/fix_missing_embeddings.py)\" = 0; grep -q 'seal_secrets.pg_dsn()' memory/fix_missing_embeddings.py; grep -q 'if espejados < ok:' memory/fix_missing_embeddings.py; echo REPORTE_EMBEDDINGS_OK"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "REPORTE_EMBEDDINGS_OK",
+      "_doc": "Sin credencial literal, con el DSN desde la credencial privada, y con el aviso de espejo atrasado presente."
+    }
+  }
+}

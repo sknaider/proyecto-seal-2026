@@ -1,0 +1,116 @@
+{
+  "_doc": [
+    "3-sep-2026 (ADA): agent_lifecycle.FABLE=manual expresa juez a demanda, no una caída.",
+    "El Stability Guard revivió monitor y heartbeat de FABLE 104 segundos después del apagado deliberado y mantuvo denominadores fijos.",
+    "Este cambio hace que reparación, observación, denominadores y procedencia de reinicios consuman la misma intención lifecycle; si la intención no puede leerse, no repara unidades sensibles.",
+    "4-sep-2026 (ADA): el mismo contrato consume /etc/seal/alice_cuerpo_activo; ALICE-V2 implica que entradas, websocket, monitor y heartbeat del cuerpo v1 están inactivos a propósito y no deben revivirse."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "stability-guard-lifecycle-intent-v1",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "pending",
+    "evidence": "ADA: 57 pruebas focales verdes, 8/8 mutantes muertos; guard vivo GREEN después del cutover con las entradas de ALICE v1 inactivas, timer v2 activo y resultado del oneshot verificado. Pendiente reproducción y recibo de NEXUS.",
+    "reviewed_sha256": {
+      "scripts/seal_agent_stability_guard.py": "a4803519ddecb290b396fcad5691e75de158088aef972f1d2a3bb738257feacc",
+      "tests/test_seal_agent_stability_guard_lifecycle.py": "58ae2a420c907bc4c8510a672bc2ea2d0217ba01ffe25ee2a502cfb4ec358a6b",
+      "scripts/test_seal_agent_stability_guard_cutover.py": "ddfc4033194adfcf4d8156a0c30ad08cc02a9b77e27326cfd9e043128d6b94cf"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "scripts/seal_agent_stability_guard.py"
+  ],
+  "tests": [
+    "tests/test_seal_agent_stability_guard_lifecycle.py",
+    "scripts/test_seal_agent_stability_guard_cutover.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-lifecycle-contract",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_seal_agent_stability_guard_lifecycle.py",
+        "scripts/test_seal_agent_stability_guard_cutover.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-dynamic-denominators",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_seal_agent_stability_guard_lifecycle.py::test_lifecycle_manual_fable_changes_expected_denominators"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-no-revival",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_seal_agent_stability_guard_lifecycle.py::test_manual_fable_units_are_observed_but_never_restarted"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-autonomy-transition",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_seal_agent_stability_guard_lifecycle.py::test_manual_fable_transition_is_not_reported_as_restart_bypass"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "scripts/seal_agent_stability_guard.py"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tests/test_seal_agent_stability_guard_lifecycle.py",
+      "scripts/test_seal_agent_stability_guard_cutover.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-stability-guard-lifecycle-intent-v1.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Con ALICE-V2 seleccionada, dos ciclos reales conservaron seis entradas v1 y once timers inactivos, mantuvieron seal-alice-v2-heartbeat.timer activo; el guard reportó GREEN, ws=3/3, monitors=2/2, hb=3/3 y cero issues. El contrato previo de FABLE manual permanece cubierto por las pruebas.",
+    "command": {
+      "id": "delivery-lifecycle-contract",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_seal_agent_stability_guard_lifecycle.py",
+        "scripts/test_seal_agent_stability_guard_cutover.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "12 passed"
+    }
+  }
+}

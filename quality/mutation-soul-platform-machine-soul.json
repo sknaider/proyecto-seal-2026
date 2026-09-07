@@ -1,0 +1,104 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "pytest plus DARWIN independently executed isolated fault-injection mutants bound to current Platform subject/test SHA-256 values",
+  "workspace": "Each of ten fail-closed behavior/source mutants ran in a fresh TemporaryDirectory copy covering ledger/audit truncation, partial outcome truthfulness, ambient proxy leaks, Unix and Windows recovery, and bundled provenance. Production files and daemons were not mutated.",
+  "killed": 10,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 10,
+  "mutation_score_percent": 100.0,
+  "reviewer": "DARWIN",
+  "file_sha256": {
+    "soul-platform/README.md": "7d564ff00cf5621167f0e198937fa589110dc9701fb291afd8e60397547636fc",
+    "soul-platform/demos/comparar_soul.py": "5a3d25e163553c1da7ad7e748fb6394498d4d0e26b4abdf6a7597e6a8a21a444",
+    "soul-platform/desktop/soul_tray.py": "d90b113089151ed4b05607164c44dacf08b395fd13e0ea30c2acd27ebf72b389",
+    "soul-platform/docs/migrate-machine-soul-0.4.md": "09f3d6754adbed10161c7635031344cdf02da86da87bfbe5e06c051016a59077",
+    "soul-platform/docs/quickstart.md": "207f870cd40eaea028c35acd57a7f583428d86f7aae84faee0d9de7b4214fc96",
+    "soul-platform/installer/Instalar-SOUL-Windows.bat": "52471017db9ad95ffec21bc262193c853ab75df303869e5efd706a3be20c784c",
+    "soul-platform/installer/Install-Soul.ps1": "c10d76696c1343cb02bcdca274edc036515f2e263b8328378a2d09b436ab1d18",
+    "soul-platform/installer/LEEME-WINDOWS.txt": "26ede21cd48e73e3f15c56ec71ccc065ba90308e6fb2c1ca150bb0dfb8ed325b",
+    "soul-platform/installer/Soul-Installer-Recovery.psm1": "2c7df7e6fcf4c9a213549154db473f71e01bab4ea1a2655b50999fcdfeb72ffe",
+    "soul-platform/installer/soul-install.sh": "e05a8318e0e76997a21b6358811f6775749ce56be8bd55d578fe36eb4834d39d",
+    "soul-platform/pyproject.toml": "b0576a465f330dc6036b7e11676a1e86c9c312c82ce34e905accc9a29194db44",
+    "soul-platform/src/soul_platform/__init__.py": "868f397028d89dc055401f2ed702c0db72634ccc31e0e40c9b492df7cb6b27df",
+    "soul-platform/src/soul_platform/agency.py": "ae342549b2c992ee20fd1cc54d13f279989d400a984aecea6d8a1f1d28606a02",
+    "soul-platform/src/soul_platform/api.py": "ac26216c18f2a8cb45bc30b4b2028a84370db545e821e5dbe68c4b95b5ba79d1",
+    "soul-platform/src/soul_platform/auth.py": "7802a403d91d0316caecf9c9bf42002a9eac805275f331aee336956ef948b054",
+    "soul-platform/src/soul_platform/autonomy.py": "0524a5d76d62d909602bbe7971f5ded6c32c0fa511d4f4c17bcf5f5b99396a68",
+    "soul-platform/src/soul_platform/autostart.py": "74e93b908bdb8af33d0ab99039d97bbf3f398e8be2a218fc0302f46def743d5c",
+    "soul-platform/src/soul_platform/bootstrap.py": "b13a711c05b500a1a8224be97e43b45504b26e3a4cc8478c174e9b67c6ea383e",
+    "soul-platform/src/soul_platform/cli.py": "d33d4cf92e488217bdcfd9add7143de7759e2ff93a4150aa287559e2fa90ef1e",
+    "soul-platform/src/soul_platform/coordination.py": "08440b99fb39a6d2815117d7ff735efef0606cf549bcdf4dc829b072ee17daf0",
+    "soul-platform/src/soul_platform/embedding_cutover.py": "b904666e412661870a10e6789fe88442439b96b046fe84c755a77cbe03ea880c",
+    "soul-platform/src/soul_platform/local_embedding.py": "df7a5df8138d3855e35141c5e804eef2b42c77e9d88bf0657f02a8855b0a2955",
+    "soul-platform/src/soul_platform/proxy.py": "2a3bdaaddfb3317d9016ea1fd9371b72552e9b7d6f655aadd9bbcd2ef91b17ca",
+    "soul-platform/src/soul_platform/receipts.py": "18cddfe78d9581eca21464bae7199e82dc988c8a2296eb887c835b266e0dcf58",
+    "soul-platform/src/soul_platform/runtime.py": "628e5388818bf411816cb9467d6e7a1bfcb6c898664cadf64382f556d2a74d1c",
+    "soul-platform/src/soul_platform/sandbox.py": "cbd144c9981a3f0fb562553e1d9f5fb5c629fd2d182eaa5b18b2388f4fbd36fe",
+    "soul-platform/src/soul_platform/tray.py": "2e47efe66ddacce5696a020cc049649900d85f401b121095aff04a1cf27a95f8",
+    "soul-platform/tools/build_windows_bundle.py": "7f64fd9f32dce9e3ceb7cf318231b45e12e4f60599048c74567cd756a0d27cfa",
+    "soul-platform/tests/conftest.py": "d8963217e14cb5b8d12b49683b8d44d369dad3707878bfad0a05bd8aa0f04071",
+    "soul-platform/tests/test_agency_v1.py": "5b30a5587074afd97971c5a867e4f61968a56d92619e697f9b6b77f0fc20ab84",
+    "soul-platform/tests/test_api_v1.py": "0584bbeaf060906eeff211f18d6b822207c964df9bec75e577ec1ab6844303a0",
+    "soul-platform/tests/test_autonomy_v1.py": "358587b2420bf1f4031b525c1a43e76516ca7c40158405db3ca95017c9a802d3",
+    "soul-platform/tests/test_autostart_v1.py": "9f353498b55cf7d4c599547aaf4a3cd4dcc002c25d3b137283e5530896ec39af",
+    "soul-platform/tests/test_bootstrap_v1.py": "86eb786409d14389f6d521991126c320d1f5ccba87d0cf66f33072bbc26fb597",
+    "soul-platform/tests/test_coordination_v1.py": "4a63b05fa79b99c366a5522fa0916e275fec066bbdcd1d62cb8347d5633fb075",
+    "soul-platform/tests/test_embedding_cutover_v1.py": "9c0165759a076944996bf6a3a3d44bd7b89bd37ede0b5865e7a310577a26dc52",
+    "soul-platform/tests/test_installer_machine_v1.py": "99f095a5aecdc2cff727ddf3806e5ad6b77e3544b24671c6c7e15e441ced5a03",
+    "soul-platform/tests/test_local_embedding_v1.py": "d4ea2be9cdd7a3612b4bf22c2987b37bddfa26521260423c9146ceb13d50a5bc",
+    "soul-platform/tests/test_proxy_v1.py": "bb9055248adbfa290ebba9a00893b19eb74fbc18ef0638d73ab1f946c88abb16",
+    "soul-platform/tests/test_release_hygiene_v1.py": "793fcb9e359823a7bfe95661a99cfe682a2c7bd5e7d911233906c19e7db06e46",
+    "soul-platform/tests/test_runtime_v1.py": "e3eb8ed9975e0c34c680e1ea01b3ad5adad055087a35305aa489ce7f688a3935",
+    "soul-platform/tests/test_sandbox_v1.py": "c9d3fe675ea4a708506b936e2731d63a98f0e15061f81a8ac1fc18a1e97a7cb9",
+    "soul-platform/tests/test_tray_v1.py": "88a242a1ac1b91434a86c472f951d5229848e1a27059ae0b4eddfc40503e0ccc",
+    "soul-platform/tests/test_windows_bundle_v1.py": "121705a010512fac6aa245b6d3948feef5532833be18fed8db2b3ba11172fc7f",
+    "soul-platform/tests/test_windows_recovery_container_v1.py": "6544723d666f500b0a1e2b7a1eb62302112671ebfae04b1d6ea4e3844b6047c2",
+    "soul-platform/tests/windows_recovery_fault_injection.ps1": "50a30d762ba1fa5c3b1cbda2900d69564f28015b4a22009b95f9ccd233c8e75c"
+  },
+  "mutants": [
+    {
+      "id": "conversation-ledger-suffix-truncation",
+      "result": "killed"
+    },
+    {
+      "id": "agency-audit-suffix-truncation",
+      "result": "killed"
+    },
+    {
+      "id": "ledger-failure-status-collapse",
+      "result": "killed"
+    },
+    {
+      "id": "fact-failure-status-collapse",
+      "result": "killed"
+    },
+    {
+      "id": "embedding-proxy-env-leak",
+      "result": "killed"
+    },
+    {
+      "id": "autostart-proxy-env-leak",
+      "result": "killed"
+    },
+    {
+      "id": "tray-proxy-env-leak",
+      "result": "killed"
+    },
+    {
+      "id": "unix-recovery-predicate-disabled",
+      "result": "killed"
+    },
+    {
+      "id": "windows-recovery-predicate-disabled",
+      "result": "killed"
+    },
+    {
+      "id": "bundled-provenance-check-bypass",
+      "result": "killed"
+    }
+  ]
+}

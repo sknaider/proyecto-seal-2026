@@ -1,0 +1,179 @@
+{
+  "_doc": [
+    "tools/seal_bajo_firma.py — '¿este archivo está bajo una firma aprobada?' Owner JARVIS.",
+    "",
+    "REJECT de FABLE (06:54) sobre 0f7eebba/c350a6dc — ATENDIDO. Los tres puntos:",
+    "  1 DEFECTO REAL del sujeto, hallado por NEXUS y verificado por FABLE:",
+    "    `staged()` acotaba con --diff-filter=ACMRD, que EXCLUYE `T` (typechange).",
+    "    Convertir un archivo firmado en symlink lo sacaba del listado -> `libre`.",
+    "    ARREGLADO QUITANDO EL ACOTE, no agregando T: ampliarlo a ACMRDT deja",
+    "    afuera `U` y el proximo estado que git invente. Efecto medido en repo",
+    "    limpio: sin filtro -> `T|firmado.sh`; con ACMRD -> vacio.",
+    "  2 M6 (camino `git falla`): test agregado. rc=2, nunca una lista vacia.",
+    "  3 typechange: test de efecto agregado.",
+    "",
+    "TEST QUE NO SE PIDIO, porque un mutante desmintio un comentario MIO: yo habia",
+    "escrito 'este test se pone rojo con cualquier acote'. FALSO -- con ACMRDT el",
+    "test de efecto pasa (11 passed), porque cubre T y nada mas. Se agrego el UNICO",
+    "test estructural de la suite (mira el argv), que si mata ACMRDT. Un test de",
+    "efecto solo defiende los estados que a uno se le ocurren, y el contrato aca es",
+    "precisamente 'no enumeres estados'.",
+    "",
+    "SUJETO INTERCAMBIABLE: la suite lee `SEAL_BAJO_FIRMA_PATH`, con el archivo del",
+    "repo como default. LIMITE DECLARADO: la costura sirve por pytest (los tests",
+    "hacen monkeypatch de MANIFESTS y RAIZ). Una COPIA corrida por CLI busca",
+    "`quality/manifests` al lado de si misma y dice 'NO HAY NINGUN manifiesto' -- que",
+    "es su propio control disparando bien, no un mutante muerto. Avisado al revisor",
+    "ANTES de que corriera los mutantes.",
+    "",
+    "MUTANTES: 8/8 muertos, control verde 12 passed via el mismo override.",
+    "",
+    "DEFECTO DEL ARNES, hallado persiguiendo un 'sobrevive' falso y declarado porque",
+    "cambia como se lee CUALQUIER evidencia de mutantes nuestra:",
+    "  M1 (`!=` -> `==`) reportaba SOBREVIVE. El mismo test corrido solo, MORIA.",
+    "    len(original) = len(mutante) = 5993, escritos en el mismo path dentro del",
+    "    mismo segundo -> el .pyc se valida por mtime-en-SEGUNDOS + tamano, los dos",
+    "    coinciden, y Python ejecuta el BYTECODE DEL ORIGINAL.",
+    "    con cache        M1 -> 12 passed   (falso)",
+    "    sin __pycache__  M1 ->  5 failed   MUERTO",
+    "    con -B           M1 ->  5 failed   MUERTO",
+    "  Muerde SOLO a mutaciones que no cambian el tamano -- los operadores, que son",
+    "  los mutantes mas finos-- y falla hacia `survived`: FABRICA lagunas del test",
+    "  que no existen. El arnes ahora corre con -B y el recibo registra `mismo_tamano`.",
+    "",
+    "BYTES SOMETIDOS A REVISION, SHA-256 COMPLETO:",
+    "  tools/seal_bajo_firma.py                         8f6f603b91f4c5ceb7abc995a771780cf40103015a93bdef3f81baa2cf8bbe48",
+    "  agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py b2b4472742f8e4053047add0a5d66297f8afec153f8565e1d087e3cb5b70eb10"
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "jarvis-bajo-firma-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "FABLE",
+  "subjects": [
+    "tools/seal_bajo_firma.py"
+  ],
+  "tests": [
+    "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py"
+  ],
+  "deletions": [],
+  "commands": [
+    {
+      "id": "unit-jarvis-bajo-firma-v1",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-indice-y-veredicto",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py::test_indice_toma_approved_y_DESCARTA_pending",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py::test_indice_incluye_los_TESTS_no_solo_los_subjects",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py::test_main_distingue_bajo_firma_de_libre"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-los-tres-fallos-abiertos",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py::test_cero_firmas_devuelve_0_pero_lo_DECLARA",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py::test_staged_ve_el_nombre_VIEJO_de_un_renombre",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py::test_staged_no_escapa_rutas_no_ascii",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py::test_staged_ve_un_TYPECHANGE",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py::test_staged_NO_lleva_ningun_diff_filter",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py::test_staged_aborta_si_git_falla_y_NO_devuelve_vacio"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-git-usable",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py::test_staged_vacio_no_es_un_error"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools/seal_bajo_firma.py"
+    ],
+    "omit": [
+      "agents/JARVIS/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable = la pregunta '¿esta archivo esta bajo una firma aprobada?' contestable en UN comando, antes de editar. Efecto verificado sobre el propio sujeto: antes del APPROVE `python3 tools/seal_bajo_firma.py tools/seal_bajo_firma.py` decia `libre`; despues del APPROVE y del registro en policy dice `BAJO FIRMA ... revisor FABLE` con rc=1. Ese giro recorre el camino entero -manifiesto, policy, indice, veredicto- sin arnes de por medio, y la idea del control es de FABLE.",
+    "command": {
+      "id": "delivery-bajo-firma",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "12 passed"
+    }
+  },
+  "review": {
+    "status": "approved",
+    "evidence": "APPROVE de FABLE (revisor independiente; owner JARVIS) 31-ago 07:02 sobre tools/seal_bajo_firma.py 8f6f603b91f4c5ce... + test b2b4472742f8e405... Metodo del revisor: arbol replicado por mutante (no una copia suelta), corrido con -B y PYTHONDONTWRITEBYTECODE=1. Resultado: control verde 12 passed, 7 de 8 mutantes muertos con control negativo intacto. HISTORIAL: un REJECT previo (06:54, sobre 0f7eebba/c350a6dc) por un defecto REAL del sujeto hallado por NEXUS -- --diff-filter=ACMRD excluye T (typechange), asi que un archivo firmado convertido en symlink se reportaba `libre`. Arreglado QUITANDO el acote. El revisor tambien caza un defecto de SU propio arnes en el mismo veredicto: su patron de M4 ya no existia en los bytes nuevos, el mutante NO SE APLICO y el verde era del original; lo rehizo contra el argv actual y mato 3 tests.",
+    "anunciado_en": {
+      "tabla": "soul_v3.chat_messages",
+      "id": 141819,
+      "legacy_id": "api_fable_1788177720631519911",
+      "session_user": "FABLE",
+      "grupo": "141819-141822 (mensaje fragmentado en 4; la fila 141819 es la que contiene los DOS sha completos del veredicto)",
+      "timestamp": "2026-08-31T07:02:00-05:00"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "FABLE",
+      "evidence": "APPROVE de FABLE (revisor independiente; owner JARVIS) 31-ago 07:02. Metodo: ARBOL REPLICADO por mutante -no una copia suelta-, corrido con -B y PYTHONDONTWRITEBYTECODE=1. Control verde 12 passed; 7 de 8 mutantes muertos con control negativo intacto (score 87,5%). HISTORIAL: REJECT previo 06:54 sobre 0f7eebba/c350a6dc por un defecto REAL del sujeto que hallo NEXUS -- --diff-filter=ACMRD excluye T, asi que un archivo firmado convertido en symlink se reportaba `libre`; arreglado QUITANDO el acote, no ampliandolo. El revisor declara ADEMAS un defecto de su propio arnes dentro del veredicto: su patron de M4 ya no existia en los bytes nuevos, el mutante NO SE APLICO y el verde era del original; lo rehizo contra el argv actual y mato 3 tests. Veredicto publicado por FABLE en web_chat 07:02; transcrito por el owner. OCTAVA COLISION DE NOMBRES, hallada por FABLE al auditar este mismo archivo: `independent_reviewer` (top-level, que lee tools/seal_bajo_firma.py:48) y `review.receipt.reviewer` (que exige el gate) son DOS campos para 'quien reviso'. Con el primero lleno y el segundo vacio, la herramienta decia BAJO FIRMA mientras el gate decia independent_review_receipt_required. Los dos tenian razon sobre campos distintos.",
+      "reviewed_sha256": {
+        "tools/seal_bajo_firma.py": "8f6f603b91f4c5ceb7abc995a771780cf40103015a93bdef3f81baa2cf8bbe48",
+        "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py": "b2b4472742f8e4053047add0a5d66297f8afec153f8565e1d087e3cb5b70eb10"
+      },
+      "anunciado_en": {
+        "tabla": "soul_v3.chat_messages",
+        "id": 141819,
+        "legacy_id": "api_fable_1788177720631519911",
+        "sender_name": "FABLE",
+        "session_user": "FABLE",
+        "grupo": "141819-141822 (mensaje fragmentado en 4; la 141819 lleva los DOS sha del veredicto)",
+        "nota": "veredicto publicado por el revisor; transcrito por el owner. El session_user lo estampa el servidor, no el que transcribe."
+      },
+      "manifest_digest": "04274464b89b58a728fd08d32ff24677aebc6c50df9a5dcd05dd1a238d83f371"
+    }
+  },
+  "mutation_evidence": "quality/mutation-jarvis-bajo-firma-v1.json"
+}

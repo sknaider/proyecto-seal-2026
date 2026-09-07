@@ -1,0 +1,48 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "mutantes adversariales explicitos aplicados por FABLE en un arbol AISLADO (copia de messages/ + memory/seal_secrets.py bajo scratchpad); nunca sobre el archivo vivo. killer = el test nombrado pasa a 1 failed",
+  "workspace": "reconcile_agent() de messages/seal_lifecycle_controller.py: el contrato de desired_state='manual' (ni matar ni relanzar) y la ausencia de contrasena literal",
+  "killed": 3,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 3,
+  "mutation_score_percent": 100.0,
+  "reviewer": "FABLE",
+  "notes_defense_in_depth": "El contrato de 'manual' esta sostenido por DOS capas redundantes: la rama explicita (if desired == \"manual\": return, linea 159) y el fall-through (ninguna condicion de accion matchea 'manual'). Por eso NINGUNA edicion unica es matable y no se cuenta como mutante: M0 (quitar la rama) -> 5 passed; M1a (ampliar el guard de kill a: desired != \"running\" and alive) -> 5 passed; M2a (ampliar el guard de launch a: desired != \"stopped\" and not alive) -> 5 passed. CADA UNA es neutralizada por la OTRA capa. Los mutantes contados son los que SI rompen el contrato: hay que quitar las dos capas. DECLARACION QUE PODRIA REFUTARME, explicita para el auditor: si se contaran las seis mutaciones el score seria 3/6 = 50.0%, por debajo del piso 69.59, y el gate rechazaria. La clasificacion de M0/M1a/M2a como redundancia-no-aislable es LOAD-BEARING y es mia como revisor; sigue el precedente ya aceptado en quality/mutation-affective-gate.json (mismo revisor, notes_defense_in_depth). Residual asociado: desired_state no tiene whitelist en el codigo ni CHECK en agent_lifecycle (pg_constraint: solo PRIMARY KEY), asi que un typo cae en el mismo no-op silencioso. Ese es el generador de la redundancia; seguimiento fuera de este cambio.",
+  "file_sha256": {
+    "messages/seal_lifecycle_controller.py": "e3196636cfffb0e3f3d66affbaf6b4d0f700c35de24289098f222812ca2a807b",
+    "messages/tests/test_seal_lifecycle_manual_state.py": "a1469efed74658382dec471712a5dc16b2bed88e7d93ce0a4025f7181360f632"
+  },
+  "detail": [
+    {
+      "mutant": "M1b_kill_guard_ampliado_sin_rama_manual",
+      "test": "test_manual_alive_is_noop",
+      "killed": true,
+      "orig_answer": "no-op",
+      "mutant_answer": "KILL ADA pid=4242",
+      "rc": 1,
+      "note": "M0+M1a. Es exactamente el SIGKILL del PID 914726 a las 20:02:01Z que genero este cambio."
+    },
+    {
+      "mutant": "M2b_launch_guard_ampliado_sin_rama_manual",
+      "test": "test_manual_dead_is_noop",
+      "killed": true,
+      "orig_answer": "no-op",
+      "mutant_answer": "LAUNCH ADA (segunda ADA)",
+      "rc": 1,
+      "note": "M0+M2a: relanzaria a ADA al apagarla = las '2 adas' que William dijo que no quiere (15:07)."
+    },
+    {
+      "mutant": "M3_contrasena_literal_de_vuelta",
+      "test": "test_dsn_no_literal_password",
+      "killed": true,
+      "orig_answer": "DSN por seal_secrets, fail-closed",
+      "mutant_answer": "literal embebido con la contrasena vieja del rol seal",
+      "rc": 1,
+      "note": "regresion al literal que tuvo la unidad muerta desde las 13:27 del 3-sep."
+    }
+  ]
+}

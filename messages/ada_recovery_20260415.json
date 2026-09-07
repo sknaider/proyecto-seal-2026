@@ -1,0 +1,24 @@
+{
+  "recovery_time": "2026-04-15T12:35:30",
+  "reason": "session_frozen",
+  "saved_by": "ALICE",
+  "session_summary": {
+    "zenodo_download": {
+      "status": "running",
+      "pid": 453150,
+      "log": "/home/dadito/IA/mosca_experiment/zenodo_download.log",
+      "files": ["flywire_synapses_783.feather (9.5GB)", "proofread_connections_783.feather (852MB)", "proofread_root_ids_783.npy", "per_neuron_neuropil_count_*.feather"],
+      "dest": "/home/dadito/IA/mosca_experiment/zenodo_connectome/"
+    },
+    "repos_cloned": [
+      "/home/dadito/IA/mosca_experiment/repos/fly-brain",
+      "/home/dadito/IA/mosca_experiment/repos/drosophila-brain-model",
+      "/home/dadito/IA/mosca_experiment/repos/flywire-annotations",
+      "/home/dadito/IA/mosca_experiment/repos/flywire-network-analysis"
+    ],
+    "experiment_ran": "/home/dadito/IA/mosca_experiment/motivation_results.json",
+    "william_vision": "Los nervios (drive layer basado en circuitos de motivación de mosca) serán la evolución del alma de los agentes SEAL. Drives intrínsecos, no reglas externas.",
+    "pending_friday": ["TrieIndex fix", "SoulSimulator backend", "CBSoft paper completar", "full-brain simulation con run_pytorch.py + connectome real"],
+    "tokens_status": "escasos hasta viernes"
+  }
+}

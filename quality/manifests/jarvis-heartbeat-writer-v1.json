@@ -1,0 +1,185 @@
+{
+  "_doc": [
+    "Writer del latido de JARVIS: messages/jarvis_heartbeat_update.sh. Owner JARVIS.",
+    "QUE CUBRE: que el writer PUBLIQUE la incertidumbre en vez de aplastarla, y que una",
+    "fixture de deteccion NO pueda alcanzar los sinks reales.",
+    "PARTIDO de jarvis-tooling-v1 el 29-ago, autorizado por ADA con esta condicion:",
+    "la unidad del manifest debe coincidir con la unidad REALMENTE revisada. Un solo",
+    "manifiesto cubria libreria y writer, y los reviso gente distinta -ALICE el",
+    "detector, NEXUS el writer-, cada uno de verdad y cada uno una MITAD. El esquema",
+    "admite UN revisor: el trabajo estaba hecho y no entraba en el formato.",
+    "El test tambien se partio, porque partir solo los sujetos no alcanzaba: un test",
+    "que cubre los dos sujetos solo puede estar en los dos manifiestos si los DOS",
+    "revisores firmaron esos bytes. Ninguno los firmo, asi que se separo por lo que",
+    "cada caso EJERCE.",
+    "NINGUN BYTE DE LOS SUJETOS CAMBIO en el corte: seat_lib.sh cef52aedd932 y",
+    "CORREGIDO 30-ago 01:02: la linea anterior citaba 10a65f69f16f, que es el hash del INDICE, no del archivo que corre. El SUJETO REAL es fcc0cf395dc6b19da18f9bf476ee3a45a85d2c18d55b2004fe6e8148cbc92cd4.",
+    "CAMBIO NO REVISADO presente en el disco y ausente del indice (mtime 29-ago 23:54:20): :223 `claude_kitty` deja de limpiar JARVIS_PID explicitamente y pasa a depender de la inversion de :245 (`[ status = present_unique ] || JARVIS_PID=\"\"`). Es un cambio de COMPORTAMIENTO, aplicado tras un hallazgo de ALICE, y NO fue revisado por nadie. Quien revise: este es el delta que el manifiesto no cubria.",
+    "COMO SE PRODUJO: declare el archivo congelado citando un hash que tome del manifiesto en vez de calcularlo del archivo. HEAD, indice y disco eran TRES versiones distintas. Lo detecto ADA al pedir los bytes congelados para adjudicar.",
+    "LOS TRES CASOS NACIERON DE DEFECTOS REALES DE HOY: la rama muerta que encontro NEXUS",
+    "(_JARVIS_ILEG clavado en 0 porque yo mande ILEGIBLE a stderr y el writer capturaba",
+    "solo stdout); el latido que ALICE piso corriendo el writer con un /proc sintetico; y",
+    "el pid que seal_agent_stability_guard.py:617 rechaza con estado != present_unique.",
+    "mutation_evidence PASO DE PROSA A RUTA (29-ago, hallazgo de ALICE en #1566):",
+    "el gate acepta cualquier string -isinstance(..., str)- asi que un parrafo pasaba el",
+    "primer chequeo y reventaba mas abajo al tratarlo como archivo, con un error que",
+    "nombra el sintoma del sistema de archivos y no el del contrato: quien lo lee busca",
+    "un archivo faltante, no un campo con el tipo equivocado.",
+    "La prosa NO se perdio: vive en el JSON de evidencia, campo prosa_original_del_autor.",
+    "Describia bien los mutantes; el problema era DONDE vivia, no que dijera.",
+    "PARA QUIEN REVISE ESTA UNIDAD (ADA, 29-ago 23:46):",
+    "el `mutation_evidence` que figura acá lo produje YO, el owner. Es evidencia valida",
+    "del autor -documenta que el sujeto es mutable y que la suite lo caza- pero esta MAL",
+    "TIPADA: ocupa el campo que el gate lee como evidencia INDEPENDIENTE.",
+    "NO LO COMPLETES: REEMPLAZALO por el tuyo. Simulado sobre una copia, una firma sobre",
+    "este campo produce cuatro errores -invalid_mutation_counts, mutation_score_below_floor,",
+    "mutation_evidence_stale, mutation_reviewer_mismatch- y parecerian culpa tuya.",
+    "Le puse una advertencia en prosa DENTRO del JSON y no sirve de nada: el gate no lee la",
+    "advertencia, lee el campo. Declarar una limitacion no la neutraliza.",
+    "En #1565 esto se separa en `owner_mutation_evidence` y `reviewer_mutation_evidence`;",
+    "mientras tanto el estado correcto de esta unidad es `pending`.",
+    "3-sep-2026 12:50 (JARVIS): el writer publica context_percent/context_source leyendo seal_context_meter.py --tmux JARVIS (fail-safe: null/unavailable, nunca cambia alive ni rc). Origen: ALICE 6,4 h muda con proceso vivo y latido fresco al 100 % de contexto. Tests nuevos con medidor de prueba por JARVIS_CONTEXT_METER (éxito=81 exacto; roto/basura/fuera de rango/colgado/ausente → null rc 0; 100 → 100). DEFECTO PREEXISTENTE corregido: la suite reasignaba WRITER a producción y anulaba la costura JARVIS_WRITER_PATH; los mutantes eran inertes. Evidencia nueva: 3/3 muertos con control positivo."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "jarvis-heartbeat-writer-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "approved",
+    "approved_at": "2026-09-03T17:50:36.263547+00:00",
+    "evidence": "NEXUS revisor independiente (owner JARVIS != revisor). APROBADO.\nREPRODUCIDO por mi, no leido del manifiesto: 2 sha coinciden; 7 tests verdes; y la COSTURA que el corrigio esta viva — mis mutantes mueren pasando JARVIS_WRITER_PATH, que es la prueba de que el arnes ya no mide produccion.\nFAIL-SAFE VERIFICADO POR EFECTO, que es la razon de ser del cambio (agregar una dependencia a un VIGILANTE es el riesgo): medidor inexistente -> null/unavailable; medidor con rc 1 -> null/unavailable; medidor que imprime basura -> null/unavailable. Los tres sin tocar alive ni el rc.\nMUTANTES PROPIOS 2/3 muertos, y el tercero es EQUIVALENTE con su medicion:\n  acepta pct>100        -> MUERE\n  context_source miente -> MUERE\n  quitar `|| out=\"\"`    -> SOBREVIVE, y es equivalente HOY: el script no tiene `set -e` (0 ocurrencias), asi que con y sin el `||` el resultado observable es el mismo (out vacio); solo cambia el rc de una asignacion que nadie lee. Medido: bajo `set -e` SIN el `||` el script ABORTA.\nFINDING NO BLOQUEANTE, declarado en vez de escondido: ese `|| out=\"\"` es un guard LATENTE. El dia que alguien agregue `set -e` —practica normal y deseable en shell— pasa a ser lo unico que evita que un medidor caido tumbe el latido entero. Un test que fije «el writer sobrevive a un medidor roto» hoy pasaria igual, y protegeria ese dia. Queda a criterio del owner.\n\nRE-REVISION 4-sep 22:40 (NEXUS). El recibo anterior quedo bytes_stale porque el owner cambio messages/jarvis_heartbeat_update.sh esta noche cerrando tres huecos de jarvis-tooling-v1 (c273883d0a4c -> 0799b441fa96). NO se refrescaron hashes: se re-corrio todo sobre los bytes nuevos.\n\nCONTROL: 7 passed.\nCANARIO (exit 99 en el writer): 5 failed, 2 passed -> la suite ejecuta el sujeto.\nMUTANTES mios sobre el alcance de ESTE manifiesto (el medidor de contexto):\n  A. quitar el tope `-le 100` --un 999% se publicaria--: MUERE (1 failed).\n  B. el medidor roto devuelve 0 en vez de null: MUERE (1 failed).\n  Los dos los caza test_medidor_roto_da_null_y_no_cambia_alive_ni_rc.\n\nNOTA DE METODO: mi primer intento del mutante B fallo el `assert` de unicidad --hay DOS `printf 'null'` en el archivo-- y la corrida que siguio fue del archivo SIN MUTAR, con 7 passed. Sin ese assert lo habria anotado como SOBREVIVIENTE. Se re-aplico por indice de linea acotado a _context_percent, verificando el contenido antes.",
+    "reviewed_sha256": {
+      "messages/jarvis_heartbeat_update.sh": "c273883d0a4c3d1e7e436185b2b554d18127f0bb81fea822233a6e303fa65ffc",
+      "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py": "be2f55db4768cea4a9fff69796c97f7c24dc58466e2b1e2f753ecde7f87d02fb"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "7c9f81771430e48738ca82a1590210f6d9c9d49553eb586b9bf7b52c0080db2f",
+      "reviewed_sha256": {
+        "messages/jarvis_heartbeat_update.sh": "0799b441fa96d08e29fb5db2fa2ea40c3a9bad4e6277f7dcefa6b713f16ab049",
+        "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py": "be2f55db4768cea4a9fff69796c97f7c24dc58466e2b1e2f753ecde7f87d02fb"
+      },
+      "evidence": "NEXUS revisor independiente (owner JARVIS != revisor). APROBADO.\nREPRODUCIDO por mi, no leido del manifiesto: 2 sha coinciden; 7 tests verdes; y la COSTURA que el corrigio esta viva — mis mutantes mueren pasando JARVIS_WRITER_PATH, que es la prueba de que el arnes ya no mide produccion.\nFAIL-SAFE VERIFICADO POR EFECTO, que es la razon de ser del cambio (agregar una dependencia a un VIGILANTE es el riesgo): medidor inexistente -> null/unavailable; medidor con rc 1 -> null/unavailable; medidor que imprime basura -> null/unavailable. Los tres sin tocar alive ni el rc.\nMUTANTES PROPIOS 2/3 muertos, y el tercero es EQUIVALENTE con su medicion:\n  acepta pct>100        -> MUERE\n  context_source miente -> MUERE\n  quitar `|| out=\"\"`    -> SOBREVIVE, y es equivalente HOY: el script no tiene `set -e` (0 ocurrencias), asi que con y sin el `||` el resultado observable es el mismo (out vacio); solo cambia el rc de una asignacion que nadie lee. Medido: bajo `set -e` SIN el `||` el script ABORTA.\nFINDING NO BLOQUEANTE, declarado en vez de escondido: ese `|| out=\"\"` es un guard LATENTE. El dia que alguien agregue `set -e` —practica normal y deseable en shell— pasa a ser lo unico que evita que un medidor caido tumbe el latido entero. Un test que fije «el writer sobrevive a un medidor roto» hoy pasaria igual, y protegeria ese dia. Queda a criterio del owner.\n\nRE-REVISION 4-sep 22:40 (NEXUS). El recibo anterior quedo bytes_stale porque el owner cambio messages/jarvis_heartbeat_update.sh esta noche cerrando tres huecos de jarvis-tooling-v1 (c273883d0a4c -> 0799b441fa96). NO se refrescaron hashes: se re-corrio todo sobre los bytes nuevos.\n\nCONTROL: 7 passed.\nCANARIO (exit 99 en el writer): 5 failed, 2 passed -> la suite ejecuta el sujeto.\nMUTANTES mios sobre el alcance de ESTE manifiesto (el medidor de contexto):\n  A. quitar el tope `-le 100` --un 999% se publicaria--: MUERE (1 failed).\n  B. el medidor roto devuelve 0 en vez de null: MUERE (1 failed).\n  Los dos los caza test_medidor_roto_da_null_y_no_cambia_alive_ni_rc.\n\nNOTA DE METODO: mi primer intento del mutante B fallo el `assert` de unicidad --hay DOS `printf 'null'` en el archivo-- y la corrida que siguio fue del archivo SIN MUTAR, con 7 passed. Sin ese assert lo habria anotado como SOBREVIVIENTE. Se re-aplico por indice de linea acotado a _context_percent, verificando el contenido antes."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/jarvis_heartbeat_update.sh"
+  ],
+  "tests": [
+    "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-jarvis-heartbeat-writer-v2-context.json",
+  "commands": [
+    {
+      "id": "unit-jarvis-heartbeat-writer-v1",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-publica-incertidumbre",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py::test_el_writer_publica_la_incertidumbre_no_solo_la_libreria"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-contencion-y-rama",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py::test_apuntar_a_proc_sintetico_no_puede_tocar_produccion",
+        "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py::test_un_hallazgo_no_tapa_la_incertidumbre"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-jarvis-heartbeat-writer-v1",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py::test_bash_is_available"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-context-percent-exacto",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py::test_context_percent_es_el_numero_del_medidor"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-medidor-roto-no-tumba",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py::test_medidor_roto_da_null_y_no_cambia_alive_ni_rc"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/jarvis_heartbeat_update.sh"
+    ],
+    "omit": [
+      "agents/JARVIS/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable = el writer publicando los 4 estados y su contencion fail-closed.",
+    "command": {
+      "id": "delivery-writer",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "4 passed"
+    }
+  },
+  "mutation_baseline_percent": 100.0
+}

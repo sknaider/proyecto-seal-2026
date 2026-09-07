@@ -1,0 +1,54 @@
+{
+  "hooks": [
+    {
+      "event": "heartbeat",
+      "command": "echo 'heartbeat ok'",
+      "agent": "ADA",
+      "tool_match": null,
+      "async": false,
+      "async_rewake": false,
+      "timeout_s": 5,
+      "enabled": true
+    },
+    {
+      "event": "task_completed",
+      "command": "python3 scratchpad.py set last_task_completed \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"",
+      "agent": null,
+      "tool_match": null,
+      "async": false,
+      "async_rewake": false,
+      "timeout_s": 5,
+      "enabled": true
+    },
+    {
+      "event": "audit",
+      "command": "python3 ~/IA/proyecto-seal/memory/emotional_variance.py --agent $SEAL_AGENT --window 10",
+      "agent": null,
+      "tool_match": null,
+      "async": true,
+      "async_rewake": false,
+      "timeout_s": 60,
+      "enabled": true
+    },
+    {
+      "event": "guardia_enter",
+      "command": "python3 scratchpad.py set guardia_active 'true'",
+      "agent": null,
+      "tool_match": null,
+      "async": false,
+      "async_rewake": false,
+      "timeout_s": 5,
+      "enabled": true
+    },
+    {
+      "event": "guardia_exit",
+      "command": "python3 scratchpad.py set guardia_active 'false'",
+      "agent": null,
+      "tool_match": null,
+      "async": false,
+      "async_rewake": false,
+      "timeout_s": 5,
+      "enabled": true
+    }
+  ]
+}

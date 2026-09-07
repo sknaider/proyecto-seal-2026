@@ -1,0 +1,30 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "Mutantes adversariales sobre copia con `git archive HEAD memory` (13 MB); base VERDE verificada ANTES de contar (la 1a arena dio 4 failed y se descarto); cada mutante verificado por que CAMBIA y COMPILA.",
+  "workspace": "boot_context G2 — que estabas haciendo",
+  "mutation_target": "memory/mcp_server_v4.py",
+  "killed": 4,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
+  "mutation_score_percent": 100.0,
+  "detail": {
+    "control_positivo": "5 passed",
+    "control_de_restauracion": "5 passed",
+    "mutantes": [
+      "N1 bandera encendida por defecto -> 1 failed. MUERE. Rompe el rollback.",
+      "N2 quita el scope por agente (el eje que ALICE encontro en el checkpoint) -> 2 failed. MUERE.",
+      "N3 la capa siempre devuelve [] -> 2 failed. MUERE. 'existe y no aporta'.",
+      "N4 encabezado sin items -> 1 failed. MUERE. Ruido en el arranque de todos los dias."
+    ],
+    "_arena_descartada": "1a copia: 4 failed por dependencias de memory/ ausentes."
+  },
+  "file_sha256": {
+    "memory/mcp_server_v4.py": "0f112ead769c4b58db260b06237a6aa9daf185f6d5a84d7f65e755f912fa1e46",
+    "memory/tests/test_boot_context_g2_tareas_v1.py": "411ac69f834e982dddc3e5d79aeb9e1311722fcbc613a74a66fe9cf6d9612b24"
+  },
+  "reviewer": "ALICE"
+}

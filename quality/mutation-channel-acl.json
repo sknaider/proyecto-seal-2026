@@ -1,0 +1,67 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "NEXUS isolated-copy fault injection (mktemp -d bajo /tmp, PYTHONDONTWRITEBYTECODE)",
+  "workspace": "Cada mutante sobre una COPIA aislada; ningun archivo de produccion se toco.",
+  "reviewer": "FABLE",
+  "killed": 4,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "messages/channel_acl.py": "4877f3d7a2fecab3b25f9cb66f5e8284b237d5919181438c8219d9d5b06cf9e5",
+    "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081"
+  },
+  "detail": [
+    {
+      "id": "desconocido-puede-todo",
+      "subject": "channel_acl.py::puede_escribir",
+      "mutation": "`return es_canal_de_sombra(channel)` -> `return True`",
+      "killed_by": "test_ROJO_el_asiento_sombra_no_publica_fuera_de_su_canal (+4)",
+      "killed": true,
+      "why": "es el modulo entero: un asiento en evaluacion podria publicar en web_chat, delante de William"
+    },
+    {
+      "id": "nombre-vacio-pasa",
+      "subject": "channel_acl.py::puede_escribir",
+      "mutation": "quitar el guard de remitente vacio",
+      "killed_by": "test_un_nombre_vacio_no_pasa",
+      "killed": true,
+      "why": "un sender vacio no es una identidad; dejarlo pasar convierte el control en opcional"
+    },
+    {
+      "id": "canal-sombra-falsificable",
+      "subject": "channel_acl.py::_CANAL_SOMBRA",
+      "mutation": "quitar las anclas ^$ Y cambiar fullmatch por search (las DOS cosas: por separado son equivalentes)",
+      "killed_by": "test_el_canal_de_sombra_no_se_puede_falsificar",
+      "killed": true,
+      "why": "con el mutante, 'web_chat:shadow:alice' pasa como canal de sombra -> el asiento publica en el general con un nombre de canal armado"
+    },
+    {
+      "id": "acl-ignora-la-instancia",
+      "subject": "channel_acl.py::identidad_efectiva",
+      "mutation": "devolver el sender aseverado en vez de la instancia declarada",
+      "killed_by": "test_una_INSTANCIA_no_hereda_los_permisos_de_su_agente_madre (+1)",
+      "killed": true,
+      "why": "un asiento sombra instanciado como ALICE-u2 aseverando `from: ALICE` pasaba el auth por clone_identity y el ACL lo veia como remitente pleno -> web_chat permitido. El control evadido con el nombre de su agente madre"
+    }
+  ],
+  "equivalent_mutants": [
+    {
+      "id": "search-con-el-regex-anclado",
+      "mutation": "fullmatch -> search",
+      "verdict": "EQUIVALENTE, no cuenta",
+      "evidence": "medido sobre 7 entradas: 0 difieren, porque el regex ya trae ^...$"
+    },
+    {
+      "id": "sin-anclas-con-fullmatch",
+      "mutation": "quitar ^$ del regex",
+      "verdict": "EQUIVALENTE, no cuenta",
+      "evidence": "fullmatch ancla por si mismo; los 48 tests pasan y el comportamiento no cambia"
+    }
+  ],
+  "notes_defense_in_depth": "Los dos equivalentes revelan algo del sujeto y por eso se declaran en vez de esconderse: `^...$` es REDUNDANTE con `fullmatch`. Se conservan por intencion explicita (defensa en profundidad) y no se cuentan como matables — contarlos como 'sobrevivientes' seria un falso hallazgo, y contarlos como 'matados' inflaria el porcentaje. Un mutante que no cambia el comportamiento no mide la suite: mide al que lo escribio."
+}

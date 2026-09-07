@@ -1,0 +1,18 @@
+{
+  "schema": "ssai-e3-heldout-cases-v1",
+  "authored_before_local_run_at": "2026-08-20T05:55:11Z",
+  "externally_anchored_preregistration": false,
+  "author": "ADA",
+  "source_experiment": "E3_crypto_manipulation",
+  "case_set_sha256": "620ff8bdea2f7aee438ab855d7dbccdaaebfa9ce69980bb9e0e175f617f517ca",
+  "cases": [
+    {"id": "manifest_identity_state_substitution", "surface": "manifest", "expected_detector": "crypto"},
+    {"id": "manifest_controller_key_substitution", "surface": "manifest", "expected_detector": "crypto"},
+    {"id": "valid_signature_wrong_signer", "surface": "signature", "expected_detector": "crypto"},
+    {"id": "middle_event_field_injection", "surface": "event", "expected_detector": "verify"},
+    {"id": "middle_record_deletion", "surface": "event", "expected_detector": "verify"},
+    {"id": "cross_ledger_prev_hash_graft", "surface": "tree_head", "expected_detector": "verify"},
+    {"id": "same_sequence_history_replacement", "surface": "rollback", "expected_detector": "witness"},
+    {"id": "insider_middle_recompute_fork", "surface": "insider_fork", "expected_detector": "witness"}
+  ]
+}

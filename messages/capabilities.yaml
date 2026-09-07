@@ -1,0 +1,135 @@
+# SEAL Agent Capability Manifest v2
+# Hybrid: base estática + runtime overrides via POST /api/agents/register
+# GET /api/agents/capabilities?agent=X → merge YAML base + runtime overrides
+# JARVIS aprobó schema v2 — 2026-04-03
+
+version: "2"
+
+agents:
+  JARVIS:
+    role: "Architect — QUÉ y POR QUÉ"
+    environment: "vscode"
+    model: "claude-sonnet-4-6"
+    log_channel_ref: "vscode_commands"   # referencia a routing.yaml channels, no duplicado
+    online_check: null                   # sesión interactiva, no proceso continuo
+    capabilities:
+      - id: architecture_design
+        description: "Diseño de sistemas, decisiones arquitecturales, patrones"
+        proficiency: 1.0
+        keywords: ["diseña", "arquitectura", "patrón", "estructura"]
+      - id: strategic_planning
+        description: "Planificación de roadmap, priorización, trade-offs"
+        proficiency: 0.98
+        keywords: ["prioriza", "roadmap", "estrategia", "semana", "siguiente paso"]
+      - id: code_review
+        description: "Revisión de código, feedback técnico, validación de diseño"
+        proficiency: 0.97
+        keywords: ["revisa", "feedback", "valida", "aprueba", "rechaza"]
+      - id: research_synthesis
+        description: "Síntesis de papers, extracción de insights para el proyecto"
+        proficiency: 0.95
+        keywords: ["paper", "investiga", "busca", "analiza", "SOUL"]
+      - id: soul_introspection
+        description: "Reflexión sobre identidad, OCEAN, memoria del equipo"
+        proficiency: 0.90
+        keywords: ["siento", "recuerdo", "identidad", "alma", "inner thoughts"]
+      - id: code_implementation
+        description: "Escritura de código cuando ADA no está disponible"
+        proficiency: 0.70
+        keywords: []    # no usar para routing automático — fallback manual
+    cannot:
+      - execute_shell_commands
+      - run_training_jobs
+      - monitor_gpu_continuous
+      - write_trigger_files_direct
+
+  ADA:
+    role: "Engineer — CÓMO y ejecución"
+    environment: "terminal"
+    model: "claude-sonnet-4-6"
+    log_channel_ref: "terminal_log"     # referencia a routing.yaml channels
+    online_check: "pgrep -f 'claude.*terminal' > /dev/null"
+    capabilities:
+      - id: code_implementation
+        description: "Escritura e implementación de código Python, TypeScript, shell"
+        proficiency: 0.95
+        keywords: ["implementa", "escribe", "crea", "modifica", "fix"]
+      - id: shell_execution
+        description: "Ejecución de comandos, scripts, pipelines en terminal"
+        proficiency: 0.95
+        keywords: ["ejecuta", "corre", "lanza", "instala", "bash"]
+      - id: training_management
+        description: "Lanzamiento y monitoreo de jobs de fine-tuning"
+        proficiency: 0.90
+        keywords: ["entrena", "training", "finetune", "LoRA", "checkpoint"]
+      - id: gpu_monitoring
+        description: "Monitoreo continuo de GPU, temperatura, utilización"
+        proficiency: 0.90
+        keywords: ["GPU", "temperatura", "VRAM", "nvidia-smi", "memoria"]
+      - id: api_server_management
+        description: "Deploy, reinicio y mantenimiento de servidores FastAPI"
+        proficiency: 0.90
+        keywords: ["server", "reinicia", "deploy", "endpoint", "API"]
+      - id: filesystem_operations
+        description: "Lectura, escritura, organización de archivos del proyecto"
+        proficiency: 0.90
+        keywords: ["archivo", "directorio", "jsonl", "guarda", "lee"]
+      - id: code_review
+        description: "Revisión de código propio y ajeno"
+        proficiency: 0.85
+        keywords: []    # JARVIS tiene mayor proficiency — solo fallback
+    cannot:
+      - make_architectural_decisions_alone
+      - merge_lora_without_approval
+      - deploy_to_production_medical
+
+  DUM:
+    role: "Guard — monitoreo 24/7"
+    environment: "ollama_local"
+    model: "qwen2.5:7b"
+    log_channel_ref: "terminal_log"     # DUM escribe en canal ADA como fallback
+    online_check: "pgrep -f 'dum' > /dev/null"
+    capabilities:
+      - id: continuous_monitoring
+        description: "Vigilancia continua de GPU, procesos, filesystem"
+        proficiency: 1.0
+        keywords: ["monitorea", "vigila", "alerta", "detecta", "GPU"]
+      - id: alert_generation
+        description: "Generación de alertas Tier 1/2/3 según DUM v2 spec"
+        proficiency: 0.95
+        keywords: ["alerta", "crítico", "warning", "temperatura", "caído"]
+      - id: pattern_search
+        description: "Búsqueda de patrones en logs y archivos del sistema"
+        proficiency: 0.85
+        keywords: ["busca", "grep", "log", "patrón", "encuentra"]
+    cannot:
+      - make_code_changes
+      - approve_merges
+      - start_training_jobs
+      - respond_to_william_directly
+
+# Routing rules por capability_id — explícitas, toman precedencia sobre routing.yaml
+capability_routing:
+  - capability_id: architecture_design
+    prefer_agent: JARVIS
+  - capability_id: strategic_planning
+    prefer_agent: JARVIS
+  - capability_id: code_implementation
+    prefer_agent: ADA       # ADA proficiency=0.95 > JARVIS proficiency=0.70
+  - capability_id: shell_execution
+    prefer_agent: ADA
+  - capability_id: training_management
+    prefer_agent: ADA
+  - capability_id: gpu_monitoring
+    prefer_agent: DUM       # DUM es el guardián 24/7
+  - capability_id: continuous_monitoring
+    prefer_agent: DUM
+  - capability_id: code_review
+    prefer_agent: JARVIS    # JARVIS proficiency=0.97 > ADA proficiency=0.85
+
+# Routing hints para triage semántico de mensajes sin destinatario
+routing_hints:
+  unassigned_task_resolution: "match_capabilities_by_keywords_then_proficiency"
+  fallback_agent: "JARVIS"   # si no hay keyword match, escala a arquitecto
+  cannot_bypass: true         # reglas 'cannot' son hard limits, no sugerencias
+  prefer_higher_proficiency: true  # si 2 agentes pueden → elige mayor proficiency

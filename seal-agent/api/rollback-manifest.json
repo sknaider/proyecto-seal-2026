@@ -1,0 +1,34 @@
+{
+  "schema": "seal-rollback-manifest-v1",
+  "capability": "soul-api-v1-retired-8766",
+  "created_at": "2026-07-22T11:17:06-05:00",
+  "quarantine_expires_at": "2026-08-05T23:59:59-05:00",
+  "replaced_by": [
+    "soul-memory-sdk-gateway:8767",
+    "soul-memory-sdk-api:8768"
+  ],
+  "image": {
+    "tag": "seal/soul-api-v1-rollback:20260722-immutable",
+    "id": "sha256:ec290573e8cc70696f1fc92da35a04bce00c59d6e7c57b676aa96186e37655ee",
+    "base": "python@sha256:6d85378d88a19cd4d76079817532d62232be95757cb45945a99fec8e8084b9c2"
+  },
+  "artifacts": {
+    "main.py": "sha256:80b6f4a06187b9b58fb221895cfa94b9f5b7ea5abd155b509fb785cfb6f84055",
+    "requirements.rollback.txt": "sha256:f46c97034959097a3e9215c21489547013f91c7d1038f35b03836135f0d6c3c0",
+    "Dockerfile.rollback": "sha256:bb322f96f63cf9bc937b06a611171047c7f6f343b9a5e67d52fc35ec254aa8b5"
+  },
+  "runtime_contract": {
+    "bind_mounts": 0,
+    "install_at_startup": false,
+    "run_as": "soulapi",
+    "restart_policy": "no",
+    "smoke_port": 18766,
+    "smoke_health_http": 200
+  },
+  "legacy_container": {
+    "name": "soul-api-v1-rollback-20260722",
+    "state": "exited",
+    "retained_for_forensics": true,
+    "must_not_be_started": true
+  }
+}

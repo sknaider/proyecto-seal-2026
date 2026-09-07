@@ -1,0 +1,213 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "ada-single-voice-routing-v1",
+  "reviewer": "JARVIS",
+  "subject": "messages/ada_codex_remote_bridge.py + messages/routing.yaml",
+  "mutation_target": "isolated_copy",
+  "harness": [
+    "/home/dadito/IA/seal-spark/.venv/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "messages/tests/test_ada_codex_remote_bridge_silence.py",
+    "messages/tests/test_ada_directed_routing.py"
+  ],
+  "control_sujeto_sin_mutar": {
+    "donde": "/tmp/ada-voice-review.qy92lU, copia aislada de siete archivos; ningun arbol vivo mutado",
+    "observed": "86 passed",
+    "por": "ADA",
+    "result": "GREEN"
+  },
+  "file_sha256": {
+    "messages/ada_codex_remote_bridge.py": "e7c79ed13a9ab421683806967ab6d2f7fb6327718ddf5edf4ecd32488165e89b",
+    "messages/routing.yaml": "c59495a05ffd3de1fd628b49502822687d8a3d432bfeea957287066884994d65",
+    "messages/tests/test_ada_codex_remote_bridge_silence.py": "bd22dfa6b8410099afffd25d75f2d9b20d483a40623cc83545da6b42aae2aced",
+    "messages/tests/test_ada_directed_routing.py": "11bb5fc68dcbe9a3637e4ac49026b13632fd8667b4e93f402464b92d0b001ae4"
+  },
+  "total": 6,
+  "detectados": 6,
+  "killed": 6,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "mutantes": [
+    {
+      "mutante": "agent_to:ADA vuelve a omitir terminal_log",
+      "detectado": true,
+      "aplico": true
+    },
+    {
+      "mutante": "se elimina la gracia y el ACK vuelve a ser inmediato",
+      "detectado": true,
+      "aplico": true
+    },
+    {
+      "mutante": "el ACK de DM queda desactivado por defecto",
+      "detectado": true,
+      "aplico": true
+    },
+    {
+      "mutante": "un mensaje dirigido a ADA tambien se entrega a JARVIS",
+      "detectado": true,
+      "aplico": true
+    },
+    {
+      "mutante": "un mensaje dirigido a JARVIS tambien se entrega a ADA",
+      "detectado": true,
+      "aplico": true
+    },
+    {
+      "mutante": "el ACK reconoce solo el id numerico, no db_/legacy",
+      "detectado": true,
+      "aplico": true
+    }
+  ],
+  "mutants": [
+    {
+      "id": "routing-sin-terminal-log",
+      "author": "ADA",
+      "mutation": "agent_to:ADA vuelve a omitir terminal_log",
+      "result": "KILLED",
+      "observed": "1 failed, 1 passed",
+      "why": "reproduce los nueve mensajes dirigidos que nunca entraron al feed propio"
+    },
+    {
+      "id": "ack-sin-gracia",
+      "author": "JARVIS",
+      "mutation": "el default ADA_BRIDGE_DM_ACK_GRACE_SECONDS vuelve de 10 a 0",
+      "result": "KILLED",
+      "observed": "2 failed, 84 passed",
+      "why": "reproduce las dos respuestas visibles para un DM contestado rapido"
+    },
+    {
+      "id": "ack-dm-apagado-por-default",
+      "author": "JARVIS",
+      "mutation": "ADA_BRIDGE_DM_DURABLE_ACK vuelve a false por defecto",
+      "result": "KILLED",
+      "observed": "2 failed, 84 passed",
+      "why": "evita que una ADA realmente ocupada acuse el DM despues de la gracia"
+    },
+    {
+      "id": "ada-filtra-a-jarvis",
+      "author": "JARVIS",
+      "mutation": "agent_to:ADA agrega vscode_commands",
+      "result": "KILLED",
+      "observed": "1 failed, 1 passed",
+      "why": "una llamada privada a ADA no debe despertar ni alimentar el cuerpo de JARVIS"
+    },
+    {
+      "id": "jarvis-filtra-a-ada",
+      "author": "JARVIS",
+      "mutation": "agent_to:JARVIS agrega trigger_ada",
+      "result": "KILLED",
+      "observed": "1 failed, 1 passed",
+      "why": "una llamada privada a JARVIS no debe despertar ni alimentar el cuerpo de ADA"
+    },
+    {
+      "id": "reply-id-solo-numerico",
+      "author": "ADA",
+      "mutation": "response_source_ids devuelve solo str(msg.id)",
+      "result": "KILLED",
+      "observed": "3 failed, 83 passed",
+      "why": "impide reconocer una respuesta durable cuyo in_reply_to es db_<id>"
+    }
+  ],
+  "revision_independiente_JARVIS": {
+    "_doc": "Mutantes del revisor, sobre COPIAS en tempdir; el arbol vivo no se toco. Control completado hasta VERDE antes de medir.",
+    "control": "86 passed",
+    "canarios": {
+      "routing.yaml destruido": "2 failed",
+      "raise al importar el bridge": "error de coleccion"
+    },
+    "mutantes": [
+      {
+        "id": "gracia de ACK 10 -> 0",
+        "result": "KILLED",
+        "observed": "2 failed, 84 passed"
+      },
+      {
+        "id": "DM ACK default true -> false",
+        "result": "KILLED",
+        "observed": "2 failed, 84 passed"
+      },
+      {
+        "id": "agent_to ADA + vscode_commands (canal de JARVIS)",
+        "result": "KILLED",
+        "observed": "1 failed, 85 passed"
+      },
+      {
+        "id": "agent_to JARVIS + trigger_ada (canal de ADA)",
+        "result": "KILLED",
+        "observed": "1 failed, 85 passed"
+      },
+      {
+        "id": "agent_to JARVIS + terminal_log (feed de ADA)",
+        "result": "KILLED",
+        "observed": "1 failed, 85 passed"
+      }
+    ],
+    "error_del_revisor_retirado": "En la ronda 2 afirme asimetria en la proteccion y que el mutante del owner no medía. MI mutante apuntaba a la regla `agent_to: equipo` creyendola la de JARVIS. Aplicaba (dif=1) sobre la linea equivocada: dif>0 no alcanza.",
+    "delivery_verificado_por_el_revisor": "El primer comando del owner fallaba (rc=1) y NO por fuga: buscaba el id del canario en cualquier texto y el mensaje que me comunicaba el id -correctamente ruteado a mi canal- lo hacia aparecer. Corregido a comparar el sobre JSON: rc=0, DELIVERY_OK, ambos servicios activos, corrido por mi."
+  },
+  "re_firmas_JARVIS": [
+    {
+      "fecha": "2026-09-05T12:59:14.027851+00:00",
+      "motivo": "14 lineas nuevas de ADA en el bridge (runtime_instance)",
+      "control": "86 passed",
+      "canarios": {
+        "bridge": "1 error",
+        "routing.yaml": "2 failed"
+      },
+      "mutantes": [
+        {
+          "id": "M1 gracia ACK 10->0",
+          "result": "KILLED",
+          "observed": "2 failed"
+        },
+        {
+          "id": "M2 agent_to ADA + vscode_commands",
+          "result": "KILLED",
+          "observed": "1 failed"
+        },
+        {
+          "id": "M3 agent_to JARVIS + trigger_ada",
+          "result": "KILLED",
+          "observed": "1 failed"
+        },
+        {
+          "id": "M4 agent_to JARVIS sin vscode_commands",
+          "result": "KILLED",
+          "observed": "1 failed"
+        },
+        {
+          "id": "M5 lineas nuevas: etiqueta aunque falte la variable",
+          "result": "OUT_OF_SCOPE",
+          "observed": "86 passed; lo cubre el manifiesto de ADA de hoy"
+        }
+      ]
+    }
+  ],
+  "_recorrida_20260905_por_cambio_ajeno": {
+    "por_que": "El 5-sep el cambio bridge-runtime-instance-20260905 (mio) agrego 14 lineas a messages/ada_codex_remote_bridge.py, que es sujeto COMPARTIDO con este manifiesto. El sha declarado quedo viejo (dac5a4bb90523f58 -> e7c79ed13a9ab421) y el gate corto con mutation_evidence_stale.",
+    "por_que_NO_se_actualizo_el_sha_a_secas": "actualizarlo sin recorrer habria AFIRMADO que estos 6 mutantes corrieron sobre los bytes nuevos, y no era cierto: corrieron sobre los viejos. El sha de una evidencia dice SOBRE QUE BYTES se midio, no que el archivo exista.",
+    "recorrida": {
+      "arena": "mktemp -d bajo /tmp, copia aislada; PYTHONDONTWRITEBYTECODE=1; __pycache__ borrado entre corridas",
+      "control_positivo_bytes_nuevos": "86 passed  (GREEN antes de mutar nada)",
+      "control_de_restauracion": "cmp de bridge y routing.yaml contra el original: identicos",
+      "resultado": "6/6 MUEREN, con los MISMOS conteos de fallo que la medicion original",
+      "detalle": [
+        "[ADA]    routing-sin-terminal-log     1 failed  (original: 1 failed)",
+        "[JARVIS] ack-sin-gracia               2 failed  (original: 2 failed)",
+        "[JARVIS] ack-dm-apagado-por-default   2 failed  (original: 2 failed)",
+        "[JARVIS] ada-filtra-a-jarvis          1 failed  (original: 1 failed)",
+        "[JARVIS] jarvis-filtra-a-ada          1 failed  (original: 1 failed)",
+        "[ADA]    reply-id-solo-numerico       3 failed  (original: 3 failed)"
+      ],
+      "lectura": "los conteos identicos son consistentes con que mi cambio es puramente aditivo y no toca ruteo ni ACK. Pero eso se MIDIO, no se dedujo: era exactamente la suposicion comoda."
+    },
+    "recibo_de_revision": "JARVIS refresco su recibo por separado y re-corrio SU tanda en copia aislada (control 86 passed, canario del bridge 1 error, canario de routing.yaml 2 failed). Su recibo y esta evidencia son artefactos distintos: el recibo es suyo, la evidencia es del owner (ADA)."
+  }
+}

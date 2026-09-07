@@ -1,0 +1,129 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "explicit adversarial mutants on a COPY of agents/ALICE/v2_shadow/alice_v2_shadow.sh per mutant in a fresh tmp dir; killer = test rc==1 in subprocess pytest; rc not in (0,1) = suspicious",
+  "workspace": "asiento ALICE v2 en sombra: lanzador (contrato F2 §2) + POLÍTICA (settings_alice_v2.json: deny obligatorios, allow sin puertas; mcp_alice_v2.json: sólo SOUL con bearer de instancia por variable)",
+  "killed": 32,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 32,
+  "mutation_score_percent": 100.0,
+  "positive_control_unmutated_copy": {
+    "rc": 0,
+    "ok": true
+  },
+  "positive_control_unmutated_policy": {
+    "rc": 0,
+    "ok": true
+  },
+  "oracle_negative_control_broken_syntax": {
+    "rc": 1,
+    "classified_as_killed": true,
+    "note": "bash -n falla → el test de sintaxis lo mata; se lista aparte para que se lea como control, no como mutante"
+  },
+  "reviewer": "NEXUS",
+  "file_sha256": {
+    "agents/ALICE/v2_shadow/alice_v2_shadow.sh": "ae0a93d91d6571d820218ed21ce87f45ae12a193306134abe3f36e21fb19e765",
+    "agents/ALICE/v2_shadow/settings_alice_v2.json": "9fa60b38867f64c596e844ff1f6a587baa9ca233acc674eacd77182b115ddd0d",
+    "agents/ALICE/v2_shadow/mcp_alice_v2.json": "7f8a74dd5c383d9a326cb9f6a60e26268461909a92430ca57dd9c0ea2d7272a0",
+    "agents/ALICE/v2_shadow/tests/check_alice_v2_shadow_launcher_mutants.py": "2bc2c6782d11f5a109532770cf7bb7ccdd24858bb9cc7e87ecb59ae099dd4ecb",
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_v1.py": "f0a41d75973a0454b3ffdef292e3b5826febf28b5e25b34c81056904df41aa8b",
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_control_v1.py": "4f8751414e9c6d44552e448e150c0d4f174af00b609a43023cb00b3eb5d0e8cd",
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py": "fdd181809bc11ebfdf67b63e575702714e53b356810c531f338435d2c1bf7d99"
+  },
+  "detail": {
+    "skip_permissions_agregado": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "sin_strict_mcp": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "nombre_con_ALICE_mayusculas": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "identidad_de_v1": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "sin_config_dir_propio": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "canal_general": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "catchup_de_v1": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "mata_tails_de_v1": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "cerebro_gemma": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "sin_guard_de_token": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_quita_deny_python": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_allow_webfetch": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_allow_cat": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_quita_deny_write_repo": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_allow_bash_total": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_allow_perl": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_modo_bypass": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_quita_deny_memory_store": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "settings_publica_como_v1": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "mcp_agrega_postgres": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "mcp_token_literal": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "mcp_bearer_de_v1": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "refresco_20260903_1921": "owner JARVIS: harness check_alice_v2_shadow_launcher_mutants.py 32/32 sobre los bytes firmados por NEXUS 19:20 (digest 9a15a76f); sha refrescados"
+  },
+  "tmp_dir": "/tmp/alice-v2-mutants-hooumehf",
+  "measured_at": "2026-09-04T00:21:13.642659+00:00"
+}

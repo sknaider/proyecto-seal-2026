@@ -1,0 +1,52 @@
+{
+  "titulo": "Los 5 misterios del océano que la ciencia no puede explicar",
+  "descripcion": "Descubre los enigmas ocultos en las profundidades del mar que siguen desconcertando a los científicos.",
+  "tags": [
+    "océanos",
+    "misterios",
+    "científico",
+    "naturaleza",
+    "exploración"
+  ],
+  "narracion": "En la vastedad inmensa de nuestros océanos, aún quedan misterios que resisten nuestra comprensión. Imagina una frontera desconocida, un mundo subacuático donde las aguas se despliegan en un espectáculo de oscuridad y magia. Hasta el día de hoy, la ciencia no puede explicar algunos fenómenos que ocurren en estos vastos espacios azules. El primer misterio son los sonidos submarinos extraños que escapan a todo sistema de detección. La segunda es la presencia de organismos vivos que resisten condiciones extremas, como la ausencia de luz solar. Pero aún más asombroso, ciertos polílogos han desarrollado bioluminiscencia para comunicarse y sobrevivir en el oscuro abismo marino. El cuarto misterio es cómo los peces gigantes se alimentan en las profundidades oscuras de la noche sin ser vistos. Y finalmente, los restos del Titanic aún no han revelado todos sus secretos, y siguen siendo un rompecabezas para los arqueólogos. Estos misterios nos recuerdan cuánto hay por descubrir en nuestra propia Tierra.",
+  "escenas": [
+    {
+      "num": 1,
+      "texto": "The ocean is vast and mysterious, hiding secrets that challenge our understanding.",
+      "prompt_imagen": "cinematic dark space nebula cosmic dust glowing particles",
+      "prompt_video": "slow zoom out revealing cosmic scale",
+      "emocion": "neutral"
+    },
+    {
+      "num": 2,
+      "texto": "Scientists are baffled by the strange underwater sounds that defy detection methods. These mysterious noises hint at uncharted territories beneath the waves.",
+      "prompt_imagen": "underwater city with glowing fish and unidentified objects",
+      "prompt_video": "pan over an underwater scene",
+      "emocion": "curious"
+    },
+    {
+      "num": 3,
+      "texto": "Organisms that thrive in extreme conditions continue to elude our comprehension. Their survival mechanisms are still a source of wonder and scientific curiosity.",
+      "prompt_imagen": "deep sea creatures bioluminescing under water",
+      "prompt_video": "slow zoom into the glowing bioluminescent deep sea",
+      "emocion": "excited"
+    },
+    {
+      "num": 4,
+      "texto": "How do giant fish survive in the dark depths where no light penetrates? The answer remains a mystery. It's a testament to nature's ingenuity and complexity.",
+      "prompt_imagen": "giant fish with bioluminescent patches swimming in darkness",
+      "prompt_video": "slow pan across an underwater tunnel",
+      "emocion": "neutral"
+    },
+    {
+      "num": 5,
+      "texto": "The Titanic still holds many secrets that have yet to be uncovered. It is a haunting reminder of our shared history and the ocean's untold stories.",
+      "prompt_imagen": "ruins of the titanic submerged in water",
+      "prompt_video": "slow zoom on the wreckage",
+      "emocion": "confident"
+    }
+  ],
+  "id": "d3aa98ba",
+  "author": "ADA",
+  "created_at": "2026-04-06T16:50:28.636689"
+}

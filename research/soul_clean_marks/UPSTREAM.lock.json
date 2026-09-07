@@ -1,0 +1,9 @@
+{
+  "schema": "seal.soul-clean-marks.upstream-lock.v1",
+  "repository": "https://github.com/guillaumemeyer/watermarks-remover",
+  "commit": "61440192af4ef42d2f87280f238904c8456566d5",
+  "license": "MIT",
+  "scripts_and_license_sha256": "308e60eadf93254ec33c858eefeaf2cd903703088e71879a6b466ef0d334f138",
+  "scripts_count": 19,
+  "verified_at": "2026-08-14"
+}

@@ -1,0 +1,147 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "sleep-gate-credencial-20260905",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "_doc": [
+    "La consolidacion nocturna de SOUL (seal-sleep-gate.service) fallaba TODAS las noches:",
+    "  asyncpg.exceptions.InvalidPasswordError: password authentication failed for user \"seal\"",
+    "El DSN del rol `seal` estaba escrito en la linea 25 con la contrasena rotada el 3-sep 13:27.",
+    "",
+    "COMO APARECIO: salio en el brief matutino de JARVIS del 5-sep 06:00 como «unidad en failed»,",
+    "sin causa. La unidad no logueaba una sola linea propia --escribe a messages/sleep_gate.log,",
+    "donde nadie mira-- asi que el journal solo mostraba el exit code de systemd.",
+    "",
+    "SEXTA APARICION DE LA MISMA FAMILIA EN 24 H: ada_boot_test, tool_result_budget_hook,",
+    "post_compact_session_start_hook, el job de embeddings, el poller de DMs de ALICE y este.",
+    "Las cinco primeras eran silencio --herramientas que corrian sin hacer su trabajo--; la de",
+    "ALICE fue la primera con dano visible: 26 h sin leer DMs. Un secreto escrito en el codigo es",
+    "una bomba con la fecha puesta en la proxima rotacion.",
+    "",
+    "EL ARREGLO es de una linea: DB_URL = settings.pg_dsn. Medido el 5-sep antes de aplicarlo:",
+    "el DSN hardcodeado -> InvalidPasswordError; settings.pg_dsn -> conecta (SELECT 1 -> 1).",
+    "",
+    "POR QUE LOS TESTS SON DE CONTRATO Y NO DE LOGICA: el cambio no toca el algoritmo de",
+    "SleepGate. Lo que hay que fijar es que la credencial NUNCA vuelva al codigo, ni siquiera",
+    "como respaldo. Por eso la cobertura es baja y es honesto que lo sea: se prueba una",
+    "propiedad del modulo, no sus 280 sentencias de consolidacion."
+  ],
+  "deletions": [],
+  "subjects": [
+    "memory/sleep_gate_cron.py",
+    "quality/delivery_sleep_gate_credencial.sh"
+  ],
+  "tests": [
+    "memory/tests/test_sleep_gate_credencial.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-sleep-gate-credencial",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_sleep_gate_credencial.py"
+      ]
+    },
+    {
+      "id": "positive-el-dsn-sale-de-settings",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_sleep_gate_credencial.py::test_el_modulo_IMPORTA",
+        "memory/tests/test_sleep_gate_credencial.py::test_el_DSN_sale_de_settings_y_no_de_una_constante"
+      ]
+    },
+    {
+      "id": "negative-ninguna-credencial-en-el-codigo",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_sleep_gate_credencial.py::test_no_hay_ninguna_contrasena_escrita_en_el_codigo",
+        "memory/tests/test_sleep_gate_credencial.py::test_la_credencial_vieja_ya_no_aparece_ni_como_respaldo"
+      ]
+    },
+    {
+      "id": "control-el-test-anterior-puede-fallar",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_sleep_gate_credencial.py::test_control_no_vacuo_el_test_anterior_puede_fallar"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "memory"
+    ],
+    "omit": [
+      "memory/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_sleep_gate_credencial.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300,
+    "_note": "source='memory' (directorio) es la unica forma que RECOLECTA: source='sleep_gate_cron' (nombre de modulo) devuelve 'No data to report'. Medido, no supuesto.",
+    "_por_que_el_baseline_es_bajo": "el cambio es UNA linea de configuracion sobre un modulo de 280 sentencias de logica de consolidacion que estos tests no ejercitan ni pretenden ejercitar. Subir el baseline exigiria tests de SleepGate que no son de este cambio. Un numero honesto y bajo vale mas que uno alto que mide otra cosa.",
+    "_por_que_el_baseline_es_0": "El gate compara el TOTAL del alcance, no la fila del sujeto: sobre memory/ entero da 1 %, aunque sleep_gate_cron.py este al 8 %. Puse 5.0 primero por leer la FILA en vez del TOTAL --el mismo error que cometi anoche en otro manifiesto-- y lo cace corriendo la cobertura a mano ANTES de pedir la firma. Intente acotar el alcance con omits y el patron excluyo al propio sujeto (0 %). Antes que forzar un numero, declaro que la cobertura NO gatea este cambio: es UNA linea de configuracion sobre 280 sentencias de logica que estos tests no ejercitan ni pretenden ejercitar. Lo que gatea es la mutacion (3/3) y el delivery por efecto."
+  },
+  "mutation_evidence": "quality/mutation-sleep-gate-credencial-20260905.json",
+  "mutation_baseline_percent": 100.0,
+  "mutation_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "memory/tests/test_sleep_gate_credencial.py"
+  ],
+  "review": {
+    "status": "approved",
+    "_solicitado_a": "NEXUS",
+    "_motivo": "El inventario de credenciales es su carril y su manifiesto de credenciales NO cubria este archivo; el hueco lo marco el mismo.",
+    "evidence": "Revision independiente de NEXUS, 5-sep-2026. Copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas, cada mutante verificado por que el archivo CAMBIO y que COMPILA. Arbol vivo intacto.\n\nCONTROL: 5 passed. CANARIO (raise al importar): 3 failed, 2 passed -> ejecuta el sujeto.\n\nMUTANTES mios:\n1. vuelve el DSN hardcodeado (la regresion exacta que causo el incidente): 2 failed. MUERE.\n2. el import de config se reemplaza por un objeto con un pg_dsn fijo: 2 failed. MUERE.\nLos dos los caza test_el_DSN_sale_de_settings_y_no_de_una_constante.\n\nLA PREGUNTA QUE DECIDIA ESTA FIRMA, y la mido porque el arreglo DELEGA en config.py: settings.pg_dsn tiene el literal viejo como DEFAULT de pydantic, asi que 'leer settings' podria heredar el mismo fallback muerto. Verificado por PROPIEDAD --sin imprimir ningun DSN-- bloqueando el import de seal_secrets con un meta_path y comparando el resultado contra el literal:\n  con seal_secrets bloqueado -> el DSN NO es el literal viejo (sha e00d95ae, coincide=False)\n  en entorno LIMPIO (env -i, como una unidad systemd) -> mismo resultado\nO sea: config.py no cae al default ni sin secretos ni sin entorno, asi que la delegacion es segura y no reintroduce el defecto por la puerta de atras.\n\nOBSERVACION NO BLOQUEANTE: este manifiesto arregla ESTE archivo, no la clase. Quedan sin fuente externa seal-agent-stability-guard y seal-durable-cron (inventario mio de las 06:04, en la tarea #1719). Y el criterio que sirve no es 'lee settings' sino el que se midio con el poller de JARVIS: que el proceso vivo conecte con la identidad correcta y SOBREVIVA A UN RESTART.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "54f537481642dbf2f47383c82a02bbe5004018a603aca657e24a0c4b1b36531a",
+      "reviewed_sha256": {
+        "memory/sleep_gate_cron.py": "22c73ad0ca0194d08f589f58a9b0432d898db2c15b61b6b40f5de7698f5e632a",
+        "quality/delivery_sleep_gate_credencial.sh": "93f9c63d4be2b4e2e32a28a08c722e9a78ef87b05a345a4fb51981de520f838a",
+        "memory/tests/test_sleep_gate_credencial.py": "156ff592b0db342dd5effbf20d9b0182061a5377bad774d2c1406e6a816f3794"
+      },
+      "evidence": "Revision independiente de NEXUS, 5-sep-2026. Copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas, cada mutante verificado por que el archivo CAMBIO y que COMPILA. Arbol vivo intacto.\n\nCONTROL: 5 passed. CANARIO (raise al importar): 3 failed, 2 passed -> ejecuta el sujeto.\n\nMUTANTES mios:\n1. vuelve el DSN hardcodeado (la regresion exacta que causo el incidente): 2 failed. MUERE.\n2. el import de config se reemplaza por un objeto con un pg_dsn fijo: 2 failed. MUERE.\nLos dos los caza test_el_DSN_sale_de_settings_y_no_de_una_constante.\n\nLA PREGUNTA QUE DECIDIA ESTA FIRMA, y la mido porque el arreglo DELEGA en config.py: settings.pg_dsn tiene el literal viejo como DEFAULT de pydantic, asi que 'leer settings' podria heredar el mismo fallback muerto. Verificado por PROPIEDAD --sin imprimir ningun DSN-- bloqueando el import de seal_secrets con un meta_path y comparando el resultado contra el literal:\n  con seal_secrets bloqueado -> el DSN NO es el literal viejo (sha e00d95ae, coincide=False)\n  en entorno LIMPIO (env -i, como una unidad systemd) -> mismo resultado\nO sea: config.py no cae al default ni sin secretos ni sin entorno, asi que la delegacion es segura y no reintroduce el defecto por la puerta de atras.\n\nOBSERVACION NO BLOQUEANTE: este manifiesto arregla ESTE archivo, no la clase. Quedan sin fuente externa seal-agent-stability-guard y seal-durable-cron (inventario mio de las 06:04, en la tarea #1719). Y el criterio que sirve no es 'lee settings' sino el que se midio con el poller de JARVIS: que el proceso vivo conecte con la identidad correcta y SOBREVIVA A UN RESTART."
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Probado por EFECTO contra la base REAL, no con mocks. ARM1: el sujeto corre `--dry-run` de punta a punta y termina en 'SleepGate complete' -- antes moria con InvalidPasswordError. ARM2 (control no vacuo, y es el que da sentido al ARM1): una copia con el DSN viejo hardcodeado SIGUE fallando con InvalidPasswordError, o sea que el arreglo ES la causa del ARM1 y no que el script ande con cualquier credencial.\n\nDOS DEFECTOS DEL PROPIO ENSAYO, corregidos por medicion: (1) el ARM2 reportaba FALLO con el sistema comportandose bien -- con `set -o pipefail`, `python ... | grep -q` devuelve el codigo de python, que ahi sale 1 a proposito; ahora la salida se captura antes de buscar en ella. (2) llevaba un `trap` que borraba por patron y ventana de tiempo en /tmp: quitado, porque tmpfiles.d ya vacia /tmp y esa forma es justo la que dispara el candado de destructivos.",
+    "command": {
+      "id": "delivery-sleep-gate-credencial",
+      "kind": "delivery",
+      "argv": [
+        "bash",
+        "quality/delivery_sleep_gate_credencial.sh"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "DELIVERY OK: 2/2 brazos"
+    }
+  }
+}

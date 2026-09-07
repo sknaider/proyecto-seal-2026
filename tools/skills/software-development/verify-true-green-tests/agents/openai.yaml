@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify True Green Tests"
+  short_description: "Prove that test and runtime results are genuinely green"
+  default_prompt: "Use $verify-true-green-tests to validate this change by effect and reject false-green evidence."

@@ -1,0 +1,119 @@
+{
+ "schema": "seal.quality-manifest.v1",
+ "change_id": "fable-seat-detector-20260829",
+ "owner": "FABLE",
+ "independent_reviewer": "NEXUS",
+ "review": {
+  "status": "approved",
+  "evidence": "APPROVE de NEXUS (owner FABLE != revisor), publicado en el canal el 31-ago 03:10 sobre writer 9202287b09876771 y tests 44be783e78414751. Su medicion: DIFERENCIAL vs scan_primary_runtimes, 27 casos, 0 divergencias, con CONTROL DE DISCRIMINACION por mutante. Declaro que NO cubre mis 4 defectos abiertos (los leyo, no los ataco), ni el camino de GPU, ni el guard de fixture end-to-end. PENDIENTE CONOCIDO: la evidencia de mutacion vigente (quality/mutation-fable-seat-detector.json, reviewer NEXUS 4/4) cubre los bytes VIEJOS 10773d25/aa69dbbc; sobre estos bytes todavia no hay. Lo registro yo como owner; el veredicto es de NEXUS y su recibo formal queda a su nombre.",
+  "reviewed_sha256": {
+   "messages/fable_heartbeat_update.sh": "9202287b098767716ca3c9fe2ff4b04b886f45a3c8f79dc2734d19e58c4ae66b",
+   "messages/tests/test_fable_seat_detector.py": "44be783e784147518503a001948a6b68eabeb6375c432d4b0ea7a530b96702a5"
+  }
+ },
+ "deletions": [],
+ "subjects": [
+  "messages/fable_heartbeat_update.sh"
+ ],
+ "tests": [
+  "messages/tests/test_fable_seat_detector.py"
+ ],
+ "commands": [
+  {
+   "id": "unit-contrato-del-asiento",
+   "kind": "unit",
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "messages/tests/test_fable_seat_detector.py"
+   ],
+   "expected_exit": 0
+  },
+  {
+   "id": "positive-asiento-unico-y-autoridad",
+   "kind": "qa_positive",
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "messages/tests/test_fable_seat_detector.py::test_asiento_unico_presente",
+    "messages/tests/test_fable_seat_detector.py::test_mi_writer_coincide_con_la_autoridad"
+   ],
+   "expected_exit": 0
+  },
+  {
+   "id": "negative-lo-que-NO-es-mi-asiento",
+   "kind": "qa_negative",
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "messages/tests/test_fable_seat_detector.py::test_mencion_en_argumento_ajeno_no_es_mi_asiento",
+    "messages/tests/test_fable_seat_detector.py::test_clon_con_guion_no_es_el_principal",
+    "messages/tests/test_fable_seat_detector.py::test_worker_de_streaming_excluido",
+    "messages/tests/test_fable_seat_detector.py::test_seal_agent_del_environ_decide"
+   ],
+   "expected_exit": 0
+  },
+  {
+   "id": "control-la-fixture-no-alcanza-el-sink-real",
+   "kind": "qa_control",
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "messages/tests/test_fable_seat_detector.py::test_una_fixture_NO_puede_alcanzar_el_sink_REAL",
+    "messages/tests/test_fable_seat_detector.py::test_un_proceso_MUERTO_no_cuenta_como_ilegible"
+   ],
+   "expected_exit": 0
+  }
+ ],
+ "coverage": {
+  "source": [
+   "messages"
+  ],
+  "omit": [
+   "*/tests/*"
+  ],
+  "pytest_args": [
+   "-q",
+   "messages/tests/test_fable_seat_detector.py"
+  ],
+  "baseline_percent": 0.0,
+  "timeout": 180
+ },
+ "delivery": {
+  "status": "verified",
+  "evidence": "El writer corre en seal-fable-heartbeat.service cada 5 min; el latido publicado es el efecto.",
+  "command": {
+   "id": "delivery-latido-vivo",
+   "argv": [
+    "python3",
+    "-c",
+    "import json;d=json.load(open('messages/fable_claude_heartbeat.json'));print(d['runtime_detection_status'])"
+   ],
+   "expected_exit": 0,
+   "expected_stdout_contains": "present_unique"
+  }
+ },
+ "frozen_sha256": {
+  "messages/fable_heartbeat_update.sh": "9202287b098767716ca3c9fe2ff4b04b886f45a3c8f79dc2734d19e58c4ae66b",
+  "messages/tests/test_fable_seat_detector.py": "44be783e784147518503a001948a6b68eabeb6375c432d4b0ea7a530b96702a5"
+ },
+ "limitaciones_declaradas": [
+  "EJES NO VARIADOS (no 'instrumentos'): codificacion no-UTF8 en comm, --name repetido, argv vacio, /proc con miles de PIDs. Ninguno esta en los 80 tests.",
+  "Los 27 casos del revisor no son el dominio de argv; el camino de GPU y el guard de fixture no fueron mutados (limite declarado por NEXUS).",
+  "El writer ESPEJA a scan_primary_runtimes en bash; no la importa. Una deriva de la autoridad rompe los tests solo para los casos del corpus."
+ ],
+ "validador_de_suite": {
+  "comando": "python3 messages/tests/validar_suite_fable.py",
+  "que_prueba": "7 mutantes de UNA linea sobre la deteccion (cada uno revierte un defecto vivo de hoy) + 2 sobre el guard de fixture ejercidos contra un CENTINELA en /tmp (diseno de JARVIS): el dano se ejerce sin tocar produccion. Exige dif==1 antes de leer el color e imprime la causa de cada rojo. Cada mutante pasa por una CORRIDA DE HUMO antes de contar: si el interprete se queja (missing ], command not found, unexpected...), su rojo NO cuenta como muerte. || 30-ago 03:43: dos anclas quedaron INVALIDAS al reescribir el writer y el validador reportaba NO VALIDADA -- nadie lo vio porque nada lo ejecuta (0 llamadores, 0 timers). Re-anclado el mutante de SEAL_AGENT (`_pids` paso de cadena a array) y REEMPLAZADO el de `fuera_de_dominio`, cuya rama retire el 29-ago 23:17: un mutante sin sujeto no es cobertura, es ANCLA INVALIDA para siempre. Lo reemplaza el ALCANCE (comm=claude o continue). Ahora: VALIDADA, 7 de deteccion + 2 del guard, y el writer real pasa con 80 tests.",
+  "sha256": "e81eb3d8ed00fffbc7bf747882a86c8a18523fb6db1e999c4afa3e24b640c116"
+ },
+ "mutation_evidence": "quality/mutation-fable-seat-detector.json"
+}

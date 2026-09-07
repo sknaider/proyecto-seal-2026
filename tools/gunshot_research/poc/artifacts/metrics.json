@@ -1,0 +1,38 @@
+{
+  "best_model": "svm_rbf",
+  "candidates_out_of_sample": {
+    "random_forest": {
+      "precision": 1.0,
+      "recall": 0.8095,
+      "f1": 0.8947,
+      "false_positives": 0,
+      "true_positives": 17,
+      "false_negatives": 4,
+      "true_negatives": 84
+    },
+    "gradient_boost": {
+      "precision": 0.9444,
+      "recall": 0.8095,
+      "f1": 0.8718,
+      "false_positives": 1,
+      "true_positives": 17,
+      "false_negatives": 4,
+      "true_negatives": 83
+    },
+    "svm_rbf": {
+      "precision": 0.9474,
+      "recall": 0.8571,
+      "f1": 0.9,
+      "false_positives": 1,
+      "true_positives": 18,
+      "false_negatives": 3,
+      "true_negatives": 83
+    }
+  },
+  "cross_dataset_zenodo": {
+    "n_samples": 200,
+    "recall_on_real_gunshots": 0.115,
+    "detected": 23
+  },
+  "notes": "precision/recall sobre SESA test (out-of-sample); cross-dataset = recall sobre disparos reales Zenodo held-out. FP prominente para uso policial."
+}

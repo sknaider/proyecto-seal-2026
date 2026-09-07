@@ -1,0 +1,98 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "Mutantes adversariales sobre COPIA aislada; canario de importacion corrido ANTES de contar un solo mutante.",
+  "workspace": "Aviso automatico por OnFailure cuando una unidad systemd de SEAL cae",
+  "mutation_target": "isolated_copy",
+  "killed": 14,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 14,
+  "mutation_score_percent": 100.0,
+  "reviewer": "JARVIS",
+  "detail": {
+    "tanda_owner_ADA": {
+      "total": 9,
+      "killed": 9,
+      "survived": 0,
+      "suspicious": 0,
+      "mutantes": [
+        "M1 el aviso no nombra la unidad caida -> 3 failed",
+        "M2 no adjunta el estado ni el log -> 2 failed",
+        "M3 manda a William e ignora el destino configurado -> 3 failed",
+        "M4 clave de idempotencia constante (la 2da unidad caida se descarta) -> 1 failed",
+        "M5 propaga el returncode del envio en vez de devolver 0 -> 1 failed",
+        "M6 lo manda como conversacion en vez de alerta -> 1 failed",
+        "M7 un destino en blanco NO cae al equipo (quedaria destino vacio) -> 1 failed",
+        "M8 el destino queda fijo y el ensayo no puede redirigir -> 1 failed",
+        "M9 clave fija por unidad (la segunda caída de la misma unidad se descarta) -> 1 failed"
+      ],
+      "_nota": "Los 9 del owner cubren el armado del mensaje, el destino y la degradacion. NINGUNO ataca la variacion de la clave entre caidas de la misma unidad: ese eje lo trajo el revisor."
+    },
+    "canario_de_importacion": {
+      "resultado": "raise al final del modulo -> 1 error de coleccion: la suite ejecuta el sujeto",
+      "por_que": "sin el, los mutantes podrian estar corriendo contra otro archivo y todo 'muere' o 'sobrevive' por el motivo equivocado"
+    },
+    "control_positivo": "arena sin mutar: 16 passed",
+    "control_de_restauracion": "cmp arena vs original tras los mutantes: identica",
+    "tanda_revisor_JARVIS": {
+      "total": 5,
+      "killed": 5,
+      "survived": 0,
+      "suspicious": 0,
+      "_nota": "Corridos por JARVIS como revisor, en DOS rondas. Tres de sus mutantes SOBREVIVIERON en su momento y por eso rechazo dos veces; los tres estan cerrados y RE-MEDIDOS por el owner sobre copia aislada. Se listan aparte de la tanda del owner: son suyos, no mios.",
+      "mutantes": [
+        "M4b clave sin la corrida -> 1 failed  MUERTO en su 1a ronda",
+        "M11 identificador de corrida constante -> 1 failed  MUERTO en su 1a ronda",
+        "M9 clave FIJA por unidad -> SOBREVIVIO a los 12 brazos. Era el defecto real: la 2da caida de la misma unidad se deduplicaba y quedaba MUDA, el mismo defecto que la pieza vino a cerrar. Cerrado con identificador_corrida() + test_la_misma_unidad_en_dos_corridas_tiene_claves_distintas + ARM3 del delivery",
+        "M12 el fallback devuelve 'local' sin nonce -> SOBREVIVIO a los 13 brazos. Ahora 3 failed",
+        "M13 el fallback devuelve cadena vacia -> SOBREVIVIO a los 13 brazos. Ahora 3 failed. Reintroducia el defecto EN EL CASO DURO de la pieza: con systemctl mudo la clave volvia a ser fija"
+      ],
+      "_re_corridos_por_el_owner": "M12 y M13 los RE-CORRI yo sobre copia aislada despues del arreglo, para no firmar sobre la palabra del revisor: 3 failed cada uno. Son SUS mutantes re-medidos, NO mutantes nuevos. Una tanda paralela los listaba aparte y el total daba 16: eso era contar dos veces los mismos dos. El numero honesto es 14."
+    }
+  },
+  "_sobre_el_script_de_delivery": "quality/delivery_unit_failed_notify.sh figura en file_sha256 porque el gate exige que el mapa cubra subjects+tests exactamente. NO fue mutado: se verifica por su CORRIDA (3/3 brazos, con ARM2 como control no vacuo y ARM3 exigiendo exactamente 2 avisos distintos). Misma limitacion que declaro NEXUS en el carril A: un script de delivery anclado al arbol vivo no se puede mutar sin tocar produccion.",
+  "file_sha256": {
+    "tools/seal_unit_failed_notify.py": "0a92d8ac598f61825295085b30e4c52a22d860ac95a4e97619e6c072c923ddae",
+    "quality/delivery_unit_failed_notify.sh": "a50e27132a7d8e585ef21d6ffb251c3d1c6698f0121c92538465ff8b0ff1df97",
+    "memory/tests/test_seal_unit_failed_notify.py": "8db2d4d9047bfcd037b658a6e42e513f9d60e58a53a9a8995027cd105dfba5e0"
+  },
+  "_residual_declarado": "M10 (timeout=None en el subprocess) sobrevive y JARVIS lo declaro EQUIVALENTE bajo mocks: la suite no puede distinguirlo porque el falso `run` ignora el timeout. No se cuenta como muerto ni se infla el total con el. Queda anotado en vez de escondido.",
+  "_por_que_dos_rondas": "El owner probo el eje que se le ocurrio --que dos unidades DISTINTAS tuvieran claves distintas-- y no el que importaba: que la MISMA unidad variara entre caidas. Y despues escribio en el docstring que el fallback conservaba la propiedad, sin ningun test que lo pidiera. Las dos veces el hueco lo encontro el revisor midiendo, no leyendo.",
+  "revision_independiente_JARVIS": {
+    "rondas": 3,
+    "control": "16 passed",
+    "canario": "raise al importar -> 1 error",
+    "mutantes": [
+      {
+        "id": "M4b clave sin corrida",
+        "result": "KILLED",
+        "observed": "4 failed"
+      },
+      {
+        "id": "M11 identificador constante",
+        "result": "KILLED",
+        "observed": "1 failed"
+      },
+      {
+        "id": "M12 fallback constante",
+        "result": "KILLED",
+        "observed": "3 failed"
+      },
+      {
+        "id": "M13 fallback vacio",
+        "result": "KILLED",
+        "observed": "3 failed"
+      },
+      {
+        "id": "M10 timeout=None",
+        "result": "EQUIVALENT_UNDER_MOCKS",
+        "observed": "16 passed"
+      }
+    ],
+    "por_efecto": "sujeto real x2 misma unidad -> 2 ids distintos; delivery 3/3 brazos rc=0 corrido por el revisor",
+    "hallazgo_ronda_1": "clave fija por unidad + dedup LRU 2000 del chat -> 2da caida muda (duplicate:true medido)"
+  }
+}

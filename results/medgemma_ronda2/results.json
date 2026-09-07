@@ -1,0 +1,14 @@
+{
+  "mission": "MedGemma ronda 2 \u2014 espa\u00f1ol masivo",
+  "ronda": 2,
+  "base_adapter": "results/medgemma_spanish_ft/lora_adapter (v1)",
+  "total_time_hours": 6.15,
+  "train_time_hours": 6.03,
+  "items_total": 187284,
+  "items_es": 76426,
+  "items_en": 110858,
+  "steps": 700,
+  "final_loss": 0.5896412004743303,
+  "adapter_path": "results/medgemma_ronda2/lora_adapter",
+  "adapter_sha256": "04c7d6e4edb248b644e147fd9c772e01ab62bcdb9bcac60b661f7686aeef9a7c"
+}

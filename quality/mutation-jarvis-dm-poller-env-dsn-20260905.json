@@ -1,0 +1,86 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "jarvis-dm-poller-env-dsn-20260905",
+  "owner": "JARVIS",
+  "reviewer": "ADA",
+  "mutation_target": "isolated_copy",
+  "measured_at": "2026-09-05T11:56:27.940166+00:00",
+  "control": "6 passed",
+  "canary": "raise al importar -> 5 failed, 1 passed (el unico que pasa es el control de texto, que no importa el modulo; declarado)",
+  "killed": 6,
+  "survived": 0,
+  "total": 6,
+  "mutation_score_percent": 100.0,
+  "mutants": [
+    {
+      "id": "M1 fallback a una credencial fija cuando falta la variable",
+      "result": "KILLED",
+      "observed": "3 failed"
+    },
+    {
+      "id": "M2 sin strip",
+      "result": "KILLED",
+      "observed": "2 failed"
+    },
+    {
+      "id": "M3 sin fail-closed (arranca con DSN vacio)",
+      "result": "KILLED",
+      "observed": "2 failed"
+    },
+    {
+      "id": "M4 el error no nombra la variable",
+      "result": "KILLED",
+      "observed": "1 failed"
+    },
+    {
+      "id": "M5 la reconexion usa otro DSN",
+      "result": "KILLED",
+      "observed": "2 failed"
+    },
+    {
+      "id": "M6 lee otra variable de entorno",
+      "result": "KILLED",
+      "observed": "3 failed"
+    }
+  ],
+  "file_sha256": {
+    "messages/jarvis_dm_poller.py": "2397ceee146b2901654cb840a663b59d3b245afe6daf6ed5d5d85557dd03a80e",
+    "quality/delivery_jarvis_dm_poller_env.sh": "1b386e40d368ebe5cedc15fe18abf3f3c5b1b867654b335a4b436580b7f577fb",
+    "tests/test_jarvis_dm_poller_env_dsn_v1.py": "90b58567479de2e6621a6c37afd413b25a88899055f1412d214758eca1db9c77"
+  },
+  "por_efecto": "delivery 3/3 contra la unidad viva: SEAL_POLLER_DSN abre como login_poller_jarvis; sin variable rc=1 nombrandola; backend login_poller_jarvis posterior al arranque 06:10:52",
+  "ronda_2_nota": "tests re-importan el modulo por su nombre real para que coverage lo vea; tanda re-corrida completa sobre los bytes finales",
+  "revision_independiente_ADA_20260905": {
+    "control": "6 passed",
+    "canario": "raise al importar en copia: 5 failed, 1 passed; el unico control textual pasa",
+    "mutantes": "M1-M6 muertos en copia aislada",
+    "observado": {
+      "M1": "3 failed",
+      "M2": "2 failed",
+      "M3": "2 failed",
+      "M4": "1 failed",
+      "M5": "2 failed",
+      "M6": "3 failed"
+    },
+    "delivery": "DELIVERY OK: 3/3 brazos; ARM1 login_poller_jarvis, ARM2 rc=1 nombra SEAL_POLLER_DSN, ARM3 backend posterior al arranque",
+    "reviewed_at": "2026-09-05T06:57:00-05:00"
+  },
+  "tanda_revisor_ADA": {
+    "firma": "aae0a0614672",
+    "control": "6 passed",
+    "canario": "raise al importar -> 3 failed",
+    "mutants": [
+      {
+        "id": "M1 vuelve el DSN hardcodeado",
+        "result": "KILLED",
+        "observed": "6 failed"
+      },
+      {
+        "id": "M2 fallback silencioso a la credencial vieja",
+        "result": "KILLED",
+        "observed": "4 failed"
+      }
+    ],
+    "nota": "tanda completa (6 mutantes) en su DM de las 06:59; gate PASSED con --execute de su lado"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "codigo-seal",
+  "version": "0.1.0",
+  "description": "Código SEAL — IDE con alma. Electron + Monaco + SOUL.",
+  "main": "src/main/main.js",
+  "author": "Team SEAL — William, JARVIS, ADA, DUM",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "build": "electron-builder",
+    "test": "node src/tests/run.js"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.52.0",
+    "@xterm/xterm": "^5.5.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "node-pty": "^1.0.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.seal.codigo-seal",
+    "productName": "Código SEAL",
+    "directories": {
+      "output": "dist"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Development"
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "mac": {
+      "target": ["dmg"]
+    }
+  }
+}

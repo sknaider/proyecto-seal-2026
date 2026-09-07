@@ -1,0 +1,79 @@
+{
+  "timestamp_utc": "2026-04-12T20:54:17Z",
+  "adapter_path": "/home/dadito/IA/modelos/latent-graphmem-soul-v1/best",
+  "eval_report_path": "/home/dadito/IA/proyecto-seal/memory/diagnostic/results/latent_v11_extended.json",
+  "training_source": "synthetic_v1",
+  "adapter_fingerprint": {
+    "files": {
+      "README.md": {
+        "size": 5182,
+        "mtime": 1776020565.9818234,
+        "sha256": "72bba472ffb43648860bfeea631cc40415b358ddfdf45c5da76173daf1132d19"
+      },
+      "adapter_config.json": {
+        "size": 1014,
+        "mtime": 1776020566.3468072,
+        "sha256": "ffd4075b60fb7f086077fb88176865c4ea064b2d0174fad59c4fbb272a98d2ff"
+      },
+      "adapter_model.safetensors": {
+        "size": 10734776,
+        "mtime": 1776020566.344323,
+        "sha256": "1081eaf9ee11633beb4a39b497549858da786553c45f596095e62ed6d362bc84"
+      },
+      "sentencepiece.bpe.model": {
+        "size": 5069051,
+        "mtime": 1776020566.3483229,
+        "sha256": "cfc8146abe2a0488e9e2a0c56de7952f7c11ab059eca145a0a727afce0db2865"
+      },
+      "special_tokens_map.json": {
+        "size": 964,
+        "mtime": 1776020566.347374,
+        "sha256": "8c785abebea9ae3257b61681b4e6fd8365ceafde980c21970d001e834cf10835"
+      },
+      "tokenizer.json": {
+        "size": 17082987,
+        "mtime": 1776020566.371323,
+        "sha256": "883b037111086fd4dfebbbc9b7cee11e1517b5e0c0514879478661440f137085"
+      },
+      "tokenizer_config.json": {
+        "size": 1177,
+        "mtime": 1776020566.347266,
+        "sha256": "dfb4021b23969fc942e96b2c4ac906d94712b4b96ef7081cb66a0ea211896d51"
+      }
+    },
+    "combined_sha256": "efed88ffb18e9332855e664f02f5fd88dbc3bdd1af61888579e8c098bd162248",
+    "n_files": 7
+  },
+  "contamination_recheck": {
+    "status": "CLEAN",
+    "exit_code": 0,
+    "report": {
+      "pairs_source": "synthetic_v1",
+      "test_set": "/home/dadito/IA/proyecto-seal/memory/diagnostic/test_set_v1.jsonl",
+      "training_pairs_total": 767,
+      "pos_total": 192,
+      "neg_total": 575,
+      "L1_exact_query_overlap": 0,
+      "L2_paraphrase_overlap": 0,
+      "L3_positive_subgraph_leak": 0,
+      "L4_negative_subgraph_leak": 0,
+      "contaminated_mem_ids": [],
+      "test_mem_ids_total": 18,
+      "contamination_rate_pct": 0.0,
+      "clean": true,
+      "verdict": "CLEAN"
+    }
+  },
+  "decision": {
+    "verdict": "TRIAGE",
+    "latent_recall_at_5": 0.421875,
+    "magma_recall_at_5": 0.3046875,
+    "baseline": 0.4375,
+    "delta_vs_baseline": -0.0156,
+    "tripwire_10_10": false,
+    "note": "below baseline \u2014 do not merge; run error breakdown by query_type with ADA, decide V2 vs kill"
+  },
+  "audit_duration_s": 0.17,
+  "auditor": "JARVIS",
+  "rule_reference": "William 2026-04-12 \u2014 silent bugs scale exponentially"
+}

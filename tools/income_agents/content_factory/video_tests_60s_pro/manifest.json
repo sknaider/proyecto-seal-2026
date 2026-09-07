@@ -1,0 +1,102 @@
+[
+  {
+    "idx": 1,
+    "level": "pro",
+    "label": "Profesional IA negocios",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests_60s_pro/01_pro-ia-negocios.mp4",
+    "width": 1080,
+    "height": 1920,
+    "duration": 60.0,
+    "size_kb": 9550.6
+  },
+  {
+    "idx": 2,
+    "level": "pro",
+    "label": "Profesional WhatsApp ventas",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests_60s_pro/02_pro-whatsapp-ventas.mp4",
+    "width": 1080,
+    "height": 1920,
+    "duration": 60.0,
+    "size_kb": 8578.8
+  },
+  {
+    "idx": 3,
+    "level": "pro",
+    "label": "Profesional reels pymes",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests_60s_pro/03_pro-reels-pymes.mp4",
+    "width": 1080,
+    "height": 1920,
+    "duration": 60.0,
+    "size_kb": 9660.4
+  },
+  {
+    "idx": 4,
+    "level": "pro",
+    "label": "Profesional dashboard",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests_60s_pro/04_pro-dashboard.mp4",
+    "width": 1080,
+    "height": 1920,
+    "duration": 60.0,
+    "size_kb": 41122.1
+  },
+  {
+    "idx": 5,
+    "level": "pro",
+    "label": "Profesional oferta local",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests_60s_pro/05_pro-oferta-local.mp4",
+    "width": 1080,
+    "height": 1920,
+    "duration": 60.0,
+    "size_kb": 8757.0
+  },
+  {
+    "idx": 6,
+    "level": "pro",
+    "label": "Profesional automatización",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests_60s_pro/06_pro-automatizacion.mp4",
+    "width": 1080,
+    "height": 1920,
+    "duration": 60.0,
+    "size_kb": 9275.1
+  },
+  {
+    "idx": 7,
+    "level": "pro",
+    "label": "Profesional consultoría",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests_60s_pro/07_pro-consultoria.mp4",
+    "width": 1080,
+    "height": 1920,
+    "duration": 60.0,
+    "size_kb": 13824.1
+  },
+  {
+    "idx": 8,
+    "level": "pro",
+    "label": "Profesional plantilla",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests_60s_pro/08_pro-plantilla.mp4",
+    "width": 1080,
+    "height": 1920,
+    "duration": 60.0,
+    "size_kb": 41121.4
+  },
+  {
+    "idx": 9,
+    "level": "pro",
+    "label": "Profesional caso venta",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests_60s_pro/09_pro-caso-venta.mp4",
+    "width": 1080,
+    "height": 1920,
+    "duration": 60.0,
+    "size_kb": 7856.1
+  },
+  {
+    "idx": 10,
+    "level": "pro",
+    "label": "Profesional master template",
+    "path": "/home/dadito/IA/proyecto-seal/tools/income_agents/content_factory/video_tests_60s_pro/10_pro-master-template.mp4",
+    "width": 1080,
+    "height": 1920,
+    "duration": 60.0,
+    "size_kb": 7014.8
+  }
+]

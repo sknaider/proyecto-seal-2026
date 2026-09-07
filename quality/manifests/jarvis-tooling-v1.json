@@ -1,0 +1,203 @@
+{
+  "_doc": [
+    "Herramientas de deteccion y busqueda de JARVIS. Owner: JARVIS.",
+    "QUE CUBRE: el contrato de seat_lib.sh (espejo de _argv_has_agent_name de la",
+    "cero suelto: ante 0 coincidencias lo dice con palabras).",
+    "POR QUE EL BRAZO NEGATIVO NO ES CEREMONIA: el positivo solo dice 'el self-test",
+    "reporta fallos=0'. El negativo inyecta un MUTANTE que revierte el matcher a",
+    "comparacion por prefijo -el defecto que ADA encontro, que aceptaba JARVIS-CLONE",
+    "como JARVIS- y exige que el self-test se ponga ROJO. Sin el, un self-test que",
+    "siempre pasa daria el mismo verde.",
+    "EL CONTROL verifica que exista bash: sin el, los otros casos serian no-ops que",
+    "se leen como verdes.",
+    "ORACULO COMPLETO (agregado 29-ago tras el hallazgo de FABLE sobre oraculos parciales): compara jarvis_seat_pids ENTERO contra scan_primary_runtimes de la autoridad, sobre un /proc sintetico que ambos leen. Cubre las TRES condiciones, no solo el nombre. Verificado por mutante: ignorar SEAL_AGENT lo pone en rojo.",
+    "ALCANCE DECLARADO (29-ago-2026): seat_lib.sh responde 'cual es el asiento con",
+    "runtime CLAUDE de JARVIS', NO 'esta vivo JARVIS'. La autoridad corta en",
+    "`comm != \"claude\" -> continue` antes de mirar --name o SEAL_AGENT; su docstring",
+    "lo dice ('only the interactive Claude principal') y los cuatro leimos el NOMBRE",
+    "de la funcion. Se descubrio porque declaraba AUSENTE a ADA, viva bajo codex.",
+    "Un asiento no-Claude de JARVIS haria que el writer publique alive=false sobre",
+    "JARVIS viva, con la suite entera en verde: el oraculo de equivalencia es CIEGO",
+    "a esta clase por construccion -mi espejo copia el mismo gate, asi que coincide",
+    "perfecto aunque la pregunta sea otra-.",
+    "FIJADO POR EJECUCION en test_el_alcance_es_asiento_CLAUDE_no_presencia_de_agente,",
+    "no por esta prosa: si alguien amplia el alcance, ese caso se pone ROJO y obliga a",
+    "revisar messages/jarvis_heartbeat_update.sh en el mismo movimiento.",
+    "SUJETO AGREGADO 29-ago: messages/jarvis_heartbeat_update.sh. El defecto de la",
+    "rama cruzada (consultar `ilegibles` solo en la ausencia) vivia en DOS archivos,",
+    "y el manifest cubria uno solo. Un manifest que no cubre el archivo donde estaba",
+    "el defecto mide el sujeto equivocado.",
+    "ASIMETRIA DELIBERADA (razon de ALICE, no la mia): jarvis_seat_pid con rc=2 NO",
+    "imprime el pid, pero el writer SI lo escribe en el JSON. Mi justificacion era la",
+    "calidad del pid -paso las tres condiciones- y ALICE la rechazo: vale igual para los",
+    "dos lados, asi que no explica la diferencia. La razon que si la explica es QUIEN",
+    "CONSUME: la salida de la funcion ES la instruccion que el llamador ejecuta; el pid",
+    "del JSON es dato de diagnostico y sus dos consumidores leen el ESTADO primero,",
+    "nadie hace `kill $process_pid`. Ante la duda una funcion no entrega; un reporte si",
+    "informa. Va aca y no solo en un comentario del codigo porque el comentario lo lee",
+    "quien ya sospecha de esa linea, y el _doc lo lee quien viene a decidir si el",
+    "manifest todavia aplica.",
+    "SEPARADO 29-ago: gx.sh salio a quality/manifests/jarvis-gx-v1.json. Estaba aca por",
+    "AUTORIA -lo escribi yo- y no por unidad de revision: un wrapper de grep junto al",
+    "detector de asiento. Diagnostico de NEXUS; los nombres de nuestros cuatro manifiestos",
+    "(jarvis-tooling, nexus-seat-and-storea, fable-seat-and-anchor) venian diciendo el defecto.",
+    "VALIDADOR PARA EL REVISOR: `python3 agents/JARVIS/tests/validar_suite_jarvis.py` rompe",
+    "cada defecto vivo de hoy en una COPIA del arbol y muestra que test lo caza. El revisor",
+    "no tiene que creerme el conteo de mutantes: lo corre. Idea de FABLE.",
+    "ARM DE ENTREGA con conteo EXACTO ('8 passed'), no 'passed' pelado.",
+    "Hallazgo de ALICE: 'passed' aparece IGUAL cuando la suite falla -pytest imprime",
+    "'1 failed, 2 passed'-, asi que ese predicado no puede ponerse rojo por contenido:",
+    "solo por expected_exit, que el gate ya exige aparte. Un segundo chequeo que no",
+    "puede discrepar del primero no es un segundo chequeo. Verificado por efecto con",
+    "una suite rota a proposito: contiene 'passed' SI, contiene 'N passed' NO.",
+    "El numero se rompe si cambia la cantidad de tests, y eso es DESEADO: obliga a",
+    "volver a mirar el manifest cuando la suite crece.",
+    "validar_suite_jarvis.py SACADO de `tests` (29-ago). NO es para dar verde: es para",
+    "QUITAR una cobertura que el manifiesto reclamaba y no tenia. Estaba declarado como",
+    "test y NINGUN brazo QA lo ejercia -medido: 5 brazos corren test_jarvis_tooling_v1.py,",
+    "cero corren el validador-. Un archivo en `tests` que ningun arm ejecuta le pide al",
+    "revisor una firma sobre algo que el contrato no prueba.",
+    "QUE ES EN REALIDAD: una herramienta PARA EL REVISOR. Rompe los defectos vivos en una",
+    "COPIA del arbol, exige que la mutacion aplique antes de mirar el color, e imprime que",
+    "test caza cada uno. Se corre asi, y su salida es la evidencia:",
+    "    python3 agents/JARVIS/tests/validar_suite_jarvis.py",
+    "Lo destapo NEXUS negandose a firmar dos archivos que no habia atacado -yo le habia",
+    "pedido justamente eso, que no estirara la firma-. Su negativa encontro un defecto de",
+    "MODELADO mio que ninguna revision de codigo habria visto.",
+    "PENDIENTE HONESTO: el validador no tiene tests propios y mi evidencia de mutacion se",
+    "apoya en el. Si tiene un defecto, los 6 rojos que reporta pueden no significar lo que",
+    "digo. Queda nombrado, no tapado."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "jarvis-tooling-20260829",
+  "owner": "JARVIS",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "approved",
+    "evidence": "\n\nFIRMA FINAL. Expediente completo ANTES de firmar, que es el orden que corta la cascada: la evidencia dice reviewer NEXUS, total 4, killed 3, survived 1 (mi equivalente, declarado y no borrado), el file_sha256 calza con subjects+tests, y la tanda del revisor vive en el ARCHIVO DE EVIDENCIA y no en el manifiesto --escribirla en el manifiesto fue lo que caduco mi firma dos veces, y no es un defecto del gate: un recibo que no caducara al cambiar el manifiesto no serviria--. Los bytes de sujetos y test no cambiaron en NINGUNA de las firmas, verificado por hash cada vez, asi que no se re-corrio nada.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "957b2d3e7267f924dc75f2f7af4a5a6b13de52c30a6aeddc5b66cd0be4ddc4d2",
+      "reviewed_sha256": {
+        "agents/JARVIS/seat_lib.sh": "04c71ff2164d800e6a03f11b41efb406ab18ece420c2c5cb59fa986dc4248c84",
+        "messages/jarvis_heartbeat_update.sh": "0799b441fa96d08e29fb5db2fa2ea40c3a9bad4e6277f7dcefa6b713f16ab049",
+        "agents/JARVIS/tests/test_jarvis_tooling_v1.py": "ce825cb7766044cebc81308e2bdfd37d9064d3cbc15fb2f1d6bb4a451dab9a25"
+      },
+      "evidence": "\n\nFIRMA FINAL. Expediente completo ANTES de firmar, que es el orden que corta la cascada: la evidencia dice reviewer NEXUS, total 4, killed 3, survived 1 (mi equivalente, declarado y no borrado), el file_sha256 calza con subjects+tests, y la tanda del revisor vive en el ARCHIVO DE EVIDENCIA y no en el manifiesto --escribirla en el manifiesto fue lo que caduco mi firma dos veces, y no es un defecto del gate: un recibo que no caducara al cambiar el manifiesto no serviria--. Los bytes de sujetos y test no cambiaron en NINGUNA de las firmas, verificado por hash cada vez, asi que no se re-corrio nada."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "agents/JARVIS/seat_lib.sh",
+    "messages/jarvis_heartbeat_update.sh"
+  ],
+  "tests": [
+    "agents/JARVIS/tests/test_jarvis_tooling_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-seat",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_tooling_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-contrato-y-espejo",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_tooling_v1.py::test_seat_lib_self_test_passes",
+        "agents/JARVIS/tests/test_jarvis_tooling_v1.py::test_detector_completo_coincide_con_la_autoridad",
+        "agents/JARVIS/tests/test_jarvis_tooling_v1.py::test_el_writer_publica_la_incertidumbre_no_solo_la_libreria"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-mutantes-enrojecen",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_tooling_v1.py::test_seat_lib_self_test_detects_a_broken_matcher",
+        "agents/JARVIS/tests/test_jarvis_tooling_v1.py::test_un_hallazgo_no_tapa_la_incertidumbre",
+        "agents/JARVIS/tests/test_jarvis_tooling_v1.py::test_apuntar_a_proc_sintetico_no_puede_tocar_produccion"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-fixture-real",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_tooling_v1.py::test_bash_is_available"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "agents/JARVIS/seat_lib.sh",
+      "messages/jarvis_heartbeat_update.sh"
+    ],
+    "omit": [
+      "agents/JARVIS/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "agents/JARVIS/tests/test_jarvis_tooling_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable = el contrato de deteccion de asiento de JARVIS, de la libreria al writer. Se ejerce entero, incluido el writer real en modo dryrun contra un /proc sintetico -que es donde vivia la rama muerta que NEXUS encontro-.",
+    "command": {
+      "id": "delivery-seat",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_tooling_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "8 passed"
+    }
+  },
+  "mutation_evidence": "quality/mutation-jarvis-tooling-v1.json",
+  "mutation_evidence_legacy_note": "Cinco mutantes de una linea, cada uno con las lineas que difieren contadas ANTES de leer el color (un mutante que no aplica imprime el mismo verde que un test que funciona; me paso hoy). Causa del rojo verificada con --tb=long, no con `pytest -q`, que NO imprime la traza: (1) matcher por prefijo -> 3 rojos; (2) espejo ignora SEAL_AGENT -> AssertionError divergencia con la autoridad, espejo incluye el impostor_env 102; (3) espejo no excluye workers stream-json -> divergencia; (4) espejo pierde el gate `comm=claude` -> autoridad=[203] espejo=[201,202,203]; y en COPIA de la autoridad, ampliar su alcance -> [201,202,203], que fija el alcance por los dos lados. (5) quitar la condicion del ilegible en la rama del hallazgo -> rc=0 sobre un caso que la autoridad declara determined=False. FIXTURE: los casos no-Claude llevan `--name JARVIS` a proposito. Con el valor REAL (`--profile ada`) quedaban rechazados por DOS filtros y el mutante del gate bajo prueba NO los mataba: un caso rechazado por dos razones no prueba ninguna.",
+  "canario_de_import": {
+    "_doc": "Canario 4-sep 13:16 (metodo de NEXUS): romper el sujeto tiene que poner la suite en rojo. Si un sujeto roto deja la suite verde, los tests no lo ejercitan.",
+    "metodo": "se antepuso `exit 99` a cada script y se corrio la suite; los scripts se restauraron desde copia",
+    "resultado": {
+      "suite intacta": "8 passed",
+      "agents/JARVIS/seat_lib.sh roto": "6 failed, 2 passed",
+      "messages/jarvis_heartbeat_update.sh roto": "2 failed, 6 passed",
+      "tras restaurar": "8 passed"
+    },
+    "lectura": "los dos sujetos se EJECUTAN de verdad; ningun test se limita a leerlos como texto"
+  },
+  "_nota_cambio_de_revisor": "4-sep 16:22. ADA firmo este manifiesto a las 15:37 y su firma caduco cuando corregí seat_lib.sh (3 casos nuevos en el corpus del self-test, para matar el mutante del ancla que hallo NEXUS). Ella declino re-firmar por foco exclusivo en Bob (orden de William) y lo dijo explicito. Pasa a NEXUS, que audito esos mismos bytes en jarvis-seat-lib-v1.",
+  "source_sha256": {
+    "agents/JARVIS/seat_lib.sh": "04c71ff2164d800e6a03f11b41efb406ab18ece420c2c5cb59fa986dc4248c84",
+    "messages/jarvis_heartbeat_update.sh": "0799b441fa96d08e29fb5db2fa2ea40c3a9bad4e6277f7dcefa6b713f16ab049",
+    "agents/JARVIS/tests/test_jarvis_tooling_v1.py": "ce825cb7766044cebc81308e2bdfd37d9064d3cbc15fb2f1d6bb4a451dab9a25"
+  }
+}

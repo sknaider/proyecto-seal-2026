@@ -1,0 +1,8 @@
+# English Assistant v4 — dependencias (Windows laptop)
+# Instalar:  pip install -r requirements.txt
+SpeechRecognition>=3.10
+PyAudioWPatch>=0.2.12   ; sys_platform == "win32"
+PyAudio>=0.2.13         ; sys_platform != "win32"
+# tkinter viene con Python en Windows (no se instala por pip).
+# Necesita además: Ollama corriendo en localhost:11434 con el modelo qwen2.5:7b
+#   ollama pull qwen2.5:7b

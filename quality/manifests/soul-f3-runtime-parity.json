@@ -1,0 +1,54 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "soul-f3-runtime-parity-20260805",
+  "owner": "ADA",
+  "independent_reviewer": "F3_HARNESS_AUDIT",
+  "review": {
+    "status": "approved",
+    "evidence": "Three adversarial review rounds rejected six false-green vectors before approving the final exact-byte bundle",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "F3_HARNESS_AUDIT",
+      "evidence": "61 passed; live run 2904b5a305535f443972a6abe5752d81 produced 4/4 Claude and 4/4 local llama.cpp effects with exact native events, distinct observed PIDs and identical executed-script SHA; no-op and RLS mutation controls failed closed",
+      "reviewed_sha256": {
+        "memory/soul_parity_claude_exec.py": "dbd9d15ac86655da7ac8879919712e795341b8e90799023cc875c17ec3903bdb",
+        "memory/soul_parity_effect_hook.py": "0c59259693950b14e0da8027f32456c0920d6256eae804ba8ce89a0a9d991764",
+        "memory/soul_parity_hook_launcher.py": "917709bcd8a2e95a5d8d8793ea46807571cf1d76febb369ea7b29d19b6d26847",
+        "memory/soul_parity_local_process.py": "c163c47f0261bfdc52e6bacfc0f5ce24c90ba886169c95234d253aa55c4a4a8a",
+        "memory/soul_parity_runner.py": "716295c1ffbf5bca5b39a0b34c87ec888554b067ecd3743dbafb92c4e2a178d8",
+        "memory/soul_parity_sandbox_migration.sql": "d46727d9544d5447c8a3ef9fb29d739705954d73586cbc1f4590204e687c084a",
+        "memory/soul_parity_test.py": "b8460f0be1774a3c4c320cecafd6e1ce3749a9bb49822d85b56a75b8eb0cf77d",
+        "memory/soul_runtime_orchestrator.py": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8",
+        "tests/test_soul_parity_harness.py": "0d5c503e5d4bb1c039084fab80dfc81521692f601aa4c4110fcea16228379b36",
+        "tests/test_soul_parity_runner.py": "74c14056a4bc253a12c474146bae243fb33c07b4732073b6d85857c10c1f9a5e"
+      },
+      "manifest_digest": "ce6c67896f9ee45fcabc3316d45bdb4371e7973908210f628f0c81045489377f"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "memory/soul_parity_claude_exec.py",
+    "memory/soul_parity_effect_hook.py",
+    "memory/soul_parity_hook_launcher.py",
+    "memory/soul_parity_local_process.py",
+    "memory/soul_parity_runner.py",
+    "memory/soul_parity_sandbox_migration.sql",
+    "memory/soul_parity_test.py",
+    "memory/soul_runtime_orchestrator.py"
+  ],
+  "tests": ["tests/test_soul_parity_harness.py", "tests/test_soul_parity_runner.py"],
+  "commands": [
+    {"id": "unit-f3-bundle", "kind": "unit", "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_parity_harness.py", "tests/test_soul_parity_runner.py", "tests/test_soul_runtime_orchestrator.py", "tests/test_soul_f1_quality.py"], "expected_exit": 0},
+    {"id": "positive-separated-runtime-effects", "kind": "qa_positive", "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_parity_harness.py::test_real_parity_requires_separate_runtime_evidence", "tests/test_soul_parity_runner.py::test_effect_schema_binds_native_event_pid_and_executed_bytes"], "expected_exit": 0},
+    {"id": "negative-false-green-canaries", "kind": "qa_negative", "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_parity_harness.py::test_candidate_noop_cannot_reuse_baseline_rows", "tests/test_soul_parity_harness.py::test_empty_baseline_is_not_a_healthy_reference", "tests/test_soul_parity_harness.py::test_script_hash_drift_between_runtimes_is_red", "tests/test_soul_parity_runner.py::test_claude_native_event_cannot_claim_precompact"], "expected_exit": 0},
+    {"id": "control-secret-rls-timeout", "kind": "qa_control", "argv": ["python3", "-m", "pytest", "-q", "tests/test_soul_parity_harness.py::test_async_timeout_is_fail_loud", "tests/test_soul_parity_runner.py::test_claude_environment_does_not_inherit_unlisted_secrets", "tests/test_soul_parity_runner.py::test_migration_forces_rls_and_withholds_mutation_grants"], "expected_exit": 0}
+  ],
+  "coverage": {"source": ["memory"], "omit": ["memory/test*.py"], "pytest_args": ["-q", "tests/test_soul_parity_harness.py", "tests/test_soul_parity_runner.py"], "baseline_percent": 0.0, "timeout": 300},
+  "mutation_evidence": "quality/mutation-soul-f3-runtime-parity.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Run 2904b5a305535f443972a6abe5752d81 created eight exact v2 DB artifacts across real Claude Code and a separate local llama.cpp process",
+    "command": {"id": "delivery-live-f3-parity", "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3", "memory/soul_parity_runner.py", "--agent", "ADA"], "expected_exit": 0, "expected_stdout_contains": "\"parity\": true"}
+  }
+}

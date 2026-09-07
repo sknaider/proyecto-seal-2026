@@ -1,0 +1,116 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "ADA ejecuto scratchpad/mutate_studio_stream.py: copia COMPLETA del backend a un tempdir, la mutacion se aplica ahi y la suite se apunta a la copia con SEAL_STUDIO_BACKEND_DIR. El arbol vivo nunca se muta.",
+  "workspace": "Control positivo primero sobre la copia SIN mutar. Muerte = la suite sale distinto de 0.",
+  "reviewer": "NEXUS",
+  "note_no_es_independiente": "Evidencia del OWNER. Prueba que los sujetos son mutables y que la suite los caza; NO es revision independiente. El revisor debe REEMPLAZARLA por la suya.",
+  "el_mutante_que_importa": "'el-stream-vuelve-a-dos-claves' (ADA) y 'no decodificar el bytes' (NEXUS) son el defecto original por sus dos mitades: sin la columna no sale la firma, y sin decodificar llega como cadena y queda undefined en el cliente. Si cualquiera de los dos sobrevive, el test no protege nada.",
+  "killed": 8,
+  "survived": 1,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 9,
+  "mutation_score_percent": 88.889,
+  "mutation_target": "isolated_copy",
+  "file_sha256": {
+    "seal-studio/backend/api_v1.py": "7b39307d5272ed74dc510cf0d327fe6a31d9193a0f904d89827698f0edcd82a6",
+    "seal-studio/backend/chat_contract.py": "f211858415dab38be01f390d13c8e78b1431cffc0ddc2ca7e31420d02d73ff40",
+    "seal-studio/backend/test_stream_body_signature_v1.py": "ada93a49e61e535a71dfc218acc321c369cd6f12e487a119c577bacee52b2d68"
+  },
+  "positive_control_unmutated_copy": {
+    "suite": "8 passed, 9 subtests passed",
+    "ok": true
+  },
+  "detail": [
+    {
+      "id": "no-convierte-el-jsonb-str",
+      "author": "ADA",
+      "subject": "seal-studio/backend/chat_contract.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "acepta-cualquier-json-no-objeto",
+      "author": "ADA",
+      "subject": "seal-studio/backend/chat_contract.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "revienta-con-basura",
+      "author": "ADA",
+      "subject": "seal-studio/backend/chat_contract.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "pierde-el-resto-de-la-metadata",
+      "author": "ADA",
+      "subject": "seal-studio/backend/chat_contract.py",
+      "state": "killed",
+      "killer": "AssertionError"
+    },
+    {
+      "id": "el-stream-vuelve-a-dos-claves",
+      "author": "ADA",
+      "subject": "seal-studio/backend/api_v1.py",
+      "state": "killed",
+      "killer": "AssertionError",
+      "por_que_importa": "es el defecto ORIGINAL exacto: sin la columna metadata la firma no sale por el vivo"
+    },
+    {
+      "id": "no decodificar el bytes (el bug ORIGINAL)",
+      "author": "NEXUS",
+      "subject": "seal-studio/backend/chat_contract.py",
+      "state": "killed",
+      "observed": "1 failed"
+    },
+    {
+      "id": "devolver el raw sin validar dict",
+      "author": "NEXUS",
+      "subject": "seal-studio/backend/chat_contract.py",
+      "state": "killed",
+      "observed": "6 failed"
+    },
+    {
+      "id": "no capturar UnicodeDecodeError",
+      "author": "NEXUS",
+      "subject": "seal-studio/backend/chat_contract.py",
+      "state": "killed",
+      "observed": "1 failed"
+    },
+    {
+      "id": "quitar TypeError del except",
+      "author": "NEXUS",
+      "subject": "seal-studio/backend/chat_contract.py",
+      "state": "survived",
+      "observed": "8 passed",
+      "clasificacion": "EQUIVALENTE — verificado, no asumido",
+      "analisis_de_NEXUS": "En ese punto `raw` ya paso isinstance(raw, str), y json.loads sobre un str solo lanza JSONDecodeError, subclase de ValueError. TypeError es INALCANZABLE ahi, asi que el mutante no puede cambiar comportamiento. NO es cobertura faltante."
+    }
+  ],
+  "por_que_survived_es_1_y_no_0": "NEXUS lo exigio y tiene razon: un recibo que dice survived:0 cuando el revisor MIDIO un sobreviviente es peor que uno que declare el hueco, aunque el sobreviviente sea inofensivo. La cifra deja de significar lo que dice. El unico sobreviviente esta clasificado como equivalente CON su analisis de alcanzabilidad, verificado por el y no asumido.",
+  "procedencia": "DOS tandas independientes y separadas a proposito, cada una con su autor. Las cinco de ADA son evidencia del OWNER: prueban que los sujetos son mutables y que la suite los caza, y NO son revision independiente. Las cuatro de NEXUS son la revision independiente. Nueve mutantes de dos manos valen mas que cinco de una.",
+  "tanda_owner_ADA": {
+    "autor": "ADA (owner)",
+    "total": 5,
+    "killed": 5,
+    "survived": 0,
+    "control_positivo": "8 passed, 9 subtests passed",
+    "arnes": "scratchpad/mutate_studio_stream.py — copia COMPLETA del backend a un tempdir, SEAL_STUDIO_BACKEND_DIR apunta a la copia. El arbol vivo nunca se muta.",
+    "no_es_independiente": "Es del owner. No sustituye la revision."
+  },
+  "tanda_revisor_NEXUS": {
+    "autor": "NEXUS (revisor independiente)",
+    "fecha": "2026-09-04T15:02:00-05:00",
+    "digest_firma_previa": "99466dea",
+    "total": 4,
+    "killed": 3,
+    "survived": 1,
+    "control": "8 passed + 9 subtests",
+    "canario": "2 failed — el modulo se ejecuta de verdad",
+    "confesion_de_metodo": "NEXUS descarto TRES arneses propios ANTES de medir y lo dejo escrito: copiar solo los 3 archivos del manifiesto daba ModuleNotFoundError: mcp_gateway, y recien con los 10 .py del backend el control quedo verde. Ademas su funcion de mutacion perdio un argumento dos veces y devolvio '8 passed' que no eran mutantes sino errores suyos. LA LECCION: un mutante que no llega a escribirse se ve IDENTICO a uno que sobrevive."
+  }
+}

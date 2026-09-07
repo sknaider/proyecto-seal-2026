@@ -1,0 +1,140 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "description": "SEAL Durable Cron Registry — persiste entre sesiones",
+    "created": "2026-04-19",
+    "owner": "JARVIS"
+  },
+  "jobs": [
+    {
+      "name": "ada_audit",
+      "cmd": "curl -s -X POST http://localhost:8765/api/agents/send -H 'Content-Type: application/json' -d '{\"from\":\"SEAL_CRON\",\"to\":\"ADA\",\"type\":\"cron_trigger\",\"channel\":\"web_chat\",\"message\":\"[CRON ada_audit] Ejecuta: soul_snapshot(agent=ADA) + self_reflect + TaskList. Reporta solo si hay drift/anomalia/tarea bloqueada.\"}'",
+      "interval_s": 3600,
+      "agent": "ADA",
+      "created": "2026-04-20T01:26:17.794332+00:00",
+      "last_run": "2026-05-06T22:32:10.115839+00:00",
+      "run_count": 402,
+      "enabled": true
+    },
+    {
+      "name": "jarvis_audit",
+      "cmd": "curl -s -X POST http://localhost:8765/api/agents/send -H 'Content-Type: application/json' -d '{\"from\":\"SEAL_CRON\",\"to\":\"JARVIS\",\"type\":\"cron_trigger\",\"channel\":\"web_chat\",\"message\":\"[CRON jarvis_audit] Ejecuta soul_snapshot + self_reflect + TaskList. Reporta solo si hay drift/anomalia/tarea bloqueada >2h.\"}'",
+      "interval_s": 3600,
+      "agent": "JARVIS",
+      "created": "2026-04-20T01:26:24.210006+00:00",
+      "last_run": "2026-05-06T22:32:10.115839+00:00",
+      "run_count": 402,
+      "enabled": true
+    },
+    {
+      "name": "embedding_audit",
+      "cmd": "/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/memory/fix_missing_embeddings.py >> /tmp/embedding_audit.log 2>&1",
+      "interval_s": 1800,
+      "agent": "SYSTEM",
+      "created": "2026-04-21T20:31:00.000000+00:00",
+      "last_run": "2026-05-06T22:54:50.339044+00:00",
+      "run_count": 709,
+      "enabled": true
+    },
+    {
+      "name": "memory_extract_jarvis",
+      "cmd": "cd /home/dadito/IA/proyecto-seal/memory && /home/dadito/IA/seal-spark/.venv/bin/python3 memory_extractor_agent.py JARVIS >> /tmp/memory_extract_jarvis.log 2>&1",
+      "interval_s": 1200,
+      "agent": "JARVIS",
+      "created": "2026-04-21T22:23:00.000000+00:00",
+      "last_run": "2026-05-06T23:15:12.022829+00:00",
+      "run_count": 1052,
+      "enabled": true
+    },
+    {
+      "name": "memory_extract_ada",
+      "cmd": "cd /home/dadito/IA/proyecto-seal/memory && /home/dadito/IA/seal-spark/.venv/bin/python3 memory_extractor_agent.py ADA >> /tmp/memory_extract_ada.log 2>&1",
+      "interval_s": 1200,
+      "agent": "ADA",
+      "created": "2026-04-21T22:23:00.000000+00:00",
+      "last_run": "2026-05-06T23:15:12.022829+00:00",
+      "run_count": 1052,
+      "enabled": true
+    },
+    {
+      "name": "seal_dream_ada",
+      "cmd": "cd /home/dadito/IA/proyecto-seal/SEAL_MASTER_DOC && /home/dadito/IA/seal-spark/.venv/bin/python3 seal_dream.py --cron-run --agent ADA >> /tmp/seal_dream_ada.log 2>&1",
+      "interval_s": 86400,
+      "agent": "ADA",
+      "created": "2026-04-28T04:35:00.000000+00:00",
+      "last_run": "2026-05-06T04:40:32.043545+00:00",
+      "run_count": 9,
+      "enabled": true
+    },
+    {
+      "name": "seal_dream_jarvis",
+      "cmd": "cd /home/dadito/IA/proyecto-seal/SEAL_MASTER_DOC && /home/dadito/IA/seal-spark/.venv/bin/python3 seal_dream.py --cron-run --agent JARVIS >> /tmp/seal_dream_jarvis.log 2>&1",
+      "interval_s": 86400,
+      "agent": "JARVIS",
+      "created": "2026-04-28T04:35:00.000000+00:00",
+      "last_run": "2026-05-06T04:40:32.043545+00:00",
+      "run_count": 9,
+      "enabled": true
+    },
+    {
+      "name": "seal_dream_alice",
+      "cmd": "cd /home/dadito/IA/proyecto-seal/SEAL_MASTER_DOC && /home/dadito/IA/seal-spark/.venv/bin/python3 seal_dream.py --cron-run --agent ALICE >> /tmp/seal_dream_alice.log 2>&1",
+      "interval_s": 86400,
+      "agent": "ALICE",
+      "created": "2026-04-28T04:35:00.000000+00:00",
+      "last_run": "2026-05-06T04:40:32.043545+00:00",
+      "run_count": 9,
+      "enabled": true
+    },
+    {
+      "name": "memory_extract_nexus",
+      "cmd": "cd /home/dadito/IA/proyecto-seal/memory && /home/dadito/IA/seal-spark/.venv/bin/python3 memory_extractor_agent.py NEXUS >> /tmp/memory_extract_nexus.log 2>&1",
+      "interval_s": 1200,
+      "agent": "NEXUS",
+      "created": "2026-04-28T22:28:00.000000+00:00",
+      "last_run": "2026-05-06T23:15:12.022829+00:00",
+      "run_count": 546,
+      "enabled": true
+    },
+    {
+      "name": "memory_extract_alice",
+      "cmd": "cd /home/dadito/IA/proyecto-seal/memory && /home/dadito/IA/seal-spark/.venv/bin/python3 memory_extractor_agent.py ALICE >> /tmp/memory_extract_alice.log 2>&1",
+      "interval_s": 1200,
+      "agent": "ALICE",
+      "created": "2026-04-28T22:28:00.000000+00:00",
+      "last_run": "2026-05-06T23:15:12.022829+00:00",
+      "run_count": 546,
+      "enabled": true
+    },
+    {
+      "name": "nexus_audit",
+      "cmd": "curl -s -X POST http://localhost:8765/api/agents/send -H 'Content-Type: application/json' -d '{\"from\":\"SEAL_CRON\",\"to\":\"NEXUS\",\"type\":\"cron_trigger\",\"channel\":\"web_chat\",\"message\":\"[CRON nexus_audit] Ejecuta soul_snapshot + self_reflect + TaskList. Reporta solo si hay drift/anomalia/tarea bloqueada >2h.\"}'",
+      "interval_s": 3600,
+      "agent": "NEXUS",
+      "created": "2026-04-28T22:28:00.000000+00:00",
+      "last_run": "2026-05-06T22:38:50.087586+00:00",
+      "run_count": 186,
+      "enabled": true
+    },
+    {
+      "name": "alice_audit",
+      "cmd": "curl -s -X POST http://localhost:8765/api/agents/send -H 'Content-Type: application/json' -d '{\"from\":\"SEAL_CRON\",\"to\":\"ALICE\",\"type\":\"cron_trigger\",\"channel\":\"web_chat\",\"message\":\"[CRON alice_audit] Ejecuta soul_snapshot + self_reflect + TaskList. Reporta solo si hay drift/anomalia/tarea bloqueada >2h.\"}'",
+      "interval_s": 3600,
+      "agent": "ALICE",
+      "created": "2026-04-28T22:28:00.000000+00:00",
+      "last_run": "2026-05-06T22:38:50.087586+00:00",
+      "run_count": 186,
+      "enabled": true
+    },
+    {
+      "name": "seal_dream_nexus",
+      "cmd": "cd /home/dadito/IA/proyecto-seal/SEAL_MASTER_DOC && /home/dadito/IA/seal-spark/.venv/bin/python3 seal_dream.py --cron-run --agent NEXUS >> /tmp/seal_dream_nexus.log 2>&1",
+      "interval_s": 86400,
+      "agent": "NEXUS",
+      "created": "2026-04-28T04:50:00.000000+00:00",
+      "last_run": "2026-05-06T04:54:26.337213+00:00",
+      "run_count": 9,
+      "enabled": true
+    }
+  ]
+}

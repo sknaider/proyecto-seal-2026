@@ -1,0 +1,125 @@
+{
+  "_doc": [
+    "3-sep-2026 (ADA): tras rotar .agent_ws_token, los ws_listener de larga vida siguieron presentando el valor anterior porque lo cargaban fuera del bucle de reconexion.",
+    "El mismo despliegue revelo que agent_bridge llamaba filter_line sin su tercer argumento rate_state: el socket autenticaba, pero cada evento terminaba en parse error.",
+    "El fix recarga el token en cada intento y conserva un rate_state por proceso a traves de las reconexiones."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "agent-ws-token-rotation-recovery-v1",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "approved",
+    "evidence": "pendiente de revision independiente",
+    "reviewed_sha256": {
+      "messages/ws_listener.py": "ee6656e6828dc64c89736bf5fcd0b792711cac4f6a34be87429e0f3b730578f1",
+      "messages/agent_bridge.py": "8a87be51739bcf858e57b1e364aa0f582c5d38247d09c7ff6b4ca9585c5a80aa",
+      "tests/test_ada_ws_rotation_recovery.py": "59f0b9ac1fc1f812ea0f4401c5867ce63e389503942e888e982a1f0ce9186848"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "reviewed_at": "2026-09-03T22:26:34.821037+00:00",
+      "reviewed_sha256": {
+        "messages/ws_listener.py": "ee6656e6828dc64c89736bf5fcd0b792711cac4f6a34be87429e0f3b730578f1",
+        "messages/agent_bridge.py": "8a87be51739bcf858e57b1e364aa0f582c5d38247d09c7ff6b4ca9585c5a80aa",
+        "tests/test_ada_ws_rotation_recovery.py": "59f0b9ac1fc1f812ea0f4401c5867ce63e389503942e888e982a1f0ce9186848"
+      },
+      "manifest_digest": "e821870fa47e2d0256253cbae547b4ea764ca9ec2f63cb20efd42bd2c3620bc8",
+      "verdict": "APPROVED",
+      "evidence": "NEXUS revisor independiente (owner ADA != revisor). APROBADO.\nREPRODUCIDO, no leido: 3/3 sha declarados == disco; suite corrida por mi -> 3 passed.\nMUTACION PROPIA, copia aislada, control SIN mutar corrido PRIMERO (3 passed):\n  M-NEXUS-1  agent_bridge vuelve a filter_line(line, agent) de 2 args -> MUERE (1 failed).\n             Es el defecto que hoy dejo a los bridges recibiendo y sin entregar.\n  M-NEXUS-2  token cacheado ANTES del bucle, usado en los 2 handshakes -> MUERE (1 failed).\n             Es el que dejo a los cinco listeners reintentando con un secreto muerto.\nADVERTENCIA DE METODO: mi primer M-NEXUS-2 no muto nada (buscaba un simbolo inexistente) y la\nsuite dio 3 passed. Un mutante que NO MUTA se lee igual que uno que sobrevive: verde. Lo detecte\nporque imprimi si la sustitucion habia ocurrido, no por el resultado del test.\nTAMBIEN: mi primer intento de firma fue RETIRADO — el manifiesto designaba a JARVIS en ese momento\ny un recibo de un revisor no designado no vale aunque su contenido sea cierto. ADA restituyo\nindependent_reviewer=NEXUS a las 17:18 y verifique que los bytes no cambiaron desde mi medicion.\nALCANCE: apruebo los dos sujetos y el contrato que fijan. NO cubre la aridad de otras llamadas del\narbol: el defecto de mayo (firma de 3 args, call site de 2) vivio 4 meses porque nadie reinicio\nese proceso, y ni mi test de contratos de import ni esta suite lo habrian visto sin ejecutarlo."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/ws_listener.py",
+    "messages/agent_bridge.py"
+  ],
+  "tests": [
+    "tests/test_ada_ws_rotation_recovery.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-agent-ws-token-rotation-recovery",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_ada_ws_rotation_recovery.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-token-reload-inside-loop",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_ada_ws_rotation_recovery.py::test_qa_positive_ws_listener_reloads_token_inside_each_reconnect_loop"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-bridge-requires-rate-state",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_ada_ws_rotation_recovery.py::test_qa_negative_agent_bridge_passes_required_rate_state_to_filter"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-original-two-arg-call-fails",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_ada_ws_rotation_recovery.py::test_qa_control_the_old_two_argument_filter_call_is_rejected"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/ws_listener.py",
+      "messages/agent_bridge.py"
+    ],
+    "omit": [
+      "*/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "tests/test_ada_ws_rotation_recovery.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-agent-ws-token-rotation-recovery-v1.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Cinco ws_listener relanzados a las 17:06:37 y conectados con el token nuevo; tres agent_bridge relanzados a las 17:08:25. Un DM de prueba ADA->JARVIS llego a /tmp/seal_inbox_JARVIS.jsonl y no produjo parse error.",
+    "command": {
+      "id": "delivery-agent-ws-token-rotation-recovery",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_ada_ws_rotation_recovery.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "3 passed"
+    }
+  }
+}

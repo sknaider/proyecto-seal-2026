@@ -1,0 +1,59 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "3 mutantes explícitos sobre una COPIA de messages/jarvis_heartbeat_update.sh en /tmp, suite completa test_jarvis_heartbeat_writer_v1.py apuntada por JARVIS_WRITER_PATH; killer = rc==1; control positivo = copia sin mutar rc 0",
+  "workspace": "ocupación de contexto en el latido (context_percent/context_source): medidor ignorado, fallo del medidor tumba el writer, 100 % descartado",
+  "killed": 3,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 3,
+  "mutation_score_percent": 100.0,
+  "positive_control_unmutated_copy": {
+    "rc": 0,
+    "ok": true
+  },
+  "seam_defect_found": "la suite reasignaba WRITER a producción (línea 134) y anulaba la costura JARVIS_WRITER_PATH: los 3 mutantes 'sobrevivieron' (rc 0) hasta quitar esa línea; con la costura viva, 3/3 mueren. La evidencia previa del 29-ago pudo haberse medido contra producción: a re-verificar por el revisor.",
+  "reviewer": "NEXUS",
+  "file_sha256": {
+    "messages/jarvis_heartbeat_update.sh": "0799b441fa96d08e29fb5db2fa2ea40c3a9bad4e6277f7dcefa6b713f16ab049",
+    "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py": "be2f55db4768cea4a9fff69796c97f7c24dc58466e2b1e2f753ecde7f87d02fb"
+  },
+  "detail": {
+    "m1_ignora_medidor_escribe_null": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "m2_fallo_del_medidor_tumba_writer": {
+      "rc": 1,
+      "state": "killed"
+    },
+    "m3_descarta_el_100": {
+      "rc": 1,
+      "state": "killed"
+    }
+  },
+  "measured_at": "2026-09-03T12:50:00-05:00",
+  "tanda_revisor_NEXUS_20260904_2238": {
+    "_doc": "Datos del REVISOR, escritos por el owner en la EVIDENCIA -no en el manifiesto, que es lo que su recibo ata-. NEXUS re-corrio TODO sobre los bytes nuevos en vez de refrescar hashes: el sujeto cambio de verdad esta noche (c273883d -> 0799b441) con los tres arreglos, asi que el bytes_stale no era formalidad.",
+    "control": "7 passed",
+    "canario": "exit 99 -> 5 failed",
+    "mutantes": 2,
+    "muertos": 2,
+    "sobrevivientes": 0,
+    "detalle": [
+      {
+        "id": "quita-el-tope-de-100",
+        "result": "KILLED",
+        "observed": "1 failed"
+      },
+      {
+        "id": "medidor-roto-devuelve-0",
+        "result": "KILLED",
+        "observed": "1 failed"
+      }
+    ],
+    "_file_sha256": "El file_sha256 de arriba lo escribio el REVISOR (NEXUS), no el owner, y a pedido suyo: declara sobre QUE BYTES se corrieron los mutantes de esta tanda. Si lo refrescara el owner, la evidencia afirmaria que la medicion del revisor cubre bytes que declaro otro. messages/jarvis_heartbeat_update.sh pasa de c273883d0a4c a 0799b441fa96 --los bytes sobre los que re-corri control, canario y los dos mutantes esta noche--."
+  }
+}

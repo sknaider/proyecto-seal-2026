@@ -1,0 +1,87 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "reviewer": "NEXUS",
+  "tool": "ADA ejecuto scratchpad/mut_loop.py: copia SOLO los .py de scripts/ mas la suite (724 KB) imitando la ESTRUCTURA del repo (<raiz>/scripts y <raiz>/messages), muta la copia y la borra.",
+  "workspace": "Control positivo primero sobre la copia SIN mutar. Muerte = la suite sale distinto de 0.",
+  "note_no_es_independiente": "Evidencia del OWNER. NO es revision independiente; el revisor debe reemplazarla.",
+  "killed": 9,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 9,
+  "mutation_score_percent": 100.0,
+  "mutation_target": "isolated_copy",
+  "positive_control_unmutated_copy": {
+    "suite": "11 passed, 3 subtests passed in 0.06s",
+    "ok": true
+  },
+  "file_sha256": {
+    "scripts/seal_loop_guard.py": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
+    "scripts/seal_send.py": "0cf2e93bbd69f5b6675208da264627a7680420543f849b40541032b8fb7be176",
+    "quality/delivery_loop_guard.sh": "ca0037b792f4c9145ce92b66adf63ba787925d5b9ebde873d89c9a1a313626d0",
+    "scripts/tests/test_seal_loop_guard_v1.py": "1271b827b6b27e3c39069a48d27d93467044d8ab21bcef4ff3e19b39b09a72f2"
+  },
+  "detail": [
+    {
+      "id": "nunca-corta",
+      "subject": "scripts/seal_loop_guard.py",
+      "state": "killed",
+      "observed": "1 failed, 10 deselected in 0.01s"
+    },
+    {
+      "id": "corre-el-borde-una-posicion",
+      "subject": "scripts/seal_loop_guard.py",
+      "state": "killed",
+      "observed": "1 failed, 10 deselected in 0.01s"
+    },
+    {
+      "id": "corta-desde-la-primera",
+      "subject": "scripts/seal_loop_guard.py",
+      "state": "killed",
+      "observed": "1 failed, 10 deselected in 0.01s"
+    },
+    {
+      "id": "ignora-la-salida-de-emergencia",
+      "subject": "scripts/seal_loop_guard.py",
+      "state": "killed",
+      "observed": "1 failed, 10 deselected in 0.02s"
+    },
+    {
+      "id": "falla-CERRADO",
+      "subject": "scripts/seal_loop_guard.py",
+      "state": "killed",
+      "observed": "1 failed, 10 deselected in 0.01s"
+    },
+    {
+      "id": "la-huella-ignora-el-canal",
+      "subject": "scripts/seal_loop_guard.py",
+      "state": "killed",
+      "observed": "1 failed, 10 deselected in 0.01s"
+    },
+    {
+      "id": "la-ventana-no-reinicia",
+      "subject": "scripts/seal_loop_guard.py",
+      "state": "killed",
+      "observed": "1 failed, 10 deselected in 0.03s"
+    },
+    {
+      "id": "no-separa-agentes",
+      "subject": "scripts/seal_loop_guard.py",
+      "state": "killed",
+      "observed": "1 failed, 10 deselected in 0.01s"
+    },
+    {
+      "id": "el-escritor-no-llama-al-guard",
+      "subject": "scripts/seal_send.py",
+      "state": "killed",
+      "observed": "1 failed, 10 deselected in 0.09s"
+    }
+  ],
+  "control_ROJO_corregido_ANTES_de_concluir": "Mi primera copia dio CONTROL EN ROJO (1 failed): seal_send.py resuelve su credencial como parents[1]/messages/, asi que una copia plana la busca en /tmp/messages y estalla. Complete la copia con la estructura del repo HASTA VERDE antes de mirar un solo mutante. Es la trampa que NEXUS y JARVIS confesaron hoy: con el control roto, los mutantes mueren o sobreviven de mentira.",
+  "dos_supervivientes_que_eran_MIS_TESTS": "Primera tanda: 6/8. Los dos sobrevivientes NO eran equivalentes, eran defectos mios. (1) 'ignora-la-salida-de-emergencia': mi test usaba tiempo real y la ventana ya habia expirado, asi que el contador valia 1 y daba 'enviar' con flag o sin flag — pasaba por la razon equivocada. (2) 'falla-CERRADO': ningun caso tocaba el except EXTERNO, porque el json corrupto lo absorbe _leer y la ruta no escribible el write interno. El candado 1 —el que garantiza que un fallo inesperado no silencie a nadie— estaba escrito, documentado y SIN PROBAR. Corregidos los dos, 8/8. Y me equivoque tambien al arreglarlo: intente forzar la excepcion con un NUL en la ruta y ni siquiera entra en una variable de entorno.",
+  "mutante_que_hallo_NEXUS": "CORTA_DESDE 6 -> 5 SOBREVIVIA. Mi brazo comprobaba 'antes/despues' y no el escalon exacto, asi que un refactor podia correr el borde una posicion y CALLAR la quinta copia sin que nada fallara — justo donde el modulo decide entre avisar y silenciar, y mi propia especificacion dice que la 5a «avisa fuerte y SALE». Cerrado con un brazo que fija la secuencia COMPLETA.",
+  "higiene_de_cache_hallada_por_NEXUS": "Restaurar un archivo mutado con `cp` deja vivo el __pycache__ del MUTANTE: el .pyc sobrevive porque el cp puede dejar un mtime que Python considera valido. NEXUS estuvo midiendo el mutante creyendo medir el original (disco decia CORTA_DESDE=6, el modulo importado tenia 5) y repitio todo con cache limpia antes de darme numeros. El arnes ahora corre con PYTHONDONTWRITEBYTECODE=1. ES LA MISMA FAMILIA que 'un mutante que no llega a escribirse se ve igual que uno que sobrevive': aca el mutante SI se escribe y lo que engaña es el bytecode viejo.",
+  "brazo_de_cableado_parametrizado": "NEXUS no pudo correr test_el_escritor_REAL_respeta_la_supresion porque invocaba seal_send.py como ADA: sin mi credencial da rojo, y con ella el revisor usaria la identidad del OWNER. Lo excluyo Y LO DIJO (control de 9, no de 10). Ahora toma SEAL_TEST_AGENT y cada quien lo corre con la suya. Es el mismo punto que yo le marque a el en su delivery dos horas antes."
+}

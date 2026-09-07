@@ -1,0 +1,60 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "Mutantes adversariales sobre COPIA aislada; canario de importacion corrido antes de contar un solo mutante.",
+  "workspace": "Regla dura: un subagente NO lanza subagentes (IBM Bob §5, carril A del plan de JARVIS)",
+  "mutation_target": "isolated_copy",
+  "killed": 11,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 11,
+  "mutation_score_percent": 100.0,
+  "reviewer": "NEXUS",
+  "_dos_tandas": "6 del owner (ADA) + 5 del revisor independiente (NEXUS), corridas por separado sobre copias distintas. Se listan aparte a proposito: mezclarlas atribuiria al revisor mutantes que no corrio, que es el error que el mismo me rechazo esta manana en otro manifiesto. HAY SOLAPAMIENTO de eje entre algunas (el incremento del nivel y el borrado de la marca los atacamos los dos); no son 11 mutaciones distintas, son 11 corridas con atribucion honesta.",
+  "detail": {
+    "tanda_revisor_NEXUS": {
+      "total": 5,
+      "killed": 5,
+      "survived": 0,
+      "suspicious": 0,
+      "metodo": "copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas y verificacion de que el archivo CAMBIO tras cada mutacion; arbol vivo intacto al terminar",
+      "canario": "raise al importar subagent_spawner -> error de coleccion: la suite ejecuta el sujeto",
+      "control": "10 passed sin mutar",
+      "mutantes": [
+        "el valor ilegible pasa a contar como PRINCIPAL (falla ABIERTO) -> 1 failed",
+        "el negativo deja de acotarse a 0 (un -1 abriria un nivel extra) -> 1 failed",
+        "el techo sube de 1 a 2 -> 2 failed",
+        "el hijo hereda la MISMA profundidad en vez de la incrementada -> 2 failed (el que mas importa: con el, el mecanismo entero seria decorativo)",
+        "se borra la marca del entorno del hijo -> 2 failed"
+      ]
+    },
+    "tanda_owner_ADA": {
+      "total": 6,
+      "killed": 6,
+      "survived": 0,
+      "suspicious": 0,
+      "mutantes": [
+        "M1 borra el env= del subprocess: la marca no viaja al hijo -> 9/10",
+        "M2 quita la guarda del choke point _run() -> 7/10",
+        "M3 una marca ilegible falla ABIERTO en vez de cerrado -> 9/10",
+        "M4 no incrementa el nivel del hijo (queda en el del padre) -> 8/10",
+        "M5 el entorno del hijo se arma vacio: pierde PATH y venv -> 9/10",
+        "M6 off-by-one en el limite: deja pasar la profundidad 1 -> 8/10"
+      ]
+    },
+    "canario_de_importacion": {
+      "resultado": "RuntimeError disparado desde la ruta de la ARENA, no del repo",
+      "por_que": "sin esto los mutantes pueden estar corriendo contra el archivo del repo y todo 'sobrevive' o 'muere' por el motivo equivocado. Primer intento del dia: copie solo el archivo, tools/agents/__init__.py importa orchestrator, el baseline salio ROJO y los 6 resultados no median nada."
+    },
+    "control_positivo": "arena sin mutar: 10/10 passed; arbol vivo tras la tanda: 10/10 + 14/14 de la suite previa",
+    "control_de_restauracion": "cmp arena vs original tras los 6: identica"
+  },
+  "_sobre_el_script_de_delivery": "quality/delivery_subagent_nesting.sh figura en file_sha256 porque el gate exige que el mapa cubra subjects+tests exactamente. NO fue mutado, y decirlo importa: NEXUS lo firmo POR LECTURA Y POR SU CORRIDA. Su limitacion, declarada por el: el script apunta al arbol VIVO por ruta absoluta, asi que para probar su NO-VACUIDAD habria que mutar el spawner de produccion, y eso no se hace. Cerrarlo seria sacar la raiz de ${SEAL_REPO:-...} para poder apuntarlo a una copia mutada. Queda anotado, no hecho.",
+  "file_sha256": {
+    "tools/agents/subagent_spawner.py": "a9a19f68fa22dafd26b5d0cb7451d7d135d04e28791cf0258f1aede51c2fdeab",
+    "quality/delivery_subagent_nesting.sh": "c6f662eb6b403ba84283e73ec575dc962a69cf1e5476827e1cf0c79b596c6340",
+    "tools/agents/test_subagent_nesting.py": "65b9a41b8de39ee5b42c4ab2414934c12f9d9e4c44106bfc9d81260094d75385"
+  }
+}

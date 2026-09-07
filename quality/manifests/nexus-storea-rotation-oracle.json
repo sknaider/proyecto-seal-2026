@@ -1,0 +1,126 @@
+{
+  "_doc": [
+    "Oraculo que vigila la rotacion de Store-A: observa la PRIMERA accion destructiva",
+    "del rotador, que hasta hoy nadie vio ejecutarse sobre una credencial real.",
+    "",
+    "PARTIDO de nexus-seat-and-storea-oracles el 29-ago 16:26. NADIE lo reviso todavia:",
+    "FABLE ataco el detector de asiento, no este. No le cuelgo su firma por proximidad."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-storea-rotation-oracle-20260829",
+  "owner": "NEXUS",
+  "independent_reviewer": "ADA",
+  "review": {
+    "status": "approved",
+    "approved_at": "2026-09-05T05:00:00+00:00",
+    "evidence": "Revision independiente de ADA, 4-sep-2026 (owner NEXUS). Reasignada por JARVIS desde FABLE; NO firme hasta que el campo `independent_reviewer` dejo de decir FABLE y dijo ADA -- es la misma vara que NEXUS me aplico a mi esta manana con un recibo que nombraba a otro.\n\nMETODO: copia del sujeto y el test en tempdir; arbol vivo verificado intacto al terminar.\nCONTROL: 9 passed.\nCANARIO (el sujeto sale con exit 99 al arrancar): 8 failed, 1 passed. El que sobrevive es test_el_oraculo_existe_y_es_ejecutable, que solo comprueba el archivo: correcto.\n\nPRIMERA PASADA (con 7 brazos) -- UN MUTANTE SOBREVIVIO:\n  permutar la PRECEDENCIA de `vencidos` y `en_ventana`: 7 passed.\n  Los cuatro estados seguian distinguibles, por eso test_los_cuatro_estados_son_distinguibles no lo veia; lo que cambiaba era CUAL GANA cuando hay dos a la vez.\n  PROBADO QUE NO ERA EQUIVALENTE, con un store mixto (ADA vencido hace 2 h + ALICE en ventana):\n    ORIGINAL -> rc=1 FALLA_vencido_sin_rotar\n    MUTADO   -> rc=2 EN_VENTANA\n  Es decir: un token YA VENCIDO enmascarado detras del estado mas suave.\n  CAUSA: los 7 brazos sembraban UN SOLO agente, asi que la precedencia nunca se ejercitaba.\n\nSEGUNDA PASADA (NEXUS agrego DOS brazos, no uno: el mio y el escalon de arriba). Re-medido por mi:\n  M4 permuto vencido <-> en_ventana .... 1 failed  MUERE (test_un_store_MIXTO_no_enmascara_al_vencido)\n  M5 permuto ilegible <-> vencido ...... 1 failed  MUERE (su brazo nuevo del otro borde)\n  M1 rc constante 0 .................... 6 failed  MUERE\n\nCORRECCION AL AVISO DEL OWNER, en su favor: me dijo que test_los_cuatro_estados_son_distinguibles era el UNICO que impedia pasar con rc constante. Son CUATRO (ese, rojo_uno_en_ventana, rojo_vencido_sin_rotar y meta_ilegible_no_se_confunde_con_sano). Atribuir a un brazo la proteccion de cuatro es peligroso: quien borre los otros tres se lleva cobertura sin saberlo.\n\nERROR PROPIO DECLARADO: mi primera comparacion invoco el oraculo pasando el store como ARGUMENTO y dio rc=0 en las dos versiones. Cero y cero parecia 'no hay diferencia' y era 'no medi nada' -- el store va por SEAL_STOREA_DIR y cada agente necesita el par .token + .token.meta.json. Un mutante que no se aplica da el mismo verde que uno que sobrevive.\n\nAPRUEBO.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ADA",
+      "manifest_digest": "db3cd0a625ba31b8d39e7911b31f567959ae1b969a34a4cb8e2120f35b13b0dd",
+      "reviewed_sha256": {
+        "agents/NEXUS/oraculo_rotacion_storeA.sh": "163128fc538a732a6607efcfd78f92ca845bab40c9694e13d575d199ec7c07b6",
+        "agents/NEXUS/test_oraculo_rotacion_storeA.py": "b1f574bffd96cfb7bc831d8028360a7626987f1616a647254c266411252a3ec7"
+      },
+      "evidence": "Revision independiente de ADA, 4-sep-2026 (owner NEXUS). Reasignada por JARVIS desde FABLE; NO firme hasta que el campo `independent_reviewer` dejo de decir FABLE y dijo ADA -- es la misma vara que NEXUS me aplico a mi esta manana con un recibo que nombraba a otro.\n\nMETODO: copia del sujeto y el test en tempdir; arbol vivo verificado intacto al terminar.\nCONTROL: 9 passed.\nCANARIO (el sujeto sale con exit 99 al arrancar): 8 failed, 1 passed. El que sobrevive es test_el_oraculo_existe_y_es_ejecutable, que solo comprueba el archivo: correcto.\n\nPRIMERA PASADA (con 7 brazos) -- UN MUTANTE SOBREVIVIO:\n  permutar la PRECEDENCIA de `vencidos` y `en_ventana`: 7 passed.\n  Los cuatro estados seguian distinguibles, por eso test_los_cuatro_estados_son_distinguibles no lo veia; lo que cambiaba era CUAL GANA cuando hay dos a la vez.\n  PROBADO QUE NO ERA EQUIVALENTE, con un store mixto (ADA vencido hace 2 h + ALICE en ventana):\n    ORIGINAL -> rc=1 FALLA_vencido_sin_rotar\n    MUTADO   -> rc=2 EN_VENTANA\n  Es decir: un token YA VENCIDO enmascarado detras del estado mas suave.\n  CAUSA: los 7 brazos sembraban UN SOLO agente, asi que la precedencia nunca se ejercitaba.\n\nSEGUNDA PASADA (NEXUS agrego DOS brazos, no uno: el mio y el escalon de arriba). Re-medido por mi:\n  M4 permuto vencido <-> en_ventana .... 1 failed  MUERE (test_un_store_MIXTO_no_enmascara_al_vencido)\n  M5 permuto ilegible <-> vencido ...... 1 failed  MUERE (su brazo nuevo del otro borde)\n  M1 rc constante 0 .................... 6 failed  MUERE\n\nCORRECCION AL AVISO DEL OWNER, en su favor: me dijo que test_los_cuatro_estados_son_distinguibles era el UNICO que impedia pasar con rc constante. Son CUATRO (ese, rojo_uno_en_ventana, rojo_vencido_sin_rotar y meta_ilegible_no_se_confunde_con_sano). Atribuir a un brazo la proteccion de cuatro es peligroso: quien borre los otros tres se lleva cobertura sin saberlo.\n\nERROR PROPIO DECLARADO: mi primera comparacion invoco el oraculo pasando el store como ARGUMENTO y dio rc=0 en las dos versiones. Cero y cero parecia 'no hay diferencia' y era 'no medi nada' -- el store va por SEAL_STOREA_DIR y cada agente necesita el par .token + .token.meta.json. Un mutante que no se aplica da el mismo verde que uno que sobrevive.\n\nAPRUEBO."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "agents/NEXUS/oraculo_rotacion_storeA.sh"
+  ],
+  "tests": [
+    "agents/NEXUS/test_oraculo_rotacion_storeA.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-oraculo-storea",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/NEXUS/test_oraculo_rotacion_storeA.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-se-abstiene",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/NEXUS/test_oraculo_rotacion_storeA.py::test_verde_ninguno_en_ventana_se_abstiene"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-ventana-vencido-ilegible",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/NEXUS/test_oraculo_rotacion_storeA.py::test_rojo_uno_en_ventana_pide_rotar",
+        "agents/NEXUS/test_oraculo_rotacion_storeA.py::test_rojo_vencido_sin_rotar_es_falla",
+        "agents/NEXUS/test_oraculo_rotacion_storeA.py::test_meta_ilegible_no_se_confunde_con_sano"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-cuatro-estados-distinguibles",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/NEXUS/test_oraculo_rotacion_storeA.py::test_los_cuatro_estados_son_distinguibles",
+        "agents/NEXUS/test_oraculo_rotacion_storeA.py::test_self_test_del_oraculo_pasa_sus_cuatro_casos"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [],
+    "omit": [
+      "agents/NEXUS/test_*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "agents/NEXUS/test_oraculo_rotacion_storeA.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "",
+  "mutation_baseline_percent": 0.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Verificado POR EFECTO por el owner: el oraculo se corre contra un STORE sembrado (SEAL_STOREA_DIR) y su rc nombra el estado. Los cuatro rc son DISTINTOS entre si (control de discriminacion), asi que cuatro asserts no pueden pasar contra un oraculo que devuelva siempre lo mismo. SIN revision independiente.",
+    "command": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/NEXUS/test_oraculo_rotacion_storeA.py::test_los_cuatro_estados_son_distinguibles"
+      ],
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "artifacts_pinned": {
+    "docs/thesis/ssai/experiments/e3_crypto_manipulation.py": "229193744803d586c276a6f24b4e6a1358b484bf41afb0c69399174ecfc56421",
+    "tests/test_e3_crypto_manipulation.py": "7a54b73c6714272c8f6b26d3aabee90a960fd904db6e53e4ee5dfaf81f5752ce"
+  },
+  "caveats": [
+    "Alcance: valida DETECCION+LATENCIA por escenario y fail-closed del harness, en estado declarado SHADOW/TOFU_UNANCHORED. NO ancla a mainnet ni prueba ENFORCE.",
+    "El JSON de evidencia (E3_EVIDENCE.json) cambia de hash por corrida (lleva generated_at); por eso pineo harness+test, no el JSON — coincide con la indicacion de NEXUS."
+  ],
+  "evidence": {
+    "battery_run": {
+      "cmd": "python3 docs/thesis/ssai/experiments/e3_crypto_manipulation.py --json <tmp>",
+      "exit": 0,
+      "result": "7/7 ataques DETECTADOS + control honesto ACEPTADO (0 falsos positivos)"
+    },
+    "fail_closed": "Confirmado por efecto (mutacion => pass=False) y por los tests qa_negative (ataque no detectado y falso positivo del control => rc=1).",
+    "no_production_touch": "El harness corre en tempfile.TemporaryDirectory efimero; no toca soul_v3 ni ledgers de produccion.",
+    "positive_control_mutation": {
+      "conclusion": "El verde es load-bearing en el mecanismo REAL. El witness externo es load-bearing en 2 ataques (no redundante): matarlo deja pasar exactamente los 2 que el harness afirma que SOLO el witness caza. Mapeo: 7 = 4 verify + 2 witness + 1 crypto.",
+      "purpose": "Refutar 'el 7/7 mide formato, no deteccion'. Falsifico el VEREDICTO del detector real (proxy que jura ok=True) y exijo que la bateria CAIGA.",
+      "restored": "7/7",
+      "verify_blinded": "deteccion 7 -> 3 (los 4 ataques verify-based dejan de cazarse) => bateria CAE",
+      "witness_blinded": "deteccion 7 -> 5 (exactamente rollback_truncate + insider_recompute_fork quedan MISS) => bateria CAE"
+    },
+    "unit_tests": {
+      "cmd": "python3 -m pytest tests/test_e3_crypto_manipulation.py -rs -v",
+      "exit": 0,
+      "result": "7 passed, 0 skipped (contados con -rs: ningun skip disfrazado de verde)"
+    }
+  },
+  "reviewed_at": "2026-08-11T23:19:23Z",
+  "reviewer": "FABLE",
+  "reviewer_note": "Revisor externo neutro (Fable 5). NO familia SOUL. Veredicto por EFECTO, no por nombre: los SHAs de abajo los medi yo y son recomputables; el verde lo produjo mi corrida.",
+  "schema": "fable-independent-review-v1",
+  "target": "E3 — bateria adversarial de manipulacion criptografica (SSAI SHADOW)",
+  "verdict": "APPROVE",
+  "verdict_reason": "Bateria correcta y honesta: control negativo (refuta 'siempre dispara') + control positivo por mutacion (refuta 'mide formato') + fail-closed verificado. La afirmacion central (witness load-bearing) queda probada por efecto."
+}

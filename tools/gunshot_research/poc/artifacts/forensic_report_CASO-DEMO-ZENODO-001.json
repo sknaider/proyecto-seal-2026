@@ -1,0 +1,52 @@
+{
+  "evidence_path": "/home/dadito/IA/proyecto-seal/tools/gunshot_research/poc/../forensic/evidence_store/f703df08ef081078_1eddf0db-7c77-4e49-a5e4-544368f8b67c_chan0_v0.wav",
+  "generated_utc": "2026-06-24T23:14:42.217117Z",
+  "case_id": "CASO-DEMO-ZENODO-001",
+  "ingest": {
+    "seq": 0,
+    "ts_utc": "2026-06-24T23:14:42.216265Z",
+    "event": "INGEST",
+    "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "actor": "sistema-seal",
+    "case_id": "CASO-DEMO-ZENODO-001",
+    "note": "ingesta automática pipeline forense",
+    "evidence_path": "/home/dadito/IA/proyecto-seal/tools/gunshot_research/poc/../forensic/evidence_store/f703df08ef081078_1eddf0db-7c77-4e49-a5e4-544368f8b67c_chan0_v0.wav",
+    "orig_name": "1eddf0db-7c77-4e49-a5e4-544368f8b67c_chan0_v0.wav",
+    "sha256": "f703df08ef081078b67280b1886c948ffa4e4d2887ff5da84941f7b74632d420",
+    "size": 1247262,
+    "record_hash": "7cfe8ac5dfbfd6859f5481c8916dcde9f3142fd0f490ead55e18cb10498ae5ec"
+  },
+  "detections": [
+    {
+      "seq": 1,
+      "ts_utc": "2026-06-24T23:14:42.216429Z",
+      "event": "DETECTION",
+      "prev_hash": "7cfe8ac5dfbfd6859f5481c8916dcde9f3142fd0f490ead55e18cb10498ae5ec",
+      "actor": "sistema-seal",
+      "case_id": "CASO-DEMO-ZENODO-001",
+      "evidence_path": "/home/dadito/IA/proyecto-seal/tools/gunshot_research/poc/../forensic/evidence_store/f703df08ef081078_1eddf0db-7c77-4e49-a5e4-544368f8b67c_chan0_v0.wav",
+      "label": "gunshot",
+      "score": 0.982,
+      "model": {
+        "name": "gunshot-rf",
+        "version": "v2_cross_dataset"
+      },
+      "location": {
+        "x_m": -1.5,
+        "y_m": -0.25,
+        "tdoa_rms_s": 0.00085
+      },
+      "loc_method": "multilateracion-TDOA-grid (array NO calibrado, ILUSTRATIVO)",
+      "loc_confidence": 0.0,
+      "record_hash": "d16574f52b1565e5847e9d1ec980115b365d9285f628982a3e247324ec43360b"
+    }
+  ],
+  "access_trail": [],
+  "integrity": {
+    "evidence_ok": true,
+    "evidence_msg": "evidencia íntegra (hash coincide con el log)",
+    "log_chain_ok": true,
+    "log_chain_msg": "cadena ÍNTEGRA (2 registros)",
+    "admissible": true
+  }
+}

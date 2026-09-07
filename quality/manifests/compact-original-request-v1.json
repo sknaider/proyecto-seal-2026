@@ -1,0 +1,189 @@
+{
+  "_doc": [
+    "Idea 5 del analisis de IBM Bob, tarea 1699. Owner ADA.",
+    "QUE HACE: rescata el PEDIDO ORIGINAL de William del transcript antes de compactar y lo",
+    "reinyecta despues. Nuestra compactacion conserva lo RECIENTE; en una tarea larga eso",
+    "alcanza para seguir trabajando y no para recordar PARA QUE se empezo, y el trabajo deriva.",
+    "TRES DEFECTOS MEDIDOS, ninguno visible desde afuera:",
+    "  1. pre_compact_hook.py pedia sessionContext/summary/compact_summary y el harness no",
+    "     entrega ninguna de las tres: entrega transcript_path. Medido sobre el ultimo estado",
+    "     real guardado (3-sep 21:47): decisions, corrections y tasks_in_progress vacios,",
+    "     technical_state vacio, mientras los campos que venian de la DB si tenian contenido.",
+    "  2. post_compact_session_start_hook.py abria PostgreSQL con el rol muerto `seal`. Como",
+    "     TODO su trabajo esta dentro de ese try, en CADA compactacion de CADA agente el bloque",
+    "     reinyectado era una sola linea: '(SOUL DB no disponible: password authentication",
+    "     failed for user seal)'. Ni correcciones, ni reglas, ni estado del equipo. Tercera",
+    "     aparicion del mismo patron en un dia, con el self-test de arranque y el job de",
+    "     embeddings: una herramienta con credencial muerta que informa mal lo que mide.",
+    "  3. El filtro del transcript es el 90 % del trabajo: los primeros renglones de tipo",
+    "     `user` casi nunca son el usuario (eco de /model, salida de comando local,",
+    "     system-reminder, tool_result). Tomar el primero a ciegas guarda basura y el objetivo",
+    "     se pierde igual, con el agravante de que el estado guardado PARECE correcto.",
+    "VERIFICADO POR EFECTO, no por lectura: corrida real del PreCompact con un transcript",
+    "sintetico de 5 renglones de ruido antes del pedido -> guardo exactamente el pedido humano;",
+    "y corrida real del post-compact -> el bloque pasa de una linea de degradacion a pedido",
+    "original + correcciones + reglas + estado del equipo.",
+    "DOS SUPERVIVIENTES QUE ME CORRIGIERON A MI, y quedan escritos porque la leccion es reusable:",
+    "  - 'acepta-tool-result' sobrevivio porque mi renglon de prueba traia SOLO el bloque",
+    "    tool_result, sin texto, asi que lo rechazaba la guarda de texto vacio y la exclusion",
+    "    real nunca se ejercitaba. La forma que importa es la mixta.",
+    "  - 'no-reinyecta-el-pedido-original' sobrevivio porque probaba el formateador por",
+    "    separado y nunca que el HOOK lo llamara. Es el mismo agujero por el que casi despacho",
+    "    el hook sin el import: la funcion andaba y el cableado no. Probar la pieza NO prueba",
+    "    que este conectada.",
+    "  - JARVIS refuto la primera entrega: volver a pedir sessionContext en pre_compact_hook",
+    "    daba 14/14. El brazo nuevo atraviesa main() con transcript_path real y un",
+    "    sessionContext distinto; conserva este como resumen, pero exige que el pedido salga",
+    "    del transcript. Control 15 passed; mutante exacto 1 failed + 14 passed.",
+    "PARA QUIEN REVISE: el mutation_evidence lo produje YO. REEMPLAZALO por el tuyo. El control",
+    "que importa es que 'vuelve-la-credencial-muerta' HAGA FALLAR la suite; si sobrevive, el",
+    "test no protege el defecto que motivo el cambio.",
+    "NOTA: test_post_compact_reinjection_v1.py es de integracion y necesita la SOUL DB local.",
+    "Deliberado: el defecto que cubre solo se ve contra la base real; con un doble de prueba",
+    "habria pasado en verde todas estas semanas."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "compact-original-request-v1",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "review": {
+    "status": "approved",
+    "evidence": "REVISION INDEPENDIENTE JARVIS, con evidencia propia (no la del owner). CANARIO primero: un `raise` al importar cada uno de los tres sujetos pone la suite en ROJO, asi que se ejecutan de verdad y los mutantes valen. PRIMERA PASADA -> REJECT: el mutante `transcript_path -> sessionContext` en pre_compact_hook.py SOBREVIVIA (14 passed), o sea que el defecto 1 del owner podia volver sin que ningun test se enterara. Mueren limpio, en cambio: volver al rol muerto `seal` en el post-hook (3 failed), dejar pasar tool_result como usuario (1 failed) y aceptar renglones isMeta (1 failed). SEGUNDA PASADA, tras el brazo nuevo del owner: control 15 passed; el MISMO mutante -> 1 failed, 14 passed, y el rojo cae en el brazo nuevo. Restaurado -> 15 passed. ALCANCE Y CONFESION DE METODO: mis dos primeras copias tenian el CONTROL EN ROJO por modulos faltantes (config.py, seal_secrets.py, hook_utils.py) y con ese control roto los mutantes 'sobrevivian' de mentira; complete la copia hasta verde ANTES de concluir las dos veces. Un mutante mio queda NO CONCLUYENTE y no lo cuento: cambiar `except Exception` por `except ZeroDivisionError` en el post-hook no mueve la suite, probablemente por equivalente. Todo se muto sobre COPIAS en tempdir; el arbol vivo no se toco. || RE-FIRMA 4-sep 16:56. El owner aviso que dos sujetos cambiaron -post_compact_session_start_hook.py y pre_compact_hook.py- al instrumentarlos para compaction-metrics-v1; compact_original_request.py y los dos tests quedaron IGUALES (verificado por hash contra mi recibo anterior, no por su palabra). NO re-corri lo que no cambio, seria teatro. SI volvi a correr los DOS mutantes que justificaron la firma, sobre los bytes NUEVOS y en copia aislada: control 15 passed + 9 subtests; `transcript_path -> sessionContext` -> 1 failed, 14 passed (sigue muriendo, es el defecto original del owner); `DB_URL vuelve al rol muerto seal` -> 3 failed, 12 passed. Restaurado -> 15 passed. La firma se sostiene.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "REVISION INDEPENDIENTE JARVIS, con evidencia propia (no la del owner). CANARIO primero: un `raise` al importar cada uno de los tres sujetos pone la suite en ROJO, asi que se ejecutan de verdad y los mutantes valen. PRIMERA PASADA -> REJECT: el mutante `transcript_path -> sessionContext` en pre_compact_hook.py SOBREVIVIA (14 passed), o sea que el defecto 1 del owner podia volver sin que ningun test se enterara. Mueren limpio, en cambio: volver al rol muerto `seal` en el post-hook (3 failed), dejar pasar tool_result como usuario (1 failed) y aceptar renglones isMeta (1 failed). SEGUNDA PASADA, tras el brazo nuevo del owner: control 15 passed; el MISMO mutante -> 1 failed, 14 passed, y el rojo cae en el brazo nuevo. Restaurado -> 15 passed. ALCANCE Y CONFESION DE METODO: mis dos primeras copias tenian el CONTROL EN ROJO por modulos faltantes (config.py, seal_secrets.py, hook_utils.py) y con ese control roto los mutantes 'sobrevivian' de mentira; complete la copia hasta verde ANTES de concluir las dos veces. Un mutante mio queda NO CONCLUYENTE y no lo cuento: cambiar `except Exception` por `except ZeroDivisionError` en el post-hook no mueve la suite, probablemente por equivalente. Todo se muto sobre COPIAS en tempdir; el arbol vivo no se toco. || RE-FIRMA 4-sep 16:56. El owner aviso que dos sujetos cambiaron -post_compact_session_start_hook.py y pre_compact_hook.py- al instrumentarlos para compaction-metrics-v1; compact_original_request.py y los dos tests quedaron IGUALES (verificado por hash contra mi recibo anterior, no por su palabra). NO re-corri lo que no cambio, seria teatro. SI volvi a correr los DOS mutantes que justificaron la firma, sobre los bytes NUEVOS y en copia aislada: control 15 passed + 9 subtests; `transcript_path -> sessionContext` -> 1 failed, 14 passed (sigue muriendo, es el defecto original del owner); `DB_URL vuelve al rol muerto seal` -> 3 failed, 12 passed. Restaurado -> 15 passed. La firma se sostiene.",
+      "signed_at": "2026-09-04T21:56:37.048544+00:00",
+      "mutation_target": "isolated_copy",
+      "reviewed_sha256": {
+        "memory/compact_original_request.py": "a617b7e95e963a926da970c933dbadf6347cd3188afa0db6d67c67f67aec2042",
+        "memory/post_compact_session_start_hook.py": "931c404804bac07cca749f65eb685954e6456c33ea5e803c5051caee27b1f5d9",
+        "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
+        "memory/tests/test_compact_original_request_v1.py": "fce17af534bd83446035dbe4775374694908e504bcf95c05440c7ddba5eaff9c",
+        "memory/tests/test_post_compact_reinjection_v1.py": "15948b38adb14e9a63448c28a78e256afeb70a75b0f079e586f8b1d48849667c"
+      },
+      "manifest_digest": "be153f509dd25e299468e373a632ab2f65f56b5ea88dc54111f7f774f70b69ed"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "memory/compact_original_request.py",
+    "memory/post_compact_session_start_hook.py",
+    "memory/pre_compact_hook.py"
+  ],
+  "tests": [
+    "memory/tests/test_compact_original_request_v1.py",
+    "memory/tests/test_post_compact_reinjection_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-compact-original-request-v1.json",
+  "commands": [
+    {
+      "id": "unit-compact-original-request",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_compact_original_request_v1.py",
+        "memory/tests/test_post_compact_reinjection_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-gana-el-primer-turno-humano",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_compact_original_request_v1.py::RescateDelPedidoOriginal::test_gana_el_primer_turno_humano_no_el_primero_a_secas"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "wiring-pre-hook-usa-transcript-path",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_compact_original_request_v1.py::RescateDelPedidoOriginal::test_main_cablea_transcript_path_y_no_sessionContext_al_pedido_original"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-no-reinyecta-el-aviso-de-base-caida",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_post_compact_reinjection_v1.py::ReinjeccionPostCompactacion::test_no_reinyecta_el_aviso_de_base_caida",
+        "memory/tests/test_compact_original_request_v1.py::RescateDelPedidoOriginal::test_sin_turno_humano_devuelve_None_en_vez_de_basura"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-no-vacuo",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_compact_original_request_v1.py::RescateDelPedidoOriginal::test_control_el_filtro_no_rechaza_todo",
+        "memory/tests/test_post_compact_reinjection_v1.py::ReinjeccionPostCompactacion::test_control_sin_pedido_guardado_no_inventa_una_seccion"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "memory/compact_original_request.py"
+    ],
+    "omit": [
+      "memory/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "memory/tests/test_compact_original_request_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable = el pedido original de William sobrevive la compactacion y el bloque post-compactacion vuelve a traer contexto real en vez de un aviso de base caida. Verificado por efecto con corridas reales de los dos hooks.",
+    "command": {
+      "id": "delivery-compact-original-request",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_compact_original_request_v1.py",
+        "memory/tests/test_post_compact_reinjection_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "15 passed"
+    }
+  },
+  "mutation_baseline_percent": 100.0
+}

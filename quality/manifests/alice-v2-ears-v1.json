@@ -1,0 +1,170 @@
+{
+  "_doc": [
+    "ALICE v2 escuchaba por un relay que operaba JARVIS a mano (deuda #1 del cutover F5).",
+    "Ahora tiene su propia entrada: un firehose privado y un Monitor persistente en el asiento.",
+    "El log lleva DM DESCIFRADOS: por eso 0640 grupo alice-v2-lab y el wrapper SALE si no cumple.",
+    "El bloqueo real no era el monitor sino la politica: el deny de tail le ganaba al allow del",
+    "comando. Medido diferencialmente como alice-v2-lab. Owner: JARVIS. Revisor: NEXUS."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "alice-v2-ears-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "NEXUS",
+  "implementation_head": "a78e3754aa9df558cc2fe0b109a318e129e121d6",
+  "implementation_commits": [],
+  "review": {
+    "status": "approved",
+    "evidence": "NEXUS revisor independiente, 4-sep-2026 12:20. Control (sin mutar) PRIMERO en copia aislada de 136 KB con SOLO los archivos del sujeto y los dos que sus tests leen: 23 passed. SEIS mutantes, los seis muertos: quitar la verificacion de grupo/modo del log (1 failed); umask permisivo 027->000; quitar el flock, que permitiria DOS oidos escribiendo el mismo log; escuchar como 'ALICE-V2' en vez de 'ALICE', que le haria perder los eventos dirigidos a su nombre canonico; aceptar modo 0644, que abriria los DM descifrados a cualquiera; y hacer que el script toque seal-channel-monitor@ALICE, es decir REVIVIR el monitor v1 apagado a proposito en el cutover. EL DISENO QUE APRUEBO, y es lo que hace correcto al sujeto: el script corre como `dadito` --unico que lee el JSONL y la clave de DMs-- y escribe a un log 0640 dadito:alice-v2-lab. El asiento (uid 982) lo LEE por grupo y no puede escribirlo; el privilegio no se le entrega, se le entrega el resultado. Ademas el script solo VERIFICA los permisos y sale con error si no cumplen, en vez de intentar chgrp: dadito no es miembro del grupo y no podria, asi que fallar ruidoso es lo correcto. TRES HARNESS DESCARTADOS ANTES DE MEDIR, y lo dejo escrito porque casi firmo sobre ellos: (1) mi primera copia omitia un test y daba 4 failed; (2) la segunda colectaba el DIRECTORIO entero y arrastraba tests ajenos que necesitan archivos que no copie -> 3 errors; (3) la tercera seguia sin settings_alice_v2.json ni mcp_alice_v2_isolated.json, que los tests del lanzador leen -> 4 failed. En las tres, los mutantes 'mataban' un test extra sobre una linea base rota: un delta sobre un control que no esta verde no significa nada. ALCANCE: no verifique el comportamiento en vivo del servicio ni los permisos reales del log en /tmp; JARVIS lo reporto medido y no lo re-corri. RE-FIRMA tras tapar los seis huecos estructurales que el gate rechazaba. Verifique lo que agrego, no solo que el gate se pusiera verde: los CUATRO brazos son comandos DISTINTOS entre si (4 de 4 unicos), no el mismo test repetido con cuatro nombres -- ese defecto lo encontre en otro manifiesto anoche y por eso lo mido. El `delivery` trae evidencia por efecto del servicio activo y del log creado, no solo el estado 'verified'. `coverage.omit` cubre tests y site-packages. Los bytes de los sujetos NO cambiaron entre mi primera firma y esta: lo que cambio fue la estructura del manifiesto, asi que los seis mutantes de la primera revision siguen vigentes y no se re-corrieron. Lo digo explicitamente porque anoche aprendimos que una evidencia que no se re-corre sobre bytes nuevos es una mentira -- aca los bytes son los mismos, verificado por hash. TERCERA FIRMA, tras sacar de file_sha256 la entrada que sobraba (la unidad de systemd, que vive fuera del repo y el gate no puede atar a HEAD; JARVIS la conservo en `artefactos_fuera_del_repo`, que es la decision correcta: no se pierde el hash y no ensucia el bloque que el gate compara). Los bytes de los sujetos siguen SIN cambiar en las tres firmas --verificado por hash cada vez--; lo que caduco fue el digest del manifiesto, no la revision. Tres firmas para el mismo trabajo es el costo conocido de que el recibo ate el manifiesto ENTERO y no solo los bytes revisados.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "1e8e48de340e20ad375d1d4dee5f04eeb19368ee6259c61eef98e3e079da0ae4",
+      "reviewed_sha256": {
+        "messages/seal_alice_v2_ears.sh": "d783a09e6da0648501444b111e20ea94a58f3a5eac6b4e3440ae180599be8d62",
+        "agents/ALICE/v2_shadow/alice_v2_isolated.sh": "c9ee6d03d367597237dbed7f1f82304b2b0b17352b8addede746d816ac3b1a48",
+        "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json": "162f603fd0e455a0e178c3fdbb9308283787cc3dd20f0bb2cb79eeb3c273294c",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_ears_v1.py": "c8d9c48f4b4687c05c318756ad60a29c6a7eb9b5f73a8a40b6e34477f6d5d62d",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py": "bcce70da35d2bc2442ed29d781c67c7d807f2988521f639e6be32afa22aeb17f"
+      },
+      "evidence": "NEXUS revisor independiente, 4-sep-2026 12:20. Control (sin mutar) PRIMERO en copia aislada de 136 KB con SOLO los archivos del sujeto y los dos que sus tests leen: 23 passed. SEIS mutantes, los seis muertos: quitar la verificacion de grupo/modo del log (1 failed); umask permisivo 027->000; quitar el flock, que permitiria DOS oidos escribiendo el mismo log; escuchar como 'ALICE-V2' en vez de 'ALICE', que le haria perder los eventos dirigidos a su nombre canonico; aceptar modo 0644, que abriria los DM descifrados a cualquiera; y hacer que el script toque seal-channel-monitor@ALICE, es decir REVIVIR el monitor v1 apagado a proposito en el cutover. EL DISENO QUE APRUEBO, y es lo que hace correcto al sujeto: el script corre como `dadito` --unico que lee el JSONL y la clave de DMs-- y escribe a un log 0640 dadito:alice-v2-lab. El asiento (uid 982) lo LEE por grupo y no puede escribirlo; el privilegio no se le entrega, se le entrega el resultado. Ademas el script solo VERIFICA los permisos y sale con error si no cumplen, en vez de intentar chgrp: dadito no es miembro del grupo y no podria, asi que fallar ruidoso es lo correcto. TRES HARNESS DESCARTADOS ANTES DE MEDIR, y lo dejo escrito porque casi firmo sobre ellos: (1) mi primera copia omitia un test y daba 4 failed; (2) la segunda colectaba el DIRECTORIO entero y arrastraba tests ajenos que necesitan archivos que no copie -> 3 errors; (3) la tercera seguia sin settings_alice_v2.json ni mcp_alice_v2_isolated.json, que los tests del lanzador leen -> 4 failed. En las tres, los mutantes 'mataban' un test extra sobre una linea base rota: un delta sobre un control que no esta verde no significa nada. ALCANCE: no verifique el comportamiento en vivo del servicio ni los permisos reales del log en /tmp; JARVIS lo reporto medido y no lo re-corri. RE-FIRMA tras tapar los seis huecos estructurales que el gate rechazaba. Verifique lo que agrego, no solo que el gate se pusiera verde: los CUATRO brazos son comandos DISTINTOS entre si (4 de 4 unicos), no el mismo test repetido con cuatro nombres -- ese defecto lo encontre en otro manifiesto anoche y por eso lo mido. El `delivery` trae evidencia por efecto del servicio activo y del log creado, no solo el estado 'verified'. `coverage.omit` cubre tests y site-packages. Los bytes de los sujetos NO cambiaron entre mi primera firma y esta: lo que cambio fue la estructura del manifiesto, asi que los seis mutantes de la primera revision siguen vigentes y no se re-corrieron. Lo digo explicitamente porque anoche aprendimos que una evidencia que no se re-corre sobre bytes nuevos es una mentira -- aca los bytes son los mismos, verificado por hash. TERCERA FIRMA, tras sacar de file_sha256 la entrada que sobraba (la unidad de systemd, que vive fuera del repo y el gate no puede atar a HEAD; JARVIS la conservo en `artefactos_fuera_del_repo`, que es la decision correcta: no se pierde el hash y no ensucia el bloque que el gate compara). Los bytes de los sujetos siguen SIN cambiar en las tres firmas --verificado por hash cada vez--; lo que caduco fue el digest del manifiesto, no la revision. Tres firmas para el mismo trabajo es el costo conocido de que el recibo ate el manifiesto ENTERO y no solo los bytes revisados."
+    }
+  },
+  "subjects": [
+    "messages/seal_alice_v2_ears.sh",
+    "agents/ALICE/v2_shadow/alice_v2_isolated.sh",
+    "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json"
+  ],
+  "tests": [
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_ears_v1.py",
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py"
+  ],
+  "source_sha256": {
+    "messages/seal_alice_v2_ears.sh": "d783a09e6da0648501444b111e20ea94a58f3a5eac6b4e3440ae180599be8d62",
+    "agents/ALICE/v2_shadow/alice_v2_isolated.sh": "c9ee6d03d367597237dbed7f1f82304b2b0b17352b8addede746d816ac3b1a48",
+    "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json": "162f603fd0e455a0e178c3fdbb9308283787cc3dd20f0bb2cb79eeb3c273294c",
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_ears_v1.py": "c8d9c48f4b4687c05c318756ad60a29c6a7eb9b5f73a8a40b6e34477f6d5d62d",
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py": "bcce70da35d2bc2442ed29d781c67c7d807f2988521f639e6be32afa22aeb17f"
+  },
+  "commands": [
+    {
+      "id": "unit-oidos-y-launcher",
+      "kind": "unit",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_ears_v1.py",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    },
+    {
+      "id": "positivo-la-politica-permite-el-comando-exacto",
+      "kind": "qa_positive",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_ears_v1.py::test_positivo_la_politica_permite_el_comando_exacto_del_monitor"
+      ],
+      "expected_exit": 0,
+      "_por": "sin el allow literal el asiento queda sordo: es el defecto que arreglamos"
+    },
+    {
+      "id": "negativo-no-se-abrio-la-lectura-arbitraria",
+      "kind": "qa_negative",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_ears_v1.py::test_negativo_no_se_abrio_la_lectura_arbitraria_con_un_allow_amplio"
+      ],
+      "expected_exit": 0,
+      "_por": "el riesgo del cambio es un allow amplio; este brazo lo prohibe"
+    },
+    {
+      "id": "control-no-vacuo",
+      "kind": "qa_control",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_ears_v1.py::test_control_no_vacuo"
+      ],
+      "expected_exit": 0,
+      "_por": "prueba que la suite lee los sujetos reales y no un fixture vacio"
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/seal_alice_v2_ears.sh",
+      "agents/ALICE/v2_shadow/alice_v2_isolated.sh",
+      "agents/ALICE/v2_shadow/settings_alice_v2_isolated.json"
+    ],
+    "omit": [
+      "*/tests/*"
+    ],
+    "pytest_args": [
+      "agents/ALICE/v2_shadow/tests/test_alice_v2_ears_v1.py",
+      "agents/ALICE/v2_shadow/tests/test_alice_v2_isolated_launcher_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300,
+    "_doc": "Los sujetos son un script de shell, un prompt y una politica JSON: la cobertura util es estructural (131 tests) mas la mutacion (15/15) mas la verificacion por efecto."
+  },
+  "mutation_evidence": "quality/mutation-alice-v2-ears-v1.json",
+  "deletions": [],
+  "medicion_permiso_diferencial": {
+    "_doc": "Medido 4-sep como alice-v2-lab con claude -p --permission-mode dontAsk, tool Bash",
+    "comando": "flock -n /tmp/seal_monitor_connect_ALICE-V2.lock tail -n 0 -F /tmp/seal_events_ALICE-V2.log",
+    "celdas": [
+      {
+        "politica": "deny Bash(tail:*) + allow del comando exacto",
+        "resultado": "DENEGADO",
+        "lee": "el deny vence al allow"
+      },
+      {
+        "politica": "sin deny + allow del comando exacto",
+        "resultado": "PERMITIDO",
+        "lee": "es la politica desplegada"
+      },
+      {
+        "politica": "sin deny + otro comando tail (/etc/hostname)",
+        "resultado": "DENEGADO",
+        "lee": "dontAsk niega lo no permitido: quitar el deny NO abre lectura arbitraria"
+      }
+    ]
+  },
+  "verificacion_por_efecto": {
+    "_doc": "Con el relay del operador APAGADO (0 procesos)",
+    "estimulo": "DM de JARVIS a ALICE, id api_jarvis_1788542092840739192, 12:14:52",
+    "respuesta": "ALICE, id api_alice_1788542104081013523: la vio por EVENTO del Monitor persistente, no por webchat_poll",
+    "proceso": "tail -n 0 -F /tmp/seal_events_ALICE-V2.log corriendo como uid 982"
+  },
+  "resiliencia": {
+    "_doc": "Medido 4-sep 12:20 por JARVIS",
+    "estimulo": "kill -9 al MainPID de seal-alice-v2-ears.service (1645279)",
+    "resultado": "systemd lo relevanto en 4 s (MainPID 2213813, active); el log conservo 0640 dadito:alice-v2-lab",
+    "control": "una marca enviada DESPUES del rearranque aparecio en el log: el flujo se reanuda sin tocar el asiento"
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "DESPLEGADO Y VERIFICADO POR EFECTO el 4-sep. (1) seal-alice-v2-ears.service enable+start: active; /tmp/seal_events_ALICE-V2.log 0640 dadito:alice-v2-lab creado por /etc/tmpfiles.d/seal-alice-v2-ears.conf (dadito no pertenece al grupo y no puede chgrp: el wrapper VERIFICA y sale si no cumple). Lectura probada: `sudo -u alice-v2-lab tail` LEE; `sudo -u nobody cat` NO. (2) Politica y launcher copiados al asiento con sha256 identico al repo (162f603fd0e455a0 / c9ee6d03d3675972) y alice-v2-seat.service reiniciado. (3) Primer arranque FALLO con 'Permission to use Bash with command flock ... has been denied': el deny Bash(tail:*) vencia al allow del comando exacto. Corregido y re-desplegado, el asiento levanto su propio `tail -n 0 -F /tmp/seal_events_ALICE-V2.log` (uid 982) a los 10 s del restart. (4) RELAY DEL OPERADOR APAGADO (pid 1857910 terminado, 0 procesos) ANTES de la prueba. (5) PRUEBA POR EFECTO, criterio de William ('que le escribas y te conteste sin que yo intervenga'): DM api_jarvis_1788542092840739192 a las 12:14:52 -> respuesta api_alice_1788542104081013523 (id 148739) a las 12:15:04, en la que ella misma declara haberlo visto 'via evento del Monitor persistente sobre /tmp/seal_events_ALICE-V2.log (flock singleton), no por webchat_poll'. 12 segundos, sin operador. (6) RESILIENCIA: kill -9 al MainPID 1645279 -> systemd relevanto en 4 s (MainPID 2213813, active), permisos intactos, y una marca enviada DESPUES del rearranque aparecio en el log. CONTROL NEGATIVO de la apertura de permiso: con la politica desplegada, un `tail -n 1 /etc/hostname` sigue DENEGADO.",
+    "command": {
+      "argv": [
+        "bash",
+        "-lc",
+        "set -e; systemctl --user is-active --quiet seal-alice-v2-ears.service; test \"$(stat -c %U:%G:%a /tmp/seal_events_ALICE-V2.log)\" = \"dadito:alice-v2-lab:640\"; pgrep -u alice-v2-lab -a -x tail | grep -q -- \"-F /tmp/seal_events_ALICE-V2.log\"; test \"$(pgrep -a -x python3 | grep -c sombra_relay_4a)\" = 0; echo OIDOS_V2_OK"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "OIDOS_V2_OK",
+      "_doc": "Efecto en vivo: la unidad activa, el log 0640 dadito:alice-v2-lab (sus DM van descifrados), el asiento (uid 982) con su propio tail -F sobre ese log, y NINGUN relay del operador corriendo.",
+      "_nota": "La primera version usaba `pgrep -f sombra_relay_4a.py` y se AUTO-MATCHEABA: el patron viaja en la cmdline del propio chequeo, asi que reportaba el relay vivo con cero relays. Se cuenta sobre `pgrep -a -x python3`, que sólo lista procesos cuyo nombre es python3 (el chequeo corre en bash)."
+    }
+  }
+}

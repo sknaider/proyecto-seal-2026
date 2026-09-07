@@ -1,0 +1,153 @@
+{
+  "_doc": [
+    "Corte de bucles de publicacion en dos escalones. Owner ADA. Idea 4 del analisis de IBM Bob,",
+    "REESCRITA desde cero: nada de su codigo entra a SOUL (licencia 5900-BVU). Luz verde de William",
+    "(21:31 DM) para reescribir; esta pieza NO toca el candado destructivo.",
+    "POR QUE EXISTE: el 2-may-2026 el bucle de reflejos de NEXUS publico 199 mensajes en 60 segundos",
+    "y lo corto JARVIS a mano matando el proceso. No teniamos nada que lo detuviera solo.",
+    "LOS DOS ESCALONES, medidos contra el escritor real: copias 1-2 salen en silencio; 3 y 4 avisan",
+    "y salen; la 5 avisa fuerte y sale; de la 6 en adelante se suprimen.",
+    "EL PUNTO QUE DISCUTI CONMIGO MISMA Y NO ESCONDO: seal_send.py declara su propio invariante,",
+    "«este script es la UNICA via de escritura del equipo […] nunca se deja mudo a nadie». Suprimir",
+    "la sexta copia IDENTICA no lo viola, porque el contenido ya llego cinco veces: mudez es que el",
+    "mensaje no llegue, no que no lleguen copias. Esa distincion es la unica razon por la que este",
+    "guard puede existir. Si alguien la discute, tiene derecho: esta escrita al frente del modulo,",
+    "no enterrada en un comentario.",
+    "TRES CANDADOS PARA NO REPETIR EL 1-SEP, cuando nuestro candado destructivo dejo mudos a ALICE,",
+    "a JARVIS y dos veces a NEXUS por limpiar temporales:",
+    "  1. FALLA ABIERTO. Cualquier excepcion => se manda igual. Sin excepcion.",
+    "  2. Solo cuenta lo IDENTICO: mismo destinatario, mismo canal, mismo cuerpo, misma ventana.",
+    "  3. Salida de emergencia documentada: SEAL_SEND_NO_LOOP_GUARD=1.",
+    "LA MAYORIA DE LOS CASOS DE LA SUITE SON DE CONTENCION, no del camino feliz. Un guard en el UNICO",
+    "escritor del equipo puede hacer el mismo dano que el candado que vino a mejorar.",
+    "DOS SOBREVIVIENTES QUE ERAN MIS TESTS, y quedan escritos porque la leccion es reusable: el test",
+    "de la salida de emergencia pasaba por la razon equivocada (tiempo real, ventana expirada) y el",
+    "de falla-abierto NUNCA tocaba el except externo. El candado 1 estaba escrito, documentado y sin",
+    "probar. La mutacion los encontro; yo no.",
+    "PARA QUIEN REVISE: el mutation_evidence lo produje YO. REEMPLAZALO. El control que decide es",
+    "'falla-CERRADO': si sobrevive, el guard puede silenciar a alguien ante un fallo inesperado y no",
+    "hay que firmarlo. Y ojo: la copia necesita la ESTRUCTURA del repo (<raiz>/scripts y",
+    "<raiz>/messages con el token), porque seal_send.py resuelve su credencial como parents[1]. Con",
+    "una copia plana el control sale ROJO y los mutantes mienten.",
+    "REVISION DE NEXUS (17:18): mi control decisivo PASA -el guard no puede pasar a fallar cerrado sin que la suite lo grite-, pero encontro un mutante vivo (CORTA_DESDE 6->5) y dos defectos de metodo mios. Los tres cerrados: brazo que fija la secuencia completa, agente parametrizado con SEAL_TEST_AGENT, y el arnes con higiene de cache. 9/9."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "loop-guard-v1",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "approved",
+    "evidence": "Revision independiente de NEXUS, 4-sep-2026. Copia del arbol del INDICE (git write-tree + git archive), con la estructura <raiz>/scripts y <raiz>/messages que el owner advirtio, y con PYTHONDONTWRITEBYTECODE=1 + borrado de __pycache__ entre corridas. Arbol vivo verificado intacto.\n\nCONTROL COMPLETO, con MI identidad (SEAL_TEST_AGENT=NEXUS): 11 passed + 3 subtests. Incluye el brazo de cableado, que en la primera ronda tuve que EXCLUIR porque invocaba al escritor fijo como ADA y me habria hecho revisar con la credencial del owner. El owner lo parametrizo; ahora corre con la del revisor.\n\nCANARIO (raise al importar seal_loop_guard): error de coleccion -> la suite ejecuta el sujeto.\n\nMUTANTES:\n1. candado 1 pasa a fallar CERRADO (`return \"suprimir\"` en el except): MUERE, lo caza test_falla_ABIERTO_tambien_ante_una_excepcion_INESPERADA. Era el control que decidia esta firma: un guard que silencia ante un fallo inesperado deja mudo a un agente, que es el dano del 1-sep.\n2. correr el borde una posicion (CORTA_DESDE 6 -> 5): en la PRIMERA ronda SOBREVIVIA con 9 passed --la 5a copia, que segun la especificacion 'avisa fuerte y SALE', pasaba a suprimirse sin que ningun brazo se enterara--. Ahora MUERE: lo caza test_la_secuencia_COMPLETA_esta_fijada_escalon_por_escalon.\n\nHALLAZGO DE ARNES que afecto MI PROPIA medicion y quedo documentado: restaurar un archivo mutado con `cp` deja vivo el __pycache__ del MUTANTE. Medido: el archivo en disco decia CORTA_DESDE=6 y el modulo importado tenia 5. Estuve midiendo el mutante creyendo que medía el original, y lo detecte solo porque una sonda imprimia la constante y no coincidia con el grep. Todos los numeros de este recibo son de corridas con cache limpia.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "6a34ffcd8d07733e3332183474246979f6da36824d33a8b8249d942c3cd5906e",
+      "reviewed_sha256": {
+        "scripts/seal_loop_guard.py": "7f3cf908f96368fbbf2f4563d668626b3ce9ba8c9a6f07111584e866e6f8c514",
+        "scripts/seal_send.py": "0cf2e93bbd69f5b6675208da264627a7680420543f849b40541032b8fb7be176",
+        "quality/delivery_loop_guard.sh": "ca0037b792f4c9145ce92b66adf63ba787925d5b9ebde873d89c9a1a313626d0",
+        "scripts/tests/test_seal_loop_guard_v1.py": "1271b827b6b27e3c39069a48d27d93467044d8ab21bcef4ff3e19b39b09a72f2"
+      },
+      "evidence": "Revision independiente de NEXUS, 4-sep-2026. Copia del arbol del INDICE (git write-tree + git archive), con la estructura <raiz>/scripts y <raiz>/messages que el owner advirtio, y con PYTHONDONTWRITEBYTECODE=1 + borrado de __pycache__ entre corridas. Arbol vivo verificado intacto.\n\nCONTROL COMPLETO, con MI identidad (SEAL_TEST_AGENT=NEXUS): 11 passed + 3 subtests. Incluye el brazo de cableado, que en la primera ronda tuve que EXCLUIR porque invocaba al escritor fijo como ADA y me habria hecho revisar con la credencial del owner. El owner lo parametrizo; ahora corre con la del revisor.\n\nCANARIO (raise al importar seal_loop_guard): error de coleccion -> la suite ejecuta el sujeto.\n\nMUTANTES:\n1. candado 1 pasa a fallar CERRADO (`return \"suprimir\"` en el except): MUERE, lo caza test_falla_ABIERTO_tambien_ante_una_excepcion_INESPERADA. Era el control que decidia esta firma: un guard que silencia ante un fallo inesperado deja mudo a un agente, que es el dano del 1-sep.\n2. correr el borde una posicion (CORTA_DESDE 6 -> 5): en la PRIMERA ronda SOBREVIVIA con 9 passed --la 5a copia, que segun la especificacion 'avisa fuerte y SALE', pasaba a suprimirse sin que ningun brazo se enterara--. Ahora MUERE: lo caza test_la_secuencia_COMPLETA_esta_fijada_escalon_por_escalon.\n\nHALLAZGO DE ARNES que afecto MI PROPIA medicion y quedo documentado: restaurar un archivo mutado con `cp` deja vivo el __pycache__ del MUTANTE. Medido: el archivo en disco decia CORTA_DESDE=6 y el modulo importado tenia 5. Estuve midiendo el mutante creyendo que medía el original, y lo detecte solo porque una sonda imprimia la constante y no coincidia con el grep. Todos los numeros de este recibo son de corridas con cache limpia."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "scripts/seal_loop_guard.py",
+    "scripts/seal_send.py",
+    "quality/delivery_loop_guard.sh"
+  ],
+  "tests": [
+    "scripts/tests/test_seal_loop_guard_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-loop-guard-v1.json",
+  "commands": [
+    {
+      "id": "unit-loop-guard",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "scripts/tests/test_seal_loop_guard_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-los-dos-escalones",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "scripts/tests/test_seal_loop_guard_v1.py::CorteDeBucles::test_los_dos_escalones_en_orden",
+        "scripts/tests/test_seal_loop_guard_v1.py::CorteDeBucles::test_el_escritor_REAL_respeta_la_supresion"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-nunca-silencia",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "scripts/tests/test_seal_loop_guard_v1.py::CorteDeBucles::test_un_mensaje_DISTINTO_pasa_aunque_otro_este_cortado",
+        "scripts/tests/test_seal_loop_guard_v1.py::CorteDeBucles::test_falla_ABIERTO_tambien_ante_una_excepcion_INESPERADA"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-la-huella-distingue",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "scripts/tests/test_seal_loop_guard_v1.py::CorteDeBucles::test_control_la_huella_distingue_los_tres_campos"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "seal_loop_guard"
+    ],
+    "omit": [
+      "scripts/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "scripts/tests/test_seal_loop_guard_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "ARM1 siete envios identicos por el escritor REAL -> 5 enviados, 2 suprimidos. ARM2 un mensaje DISTINTO -> pasa igual. El ARM2 es el que vale: sin el, un guard que suprimiera TODO pasaria el ARM1.",
+    "command": {
+      "id": "delivery-loop-guard",
+      "kind": "delivery",
+      "argv": [
+        "bash",
+        "quality/delivery_loop_guard.sh"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "delivery: passed"
+    }
+  },
+  "mutation_baseline_percent": 100.0
+}

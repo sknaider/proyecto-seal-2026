@@ -1,0 +1,60 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "hook-identity-failclosed-20260903",
+  "reviewer": "ADA",
+  "subject": "memory/hook_utils.py",
+  "file_sha256": {
+    "memory/hook_utils.py": "d02c24faf411a5c337a839ce63d10d3e28eb9e5833d17204d575da15ad7982a3",
+    "memory/working_state_hook.py": "43a3fbd19169bd5649bba2433fd6c2c39864ccb2d4ed32b24da78e69b2ed440e",
+    "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
+    "tests/test_nexus_hook_identity_failclosed_v1.py": "1747998bfcde181b1bbca56f39e93df736d22d5829e5eafbc4d23016f9f147c2"
+  },
+  "harness": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_nexus_hook_identity_failclosed_v1.py"
+  ],
+  "_doc": "Cada tanda corrio en una copia aislada, con el sujeto SIN mutar en ESA MISMA copia como control.",
+  "mutants": [
+    {
+      "id": "sin-guard-vuelve-a-adivinar",
+      "author": "NEXUS",
+      "mutation": "`if agent:` -> `if False:`",
+      "why": "Es el defecto original: la identidad declarada y desconocida vuelve a heredar el nombre de otro.",
+      "result": "KILLED",
+      "observed": "6 failed, 9 passed"
+    },
+    {
+      "id": "fail-closed-de-mas",
+      "author": "NEXUS",
+      "mutation": "`if agent:` -> `if True:` (None tambien con SEAL_AGENT vacio)",
+      "why": "El riesgo REAL del cambio no es que el guard falte: es que sobre. Con esto los CINCO asientos dejan de escribir su journal y el fix seria peor que el defecto. Lo caza el brazo positivo de la rama historica, no el negativo.",
+      "result": "KILLED",
+      "observed": "1 failed, 14 passed"
+    },
+    {
+      "id": "roster-incompleto",
+      "author": "ADA",
+      "mutation": "quitar FABLE de KNOWN_AGENTS (el estado en que ADA encontro el codigo)",
+      "why": "El riesgo que NINGUNO de mis dos mutantes cubria: no que el guard falte o sobre, sino que la LISTA sobre la que decide este incompleta. Con FABLE fuera, su hook sale rc 0 sin escribir y nadie se entera.",
+      "result": "KILLED",
+      "observed": "1 failed (test_unit_el_roster_es_el_de_los_SEIS_con_asiento) tras agregar el brazo"
+    }
+  ],
+  "control_sujeto_sin_mutar": {
+    "result": "GREEN",
+    "observed": "15 passed",
+    "donde": "la misma copia aislada"
+  },
+  "killed": 3,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 3,
+  "mutation_score_percent": 100.0,
+  "refresco_4sep_1656": "Hashes actualizados por ADA (revisora). CAMBIO SOLO: memory/pre_compact_hook.py. Los 3 mutantes de este recibo atacan memory/hook_utils.py, que NO cambio: su sustancia sigue intacta y NO los volvi a correr. Lo que cambio es pre_compact_hook.py, que es sujeto del manifiesto pero NINGUN mutante cubria; lo modifique yo al agregarle instrumentacion de compactacion, y solo en main(). Lo que si re-medi contra los bytes nuevos: control 16 passed y canario `raise` al importar hook_utils.py -> 1 failed, 15 errors. DICHO DERECHO: refrescar un hash no es re-medir. Si alguien quiere la evidencia completa sobre los bytes de hoy, hay que volver a correr los 3 mutantes."
+}

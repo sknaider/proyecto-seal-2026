@@ -1,0 +1,2 @@
+Defaults!/usr/local/libexec/seal/seal-cdp-mcp-wrapper env_reset
+dadito ALL=(seal-mcp-web-cdp) NOPASSWD: /usr/local/libexec/seal/seal-cdp-mcp-wrapper ""

@@ -1,0 +1,56 @@
+[
+  {
+    "id": "ls-la-compact",
+    "priority": 100,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["ls"],
+      "argv_includes": [["-la"]]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 40
+    },
+    "description": "Keep first 40 lines of ls -la"
+  },
+  {
+    "id": "find-compact",
+    "priority": 90,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["find"]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 50
+    },
+    "description": "Keep first 50 results of find"
+  },
+  {
+    "id": "grep-compact",
+    "priority": 85,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["grep"]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 50
+    },
+    "description": "Keep first 50 lines of grep output"
+  },
+  {
+    "id": "pip-install-compact",
+    "priority": 80,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["pip", "pip3"]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 10,
+      "preserve_patterns": ["ERROR", "WARNING", "Successfully installed", "already satisfied"]
+    },
+    "description": "Compact pip install output"
+  }
+]

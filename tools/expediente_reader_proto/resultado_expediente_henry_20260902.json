@@ -1,0 +1,576 @@
+[
+ {
+  "pag": 1,
+  "esperado": "instruccion_embarque",
+  "predicho": "instruccion_embarque",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20614130891"
+   ],
+   "awb": [
+    "074 - 7269 - 0111"
+   ],
+   "factura": [],
+   "guia": [],
+   "peso": [
+    "5,993.30"
+   ],
+   "placa": [
+    "A6B 495"
+   ],
+   "fecha": [
+    "1608"
+   ],
+   "kg_o_gr": [
+    "GR"
+   ]
+  }
+ },
+ {
+  "pag": 2,
+  "esperado": "acta_compromiso",
+  "predicho": "acta_compromiso",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20614130891"
+   ],
+   "awb": [
+    "074 - 7269 - 0111"
+   ],
+   "factura": [],
+   "guia": [],
+   "peso": [],
+   "placa": [],
+   "fecha": [],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 3,
+  "esperado": "certificado_origen",
+  "predicho": "certificado_origen",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20614130891"
+   ],
+   "awb": [
+    "074 - 7269 - 0111"
+   ],
+   "factura": [
+    "E001256"
+   ],
+   "guia": [],
+   "peso": [
+    "5,993.30"
+   ],
+   "placa": [],
+   "fecha": [],
+   "kg_o_gr": [
+    "KG"
+   ]
+  }
+ },
+ {
+  "pag": 4,
+  "esperado": "ddjj_procedencia",
+  "predicho": "ddjj_procedencia",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "10447181865",
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [
+    "E001256"
+   ],
+   "guia": [],
+   "peso": [],
+   "placa": [],
+   "fecha": [],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 5,
+  "esperado": "ddjj_origen",
+  "predicho": "ddjj_origen",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [],
+   "guia": [
+    "0042019"
+   ],
+   "peso": [],
+   "placa": [],
+   "fecha": [],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 6,
+  "esperado": "ddjj_guia_aerea",
+  "predicho": "ddjj_guia_aerea",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20614130891"
+   ],
+   "awb": [
+    "074 - 7269 - 0111"
+   ],
+   "factura": [],
+   "guia": [],
+   "peso": [],
+   "placa": [],
+   "fecha": [],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 7,
+  "esperado": "carta_responsabilidad",
+  "predicho": "carta_responsabilidad",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [
+    "E001256"
+   ],
+   "guia": [],
+   "peso": [],
+   "placa": [],
+   "fecha": [],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 8,
+  "esperado": "ddjj_aduana_productor",
+  "predicho": "ddjj_aduana_productor",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "10447181865",
+    "20614130891",
+    "20614140891"
+   ],
+   "awb": [],
+   "factura": [],
+   "guia": [],
+   "peso": [
+    "5,993.30"
+   ],
+   "placa": [],
+   "fecha": [],
+   "kg_o_gr": [
+    "GRAMOS"
+   ]
+  }
+ },
+ {
+  "pag": 9,
+  "esperado": "ddjj_transporte",
+  "predicho": "ddjj_transporte",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [
+    "E001256"
+   ],
+   "guia": [],
+   "peso": [],
+   "placa": [
+    "A6B 495"
+   ],
+   "fecha": [
+    "1508"
+   ],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 10,
+  "esperado": "anexo5_uif",
+  "predicho": "anexo5_uif",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [
+    "E001256"
+   ],
+   "guia": [],
+   "peso": [],
+   "placa": [],
+   "fecha": [
+    "1508"
+   ],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 11,
+  "esperado": "ddjj_aduana_lavado",
+  "predicho": "ddjj_aduana_lavado",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [
+    "E001256"
+   ],
+   "guia": [],
+   "peso": [],
+   "placa": [],
+   "fecha": [],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 12,
+  "esperado": "factura_comercial",
+  "predicho": "factura_comercial",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "10447181865"
+   ],
+   "awb": [],
+   "factura": [
+    "E001256"
+   ],
+   "guia": [],
+   "peso": [
+    "5993.30"
+   ],
+   "placa": [],
+   "fecha": [
+    "1508"
+   ],
+   "kg_o_gr": [
+    "GR",
+    "GRAMO"
+   ]
+  }
+ },
+ {
+  "pag": 13,
+  "esperado": "factura_agenciamiento",
+  "predicho": "factura_agenciamiento",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "10447181865",
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [
+    "E0013",
+    "E001386"
+   ],
+   "guia": [],
+   "peso": [],
+   "placa": [],
+   "fecha": [
+    "1508",
+    "2208"
+   ],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 14,
+  "esperado": "factura_servicio",
+  "predicho": "factura_servicio",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20612437727",
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [
+    "FF02272"
+   ],
+   "guia": [],
+   "peso": [],
+   "placa": [],
+   "fecha": [
+    "1408"
+   ],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 15,
+  "esperado": "factura_servicio",
+  "predicho": "factura_servicio",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "10447181865",
+    "20612437727"
+   ],
+   "awb": [],
+   "factura": [
+    "FF02306"
+   ],
+   "guia": [],
+   "peso": [],
+   "placa": [],
+   "fecha": [
+    "1408"
+   ],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 16,
+  "esperado": "informe_ensayo",
+  "predicho": "informe_ensayo",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "10447181865",
+    "20612437727"
+   ],
+   "awb": [],
+   "factura": [],
+   "guia": [
+    "002123"
+   ],
+   "peso": [
+    "5,993.30",
+    "5993.3"
+   ],
+   "placa": [],
+   "fecha": [
+    "1408"
+   ],
+   "kg_o_gr": [
+    "GR"
+   ]
+  }
+ },
+ {
+  "pag": 17,
+  "esperado": "guia_remision_manual",
+  "predicho": "guia_remision_manual",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "10447181865",
+    "20614892201"
+   ],
+   "awb": [],
+   "factura": [],
+   "guia": [],
+   "peso": [],
+   "placa": [],
+   "fecha": [],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 18,
+  "esperado": "orden_servicio",
+  "predicho": "orden_servicio",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "10447181865",
+    "20612437727"
+   ],
+   "awb": [],
+   "factura": [],
+   "guia": [],
+   "peso": [
+    "5,993.30"
+   ],
+   "placa": [],
+   "fecha": [
+    "1408"
+   ],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 19,
+  "esperado": "guia_recepcion",
+  "predicho": "guia_recepcion",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "10447181865",
+    "20612437727"
+   ],
+   "awb": [],
+   "factura": [],
+   "guia": [],
+   "peso": [
+    "5,993.30"
+   ],
+   "placa": [
+    "Z8U-761"
+   ],
+   "fecha": [
+    "1408"
+   ],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 20,
+  "esperado": "guia_remision_electronica",
+  "predicho": "guia_remision_electronica",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20612437727",
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [
+    "FF02272"
+   ],
+   "guia": [
+    "EG075"
+   ],
+   "peso": [
+    "5,993.3"
+   ],
+   "placa": [
+    "Z8L929"
+   ],
+   "fecha": [
+    "1408"
+   ],
+   "kg_o_gr": [
+    "GRAMO"
+   ]
+  }
+ },
+ {
+  "pag": 21,
+  "esperado": "guia_transportista",
+  "predicho": "guia_transportista",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20612437727",
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [],
+   "guia": [
+    "EG03402",
+    "EG075"
+   ],
+   "peso": [],
+   "placa": [],
+   "fecha": [
+    "1408"
+   ],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 22,
+  "esperado": "guia_recepcion",
+  "predicho": "guia_recepcion",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20612437727",
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [],
+   "guia": [],
+   "peso": [
+    "5,993,30"
+   ],
+   "placa": [],
+   "fecha": [
+    "1508"
+   ],
+   "kg_o_gr": []
+  }
+ },
+ {
+  "pag": 23,
+  "esperado": "guia_remision_electronica",
+  "predicho": "guia_remision_electronica",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20550083613",
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [],
+   "guia": [
+    "EG076"
+   ],
+   "peso": [
+    "5993.30"
+   ],
+   "placa": [
+    "A6B495"
+   ],
+   "fecha": [
+    "1508"
+   ],
+   "kg_o_gr": [
+    "GR",
+    "KILOGRAMO"
+   ]
+  }
+ },
+ {
+  "pag": 24,
+  "esperado": "guia_transportista",
+  "predicho": "guia_transportista",
+  "ok": true,
+  "campos": {
+   "ruc": [
+    "20550083613",
+    "20612437727",
+    "20614130891"
+   ],
+   "awb": [],
+   "factura": [],
+   "guia": [
+    "EG03456",
+    "EG076"
+   ],
+   "peso": [],
+   "placa": [
+    "A6B495"
+   ],
+   "fecha": [
+    "1508",
+    "1608"
+   ],
+   "kg_o_gr": []
+  }
+ }
+]

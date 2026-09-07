@@ -1,0 +1,113 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════
+#  SOUL Wake All — Despierta todo el equipo SEAL
+#  Simétrico a soul_dream_all.sh
+#
+#  - Reutiliza ada_fresh.sh / jarvis_fresh.sh / alice_fresh.sh
+#  - Lanza cada agente en su propio kitty vía systemd-run --user
+#    (sobrevive al cierre del terminal padre, cleanup automático)
+#  - Idempotente: si el agente ya corre, lo salta
+#  - Paralelo: los 3 despiertan al mismo tiempo
+# ═══════════════════════════════════════════════════════
+
+set +e
+
+PROJ_DIR="$HOME/IA/proyecto-seal"
+TS=$(date +%s)
+
+echo "╔════════════════════════════════════════╗"
+echo "║   SOUL WAKE ALL — Despertando equipo...║"
+echo "╚════════════════════════════════════════╝"
+
+# Verificar que chat_server esté vivo (agentes lo necesitan para anunciar ALIVE)
+if ! curl -sf http://localhost:8765/api/health > /dev/null 2>&1; then
+  echo "  ⚠️  chat_server no responde en :8765 — arrancando primero..."
+  systemctl --user start seal-chat-server.service 2>/dev/null || \
+    echo "  ⚠️  no pude arrancar seal-chat-server — verifica manualmente"
+  sleep 2
+fi
+
+# Verificar que el daemon MCP SSE esté vivo (agentes lo necesitan para MCP; si no,
+# caen a stdio fallback y pierden la ventaja de daemon persistente)
+if ! systemctl --user is-active seal-mcp-server.service > /dev/null 2>&1; then
+  echo "  ⚠️  seal-mcp-server.service inactivo — arrancando daemon SSE..."
+  systemctl --user start seal-mcp-server.service 2>/dev/null
+  # Esperar arranque real: uvicorn boot + sentence-transformers load (~3-6s)
+  # Doble check: systemctl active + puerto :8766 respondiendo
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    sleep 1
+    if systemctl --user is-active seal-mcp-server.service > /dev/null 2>&1; then
+      # Verificar que el puerto SSE está realmente listo (no solo el proceso)
+      if curl -sf --max-time 1 http://127.0.0.1:8766/ > /dev/null 2>&1 || \
+         ss -tlnp 2>/dev/null | grep -q ':8766 '; then
+        echo "  ✅ seal-mcp-server.service activo + puerto :8766 listo (${i}s)"
+        break
+      fi
+    fi
+    [ "$i" = "15" ] && echo "  ⚠️  daemon SSE no arrancó en 15s — agentes usarán stdio fallback"
+  done
+else
+  echo "  ✅ seal-mcp-server.service ya activo"
+fi
+
+wake_agent() {
+  local AGENT="$1"
+  local SCRIPT="$2"
+  local AGENT_UPPER=$(echo "$AGENT" | tr '[:lower:]' '[:upper:]')
+
+  # Idempotencia: si ya hay un claude con este --name, saltar
+  if ps aux | grep "claude.*--name.*$AGENT_UPPER" | grep -v grep > /dev/null; then
+    echo "  ⏭️  $AGENT_UPPER — ya está despierto, salto"
+    return 0
+  fi
+
+  if [ ! -x "$SCRIPT" ]; then
+    echo "  ❌ $AGENT_UPPER — $SCRIPT no existe o no es ejecutable"
+    return 1
+  fi
+
+  local UNIT="${AGENT}-fresh-${TS}"
+  echo "  🌅 Despertando $AGENT_UPPER (unit: $UNIT)..."
+
+  # Restart loop — misma ventana siempre (v3.3: while true reemplaza exec bash)
+  local KITTY_SOCK="/tmp/seal-${AGENT}-kitty.sock"
+  rm -f "$KITTY_SOCK"  # limpia stale antes de bind nuevo
+
+  # Fase D / Bug 3: cwd por agente — claude --resume necesita cwd del project dir
+  local AGENT_DIR
+  case "$AGENT" in
+    ada)    AGENT_DIR="$PROJ_DIR" ;;
+    jarvis) AGENT_DIR="$PROJ_DIR/memory" ;;
+    alice)  AGENT_DIR="$PROJ_DIR/alice" ;;
+  esac
+
+  systemd-run --user \
+    --unit="$UNIT" \
+    --description="SEAL Agent $AGENT_UPPER fresh launch" \
+    /usr/bin/env DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 \
+      kitty --listen-on "unix:$KITTY_SOCK" \
+      -o allow_remote_control=yes \
+      --title "$AGENT_UPPER — Team SEAL" \
+      bash -c "while true; do cd '$AGENT_DIR' && bash '$SCRIPT'; echo '[SEAL-LOOP] $AGENT_UPPER exited — reiniciando en 5s...'; sleep 5; done" \
+    2>/dev/null && echo "  ✅ $AGENT_UPPER lanzado (socket: $KITTY_SOCK)" || \
+                   echo "  ⚠️  $AGENT_UPPER systemd-run falló"
+}
+
+# Lanzar los 3 en paralelo (cada uno arranca independiente)
+wake_agent "ada"    "$PROJ_DIR/ada_fresh.sh"    &
+wake_agent "jarvis" "$PROJ_DIR/jarvis_fresh.sh" &
+wake_agent "alice"  "$PROJ_DIR/alice_fresh.sh"  &
+wait
+
+echo ""
+echo "  Marcando agentes wake en chat_server..."
+curl -s -X POST "http://localhost:8765/api/agents/send" \
+  -H "Content-Type: application/json" \
+  -d "{\"from\":\"SYSTEM\",\"to\":\"equipo\",\"type\":\"system_alive\",\"channel\":\"web_chat\",\"message\":\"🌅 SOUL Wake All — equipo despertando ($(date '+%H:%M:%S')). boot_context en curso.\"}" \
+  > /dev/null 2>&1
+
+echo ""
+echo "╔════════════════════════════════════════╗"
+echo "║  Equipo SEAL despertando. 🌅           ║"
+echo "║  Espera ~15s para boot_context full.   ║"
+echo "╚════════════════════════════════════════╝"

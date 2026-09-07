@@ -1,0 +1,277 @@
+[
+  {
+    "original_path": "../src/utils/settings/settingsCache.ts",
+    "output_file": "src_utils_settings_settingsCache__ts.ts",
+    "size_bytes": 2416
+  },
+  {
+    "original_path": "../src/bootstrap/state.ts",
+    "output_file": "src_bootstrap_state__ts.ts",
+    "size_bytes": 56109
+  },
+  {
+    "original_path": "../src/constants/keys.ts",
+    "output_file": "src_constants_keys__ts.ts",
+    "size_bytes": 444
+  },
+  {
+    "original_path": "../src/constants/oauth.ts",
+    "output_file": "src_constants_oauth__ts.ts",
+    "size_bytes": 8970
+  },
+  {
+    "original_path": "../src/constants/xml.ts",
+    "output_file": "src_constants_xml__ts.ts",
+    "size_bytes": 3325
+  },
+  {
+    "original_path": "../src/types/logs.ts",
+    "output_file": "src_types_logs__ts.ts",
+    "size_bytes": 11291
+  },
+  {
+    "original_path": "../src/constants/files.ts",
+    "output_file": "src_constants_files__ts.ts",
+    "size_bytes": 2625
+  },
+  {
+    "original_path": "../src/utils/settings/constants.ts",
+    "output_file": "src_utils_settings_constants__ts.ts",
+    "size_bytes": 5627
+  },
+  {
+    "original_path": "../src/utils/settings/internalWrites.ts",
+    "output_file": "src_utils_settings_internalWrites__ts.ts",
+    "size_bytes": 1380
+  },
+  {
+    "original_path": "../src/utils/settings/managedPath.ts",
+    "output_file": "src_utils_settings_managedPath__ts.ts",
+    "size_bytes": 1095
+  },
+  {
+    "original_path": "../src/constants/figures.ts",
+    "output_file": "src_constants_figures__ts.ts",
+    "size_bytes": 2063
+  },
+  {
+    "original_path": "../src/types/permissions.ts",
+    "output_file": "src_types_permissions__ts.ts",
+    "size_bytes": 13145
+  },
+  {
+    "original_path": "../src/utils/settings/toolValidationConfig.ts",
+    "output_file": "src_utils_settings_toolValidationConfig__ts.ts",
+    "size_bytes": 3100
+  },
+  {
+    "original_path": "../src/utils/settings/permissionValidation.ts",
+    "output_file": "src_utils_settings_permissionValidation__ts.ts",
+    "size_bytes": 8657
+  },
+  {
+    "original_path": "../src/utils/settings/types.ts",
+    "output_file": "src_utils_settings_types__ts.ts",
+    "size_bytes": 42784
+  },
+  {
+    "original_path": "../src/utils/settings/schemaOutput.ts",
+    "output_file": "src_utils_settings_schemaOutput__ts.ts",
+    "size_bytes": 317
+  },
+  {
+    "original_path": "../src/utils/settings/validationTips.ts",
+    "output_file": "src_utils_settings_validationTips__ts.ts",
+    "size_bytes": 5464
+  },
+  {
+    "original_path": "../src/utils/settings/validation.ts",
+    "output_file": "src_utils_settings_validation__ts.ts",
+    "size_bytes": 7951
+  },
+  {
+    "original_path": "../src/utils/settings/mdm/constants.ts",
+    "output_file": "src_utils_settings_mdm_constants__ts.ts",
+    "size_bytes": 2617
+  },
+  {
+    "original_path": "../src/utils/settings/mdm/rawRead.ts",
+    "output_file": "src_utils_settings_mdm_rawRead__ts.ts",
+    "size_bytes": 4183
+  },
+  {
+    "original_path": "../src/utils/settings/mdm/settings.ts",
+    "output_file": "src_utils_settings_mdm_settings__ts.ts",
+    "size_bytes": 10716
+  },
+  {
+    "original_path": "../src/utils/settings/settings.ts",
+    "output_file": "src_utils_settings_settings__ts.ts",
+    "size_bytes": 32185
+  },
+  {
+    "original_path": "../src/constants/betas.ts",
+    "output_file": "src_constants_betas__ts.ts",
+    "size_bytes": 2218
+  },
+  {
+    "original_path": "../node_modules/@opentelemetry/core/build/src/utils/configuration.js",
+    "output_file": "node_modules_@opentelemetry_core_build_src_utils_configuration__js.ts",
+    "size_bytes": 1859
+  },
+  {
+    "original_path": "../src/types/generated/google/protobuf/timestamp.ts",
+    "output_file": "src_types_generated_google_protobuf_timestamp__ts.ts",
+    "size_bytes": 6565
+  },
+  {
+    "original_path": "../src/types/generated/events_mono/common/v1/auth.ts",
+    "output_file": "src_types_generated_events_mono_common_v1_auth__ts.ts",
+    "size_bytes": 2822
+  },
+  {
+    "original_path": "../src/types/generated/events_mono/claude_code/v1/claude_code_internal_event.ts",
+    "output_file": "src_types_generated_events_mono_claude_code_v1_claude_code_internal_event__ts.ts",
+    "size_bytes": 30728
+  },
+  {
+    "original_path": "../src/types/generated/events_mono/growthbook/v1/growthbook_experiment_event.ts",
+    "output_file": "src_types_generated_events_mono_growthbook_v1_growthbook_experiment_event__ts.ts",
+    "size_bytes": 7591
+  },
+  {
+    "original_path": "../src/utils/configConstants.ts",
+    "output_file": "src_utils_configConstants__ts.ts",
+    "size_bytes": 733
+  },
+  {
+    "original_path": "../src/utils/config.ts",
+    "output_file": "src_utils_config__ts.ts",
+    "size_bytes": 63496
+  },
+  {
+    "original_path": "../src/constants/system.ts",
+    "output_file": "src_constants_system__ts.ts",
+    "size_bytes": 3859
+  },
+  {
+    "original_path": "../src/utils/settings/changeDetector.ts",
+    "output_file": "src_utils_settings_changeDetector__ts.ts",
+    "size_bytes": 16384
+  },
+  {
+    "original_path": "../src/constants/messages.ts",
+    "output_file": "src_constants_messages__ts.ts",
+    "size_bytes": 49
+  },
+  {
+    "original_path": "../src/utils/settings/pluginOnlyPolicy.ts",
+    "output_file": "src_utils_settings_pluginOnlyPolicy__ts.ts",
+    "size_bytes": 2405
+  },
+  {
+    "original_path": "../src/types/plugin.ts",
+    "output_file": "src_types_plugin__ts.ts",
+    "size_bytes": 11308
+  },
+  {
+    "original_path": "../src/constants/common.ts",
+    "output_file": "src_constants_common__ts.ts",
+    "size_bytes": 1516
+  },
+  {
+    "original_path": "../src/constants/apiLimits.ts",
+    "output_file": "src_constants_apiLimits__ts.ts",
+    "size_bytes": 3443
+  },
+  {
+    "original_path": "../src/constants/errorIds.ts",
+    "output_file": "src_constants_errorIds__ts.ts",
+    "size_bytes": 476
+  },
+  {
+    "original_path": "../src/constants/toolLimits.ts",
+    "output_file": "src_constants_toolLimits__ts.ts",
+    "size_bytes": 2169
+  },
+  {
+    "original_path": "../src/types/ids.ts",
+    "output_file": "src_types_ids__ts.ts",
+    "size_bytes": 1295
+  },
+  {
+    "original_path": "../src/constants/tools.ts",
+    "output_file": "src_constants_tools__ts.ts",
+    "size_bytes": 4690
+  },
+  {
+    "original_path": "../src/constants/product.ts",
+    "output_file": "src_constants_product__ts.ts",
+    "size_bytes": 2563
+  },
+  {
+    "original_path": "../src/utils/settings/allErrors.ts",
+    "output_file": "src_utils_settings_allErrors__ts.ts",
+    "size_bytes": 1257
+  },
+  {
+    "original_path": "../src/constants/spinnerVerbs.ts",
+    "output_file": "src_constants_spinnerVerbs__ts.ts",
+    "size_bytes": 3453
+  },
+  {
+    "original_path": "../src/constants/turnCompletionVerbs.ts",
+    "output_file": "src_constants_turnCompletionVerbs__ts.ts",
+    "size_bytes": 269
+  },
+  {
+    "original_path": "../src/utils/settings/validateEditTool.ts",
+    "output_file": "src_utils_settings_validateEditTool__ts.ts",
+    "size_bytes": 1695
+  },
+  {
+    "original_path": "../src/constants/systemPromptSections.ts",
+    "output_file": "src_constants_systemPromptSections__ts.ts",
+    "size_bytes": 1794
+  },
+  {
+    "original_path": "../src/types/textInputTypes.ts",
+    "output_file": "src_types_textInputTypes__ts.ts",
+    "size_bytes": 11628
+  },
+  {
+    "original_path": "../src/constants/outputStyles.ts",
+    "output_file": "src_constants_outputStyles__ts.ts",
+    "size_bytes": 9886
+  },
+  {
+    "original_path": "../src/utils/settings/applySettingsChange.ts",
+    "output_file": "src_utils_settings_applySettingsChange__ts.ts",
+    "size_bytes": 3656
+  },
+  {
+    "original_path": "../src/constants/github-app.ts",
+    "output_file": "src_constants_github-app__ts.ts",
+    "size_bytes": 5347
+  },
+  {
+    "original_path": "../src/types/command.ts",
+    "output_file": "src_types_command__ts.ts",
+    "size_bytes": 7736
+  },
+  {
+    "original_path": "../src/types/hooks.ts",
+    "output_file": "src_types_hooks__ts.ts",
+    "size_bytes": 9138
+  },
+  {
+    "original_path": "../src/constants/cyberRiskInstruction.ts",
+    "output_file": "src_constants_cyberRiskInstruction__ts.ts",
+    "size_bytes": 1525
+  },
+  {
+    "original_path": "../src/constants/prompts.ts",
+    "output_file": "src_constants_prompts__ts.ts",
+    "size_bytes": 54320
+  }
+]

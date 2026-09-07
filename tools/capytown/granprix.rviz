@@ -1,0 +1,88 @@
+# granprix.rviz — vista lista para CapyTown Gran Prix (ALICE, 2026-07-13)
+# Abrir con:  rviz2 -d granprix.rviz
+# Muestra: el MAPA del LiDAR (/scan) + las intersecciones/PARE que detecta el
+# maze_solver (/granprix_markers) + la trayectoria por /odom_raw + los ejes TF.
+# Si no ves el scan, cambiá "Fixed Frame" (Global Options) a: laser / base_link / base_footprint.
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /LaserScan (LiDAR)1
+        - /Intersecciones y PARE1
+    SplitterRatio: 0.5
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Color: 160; 160; 164
+      Cell Size: 0.6            # una celda = 60 cm (rejilla del laberinto)
+      Plane Cell Count: 12
+      Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Marker Scale: 0.4
+      Show Names: true
+    - Class: rviz_default_plugins/LaserScan
+      Name: LaserScan (LiDAR)
+      Enabled: true
+      Topic:
+        Value: /scan
+        Depth: 5
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort   # el MS200 publica BEST_EFFORT
+        History Policy: Keep Last
+      Size (m): 0.03
+      Style: Points
+      Color: 255; 40; 40
+      Color Transformer: FlatColor
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Intersecciones y PARE
+      Enabled: true
+      Topic:
+        Value: /granprix_markers
+        Durability Policy: Volatile
+        Reliability Policy: Reliable
+        History Policy: Keep Last
+    - Class: rviz_default_plugins/Odometry
+      Name: Trayectoria (/odom_raw)
+      Enabled: true
+      Topic:
+        Value: /odom_raw
+        Durability Policy: Volatile
+        Reliability Policy: Best Effort
+        History Policy: Keep Last
+      Keep: 300
+      Position Tolerance: 0.05
+      Angle Tolerance: 0.1
+      Shape: Arrow
+      Color: 40; 200; 40
+  Global Options:
+    Background Color: 30; 30; 30
+    Fixed Frame: odom
+    Frame Rate: 20
+  Enabled: true
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho    # vista cenital = ver el laberinto como un mapa 2D
+      Name: Vista cenital (mapa)
+      Scale: 180
+      Target Frame: <Fixed Frame>
+      X: 0
+      Y: 0
+    Saved: ~
+Window Geometry:
+  Height: 800
+  Width: 1200
+  Displays:
+    collapsed: false

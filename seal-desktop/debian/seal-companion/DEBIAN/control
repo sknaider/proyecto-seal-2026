@@ -1,0 +1,9 @@
+Package: seal-companion
+Version: 0.3.0
+Architecture: arm64
+Maintainer: William <williamtovaru@gmail.com>
+Depends: python3 (>= 3.11), python3-pip
+Description: SEAL Companion — Personal AI assistant
+ Standalone SEAL Companion with local SQLite memory, FTS5 search,
+ Anthropic Claude BYOK, MCP facility (registry+scaffold+tool calling),
+ SSE streaming chat, and local AI via Ollama. No team backend required.

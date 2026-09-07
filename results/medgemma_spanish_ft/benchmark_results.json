@@ -1,0 +1,97 @@
+{
+  "summary": {
+    "accepted": 5,
+    "avg_keyword_score": 0.866,
+    "avg_speed_tps": 2.76
+  },
+  "results": [
+    {
+      "id": 1,
+      "lang": "es",
+      "response": "El tratamiento de primera línea para la neumonía adquirida en la comunidad en un paciente adulto ambulatorio sin comorbilidades es el siguiente:\n\n*   Antibióticos macrólidos (p. ej., azitromicina, claritromicina)\n*   Doxiciclina\n*   Amoxicilina\n*   Trimetoprim-sulfametoxazol\n\nEs importante tener en cuenta que la elección del antibiótico específico dependerá de la gravedad de la neumonía, la edad del paciente y otros factores individuales. Se recomienda consultar con un médico para determinar el tratamiento más adecuado para cada caso.",
+      "tokens": 131,
+      "time_s": 50.8,
+      "speed_tps": 2.6,
+      "keyword_score": 1.0,
+      "matched_keywords": [
+        "amoxicilina",
+        "macrólido",
+        "azitromicina",
+        "doxiciclina"
+      ],
+      "is_refusal": false,
+      "accepted": true
+    },
+    {
+      "id": 2,
+      "lang": "es",
+      "response": "El diagnóstico más probable en este caso es un infarto agudo de miocardio con elevación del segmento ST (IAMCEST) anterior. El manejo inmediato debe incluir:\n\n1.  Administración de oxígeno suplementario si la saturación de oxígeno es menor del 90%.\n2.  Administración de nitroglicerina sublingual para aliviar el dolor torácico.\n3.  Administración de aspirina (300 mg) masticada para inhibir la agregación plaquetaria.\n4.  Administración de clopidogrel (300-600 mg) si no hay contraindicaciones.\n5.  Administración de anticoagulantes como heparina no fraccionada o enoxaparina.\n6.  Administración de betabloqueantes si no hay contraindicaciones.\n7.  Considerar la administración de inhibidores de la enzima convertidora de angiotensina (IECA) o bloqueadores del receptor de angiotensina II (BRA) en pacientes con disfunción ventricular izquierda o insuficiencia cardíaca.\n8.  Realizar una angiografía coronaria urgente para evaluar la extensión del infarto y considerar la realización de una angioplastia coronaria percutánea (PCI) primaria para restaurar el flujo sanguíneo en la arteria afectada.\n\nEs importante destacar que el manejo del IAMCEST debe ser rápido y eficiente para minimizar el daño miocárdico y mejorar el pronóstico del paciente.",
+      "tokens": 314,
+      "time_s": 111.5,
+      "speed_tps": 2.8,
+      "keyword_score": 0.83,
+      "matched_keywords": [
+        "infarto",
+        "IAMCEST",
+        "angioplastia",
+        "aspirina",
+        "heparina"
+      ],
+      "is_refusal": false,
+      "accepted": true
+    },
+    {
+      "id": 3,
+      "lang": "es",
+      "response": "Los criterios diagnósticos para la diabetes mellitus tipo 2 según la Asociación Americana de Diabetes (ADA) son:\n\n1. Hemoglobina A1c (HbA1c) ≥ 6.5%\n2. Glucosa en ayunas ≥ 126 mg/dL (7.0 mmol/L)\n3. Glucosa en ayunas ≥ 200 mg/dL (11.1 mmol/L) en una prueba de tolerancia a la glucosa oral (PTOG) de 2 horas\n4. Glucosa aleatoria ≥ 200 mg/dL (11.1 mmol/L) en una persona con síntomas clásicos de hiperglucemia o crisis hiperglucémica.\n\nEs importante tener en cuenta que estos criterios son aplicables para el diagnóstico de la diabetes mellitus tipo 2 en adultos. En niños y adolescentes, los criterios pueden ser diferentes.\n\nSi tienes alguna duda o inquietud sobre tu salud, te recomiendo consultar con un profesional médico para obtener un diagnóstico y tratamiento adecuados.",
+      "tokens": 218,
+      "time_s": 77.8,
+      "speed_tps": 2.8,
+      "keyword_score": 1.0,
+      "matched_keywords": [
+        "glucosa",
+        "hemoglobina",
+        "HbA1c",
+        "ayunas",
+        "126",
+        "6.5"
+      ],
+      "is_refusal": false,
+      "accepted": true
+    },
+    {
+      "id": 4,
+      "lang": "en",
+      "response": "Hyperthyroidism is a condition in which the thyroid gland produces too much thyroid hormone. The classic signs and symptoms of hyperthyroidism include:\n\n1. Weight loss despite increased appetite\n2. Rapid heartbeat (tachycardia)\n3. Nervousness, anxiety, and irritability\n4. Tremors\n5. Sweating\n6. Heat intolerance\n7. Difficulty sleeping\n8. Muscle weakness\n9. Frequent bowel movements\n10. Goiter (enlargement of the thyroid gland)\n11. Exophthalmos (bulging eyes)\n\nThe most common cause of hyperthyroidism is Graves' disease, an autoimmune disorder in which the body's immune system attacks the thyroid gland, causing it to produce excessive amounts of thyroid hormone.",
+      "tokens": 155,
+      "time_s": 55.7,
+      "speed_tps": 2.8,
+      "keyword_score": 1.0,
+      "matched_keywords": [
+        "Graves",
+        "tachycardia",
+        "weight loss",
+        "tremor",
+        "thyroid"
+      ],
+      "is_refusal": false,
+      "accepted": true
+    },
+    {
+      "id": 5,
+      "lang": "es",
+      "response": "Los inhibidores de la bomba de protones (IBP) como el omeprazol son medicamentos que se utilizan para reducir la producción de ácido en el estómago. Su mecanismo de acción se basa en la inhibición de la bomba de protones, que es una enzima responsable de transportar iones de hidrógeno (H+) al lumen del estómago. Al bloquear esta enzima, los IBP disminuyen la cantidad de ácido producido en el estómago, lo que ayuda a aliviar los síntomas de enfermedades relacionadas con el exceso de ácido.\n\nLas principales indicaciones clínicas para el uso de IBP como el omeprazol incluyen:\n\n1. Reflujo gastroesofágico (RGE): Los IBP son efectivos para tratar los síntomas del RGE, como la acidez estomacal y el regurgitación, al reducir la cantidad de ácido que regresa al esófago.\n\n2. Úlcera péptica: Los IBP se utilizan para tratar las úlceras en el estómago y el duodeno, ya que ayudan a reducir la producción de ácido y permiten que las úlceras se curen.\n\n3. Gastritis: Los IBP pueden ser utilizados para tratar la gastritis, que es la inflamación del revestimiento del estómago, al reducir la cantidad de ácido y permitir que el revestimiento se recupere.\n\n4. Síndrome de Zollinger-Ellison: Los IBP son efectivos para controlar la producción excesiva de ácido en el síndrome de Zollinger-Ellison, una enfermedad rara que causa la producción excesiva de ácido en el estómago.\n\n5. Erradicación de Helicobacter pylori: Los IBP se utilizan en combinación con antibióticos para erradicar la bacteria Helicobacter pylori, que es una causa común de úlceras y gastritis.\n\nEs importante tener en cuenta que los IBP deben ser utilizados bajo supervisión médica y seguir las indicaciones del profesional de la salud.",
+      "tokens": 396,
+      "time_s": 140.9,
+      "speed_tps": 2.8,
+      "keyword_score": 0.5,
+      "matched_keywords": [
+        "ácido",
+        "úlcera",
+        "reflujo"
+      ],
+      "is_refusal": false,
+      "accepted": true
+    }
+  ]
+}

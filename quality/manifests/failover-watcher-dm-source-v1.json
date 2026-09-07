@@ -1,0 +1,131 @@
+{
+  "_doc": [
+    "3-sep-2026 (JARVIS): william_channel.jsonl trae los DMs cifrados; el watcher tomaba un DM de William a ALICE como pendiente y publicaba «ALICE esta procesando» en web_chat (4 veces 14:01-14:05, medido con ALICE). Fix: _is_dm_source. Desplegado 14:10:37 pid 432452; opcion A (ACK 30 s) por drop-in systemd, autorizada por William 14:12."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "failover-watcher-dm-source-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "approved",
+    "evidence": "pendiente de revision independiente",
+    "reviewed_sha256": {
+      "messages/failover_watcher.py": "e418ccf6542676224db8fc89e96ea9920f7f8cc0bdbd309d3ba71195f05d0457",
+      "messages/tests/test_failover_watcher_dm_source.py": "b06873bf2e4a715c5929d05b460705c353dbda1909246dade46698da486f4bf0"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "reviewed_at": "2026-09-04T03:25:28.254101+00:00",
+      "reviewed_sha256": {
+        "messages/failover_watcher.py": "e418ccf6542676224db8fc89e96ea9920f7f8cc0bdbd309d3ba71195f05d0457",
+        "messages/tests/test_failover_watcher_dm_source.py": "b06873bf2e4a715c5929d05b460705c353dbda1909246dade46698da486f4bf0"
+      },
+      "manifest_digest": "d591e868df650e814b0a1dcae156728fcc1428cad2771148f42748563f3b6e3d",
+      "verdict": "APPROVED",
+      "evidence": "NEXUS revisor independiente (owner JARVIS != revisor). APROBADO.\nBYTES: 2/2 == disco. SUITE: 6 passed, corridos por mi con la costura FAILOVER_WATCHER_PATH.\nMUTACION PROPIA sobre copia aislada, control sin mutar PRIMERO (6 passed):\n  M-NEXUS-1  dejar solo `d.get(\"_encrypted\")` (sin el prefijo dm:)   MUERE (1 failed)\n  M-NEXUS-2  dejar solo `channel.startswith(\"dm:\")` (sin la marca)   MUERE (1 failed)\nLOS DOS BRAZOS IMPORTAN Y POR ESO MUTE CADA UNO POR SEPARADO: el guard es un OR de dos senales que detectan lo mismo por caminos distintos --el NOMBRE del canal y la MARCA del cuerpo--. Si el test solo cazara el OR completo, quitar una mitad pasaria en verde y el dia que un DM llegue sin `_encrypted` (o por un canal que no empiece con dm:) el acuse volveria al general. Mutar la conjuncion entera habria dado un kill que no prueba eso.\nNOTA DE ARNES: mi primer intento de M-NEXUS-1 no sustituyo nada (una regex que no matcheaba) y la suite dio 6 passed. **Un mutante que no muta se lee IGUAL que uno que sobrevive.** Lo detecte porque imprimo si la sustitucion ocurrio, no por el resultado del test; es la octava vez hoy que ese control me salva de firmar una evidencia vacia.\nALCANCE: reviso el filtro de origen. No verifico el comportamiento del daemon vivo (corre desde 14:10:37 segun el owner); el manifiesto lo declara como delivery y no lo re-medi."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/failover_watcher.py"
+  ],
+  "tests": [
+    "messages/tests/test_failover_watcher_dm_source.py"
+  ],
+  "mutation_evidence": "quality/mutation-failover-watcher-dm-source-v1.json",
+  "commands": [
+    {
+      "id": "unit-failover-watcher-dm-source-v1",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_failover_watcher_dm_source.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-publico-crea-pendiente",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_failover_watcher_dm_source.py::test_control_mensaje_publico_si_crea_pendiente"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-dm-no-acusa",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_failover_watcher_dm_source.py::test_dm_cifrado_no_crea_pendiente",
+        "messages/tests/test_failover_watcher_dm_source.py::test_ack_no_sale_para_dm",
+        "messages/tests/test_failover_watcher_dm_source.py::test_cifrado_fuera_de_canal_dm_tampoco_crea_pendiente"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-pytest",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_failover_watcher_dm_source.py::test_control_pytest_disponible"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/failover_watcher.py"
+    ],
+    "omit": [
+      "*/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "messages/tests/test_failover_watcher_dm_source.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "el daemon/script vivo corre estos bytes (verificado por efecto el 3-sep 14:10-14:14)",
+    "command": {
+      "id": "delivery-failover-watcher-dm-source-v1",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_failover_watcher_dm_source.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "6 passed"
+    }
+  },
+  "mutation_baseline_percent": 100.0
+}

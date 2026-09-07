@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seal.local/schemas/soul-identity-manifest/v1",
+  "title": "SOUL Sovereign Agent Identity Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "soul_id", "soul_dni", "sequence", "previous_manifest_hash",
+    "genesis_manifest_hash", "display_name", "lineage", "constitution",
+    "identity_state", "controllers", "issued_at", "effective_at",
+    "reason_code", "evidence", "algorithms"
+  ],
+  "properties": {
+    "schema": {"const": "https://seal.local/schemas/soul-identity-manifest/v1"},
+    "soul_id": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f-]{36}$"},
+    "soul_dni": {"type": "string", "pattern": "^urn:soul:agent:[0-9a-f-]{36}$"},
+    "sequence": {"type": "integer", "minimum": 1},
+    "previous_manifest_hash": {"$ref": "#/$defs/nullableSha256"},
+    "genesis_manifest_hash": {"$ref": "#/$defs/nullableSha256"},
+    "display_name": {"type": "string", "minLength": 1, "maxLength": 80},
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parents", "kind"],
+      "properties": {
+        "parents": {"type": "array", "items": {"type": "string"}},
+        "kind": {"type": "string", "minLength": 1}
+      }
+    },
+    "constitution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_hash", "critical_rules_root", "governance_policy_hash"],
+      "properties": {
+        "document_hash": {"$ref": "#/$defs/sha256"},
+        "critical_rules_root": {"$ref": "#/$defs/sha256"},
+        "governance_policy_hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "identity_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personality_baseline_hash", "ocean_baseline_hash",
+        "relationships_root", "memory_commitment_root"
+      ],
+      "properties": {
+        "personality_baseline_hash": {"$ref": "#/$defs/sha256"},
+        "ocean_baseline_hash": {"$ref": "#/$defs/sha256"},
+        "relationships_root": {"$ref": "#/$defs/sha256"},
+        "memory_commitment_root": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "controllers": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key_id", "role", "public_key"],
+        "properties": {
+          "key_id": {"type": "string", "pattern": "^urn:soul:agent:[0-9a-f-]{36}#[a-z0-9][a-z0-9._-]{1,63}$"},
+          "role": {"enum": ["genesis_root", "agent_identity", "custodian", "recovery"]},
+          "public_key": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"}
+        }
+      }
+    },
+    "issued_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"},
+    "effective_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"},
+    "reason_code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$"},
+    "evidence": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1, "maxLength": 200}
+    },
+    "algorithms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonicalization", "digest", "signature"],
+      "properties": {
+        "canonicalization": {"const": "JCS-RFC8785"},
+        "digest": {"const": "SHA-256"},
+        "signature": {"const": "Ed25519"}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "nullableSha256": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/sha256"}
+      ]
+    }
+  }
+}

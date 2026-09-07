@@ -1,0 +1,67 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-maintenance-alice-v2-intent-v1",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "pending",
+    "evidence": "ADA reprodujo el auto-revival a las 03:45:01: nexus_service_watch reinició seal-alice-dm-poller durante el cutover ALICE-V2. El parche consulta la intención al detectar y la revalida inmediatamente antes del restart. Control 4/4 y 2/2 mutantes muertos; pendiente revisión de NEXUS.",
+    "reviewed_sha256": {
+      "memory/nexus_maintenance.py": "c1bcab727cca938c8384dacfe920c46c2412824d8cb8f6c37cdfc61931e27aa7",
+      "memory/test_nexus_maintenance_cutover.py": "307d75c7a820f01da4de11ea2f2f2b3f051c191b9266b377ff591aba94fd626c"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "memory/nexus_maintenance.py"
+  ],
+  "tests": [
+    "memory/test_nexus_maintenance_cutover.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-cutover-intent",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "memory/test_nexus_maintenance_cutover.py"],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-v1-contract-without-marker",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "memory/test_nexus_maintenance_cutover.py::test_absent_marker_preserves_v1_watch_contract"],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-v1-omitted-during-v2",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "memory/test_nexus_maintenance_cutover.py::test_detector_does_not_emit_v1_issues_during_v2"],
+      "expected_exit": 0
+    },
+    {
+      "id": "race-recheck-before-restart",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "memory/test_nexus_maintenance_cutover.py::test_fixer_rechecks_cutover_intent_before_restart"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["memory/nexus_maintenance.py"],
+    "omit": ["tests/*", "*/site-packages/*"],
+    "pytest_args": ["-q", "memory/test_nexus_maintenance_cutover.py"],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_evidence": "quality/mutation-nexus-maintenance-alice-v2-intent-v1.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Con /etc/seal/alice_cuerpo_activo=ALICE-V2 y ambos servicios v1 inactivos, SEAL_PROACTIVE_FIX=off python3 memory/proactive_maintenance.py frequent no emitió svc_down para seal-alice-dm-poller ni seal-bridge-alice. Ambos siguieron inactive.",
+    "command": {
+      "id": "delivery-proactive-dry-run",
+      "kind": "delivery",
+      "argv": ["python3", "-m", "pytest", "-q", "memory/test_nexus_maintenance_cutover.py::test_detector_does_not_emit_v1_issues_during_v2"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

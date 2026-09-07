@@ -1,0 +1,52 @@
+{
+  "titulo": "Los 5 Hechos Más Impactantes sobre los Agujeros Negros",
+  "descripcion": "Descubre los agujeros negros más allá de lo imaginado. ¿Sabías que algunos pueden ser tan grandes como el universo?",
+  "tags": [
+    "agujeros negros",
+    "astronomía",
+    "cosmos",
+    "científico",
+    "maravillas del universo"
+  ],
+  "narracion": "Bienvenidos a un viaje a través de los más oscuros secretos del universo. En esta emocionante narración, exploraremos los 5 hechos más impactantes sobre los agujeros negros. Empecemos con algo que puede parecer increíble: el agujero negro M87*, en la galaxia Messier 87, es tan grande que, si se colocara en el centro de nuestra galaxia, abarcaría todo lo que está entre la Tierra y la Luna. Ahora, imagine que un agujero negro es tan grande como un universo, ¿no es asombroso? Este agujero negro supermassivo tiene una masa equivalente a 6.5 billones de solares. Pero esto solo es el comienzo. Los agujeros negros no solo son enormes, sino que también son enormemente densos. Un objeto del tamaño de una montaña puede ser comprimido en un espacio tan pequeño que la gravedad lo atrapa en un círculo vicioso. Este fenómeno, conocido como el horizonteEventual, es la frontera más allá de la cual nada puede escapar, no importa cuánta velocidad alcance. Sin embargo, lo más impactante es que los agujeros negros pueden ser tan dinámicos y cambiantes. Recientemente, los astrónomos capturaron una imagen del agujero negro M87* en el horizonteEventual, lo que ha abierto nuevas puertas para nuestra comprensión de estos misteriosos fenómenos cósmicos. Pero, ¿qué significa esto para nosotros? Los agujeros negros no solo son fascinantes desde el punto de vista científico; también nos recuerdan la infinitud y la complejidad de la cosmología. Al final, estos fenómenos nos invitan a reflexionar sobre la naturaleza del universo y nuestra lugar en él. ¡Suscríbete y descubre más maravillas del cosmos con nosotras!",
+  "escenas": [
+    {
+      "num": 1,
+      "texto": "Bienvenidos a un viaje a través de los más oscuros secretos del universo. Empecemos con algo que puede parecer increíble: el agujero negro M87*, en la galaxia Messier 87, es tan grande que, si se colocara en el centro de nuestra galaxia, abarcaría todo lo que está entre la Tierra y la Luna. Esto es algo que solo se puede imaginar.",
+      "prompt_imagen": "cinematic dark space nebula cosmic dust glowing particles",
+      "prompt_video": "slow zoom out revealing cosmic scale",
+      "emocion": "neutral"
+    },
+    {
+      "num": 2,
+      "texto": "Este agujero negro supermassivo tiene una masa equivalente a 6.5 billones de solares. Pero esto solo es el comienzo. Los agujeros negros no solo son enormes, sino que también son enormemente densos. Un objeto del tamaño de una montaña puede ser comprimido en un espacio tan pequeño que la gravedad lo atrapa en un círculo vicioso. Este fenómeno, conocido como el horizonteEventual, es la frontera más allá de la cual nada puede escapar, no importa cuánta velocidad alcance.",
+      "prompt_imagen": "black hole silhouette against starry background",
+      "prompt_video": "pan left to reveal the intricate details",
+      "emocion": "curious"
+    },
+    {
+      "num": 3,
+      "texto": "Sin embargo, lo más impactante es que los agujeros negros pueden ser tan dinámicos y cambiantes. Recientemente, los astrónomos capturaron una imagen del agujero negro M87* en el horizonteEventual, lo que ha abierto nuevas puertas para nuestra comprensión de estos misteriosos fenómenos cósmicos. Este logro es un hito en la ciencia y nos invita a pensar en la vastedad del universo.",
+      "prompt_imagen": "black hole event horizon with swirling plasma",
+      "prompt_video": "zoom in on the swirling plasma",
+      "emocion": "excited"
+    },
+    {
+      "num": 4,
+      "texto": "Pero, ¿qué significa esto para nosotros? Los agujeros negros no solo son fascinantes desde el punto de vista científico; también nos recuerdan la infinitud y la complejidad de la cosmología. Al final, estos fenómenos nos invitan a reflexionar sobre la naturaleza del universo y nuestra lugar en él. Algunos de nosotros incluso nos preguntamos si los agujeros negros podrían ser las puertas de viaje al pasado y al futuro.",
+      "prompt_imagen": "cosmic tunnel with stars and galaxies",
+      "prompt_video": "pan right to show the vastness of space",
+      "emocion": "neutral"
+    },
+    {
+      "num": 5,
+      "texto": "¡Suscríbete y descubre más maravillas del cosmos con nosotras! Juntos podemos explorar los misterios del universo y descubrir más sobre nuestra lugar en él. ¡Sintoniza nuestras próximas publicaciones y únete a esta aventura cósmica!",
+      "prompt_imagen": "astronomer observing the night sky",
+      "prompt_video": "zoom out to the wide-open sky",
+      "emocion": "confident"
+    }
+  ],
+  "id": "56f6bb97",
+  "author": "ADA",
+  "created_at": "2026-04-06T13:31:25.722543"
+}

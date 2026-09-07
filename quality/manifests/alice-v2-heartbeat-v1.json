@@ -1,0 +1,71 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "alice-v2-heartbeat-v1",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "pending",
+    "evidence": "ADA ejecutó 6/6 pruebas y 4/4 mutantes muertos. En vivo, event_log id 263434 quedó agent=ALICE, runtime_instance=ALICE_V2, process_pid=1321013, alive=true; el timer está active/waiting. Pendiente reproducción y recibo de NEXUS.",
+    "reviewed_sha256": {
+      "scripts/alice_v2_heartbeat.py": "5bf5d4fb193b9c4515a35306a09b49dd3471cea601c6cb7baf6878aef5ecee45",
+      "scripts/test_alice_v2_heartbeat.py": "863899e0367a3ff0cd2f583340c217da959feb4e33e9a8fb151692400b0c2cc1",
+      "systemd/user/seal-alice-v2-heartbeat.service": "7bb01d465ec52bdf80886b066b100d633c05218075dad982b426f4d1a35d9169",
+      "systemd/user/seal-alice-v2-heartbeat.timer": "ed1d3ea5a5b6a3eca190baefeb513c8f4bdc3092001dd86352b4cf31e7574d4d"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "scripts/alice_v2_heartbeat.py",
+    "systemd/user/seal-alice-v2-heartbeat.service",
+    "systemd/user/seal-alice-v2-heartbeat.timer"
+  ],
+  "tests": [
+    "scripts/test_alice_v2_heartbeat.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-v2-heartbeat",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "scripts/test_alice_v2_heartbeat.py"],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-canonical-isolated-seat",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "scripts/test_alice_v2_heartbeat.py::test_emits_canonical_v2_heartbeat_only_for_live_isolated_seat"],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-wrong-body-dead-or-unisolated",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "scripts/test_alice_v2_heartbeat.py::test_never_writes_for_wrong_body_dead_or_unisolated_seat"],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-exact-switch",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "scripts/test_alice_v2_heartbeat.py::test_switch_requires_exact_v2_value"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["scripts/alice_v2_heartbeat.py"],
+    "omit": ["tests/*", "*/site-packages/*"],
+    "pytest_args": ["-q", "scripts/test_alice_v2_heartbeat.py"],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_evidence": "quality/mutation-alice-v2-heartbeat-v1.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "seal-alice-v2-heartbeat.timer active/waiting; oneshot result=success. event_log id 263434: agent ALICE, event_type heartbeat, runtime_instance ALICE_V2, runtime alice_v2_isolated, process_pid 1321013, alive true.",
+    "command": {
+      "id": "delivery-live-v2-heartbeat",
+      "kind": "delivery",
+      "argv": ["bash", "-lc", "systemctl --user start seal-alice-v2-heartbeat.service && journalctl --user -u seal-alice-v2-heartbeat.service -n 10 --no-pager | grep -F 'alice_v2_heartbeat written'"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "alice_v2_heartbeat written"
+    }
+  }
+}

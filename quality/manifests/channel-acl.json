@@ -1,0 +1,135 @@
+{
+  "_doc": [
+    "ACL remitente -> canal: la capa que convierte el aislamiento del asiento sombra en FRONTERA.",
+    "Owner: NEXUS. Revisor independiente: FABLE. Pedido por JARVIS (carril 2 del experimento ALICE v2).",
+    "",
+    "POR QUE EXISTE, medido el 2-sep sobre soul_v3.chat_messages: el servidor validaba la FORMA del",
+    "canal (_agent_channel_is_known, fail-closed) pero NO quien escribe en el. Un token valido de",
+    "asiento sombra podia publicar en web_chat. Y las otras dos capas no alcanzan:",
+    "  delivery_mode='isolated-clone'  5 policies RLS lo filtran, 17 no; 12 mensajes de 134.679 lo",
+    "                                  llevan y lo escribe UN relay -> lo pone el publicador: convencion.",
+    "  channel propio                  aisla la LECTURA, no impide la ESCRITURA.",
+    "",
+    "LA DECISION DE DISENO: fail-closed para lo DESCONOCIDO. Un asiento que nadie configuro queda",
+    "encerrado en shadow:*; el olvido produce seguridad, no un agujero. Viable porque el universo es",
+    "chico: 10 remitentes con actividad en 30 dias, todos en la lista -> cero regresion."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "channel-acl-20260902",
+  "owner": "NEXUS",
+  "independent_reviewer": "FABLE",
+  "review": {
+    "status": "pending",
+    "evidence": "FABLE revisor independiente (owner NEXUS != revisor), SEGUNDA ronda tras el fix de `identidad_efectiva`. APROBADO. Ataco el SESGO que el owner confeso —que sus 3 pruebas originales usaban el nombre que el esperaba, no el que la spec iba a usar— probando varias formas: 'ALICE-u2' / 'ALICE-V2' / 'alice-u2' / 'ALICE-U2' -> web_chat False en todas, o sea el ACL contiene sin depender de la nomenclatura elegida.\nMETODO, declarado por el propio revisor: su primer intento del mutante corrio sobre una COPIA de messages/*.py en un tmp y revento en collection (34 errors por imports). Eso NO probaba que el mutante muriera — probaba que su copia estaba rota. Lo rehizo inyectando en el archivo real con backup+revert. Es la cuarta vez en el dia que un arnes roto produce un resultado que se lee como evidencia (el `cp` del owner, el parents[3] de JARVIS, la reasignacion a produccion de su suite, y este).\nVERIFICADO POR EL OWNER tras la revision, porque el metodo tocaba el archivo real: los 2 sha coinciden con los revisados, 51 tests verdes, y el comportamiento sigue siendo el correcto (ALICE-u2 aseverando ALICE -> web_chat False; ALICE real -> True). No quedo ningun mutante puesto ni backup suyo en el arbol.\n3-sep 14:08: el cableado en chat_server.py se habia PERDIDO en mi reset --hard (medido: `grep channel_acl messages/chat_server.py` -> 0 lineas; el modulo y sus 51 tests sobrevivieron porque eran archivos nuevos, el cableado no porque era un cambio a un archivo ya rastreado). Reaplicado en chat_server.py:2515, despues del gate de auth y antes del council/persistencia. Canal 'shadow:alice-v2' registrado en chat_channels id=18583. PENDIENTE: revision independiente para poder desplegar (el gate de deploy exige reviewer!=author).",
+    "reviewed_sha256": {
+      "messages/channel_acl.py": "4877f3d7a2fecab3b25f9cb66f5e8284b237d5919181438c8219d9d5b06cf9e5",
+      "messages/chat_server.py": "ebf10edd8eb424baa966bea0a02dc09ced31adad48f69dff391d8e52dcbc5898",
+      "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "FABLE",
+      "evidence": "FABLE revisor independiente (owner NEXUS != revisor), SEGUNDA ronda tras el fix de `identidad_efectiva`. APROBADO. Ataco el SESGO que el owner confeso —que sus 3 pruebas originales usaban el nombre que el esperaba, no el que la spec iba a usar— probando varias formas: 'ALICE-u2' / 'ALICE-V2' / 'alice-u2' / 'ALICE-U2' -> web_chat False en todas, o sea el ACL contiene sin depender de la nomenclatura elegida.\nMETODO, declarado por el propio revisor: su primer intento del mutante corrio sobre una COPIA de messages/*.py en un tmp y revento en collection (34 errors por imports). Eso NO probaba que el mutante muriera — probaba que su copia estaba rota. Lo rehizo inyectando en el archivo real con backup+revert. Es la cuarta vez en el dia que un arnes roto produce un resultado que se lee como evidencia (el `cp` del owner, el parents[3] de JARVIS, la reasignacion a produccion de su suite, y este).\nVERIFICADO POR EL OWNER tras la revision, porque el metodo tocaba el archivo real: los 2 sha coinciden con los revisados, 51 tests verdes, y el comportamiento sigue siendo el correcto (ALICE-u2 aseverando ALICE -> web_chat False; ALICE real -> True). No quedo ningun mutante puesto ni backup suyo en el arbol.",
+      "reviewed_sha256": {
+        "messages/channel_acl.py": "4877f3d7a2fecab3b25f9cb66f5e8284b237d5919181438c8219d9d5b06cf9e5",
+        "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081"
+      },
+      "manifest_digest": "619678feb7182fb3410875aa69fdc45fda80f98ca2f9a8b8fd695e2d8d1284f5"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/channel_acl.py",
+    "messages/chat_server.py"
+  ],
+  "tests": [
+    "messages/tests/test_nexus_channel_acl_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-acl",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_channel_acl_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "rojo-el-asiento-sombra-no-sale",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_ROJO_el_asiento_sombra_no_publica_fuera_de_su_canal",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_una_identidad_NUEVA_queda_contenida_sin_configurar_nada",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_el_canal_de_sombra_no_se_puede_falsificar"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "verde-sin-regresion",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_VERDE_no_hay_regresion_para_quien_ya_publicaba",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_VERDE_el_asiento_sombra_publica_en_su_propio_canal"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-no-vacuo",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_el_motivo_del_rechazo_no_filtra_la_lista",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_un_nombre_vacio_no_pasa"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/channel_acl.py"
+    ],
+    "omit": [
+      "messages/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "messages/tests/test_nexus_channel_acl_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-channel-acl.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "El deliverable son las 3 pruebas que pidio JARVIS: ROJO en web_chat, ROJO en dm:william:*, VERDE en shadow:alice-v2. Los dos ROJOS son lo unico que prueba que el aislamiento es frontera y no promesa; los verdes solos pasarian con un puente bien intencionado y cero contencion. El efecto VIVO sobre el servicio corriendo NO esta verificado todavia: falta el restart, y va coordinado con JARVIS.",
+    "command": {
+      "id": "delivery-acl",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_channel_acl_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  }
+}

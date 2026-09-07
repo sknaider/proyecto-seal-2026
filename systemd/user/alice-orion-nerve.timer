@@ -1,0 +1,12 @@
+[Unit]
+Description=Schedule ALICE ORION nerve every 20 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=20min
+AccuracySec=30s
+Persistent=true
+Unit=alice-orion-nerve.service
+
+[Install]
+WantedBy=timers.target

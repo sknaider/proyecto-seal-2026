@@ -1,0 +1,11 @@
+{
+  "agent": "ADA",
+  "timestamp": "2026-05-06T17:48:29.371759-05:00",
+  "db_unavailable": true,
+  "error": "column \"expires_at\" does not exist",
+  "memories": [],
+  "thoughts": [],
+  "ocean": {},
+  "drift_score": 0.0,
+  "snapshot_type": "session_start"
+}

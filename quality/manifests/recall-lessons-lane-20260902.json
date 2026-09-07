@@ -1,0 +1,148 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "recall-lessons-lane-and-mcp-reset-recovery-20260903",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "_doc": [
+    "Revalidación completa del carril de lecciones y recuperación de la superficie MCP perdida por el reset del 3-sep.",
+    "Conserva el carril aditivo de lessons y restaura agent_task update, autenticación de send_user_file, embeddings E5 de consulta, observabilidad terminal, feedback atómico, límites OCEAN/relaciones e instintos incrementales.",
+    "memory/instinct_cron.py forma parte del mismo contrato porque el ejecutor programado debía aplicar sólo el tiempo transcurrido desde la última evidencia/decadencia.",
+    "Revisión independiente ligada a bytes: 60/60 pruebas focales, active_recall_hook 20/20, lessons 5/5, 19/19 mutantes muertos."
+  ],
+  "deletions": [],
+  "subjects": [
+    "memory/mcp_server_v4.py",
+    "memory/instinct_cron.py",
+    "memory/tests/check_mcp_surface_recovery_mutants.py",
+    "memory/tests/check_recall_lessons_lane_mutants.py",
+    "tools/seal_memory_files_ingest.py"
+  ],
+  "tests": [
+    "memory/tests/test_mcp_surface_recovery_20260903.py",
+    "memory/tests/test_active_recall_hook.py",
+    "memory/tests/test_recall_lessons_lane.py",
+    "memory/tests/test_memory_files_ingest_author.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-mcp-reset-recovery",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_mcp_surface_recovery_20260903.py",
+        "memory/tests/test_active_recall_hook.py",
+        "memory/tests/test_recall_lessons_lane.py",
+        "memory/tests/test_memory_files_ingest_author.py"
+      ]
+    },
+    {
+      "id": "positive-recovered-contracts",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_mcp_surface_recovery_20260903.py::test_positive_recovered_cognitive_and_integrity_contracts",
+        "memory/tests/test_recall_lessons_lane.py::test_sql_targets_only_the_lessons_corpus_and_excludes_given_ids",
+        "memory/tests/test_memory_files_ingest_author.py::test_el_bucle_ACTUALIZA_una_fila_con_mismo_sha_y_autor_viejo"
+      ]
+    },
+    {
+      "id": "negative-regressions-absent",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_mcp_surface_recovery_20260903.py::test_negative_known_regressions_are_absent",
+        "memory/tests/test_recall_lessons_lane.py::test_threshold_filters_low_similarity_and_keeps_order",
+        "memory/tests/test_memory_files_ingest_author.py::test_un_nombre_desconocido_no_se_copia_crudo"
+      ]
+    },
+    {
+      "id": "control-errors-auth-and-empty-lane",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_mcp_surface_recovery_20260903.py::test_control_terminal_state_distinguishes_declared_errors",
+        "memory/tests/test_mcp_surface_recovery_20260903.py::test_send_user_file_fails_closed_and_routes_explicit_channel",
+        "memory/tests/test_recall_lessons_lane.py::test_empty_lessons_produce_no_section",
+        "memory/tests/test_memory_files_ingest_author.py::test_el_bucle_SALTEA_cuando_el_sha_Y_el_autor_ya_coinciden"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "memory"
+    ],
+    "omit": [
+      "memory/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_mcp_surface_recovery_20260903.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 600,
+    "_note": "El arnés inspecciona y ejecuta contratos aislados de un servidor de más de 14k líneas; el piso histórico permanece en cero."
+  },
+  "mutation_evidence": "quality/mutation-recall-lessons-lane-20260902.json",
+  "mutation_baseline_percent": 100.0,
+  "mutation_command": [
+    "python3",
+    "memory/tests/check_mcp_surface_recovery_mutants.py"
+  ],
+  "review": {
+    "status": "approved",
+    "evidence": "REVISION INDEPENDIENTE JARVIS, dos rondas, mutantes propios sobre COPIA en tempdir. CANARIO: raise al importar tools/seal_memory_files_ingest.py -> 1 error, o sea que la suite ejecuta el sujeto. RONDA 1: control 13 passed; 3 de 4 mutantes muertos -- volver al literal 'JARVIS' en ingested_by (1 failed), buscar el autor en el BODY en vez del head (6 failed), exigir el campo SIN indentar (6 failed). SOBREVIVIA quitar `re.I`: la regex aceptaba 'Author:' en mayuscula y ningun test lo comprobaba. RONDA 2, tras el test que agrego el owner: control 16 passed y los TRES mueren -- sin re.I 2 failed; literal JARVIS 1 failed; autor en el BODY 9 failed. ATRIBUCION: el manifiesto declaraba independent_reviewer=JASON y me negue a firmar bajo un nombre ajeno; el owner lo corrigio a JARVIS antes de esta firma. PROCEDENCIA, que es lo que este cambio arregla: el ingestor marcaba como 'JARVIS' filas ingestadas por cualquiera (las 67 del 4-sep las corrio ADA y decian JARVIS) y perdia el `author:` del frontmatter por leerlo del cuerpo. Medido aparte por mi: de 911 archivos, 52 declaran autor (JARVIS 31, ALICE 14, ADA 7) y 859 no; el arreglo sirve para lo que venga, y el reproceso de los 52 es opcional.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "REVISION INDEPENDIENTE JARVIS, dos rondas, mutantes propios sobre COPIA en tempdir. CANARIO: raise al importar tools/seal_memory_files_ingest.py -> 1 error, o sea que la suite ejecuta el sujeto. RONDA 1: control 13 passed; 3 de 4 mutantes muertos -- volver al literal 'JARVIS' en ingested_by (1 failed), buscar el autor en el BODY en vez del head (6 failed), exigir el campo SIN indentar (6 failed). SOBREVIVIA quitar `re.I`: la regex aceptaba 'Author:' en mayuscula y ningun test lo comprobaba. RONDA 2, tras el test que agrego el owner: control 16 passed y los TRES mueren -- sin re.I 2 failed; literal JARVIS 1 failed; autor en el BODY 9 failed. ATRIBUCION: el manifiesto declaraba independent_reviewer=JASON y me negue a firmar bajo un nombre ajeno; el owner lo corrigio a JARVIS antes de esta firma. PROCEDENCIA, que es lo que este cambio arregla: el ingestor marcaba como 'JARVIS' filas ingestadas por cualquiera (las 67 del 4-sep las corrio ADA y decian JARVIS) y perdia el `author:` del frontmatter por leerlo del cuerpo. Medido aparte por mi: de 911 archivos, 52 declaran autor (JARVIS 31, ALICE 14, ADA 7) y 859 no; el arreglo sirve para lo que venga, y el reproceso de los 52 es opcional.",
+      "signed_at": "2026-09-05T01:21:36.403233+00:00",
+      "mutation_target": "isolated_copy",
+      "reviewed_sha256": {
+        "memory/mcp_server_v4.py": "d72718ac72d33134e2b083c57e4a65cccce1814b44796214d2561439d6efa9bf",
+        "memory/instinct_cron.py": "0a5eecdbb5cebe0d24104ec8c1f25436966c64b0b3bb7c9f2e14e462793da48f",
+        "memory/tests/check_mcp_surface_recovery_mutants.py": "9962bc82b39bbe07d7986a5597d4e4fe43932c77a9d6acc62de186b3e56399d1",
+        "memory/tests/check_recall_lessons_lane_mutants.py": "8fda6cdbd7add7077b6ed91867a00d85bed9c8e2f5c4eb768dea659263614e8a",
+        "tools/seal_memory_files_ingest.py": "ce3309d8697277fb3110aaf3bdc87f87d55e34db025825984a83f00d7dd729fb",
+        "memory/tests/test_mcp_surface_recovery_20260903.py": "a911ec93957f746133d92a0bbd5f87b448cfb84a57b6d3b5fe1ca8db05faf9ba",
+        "memory/tests/test_active_recall_hook.py": "64350b038ff9de0cd665c84894e4b7744ca3ad193ff4d88234cc6034a0584b3c",
+        "memory/tests/test_recall_lessons_lane.py": "976aab067d77ceb80a1ee1f24334a20afe1e76b27a35c81be19c89cee44da651",
+        "memory/tests/test_memory_files_ingest_author.py": "af375b27fd7eb2c9483730b9e8366be004b9482d5d0aa71329f1b4289b11d8ee"
+      },
+      "manifest_digest": "b2233cd57fd902f64017ba920bc0beb5347e726ef4d41b6dfd5fcc9983f56cc5"
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Fresh-process import contracts and all recovered static/dynamic contracts pass before daemon restart; final live update/get verification is required after deployment.",
+    "command": {
+      "id": "delivery-fresh-contracts",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_mcp_surface_recovery_20260903.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "total": 9,
+  "detectados": 9,
+  "mutantes": [
+    {
+      "mutante": "CANARIO: raise al importar el modulo",
+      "detectado": true
+    },
+    {
+      "mutante": "el contador vuelve DESPUES del upsert (el bug ORIGINAL)",
+      "detectado": true
+    },
+    {
+      "mutante": "el total final usa el contador del espejo",
+      "detectado": true
+    },
+    {
+      "mutante": "se cae el aviso de espejo atrasado",
+      "detectado": true
+    },
+    {
+      "mutante": "vuelve el DSN literal",
+      "detectado": true
+    },
+    {
+      "mutante": "el mensaje final deja de nombrar la fuente de verdad",
+      "detectado": true
+    },
+    {
+      "mutante": "NEXUS: vuelven a taparse las dos fallas en una",
+      "detectado": true
+    },
+    {
+      "mutante": "NEXUS: el aviso miente y dice que el recall SI depende de Qdrant",
+      "detectado": true
+    },
+    {
+      "mutante": "NEXUS: cuenta espejados aunque el upsert falle",
+      "detectado": true
+    }
+  ],
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "embeddings-reporte-v1",
+  "reviewer": "NEXUS",
+  "subject": "memory/fix_missing_embeddings.py",
+  "harness": [
+    "/home/dadito/IA/seal-spark/.venv/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "memory/test_fix_missing_embeddings_reporte.py"
+  ],
+  "control_sujeto_sin_mutar": {
+    "donde": "arbol de trabajo, sujeto restaurado tras cada mutante",
+    "observed": "7 passed",
+    "por": "JARVIS",
+    "result": "GREEN"
+  },
+  "file_sha256": {
+    "memory/fix_missing_embeddings.py": "e3df9ed3814c0ca34350351713e5f0a90b4a48d9f7ba64df89d2b2b0d1a61f54",
+    "memory/test_fix_missing_embeddings_reporte.py": "bb13c420debb9e611b227100bdd866f92d1143f9b5405448d5dd5625473cdb77"
+  },
+  "killed": 9,
+  "survived": 0,
+  "mutation_score_percent": 100.0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "_refutacion_de_nexus": "13:02 NEXUS REFUTO la primera version de estos tests con un canario concluyente: con un `raise` en la primera linea del modulo, los 6 tests seguian pasando. Leian el sujeto como TEXTO (AST) y el test negativo REIMPLEMENTABA el bucle adentro, asi que probaba la simulacion y no el codigo. Tres mutantes reales sobrevivian, incluido revertir el propio arreglo. Los tests se reescribieron para EJECUTAR main() con dobles en las fronteras (Postgres, Qdrant, encoder) y leer lo que el job IMPRIME. El canario y los tres mutantes de NEXUS estan incluidos abajo y ahora mueren.",
+  "mutants": [
+    {
+      "id": "CANARIO: raise al importar el modulo",
+      "author": "NEXUS",
+      "mutation": "CANARIO: raise al importar el modulo",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia lo que el job REPORTA sobre su propio trabajo, o devuelve el secreto al codigo"
+    },
+    {
+      "id": "el contador vuelve DESPUES del upsert (el bug ORIGINAL)",
+      "author": "JARVIS",
+      "mutation": "el contador vuelve DESPUES del upsert (el bug ORIGINAL)",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia lo que el job REPORTA sobre su propio trabajo, o devuelve el secreto al codigo"
+    },
+    {
+      "id": "el total final usa el contador del espejo",
+      "author": "JARVIS",
+      "mutation": "el total final usa el contador del espejo",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia lo que el job REPORTA sobre su propio trabajo, o devuelve el secreto al codigo"
+    },
+    {
+      "id": "se cae el aviso de espejo atrasado",
+      "author": "JARVIS",
+      "mutation": "se cae el aviso de espejo atrasado",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia lo que el job REPORTA sobre su propio trabajo, o devuelve el secreto al codigo"
+    },
+    {
+      "id": "vuelve el DSN literal",
+      "author": "JARVIS",
+      "mutation": "vuelve el DSN literal",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia lo que el job REPORTA sobre su propio trabajo, o devuelve el secreto al codigo"
+    },
+    {
+      "id": "el mensaje final deja de nombrar la fuente de verdad",
+      "author": "JARVIS",
+      "mutation": "el mensaje final deja de nombrar la fuente de verdad",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia lo que el job REPORTA sobre su propio trabajo, o devuelve el secreto al codigo"
+    },
+    {
+      "id": "NEXUS: vuelven a taparse las dos fallas en una",
+      "author": "NEXUS",
+      "mutation": "NEXUS: vuelven a taparse las dos fallas en una",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia lo que el job REPORTA sobre su propio trabajo, o devuelve el secreto al codigo"
+    },
+    {
+      "id": "NEXUS: el aviso miente y dice que el recall SI depende de Qdrant",
+      "author": "NEXUS",
+      "mutation": "NEXUS: el aviso miente y dice que el recall SI depende de Qdrant",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia lo que el job REPORTA sobre su propio trabajo, o devuelve el secreto al codigo"
+    },
+    {
+      "id": "NEXUS: cuenta espejados aunque el upsert falle",
+      "author": "NEXUS",
+      "mutation": "NEXUS: cuenta espejados aunque el upsert falle",
+      "result": "KILLED",
+      "observed": "la suite falla",
+      "why": "cambia lo que el job REPORTA sobre su propio trabajo, o devuelve el secreto al codigo"
+    }
+  ]
+}

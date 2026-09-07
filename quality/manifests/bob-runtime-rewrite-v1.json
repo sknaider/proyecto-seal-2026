@@ -1,0 +1,122 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "bob-runtime-rewrite-v1",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "_doc": [
+    "Reescritura independiente de contratos observados en IBM Bob; no contiene codigo, prompts ni secretos de IBM.",
+    "Cubre deteccion escalonada de llamadas repetidas y observabilidad fail-safe de compactacion."
+  ],
+  "subjects": [
+    "memory/agent_loop_guard.py",
+    "memory/compaction_observer.py",
+    "tests/check_bob_runtime_mutants.py"
+  ],
+  "tests": [
+    "tests/test_bob_rewrite_runtime.py",
+    "tests/check_bob_runtime_mutants.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-bob-rewrite",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_bob_rewrite_runtime.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-loop-and-compaction",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_bob_rewrite_runtime.py::test_loop_warns_then_stops_and_resets_on_progress",
+        "tests/test_bob_rewrite_runtime.py::test_compaction_observer_records_effect_and_sink_failure_is_nonfatal"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-secret-key-and-failure",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_bob_rewrite_runtime.py::test_call_key_is_order_independent_and_does_not_expose_secret",
+        "tests/test_bob_rewrite_runtime.py::test_compaction_failure_is_explicit_and_passthrough"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-bob-rewrite",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_bob_rewrite_runtime.py::test_compaction_failure_is_explicit_and_passthrough"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "memory/agent_loop_guard.py",
+      "memory/compaction_observer.py"
+    ],
+    "omit": [
+      "tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tests/test_bob_rewrite_runtime.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "review": {
+    "status": "approved",
+    "evidence": "REVISION INDEPENDIENTE JARVIS con mutantes PROPIOS, distintos de los del owner, sobre COPIA en tempdir. CANARIO: raise al importar cada uno de los dos sujetos -> 1 error en ambos, o sea que la suite los ejecuta. CONTROL 4 passed, igual en el arbol vivo y en la copia. MUTANTES, 4 de 4 MUERTOS: (1) off-by-one en el corte del bucle, `count >= stop_after` a `>` (1 failed); (2) contar repeticiones aunque la llamada CAMBIE, quitando la comparacion con la clave previa (1 failed); (3) aceptar cualquier tipo de compact(), anulando el isinstance(result, list) (1 failed); (4) que el sink pueda ROMPER la compactacion, cambiando su except por raise (1 failed) -- este es el que mas importa porque el docstring PROMETE que el sink nunca puede romperla, y el test sostiene la promesa. BLOQUEO QUE LEVANTE ANTES DE FIRMAR: el owner reporto 'unico error independent_review_pending' y en el arbol real habia CUATRO mas -- los dos sujetos y los dos tests estaban SIN INDEXAR. No los indexe yo por ser ajenos; el owner los indexo y agrego check_bob_runtime_mutants.py como subject. Re-verificado tras eso: gate con un unico error (esta firma) y control 4 passed sobre los bytes vigentes.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "REVISION INDEPENDIENTE JARVIS con mutantes PROPIOS, distintos de los del owner, sobre COPIA en tempdir. CANARIO: raise al importar cada uno de los dos sujetos -> 1 error en ambos, o sea que la suite los ejecuta. CONTROL 4 passed, igual en el arbol vivo y en la copia. MUTANTES, 4 de 4 MUERTOS: (1) off-by-one en el corte del bucle, `count >= stop_after` a `>` (1 failed); (2) contar repeticiones aunque la llamada CAMBIE, quitando la comparacion con la clave previa (1 failed); (3) aceptar cualquier tipo de compact(), anulando el isinstance(result, list) (1 failed); (4) que el sink pueda ROMPER la compactacion, cambiando su except por raise (1 failed) -- este es el que mas importa porque el docstring PROMETE que el sink nunca puede romperla, y el test sostiene la promesa. BLOQUEO QUE LEVANTE ANTES DE FIRMAR: el owner reporto 'unico error independent_review_pending' y en el arbol real habia CUATRO mas -- los dos sujetos y los dos tests estaban SIN INDEXAR. No los indexe yo por ser ajenos; el owner los indexo y agrego check_bob_runtime_mutants.py como subject. Re-verificado tras eso: gate con un unico error (esta firma) y control 4 passed sobre los bytes vigentes.",
+      "signed_at": "2026-09-05T02:58:10.940220+00:00",
+      "mutation_target": "isolated_copy",
+      "reviewed_sha256": {
+        "memory/agent_loop_guard.py": "2ee38b74674d96a91dde0af177947129d191bd4c8a2c64e84e769b0d9711cadd",
+        "memory/compaction_observer.py": "a56a54c36e426ed1383f361be0e07b09c3632455fbc0b5310c242f7e5c022c6c",
+        "tests/check_bob_runtime_mutants.py": "c792c7490d59bc7542f816c2347c2cd0c2e2584545346ea0da7fb1f2d329967b",
+        "tests/test_bob_rewrite_runtime.py": "59b9d7ac0467b3707aef8c35c62ef23f8ea84b2ec3f4308bb4524aa1f97b3ab5"
+      },
+      "manifest_digest": "313b5f7389e485cd784bb3fba50df23afd02845a13124496d11c368bbb203267"
+    }
+  },
+  "mutation_evidence": "quality/mutation-bob-runtime-rewrite-v1.json",
+  "delivery": {
+    "status": "verified",
+    "evidence": "Owner run: 4 passed; mutation control passed and 4/4 mutants killed on isolated copies.",
+    "command": {
+      "id": "delivery-bob-rewrite",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_bob_rewrite_runtime.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "4 passed"
+    }
+  }
+}

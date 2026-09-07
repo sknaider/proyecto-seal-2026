@@ -1,0 +1,207 @@
+{
+  "schema": "ser.implementation-traceability/1",
+  "spec": "../docs/specs/SOUL_EMBODIED_RUNTIME_SPEC_v0.1.md",
+  "phase": "SER Core 0.1 + Simulation 0.2 reference boundary",
+  "status": "software reference implementation; not a physical safety component and not authorized for hardware",
+  "verification": {
+    "verified_at": "2026-07-27T22:48:22-05:00",
+    "spec_requirements": 119,
+    "spec_sources": 24,
+    "tests_passed": 113,
+    "hardware_tested_in_this_verification": false,
+    "ros2_tested_in_this_verification": false
+  },
+  "known_gaps": [
+    "Reference signatures use deterministic JSON plus Ed25519; production requires canonical CBOR/COSE and key-attested deployment.",
+    "Replay has an atomic local SQLite reference store; production still requires retention cleanup, key revocation and hardware-attested edge deployment.",
+    "Consent uses a local append-only reference ledger; full ISO/IEC 27560 field/receipt conformance and SOUL DB integration remain pending.",
+    "Memory retrieval fidelity, sealed ground-truth corpora, calibrated abstention and cross-scope leakage evaluation remain pending for SOUL integration 0.3.",
+    "Minimum Risk Condition profiles and body-specific deadlines remain pending until an embodiment is selected; unstable bodies stay simulation/HIL-only.",
+    "The ADA simulation gateway reloads live identity and dual memory per run and uses NTP-disciplined edge observation time; offline revocation, secure-time loss and anti-rollback reconnect tests remain pending for hardware promotion.",
+    "Adult companionship is non-physical in v0.1; policy explicitly denies physical adult-mode intents and no physical component is implemented.",
+    "Simulation-only Nova Carter and fixed-base Unitree G1 reference adapters exist; no OPA bundle, SPIFFE workload identity, gRPC API, OEM hardware adapter, certified safety component, or hardware-in-loop evidence exists in the current verification.",
+    "FakeBodyAdapter validates contract semantics only and is not a safety controller or hardware certification artifact."
+  ],
+  "requirements": [
+    {
+      "id": "SER-INV-001",
+      "code": ["src/soul_embodied_runtime/contracts.py:DIRECT_CONTROL_PREFIXES"],
+      "tests": ["tests/test_core.py:test_direct_motor_control_is_rejected"]
+    },
+    {
+      "id": "SER-INV-003",
+      "code": ["src/soul_embodied_runtime/policy.py:PolicyEngine.evaluate"],
+      "tests": ["tests/test_core.py:test_policy_denies_without_specific_consent"]
+    },
+    {
+      "id": "SER-INV-004",
+      "code": ["src/soul_embodied_runtime/contracts.py:ConsentGrant.active_at"],
+      "tests": ["tests/test_core.py:test_revoked_consent_fails_closed"]
+    },
+    {
+      "id": "SER-INV-005",
+      "code": ["src/soul_embodied_runtime/contracts.py:BoundedAuthorization"],
+      "tests": ["tests/test_core.py:test_signed_authorization_is_one_shot_and_body_bound"]
+    },
+    {
+      "id": "SER-INT-001",
+      "code": ["src/soul_embodied_runtime/contracts.py:ActionIntent"],
+      "tests": [
+        "tests/test_core.py:test_direct_motor_control_is_rejected",
+        "tests/test_core.py:test_direct_control_identifier_cannot_evade_canonicalization"
+      ]
+    },
+    {
+      "id": "SER-INT-004",
+      "code": [
+        "src/soul_embodied_runtime/contracts.py:ActionConstraints",
+        "src/soul_embodied_runtime/contracts.py:BodySafetyProfile",
+        "src/soul_embodied_runtime/policy.py:PolicyEngine.evaluate"
+      ],
+      "tests": [
+        "tests/test_core.py:test_physical_constraints_must_be_finite",
+        "tests/test_core.py:test_policy_allows_and_clamps_to_body_ceiling",
+        "tests/test_core.py:test_body_manifest_risk_tier_is_authoritative"
+      ]
+    },
+    {
+      "id": "SER-AUT-001",
+      "code": [
+        "src/soul_embodied_runtime/authorization.py:AuthorizationSigner",
+        "src/soul_embodied_runtime/brain.py:AdaEmbodiedPlanner",
+        "src/soul_embodied_runtime/wire.py:plan_bundle",
+        "../deploy/isaac-sim-spark70/ada_embodied_sim_service.py:run_simulation",
+        "../deploy/isaac-sim-spark70/execute_ada_authorized_step.py:main"
+      ],
+      "tests": [
+        "tests/test_core.py:test_signature_tampering_is_rejected_without_consuming_nonce",
+        "tests/test_brain.py:test_only_active_canonical_ada_identity_can_plan",
+        "tests/test_brain.py:test_emotional_memory_never_enters_physical_context_refs",
+        "tests/test_brain.py:test_edge_challenge_is_bound_into_signed_intent",
+        "tests/test_brain.py:test_malformed_edge_challenge_fails_closed"
+      ]
+    },
+    {
+      "id": "SER-AUT-002",
+      "code": ["src/soul_embodied_runtime/authorization.py:AuthorizationVerifier"],
+      "tests": [
+        "tests/test_core.py:test_wrong_body_does_not_consume_nonce",
+        "tests/test_core.py:test_expired_authorization_is_rejected",
+        "tests/test_core.py:test_signed_authorization_is_one_shot_and_body_bound",
+        "tests/test_core.py:test_replay_cache_survives_verifier_restart"
+      ]
+    },
+    {
+      "id": "SER-AUT-004",
+      "code": [
+        "src/soul_embodied_runtime/simulation.py:NovaCarterSimulationAdapter.prepare",
+        "src/soul_embodied_runtime/simulation.py:NovaCarterSimulationAdapter.execute"
+      ],
+      "tests": [
+        "tests/test_simulation.py:test_authorization_must_cover_the_full_timed_drive",
+        "tests/test_simulation.py:test_prepared_drive_expires_and_odometry_is_revalidated_before_execute"
+      ]
+    },
+    {
+      "id": "SER-CNS-004",
+      "code": ["src/soul_embodied_runtime/policy.py:PolicyEngine.evaluate"],
+      "tests": ["tests/test_core.py:test_policy_denies_without_specific_consent"]
+    },
+    {
+      "id": "SER-CNS-005",
+      "code": ["src/soul_embodied_runtime/consent.py:ConsentLedger"],
+      "tests": [
+        "tests/test_core.py:test_consent_ledger_is_append_only_and_revocation_is_effective",
+        "tests/test_core.py:test_consent_ledger_rejects_invalid_transition"
+      ]
+    },
+    {
+      "id": "SER-AGE-001",
+      "code": [
+        "src/soul_embodied_runtime/contracts.py:AgeAssuranceReceipt",
+        "src/soul_embodied_runtime/policy.py:PolicyEngine.evaluate"
+      ],
+      "tests": [
+        "tests/test_core.py:test_adult_mode_requires_age_and_matching_consent",
+        "tests/test_core.py:test_adult_mode_rejects_expired_or_wrong_jurisdiction_assurance"
+      ]
+    },
+    {
+      "id": "SER-AGE-004",
+      "code": ["src/soul_embodied_runtime/policy.py:PolicyEngine.evaluate"],
+      "tests": ["tests/test_core.py:test_adult_mode_fails_closed_on_context_risk"]
+    },
+    {
+      "id": "SER-AGE-007",
+      "code": ["src/soul_embodied_runtime/policy.py:PolicyEngine.evaluate"],
+      "tests": [
+        "tests/test_core.py:test_adult_physical_actions_are_out_of_scope_for_v0_1",
+        "tests/test_core.py:test_adult_physical_cannot_bypass_gate_by_claiming_non_physical_risk",
+        "tests/test_core.py:test_adult_physical_namespace_is_denied_globally",
+        "tests/test_core.py:test_body_manifest_rejects_adult_physical_capability"
+      ]
+    },
+    {
+      "id": "SER-SAF-007",
+      "code": ["src/soul_embodied_runtime/contracts.py:BodySafetyProfile.ready"],
+      "tests": ["tests/test_core.py:test_stale_body_state_fails_closed"]
+    },
+    {
+      "id": "SER-AUD-002",
+      "code": ["src/soul_embodied_runtime/audit.py:AuditChain"],
+      "tests": ["tests/test_core.py:test_audit_chain_detects_tampering"]
+    },
+    {
+      "id": "SER-ADP-004",
+      "code": [
+        "src/soul_embodied_runtime/adapter.py:FakeBodyAdapter",
+        "src/soul_embodied_runtime/simulation.py:NovaCarterSimulationAdapter"
+      ],
+      "tests": [
+        "tests/test_core.py:test_fake_adapter_is_body_bound_and_stops",
+        "tests/test_core.py:test_fake_adapter_rejects_expired_authorization",
+        "tests/test_core.py:test_fake_adapter_cancel_preempts_execution",
+        "tests/test_simulation.py:test_stale_odometry_fails_before_consuming_authorization",
+        "tests/test_simulation.py:test_wrong_payload_and_out_of_bounds_commands_are_denied",
+        "tests/test_simulation.py:test_authorization_is_one_shot_at_simulation_edge",
+        "tests/test_simulation.py:test_heartbeat_fault_forces_zero_velocity_stop",
+        "tests/test_simulation.py:test_cancel_preempts_prepared_motion",
+        "tests/test_simulation.py:test_prepared_drive_expires_and_odometry_is_revalidated_before_execute",
+        "tests/test_simulation.py:test_nonfinite_odometry_fails_before_consuming_authorization"
+      ]
+    },
+    {
+      "id": "SER-ADP-003",
+      "code": [
+        "src/soul_embodied_runtime/simulation.py:SimulationMotionResult",
+        "src/soul_embodied_runtime/ros2_nova.py:Ros2NovaVelocityTransport"
+      ],
+      "tests": [
+        "tests/test_simulation.py:test_authorized_brain_intent_moves_simulation_and_stops"
+      ]
+    },
+    {
+      "id": "SER-ADP-006",
+      "code": [
+        "src/soul_embodied_runtime/simulation.py:NovaCarterSimulationAdapter",
+        "src/soul_embodied_runtime/ros2_nova.py:Ros2NovaVelocityTransport"
+      ],
+      "tests": [
+        "tests/test_simulation.py:test_authorized_brain_intent_moves_simulation_and_stops",
+        "tests/test_simulation.py:test_wrong_payload_and_out_of_bounds_commands_are_denied"
+      ]
+    },
+    {
+      "id": "SER-SAF-008",
+      "code": [
+        "src/soul_embodied_runtime/simulation.py:NovaCarterSimulationAdapter",
+        "src/soul_embodied_runtime/ros2_nova.py:Ros2NovaVelocityTransport"
+      ],
+      "tests": [
+        "tests/test_simulation.py:test_heartbeat_fault_forces_zero_velocity_stop",
+        "tests/test_simulation.py:test_small_callback_clock_skew_is_tolerated_but_large_drift_is_denied",
+        "tests/test_simulation.py:test_prepared_drive_expires_and_odometry_is_revalidated_before_execute"
+      ]
+    }
+  ]
+}

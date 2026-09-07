@@ -1,0 +1,92 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "pytest against fourteen independently injected adversarial source mutants",
+  "workspace": "Fourteen isolated copies of the exact staged PAST subjects/tests recorded in file_sha256 (initial extraction tree 0b0fa62317b7c352b90e17ba84563403f552e882); production files, database and daemons were never mutated.",
+  "killed": 14,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 14,
+  "mutation_score_percent": 100.0,
+  "reviewer": "DARWIN",
+  "mutants": [
+    {
+      "id": "accept_unavailable_read_trace",
+      "subject": "memory/past_attribution_harness.py",
+      "killed_by": "test_execute_cannot_claim_unavailable_reads"
+    },
+    {
+      "id": "misclassify_persistence_independent_answer",
+      "subject": "memory/past_attribution_harness.py",
+      "killed_by": "test_answer_that_succeeds_without_memory_is_not_attributed"
+    },
+    {
+      "id": "ignore_required_read_coverage",
+      "subject": "memory/past_attribution_harness.py",
+      "killed_by": "test_headline_gain_without_read_trace_is_explicit; test_partial_expected_read_coverage_fails_strict_default"
+    },
+    {
+      "id": "ignore_counterfactual_failures",
+      "subject": "memory/past_attribution_harness.py",
+      "killed_by": "test_counterfactual_must_degrade_before_pathway_is_supported"
+    },
+    {
+      "id": "persist_raw_output_without_opt_in",
+      "subject": "memory/past_attribution_harness.py",
+      "killed_by": "test_raw_output_is_redacted_by_default_and_opt_in"
+    },
+    {
+      "id": "accept_tampered_evidence_hash",
+      "subject": "memory/past_attribution_harness.py",
+      "killed_by": "test_evidence_write_is_atomic_and_hash_verified"
+    },
+    {
+      "id": "allow_empty_expected_artifact_set",
+      "subject": "memory/past_attribution_harness.py",
+      "killed_by": "test_expected_artifact_ids_must_not_be_empty"
+    },
+    {
+      "id": "allow_missing_placebo_control",
+      "subject": "memory/past_attribution_harness.py",
+      "killed_by": "test_placebo_arm_fails_closed_when_no_token_match_exists"
+    },
+    {
+      "id": "allow_unrecovered_expected_target",
+      "subject": "memory/past_live_adapter.py",
+      "killed_by": "test_missing_expected_target_fails_before_model_execution"
+    },
+    {
+      "id": "trust_non_readonly_retriever",
+      "subject": "memory/past_live_adapter.py",
+      "killed_by": "test_retrieval_boundary_attestation_fails_closed"
+    },
+    {
+      "id": "accept_model_prompt_hash_mismatch",
+      "subject": "memory/past_live_adapter.py",
+      "killed_by": "test_model_prompt_hash_mismatch_fails_closed"
+    },
+    {
+      "id": "accept_grader_hash_mismatch",
+      "subject": "memory/past_live_adapter.py",
+      "killed_by": "test_grader_hash_mismatch_fails_closed"
+    },
+    {
+      "id": "persist_raw_case_and_observation_metadata",
+      "subject": "memory/past_attribution_harness.py",
+      "killed_by": "test_untrusted_case_and_observation_metadata_are_hash_only; test_live_callback_metadata_cannot_smuggle_raw_content_into_report"
+    },
+    {
+      "id": "persist_raw_model_and_grader_callback_metadata",
+      "subject": "memory/past_live_adapter.py",
+      "killed_by": "test_live_callback_metadata_cannot_smuggle_raw_content_into_report"
+    }
+  ],
+  "file_sha256": {
+    "memory/past_attribution_harness.py": "62b39f756d2c3aa9b1bac91f225e7e9b89a9f4a48fef4e1529255b9ca8b07de6",
+    "memory/past_live_adapter.py": "53d1a4b93f3f88718bc1478607c9d28c9876e9b6a167b6295a1118d3b2043391",
+    "memory/test_past_attribution_harness.py": "a7a3d6d48b8af0da956e99b468ea1fe433997886f19a2c9de69212ca7bfde4f2",
+    "memory/test_past_live_adapter.py": "6f40da991b27b458056732097d9dcc5dde4fe292e2f9bbed3331bf5c9ae0094f"
+  }
+}

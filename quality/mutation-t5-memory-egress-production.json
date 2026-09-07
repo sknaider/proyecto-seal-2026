@@ -1,0 +1,100 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "twelve isolated deterministic adversarial source mutants executed with pytest against exact staged T5 production subjects",
+  "workspace": "Each mutant ran in a fresh TemporaryDirectory copy of soul-platform/src and soul-platform/tests. Production files, live databases, daemons and services were never mutated or restarted.",
+  "killed": 12,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 12,
+  "mutation_score_percent": 100.0,
+  "reviewer": "DARWIN",
+  "mutants": [
+    {
+      "id": "identity_accepts_unsigned_header",
+      "subject": "soul-platform/src/soul_platform/proxy.py",
+      "mutant_sha256": "747551ddcaf66d08cb63bd4f1af989234acf8386f6a872e6fe66f2ccc53e77a8",
+      "killed_by": "test_enforce_rejects_missing_invalid_and_sessionless_principal_before_body"
+    },
+    {
+      "id": "sessionless_principal_accepted",
+      "subject": "soul-platform/src/soul_platform/proxy.py",
+      "mutant_sha256": "3e5159077a874100fee7e214334401a36dcddc4b1fdc46000443d0d701faf1ce",
+      "killed_by": "test_enforce_rejects_missing_invalid_and_sessionless_principal_before_body"
+    },
+    {
+      "id": "cross_soul_audience_check_removed",
+      "subject": "soul-platform/src/soul_platform/proxy.py",
+      "mutant_sha256": "78d872016ad87b519da64b3f92446c08241ece75b3598bb01551e1aa5e9d702f",
+      "killed_by": "test_enforce_rejects_signed_principal_replayed_to_another_soul"
+    },
+    {
+      "id": "immutable_provenance_drift_accepted",
+      "subject": "soul-platform/src/soul_platform/t5_memory_egress.py",
+      "mutant_sha256": "45ddb66e0f4c60706a2c2287262048ecff8ab8db9a8761dcd9e3181eda2d22db",
+      "killed_by": "test_provenance_is_immutable_and_unknown_ids_fail_closed"
+    },
+    {
+      "id": "unbound_memory_recalled",
+      "subject": "soul-platform/src/soul_platform/t5_memory_egress.py",
+      "mutant_sha256": "e442a550fd51e222b267bcf37d97308316ffcd6354ece8bda4bdffb63bec8f19",
+      "killed_by": "test_provenance_is_immutable_and_unknown_ids_fail_closed"
+    },
+    {
+      "id": "durable_budget_reset_on_restart",
+      "subject": "soul-platform/src/soul_platform/t5_memory_egress.py",
+      "mutant_sha256": "d4e4d26fdb0ed3514f7031ce84e0c298927c3e7fa656e236f9ea5088ece5355f",
+      "killed_by": "test_budget_is_durable_across_store_instances_and_restart"
+    },
+    {
+      "id": "budget_transaction_removed_race",
+      "subject": "soul-platform/src/soul_platform/t5_memory_egress.py",
+      "mutant_sha256": "4ac9c87841213f7501f1ff7d68927b9827dade6fadda31010f02e8bf803a537a",
+      "killed_by": "test_concurrent_workers_reserve_one_shared_budget_atomically"
+    },
+    {
+      "id": "filter_bypassed_before_concatenation",
+      "subject": "soul-platform/src/soul_platform/proxy.py",
+      "mutant_sha256": "6000107d5c369e36df7afb35cfe008b1406594b931c11c28b823d1f67377b2b4",
+      "killed_by": "test_enforce_filters_before_context_and_owner_metadata_cannot_pivot"
+    },
+    {
+      "id": "boot_disclosed_cross_owner",
+      "subject": "soul-platform/src/soul_platform/proxy.py",
+      "mutant_sha256": "f7b35ef0714ce3195678beaa28afb04a2659c3d47ff4b0034e37aedb02d246a8",
+      "killed_by": "test_enforce_filters_before_context_and_owner_metadata_cannot_pivot"
+    },
+    {
+      "id": "provenance_registry_off_by_one",
+      "subject": "soul-platform/src/soul_platform/t5_memory_egress.py",
+      "mutant_sha256": "4781b16d51c08a9080780f747c1bb490da8d676d360175cc3139dbc49c5b3ac2",
+      "killed_by": "test_session_and_provenance_registries_fail_closed_at_exact_bounds"
+    },
+    {
+      "id": "missing_config_defaults_compatibility",
+      "subject": "soul-platform/src/soul_platform/proxy.py",
+      "mutant_sha256": "0918018e4e6c3c2b28d5b4990652be1b9a3334845b6bd4d6a70c884a8182fd45",
+      "killed_by": "test_config_without_memory_egress_section_fails_closed_in_locked_mode"
+    },
+    {
+      "id": "request_owner_metadata_pivots_binding",
+      "subject": "soul-platform/src/soul_platform/proxy.py",
+      "mutant_sha256": "d9e8ee68375605596ad1c3fb758156ce5b05d80181ae7f0554a9a10d579ee80c",
+      "killed_by": "test_enforce_filters_before_context_and_owner_metadata_cannot_pivot"
+    }
+  ],
+  "file_sha256": {
+    "soul-platform/src/soul_platform/auth.py": "7802a403d91d0316caecf9c9bf42002a9eac805275f331aee336956ef948b054",
+    "soul-platform/src/soul_platform/t5_memory_egress.py": "39cc539389d0006b7f4090ef3e0e82539354afb80b5c4edd01affdd7dfbafebc",
+    "soul-platform/src/soul_platform/proxy.py": "2a3bdaaddfb3317d9016ea1fd9371b72552e9b7d6f655aadd9bbcd2ef91b17ca",
+    "soul-platform/src/soul_platform/bootstrap.py": "b13a711c05b500a1a8224be97e43b45504b26e3a4cc8478c174e9b67c6ea383e",
+    "soul-platform/docs/t5-production-cutover.md": "0523eda7fcd9b3133fea0869c9d73102449ee091f7073be906e9d7dab6c22646",
+    "soul-platform/tests/test_t5_memory_egress_v1.py": "aa8e984ac083a690608bd1c5455b729f12026305b37fa0dce029054191c4ccb8",
+    "soul-platform/tests/test_t5_memory_egress_store_v1.py": "4a04a718d84e5e7ce850b7c9fc8bffd5f1f81ea9409a7aa9107cbe469519be56",
+    "soul-platform/tests/test_t5_principal_auth_v1.py": "5fa2227c3f14ff17140fa748ae1ede641d9daeb666b52a58978d6040fd7d00aa",
+    "soul-platform/tests/test_proxy_v1.py": "bb9055248adbfa290ebba9a00893b19eb74fbc18ef0638d73ab1f946c88abb16",
+    "soul-platform/tests/test_bootstrap_v1.py": "86eb786409d14389f6d521991126c320d1f5ccba87d0cf66f33072bbc26fb597"
+  }
+}

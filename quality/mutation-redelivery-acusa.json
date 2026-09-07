@@ -1,0 +1,93 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "NEXUS inyeccion de fallas sobre copia aislada (mktemp -d, SOLO los archivos del sujeto)",
+  "workspace": "Copia de los 4 archivos del manifiesto, NO el paquete: copiar memory/ arrastra un modelo de 95 GB y esta madrugada llenamos el disco raiz por eso. Los 8 mutantes RE-CORRIDOS sobre los bytes vigentes tras dc7e423bb, no reciclados: JARVIS detecto que la evidencia anterior apuntaba a bytes viejos (mutation_evidence_stale) y refrescar hashes sin volver a correr habria sido maquillar el recibo.",
+  "reviewer": "JARVIS",
+  "killed": 8,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 8,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+    "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
+    "messages/tests/test_nexus_redelivery_acusa_v1.py": "5e7daf4373a20923a4dcf50340ced5dbc35405502f9a2c1c0de29dfd6bce4eda",
+    "messages/tests/test_nexus_channel_acl_v1.py": "9b05670616d1c6a8eccfb93a9686ae751534cb61e1cd10c43e2fe112706716a8"
+  },
+  "detail": [
+    {
+      "id": "quitar-el-acuse",
+      "subject": "chat_server.py::_redelivery_tick",
+      "mutation": "eliminar la llamada a mark_delivered tras el push (el bug ORIGINAL)",
+      "killed_by": "test_unit_el_tick_acusa_lo_que_reentrega",
+      "killed": true,
+      "why": "es el defecto entero: attempts no crece, el backstop no se alcanza y la reentrega es infinita"
+    },
+    {
+      "id": "acusar-en-vez-de-empujar",
+      "subject": "chat_server.py::_redelivery_tick",
+      "mutation": "reemplazar el push por el acuse",
+      "killed_by": "test_control_el_tick_SIGUE_empujando",
+      "killed": true,
+      "why": "anti-vacuo: el bucle 'se arreglaria' no entregando nada"
+    },
+    {
+      "id": "delivered-pisa-read",
+      "subject": "seal_message_delivery.py::mark_delivered",
+      "mutation": "quitar el CASE que preserva 'read'",
+      "killed_by": "test_negativo_delivered_NO_pisa_read",
+      "killed": true,
+      "why": "acusar el transporte no puede afirmar que un humano leyo"
+    },
+    {
+      "id": "backstop-sin-attempts",
+      "subject": "seal_message_delivery.py::pending_for_redelivery",
+      "mutation": "`attempts < $2` -> TRUE",
+      "killed_by": "test_control_el_backstop_sigue_mirando_attempts",
+      "killed": true,
+      "why": "sin el filtro, acusar no alcanza para terminar el bucle"
+    },
+    {
+      "id": "el-tick-no-pasa-el-filtro",
+      "subject": "chat_server.py::_redelivery_tick",
+      "mutation": "llamar pending_for_redelivery sin solo_agentes",
+      "killed_by": "test_control_el_tick_PASA_los_agentes_habilitados",
+      "killed": true,
+      "why": "el filtro puede existir y no usarse: el mismo 'helper perfecto y desconectado' que ya me sobrevivio dos veces"
+    },
+    {
+      "id": "el-filtro-vuelve-a-python",
+      "subject": "seal_message_delivery.py::pending_for_redelivery",
+      "mutation": "quitar el `upper(to_agent) = ANY(...)` del WHERE",
+      "killed_by": "test_positivo_el_filtro_esta_en_el_WHERE_no_en_python",
+      "killed": true,
+      "why": "filtrar despues del LIMIT es pedir las 100 mas viejas y descartarlas todas: el candado circular"
+    },
+    {
+      "id": "filtrar-siempre",
+      "subject": "seal_message_delivery.py::pending_for_redelivery",
+      "mutation": "default de solo_agentes distinto de None",
+      "killed_by": "test_control_sin_filtro_el_comportamiento_es_el_HISTORICO",
+      "killed": true,
+      "why": "romperia a fable_flood_17, que pide la cola completa a proposito"
+    },
+    {
+      "id": "lo-nunca-entregado-pierde",
+      "subject": "seal_message_delivery.py::pending_for_redelivery",
+      "mutation": "quitar `(delivered_at IS NOT NULL) ASC` de una rama del ORDER BY",
+      "killed_by": "test_positivo_lo_NUNCA_entregado_va_antes_que_un_reintento",
+      "killed": true,
+      "why": "tercer starvation: la ventana se llenaba de REINTENTOS y las 20 nunca-entregadas quedaban afuera"
+    }
+  ],
+  "correcciones_propias": [
+    "Reporte 'seis filas pendientes' cuando habia escrito LIMIT 6 en mi propia consulta. El total real es 2.115. Confundi un limite con un total, el mismo error que le marque a otros dos esta noche.",
+    "Estuve por publicar '1522 mensajes sin entregar a William' como perdida de mensajes. Fui a medir el caso que me refutaria y me refuto: los tres que probe SI estaban en william_channel.jsonl. 'Sin entregar' en el ledger significa 'nadie acuso', no 'el humano no lo recibio'.",
+    "Medi la suite en 72 fallos contra 63 de base y estuve por atribuir los nueve a este commit. Eran MIOS y venian del flip de ALICE a las 03:05: mis tests del ACL leian /etc/seal real.",
+    "El mutante 'filtrar siempre' me dio '1 error' en la primera corrida y casi lo cuento como muerte. Era artefacto de mi bucle de copiado, no un resultado: repetido con el workspace bien armado da '1 failed'. Un mutante que rompe la coleccion no mata nada.",
+    "El mutante del backstop SOBREVIVIO en esta re-corrida y no era el codigo: mi test pedia la cadena 'attempts < $2' EN ALGUN LADO, y al haber ahora dos ramas de la consulta, anular el backstop en UNA sola la dejaba pasar. Re-anclado a count()==2. Es el mismo defecto que ya habia corregido con el ORDER BY dos horas antes: un test que busca presencia no distingue una rama de dos."
+  ]
+}

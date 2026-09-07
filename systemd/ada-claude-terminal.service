@@ -1,0 +1,24 @@
+[Unit]
+Description=ADA Claude — terminal permanente y visible (William 3-sep-2026 21:39: "quedate mejor")
+Documentation=file:///home/dadito/IA/proyecto-seal/agents/ADA/auditoria_continuidad_dos_cuerpos_20260903.md
+After=graphical-session.target seal-chat.service
+Wants=seal-chat.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+# Un solo cuerpo Claude de ADA: si ya hay uno vivo (p.ej. el que William abrio a mano), esperar a que
+# termine antes de abrir la ventana. Asi la unidad "adopta" el turno sin duplicar a ADA.
+ExecStartPre=/bin/bash /home/dadito/IA/proyecto-seal/tools/ada_claude_guard.sh
+TimeoutStartSec=infinity
+ExecStart=/usr/bin/kitty --title "ADA Claude" -o initial_window_width=130c -o initial_window_height=40c bash /home/dadito/IA/proyecto-seal/ada_claude_sin_tmux.sh
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=25
+
+[Install]
+WantedBy=default.target

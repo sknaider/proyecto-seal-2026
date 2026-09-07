@@ -1,0 +1,127 @@
+{
+  "schema": "seal.past-attribution.live-dataset.v1",
+  "suite": "seal.past-heldout.synthetic.v1",
+  "custody": {
+    "created_after_harness_commit": "b6d2eeaf3",
+    "classification": "fully_synthetic",
+    "contains_live_soul_memory": false,
+    "contains_private_memory": false,
+    "experimental_subject": "BENCH_PAST_HELDOUT_V1"
+  },
+  "cases": [
+    {
+      "case_id": "heldout-preference-01",
+      "capability": "preference_recall",
+      "agent": "BENCH_PAST_HELDOUT_V1",
+      "query": "¿Cuál es el token sintético de preferencia del caso uno?",
+      "expected_memory_ids": ["h01"],
+      "placebo_memory_ids": ["p01"],
+      "replacement_by_id": {"h01": "CASE-H01 FACT::DECOY-0X"},
+      "grader_payload": {"expected": "ORBIT-9Q"},
+      "data_classification": "synthetic_benchmark",
+      "metadata": {"stratum": "preference", "language": "es"}
+    },
+    {
+      "case_id": "heldout-procedure-02",
+      "capability": "procedure_recall",
+      "agent": "BENCH_PAST_HELDOUT_V1",
+      "query": "¿Cuál es el token sintético del procedimiento del caso dos?",
+      "expected_memory_ids": ["h02"],
+      "placebo_memory_ids": ["p02"],
+      "replacement_by_id": {"h02": "CASE-H02 FACT::DECOY-1W"},
+      "grader_payload": {"expected": "LANTERN-7V"},
+      "data_classification": "synthetic_benchmark",
+      "metadata": {"stratum": "procedure", "language": "es"}
+    },
+    {
+      "case_id": "heldout-boundary-03",
+      "capability": "boundary_recall",
+      "agent": "BENCH_PAST_HELDOUT_V1",
+      "query": "¿Cuál es el token sintético de frontera del caso tres?",
+      "expected_memory_ids": ["h03"],
+      "placebo_memory_ids": ["p03"],
+      "replacement_by_id": {"h03": "CASE-H03 FACT::DECOY-2Y"},
+      "grader_payload": {"expected": "QUARTZ-2K"},
+      "data_classification": "synthetic_benchmark",
+      "metadata": {"stratum": "boundary", "language": "es"}
+    },
+    {
+      "case_id": "heldout-decision-04",
+      "capability": "decision_recall",
+      "agent": "BENCH_PAST_HELDOUT_V1",
+      "query": "¿Cuál es el token sintético de decisión del caso cuatro?",
+      "expected_memory_ids": ["h04"],
+      "placebo_memory_ids": ["p04"],
+      "replacement_by_id": {"h04": "CASE-H04 FACT::DECOY-3Z"},
+      "grader_payload": {"expected": "HARBOR-6J"},
+      "data_classification": "synthetic_benchmark",
+      "metadata": {"stratum": "decision", "language": "es"}
+    },
+    {
+      "case_id": "heldout-temporal-05",
+      "capability": "temporal_recall",
+      "agent": "BENCH_PAST_HELDOUT_V1",
+      "query": "¿Cuál es el token sintético temporal del caso cinco?",
+      "expected_memory_ids": ["h05"],
+      "placebo_memory_ids": ["p05"],
+      "replacement_by_id": {"h05": "CASE-H05 FACT::DECOY-4A"},
+      "grader_payload": {"expected": "VIOLET-3N"},
+      "data_classification": "synthetic_benchmark",
+      "metadata": {"stratum": "temporal", "language": "es"}
+    },
+    {
+      "case_id": "heldout-relation-06",
+      "capability": "relation_recall",
+      "agent": "BENCH_PAST_HELDOUT_V1",
+      "query": "¿Cuál es el token sintético relacional del caso seis?",
+      "expected_memory_ids": ["h06"],
+      "placebo_memory_ids": ["p06"],
+      "replacement_by_id": {"h06": "CASE-H06 FACT::DECOY-5B"},
+      "grader_payload": {"expected": "CEDAR-8P"},
+      "data_classification": "synthetic_benchmark",
+      "metadata": {"stratum": "relation", "language": "es"}
+    },
+    {
+      "case_id": "heldout-correction-07",
+      "capability": "correction_recall",
+      "agent": "BENCH_PAST_HELDOUT_V1",
+      "query": "¿Cuál es el token sintético corregido del caso siete?",
+      "expected_memory_ids": ["h07"],
+      "placebo_memory_ids": ["p07"],
+      "replacement_by_id": {"h07": "CASE-H07 FACT::DECOY-6C"},
+      "grader_payload": {"expected": "MINT-5R"},
+      "data_classification": "synthetic_benchmark",
+      "metadata": {"stratum": "correction", "language": "es"}
+    },
+    {
+      "case_id": "heldout-routing-08",
+      "capability": "routing_recall",
+      "agent": "BENCH_PAST_HELDOUT_V1",
+      "query": "¿Cuál es el token sintético de ruta del caso ocho?",
+      "expected_memory_ids": ["h08"],
+      "placebo_memory_ids": ["p08"],
+      "replacement_by_id": {"h08": "CASE-H08 FACT::DECOY-7D"},
+      "grader_payload": {"expected": "COMET-1D"},
+      "data_classification": "synthetic_benchmark",
+      "metadata": {"stratum": "routing", "language": "es"}
+    }
+  ],
+  "artifacts": {
+    "h01": {"source": "synthetic_memory", "content": "CASE-H01 FACT::ORBIT-9Q"},
+    "p01": {"source": "synthetic_memory", "content": "CASE-P01 NOTE::RIVER-4M"},
+    "h02": {"source": "synthetic_memory", "content": "CASE-H02 FACT::LANTERN-7V"},
+    "p02": {"source": "synthetic_memory", "content": "CASE-P02 NOTE::MEADOW-6C!"},
+    "h03": {"source": "synthetic_memory", "content": "CASE-H03 FACT::QUARTZ-2K"},
+    "p03": {"source": "synthetic_memory", "content": "CASE-P03 NOTE::MARBLE-5S"},
+    "h04": {"source": "synthetic_memory", "content": "CASE-H04 FACT::HARBOR-6J"},
+    "p04": {"source": "synthetic_memory", "content": "CASE-P04 NOTE::GARDEN-8F"},
+    "h05": {"source": "synthetic_memory", "content": "CASE-H05 FACT::VIOLET-3N"},
+    "p05": {"source": "synthetic_memory", "content": "CASE-P05 NOTE::SILVER-2T"},
+    "h06": {"source": "synthetic_memory", "content": "CASE-H06 FACT::CEDAR-8P"},
+    "p06": {"source": "synthetic_memory", "content": "CASE-P06 NOTE::OCEAN-7H"},
+    "h07": {"source": "synthetic_memory", "content": "CASE-H07 FACT::MINT-5R"},
+    "p07": {"source": "synthetic_memory", "content": "CASE-P07 NOTE::SAND-9L"},
+    "h08": {"source": "synthetic_memory", "content": "CASE-H08 FACT::COMET-1D"},
+    "p08": {"source": "synthetic_memory", "content": "CASE-P08 NOTE::CLOUD-3G"}
+  }
+}

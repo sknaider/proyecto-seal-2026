@@ -1,0 +1,1 @@
+/home/dadito/IA/llama.cpp/build_gpu_nograph/bin/llama-server -m /home/dadito/IA/modelos/llm/gemma4-e2b/gemma-4-e2b-it-Q8_0.gguf --port 8899 --host 0.0.0.0 --ctx-size 8192 -ngl 99 --alias gemma4-dum --no-warmup --reasoning off -np 1 -t 4

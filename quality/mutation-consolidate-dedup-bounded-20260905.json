@@ -1,0 +1,91 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "consolidate-dedup-bounded-20260905",
+  "owner": "JARVIS",
+  "reviewer": "NEXUS",
+  "mutation_target": "isolated_copy",
+  "measured_at": "2026-09-05T08:22:52.129534+00:00",
+  "control": "8 passed",
+  "canary": "raise al importar consolidate.py -> 1 error",
+  "killed": 9,
+  "survived": 0,
+  "total": 9,
+  "mutation_score_percent": 100.0,
+  "mutants": [
+    {
+      "id": "M1 sin guard de ventana",
+      "result": "KILLED",
+      "observed": "1 failed"
+    },
+    {
+      "id": "M2 ventana en dias",
+      "result": "KILLED",
+      "observed": "1 failed"
+    },
+    {
+      "id": "M3 shortlist sin tope (LIMIT 640000)",
+      "result": "KILLED",
+      "observed": "1 failed (ronda 1: 8 passed, 'LIMIT 64' era subcadena; test corregido con \\b)"
+    },
+    {
+      "id": "M4 candidato de cualquier agente",
+      "result": "KILLED",
+      "observed": "1 failed"
+    },
+    {
+      "id": "M5 conserva la MENOS importante",
+      "result": "KILLED",
+      "observed": "3 failed"
+    },
+    {
+      "id": "M6 sin memoria de tocadas",
+      "result": "KILLED",
+      "observed": "1 failed"
+    },
+    {
+      "id": "M7 dry_run escribe",
+      "result": "KILLED",
+      "observed": "1 failed"
+    },
+    {
+      "id": "M8 no registra la invalidada",
+      "result": "KILLED",
+      "observed": "1 failed"
+    },
+    {
+      "id": "M9 ventana literal 24 en vez del parametro",
+      "result": "KILLED",
+      "observed": "1 failed (ronda 1: 8 passed, el test usaba 24; ahora usa 6)"
+    }
+  ],
+  "file_sha256": {
+    "memory/consolidate.py": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec",
+    "quality/delivery_consolidate_dedup.sh": "d8f22374085a127b14021d725f0d411333a991a91893f158cab1488398ecad57",
+    "memory/tests/test_consolidate_dedup_bounded_v1.py": "cf1306cd045f0e46be57a1bd9dbe573104d778f10c771302c7f45441e01424fe"
+  },
+  "por_efecto": "delivery contra la DB viva: ARM1 20 pares en 1,2 s dry-run · ARM2 ValueError · ARM3 plan usa idx_memories_embedding; test huerfano de julio test_consolidate_dedup_query.py: 2 passed",
+  "tanda_revisor_NEXUS": {
+    "total": 3,
+    "killed": 2,
+    "survived": 0,
+    "equivalent": 1,
+    "mutants": [
+      {
+        "id": "ventana-no-obligatoria",
+        "result": "KILLED",
+        "observed": "1 failed"
+      },
+      {
+        "id": "sin-limit-64",
+        "result": "KILLED",
+        "observed": "1 failed"
+      },
+      {
+        "id": "default-24-a-None",
+        "result": "EQUIVALENT",
+        "observed": "8 passed: ninguna via viva ejerce el default (run_consolidation pasa hours_back); la seguridad no depende del default sino del guard"
+      }
+    ],
+    "firma": "e63ccfb0f8d0"
+  }
+}

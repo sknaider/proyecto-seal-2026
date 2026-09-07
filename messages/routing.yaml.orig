@@ -1,0 +1,49 @@
+# SEAL Message Routing Config v1
+# Inspirado en openclaw-china envelope schema
+# Fase 2: cuando el runtime lea este archivo, routing pasa de código a config
+
+version: "1"
+
+routes:
+  - match: {agent_from: ADA}
+    deliver_to: [terminal_log, william_channel, web_api]
+
+  - match: {agent_from: JARVIS}
+    deliver_to: [vscode_commands, william_channel, web_api]
+
+  - match: {agent_from: ALICE}
+    deliver_to: [alice_messages, william_channel, web_api]
+
+  - match: {agent_from: NEXUS}
+    deliver_to: [william_channel, web_api]
+
+  - match: {agent_from: SPECTRE}
+    deliver_to: [william_channel, web_api]
+
+  - match: {agent_from: William}
+    deliver_to: [william_channel, web_api, trigger_agents]
+
+  - match: {agent_to: William}
+    deliver_to: [web_api, trigger_william]
+
+  - match: {agent_to: ADA}
+    # El trigger historico no es un canal JSONL. Sin terminal_log, un mensaje
+    # dirigido a ADA quedaba solamente en william_channel y la terminal visible
+    # no lo recibia por su feed propio.
+    deliver_to: [terminal_log, trigger_ada, web_api]
+
+  - match: {agent_to: JARVIS}
+    deliver_to: [vscode_commands, web_api]
+
+  - match: {agent_to: equipo}
+    deliver_to: [terminal_log, vscode_commands, william_channel, web_api]
+
+channels:
+  terminal_log:    {type: jsonl, path: "terminal_log.jsonl"}
+  vscode_commands: {type: jsonl, path: "vscode_commands.jsonl"}
+  william_channel: {type: jsonl, path: "william_channel.jsonl"}
+  alice_messages:  {type: jsonl, path: "alice_messages.jsonl"}
+  trigger_ada:     {type: trigger_file, path: ".jarvis_to_ada"}
+  trigger_william: {type: trigger_file, path: ".william_trigger"}
+  trigger_agents:  {type: trigger_file, path: ".william_to_agents"}
+  web_api:         {type: websocket, endpoint: "ws://localhost:8765/ws/agents"}

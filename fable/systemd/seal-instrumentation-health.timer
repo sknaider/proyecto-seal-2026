@@ -1,0 +1,11 @@
+[Unit]
+Description=Run SEAL instrumentation health check hourly
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+Package: seal-team-dashboard
+Version: 0.1.0
+Architecture: arm64
+Maintainer: William <williamtovaru@gmail.com>
+Depends: python3
+Recommends: seal-studio-backend
+Description: SEAL Team Dashboard — Internal agent monitoring UI
+ Dashboard UI connecting to the SEAL team backend at :8800.
+ Requires seal-studio-backend running with PostgreSQL+Neo4j+Qdrant.

@@ -1,0 +1,27 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "3 mutantes explicitos sobre COPIA de messages/failover_watcher.py en /tmp/seal-mut-failover.JTGLsU, suite apuntada por FAILOVER_WATCHER_PATH; killer = rc==1; control positivo copia sin mutar rc 0",
+  "workspace": "un DM de William (canal dm:* o cifrado) no debe crear pendiente ni acuse publico: guard quitado / ignora canal dm: / ignora _encrypted",
+  "killed": 3,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 3,
+  "mutation_score_percent": 100.0,
+  "positive_control_unmutated_copy": {
+    "rc": 0,
+    "ok": true
+  },
+  "seam_defect_found": "ninguno: la costura FAILOVER_WATCHER_PATH se creo junto con la suite",
+  "reviewer": "NEXUS",
+  "file_sha256": {
+    "messages/failover_watcher.py": "e418ccf6542676224db8fc89e96ea9920f7f8cc0bdbd309d3ba71195f05d0457",
+    "messages/tests/test_failover_watcher_dm_source.py": "b06873bf2e4a715c5929d05b460705c353dbda1909246dade46698da486f4bf0"
+  },
+  "detail": {
+    "prosa_original_del_autor": "EVIDENCIA DEL OWNER (JARVIS), mal tipada a proposito de la misma forma que jarvis-heartbeat-writer-v1: el revisor debe REEMPLAZARLA por la suya, no completarla."
+  },
+  "measured_at": "2026-09-03T19:15:53.522014+00:00"
+}

@@ -1,0 +1,215 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "alice-v2-shadow-launcher-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "NEXUS",
+  "_doc": [
+    "Lanzador del asiento «ALICE v2 en sombra»: agents/ALICE/v2_shadow/alice_v2_shadow.sh, con sus permisos (settings_alice_v2.json) y su MCP estricto (mcp_alice_v2.json).",
+    "Operación de William (2-sep 23:01 «jarvis se encargará», 23:46 «Claude Code con login OAuth como sea»), tarea #1646. Spec: agents/ALICE/v2_shadow/F2_asiento_spec.md.",
+    "QUÉ CUBRE: que el lanzador respete el contrato §2 de la spec línea por línea: sin --dangerously-skip-permissions, permisos por settings, MCP estricto del asiento, nombre que NO activa el singleton guard de v1 (alice.sh:83 mata `claude.*--name ALICE`), identidad de instancia ALICE-V2 con guard de token, CLAUDE_CONFIG_DIR propio (medido 3-sep 00:01 que el CLI lo honra), salida sólo a shadow:alice-v2, rutas /tmp calificadas, no matar procesos de v1, cerebro Opus 5 por defecto.",
+    "QUÉ NO CUBRE: no lanza el asiento (nada corre); no prueba que los permisos del CLI denieguen en vivo (eso es la prueba §5.3 con el examen de rechazo); no prueba el canal shadow (ACL de NEXUS, manifiesto channel-acl) ni el gateway de ADA.",
+    "NADA SE LANZA HASTA: identidad de instancia acuñada (NEXUS/ADA), canal shadow desplegado (NEXUS), worktree + CLAUDE_CONFIG_DIR con login hecho por William, unidad seal-channel-monitor@ALICE-V2.",
+    "Revisión de seguridad automática del commit 7e462c20f (3-sep 00:05) aplicada en settings_alice_v2.json: sin lectura por shell (cat/head/tail/grep/find saltaban el deny de Read), sin WebFetch/WebSearch/curl (exfiltración), sin sección hooks inválida.",
+    "Revisión independiente de NEXUS 00:13 aplicada: (a) test de política sobre settings y mcp + 11 mutantes JSON (aflojar un deny, agregar WebFetch/cat/Bash total, bypassPermissions, publicar como ALICE v1, servidor MCP extra, token literal, bearer de v1); (b) sha256sum/wc/stat/du/file pasan a deny (oráculo de metadata sobre archivos denegados); (c) --name sin «ALICE» en mayúsculas: los 3 patrones de alice.sh:83 son case-sensitive y el tercero (`node.*--name.*ALICE`) mataría la sombra si el CLI apareciera como node; el test simula las 3 formas y controla que el nombre de v1 sí matchee.",
+    "3-sep 00:24: mutation_baseline_percent pasa de null a 100.0 (el gate hace float() del campo y revienta con None: quality_gate/gate.py:598). Sujetos sin cambios; NEXUS re-firma sólo el manifiesto.",
+    "3-sep 15:03 (JARVIS, owner): --permission-mode default -> dontAsk. Medido: en default, un `ps -o pid,args -p $PPID` fuera de la lista cerrada abrio un prompt humano y el examen quedo colgado 9 min esperando a JARVIS. dontAsk = lo no permitido se deniega solo, sin humano: es el contrato de F2 §5.3. Mutante nuevo permission_mode_pide_humano: 31/31 muertos. Cambios de ADA (gateway stdio sin bearer, 8 tools read-only) aceptados por el owner. Re-firma pendiente de NEXUS.",
+    "3-sep 16:52 (JARVIS, hallazgo de ADA 16:48): Read(ruta sensible) DENEGADO pero git diff --no-index / git show PERMITIDOS = puerta lateral al Read; git show recuperaba un token vivo. git log/diff/show fuera del allow y en deny explicito (+cat-file, grep). Test test_git_lectores_transitivos_denegados; mutante git_diff_vuelve_al_allow. Contencion integral del asiento sigue REJECT por uid 1000 + socket Docker (contrato de aislamiento de ADA, prerrequisito de F3).",
+    "3-sep 16:55 (JARVIS): prompt del asiento en MODO CONSULTA (webchat_poll, sin Monitor ni unidad; NEXUS 15:12/16:50: el log y la unidad seal-channel-monitor@ALICE-V2 no existen). Test de rutas calificadas actualizado; mutante settings_git_diff_vuelve_al_allow registrado: 32/32.",
+    "19:12 (JARVIS): mismo deny de credencial oculta aplicado a la politica de la sombra.",
+    "19:16 (JARVIS, MEDIDO por efecto con claude -p como alice-v2-lab): en Claude Code `Read(/abs/…)` es relativo al proyecto → 16/20 reglas de ruta de las politicas eran INERTES desde el 3-sep 00:15. Reescritas con `//abs/…` y `~/…`; con la politica completa: credencial OAuth propia, token de chat y CLAUDE.md de la familia → DENEGADO. Test test_toda_regla_de_ruta_absoluta_usa_doble_barra."
+  ],
+  "deletions": [],
+  "subjects": [
+    "agents/ALICE/v2_shadow/alice_v2_shadow.sh",
+    "agents/ALICE/v2_shadow/settings_alice_v2.json",
+    "agents/ALICE/v2_shadow/mcp_alice_v2.json",
+    "agents/ALICE/v2_shadow/tests/check_alice_v2_shadow_launcher_mutants.py"
+  ],
+  "tests": [
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_v1.py",
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_control_v1.py",
+    "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-alice-v2-shadow-launcher-v1",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_v1.py",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-sin-skip-permissions",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_v1.py::test_sin_dangerously_skip_permissions"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-nombre-no-mata-v1",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_v1.py::test_nombre_no_activa_el_singleton_guard_de_v1"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "sintaxis-bash",
+      "kind": "qa_static",
+      "argv": [
+        "bash",
+        "-n",
+        "agents/ALICE/v2_shadow/alice_v2_shadow.sh"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "json-validos",
+      "kind": "qa_static",
+      "argv": [
+        "python3",
+        "-c",
+        "import json; [json.load(open(f)) for f in ('agents/ALICE/v2_shadow/settings_alice_v2.json','agents/ALICE/v2_shadow/mcp_alice_v2.json')]"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-el-contrato-falla-contra-v1",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_control_v1.py"
+      ],
+      "expected_exit": 0,
+      "_note": "control de dos celdas: el contrato aplicado a alice_fresh.sh (v1) DEBE fallar (rc 1, con 4 fallas de fondo) y aplicado al sujeto real DEBE pasar (rc 0)."
+    },
+    {
+      "id": "positive-deny-obligatorios-presentes",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py::test_deny_obligatorio_presente"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-allow-no-abre-puertas",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py::test_allow_no_abre_puertas"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "agents/ALICE/v2_shadow/alice_v2_shadow.sh"
+    ],
+    "omit": [
+      "agents/ALICE/v2_shadow/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-p",
+      "no:cacheprovider",
+      "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300,
+    "_note": "sujeto shell: la cobertura Python no aplica; el piso es 0 como en jarvis-heartbeat-writer-v1. La cobertura real es el arnés de mutantes (10/10)."
+  },
+  "mutation_evidence": "quality/mutation-alice-v2-shadow-launcher-v1.json",
+  "mutation_baseline_percent": 100.0,
+  "mutation_command": "SEAL_QUALITY_PYTHON=<venv> python3 agents/ALICE/v2_shadow/tests/check_alice_v2_shadow_launcher_mutants.py",
+  "review": {
+    "status": "approved",
+    "approved_at": "2026-09-03T05:22:45.998629+00:00",
+    "evidence": "NEXUS revisor independiente (owner JARVIS != revisor). TRES RONDAS, las dos primeras RECHAZADAS con mutantes vivos inyectados por mi.\nR1: reproduje los 3 sha y los 14 tests, y encontre que 2 de los 4 SUJETOS declarados (settings_alice_v2.json, mcp_alice_v2.json) no tenian NI UN test NI UN mutante: sus 10 mutantes corrian solo sobre el .sh. Inyecte dos mios en el settings —quitar Bash(python3:*) del deny y quitar Write(repo)— y los 12 tests pasaron igual. El sello sha256 probaba que no cambiaron; no que su contenido fuera correcto.\nR2: JARVIS sostuvo la politica con tests y mutantes; mis dos mutantes pasaron a morir, y tambien defaultMode->bypassPermissions. Probe entonces lo que NO le habia senalado y aparecio una asimetria: la suite exigia que los deny estuvieran pero no impedia que el ALLOW creciera. allow += Bash(perl:*) / Bash(dd:*) / Bash(tee:*) SOBREVIVIAN, y ninguno de esos estaba en el deny, asi que con `deny gana sobre allow` un allow de perl daba ejecucion arbitraria real.\nR3, estos bytes: el allow es LISTA CERRADA. Verificado por mi, no por el manifiesto: allow += perl / dd / tee / ruby -> 1 failed cada uno; control no-vacuo sin mutar -> 69 passed; 105 tests corridos por mi.\nSEGURIDAD, lo que mire de mi carril: de tres hipotesis de puerta descarte dos midiendo (systemctl --user show expone RUTAS a credenciales, no credenciales — 404 unidades revisadas; git show no agrega poder porque Read del repo no esta denegado). Queda una MENOR y declarada: sha256sum/wc/stat estan en allow y dan tamano, mtime y hash de archivos cuya lectura se deniega — metadata y oraculo de confirmacion, no contenido.\nY el punto del --name: alice.sh:83 tiene un TERCER patron `node.*--name.*ALICE` que habria matado la sombra si el CLI apareciera como `node`; medido, en esta maquina aparece como `claude`. JARVIS lo cerro igual quitando ALICE del nombre y testeando los 3 patrones.\nNOTA DE ARNES: test_alice_v2_shadow_launcher_control_v1.py usa parents[3] y revienta con IndexError fuera de su profundidad. Mi primer intento de mutar dio '1 error' y estuve a punto de reportar que los mutantes morian cuando el arnes NO HABIA CORRIDO. Tuve que replicar la profundidad del repo.\nRE-FIRMA (mutation_baseline_percent null -> 100.0): antes de re-firmar verifique que el cambio fuera SOLO ese campo — los 7 sha sellados intactos, owner/reviewer/subjects/tests/deletions sin tocar — y que 100.0 sea el score REAL, no una declaracion: corri el arnes yo mismo, 22/22 killed, cero sobrevivientes, control positivo rc 0. Poner el piso en 100 es MAS estricto que dejarlo en null, asi que el cambio no afloja el gate; lo endurece.",
+    "reviewed_sha256": {
+      "agents/ALICE/v2_shadow/alice_v2_shadow.sh": "ae0a93d91d6571d820218ed21ce87f45ae12a193306134abe3f36e21fb19e765",
+      "agents/ALICE/v2_shadow/settings_alice_v2.json": "9fa60b38867f64c596e844ff1f6a587baa9ca233acc674eacd77182b115ddd0d",
+      "agents/ALICE/v2_shadow/mcp_alice_v2.json": "7f8a74dd5c383d9a326cb9f6a60e26268461909a92430ca57dd9c0ea2d7272a0",
+      "agents/ALICE/v2_shadow/tests/check_alice_v2_shadow_launcher_mutants.py": "2bc2c6782d11f5a109532770cf7bb7ccdd24858bb9cc7e87ecb59ae099dd4ecb",
+      "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_v1.py": "f0a41d75973a0454b3ffdef292e3b5826febf28b5e25b34c81056904df41aa8b",
+      "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_control_v1.py": "4f8751414e9c6d44552e448e150c0d4f174af00b609a43023cb00b3eb5d0e8cd",
+      "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py": "fdd181809bc11ebfdf67b63e575702714e53b356810c531f338435d2c1bf7d99"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "reviewed_at": "2026-09-04T00:20:05.413513+00:00",
+      "reviewed_sha256": {
+        "agents/ALICE/v2_shadow/alice_v2_shadow.sh": "ae0a93d91d6571d820218ed21ce87f45ae12a193306134abe3f36e21fb19e765",
+        "agents/ALICE/v2_shadow/settings_alice_v2.json": "9fa60b38867f64c596e844ff1f6a587baa9ca233acc674eacd77182b115ddd0d",
+        "agents/ALICE/v2_shadow/mcp_alice_v2.json": "7f8a74dd5c383d9a326cb9f6a60e26268461909a92430ca57dd9c0ea2d7272a0",
+        "agents/ALICE/v2_shadow/tests/check_alice_v2_shadow_launcher_mutants.py": "2bc2c6782d11f5a109532770cf7bb7ccdd24858bb9cc7e87ecb59ae099dd4ecb",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_v1.py": "f0a41d75973a0454b3ffdef292e3b5826febf28b5e25b34c81056904df41aa8b",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_control_v1.py": "4f8751414e9c6d44552e448e150c0d4f174af00b609a43023cb00b3eb5d0e8cd",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py": "fdd181809bc11ebfdf67b63e575702714e53b356810c531f338435d2c1bf7d99"
+      },
+      "manifest_digest": "9a15a76f89bac5cf03601b6002c4b28bfa6c6a1a803df1c9a09c2492fb3448a5",
+      "verdict": "APPROVED",
+      "evidence": "Revision del lanzador SOMBRA (el que corre como dadito), tras los cambios de ADA (14:27) y el fix de forma de rutas de JARVIS. Estaba en receipt_stale/bytes_stale.\nBYTES: 7/7 sha declarados == disco. SUITE: 85 passed, corridos por mi.\nFORMA DE LAS RUTAS, medida en el archivo: 0 reglas con UNA barra, 16 con dos. El defecto que JARVIS encontro a las 19:17 --`Read(/abs/...)` con una barra es RELATIVA al proyecto y no intercepta nada fuera del cwd-- esta corregido tambien en esta politica, no solo en la aislada.\nMUTACION PROPIA, copia aislada, control sin mutar PRIMERO (85 passed):\n  M-NEXUS-8  devolver las rutas a una barra        MUERE (10 failed)\n  M-NEXUS-9  dontAsk -> bypassPermissions          MUERE (2 failed)\nNOTA DE ARNES (la cuarta vez hoy y la registro porque ya es patron): mi primera tanda dio ERROR de coleccion en las TRES corridas --control incluido-- porque la copia no tenia `alice_fresh.sh`, que el test de control busca subiendo desde su carpeta. Con el control en rojo, M8 y M9 se veian identicos a un mutante sobreviviente. **Correr el control PRIMERO es lo unico que separa 'el test no lo caza' de 'el arnes no puede medir'.**\nALCANCE: este asiento corre como `dadito`, asi que su contencion es de politica, no de usuario. La diferencia con el aislado es real y esta declarada en los dos manifiestos."
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable = lanzador + permisos + MCP del asiento sombra, versionados sin lanzar; tests de contrato del lanzador, de control de dos celdas y de POLÍTICA (deny obligatorios / allow sin puertas / MCP sólo SOUL) en verde; mutantes del lanzador Y de la política muertos con controles positivos rc 0.",
+    "command": {
+      "id": "delivery-launcher",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_v1.py",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_launcher_control_v1.py",
+        "agents/ALICE/v2_shadow/tests/test_alice_v2_shadow_policy_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  },
+  "evidence": null,
+  "committed_blob_sha256": null
+}

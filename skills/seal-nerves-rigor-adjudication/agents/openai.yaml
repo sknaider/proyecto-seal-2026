@@ -1,0 +1,4 @@
+interface:
+  display_name: "SEAL NERVES Rigor Adjudication"
+  short_description: "Adjudica hallazgos de rigor FABLE sin mutar."
+  default_prompt: "Adjudica el bundle autenticado usando solo su evidencia y devuelve un resultado JSON tipado."

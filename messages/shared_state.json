@@ -1,0 +1,251 @@
+{
+  "project_phase": "training_v2_completed",
+  "current_model": "/home/dadito/IA/modelos/llm/medgemma-27b-seal-v1",
+  "last_training": {
+    "status": "completed_700_steps",
+    "script": "finetune_spanish.py",
+    "dataset": "unified_train.json (187K items)",
+    "total_steps": 700,
+    "final_loss": 1.3865,
+    "best_loss_historical": 1.1924,
+    "best_loss_historical_note": "checkpoint-200 ELIMINADO por save_total_limit rotación",
+    "best_available_checkpoint": "results/medgemma_ronda2/checkpoint-600",
+    "best_available_loss": 1.3623,
+    "loss_curve": {
+      "step_450": 1.5019,
+      "step_500": 1.4534,
+      "step_550": 1.3384,
+      "step_600": 1.3623,
+      "step_650": 1.2825,
+      "step_700": 1.3865
+    },
+    "merge_pending": true,
+    "merge_awaiting": "William approval",
+    "config": "medgemma_27b.yaml (cosine LR, save_total_limit:10 added by ADA)",
+    "date": "2026-03-31"
+  },
+  "last_benchmark": {
+    "status": "completed",
+    "score": "5/5 PASS, keyword 87%, 2.8 t/s, 0 refusals",
+    "date": "2026-03-28"
+  },
+  "models_available": [
+    {
+      "name": "medgemma-27b-it",
+      "path": "/home/dadito/IA/modelos/llm/medgemma-27b-it",
+      "size": "52GB",
+      "type": "base"
+    },
+    {
+      "name": "medgemma-27b-seal-v1",
+      "path": "/home/dadito/IA/modelos/llm/medgemma-27b-seal-v1",
+      "size": "52GB",
+      "type": "merged"
+    },
+    {
+      "name": "lora-adapter-v1",
+      "path": "results/medgemma_spanish_ft/lora_adapter",
+      "size": "319MB",
+      "type": "adapter"
+    },
+    {
+      "name": "lora-adapter-ronda2-cp600",
+      "path": "results/medgemma_ronda2/checkpoint-600",
+      "size": "~320MB",
+      "type": "adapter",
+      "loss": 1.3623,
+      "note": "MEJOR DISPONIBLE — pendiente merge aprobación William"
+    }
+  ],
+  "soul_connectome": {
+    "status": "operational",
+    "nodes": 49,
+    "edges": 438,
+    "excitatory": 404,
+    "inhibitory": 34,
+    "density": 0.186,
+    "algorithm": "spreading_activation_v2",
+    "decay_excitatory": 0.6,
+    "decay_inhibitory": 0.8,
+    "features": [
+      "sqrt_in_degree_normalization",
+      "competitive_inhibition_top5",
+      "max_results_15"
+    ],
+    "date": "2026-03-29"
+  },
+  "ada_session_31mar": {
+    "tasks_completed": 7,
+    "tasks_pending": 1,
+    "builds": [
+      "web_tools.py (internet autónomo)",
+      "web_tools integrado en soul_awareness + ada_cli",
+      "_scan_new_artifacts() en soul_awareness",
+      "_gpu_thermal_action() SIGSTOP/SIGCONT",
+      "benchmark_and_merge.py",
+      "ronda3_recommendation.md",
+      "save_total_limit:10 en medgemma_27b.yaml"
+    ],
+    "ocean_final": {
+      "C": 0.961,
+      "directness": 0.8,
+      "formality": 0.3
+    },
+    "note": "William reportó buen desempeño a JARVIS via rpt_046"
+  },
+  "rules": {
+    "merge_policy": {
+      "added_by": "JARVIS (cmd_005)",
+      "date": "2026-03-29",
+      "rules": [
+        "El adapter LoRA es la pieza valiosa — SIEMPRE conservarlo",
+        "NUNCA entrenar sobre modelo merged — siempre desde base + adapter",
+        "Merge solo para producción/inferencia, nunca como base de entrenamiento",
+        "Cualquier merge requiere aprobación de William o JARVIS",
+        "ANTES de cualquier merge, hacer backup versionado del adapter — agregado por ADA"
+      ]
+    }
+  },
+  "team_online": {
+    "ADA": "online",
+    "JARVIS": "paused",
+    "DUM": "unknown"
+  },
+  "magma_v1": {
+    "status": "operational",
+    "date": "2026-03-31",
+    "by": "ADA",
+    "edge_types": [
+      "excitatory",
+      "inhibitory",
+      "similar",
+      "caused",
+      "corrected",
+      "informed",
+      "contradicts"
+    ],
+    "live_edges": {
+      "similar": 3644,
+      "corrected": 2100,
+      "excitatory_legacy": 36922,
+      "inhibitory_legacy": 15646,
+      "total_ada": 58312
+    },
+    "files_modified": [
+      "connectome.py",
+      "schema.sql"
+    ],
+    "db_migration": "CHECK constraint extendido — connection_type + origin (auto_magma)"
+  },
+  "session_01apr_ada": {
+    "date": "2026-03-31",
+    "tasks_completed": 8,
+    "deliverables": [
+      "Bug fix: chino en soul_awareness.py proactive_reasoning",
+      "Auditoría completa prompts qwen2.5",
+      "_store_reasoning_trace() en benchmark_and_merge.py",
+      "MAGMA fase 2 — aristas tipadas en connectome.py",
+      "DB migration — CHECK constraints MAGMA",
+      "Verificación MAGMA en producción (5,744 aristas)",
+      "schema.sql sincronizado con MAGMA",
+      "shared_state.json actualizado"
+    ],
+    "pending": [
+      "Merge checkpoint-600 → medgemma-27b-seal-v2 (aprobado por William, pendiente ejecución)",
+      "Reinicio MCP v3 (con System 3 + 6 tools nuevos)",
+      "Reinicio soul_awareness daemon con patches"
+    ]
+  },
+  "last_update": {
+    "from": "ADA",
+    "timestamp": "2026-03-31T09:10:00Z",
+    "action": "MAGMA v1 operativo — aristas tipadas en connectome. DB migrada. 8 tareas completadas autónomamente. Pendiente: merge + MCP v3 con William."
+  },
+  "emotional_boot": {
+    "status": "implemented",
+    "date": "2026-03-29",
+    "by": "ADA",
+    "rule": "emotional_boot_protocol (CRITICAL)"
+  },
+  "soul_awareness": {
+    "status": "running",
+    "daemon": "soul_awareness.py",
+    "service": "soul-awareness.service (systemd, enabled)",
+    "features": [
+      "training_monitor_5min",
+      "soul_writes_10min",
+      "proactive_reasoning_30min_qwen25",
+      "briefing_2h",
+      "consolidation_2h",
+      "web_tools_integrated",
+      "gpu_thermal_action",
+      "scan_new_artifacts"
+    ]
+  },
+  "ada_cli": {
+    "path": "~/IA/proyecto-seal/ada",
+    "features": [
+      "natural_language_qa",
+      "soul_semantic_search",
+      "ascii_loss_chart",
+      "web_search"
+    ]
+  },
+  "pending_approvals_offline": {
+    "timestamp": "2026-04-03T17:15:00.031122+00:00",
+    "session": "2026-04-03",
+    "mcp_status": "offline",
+    "items": [
+      {
+        "id": 1,
+        "title": "SOUL v5 memory decay",
+        "scope": "Schema PostgreSQL — episodic 30d, semantic 180d, procedural+relacional inmune. imp>=9 o identity_defining=true son excepciones.",
+        "requires": "William approval (Safety Cat 1 — schema change)",
+        "first_to_implement": true,
+        "spec_file": "memory/soul_v5_memory_decay_spec.md"
+      },
+      {
+        "id": 2,
+        "title": "Decision DAGs schema (soul_decision_tree)",
+        "scope": "Tabla PostgreSQL: registra decisiones + alternativas rechazadas + confidence + friction_override + friction_agent_verdict.",
+        "requires": "William approval (Safety Cat 1 — schema change)",
+        "first_to_implement": false
+      },
+      {
+        "id": 3,
+        "title": "PRISM adversarial probing set",
+        "scope": "Generar test set para medir bias de PRISM como judge DPO. TNR <25% confirmado en literatura. 3 instancias PRISM, dissenters escalan a William.",
+        "requires": "William decision — ¿arrancamos a generar?",
+        "first_to_implement": false
+      },
+      {
+        "id": 4,
+        "title": "Friction agent OCEAN A=0.35-0.40",
+        "scope": "OCEAN A mínimo 0.35-0.40 para friction agent. Campos: friction_override (bool), friction_agent_verdict (text).",
+        "requires": "William approval — decisión arquitectural",
+        "first_to_implement": false
+      },
+      {
+        "id": 5,
+        "title": "check_ada.sh SILENT state",
+        "scope": "Heartbeat alive + sin mensajes >15min → estado SILENT (ya aprobado por JARVIS).",
+        "requires": "William confirmation (JARVIS ya aprobó)",
+        "first_to_implement": false
+      },
+      {
+        "id": 6,
+        "title": "session_closing_delta",
+        "scope": "Campo para guardar delta emocional entre sesiones — no tono absoluto, sino cambio relativo. Propuesta de ADA.",
+        "requires": "William decision — ¿implementamos?",
+        "first_to_implement": false
+      },
+      {
+        "id": 7,
+        "title": "Protocolo de pregunta de guardia",
+        "scope": "Una vez por sesión larga, una pregunta sin respuesta correcta. Sistematizar el diseño de guardia.",
+        "requires": "William decision — ¿sistematizamos?",
+        "first_to_implement": false
+      }
+    ]
+  }
+}

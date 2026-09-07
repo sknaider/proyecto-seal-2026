@@ -1,0 +1,109 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "consolidate-live-schema-20260905",
+  "owner": "JARVIS",
+  "reviewer": "NEXUS",
+  "mutation_target": "isolated_copy",
+  "measured_at": "2026-09-05T08:26:25.625674+00:00",
+  "control": "10 passed",
+  "canary": "raise al importar consolidate.py -> 1 error (la suite ejecuta el sujeto)",
+  "killed": 9,
+  "survived": 1,
+  "total": 10,
+  "mutation_score_percent": 90.0,
+  "mutants": [
+    {
+      "id": "M1 SELECT vuelve a pedir ref_id",
+      "result": "KILLED",
+      "observed": "2 failed"
+    },
+    {
+      "id": "M2 formateador usa row['time']",
+      "result": "KILLED",
+      "observed": "4 failed"
+    },
+    {
+      "id": "M3 validador nunca falla (if False)",
+      "result": "KILLED",
+      "observed": "4 failed"
+    },
+    {
+      "id": "M4 run_consolidation no llama al validador",
+      "result": "KILLED",
+      "observed": "1 failed"
+    },
+    {
+      "id": "M5 contrato event_log vacio",
+      "result": "KILLED",
+      "observed": "5 failed"
+    },
+    {
+      "id": "M6 el error no nombra la columna",
+      "result": "KILLED",
+      "observed": "4 failed"
+    },
+    {
+      "id": "M7 formateador sin recorte a 200",
+      "result": "KILLED",
+      "observed": "1 failed"
+    },
+    {
+      "id": "M8 la consulta del validador sin filtro de esquema (refutacion de NEXUS)",
+      "result": "KILLED",
+      "observed": "4 failed: el doble ahora tiene un esquema senuelo con ref_id y created_at"
+    },
+    {
+      "id": "M9 la consulta filtra por un esquema literal ajeno",
+      "result": "KILLED",
+      "observed": "1 failed"
+    },
+    {
+      "id": "M10 la consulta sin filtro de tabla",
+      "result": "EQUIVALENT",
+      "observed": "10 passed: sin el filtro devuelve mas tablas y el validador agrupa por nombre; no cambia el veredicto"
+    }
+  ],
+  "file_sha256": {
+    "memory/consolidate.py": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec",
+    "quality/delivery_consolidate_schema.sh": "de590d6348e116c870fa544cc362ffb1482c4025b95d34496986cbf7256dd2ec",
+    "memory/tests/test_consolidate_schema_v1.py": "3ea3ccb67f0c01294f89de95d516e7b5461e31a1ca399ada663f77152eb57757"
+  },
+  "equivalent_declared": [
+    "M10"
+  ],
+  "ronda_2_nota": "NEXUS rechazo la ronda 1: el doble de information_schema contestaba por texto y era ciego al WHERE. Ahora simula dos esquemas y responde segun lo que la consulta PIDE (filtro de esquema actual o literal, filtro de tabla).",
+  "tanda_revisor_NEXUS": {
+    "total": 5,
+    "killed": 5,
+    "survived": 0,
+    "mutants": [
+      {
+        "id": "validador-falla-abierto",
+        "result": "KILLED",
+        "observed": "4 failed"
+      },
+      {
+        "id": "validador-no-se-llama",
+        "result": "KILLED",
+        "observed": "1 failed"
+      },
+      {
+        "id": "formateador-vuelve-a-time",
+        "result": "KILLED",
+        "observed": "4 failed"
+      },
+      {
+        "id": "consulta-apunta-a-esquema-inexistente (MUT4)",
+        "result": "KILLED",
+        "observed": "ronda 2"
+      },
+      {
+        "id": "consulta-sin-filtro-de-esquema (MUT5)",
+        "result": "KILLED",
+        "observed": "ronda 2"
+      }
+    ],
+    "nota": "ronda 1 REJECT: el doble de information_schema era ciego al WHERE; ronda 2 firmada, digest 7d123b8c6871"
+  },
+  "re_corrida_sobre_bytes_de_la_pieza_2": "5-sep 03:26: los 10 mutantes re-corridos sobre consolidate.py con el paso 2 acotado; mismo resultado (9 muertos, M10 equivalente). NEXUS re-firmo e061461a9b0a."
+}

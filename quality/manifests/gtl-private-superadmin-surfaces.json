@@ -1,0 +1,70 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "gtl-private-superadmin-surfaces-20260816",
+  "owner": "ADA",
+  "independent_reviewer": "DARWIN",
+  "review": {
+    "status": "approved",
+    "evidence": "Independent live review: official canary passed; 34 path variants, 8 forged cookies, 8 bypass headers and four HTTP methods exposed no private content; direct gateway remained unreachable.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "DARWIN",
+      "evidence": "APPROVED/PASS: rc=0, failures=[]; ADA page/API and OpenClaw redirect unauthenticated clients to login; login/system stay healthy; 0 bypasses and 0 private content exposed.",
+      "reviewed_sha256": {
+        "scripts/verify_gtl_private_surfaces.py": "50a0b7f700f7544413bf8c12da7b6b9cb6c3aac45464e4c617b402d5c8b404a9",
+        "tests/test_verify_gtl_private_surfaces.py": "78cf7f5ea0f5839a432ac4b4954b4a56edb8f02839c9c22bf0517cf9f318fac2"
+      },
+      "manifest_digest": "77cabb0ffb4087fa4cd76b43cd89c6f3fe1ef272a863cd99b1e7d9d7f8f52a11"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "scripts/verify_gtl_private_surfaces.py"
+  ],
+  "tests": [
+    "tests/test_verify_gtl_private_surfaces.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-redirect-normalization",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_verify_gtl_private_surfaces.py::test_location_path_normalizes_absolute_redirect"],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-private-surfaces",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_verify_gtl_private_surfaces.py::test_canary_accepts_private_surfaces_and_healthy_controls"],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-public-ada-page",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_verify_gtl_private_surfaces.py::test_canary_rejects_public_ada_page"],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-public-gateway-port",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_verify_gtl_private_surfaces.py::test_canary_rejects_public_gateway_port"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["scripts"],
+    "omit": ["tests/*"],
+    "pytest_args": ["-q", "tests/test_verify_gtl_private_surfaces.py"],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "External canary exercises the live unauthenticated and fake-session paths, healthy login/system controls, alternative ADA paths and direct gateway reachability.",
+    "command": {
+      "id": "delivery-live-private-surfaces",
+      "argv": ["python3", "scripts/verify_gtl_private_surfaces.py"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "\"ok\": true"
+    }
+  }
+}

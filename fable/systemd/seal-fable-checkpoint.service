@@ -1,0 +1,13 @@
+[Unit]
+Description=SEAL Session Checkpoint FABLE and memory consolidation
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/fable/checkpoint.py --auto
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/fable/engine/consolidate_memory.py
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/fable/engine/embed_sync.py
+StandardOutput=journal
+StandardError=journal
+Nice=10
+Environment=SEAL_AGENT=FABLE

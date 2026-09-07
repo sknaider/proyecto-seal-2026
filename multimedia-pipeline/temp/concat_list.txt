@@ -1,0 +1,5 @@
+file '/home/dadito/IA/proyecto-seal/multimedia-pipeline/temp/kb_img_c13d4c0c_s1.mp4'
+file '/home/dadito/IA/proyecto-seal/multimedia-pipeline/temp/kb_img_c13d4c0c_s2.mp4'
+file '/home/dadito/IA/proyecto-seal/multimedia-pipeline/temp/kb_img_c13d4c0c_s3.mp4'
+file '/home/dadito/IA/proyecto-seal/multimedia-pipeline/temp/kb_img_c13d4c0c_s4.mp4'
+file '/home/dadito/IA/proyecto-seal/multimedia-pipeline/temp/kb_img_c13d4c0c_s5.mp4'

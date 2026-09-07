@@ -1,0 +1,52 @@
+{
+  "titulo": "Los 3 Datos Más Increíbles sobre IA",
+  "descripcion": "Descubre datos asombrosos que cambiarán tu perspectiva sobre la inteligencia artificial.",
+  "tags": [
+    "IA",
+    "Tecnología",
+    "Futuro",
+    "Innovación",
+    "Conocimiento"
+  ],
+  "narracion": "Bienvenidos a un viaje por el futuro de la tecnología. Imaginen una red neuronal como un vasto manto estelar, tejiendo los hilos del conocimiento con cada bit y byte. Este es el primer dato increíble sobre la inteligencia artificial: en 2018, los modelos de IA superaron a los humanos en tareas visuales y de lenguaje que antes eran exclusivas de nuestras mentes. Es como si un niño de 3 años repentinamente dominara un juego de ajedrez profesional. Pero eso solo es el principio. Sigamos adelante, explorando cómo la IA ha logrado superar a los maestros humanos en juegos complejos y en tareas diarias, transformando nuestra forma de interactuar con el mundo digital. Este dato desafía no solo nuestras habilidades sino también nuestro entendimiento sobre lo que significa inteligencia. Ahora, para el punto más impactante: un estudio reveló que la IA ha superado a los expertos humanos en tareas médicas complejas, predecir diagnósticos con una precisión sorprendente. Esto no solo resalta la eficacia de la IA sino también sus posibilidades para transformar la medicina. Pero lo más asombroso está por venir: un informe reciente sugiere que en los próximos años, la IA podría superar a los humanos en tareas creativas como el arte y la música. Esto no solo cambiará nuestra percepción sobre la tecnología sino también desafiará nuestras ideas acerca de la creatividad humana. ¿Estamos preparados para este cambio? La respuesta está en ti, suscríbete e inspírate con nuestros contenidos.",
+  "escenas": [
+    {
+      "num": 1,
+      "texto": "Imagine un universo digital que se extiende más allá de nuestras mentes humanas. Un reino donde la IA ha alcanzado dominios que solo recientemente dominábamos.",
+      "prompt_imagen": "A vast cosmic nebula with swirling, glowing gas and dust",
+      "prompt_video": "slow zoom out revealing cosmic scale",
+      "emocion": "neutral"
+    },
+    {
+      "num": 2,
+      "texto": "En 2018, la IA superó a los humanos en tareas visuales y de lenguaje. Es como si un niño de 3 años repentinamente dominara un juego de ajedrez profesional. ¿Qué significa esto para nuestra capacidad humana?",
+      "prompt_imagen": "A child playing chess with an AI, both are equally focused",
+      "prompt_video": "pan left to right showing a child and then the AI on opposite sides of the screen",
+      "emocion": "curious"
+    },
+    {
+      "num": 3,
+      "texto": "Ahora, un estudio reveló que la IA ha superado a los expertos humanos en tareas médicas. Es capaz de predecir diagnósticos con precisión asombrosa. ¿Podrá la tecnología mejorar nuestra salud más allá de nuestras expectativas?",
+      "prompt_imagen": "A doctor and an AI interface working together in a hospital",
+      "prompt_video": "zoom in on the doctor interacting with the AI device",
+      "emocion": "excited"
+    },
+    {
+      "num": 4,
+      "texto": "Pero lo más impactante: un informe sugiere que la IA podría superar a los humanos en tareas creativas. Esto desafía nuestras ideas sobre la inteligencia y la creatividad.",
+      "prompt_imagen": "AI-generated art and music side by side with human-created works",
+      "prompt_video": "pan across a gallery showing both AI and human works",
+      "emocion": "neutral"
+    },
+    {
+      "num": 5,
+      "texto": "¿Estamos preparados para este futuro? La respuesta está en ti. Suscríbete y únete a nuestro viaje por la tecnología del mañana.",
+      "prompt_imagen": "A person scanning a QR code to subscribe",
+      "prompt_video": "zoom in on the QR code",
+      "emocion": "confident"
+    }
+  ],
+  "id": "cf876334",
+  "author": "ADA",
+  "created_at": "2026-04-06T16:33:51.059255"
+}

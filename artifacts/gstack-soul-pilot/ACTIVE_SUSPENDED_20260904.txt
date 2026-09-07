@@ -1,0 +1,2 @@
+This marker keeps the bounded gstack/SOUL pilot reporter scheduled.
+Remove it and disable the timer after the report reaches a terminal state.

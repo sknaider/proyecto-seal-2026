@@ -1,0 +1,18 @@
+{
+  "$comment": "MCP del asiento ALICE v2 EN SOMBRA, cargado con --strict-mcp-config. Sólo el gateway SOUL v2: el adaptador corre como alice-v2-lab, el broker root verifica SO_PEERCRED, expone 8 tools read-only y fija agent=ALICE del lado servidor. El asiento no recibe bearer ni credencial canónica.",
+  "mcpServers": {
+    "soul-v2-gateway": {
+      "type": "stdio",
+      "command": "/usr/bin/sudo",
+      "args": [
+        "-n",
+        "-u",
+        "alice-v2-lab",
+        "/usr/bin/python3",
+        "/opt/alice-v2-owner-runtime/scripts/mcp_gateway_client.py",
+        "--socket",
+        "/run/alice-v2-lab/mcp-broker.sock"
+      ]
+    }
+  }
+}

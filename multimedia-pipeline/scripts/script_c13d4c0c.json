@@ -1,0 +1,52 @@
+{
+  "titulo": "3 Datas Impactantes sobre IA",
+  "descripcion": "Descubre los datos más asombrosos sobre la inteligencia artificial en este documental emocionante.",
+  "tags": [
+    "inteligencia artificial",
+    "IA",
+    "datos fascinantes",
+    "futuro",
+    "tecnología"
+  ],
+  "narracion": "Imagine un futuro donde máquinas pueden pensar y aprender como humanos. ¿Qué tan cerca estamos realmente de ese mundo? Hoy, les presento tres datos increíbles sobre la inteligencia artificial que seguro van a dejarte sin aliento. En primer lugar, la IA ya es más rápida en realizar ciertas tareas que las propias personas. Por ejemplo, un superordenador puede resolver problemas matemáticos complejos en pocos segundos, mientras que un humano tardaría mucho más. Esto demuestra cómo la velocidad y precisión de la IA superan a los seres humanos. En segundo lugar, el algoritmo GPT-3, desarrollado por Anthropic, es tan sofisticado que puede generar textos con una riqueza de vocabulario similar a un humano. Es capaz de escribir páginas enteras de literatura o noticias, y nadie podría distinguir la diferencia sin pruebas minuciosas. Por último, pero no menos sorprendente, en 2023 se estimó que más del 45% de los trabajos existentes podrían ser reemplazados por IA en los próximos años. Esto nos plantea preguntas sobre el futuro laboral y la necesidad de adaptarnos constantemente a estas transformaciones tecnológicas. Estas impresionantes cifras no solo demuestran el poder de la IA, sino que también sugieren un cambio significativo en nuestra sociedad. ¿Nos preparamos para este futuro? No te pierdas más contenido fascinante como este, suscríbete y activa las notificaciones.",
+  "escenas": [
+    {
+      "num": 1,
+      "texto": "La IA ya es más rápida que los humanos en resolver ciertas tareas.",
+      "prompt_imagen": "cinematic dark space nebula cosmic dust glowing particles",
+      "prompt_video": "slow zoom out revealing cosmic scale",
+      "emocion": "neutral"
+    },
+    {
+      "num": 2,
+      "texto": "El algoritmo GPT-3 es tan sofisticado que puede generar textos humanos.",
+      "prompt_imagen": "...",
+      "prompt_video": "...",
+      "emocion": "curious"
+    },
+    {
+      "num": 3,
+      "texto": "45% de los trabajos actuales podrían ser reemplazados por IA en el futuro.",
+      "prompt_imagen": "...",
+      "prompt_video": "...",
+      "emocion": "excited"
+    },
+    {
+      "num": 4,
+      "texto": "Estas cifras nos plantean preguntas sobre el futuro laboral y la adaptación tecnológica.",
+      "prompt_imagen": "...",
+      "prompt_video": "...",
+      "emocion": "neutral"
+    },
+    {
+      "num": 5,
+      "texto": "Suscríbete para más contenido fascinante sobre tecnología y ciencia.",
+      "prompt_imagen": "...",
+      "prompt_video": "...",
+      "emocion": "confident"
+    }
+  ],
+  "id": "c13d4c0c",
+  "author": "ADA",
+  "created_at": "2026-04-06T16:29:24.410450"
+}

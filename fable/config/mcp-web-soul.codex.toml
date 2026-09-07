@@ -1,0 +1,7 @@
+[mcp_servers.mcp-web-soul]
+command = "/usr/bin/sudo"
+args = ["-n", "-u", "seal-mcp-web-cdp", "/usr/local/libexec/seal/seal-cdp-mcp-wrapper"]
+required = true
+startup_timeout_sec = 20
+tool_timeout_sec = 90
+enabled_tools = ["browse", "browser_action", "browser_approval", "browser_observe", "browser_profile", "browser_readiness", "browser_session", "browser_takeover", "browser_trace", "click", "close_browser", "get_html", "get_text", "network", "save_url", "screenshot", "set_cookie", "type_text", "wait_for"]

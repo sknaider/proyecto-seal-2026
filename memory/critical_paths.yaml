@@ -1,0 +1,57 @@
+# SEAL Critical Paths Registry
+# Sprint 1 — Mitigación A (git checkpoints) + D (edit precision)
+# Origen: spec_delegate_corruption_mitigation_20260426.md (JARVIS Opus 4.7)
+# Convención: rutas absolutas o globs estilo fnmatch (* y **)
+# Cualquier Edit/MultiEdit/Write a un path que matchee aquí dispara:
+#   - PreToolUse: git stash + reasoning_trace_store_with_target
+#   - PostToolUse: commit en branch auto-checkpoint/<agente> + diff_check (Sprint 2)
+version: 2
+updated: 2026-04-27
+authorized_by: William
+bulk_refactor_threshold: 5
+migration_sample_pct: 5
+
+paths:
+  # MCP backbone — corrupción aquí altera comportamiento de TODOS los agentes
+  - /home/dadito/IA/proyecto-seal/memory/mcp_server_v3.py
+
+  # CLAUDE.md — contrato cognitivo del equipo y del usuario
+  - /home/dadito/IA/proyecto-seal/CLAUDE.md
+  - /home/dadito/.claude/CLAUDE.md
+
+  # Specs arquitecturales de JARVIS
+  - /home/dadito/IA/proyecto-seal/agents/JARVIS/spec_*.md
+
+  # Sistema nervioso e infra core de SEAL
+  - /home/dadito/IA/proyecto-seal/memory/seal_nerves.py
+  - /home/dadito/IA/proyecto-seal/memory/config.py
+
+  # Servicios systemd del proyecto (orquestación)
+  - /home/dadito/.config/systemd/user/seal-*.service
+  - /home/dadito/.config/systemd/user/seal-*.timer
+
+  # Hooks propios — meta-protección (no corromper a quien protege)
+  - /home/dadito/IA/proyecto-seal/memory/hooks/*.py
+  - /home/dadito/IA/proyecto-seal/memory/hooks/*.sh
+  - /home/dadito/IA/proyecto-seal/memory/critical_paths.yaml
+
+  # DELEGATE-52 validators (ADA, 27-abr-2026)
+  - /home/dadito/IA/proyecto-seal/memory/roundtrip_validator.py
+  - /home/dadito/IA/proyecto-seal/memory/migration_validator.py
+  - /home/dadito/IA/proyecto-seal/memory/active_recall_hook.py
+
+  # Soul API — núcleo del sistema
+  - /home/dadito/IA/seal-soul-v3/soul_api/server.py
+
+  # Launchers — resurrect depende de estos
+  - /home/dadito/IA/seal-soul-v3/agents/JARVIS/launcher.sh
+  - /home/dadito/IA/seal-soul-v3/agents/ADA/launcher.sh
+  - /home/dadito/IA/seal-soul-v3/agents/ALICE/launcher.sh
+
+# Excepciones — paths que aunque matcheen patrones de arriba NO disparan checkpoint
+# (logs, caches, archivos volátiles)
+exclude:
+  - "**/*.log"
+  - "**/__pycache__/**"
+  - "**/.pytest_cache/**"
+  - "**/*.pyc"

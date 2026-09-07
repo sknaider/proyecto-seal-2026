@@ -1,0 +1,25 @@
+# CapyTown — Rangos HSV. RECALIBRAR con:
+#   python3 lane_detector.py --calibrar --source 0
+# y pegar aquí el bloque que imprime el calibrador (valores del día del lab).
+lane_detector:
+  ros__parameters:
+    # Blanco — borde derecho del carril (S baja, V alta)
+    white_h_min: 0
+    white_h_max: 180
+    white_s_min: 0
+    white_s_max: 30
+    white_v_min: 180
+    white_v_max: 255
+    # Amarillo — eje central discontinuo (H 20-35, S/V altas)
+    yellow_h_min: 20
+    yellow_h_max: 35
+    yellow_s_min: 100
+    yellow_s_max: 255
+    yellow_v_min: 100
+    yellow_v_max: 255
+    # Geometría / IPM
+    min_area: 150
+    lane_width_m: 0.21
+    px_per_meter: 600.0
+    look_ahead_row: 0.6
+    publish_debug: true

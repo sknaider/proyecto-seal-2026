@@ -1,0 +1,275 @@
+{
+  "schema": "seal.nerves.contract.v3",
+  "version": "3.1.0",
+  "updated_at": "2026-07-22",
+  "owner": "ADA",
+  "canonical_spec": "docs/SPEC_NERVES_ARCHITECTURE_v3_ADA.md",
+  "shared_runtime": {
+    "source": "memory/seal_nerves.py",
+    "agents": [
+      "ADA",
+      "ALICE",
+      "DUM",
+      "JARVIS",
+      "NEXUS"
+    ],
+    "live_tanks": [
+      "alert_drive",
+      "context_pressure",
+      "curiosity",
+      "social_drive",
+      "task_drive"
+    ],
+    "historical_tanks": [
+      "boredom",
+      "energy_drive",
+      "learning_drive",
+      "vigilance"
+    ],
+    "mode": "reflex_allowlist",
+    "useful_actions_required": true,
+    "single_flight_required": true,
+    "reset_after_effect_required": true,
+    "rls_identity_required": true,
+    "services": {
+      "ADA": {
+        "service": "seal-ada-nerves.service",
+        "timer": "seal-ada-nerves.timer"
+      },
+      "ALICE": {
+        "service": "seal-alice-nerves.service",
+        "timer": "seal-alice-nerves.timer"
+      },
+      "DUM": {
+        "service": "seal-dum-nerves.service",
+        "timer": "seal-dum-nerves.timer"
+      },
+      "JARVIS": {
+        "service": "seal-nerves-daemon.service",
+        "timer": "seal-nerves-daemon.timer"
+      },
+      "NEXUS": {
+        "service": "seal-nexus-nerves.service",
+        "timer": "seal-nexus-nerves.timer"
+      }
+    },
+    "maintenance": {
+      "ADA": {
+        "module": "memory/nerves_maintenance_ada.py",
+        "callable": "engineering_pulse",
+        "artifact": "research/flywire_results/nerves_ada_maintenance.jsonl"
+      },
+      "ALICE": {
+        "module": "memory/nerves_maintenance_alice.py",
+        "callable": "delivery_pulse",
+        "artifact": "agents/ALICE/orion/orion_nerve_status.log",
+        "artifact_producer": "agents/ALICE/orion/orion_nerve.py",
+        "artifact_scheduler": "alice-orion-nerve.timer",
+        "central_mode": "verify_artifact_only"
+      },
+      "DUM": {
+        "module": "memory/nerves_maintenance_dum.py",
+        "callable": "infrastructure_pulse",
+        "artifact": "research/flywire_results/nerves_dum_maintenance.jsonl"
+      },
+      "JARVIS": {
+        "module": "memory/nerves_maintenance_jarvis.py",
+        "callable": "integrity_pulse",
+        "artifact": "research/flywire_results/nerves_jarvis_maintenance.jsonl",
+        "action_source": "tools/jarvis_nerves_watch.py",
+        "retired_scheduler": "jarvis-nerves-watch.timer"
+      },
+      "NEXUS": {
+        "module": "memory/nerves_maintenance_nexus.py",
+        "callable": "security_pulse",
+        "artifact": "research/flywire_results/nerves_nexus_maintenance.jsonl",
+        "action_source": "tools/nexus_nerves_watch.py",
+        "retired_scheduler": "nexus-nerves-watch.timer",
+        "mutation_policy": "read_only_observe_diagnose_alert"
+      }
+    },
+    "action_ledger": "research/flywire_results/nerves_action_ledger.jsonl",
+    "action_ledger_states": [
+      "claimed",
+      "effect_verified",
+      "reset_committed",
+      "failed_retryable"
+    ],
+    "trigger_source_required": true,
+    "atomic_stimulus_required": true,
+    "sensor_failure_mode": "fail_closed",
+    "max_useful_actions_per_tick": 1,
+    "e2e_stimulus_path": "MotivationEngine.stimulate",
+    "drive_lifecycle": {
+      "curiosity": {
+        "sensor": "live",
+        "handler": "live",
+        "executor": "reflex_live"
+      },
+      "social_drive": {
+        "sensor": "live",
+        "handler": "live",
+        "executor": "reflex_live_when_useful"
+      },
+      "task_drive": {
+        "sensor": "live",
+        "handler": "live",
+        "executor": "proposal_only"
+      },
+      "alert_drive": {
+        "sensor": "live",
+        "handler": "live",
+        "executor": "reflex_live"
+      },
+      "context_pressure": {
+        "sensor": "external_signal_pending",
+        "handler": "live",
+        "executor": "reflex_live"
+      }
+    },
+    "systemd_hardening_required": [
+      "explicit_agent_identity",
+      "NoNewPrivileges",
+      "UMask_0077"
+    ]
+  },
+  "fable_sidecar": {
+    "source": "fable/fable_nerves.py",
+    "service": "fable-nerves.service",
+    "timer": "fable-nerves.timer",
+    "drives": [
+      "care_drive",
+      "curiosity_drive",
+      "rigor_drive",
+      "teach_drive"
+    ],
+    "live_targets": [
+      "verificar_por_efecto"
+    ],
+    "mode": "mixed_one_live_three_observe",
+    "artifact": "research/flywire_results/nerves_fable_maintenance.json",
+    "rigor_ledger": "research/flywire_results/nerves_fable/rigor_claim_audit_v2.jsonl",
+    "worker_service": "seal-fable-nerves-worker.service",
+    "worker_timer": "seal-fable-nerves-worker.timer",
+    "worker_state": "research/flywire_results/nerves_orchestrator_inbox/FABLE.state.json",
+    "single_flight_required": true,
+    "cooldown_required": true
+  },
+  "database": {
+    "state_table": "soul_v3.motivation_states",
+    "metrics_table": "soul_v3.nerves_metrics_log",
+    "runtime_roles": {
+      "ADA": "svc_soul_nerves_ada",
+      "ALICE": "svc_soul_nerves_alice",
+      "DUM": "svc_soul_nerves_dum",
+      "JARVIS": "svc_soul_nerves_jarvis",
+      "NEXUS": "svc_soul_nerves_nexus"
+    },
+    "retired_shared_role": "svc_soul_nerves",
+    "identity_function": "soul_v3.nerves_session_agent()",
+    "hard_identity_tables": [
+      "motivation_states",
+      "working_state",
+      "reflective_diagnoses",
+      "inner_monologue",
+      "memories",
+      "agent_tasks",
+      "gam_event_graph",
+      "gam_topics",
+      "nerves_metrics_log"
+    ],
+    "required_policies": [
+      "nerves_agent_isolation_insert",
+      "nerves_agent_isolation_select",
+      "nerves_agent_isolation_update",
+      "nerves_hard_session_identity"
+    ]
+  },
+  "executive_layer": {
+    "status": "shadow",
+    "governor": "scripts/seal_proactivity_governor.py",
+    "router": "memory/executive_event_router.py",
+    "gates_enforced": false,
+    "nerves_fire_wakes_llm": false,
+    "required_filter_files": [
+      "messages/ada_codex_remote_bridge.py",
+      "messages/ada_monitor.py",
+      "messages/seal_monitor_filter.py",
+      "memory/executive_event_router.py",
+      "memory/jarvis_local_agent.py"
+    ],
+    "required_before_live": [
+      "durable_action_ledger",
+      "per_agent_lease",
+      "idempotency_key",
+      "attention_gate",
+      "budget_gate",
+      "safety_gate",
+      "egress_gate",
+      "tool_scope",
+      "result_evidence",
+      "dead_letter_recovery",
+      "independent_soak"
+    ]
+  },
+  "evidence": {
+    "contract_report": "research/flywire_results/nerves_contract_verification.json",
+    "shared_e2e_report": "research/flywire_results/nerves_e2e_canary.json",
+    "shared_activation_report": "research/flywire_results/nerves_activation_canary.json",
+    "fable_report": "research/flywire_results/nerves_fable_maintenance.json",
+    "full_gate_report": "research/flywire_results/nerves_full_gate.json"
+  },
+  "architecture_model": {
+    "scope": "NERVES is the motivation/reflex subsystem inside the wider SOUL nervous-system architecture",
+    "closed_loop": [
+      "sensor_event",
+      "lif_state",
+      "decision_gate",
+      "action_claim",
+      "effect_verified",
+      "state_committed"
+    ],
+    "invariants": [
+      "causal_provenance_required",
+      "full_pipeline_single_flight",
+      "sensor_fail_closed",
+      "atomic_stimulus_update",
+      "reset_after_effect",
+      "least_authority",
+      "no_theatrical_fire",
+      "no_synthetic_signal"
+    ],
+    "autonomy_levels": {
+      "L0_OBSERVE": "live",
+      "L1_REFLEX": "live",
+      "L2_BOUNDED_JOB": "per_target_pilot",
+      "L3_AGENT_WAKE": "shadow",
+      "L4_OPEN_EXECUTIVE": "prohibited"
+    }
+  },
+  "acceptance": {
+    "minimum_unique_behavioral_scenarios": 1000,
+    "required_e2e_agents": [
+      "ADA",
+      "ALICE",
+      "DUM",
+      "JARVIS",
+      "NEXUS",
+      "FABLE"
+    ],
+    "required_e2e_ledger_states": [
+      "claimed",
+      "effect_verified",
+      "reset_committed"
+    ],
+    "adversarial_fail_closed": [
+      "sensor_failure",
+      "action_failure",
+      "metric_failure",
+      "duplicate_tick",
+      "wrong_identity"
+    ],
+    "full_gate": "tools/verify_nerves_all_stages.py",
+    "contract_gate": "tools/verify_nerves_spec_contract.py"
+  }
+}

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Modelos · SEAL</title>
+<style>
+  /* ── Estilo Studio (ALICE) — dark, limpio, self-contained ── */
+  :root{
+    --bg:#0b1120; --panel:#111a2e; --panel2:#0f1728; --border:#1e293b;
+    --text:#e2e8f0; --muted:#94a3b8; --pink:#ec4899; --sky:#38bdf8;
+    --green:#34d399; --amber:#f59e0b; --red:#f43f5e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  .wrap{max-width:720px;margin:0 auto;padding:20px 16px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px}
+  h1{font-size:18px;margin:0;display:flex;align-items:center;gap:8px}
+  h1 .dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+  .sub{color:var(--muted);font-size:12px}
+  .toolbar{display:flex;align-items:center;gap:10px}
+  .toolbar button{background:var(--panel);border:1px solid var(--border);color:var(--text);
+    padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+  .toolbar button:hover{border-color:var(--sky)}
+  .auto{color:var(--muted);font-size:12px;display:flex;align-items:center;gap:6px}
+  .auto input{accent-color:var(--pink)}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  .row{display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--border)}
+  .row:first-child{border-top:none}
+  .row:hover{background:var(--panel2)}
+  .m-name{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .m-mem{color:var(--sky);font-variant-numeric:tabular-nums;font-size:13px;min-width:74px;text-align:right}
+  .m-until{color:var(--muted);font-size:11px;min-width:96px;text-align:right}
+  .btn-stop{background:transparent;border:1px solid var(--red);color:var(--red);
+    padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s}
+  .btn-stop:hover{background:var(--red);color:#fff}
+  .btn-stop:disabled{opacity:.5;cursor:default}
+  .empty{padding:34px 16px;text-align:center;color:var(--muted)}
+  .empty .big{font-size:15px;color:var(--text);margin-bottom:4px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+    background:var(--panel);border:1px solid var(--border);padding:10px 16px;border-radius:10px;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .toast.ok{border-color:var(--green)} .toast.err{border-color:var(--red)}
+  .err-banner{background:#3f1d2e;border:1px solid var(--red);color:#fecaca;
+    padding:10px 14px;border-radius:10px;margin-bottom:12px;font-size:13px;display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="dot"></span> Modelos cargados</h1>
+      <div class="sub">Elegí y apagá el modelo que dejes de usar — libera VRAM/RAM al instante.</div>
+    </div>
+    <div class="toolbar">
+      <label class="auto"><input id="autoref" type="checkbox" checked /> auto</label>
+      <button id="refresh" title="Refrescar">↻ Refrescar</button>
+    </div>
+  </header>
+
+  <div id="errBanner" class="err-banner"></div>
+  <div id="list" class="card"><div class="empty">Cargando…</div></div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   CONTRATO CON EL BACKEND (JARVIS) — AJUSTAR ACÁ cuando llegue el definitivo
+   ────────────────────────────────────────────────────────────────────
+   Endpoint REAL de JARVIS (verificado por efecto 15-jul, puerto 8811):
+   GET  :8811/models → { models:[ { name, size_bytes, size_gb, expires_at, quant, params } ] }
+   POST :8811/stop   → body {"model":"<name>"} → { ok:true }   (~ollama stop)
+   ══════════════════════════════════════════════════════════════════════ */
+const API_BASE = `http://${location.hostname || "localhost"}:8811`;
+const REFRESH_MS = 4000;
+
+const $ = (id) => document.getElementById(id);
+const fmtMem = (m) => {
+  if (m.size_gb != null) return m.size_gb.toFixed(2) + " GB";
+  const b = m.size_bytes; if (b == null) return "—";
+  const g = b/1073741824; return g >= 1 ? g.toFixed(1)+" GB" : (b/1048576).toFixed(0)+" MB";
+};
+const fmtUntil = (m) => {
+  if (!m.expires_at) return "";
+  try { const d = new Date(m.expires_at);
+    return "hasta " + d.toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"}); }
+  catch { return ""; }
+};
+
+function toast(msg, kind){
+  const t = $("toast"); t.textContent = msg; t.className = "toast show " + (kind||"");
+  setTimeout(()=>{ t.className = "toast"; }, 2200);
+}
+function banner(msg){
+  const b = $("errBanner");
+  if(!msg){ b.style.display="none"; return; }
+  b.textContent = msg; b.style.display="block";
+}
+
+async function fetchModels(){                 // ← ajustar al contrato final si difiere
+  const r = await fetch(`${API_BASE}/models`, {cache:"no-store"});
+  if(!r.ok) throw new Error(`GET /models HTTP ${r.status}`);
+  const d = await r.json();
+  return d.models || d || [];
+}
+async function stopModel(name){               // ← ajustar al contrato final si difiere
+  const r = await fetch(`${API_BASE}/stop`, {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ model: name })
+  });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok || d.ok === false) throw new Error(d.error || `POST /stop HTTP ${r.status}`);
+}
+
+function render(models){
+  const list = $("list");
+  if(!models.length){
+    list.innerHTML = `<div class="empty"><div class="big">No hay modelos cargados 🌙</div>
+      Ninguno consume memoria ahora. Al usar uno aparece acá para poder apagarlo.</div>`;
+    return;
+  }
+  list.innerHTML = "";
+  for(const m of models){
+    const row = document.createElement("div");
+    row.className = "row";
+    const meta = [m.params, m.quant].filter(Boolean).join(" · ");
+    row.innerHTML = `
+      <span class="m-name" title="${m.name}">${m.name}${meta ? ` <span style="color:var(--muted);font-weight:400;font-size:11px">${meta}</span>`:""}</span>
+      <span class="m-mem">${fmtMem(m)}</span>
+      <span class="m-until">${fmtUntil(m)}</span>
+      <button class="btn-stop">Apagar</button>`;
+    const btn = row.querySelector(".btn-stop");
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = "Apagando…";
+      try{
+        await stopModel(m.name);
+        toast(`"${m.name}" apagado ✓`, "ok");
+        await load();
+      }catch(e){
+        toast(`No se pudo apagar: ${e.message}`, "err");
+        btn.disabled = false; btn.textContent = "Apagar";
+      }
+    };
+    list.appendChild(row);
+  }
+}
+
+let timer = null;
+async function load(){
+  try{
+    const models = await fetchModels();
+    banner("");
+    render(models);
+  }catch(e){
+    banner(`No pude leer los modelos (${e.message}). ¿El endpoint de JARVIS está arriba en ${API_BASE}?`);
+  }
+}
+function scheduleAuto(){
+  if(timer){ clearInterval(timer); timer=null; }
+  if($("autoref").checked) timer = setInterval(load, REFRESH_MS);
+}
+
+$("refresh").onclick = load;
+$("autoref").onchange = scheduleAuto;
+load(); scheduleAuto();
+</script>
+</body>
+</html>

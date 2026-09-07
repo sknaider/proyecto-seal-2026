@@ -1,0 +1,11 @@
+[Unit]
+Description=FABLE JUEZ — chequeo horario de manifiestos pendientes de su firma
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=120
+Persistent=true
+Unit=fable-juez-convocatoria.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,68 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "pytest explicit adversarial mutants",
+  "workspace": "SOUL Tray 0.2.5 byte-bound mutants: principal SID inversion, singleton fail-open, brain rollback disabled, and shutdown timeout not tolerated",
+  "killed": 4,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
+  "mutation_score_percent": 100.0,
+  "reviewer": "NEXUS+PLATFORM_RUNTIME_AUDIT",
+  "mutants": [
+    {
+      "id": "principal_sid_inversion",
+      "killed_by": "test_windows_tray_autostart_uses_limited_current_user_task_and_stdin"
+    },
+    {
+      "id": "singleton_fail_open",
+      "killed_by": "test_tray_instance_lock_rejects_duplicate_until_owner_exits"
+    },
+    {
+      "id": "brain_rollback_disabled",
+      "killed_by": "test_start_rolls_back_brain_when_activation_fails"
+    },
+    {
+      "id": "shutdown_timeout_not_tolerated",
+      "killed_by": "test_shutdown_timeout_defers_to_port_stop_verification"
+    }
+  ],
+  "file_sha256": {
+    "soul-platform/README.md": "0ba8477025ac255122fbb060930f5bdb6849062df38e6fffe519ac9e3c7a5675",
+    "soul-platform/demos/comparar_soul.py": "5a3d25e163553c1da7ad7e748fb6394498d4d0e26b4abdf6a7597e6a8a21a444",
+    "soul-platform/desktop/soul_tray.py": "d90b113089151ed4b05607164c44dacf08b395fd13e0ea30c2acd27ebf72b389",
+    "soul-platform/installer/Instalar-SOUL-Windows.bat": "52471017db9ad95ffec21bc262193c853ab75df303869e5efd706a3be20c784c",
+    "soul-platform/installer/Install-Soul.ps1": "28662f577fa8365cf11e3f8c856b54852c0df3d1b4f8023153a8a1f6c8049445",
+    "soul-platform/installer/LEEME-WINDOWS.txt": "a1da23c0e74b7e0b22ec5b87443e1950f5fb37c84e8a0e7fa2025e14d18c7c6d",
+    "soul-platform/installer/soul-install.sh": "e1e7f50ad960195c0eebfd59b996df26ab6edfe82a50773cd1362ba18919b3c6",
+    "soul-platform/src/soul_platform/__init__.py": "7872c61a292f0ac12b68806470e63ff3cd0313373fd649694d8de8eb78ec7adc",
+    "soul-platform/src/soul_platform/agency.py": "b96f0fc5e1c68e7340f974749c19dfc7ab491aa83a53c87f372fc3cdcbb2b76a",
+    "soul-platform/src/soul_platform/api.py": "a13a2d71887a07214ea38f3f33854fce3716cff9d625dd596037432e43fcca90",
+    "soul-platform/src/soul_platform/auth.py": "f89cf20e11e7666d34381ae87a5a8551e7e62bfecd78018dd470cf4171a55b9f",
+    "soul-platform/src/soul_platform/autonomy.py": "0524a5d76d62d909602bbe7971f5ded6c32c0fa511d4f4c17bcf5f5b99396a68",
+    "soul-platform/src/soul_platform/autostart.py": "91177dd426179af52b4af1ed297a8ef8533ca24b7981d2bb162b213f59b93163",
+    "soul-platform/src/soul_platform/bootstrap.py": "97bb9fde6a14086c9c19a35f52ac6861a72914453a6104f4f9170435757c2d11",
+    "soul-platform/src/soul_platform/cli.py": "d33d4cf92e488217bdcfd9add7143de7759e2ff93a4150aa287559e2fa90ef1e",
+    "soul-platform/src/soul_platform/coordination.py": "08440b99fb39a6d2815117d7ff735efef0606cf549bcdf4dc829b072ee17daf0",
+    "soul-platform/src/soul_platform/proxy.py": "8b1b1de4951d218bab584092c8564d24305ceff82aedd86b5293513acefda6b3",
+    "soul-platform/src/soul_platform/receipts.py": "18cddfe78d9581eca21464bae7199e82dc988c8a2296eb887c835b266e0dcf58",
+    "soul-platform/src/soul_platform/runtime.py": "46de614050a48c48bb4910fe0dd68db09b2ba4d2774cd1141194fb9e9003032d",
+    "soul-platform/src/soul_platform/sandbox.py": "cbd144c9981a3f0fb562553e1d9f5fb5c629fd2d182eaa5b18b2388f4fbd36fe",
+    "soul-platform/src/soul_platform/tray.py": "3d76cab037952a2f450fc9fad21313ef69ea182c2d026c2c231a6e87975f1a2f",
+    "soul-platform/tests/conftest.py": "d8963217e14cb5b8d12b49683b8d44d369dad3707878bfad0a05bd8aa0f04071",
+    "soul-platform/tests/test_agency_v1.py": "03b552dfd5bab1a38c5e019fdf383f88a972153bd87ed6b58348d720405a3ce1",
+    "soul-platform/tests/test_api_v1.py": "90d0ec6afa0150654ac8cd818ad7a67658bdd8f75f68b89e0546cfea19f44a69",
+    "soul-platform/tests/test_autonomy_v1.py": "358587b2420bf1f4031b525c1a43e76516ca7c40158405db3ca95017c9a802d3",
+    "soul-platform/tests/test_autostart_v1.py": "e16751313ff3c06879c7e5d92a86486ca9a54ad5dd52e5a3e661e27d0db2821f",
+    "soul-platform/tests/test_bootstrap_v1.py": "9828a30ecd5efcce2a4ffdf043587425f8bcb236a7ea62de91b89088c803eb15",
+    "soul-platform/tests/test_coordination_v1.py": "4a63b05fa79b99c366a5522fa0916e275fec066bbdcd1d62cb8347d5633fb075",
+    "soul-platform/tests/test_installer_machine_v1.py": "44df5983560d9d2170a33386117d71622a5ba349c4a6e9dcfe7f2c0471692246",
+    "soul-platform/tests/test_proxy_v1.py": "3ce6725b4cebc5be6de8cb5db2f4e315dfd43bdbe64cbfda55b7143025562b49",
+    "soul-platform/tests/test_release_hygiene_v1.py": "8b8a8e989f5739d08616a8405d00fa0bf21803928c532fd384f5301f29e5035d",
+    "soul-platform/tests/test_runtime_v1.py": "3040e64a130a059464371b49d6ed1ac745f9abefc237760c2fbfbea3ec525979",
+    "soul-platform/tests/test_sandbox_v1.py": "c9d3fe675ea4a708506b936e2731d63a98f0e15061f81a8ac1fc18a1e97a7cb9",
+    "soul-platform/tests/test_tray_v1.py": "5f92c84111604a3c2a5bbca28bad5463ceaac774eebc3b527536c1ce21daa5fa"
+  }
+}

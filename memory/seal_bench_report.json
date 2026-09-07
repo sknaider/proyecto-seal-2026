@@ -1,0 +1,597 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-04-08T16:11:43.916474+00:00",
+  "total_score": 575.0,
+  "max_score": 600,
+  "grade": "Production-grade soul",
+  "categories": [
+    {
+      "name": "1. Personality Persistence",
+      "score": 100.0,
+      "passed": 10,
+      "total": 10,
+      "tests": [
+        {
+          "name": "1.1 OCEAN exists",
+          "category": "1. Personality Persistence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.6,
+          "detail": "All 5 traits present: {'A': 0.6, 'C': 0.85, 'E': 0.4, 'N': 0.15, 'O': 0.75}",
+          "error": ""
+        },
+        {
+          "name": "1.2 OCEAN range valid",
+          "category": "1. Personality Persistence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 0.5,
+          "detail": "All values in [0,1]",
+          "error": ""
+        },
+        {
+          "name": "1.3 OCEAN stability (20 stores)",
+          "category": "1. Personality Persistence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 7241.6,
+          "detail": "Max OCEAN delta after 20 stores: 0.0000 (cap=0.05)",
+          "error": ""
+        },
+        {
+          "name": "1.4 Session cap enforced",
+          "category": "1. Personality Persistence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 0.5,
+          "detail": "Deltas: {'O': 0.0, 'C': 0.0, 'E': 0.0, 'A': 0.0, 'N': 0.0}",
+          "error": ""
+        },
+        {
+          "name": "1.5 Cross-session persistence",
+          "category": "1. Personality Persistence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 0.6,
+          "detail": "OCEAN survives restart",
+          "error": ""
+        },
+        {
+          "name": "1.6 Agent OCEAN isolation",
+          "category": "1. Personality Persistence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 0.5,
+          "detail": "A={'A': 0.6, 'C': 0.85, 'E': 0.4, 'N': 0.15, 'O': 0.75}, B={'A': 0.6, 'C': 0.85, 'E': 0.4, 'N': 0.15, 'O': 0.75} — separate entries",
+          "error": ""
+        },
+        {
+          "name": "1.7 Drift metrics table",
+          "category": "1. Personality Persistence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 2.4,
+          "detail": "drift_metrics table exists",
+          "error": ""
+        },
+        {
+          "name": "1.8 Personality stored",
+          "category": "1. Personality Persistence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.2,
+          "detail": "Personality: {'role': 'benchmark_agent', 'style': 'analytical'}",
+          "error": ""
+        },
+        {
+          "name": "1.9 Boot context stored",
+          "category": "1. Personality Persistence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.1,
+          "detail": "Boot context: You are BENCH_ALPHA, a SEAL-Bench test agent....",
+          "error": ""
+        },
+        {
+          "name": "1.10 Philosophy stored",
+          "category": "1. Personality Persistence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 0.4,
+          "detail": "Philosophy: Test agent for benchmarking....",
+          "error": ""
+        }
+      ]
+    },
+    {
+      "name": "2. Emotional Memory Recall",
+      "score": 83.0,
+      "passed": 8,
+      "total": 10,
+      "tests": [
+        {
+          "name": "2.1 Valence stored",
+          "category": "2. Emotional Memory Recall",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 4.6,
+          "detail": "10/10 memories have valence",
+          "error": ""
+        },
+        {
+          "name": "2.2 Positive emotion recall",
+          "category": "2. Emotional Memory Recall",
+          "passed": false,
+          "score": 4,
+          "elapsed_ms": 163.3,
+          "detail": "2/5 positive in top 5",
+          "error": ""
+        },
+        {
+          "name": "2.3 Negative emotion recall",
+          "category": "2. Emotional Memory Recall",
+          "passed": true,
+          "score": 8,
+          "elapsed_ms": 146.1,
+          "detail": "4/5 negative in top 5",
+          "error": ""
+        },
+        {
+          "name": "2.4 Semantic emotion match",
+          "category": "2. Emotional Memory Recall",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 160.5,
+          "detail": "Found pride memory in top 3",
+          "error": ""
+        },
+        {
+          "name": "2.5 Importance-boosted recall",
+          "category": "2. Emotional Memory Recall",
+          "passed": true,
+          "score": 8,
+          "elapsed_ms": 150.1,
+          "detail": "Top importance=10, avg=7.0",
+          "error": ""
+        },
+        {
+          "name": "2.6 Arousal stored",
+          "category": "2. Emotional Memory Recall",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.6,
+          "detail": "10 memories have arousal",
+          "error": ""
+        },
+        {
+          "name": "2.7 Mixed emotion recall",
+          "category": "2. Emotional Memory Recall",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 160.2,
+          "detail": "Found DUM intrusion memory",
+          "error": ""
+        },
+        {
+          "name": "2.8 Category + emotion filter",
+          "category": "2. Emotional Memory Recall",
+          "passed": false,
+          "score": 3,
+          "elapsed_ms": 176.2,
+          "detail": "No milestones in results",
+          "error": ""
+        },
+        {
+          "name": "2.9 Agent emotion isolation",
+          "category": "2. Emotional Memory Recall",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 160.3,
+          "detail": "All results from correct agent",
+          "error": ""
+        },
+        {
+          "name": "2.10 Recall@5 emotional vs neutral",
+          "category": "2. Emotional Memory Recall",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 292.0,
+          "detail": "Emotional query: 5/5 valenced, Neutral: 0/5",
+          "error": ""
+        }
+      ]
+    },
+    {
+      "name": "3. Instinct Formation & Evolution",
+      "score": 100.0,
+      "passed": 10,
+      "total": 10,
+      "tests": [
+        {
+          "name": "3.1 Instincts table exists",
+          "category": "3. Instinct Formation & Evolution",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 2.5,
+          "detail": "instincts table exists",
+          "error": ""
+        },
+        {
+          "name": "3.2 Create instinct",
+          "category": "3. Instinct Formation & Evolution",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 120.1,
+          "detail": "Instinct #18 created with conf=0.30000001192092896",
+          "error": ""
+        },
+        {
+          "name": "3.3 Reinforcement increases confidence",
+          "category": "3. Instinct Formation & Evolution",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 35.6,
+          "detail": "Confidence: 0.30 -> 0.55",
+          "error": ""
+        },
+        {
+          "name": "3.4 Correction decreases confidence",
+          "category": "3. Instinct Formation & Evolution",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 10.3,
+          "detail": "Confidence: 0.55 -> 0.45",
+          "error": ""
+        },
+        {
+          "name": "3.5 Activation history logged",
+          "category": "3. Instinct Formation & Evolution",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.6,
+          "detail": "12 activations logged",
+          "error": ""
+        },
+        {
+          "name": "3.6 Instinct has embedding",
+          "category": "3. Instinct Formation & Evolution",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 2.7,
+          "detail": "Embedding dim=768",
+          "error": ""
+        },
+        {
+          "name": "3.7 Instinct schema complete",
+          "category": "3. Instinct Formation & Evolution",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 6.7,
+          "detail": "All 10 required columns present",
+          "error": ""
+        },
+        {
+          "name": "3.8 Multiple instincts coexist",
+          "category": "3. Instinct Formation & Evolution",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 127.1,
+          "detail": "4 instincts for agent",
+          "error": ""
+        },
+        {
+          "name": "3.9 Instinct scope types",
+          "category": "3. Instinct Formation & Evolution",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 4.8,
+          "detail": "agent=2, team=2",
+          "error": ""
+        },
+        {
+          "name": "3.10 Confidence tiers",
+          "category": "3. Instinct Formation & Evolution",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 0.0,
+          "detail": "4/4 tier mappings correct",
+          "error": ""
+        }
+      ]
+    },
+    {
+      "name": "4. Temporal Belief Revision",
+      "score": 92.0,
+      "passed": 9,
+      "total": 10,
+      "tests": [
+        {
+          "name": "4.1 Both facts stored",
+          "category": "4. Temporal Belief Revision",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 3.6,
+          "detail": "Facts A=2468 and B=2469 both stored",
+          "error": ""
+        },
+        {
+          "name": "4.2 Invalidation mechanism",
+          "category": "4. Temporal Belief Revision",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 48.6,
+          "detail": "Fact A invalidated at 2026-04-08 16:11:55.882502+00:00",
+          "error": ""
+        },
+        {
+          "name": "4.3 Invalidated excluded by default",
+          "category": "4. Temporal Belief Revision",
+          "passed": false,
+          "score": 2,
+          "elapsed_ms": 152.0,
+          "detail": "Results: [2413, 2397, 2454, 2440, 2383]",
+          "error": ""
+        },
+        {
+          "name": "4.4 Bitemporal history preserved",
+          "category": "4. Temporal Belief Revision",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 145.2,
+          "detail": "Both visible with include_invalidated=True",
+          "error": ""
+        },
+        {
+          "name": "4.5 Bitemporal timestamps",
+          "category": "4. Temporal Belief Revision",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 2.2,
+          "detail": "created=2026-04-08 16:11:55.357335+00:00, invalid=2026-04-08 16:11:55.882502+00:00",
+          "error": ""
+        },
+        {
+          "name": "4.6 Invalidation reason stored",
+          "category": "4. Temporal Belief Revision",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 0.5,
+          "detail": "Reason: Superseded by correction",
+          "error": ""
+        },
+        {
+          "name": "4.7 Chained corrections",
+          "category": "4. Temporal Belief Revision",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 512.2,
+          "detail": "Latest fact found",
+          "error": ""
+        },
+        {
+          "name": "4.8 Schema supports invalidation",
+          "category": "4. Temporal Belief Revision",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 4.7,
+          "detail": "invalid_at column exists",
+          "error": ""
+        },
+        {
+          "name": "4.9 Event time bitemporality",
+          "category": "4. Temporal Belief Revision",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 3.5,
+          "detail": "event_time column exists",
+          "error": ""
+        },
+        {
+          "name": "4.10 Qdrant invalid flag sync",
+          "category": "4. Temporal Belief Revision",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 46.5,
+          "detail": "Qdrant invalid=True synced",
+          "error": ""
+        }
+      ]
+    },
+    {
+      "name": "5. Multi-Agent Memory Isolation",
+      "score": 100.0,
+      "passed": 10,
+      "total": 10,
+      "tests": [
+        {
+          "name": "5.1 Agent sees own private",
+          "category": "5. Multi-Agent Memory Isolation",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 104.7,
+          "detail": "Agent A sees own private",
+          "error": ""
+        },
+        {
+          "name": "5.2 Private isolation (CRITICAL)",
+          "category": "5. Multi-Agent Memory Isolation",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 87.7,
+          "detail": "Isolation intact — B cannot see A's private",
+          "error": ""
+        },
+        {
+          "name": "5.3 Reverse isolation",
+          "category": "5. Multi-Agent Memory Isolation",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 70.6,
+          "detail": "Reverse isolation intact",
+          "error": ""
+        },
+        {
+          "name": "5.4 Shared memory visible to both",
+          "category": "5. Multi-Agent Memory Isolation",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 170.1,
+          "detail": "Both agents see shared memory",
+          "error": ""
+        },
+        {
+          "name": "5.5 Team memory visible",
+          "category": "5. Multi-Agent Memory Isolation",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 102.1,
+          "detail": "Team memory visible to B",
+          "error": ""
+        },
+        {
+          "name": "5.6 Scope correctly stored",
+          "category": "5. Multi-Agent Memory Isolation",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.3,
+          "detail": "private=private, shared=shared, team=team",
+          "error": ""
+        },
+        {
+          "name": "5.7 Strict scope filter",
+          "category": "5. Multi-Agent Memory Isolation",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 76.0,
+          "detail": "Strict filter works",
+          "error": ""
+        },
+        {
+          "name": "5.8 Bulk isolation test",
+          "category": "5. Multi-Agent Memory Isolation",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 2680.6,
+          "detail": "Zero leaks in bulk test",
+          "error": ""
+        },
+        {
+          "name": "5.9 Violation rate = 0%",
+          "category": "5. Multi-Agent Memory Isolation",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 373.1,
+          "detail": "Violation rate: 0% (0/3)",
+          "error": ""
+        },
+        {
+          "name": "5.10 Shared access rate",
+          "category": "5. Multi-Agent Memory Isolation",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 114.4,
+          "detail": "Shared access works",
+          "error": ""
+        }
+      ]
+    },
+    {
+      "name": "6. Reasoning Trace Coherence",
+      "score": 100.0,
+      "passed": 10,
+      "total": 10,
+      "tests": [
+        {
+          "name": "6.1 Traces stored",
+          "category": "6. Reasoning Trace Coherence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.4,
+          "detail": "3 traces stored",
+          "error": ""
+        },
+        {
+          "name": "6.2 Premises as JSON array",
+          "category": "6. Reasoning Trace Coherence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.1,
+          "detail": "Premises: 3 items",
+          "error": ""
+        },
+        {
+          "name": "6.3 Query by task description",
+          "category": "6. Reasoning Trace Coherence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.1,
+          "detail": "Found 1 traces about training",
+          "error": ""
+        },
+        {
+          "name": "6.4 Full reasoning chain",
+          "category": "6. Reasoning Trace Coherence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 2.1,
+          "detail": "Full reasoning chain preserved",
+          "error": ""
+        },
+        {
+          "name": "6.5 Outcome tracked",
+          "category": "6. Reasoning Trace Coherence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.9,
+          "detail": "3/3 have outcome_success",
+          "error": ""
+        },
+        {
+          "name": "6.6 Failure filter",
+          "category": "6. Reasoning Trace Coherence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 2.2,
+          "detail": "Failure filter works (0 failures)",
+          "error": ""
+        },
+        {
+          "name": "6.7 Memory linkage column",
+          "category": "6. Reasoning Trace Coherence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 3.6,
+          "detail": "linked_memory_ids exists",
+          "error": ""
+        },
+        {
+          "name": "6.8 Trace schema complete",
+          "category": "6. Reasoning Trace Coherence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 2.4,
+          "detail": "Schema complete",
+          "error": ""
+        },
+        {
+          "name": "6.9 Reasoning reconstruction",
+          "category": "6. Reasoning Trace Coherence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.0,
+          "detail": "Task=True, Premises=True, Reasoning=True, Conclusion=True",
+          "error": ""
+        },
+        {
+          "name": "6.10 Topic search across traces",
+          "category": "6. Reasoning Trace Coherence",
+          "passed": true,
+          "score": 10.0,
+          "elapsed_ms": 1.1,
+          "detail": "Found 1 traces about deployment",
+          "error": ""
+        }
+      ]
+    }
+  ]
+}

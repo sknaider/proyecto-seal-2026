@@ -1,0 +1,14 @@
+[Unit]
+Description=SEAL SOUL Dashboard API :8850
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dadito/IA/proyecto-seal/soul-dashboard
+Environment=PYTHONPATH=/home/dadito/IA/proyecto-seal/memory:/home/dadito/IA/proyecto-seal
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/soul-dashboard/soul_api.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

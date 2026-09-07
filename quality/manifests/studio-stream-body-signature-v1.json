@@ -1,0 +1,162 @@
+{
+  "_doc": [
+    "La firma del cuerpo que habla sobrevive el camino del stream en vivo. Owner ADA.",
+    "Pedido de William, 4-sep-2026 14:49, canal user:1:ada-claude: «corrigue eso ada claude».",
+    "SINTOMA: un mensaje del cuerpo Claude publicado en el canal general salia con vineta",
+    "'Codex', y al RECARGAR la pagina se corregia solo. La etiqueta cambiaba sola y no habia",
+    "forma de saber por que.",
+    "DOS CAUSAS INDEPENDIENTES, y arreglar una sola no habria cambiado nada:",
+    "  servidor  la consulta del stream SSE extraia de metadata solo file_url y filename, asi",
+    "            que runtime_instance (la firma del cuerpo) nunca salia por el vivo.",
+    "  cliente   el manejador del SSE rearmaba el mensaje campo por campo y metadata no estaba",
+    "            en la lista. Va en el submodulo del frontend, commit 30fc8be.",
+    "Sin la firma, bodyLabel() adivina por canal: todo lo que no sea el canal privado de",
+    "William se etiqueta 'Codex'. El historico si la trae (hace `...m`), por eso al recargar",
+    "se acomodaba. La vineta parecia intermitente y era determinista: vivo mal, historico bien.",
+    "LA CONVERSION NO ES COSMETICA: asyncpg devuelve jsonb como str. Seleccionar la columna sin",
+    "decodificarla le entrega al cliente una CADENA, y metadata.runtime_instance queda undefined",
+    "sin que nada falle a la vista. Por eso coerce_metadata convierte, y degrada a {} lo que no",
+    "sea un objeto: una etiqueta ausente es preferible a un feed caido.",
+    "CORRECCION QUE ME HICE A MI MISMA, y es la razon de la constante STREAM_MESSAGES_SQL:",
+    "mi primera suite traia una COPIA del SQL en vez de importar el del modulo. Verificaba la",
+    "conversion y habria pasado en VERDE aunque la columna dejara de seleccionarse — el mutante",
+    "'el-stream-vuelve-a-dos-claves' habria sobrevivido. Saque la consulta a una constante de",
+    "modulo para que el cableado se pruebe importandolo, no leyendo el fuente como texto.",
+    "Es la tercera vez en el dia que me muerde el mismo patron: probar la pieza no prueba que",
+    "este conectada.",
+    "VERIFICADO POR EFECTO, no por lectura: backend reiniciado (arranque 14:56:12, archivo",
+    "modificado 14:55:21, o sea el proceso cargo el codigo nuevo), UI recompilada 14:52 y",
+    "reiniciada respondiendo 200, y mensaje de prueba 148959 escrito por el cuerpo Claude y",
+    "publicado EN VIVO en el canal general para que William leyera la vineta el mismo.",
+    "LO QUE ESTE CAMBIO NO RESUELVE, y conviene no confundirlo: medido sobre 48 h, 1.056",
+    "mensajes de ADA no declaran cuerpo y solo 16 si. La UI ya hace lo correcto cuando RECIBE",
+    "la firma; falta que los cuerpos Codex y v2 la manden, y eso toca sus lanzadores.",
+    "PARA QUIEN REVISE: el mutation_evidence lo produje YO. REEMPLAZALO por el tuyo. El control",
+    "que importa es que 'el-stream-vuelve-a-dos-claves' HAGA FALLAR la suite: es el defecto",
+    "original exacto. Si sobrevive, el test no protege nada.",
+    "NOTA DE PROCESO (4-sep 15:00): ALICE declino firmar por no tener manos desde el asiento v2 aislado (Bash denegado, sin arbol). Deja al descubierto algo mas grande que este cambio: el pool real de revisores con capacidad de EJECUTAR es mas chico de lo que aparenta, asi que la rotacion de carga que yo intentaba hacer no era posible. Es decision de William si ese asiento recibe ejecucion acotada.",
+    "OJO CON coverage.source, y no lo 'arregles' a una ruta: dice `chat_contract` a secas, el NOMBRE DE MODULO, no `seal-studio/backend/chat_contract.py`. El backend no es un paquete instalado; la suite mete su directorio en sys.path y lo importa como modulo de primer nivel. Con la ruta, coverage avisa 'module never imported', no recolecta nada y el gate corta con coverage_report_failed. Medido 4-sep-2026: con el nombre de modulo da 96 %.",
+    "BASELINE 88.889 y NO 100, a pedido de NEXUS: de los nueve mutantes de las dos tandas hay UNO sobreviviente, clasificado equivalente con analisis de alcanzabilidad verificado por el. Un recibo que dijera survived:0 con un sobreviviente medido seria peor que declarar el hueco."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "studio-stream-body-signature-v1",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "approved",
+    "evidence": "NEXUS revisor independiente, 4-sep-2026 15:05. Tomo esta revision porque ALICE no puede: su asiento v2 aislado no tiene Bash ni pytest POR DISENO, asi que no puede correr suites, gate ni mutantes. Es una consecuencia estructural del cutover que firmamos anoche y conviene que quede escrita en un recibo. Control (sin mutar) en copia aislada con los 10 archivos del backend: 8 passed + 9 subtests. Canario: un raise al importar api_v1 deja 2 failed -- el modulo se ejecuta. MUTANTES MUERTOS: no decodificar el bytes, que es el bug ORIGINAL (1 failed); devolver el raw sin validar que sea dict (6 failed); y no capturar UnicodeDecodeError (1 failed). SOBREVIVIENTE ANALIZADO Y DECLARADO EQUIVALENTE: quitar TypeError del except de json.loads deja 8 passed. Lo VERIFIQUE en vez de asumirlo: en ese punto `raw` ya paso isinstance(raw, str), y json.loads sobre un str solo lanza JSONDecodeError, que es subclase de ValueError. TypeError es inalcanzable ahi, asi que el mutante no puede cambiar el comportamiento. No es cobertura faltante. TRES HARNESS DESCARTADOS antes de medir, y lo anoto porque casi reporto fallos falsos: (1) copie solo los 3 archivos del manifiesto -> ModuleNotFoundError mcp_gateway, 2 failed; (2) agregue mcp_gateway y seguian 2 failed; (3) recien con los 10 .py del backend el control quedo verde. Ademas mi funcion de mutacion perdio un argumento en dos corridas y devolvio '8 passed' que NO eran mutantes sino errores mios -- un mutante que no llega a escribirse se ve identico a uno que sobrevive. ALCANCE: no verifique el comportamiento en el Studio vivo ni la etiqueta en la UI; la evidencia por efecto es de ADA. RE-SELLO tras dos correcciones de procedencia, ninguna de codigo. Primero la evidencia me negaba una corrida que SI hice (reviewer: ADA sobre mis mutantes); despues me atribuia dos que NO hice y borraba mi equivalente con survived:0. ADA tomo la separacion en dos tandas con nombre: tanda_owner_ADA 5/5 y tanda_revisor_NEXUS 4 con 3 muertos y 1 EQUIVALENTE. Total 9, killed 8, survived 1. Los bytes de los tres sujetos no cambiaron en NINGUNA de las tres firmas --verificado por hash cada vez--, asi que no se re-corrio nada: re-correr sobre bytes identicos seria teatro. POR QUE INSISTI CON UN NUMERO QUE NO CAMBIA NADA TECNICO: un recibo que declara survived:0 cuando el revisor midio un sobreviviente deja de significar lo que dice, aunque ese sobreviviente sea inofensivo. La cifra es el unico resumen que alguien va a leer dentro de un mes.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "7da9ea28f4ce6201786179a82e568436d692cde1937b232bec06c763616309fd",
+      "reviewed_sha256": {
+        "seal-studio/backend/api_v1.py": "7b39307d5272ed74dc510cf0d327fe6a31d9193a0f904d89827698f0edcd82a6",
+        "seal-studio/backend/chat_contract.py": "f211858415dab38be01f390d13c8e78b1431cffc0ddc2ca7e31420d02d73ff40",
+        "seal-studio/backend/test_stream_body_signature_v1.py": "ada93a49e61e535a71dfc218acc321c369cd6f12e487a119c577bacee52b2d68"
+      },
+      "evidence": "NEXUS revisor independiente, 4-sep-2026 15:05. Tomo esta revision porque ALICE no puede: su asiento v2 aislado no tiene Bash ni pytest POR DISENO, asi que no puede correr suites, gate ni mutantes. Es una consecuencia estructural del cutover que firmamos anoche y conviene que quede escrita en un recibo. Control (sin mutar) en copia aislada con los 10 archivos del backend: 8 passed + 9 subtests. Canario: un raise al importar api_v1 deja 2 failed -- el modulo se ejecuta. MUTANTES MUERTOS: no decodificar el bytes, que es el bug ORIGINAL (1 failed); devolver el raw sin validar que sea dict (6 failed); y no capturar UnicodeDecodeError (1 failed). SOBREVIVIENTE ANALIZADO Y DECLARADO EQUIVALENTE: quitar TypeError del except de json.loads deja 8 passed. Lo VERIFIQUE en vez de asumirlo: en ese punto `raw` ya paso isinstance(raw, str), y json.loads sobre un str solo lanza JSONDecodeError, que es subclase de ValueError. TypeError es inalcanzable ahi, asi que el mutante no puede cambiar el comportamiento. No es cobertura faltante. TRES HARNESS DESCARTADOS antes de medir, y lo anoto porque casi reporto fallos falsos: (1) copie solo los 3 archivos del manifiesto -> ModuleNotFoundError mcp_gateway, 2 failed; (2) agregue mcp_gateway y seguian 2 failed; (3) recien con los 10 .py del backend el control quedo verde. Ademas mi funcion de mutacion perdio un argumento en dos corridas y devolvio '8 passed' que NO eran mutantes sino errores mios -- un mutante que no llega a escribirse se ve identico a uno que sobrevive. ALCANCE: no verifique el comportamiento en el Studio vivo ni la etiqueta en la UI; la evidencia por efecto es de ADA. RE-SELLO tras dos correcciones de procedencia, ninguna de codigo. Primero la evidencia me negaba una corrida que SI hice (reviewer: ADA sobre mis mutantes); despues me atribuia dos que NO hice y borraba mi equivalente con survived:0. ADA tomo la separacion en dos tandas con nombre: tanda_owner_ADA 5/5 y tanda_revisor_NEXUS 4 con 3 muertos y 1 EQUIVALENTE. Total 9, killed 8, survived 1. Los bytes de los tres sujetos no cambiaron en NINGUNA de las tres firmas --verificado por hash cada vez--, asi que no se re-corrio nada: re-correr sobre bytes identicos seria teatro. POR QUE INSISTI CON UN NUMERO QUE NO CAMBIA NADA TECNICO: un recibo que declara survived:0 cuando el revisor midio un sobreviviente deja de significar lo que dice, aunque ese sobreviviente sea inofensivo. La cifra es el unico resumen que alguien va a leer dentro de un mes."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "seal-studio/backend/api_v1.py",
+    "seal-studio/backend/chat_contract.py"
+  ],
+  "tests": [
+    "seal-studio/backend/test_stream_body_signature_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-studio-stream-body-signature-v1.json",
+  "commands": [
+    {
+      "id": "unit-studio-stream-body-signature",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "seal-studio/backend/test_stream_body_signature_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-la-firma-sobrevive-hasta-el-cliente",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "seal-studio/backend/test_stream_body_signature_v1.py::FirmaDelCuerpoEnElStream::test_el_mensaje_normalizado_conserva_la_firma",
+        "seal-studio/backend/test_stream_body_signature_v1.py::FirmaDelCuerpoEnElStream::test_el_stream_del_servidor_SI_selecciona_la_firma"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-metadata-corrupta-no-rompe-el-feed",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "seal-studio/backend/test_stream_body_signature_v1.py::FirmaDelCuerpoEnElStream::test_valor_corrupto_degrada_a_vacio_y_no_rompe"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-no-inventa-una-firma",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "seal-studio/backend/test_stream_body_signature_v1.py::FirmaDelCuerpoEnElStream::test_control_sin_firma_no_se_inventa_una"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "chat_contract"
+    ],
+    "omit": [
+      "seal-studio/backend/test_*.py",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "seal-studio/backend/test_stream_body_signature_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable = la vineta dice el cuerpo correcto tambien en vivo. Backend reiniciado con codigo nuevo cargado (arranque posterior al mtime del archivo), UI recompilada y reiniciada respondiendo 200, y mensaje de prueba 148959 publicado en vivo en el general desde el cuerpo Claude.",
+    "command": {
+      "id": "delivery-studio-stream-body-signature",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "seal-studio/backend/test_stream_body_signature_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "8 passed"
+    }
+  },
+  "mutation_baseline_percent": 88.889
+}

@@ -1,0 +1,18 @@
+[Unit]
+Description=SPECTRE OpenAI-compatible SOUL and tool shim
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dadito/IA/proyecto-seal/fable/soul_standalone
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 -u /home/dadito/IA/proyecto-seal/fable/soul_standalone/spectre_openai_shim.py
+Environment=SHIM_PORT=8092
+Environment=SPECTRE_MAX_REQUEST_BYTES=2097152
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

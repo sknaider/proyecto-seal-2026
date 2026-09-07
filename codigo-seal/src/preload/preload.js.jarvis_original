@@ -1,0 +1,39 @@
+/**
+ * Código SEAL — Preload Script
+ * ============================
+ * Bridge seguro entre Main y Renderer.
+ * contextIsolation: true — Renderer NO tiene acceso a Node.js
+ */
+
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('sealAPI', {
+  // File system
+  files: {
+    read: (path) => ipcRenderer.invoke('fs:readFile', path),
+    write: (path, content) => ipcRenderer.invoke('fs:writeFile', path, content),
+    tree: (path, depth) => ipcRenderer.invoke('fs:readDir', path, depth),
+  },
+
+  // Dialogs
+  dialog: {
+    openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
+    openFile: () => ipcRenderer.invoke('dialog:openFile'),
+  },
+
+  // Menu events (from Main → Renderer)
+  on: (channel, callback) => {
+    const validChannels = [
+      'menu:new-file', 'menu:open-file', 'menu:save',
+      'menu:open-folder', 'menu:toggle-terminal', 'menu:toggle-chat',
+      'menu:toggle-soul', 'menu:agent-mode', 'menu:soul-snapshot',
+    ];
+    if (validChannels.includes(channel)) {
+      ipcRenderer.on(channel, (_, ...args) => callback(...args));
+    }
+  },
+
+  // App info
+  version: '0.1.0',
+  name: 'Código SEAL',
+});

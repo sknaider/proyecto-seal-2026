@@ -1,0 +1,29 @@
+{
+ "memorias_total": 1,
+ "memorias_agent_ALICE": 1,
+ "memorias_runtime_ALICE_V2": 1,
+ "memorias_scopes": [
+  "team"
+ ],
+ "memorias_importance_max": 3,
+ "memorias_item7_8_prohibidas": 0,
+ "memorias_item11": 0,
+ "memorias_content_gt_4000": 0,
+ "request_ids_duplicados": 0,
+ "tarea_1679": null,
+ "jarvis_ultima_tarea": {
+  "id": 1677,
+  "status": "cancelled"
+ },
+ "web_chat_ALICE_V2_EXAMEN": 0,
+ "corral_ALICE_V2_EXAMEN": 14,
+ "corral_atribuidos_a_JARVIS": 0,
+ "working_state_ALICE": "err column \"custom\" does not exist",
+ "working_state_JARVIS_rows": 1,
+ "tablas_diario": [
+  "emotional_diary",
+  "diary"
+ ],
+ "diario_emotional_diary": "err column \"metadata\" does not exist",
+ "diario_diary": "err column \"metadata\" does not exist"
+}

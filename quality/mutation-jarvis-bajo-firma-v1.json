@@ -1,0 +1,117 @@
+{
+ "schema": "seal.mutation-evidence.v1",
+ "change_id": "jarvis-bajo-firma-v1",
+ "sujeto": "tools/seal_bajo_firma.py",
+ "producido_por": "FABLE",
+ "reviewer": "FABLE",
+ "rol": "revisor independiente (owner JARVIS)",
+ "medido": "2026-08-31T07:02:00-05:00",
+ "file_sha256": {
+  "tools/seal_bajo_firma.py": "8f6f603b91f4c5ceb7abc995a771780cf40103015a93bdef3f81baa2cf8bbe48",
+  "agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py": "b2b4472742f8e4053047add0a5d66297f8afec153f8565e1d087e3cb5b70eb10"
+ },
+ "oraculo": "pytest sobre agents/JARVIS/tests/test_jarvis_bajo_firma_v1.py en ARBOL REPLICADO, con -B y PYTHONDONTWRITEBYTECODE=1",
+ "control_verde": "12 passed",
+ "killed": 7,
+ "survived": 1,
+ "total": 8,
+ "mutation_score_percent": 87.5,
+ "no_tests": 0,
+ "skipped": 0,
+ "suspicious": 0,
+ "timeout": 0,
+ "detail": [
+  {
+   "id": "M1",
+   "cambio": "status != \"approved\" -> ==",
+   "resultado": "MUERTO",
+   "causa": "5 failed: test_cero_firmas_devuelve_0_pero_lo_DECLARA, test_indice_incluye_los_TESTS_no_solo_los_subjects, test_indice_toma_approved_y_DESCARTA_pending, test_main_distingue_bajo_firma_de_libre, test_manifiesto_ilegible_avisa_y_no_tumba",
+   "archivos_tocados": [
+    "tools/seal_bajo_firma.py"
+   ],
+   "mismo_tamano": true
+  },
+  {
+   "id": "M2",
+   "cambio": "el indice ignora la lista `tests`",
+   "resultado": "MUERTO",
+   "causa": "1 failed: test_indice_incluye_los_TESTS_no_solo_los_subjects",
+   "archivos_tocados": [
+    "tools/seal_bajo_firma.py"
+   ],
+   "mismo_tamano": false
+  },
+  {
+   "id": "M3",
+   "cambio": "renombre: descarta el nombre VIEJO",
+   "resultado": "MUERTO",
+   "causa": "1 failed: test_staged_ve_el_nombre_VIEJO_de_un_renombre",
+   "archivos_tocados": [
+    "tools/seal_bajo_firma.py"
+   ],
+   "mismo_tamano": false
+  },
+  {
+   "id": "M4",
+   "cambio": "saca `-z` de git diff (rutas no-ASCII)",
+   "resultado": "MUERTO",
+   "causa": "3 failed: test_staged_no_escapa_rutas_no_ascii, test_staged_ve_el_nombre_VIEJO_de_un_renombre, test_staged_ve_un_TYPECHANGE",
+   "archivos_tocados": [
+    "tools/seal_bajo_firma.py"
+   ],
+   "mismo_tamano": false
+  },
+  {
+   "id": "M5",
+   "cambio": "CONTROL NEGATIVO: reescribe un comentario",
+   "resultado": "VIVO (esperado)",
+   "causa": "12 passed -- un cambio sin conducta NO debe matar nada",
+   "archivos_tocados": [
+    "tools/seal_bajo_firma.py"
+   ],
+   "mismo_tamano": false
+  },
+  {
+   "id": "M6",
+   "cambio": "`if p.returncode != 0` -> `if False`",
+   "resultado": "MUERTO",
+   "causa": "1 failed: test_staged_aborta_si_git_falla_y_NO_devuelve_vacio",
+   "archivos_tocados": [
+    "tools/seal_bajo_firma.py"
+   ],
+   "mismo_tamano": false
+  },
+  {
+   "id": "M7",
+   "cambio": "return 1 -> return 0 al detectar firma",
+   "resultado": "MUERTO",
+   "causa": "1 failed: test_main_distingue_bajo_firma_de_libre",
+   "archivos_tocados": [
+    "tools/seal_bajo_firma.py"
+   ],
+   "mismo_tamano": true
+  },
+  {
+   "id": "M8",
+   "cambio": "independent_reviewer -> \"?\"",
+   "resultado": "SOBREVIVE",
+   "causa": "12 passed -- nadie verifica el nombre del revisor reportado. Cosmetico: declarado como alcance no cubierto, NO pedido para el APPROVE.",
+   "archivos_tocados": [
+    "tools/seal_bajo_firma.py"
+   ],
+   "mismo_tamano": false
+  },
+  {
+   "id": "MT",
+   "cambio": "re-introduce --diff-filter=ACMRD (defensa del fix)",
+   "resultado": "MUERTO",
+   "causa": "2 failed: test_staged_NO_lleva_ningun_diff_filter (ESTRUCTURAL, mira el argv), test_staged_ve_un_TYPECHANGE (EFECTO)",
+   "archivos_tocados": [
+    "tools/seal_bajo_firma.py"
+   ],
+   "mismo_tamano": false
+  }
+ ],
+ "notas_de_metodo": "ARBOL REPLICADO (tools/ + agents/JARVIS/tests/ + quality/manifests/): el sujeto resuelve RAIZ=__file__.parents[1], asi que una copia suelta mide otro universo -- lo advirtieron JARVIS y ALICE ANTES de la corrida, sobre el metodo que publique al aceptar. CONTROL DE ARNES previo: el arbol replicado reproduce la salida del original. Cada mutante en un mkdtemp NUEVO, por lo que el defecto del .pyc que hallo JARVIS (un mutante del MISMO TAMANO reusa el bytecode del original si se reescribe el MISMO path) no aplica: M1 y M7 tienen mismo_tamano=true y se re-corrieron con y sin bytecode dando identico. `mismo_tamano` queda por mutante para que el lector sepa cual corria ese riesgo. `archivos_tocados` registra que el archivo de tests nunca se toco (campo propuesto por JARVIS; el chequeo por presencia del patron daba falsa alarma, medido por NEXUS sobre su propio M2). ERROR DECLARADO DEL REVISOR: en la primera corrida sobre estos bytes M4 salio NO APLICADO -- mi patron incluia el `--diff-filter` que JARVIS acababa de quitar, asi que el mutante nunca se aplico y el verde era del original. Rehecho contra el argv actual: mata 3.",
+ "alcance_no_cubierto": "NO cubre `U` (unmerged), marcado por NEXUS sin medir. NO cubre --staged contra un repo con conflictos reales. M8 (nombre del revisor reportado) queda sin test por decision del revisor."
+}

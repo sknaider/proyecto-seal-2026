@@ -1,0 +1,164 @@
+{
+  "_doc": [
+    "3-sep-2026 (JARVIS, William 14:12 «autorizo jarvis»): SHARED_ACTIONS para que NEXUS reinicie seal-chat con recibo (hallazgo de NEXUS: 13 arranques, 0 recibos). AGENT_ACTIONS intacta para que el guard de ADA siga coincidiendo. Efecto medido: status chat como NEXUS escribe recibo; JARVIS denegado.",
+    "14:21 (JARVIS): resolve_control_unit — para acciones compartidas el control negativo es seal-failover-watcher.service (Type=simple, sin PartOf/BindsTo), fuera de la cascada de seal-chat. Hallazgo de NEXUS: recibo f320eb9009 result=failed con deploy sano. Mutantes 4/4 muertos.",
+    "14:40 (JARVIS, objecion de ADA): la accion se llama `chat_server`, no `chat`, para que no se confunda con dum-chat-agent u otros; seal_safe_restart.sh actualizado en la misma linea. Autorizacion: William 14:12 «autorizo jarvis» responde a mi pedido 14:11 «agregar la accion para UN agente, recomiendo NEXUS»: autoriza al ejecutor (JARVIS) y al beneficiario propuesto (NEXUS).",
+    "4-sep-2026 (ADA, revisora): `coverage.source` va como NOMBRE DE MODULO (`seal_self_repair`), NO como ruta. La suite mete scripts/ en sys.path y lo importa como modulo de primer nivel; con la ruta, coverage avisa 'module never imported', no recolecta nada y el gate corta con coverage_report_failed. Medido: con el nombre da 75 %. NO lo 'arregles' de vuelta a una ruta. Toque esta linea del manifiesto de JARVIS porque bloqueaba mi firma y ya conocia la causa; queda dicho para que pueda objetarlo.",
+    "4-sep-2026 (ADA, revisora): delivery.expected_stdout_contains pasa de '15 passed' a '18 passed'. Quedo desfasado cuando JARVIS agrego los tres brazos que cerraron mi rechazo. Lo toque yo porque bloqueaba la firma y la causa era evidente; queda dicho."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "self-repair-shared-actions-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "ADA",
+  "review": {
+    "status": "approved",
+    "approved_at": "2026-09-04T20:57:57.419062+00:00",
+    "evidence": "ADA revisora independiente (owner JARVIS). Mutantes PROPIOS sobre copias en tempdir; arbol vivo intacto, verificado. PRIMERA PASADA: 3 muertos y UNO SOBREVIVIO — `if agent not in AGENT_ACTIONS:` -> `if False:` daba 15 passed. NO era equivalente y lo comprobe antes de acusarlo: resolve_agent tiene DOS puertas (identidad vacia y agente sin politica) y la suite solo llamaba resolve_agent una vez, con {}. El codigo frenaba bien (HENRY y el typo NEXSU levantaban PermissionError), pero la segunda guarda no estaba sujetada: alguien podia borrarla y la suite seguia verde. En un broker que decide quien reinicia que servicio, 'funciona' no alcanza. JARVIS lo cerro y ademas agrego cobertura de la primera puerta y de la normalizacion a mayusculas. SEGUNDA PASADA, la que firmo: control 18 passed y los CUATRO mutantes muertos — ADA metida en los agents de chat_server (1 failed), resolve_unit deshabilitado (1 error), la segunda guarda quitada (1 failed) y la accion cruzada entre agentes (4 failed). El que mas me importaba es el primero: que un agente no pueda colarse en la lista de quienes reinician el chat compartido.",
+    "reviewed_sha256": {
+      "scripts/seal_self_repair.py": "06e6a70145fb8c16ce7996d0e97613bc0438c236ce213d8712403db6ccaa8dbf",
+      "tests/test_seal_self_repair.py": "c0e39037ee66c3005203ea2d276becb5eb54b33c03bc810c6cd6f37fb24a35c5"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ADA",
+      "evidence": "Mutantes propios en copia aislada: control 18 passed, 4/4 muertos tras cerrar el hueco de la segunda guarda de resolve_agent.",
+      "reviewed_sha256": {
+        "scripts/seal_self_repair.py": "06e6a70145fb8c16ce7996d0e97613bc0438c236ce213d8712403db6ccaa8dbf",
+        "tests/test_seal_self_repair.py": "c0e39037ee66c3005203ea2d276becb5eb54b33c03bc810c6cd6f37fb24a35c5"
+      },
+      "manifest_digest": "743a533198c7f4f4fac6695f1525e1daeaddbde12c9b4d261371c3c3a48ca08e"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "scripts/seal_self_repair.py"
+  ],
+  "tests": [
+    "tests/test_seal_self_repair.py"
+  ],
+  "mutation_evidence": "quality/mutation-self-repair-shared-actions-v1.json",
+  "commands": [
+    {
+      "id": "unit-self-repair-shared-actions-v1",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_seal_self_repair.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-nexus-chat",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_seal_self_repair.py::test_shared_chat_action_is_nexus_only"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-otros-denegados",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_seal_self_repair.py::test_shared_actions_do_not_leak_into_agent_actions",
+        "tests/test_seal_self_repair.py::test_cross_agent_action_is_not_reachable_from_ada_policy"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-identidad",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_seal_self_repair.py::test_identity_is_fail_closed"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "seal_self_repair"
+    ],
+    "omit": [
+      "*/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "tests/test_seal_self_repair.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "el daemon/script vivo corre estos bytes (verificado por efecto el 3-sep 14:10-14:14)",
+    "command": {
+      "id": "delivery-self-repair-shared-actions-v1",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_seal_self_repair.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "18 passed"
+    }
+  },
+  "mutation_baseline_percent": 100.0,
+  "canario_de_import": {
+    "_doc": "Canario corrido por el OWNER antes de pedir firma (metodo de NEXUS, 4-sep): si romper el sujeto no pone la suite en rojo, los tests no lo ejercitan. Se hizo sobre una COPIA; el arbol vivo no se toco.",
+    "metodo": "raise RuntimeError al importar scripts/seal_self_repair.py",
+    "resultado": {
+      "suite intacta": "18 passed",
+      "con el raise": "1 error",
+      "tras restaurar": "18 passed"
+    },
+    "lectura": "la suite IMPORTA y ejecuta el sujeto"
+  },
+  "source_sha256": {
+    "scripts/seal_self_repair.py": "06e6a70145fb8c16ce7996d0e97613bc0438c236ce213d8712403db6ccaa8dbf",
+    "tests/test_seal_self_repair.py": "c0e39037ee66c3005203ea2d276becb5eb54b33c03bc810c6cd6f37fb24a35c5"
+  },
+  "refutacion_de_ADA": {
+    "_doc": "4-sep 15:55. ADA refuto este manifiesto con un mutante vivo y NO equivalente, verificado por ella antes de decirlo.",
+    "mutante": "`if agent not in AGENT_ACTIONS:` -> `if False:`  ->  15 passed (sobrevivia)",
+    "causa": "resolve_agent tiene DOS puertas -identidad vacia e identidad sin politica- y la suite cubria solo la primera",
+    "cerrado_con": [
+      "test_un_nombre_sin_politica_es_rechazado",
+      "test_un_agente_con_politica_pasa_las_dos_puertas",
+      "test_la_identidad_se_normaliza_antes_de_decidir"
+    ],
+    "error_del_owner_al_cerrarlo": "Mi primer fixture listaba 'jarvis' en minuscula como desconocido y el test FALLABA: resolve_agent normaliza con .strip().upper(), asi que ese caso es VALIDO, no rechazado. Comparaba el nombre crudo contra AGENT_ACTIONS. Corregido a comparar el valor NORMALIZADO, y se agrego un test de la normalizacion misma.",
+    "resultado": {
+      "control": "18 passed",
+      "el mutante de ADA": "1 failed, 17 passed",
+      "primera puerta (identidad vacia)": "1 failed, 17 passed",
+      "sin normalizar a mayusculas": "1 failed, 17 passed"
+    }
+  }
+}

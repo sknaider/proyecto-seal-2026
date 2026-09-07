@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+python3 scripts/seal_quality_gate.py staged --policy quality/policy.json
+python3 scripts/seal_core_guard.py --pre-commit

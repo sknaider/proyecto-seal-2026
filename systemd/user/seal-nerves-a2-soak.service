@@ -1,0 +1,25 @@
+[Unit]
+Description=SEAL NERVES A2 24-hour fail-closed soak monitor
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+EnvironmentFile=%h/.config/seal/nerves_a2_soak.env
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/tools/nerves_a2_soak_monitor.py --release-id ${NERVES_A2_RELEASE_ID}
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=/home/dadito/IA/proyecto-seal
+ReadWritePaths=/home/dadito/IA/proyecto-seal/research/flywire_results/nerves_a2_soak
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+TimeoutStartSec=30s

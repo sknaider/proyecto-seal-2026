@@ -1,0 +1,12 @@
+[Unit]
+Description=FABLE NERVES timer — every 15 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+AccuracySec=10s
+Persistent=true
+Unit=fable-nerves.service
+
+[Install]
+WantedBy=timers.target

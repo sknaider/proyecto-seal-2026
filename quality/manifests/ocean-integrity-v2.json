@@ -1,0 +1,70 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "ocean-integrity-v2-20260818",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "review": {
+    "status": "pending",
+    "evidence": "NEXUS must reproduce the four QA arms, mutation controls, migration preservation and live read-only verifier on the exact staged bytes.",
+    "receipt": null
+  },
+  "deletions": [],
+  "subjects": [
+    "memory/migrations/20260818_ocean_drift_precision_v2.rollback.sql",
+    "memory/migrations/20260818_ocean_drift_precision_v2.sql",
+    "memory/ocean_adaptive_schema.py",
+    "memory/ocean_drift_calculator.py",
+    "memory/ocean_protect.py",
+    "scripts/verify_ocean_integrity_v2.py"
+  ],
+  "tests": [
+    "memory/tests/test_ocean_drift_calculator.py",
+    "memory/tests/test_ocean_protect.py",
+    "memory/tests/test_verify_ocean_integrity_v2.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-ocean-v2",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "--confcutdir=memory/tests", "memory/tests/test_ocean_protect.py", "memory/tests/test_ocean_drift_calculator.py", "memory/tests/test_verify_ocean_integrity_v2.py"],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-ocean-v2",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "--confcutdir=memory/tests", "memory/tests/test_ocean_protect.py::test_verify_accepts_valid_commitment_when_jsonb_arrives_as_text", "memory/tests/test_ocean_drift_calculator.py::test_discovery_covers_every_scored_identity_without_hardcoding", "memory/tests/test_verify_ocean_integrity_v2.py::test_valid_snapshot_metadata_passes", "memory/tests/test_verify_ocean_integrity_v2.py::test_systemd_scope_is_discovered_instead_of_hardcoded"],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-ocean-v2",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "--confcutdir=memory/tests", "memory/tests/test_ocean_protect.py::test_verify_detects_one_trait_tamper", "memory/tests/test_ocean_drift_calculator.py::test_invalid_ocean_projection_is_rejected_without_write", "memory/tests/test_verify_ocean_integrity_v2.py::test_profile_mutant_is_killed", "memory/tests/test_verify_ocean_integrity_v2.py::test_chain_mutant_is_killed"],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-ocean-v2",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "--confcutdir=memory/tests", "memory/tests/test_ocean_protect.py::test_log_drift_event_fails_closed_before_any_database_write", "memory/tests/test_ocean_drift_calculator.py::test_dry_run_has_no_write_or_transaction", "memory/tests/test_verify_ocean_integrity_v2.py::test_missing_provenance_is_killed"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["ocean_protect", "ocean_drift_calculator", "verify_ocean_integrity_v2"],
+    "omit": ["memory/tests/*"],
+    "pytest_args": ["-q", "--confcutdir=memory/tests", "memory/tests/test_ocean_protect.py", "memory/tests/test_ocean_drift_calculator.py", "memory/tests/test_verify_ocean_integrity_v2.py"],
+    "baseline_percent": 65.0,
+    "timeout": 180
+  },
+  "mutation_evidence": "quality/mutation-ocean-integrity-v2.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Read-only verifier checks all nine live identity snapshots, profile/chain hashes, numeric precision, service exit and timer state in the systemd scope where each unit is actually loaded.",
+    "command": {
+      "id": "delivery-live-ocean-v2",
+      "argv": ["bash", "-lc", "env -u SEAL_PG_DSN -u SEAL_DB_DSN -u SEAL_DB_URL -u DATABASE_URL -u PG_DSN PYTHONPATH=memory /home/dadito/IA/seal-spark/.venv/bin/python3 scripts/verify_ocean_integrity_v2.py"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "\"ok\": true"
+    }
+  }
+}

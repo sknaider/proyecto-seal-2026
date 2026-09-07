@@ -1,0 +1,4 @@
+interface:
+  display_name: "Production Audit"
+  short_description: "Audit launch and runtime readiness by local evidence"
+  default_prompt: "Use $production-audit to decide whether this system is ready for production with local by-effect evidence."

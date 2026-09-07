@@ -1,0 +1,121 @@
+# SOUL Memory SDK public edge — staged template, not installed automatically.
+# Render with ops/render_api_soulsmemory_nginx.py after the dedicated
+# api.soulsmemory.com certificate exists.  This file is intentionally separate
+# from the soulsmemory.com product/landing-site virtual host.
+
+# Aggregate and per-peer limits live at http{} scope because this template is
+# included from /etc/nginx/sites-enabled/*.  $server_name is a configured value,
+# not the attacker-controlled Host header.
+limit_req_zone $server_name zone=soul_sdk_edge_aggregate:1m rate=100r/s;
+limit_req_zone $binary_remote_addr zone=soul_sdk_edge_per_peer:10m rate=20r/s;
+limit_conn_zone $binary_remote_addr zone=soul_sdk_edge_connections:10m;
+
+upstream soul_memory_sdk_gateway_edge {
+    # The origin stays loopback-only.  Never point this at :8767 (Docker bridge)
+    # or expose :8780 directly through a firewall/NAT rule.
+    server 127.0.0.1:8780 max_fails=3 fail_timeout=10s;
+    keepalive 32;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name api.soulsmemory.com;
+    server_tokens off;
+
+    ssl_certificate __TLS_CERTIFICATE__;
+    ssl_certificate_key __TLS_CERTIFICATE_KEY__;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_tickets off;
+    ssl_session_cache shared:SOULSDKSSL:10m;
+    ssl_session_timeout 1d;
+
+    access_log __ACCESS_LOG__;
+    error_log __ERROR_LOG__ warn;
+
+    # Edge-wide protection.  The gateway adds the API-key quota; these limits
+    # protect it before authentication and do not trust forwarding headers.
+    limit_req zone=soul_sdk_edge_aggregate burst=200 nodelay;
+    limit_req zone=soul_sdk_edge_per_peer burst=40 nodelay;
+    limit_req_status 429;
+    limit_conn soul_sdk_edge_connections 20;
+    limit_conn_status 429;
+
+    client_max_body_size 1m;
+    client_body_timeout 10s;
+    client_header_timeout 10s;
+    keepalive_timeout 30s;
+    send_timeout 30s;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+    add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" always;
+    add_header Cache-Control "no-store" always;
+    add_header X-Request-ID $request_id always;
+
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host api.soulsmemory.com;
+    proxy_set_header X-Request-ID $request_id;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_hide_header Server;
+    proxy_hide_header X-Powered-By;
+    proxy_connect_timeout 3s;
+    proxy_send_timeout 30s;
+    proxy_read_timeout 30s;
+    proxy_request_buffering on;
+    proxy_buffering on;
+
+    location = /health {
+        limit_except GET { deny all; }
+        proxy_pass http://soul_memory_sdk_gateway_edge;
+    }
+
+    location = /openapi.json {
+        limit_except GET { deny all; }
+        proxy_pass http://soul_memory_sdk_gateway_edge;
+    }
+
+    # Canonical public contract only.  Historical /v1/memory aliases and the
+    # compatibility/admin surface are intentionally not exposed at the edge.
+    location = /v1/memories {
+        limit_except GET POST { deny all; }
+        proxy_pass http://soul_memory_sdk_gateway_edge;
+    }
+
+    location ~ ^/v1/memories/[0-9]+$ {
+        limit_except GET { deny all; }
+        proxy_pass http://soul_memory_sdk_gateway_edge;
+    }
+
+    location = /v1/recall {
+        limit_except POST { deny all; }
+        proxy_pass http://soul_memory_sdk_gateway_edge;
+    }
+
+    location = /v1/tenant/memories {
+        limit_except GET { deny all; }
+        proxy_pass http://soul_memory_sdk_gateway_edge;
+    }
+
+    location = /v1/tenant/recall {
+        limit_except POST { deny all; }
+        proxy_pass http://soul_memory_sdk_gateway_edge;
+    }
+
+    location / {
+        return 404;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api.soulsmemory.com;
+    return 308 https://api.soulsmemory.com$request_uri;
+}

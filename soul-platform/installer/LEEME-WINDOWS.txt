@@ -1,0 +1,29 @@
+SOUL PLATFORM 0.5.0 — INSTALACION EN WINDOWS
+==============================================
+
+Requisitos:
+- Windows 10 u 11.
+- Python 3.11 o superior.
+- Conexion a Internet para descargar dependencias publicas.
+- Ollama con al menos un modelo local si quieres arrancar el alma al instalar.
+
+Pasos:
+1. Extrae TODO el contenido del ZIP en una carpeta normal.
+2. Haz doble clic en Instalar-SOUL-Windows.bat.
+3. Espera el mensaje: "Instalacion terminada correctamente".
+4. Busca el icono violeta SOUL junto al reloj de Windows.
+
+El instalador:
+- verifica el SHA-256 del paquete incluido;
+- crea un entorno aislado en %LOCALAPPDATA%\SOUL\venv;
+- no pide administrador ni modifica el Python del sistema;
+- conserva identidad y memorias al actualizar o reinstalar;
+- escucha solamente en 127.0.0.1:11435 y exige token.
+- instala SOUL Tray al iniciar sesion como el usuario normal, nunca SYSTEM.
+
+Si no detecta un modelo Ollama, instala el programa sin arrancar el proxy. Luego:
+
+  %LOCALAPPDATA%\SOUL\venv\Scripts\soul-machine.exe init --model NOMBRE_MODELO
+
+No compartas %LOCALAPPDATA%\SOUL\proxy.token.
+La interfaz solo lo copia cuando pulsas explicitamente "Copiar token local".

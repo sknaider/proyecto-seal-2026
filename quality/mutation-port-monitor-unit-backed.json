@@ -1,0 +1,40 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "port-monitor-unit-backed-20260903",
+  "subject": "sandbox-agent/seal_security_monitor.py",
+  "harness": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_nexus_port_monitor_unit_backed_v1.py"
+  ],
+  "_doc": "La copia aislada se arma con sandbox-agent/ + tests/ + messages/ (el monitor importa de messages: sin eso los 7 tests dan ERROR y las tres tandas se ven iguales -- me paso, y el control lo delato). El control corre PRIMERO.",
+  "mutants": [
+    {
+      "id": "primera-coincidencia-en-vez-de-la-hoja",
+      "author": "NEXUS",
+      "mutation": "`unidades[-1]` -> `unidades[0]`",
+      "why": "Con unidades anidadas devuelve la de AFUERA y atribuye el puerto al padre equivocado.",
+      "result": "KILLED",
+      "observed": "1 failed, 7 passed",
+      "nota": "SOBREVIVIO en la primera tanda (7 passed): con un solo servicio en la ruta, primero y ultimo coinciden. Se agrego el caso anidado y ahi muere. Un mutante que sobrevive no siempre es equivalente: a veces el test es chico."
+    },
+    {
+      "id": "sin-excluir-el-user-manager",
+      "author": "NEXUS",
+      "mutation": "quitar el filtro `user@\\\\d+\\\\.service`",
+      "why": "Todo proceso del usuario cuelga de user@1000.service: sin excluirlo, CUALQUIER binario suelto queda 'respaldado por unidad' y el monitor se calla justo donde deberia gritar.",
+      "result": "KILLED",
+      "observed": "2 failed, 5 passed"
+    }
+  ],
+  "control_sujeto_sin_mutar": {
+    "result": "GREEN",
+    "observed": "8 passed",
+    "donde": "la misma copia aislada, corrido ANTES de los mutantes"
+  },
+  "killed": 2,
+  "total": 2,
+  "mutation_score_percent": 100.0
+}

@@ -1,0 +1,108 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "reviewer": "JARVIS",
+  "tool": "ADA ejecuto scratchpad/mut_metrics.py: copia SOLO los .py de memory/ mas la suite (6,6 MB por copia) a un tempdir, muta la copia y borra cada copia al terminar.",
+  "workspace": "Control positivo primero sobre la copia SIN mutar. Muerte = la suite sale distinto de 0.",
+  "note_no_es_independiente": "Evidencia del OWNER. Prueba que los sujetos son mutables y que la suite los caza; NO es revision independiente.",
+  "incidente_del_arnes_ANTERIOR": "Mi primer arnes hacia copytree de memory/ ENTERO. Ahi vive minimax-m2.5, 95 GB. Dos copias llenaron /tmp al 100 % y el arnes murio con 'No space left on device'. Limpie 427 GB con rutas literales (find /tmp/metrics_mut_ize3hq9d -mindepth 1 -delete) y avise al equipo por si algo suyo fallo en esa ventana. JARVIS aporto el patron que lo evita: copiar `memory/*.py`, no el directorio. LA LECCION: medir el tamano del origen ANTES de armar un arnes que copia.",
+  "killed": 8,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 8,
+  "mutation_score_percent": 100.0,
+  "mutation_target": "isolated_copy",
+  "positive_control_unmutated_copy": {
+    "suite": "8 passed, 2 subtests passed in 0.47s",
+    "ok": true
+  },
+  "file_sha256": {
+    "memory/compaction_metrics.py": "34684bd2c6c885736df548a66653a6b085ebe72ea2e7c284a9c6653127373c79",
+    "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
+    "memory/post_compact_session_start_hook.py": "931c404804bac07cca749f65eb685954e6456c33ea5e803c5051caee27b1f5d9",
+    "quality/delivery_compaction_metrics.sh": "5b2a312f0fbacdb3fd8bbd76c18dc138b8ac2ef6e7e58fb1e7240a32998d2a74",
+    "memory/tests/test_compaction_metrics_v1.py": "e32cc386e8f403e1eb0085a9af4309bfad3b7b5803eecbb6e17a0adc82d5f7a3"
+  },
+  "detail": [
+    {
+      "id": "degradado-siempre-falso",
+      "subject": "memory/compaction_metrics.py",
+      "state": "killed",
+      "observed": "1 failed, 7 deselected in 0.01s"
+    },
+    {
+      "id": "degradado-siempre-verdadero",
+      "subject": "memory/compaction_metrics.py",
+      "state": "killed",
+      "observed": "1 failed, 7 deselected in 0.01s"
+    },
+    {
+      "id": "registrar-miente-que-escribio",
+      "subject": "memory/compaction_metrics.py",
+      "state": "killed",
+      "observed": "1 failed, 7 deselected in 0.01s"
+    },
+    {
+      "id": "medir-revienta",
+      "subject": "memory/compaction_metrics.py",
+      "state": "killed",
+      "observed": "1 failed, 7 deselected in 0.04s"
+    },
+    {
+      "id": "cuenta-lineas-vacias",
+      "subject": "memory/compaction_metrics.py",
+      "state": "killed",
+      "observed": "1 failed, 7 deselected in 0.01s"
+    },
+    {
+      "id": "senal-desalineada",
+      "subject": "memory/compaction_metrics.py",
+      "state": "killed",
+      "observed": "1 failed, 7 deselected in 0.01s"
+    },
+    {
+      "id": "el-pre-no-instrumenta",
+      "subject": "memory/pre_compact_hook.py",
+      "state": "killed",
+      "observed": "1 failed, 7 deselected in 0.28s"
+    },
+    {
+      "id": "el-post-no-instrumenta",
+      "subject": "memory/post_compact_session_start_hook.py",
+      "state": "killed",
+      "observed": "1 failed, 7 deselected in 0.19s"
+    }
+  ],
+  "el_mutante_que_importa": "'degradado-siempre-falso': si es_degradado nunca marca, la metrica queda ciega justo ante el defecto que motivo todo esto — el bloque post-compactacion devolviendo el aviso de error durante semanas sin que nadie lo supiera.",
+  "control_de_no_vacuidad_del_delivery": "Con es_degradado siempre False junto al hook: hook degradado -> degraded=False, o sea el ARM2 del delivery falla. Verificado directamente, no asumido. El primer intento NO aplico el mutante (PYTHONPATH pierde contra el sys.path.insert del propio hook) y se veia identico a un sobreviviente: un mutante que no llega a escribirse engaña igual que uno que sobrevive.",
+  "revision_independiente_JARVIS": {
+    "control": "8 passed, 2 subtests",
+    "canario": "raise al importar cada sujeto -> la suite cae en los tres casos",
+    "mutantes": [
+      {
+        "id": "cuenta lineas vacias como mensajes",
+        "result": "KILLED",
+        "observed": "1 failed"
+      },
+      {
+        "id": "nunca detecta el bloque degradado",
+        "result": "KILLED",
+        "observed": "1 failed"
+      },
+      {
+        "id": "propaga el error: medir romperia lo medido",
+        "result": "KILLED",
+        "observed": "1 failed"
+      },
+      {
+        "id": "registrar() miente y devuelve True sin escribir",
+        "result": "KILLED",
+        "observed": "1 failed"
+      }
+    ],
+    "delivery_corrido_por_el_revisor": "ARM1 degraded=False chars=2390 · ARM2 degraded=True chars=178 · rc=0",
+    "alcance": "en produccion aun no hay ninguna metrica: el archivo no existe porque nadie compacto todavia"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "titulo": "¡5 Datos Sorprendentes del Universo!",
+  "descripcion": "Conócelos en este emocionante viaje cósmico.",
+  "tags": [
+    "ciencia",
+    "universo",
+    "astronomía",
+    "sorpresa",
+    "cosmos"
+  ],
+  "narracion": "¡Bienvenidos a un viaje sin precedentes por el universo más allá de lo que imaginas! Hoy te presento 5 datos que podrían cambiar la forma en que ves nuestro vasto cosmos. Primero, imagina un universo donde la materia es solo un 5% de todo. ¿No te parece aterrador e increíblemente misterioso? Sí, el 95% del universo está compuesto por lo que aún no podemos entender, ¿no? Segundo, cuando ves la luna, ¿sabes que la gravedad de la luna afecta a las mareas de la Tierra? Pero no te detengas ahí, porque la luna en sí misma es un espejo, ya que el 99.99% de su masa es agua. ¡Impresionante, ¿no? Ahora, piensa en las estrellas, ¿has considerado que la Vía Láctea tiene más de 100 mil millones de estrellas? Pero eso no es todo, porque el universo entero tiene más estrellas que granos de arena en todas las playas de la Tierra. ¡Es una cifra que no podemos ni imaginar! Cuarto dato, si puedes visualizar un universo donde todo parece ser azul, eso es lo que ves en la superficie de Júpiter. Pero, ¿sabes que el planeta más grande de nuestro sistema solar tiene más materia oscura que toda la Tierra juntas? Esto sugiere que nuestro planeta podría no ser tan único como pensamos. Y por último, si estás buscando un viaje de regreso, piensa en el agujero negro VY Canis Majoris. Es tan grande que un viaje de un lado a otro tardaría 700 años en un avión de pasajeros. ¡Esto demuestra que incluso los viajes más largos parecen cortos cuando se comparan con la vastedad del universo! ¡Estamos vivos en un universo increíblemente sorprendente! ¿Qué te parece este universo?",
+  "escenas": [
+    {
+      "num": 1,
+      "texto": "Presentación de los datos",
+      "prompt_imagen": "Astronauta en un espacio oscuro, cinematic, dark",
+      "prompt_video": "Slow zoom in on a starry sky, cinematic particles",
+      "emocion": "neutral"
+    },
+    {
+      "num": 2,
+      "texto": "Explicación sobre el 5% de la materia",
+      "prompt_imagen": "Close up of a scale, cinematic, dark",
+      "prompt_video": "Close up of a scale with particles swirling around it, cinematic",
+      "emocion": "curious"
+    },
+    {
+      "num": 3,
+      "texto": "Mareas y masa de la luna",
+      "prompt_imagen": "A person walking on a beach, cinematic, dark",
+      "prompt_video": "Slow zoom in on waves, cinematic particles",
+      "emocion": "excited"
+    },
+    {
+      "num": 4,
+      "texto": "Estrellas y grano de arena",
+      "prompt_imagen": "Astronomical telescope, cinematic, dark",
+      "prompt_video": "Close up of a starry sky, cinematic particles",
+      "emocion": "neutral"
+    },
+    {
+      "num": 5,
+      "texto": "Cierre motivador",
+      "prompt_imagen": "Astronaut in space, cinematic, dark",
+      "prompt_video": "Slow zoom out of a starry sky, cinematic particles",
+      "emocion": "confident"
+    }
+  ],
+  "id": "c1e6dd8c",
+  "author": "ADA",
+  "created_at": "2026-04-06T13:28:18.507491"
+}

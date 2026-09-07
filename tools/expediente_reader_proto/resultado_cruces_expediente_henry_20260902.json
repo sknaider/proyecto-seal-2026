@@ -1,0 +1,140 @@
+{
+ "campos": {
+  "instruccion_embarque@p1": {
+   "awb": {
+    "valor": "074 - 7269 - 0111",
+    "evidencia": "pág 1 líneas 77-78: «INCOTERMS : FOB ↵ N° DE AWB: 074 - 7269 - 0111»"
+   },
+   "peso": {
+    "valor": "5,993.30",
+    "evidencia": "pág 1 líneas 66-67: «N° DE BULTOS Y PESO TOTAL: ↵ 1 BARRA - 5,993.30 GR.»"
+   },
+   "unidad": {
+    "valor": "GR",
+    "evidencia": "pág 1 líneas 66-67: «N° DE BULTOS Y PESO TOTAL: ↵ 1 BARRA - 5,993.30 GR.»"
+   },
+   "consignatario": {
+    "valor": "TIME AHEAD INC LIMITED",
+    "evidencia": "pág 1 líneas 31-32: «ZIP CODE: 211101 ↵ NOMBRES Y APELLIDOS: TIME AHEAD INC LIMI»"
+   },
+   "comprador": {
+    "valor": "GURUDEV INTERNATIONAL DMCC",
+    "evidencia": "pág 1 líneas 46-47: «ZIP CODE: E ↵ GURUDEV INTERNATIONAL DMCC»"
+   },
+   "placa": {
+    "valor": null,
+    "evidencia": "pág 1: no encontrado"
+   }
+  },
+  "certificado_origen@p3": {
+   "peso": {
+    "valor": "5,993.30",
+    "evidencia": "pág 3 líneas 10-11: «CERTIFICATE OF ORIGIN ↵ THIS IS TO CERTIFY THAT THE SHIPMENT OF »"
+   },
+   "unidad": {
+    "valor": "KG",
+    "evidencia": "pág 3 líneas 10-11: «CERTIFICATE OF ORIGIN ↵ THIS IS TO CERTIFY THAT THE SHIPMENT OF »"
+   },
+   "awb": {
+    "valor": "074 - 7269 - 0111",
+    "evidencia": "pág 3 líneas 4-5: «AUGUST 16, 2026 ↵ REF.: MAWB 074 - 7269 - 0111»"
+   },
+   "factura": {
+    "valor": "E001-256",
+    "evidencia": "pág 3 líneas 14-15: «KINDLY TREAT THIS DOCUMENT AS CERTIFICAT ↵ INVOICE NUMBER E001-256 OF CORPORACION D»"
+   },
+   "destino": {
+    "valor": "HONG KONG",
+    "evidencia": "pág 3 líneas 12-13: «THIS IS TO CERTIFY THAT THE SHIPMENT OF  ↵ VIA KLM CARGO, WERE MINED IN PERU.»"
+   }
+  },
+  "factura_comercial@p12": {
+   "factura": {
+    "valor": "E001-256",
+    "evidencia": "pág 12 líneas 7-8: «QUILCAPUNCU - SAN ANTONIO DE PUTINA - PU ↵ E001-256»"
+   },
+   "cantidad": {
+    "valor": "5549.80",
+    "evidencia": "pág 12 línea 39: «5549.80 GRAMO BARRA DE ORO DORE CON PESO BRUTO EN 5993.30 139.23 0.00»"
+   },
+   "unitario": {
+    "valor": "139.23",
+    "evidencia": "pág 12 líneas 38-39: «CANTIDAD UNIDAD MEDIDA DESCRIPCION VALOR ↵ 5549.80 GRAMO BARRA DE ORO DORE CON PESO»"
+   },
+   "total": {
+    "valor": "772,698.65",
+    "evidencia": "pág 12 líneas 50-51: «MONTO DE REDONDEO : | _ $ 0.00 ↵ IMPORTE TOTAL : | $ 772,698.65 |»"
+   },
+   "peso_bruto": {
+    "valor": "5993.30",
+    "evidencia": "pág 12 líneas 38-39: «CANTIDAD UNIDAD MEDIDA DESCRIPCION VALOR ↵ 5549.80 GRAMO BARRA DE ORO DORE CON PESO»"
+   },
+   "ley": {
+    "valor": "92.60",
+    "evidencia": "pág 12 líneas 39-40: «5549.80 GRAMO BARRA DE ORO DORE CON PESO ↵ GR. Y CON LEY APROX. 92.60%»"
+   },
+   "comprador": {
+    "valor": "GURUDEV INTERNATIONAL FZCO",
+    "evidencia": "pág 12 líneas 19-20: «: 15/08/2026 ↵ : GURUDEV INTERNATIONAL FZCO»"
+   }
+  }
+ },
+ "cruces": [
+  {
+   "cruce": "unidad de peso instrucción vs certificado",
+   "estado": "ERROR",
+   "detalle": "instrucción=GR · certificado=KG",
+   "evidencia": [
+    "pág 1 líneas 66-67: «N° DE BULTOS Y PESO TOTAL: ↵ 1 BARRA - 5,993.30 GR.»",
+    "pág 3 líneas 10-11: «CERTIFICATE OF ORIGIN ↵ THIS IS TO CERTIFY THAT THE SHIPMENT OF »"
+   ]
+  },
+  {
+   "cruce": "peso bruto × ley = cantidad facturada",
+   "estado": "OK",
+   "detalle": "5993.3 g × 92.6 % = 5549.8 g · facturado 5549.8 g",
+   "evidencia": [
+    "pág 12 líneas 38-39: «CANTIDAD UNIDAD MEDIDA DESCRIPCION VALOR ↵ 5549.80 GRAMO BARRA DE ORO DORE CON PESO»",
+    "pág 12 líneas 39-40: «5549.80 GRAMO BARRA DE ORO DORE CON PESO ↵ GR. Y CON LEY APROX. 92.60%»",
+    "pág 12 línea 39: «5549.80 GRAMO BARRA DE ORO DORE CON PESO BRUTO EN 5993.30 139.23 0.00»"
+   ]
+  },
+  {
+   "cruce": "cantidad × precio unitario = importe total",
+   "estado": "OK",
+   "detalle": "5549.8 × 139.23 = 772698.65 · total 772698.65",
+   "evidencia": [
+    "pág 12 líneas 38-39: «CANTIDAD UNIDAD MEDIDA DESCRIPCION VALOR ↵ 5549.80 GRAMO BARRA DE ORO DORE CON PESO»",
+    "pág 12 líneas 50-51: «MONTO DE REDONDEO : | _ $ 0.00 ↵ IMPORTE TOTAL : | $ 772,698.65 |»"
+   ]
+  },
+  {
+   "cruce": "AWB instrucción vs certificado",
+   "estado": "OK",
+   "detalle": "074 - 7269 - 0111 vs 074 - 7269 - 0111",
+   "evidencia": [
+    "pág 1 líneas 77-78: «INCOTERMS : FOB ↵ N° DE AWB: 074 - 7269 - 0111»",
+    "pág 3 líneas 4-5: «AUGUST 16, 2026 ↵ REF.: MAWB 074 - 7269 - 0111»"
+   ]
+  },
+  {
+   "cruce": "peso bruto: mismo número en instrucción / certificado / factura",
+   "estado": "OK",
+   "detalle": "instrucción=5993.3 certificado=5993.3 factura=5993.3",
+   "evidencia": [
+    "pág 1 líneas 66-67: «N° DE BULTOS Y PESO TOTAL: ↵ 1 BARRA - 5,993.30 GR.»",
+    "pág 3 líneas 10-11: «CERTIFICATE OF ORIGIN ↵ THIS IS TO CERTIFY THAT THE SHIPMENT OF »",
+    "pág 12 líneas 38-39: «CANTIDAD UNIDAD MEDIDA DESCRIPCION VALOR ↵ 5549.80 GRAMO BARRA DE ORO DORE CON PESO»"
+   ]
+  },
+  {
+   "cruce": "comprador: misma razón social en instrucción y factura",
+   "estado": "ERROR",
+   "detalle": "instrucción=«GURUDEV INTERNATIONAL DMCC» · factura=«GURUDEV INTERNATIONAL FZCO» (mismo grupo, entidad legal distinta)",
+   "evidencia": [
+    "pág 1 líneas 46-47: «ZIP CODE: E ↵ GURUDEV INTERNATIONAL DMCC»",
+    "pág 12 líneas 19-20: «: 15/08/2026 ↵ : GURUDEV INTERNATIONAL FZCO»"
+   ]
+  }
+ ]
+}

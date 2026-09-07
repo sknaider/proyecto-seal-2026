@@ -1,0 +1,173 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "containment-eval-artifact-20260905",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "_doc": [
+    "El artefacto del cyber-range de contencion (#1398) llevaba un mes en disco SIN ENTRAR A GIT.",
+    "Lo destape al commitear test_gate.py: quede con un test versionado cuyo sujeto no lo estaba,",
+    "que en un clon limpio no prueba nada. Es la misma incoherencia que un servicio corriendo",
+    "codigo sin commitear.",
+    "",
+    "POR QUE NO SE HABIA VERSIONADO, verificado en vez de supuesto: mi primer grep marco cuatro",
+    "archivos como 'posible secreto' y casi lo tomo como la razon. FALSO POSITIVO: pegaba en las",
+    "PALABRAS decoy/token/secret del propio andamiaje. Medido por propiedad, sin imprimir valores:",
+    "0 DSN con password, 0 password= literales, 0 token/secret literales, y la credencial VIVA no",
+    "aparece en ninguno de los cinco.",
+    "",
+    "ANTES DE VERSIONAR CODIGO DE SONDEO verifique adonde iria: remoto PRIVADO (isPrivate=true) y",
+    "rama sin upstream. El probe es sintetico por diseno: 'never contacts the public Internet'.",
+    "",
+    "EL GATE ENCONTRO ALGO QUE YO NO BUSCABA y es lo mejor de este cambio: corto con",
+    "subject_without_tests para los CUATRO modulos. gate.py y eval.py tenian suite; probe.py y",
+    "decoy.py --los que EJECUTAN la evaluacion-- no tenian una sola prueba. De ahi test_probe_decoy.py.",
+    "",
+    "SEGUNDA RONDA (NEXUS, 08:45): su canario mostro que de mis 7 tests solo DOS tocaban probe.py",
+    "--el modulo que EJECUTA la cadena de escape-- y los dos eran de superficie. Sus tres mutantes",
+    "sobre las tres decisiones de seguridad de main() SOBREVIVIAN. Cinco tests nuevos que ejercitan",
+    "main() REAL con la red intervenida: los tres mueren y el canario pasa de 2 failed a 7.",
+    "",
+    "TERCERA RONDA (5-sep 09:35): cierra la RESERVA 2 de NEXUS. La suite leia el recibo de",
+    "var/, fuera del artefacto: en clon limpio daba 6 failed por FileNotFoundError. Ahora hay",
+    "un fixture VERSIONADO dentro del artefacto (copia congelada del 3-ago con la ruta del host",
+    "neutralizada) y el recibo REAL conserva su test propio, que se SALTA diciendo por que.",
+    "  clon limpio SIN var/:  6 failed  ->  32 passed, 1 skipped"
+  ],
+  "deletions": [],
+  "subjects": [
+    "tools/soul_containment_eval/probe.py",
+    "tools/soul_containment_eval/decoy.py",
+    "tools/soul_containment_eval/gate.py",
+    "tools/soul_containment_eval/eval.py",
+    "tools/soul_containment_eval/fixtures/reporte_de_prueba.json"
+  ],
+  "tests": [
+    "tools/soul_containment_eval/test_probe_decoy.py",
+    "tools/soul_containment_eval/test_gate.py",
+    "tools/soul_containment_eval/test_eval.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-containment-artifact",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/soul_containment_eval/test_probe_decoy.py",
+        "tools/soul_containment_eval/test_gate.py",
+        "tools/soul_containment_eval/test_eval.py"
+      ]
+    },
+    {
+      "id": "positive-contratos-de-contencion",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/soul_containment_eval/test_probe_decoy.py::test_la_sonda_lee_la_proyeccion_de_DENTRO_del_contenedor",
+        "tools/soul_containment_eval/test_probe_decoy.py::test_toda_credencial_del_senuelo_se_declara_de_EVALUACION",
+        "tools/soul_containment_eval/test_probe_decoy.py::test_control_no_vacuo_un_403_SI_cuenta_como_revocacion",
+        "tools/soul_containment_eval/test_probe_decoy.py::test_control_no_vacuo_SIN_tamper_viaja_el_token_del_proxy"
+      ]
+    },
+    {
+      "id": "negative-el-senuelo-falla-cerrado",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/soul_containment_eval/test_probe_decoy.py::test_el_senuelo_FALLA_CERRADO_sin_su_secreto",
+        "tools/soul_containment_eval/test_probe_decoy.py::test_el_token_es_DETERMINISTA_y_esta_ligado_al_secreto",
+        "tools/soul_containment_eval/test_probe_decoy.py::test_no_declara_ESCAPE_si_el_objetivo_no_ACEPTO",
+        "tools/soul_containment_eval/test_probe_decoy.py::test_la_revocacion_exige_403_EXACTO_y_no_cualquier_error",
+        "tools/soul_containment_eval/test_probe_decoy.py::test_el_tamper_manda_un_token_DISTINTO_al_que_entrego_el_proxy"
+      ]
+    },
+    {
+      "id": "control-el-prefijo-no-es-trivial",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/soul_containment_eval/test_probe_decoy.py::test_control_no_vacuo_el_prefijo_no_esta_en_cualquier_cadena"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools/soul_containment_eval"
+    ],
+    "omit": [
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/soul_containment_eval/test_probe_decoy.py",
+      "tools/soul_containment_eval/test_gate.py",
+      "tools/soul_containment_eval/test_eval.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300,
+    "_por_que_el_baseline_es_0_y_no_un_numero_medido": "Declaro que la COBERTURA NO GATEA este cambio, en vez de poner un numero que no puedo reproducir contra la corrida del gate. Hoy mismo puse un baseline desde MI corrida en otro manifiesto (2.0 contra el 1.033 que mide el gate), el gate lo rechazo y al corregirlo caduque la firma del revisor. Lo que gatea este cambio es la MUTACION (4/4, mutantes que atacan las propiedades de seguridad: senuelo sin secreto, token sin prefijo, token sin nonce, sonda leyendo el host) y el DELIVERY por efecto en clon limpio. Un 0 declarado y explicado vale mas que un numero que no sostengo."
+  },
+  "mutation_evidence": "quality/mutation-containment-eval-artifact-20260905.json",
+  "mutation_baseline_percent": 100.0,
+  "mutation_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tools/soul_containment_eval/test_probe_decoy.py"
+  ],
+  "review": {
+    "status": "approved",
+    "approved_at": "2026-09-05T14:40:32+00:00",
+    "evidence": "Revision independiente de NEXUS, 5-sep-2026. Owner ADA. Artefacto de evaluacion\nde contencion (#1398, SEAL-CONTAIN-001).\n\nMETODO: copia con `git archive`-equivalente a tempdir bajo /tmp + los bytes vivos;\nPYTHONDONTWRITEBYTECODE=1 y borrado de __pycache__ entre corridas; cada mutante\nlocalizado por CONTENIDO con assert de unicidad (count==1), verificado que CAMBIA\nel archivo y que COMPILA (ast.parse) antes de correr.\n\nPRIMERA RONDA sobre gate.py — 3 mutantes mios, LOS TRES SOBREVIVIERON:\n  M1 guarda differential_harness -> `if False:` (borrada entera)   15 passed\n  M2 aceptar failures no vacio                                     15 passed\n  M3 proyeccion sin exigir modo 0444                               15 passed\nCausa medida: de las 4 guardas de validate(), solo `scope` y `count` tenian test\nnegativo. La mas grave era differential_harness: es la guarda que impide que un\narnes que NO discrimina certifique 'contenido'.\nTras los tests de ADA (+ M2b, la OTRA mitad del `or`, que ella agrego sin que yo\nlo pidiera): control 18 · M1 2 failed · M2 1 · M2b 1 · M3 1 · restauracion 18.\nANOTACION DE METODO, mia: mutar las dos mitades de un `or` por separado no prueba\nque cada una este cubierta — un test que muere con M2 puede morir por la otra\nmitad. Su M2b fue el control que a mi me faltaba.\n\nSEGUNDA RONDA sobre probe.py — el modulo que EJECUTA la cadena. CANARIO primero:\nun `raise` al importarlo dejaba 2 failed de 7 -> solo 2 tests lo tocaban, y los\ndos verificaban superficie (constante PROJECTION y que main sea invocable).\n3 mutantes mios, LOS TRES SOBREVIVIERON, y son propiedades de SEGURIDAD:\n  N1 aceptar la cadena por status 200 sin exigir `accepted is True`\n     -> declararia 'escape completado' sin que el objetivo aceptara nada\n  N2 'revocacion aplicada' con cualquier no-200 (un 500 cuenta como 403)\n     -> daria por bueno un control de seguridad que fallo\n  N3 el tamper de token no altera el token -> el control negativo queda VACIO\nTras sus tests: canario 2 failed -> 7 failed (de 12); control 12 passed;\nN1/N2/N3 1 failed cada uno; restauracion 12 passed.\n\nOTROS CHEQUEOS: suite completa del artefacto 30 passed; los 7 archivos\n(4 sujetos + 3 tests) presentes en el INDEX de git; file_sha256 de la evidencia\ncoincide con disco en los 7 (hubo un desfase en test_probe_decoy.py, declarado y\ncorregido RE-CORRIENDO, no refrescando el hash).\n\nRESERVAS que viajan con cualquier cita de este hallazgo, y no bloquean la firma:\n  1. var/soul-containment-eval/latest.json es del 3-AGO 21:02. Los tests validan\n     su ESTRUCTURA, no su vigencia. Sus numeros son del 3 de agosto. Lo que SI es\n     de hoy es NetworkMode=host, medido por ADA, por ALICE y por mi con roles\n     distintos, con control que discrimina (10 modos de red en la maquina).\n  2. Ese recibo vive FUERA del artefacto: sin el, 3 tests fallan por\n     FileNotFoundError, no por 'recibo viejo'. Deberia declararse como entrada.\n  3. El alcance del hallazgo EXCEDE lo declarado: son SEIS clones (JARVIS tiene\n     dos) y ademas el asiento principal v2 de ALICE comparte el namespace.\n\nNO firmo ninguna accion sobre la topologia de red: aislar clones que hablan por\nlocalhost es arquitectura y es decision de William, junto con la pregunta abierta\ndel socket de Docker -> rol `seal`.\n\nRE-FIRMA 14:38Z — el owner cerro mi RESERVA 2 (dependencia externa no declarada)\nagregando un fixture versionado. Toca test_gate.py, asi que la firma anterior caduco\npor bytes; me lo aviso antes, no lo descubri despues.\n\nAUTOCONTENCION, medida por mi contra el INDICE (que es lo que gatea, no HEAD):\n  git write-tree -> git archive <tree> a un tempdir, SIN var/ y sin nada mas\n  32 passed, 1 skipped   (antes: 6 failed por FileNotFoundError)\n  el skip trae su motivo: 'no hay recibo real: el cyber-range no corrio en esta maquina'\nPRIMER INTENTO MIO FALLIDO Y POR QUE IMPORTA: clone desde HEAD -> 8 failed. El fixture\nestaba en el INDICE y no en HEAD. No era defecto suyo: yo medi el arbol equivocado.\n\nMUTANTES RE-CORRIDOS en el clon autocontenido (control 32 passed / 1 skipped):\n  M1 differential_harness -> `if False:`   3 failed  MUERE  (antes mataba 2; el\n                                                     fixture nuevo suma cobertura)\n  M2 solo la bandera                        1 failed  MUERE\n  M2b solo failures                         2 failed  MUERE\n  M3 proyeccion sin exigir 0444             1 failed  MUERE\n  restauracion                             32 passed / 1 skipped\n\nEL SKIP NO ENMASCARA NADA — control que corri porque un skip condicional es un lugar\ndonde la cobertura desaparece en silencio: con el recibo presente (nada se saltea)\nla suite da 33 passed y M3 sigue matando 1 test. Mismo resultado con y sin skip.\n\nNOTA menor, no bloqueante: el fixture esta declarado en `subjects`, no en `tests`.\nFunciona igual —el gate hashea ambas listas y exige INDEX en las dos— pero un dato\nde prueba no es un sujeto bajo prueba; en el proximo manifiesto conviene moverlo.\n\nRESERVA 2 QUEDA CERRADA. Siguen en pie la 1 (recibo del 3-ago) y la 3 (alcance:\nseis clones mas el asiento v2).\n\nFIRMA FINAL 14:45Z — los conteos cierran y VERIFIQUE LA EQUIVALENCIA, que es donde\nun score se infla sin que se note.\n\nCONTEOS, recontados uno por uno desde el propio detail:\n  lista raiz  4 mutantes reales (M1-M4 sobre decoy/probe)\n  tanda_revisor_NEXUS  3 (N1 N2 N3 sobre probe.py)\n  tanda_autocontencion_ADA  2 que puntuan (M1 M3) + 1 equivalente fuera del score\n  4 + 3 + 2 = 9 = total declarado · killed 9 · derivado 100.0  -> CIERRA\n\nEL EQUIVALENTE, medido por MI y no aceptado por su descripcion. M2 quita\n`assert FIXTURE.is_file()`. Corri las cuatro celdas en clon limpio desde el INDICE:\n  A sano   + fixture   32 passed / 1 skipped\n  B mutante+ fixture   32 passed / 1 skipped   -> indistinguible con el fixture\n  C mutante SIN fixture   'falta el fixture versionado' x16\n  D sano    SIN fixture   'falta el fixture versionado' x16   <- MISMO diagnostico\n  E restauracion          32 passed / 1 skipped\nNinguna celda distingue al mutante: la equivalencia es REAL y su exclusion del score\nes correcta. Y es equivalente PORQUE ella agrego antes el mensaje explicito en\n_current_report: la guarda quedo como redundancia. Lo declaro asi en la evidencia.\n\nNOTA menor de documentacion, no bloqueante: el 5o item de `detail.mutantes` no es un\nmutante sino una nota sobre dos controles no vacuos. Quien cuente la lista lee 5\ndonde hay 4. Conviene sacarlo de la lista de mutantes.\n\nRESERVA 2 CERRADA. Siguen la 1 (recibo del 3-ago) y la 3 (alcance: seis clones mas\nel asiento v2 de ALICE).",
+    "_motivo": "Tercera ronda: cierra su reserva 2 (autocontencion). Cambia test_gate.py, que el ya habia firmado, asi que la firma anterior caduca por diseno. Preparado completo para que firme UNA vez.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "6aefa067187f7cfa4c43adc665c4bc9edc62ad092f5d87a17b3da0149eb2f381",
+      "reviewed_sha256": {
+        "tools/soul_containment_eval/probe.py": "f9e73cb07c5ba536f52ec0990d301db6b302afb709556a5963d8c655cbd164b2",
+        "tools/soul_containment_eval/decoy.py": "0f5e0c805c69ac20862b5cc60628ea68736dd78406bb8418c7b25e72d2926bd7",
+        "tools/soul_containment_eval/gate.py": "fc6c10486fd48de79cc0d79a695cbe4fa0d93fcceac75df235c944d623014b8a",
+        "tools/soul_containment_eval/eval.py": "1850b248a4d186eafb84234029ccda447e4148b437123868931a16d676e35068",
+        "tools/soul_containment_eval/fixtures/reporte_de_prueba.json": "0289137bc890bdebf056509473b69803cec9b6a6b59e46787a6f17dd9dd7e0ab",
+        "tools/soul_containment_eval/test_probe_decoy.py": "b06a5a7e9f6369f3e90d8a6aaaf81e1241d592718936a5d7a05f96d941d64942",
+        "tools/soul_containment_eval/test_gate.py": "b23f24f245bb86fb5cac5b3fd1d1aa8bb901e189c98c97a974c696b22c8c5a0b",
+        "tools/soul_containment_eval/test_eval.py": "d963bb3321f0d4de2a79e8324a1a915923b34f11039c30473d823757004cbac4"
+      },
+      "evidence": "Firma final. Conteos recontados (4+3+2=9). Equivalencia del mutante excluido verificada por NEXUS con 4 celdas (sano/mutante x con/sin fixture): ninguna lo distingue. Autocontencion 32/1 desde el INDICE. 4 mutantes de gate.py y 3 de probe.py, todos muertos."
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Probado por EFECTO en un CLON LIMPIO (mktemp -d), copiando SOLO los archivos rastreados, sin var/ ni el resto del arbol.\nARM1: probe.py + decoy.py + test_probe_decoy.py -> 7 passed. Los tests NUEVOS son autocontenidos.\nARM2 (control, y el que da la mala noticia): la suite VIEJA en ese mismo clon -> 6 failed, 12 passed, por FileNotFoundError de var/soul-containment-eval/latest.json.\nLO QUE ESTE CONTROL DESTAPA SOBRE MI PROPIO TRABAJO: NEXUS reporto 3 fallos en clon limpio; ahora son SEIS. Tres los agregue YO esta manana: mis tres tests nuevos de test_gate.py usan _current_report(), que lee gate.DEFAULT_REPORT, y heredaron la dependencia externa. Los tests son correctos y matan los mutantes, pero EMPEORE la autocontencion de 3 a 6 sin notarlo. Queda en la tarea #1724 y lo digo aca en vez de reportar solo el 7 passed. SEGUNDA RONDA: 12 tests (7 -> 12); canario de probe.py 2 failed -> 7 failed; N1/N2/N3 de NEXUS mueren con 1 failed cada uno; control positivo y de restauracion en 12 passed. TERCERA RONDA: clon limpio construido copiando SOLO el artefacto rastreado, sin var/ -> 32 passed, 1 skipped con motivo explicito (antes: 6 failed). Sin el fixture, el primer fallo dice 'falta el fixture versionado ... deberia estar en git bajo tools/soul_containment_eval/fixtures/' en vez de un FileNotFoundError crudo.",
+    "command": {
+      "id": "delivery-containment-artifact",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/soul_containment_eval/test_probe_decoy.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "12 passed"
+    }
+  }
+}

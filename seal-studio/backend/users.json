@@ -1,0 +1,14 @@
+{
+  "william": {
+    "salt": "1edf916f365faf7919209b92055da5cc",
+    "hash": "24ee537296c43d961d7d6cdd68c41dcfa5bf344cdb2fbc311117e908bd9df2c6",
+    "role": "admin",
+    "display": "William"
+  },
+  "henry": {
+    "salt": "bc96c7c3694087e585d35a525abec488",
+    "hash": "dd11b0b388697108fbbc69a08cd99f3814727f13230d1ab16009bf1a66f67721",
+    "role": "member",
+    "display": "Henry"
+  }
+}

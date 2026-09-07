@@ -1,0 +1,78 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "jarvis-seat-lib-v1",
+  "reviewer": "NEXUS",
+  "subject": "agents/JARVIS/seat_lib.sh",
+  "mutation_target": "isolated_copy",
+  "harness": [
+    "/home/dadito/IA/seal-spark/.venv/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py"
+  ],
+  "control_sujeto_sin_mutar": {
+    "donde": "copia del arbol del INDICE (git write-tree + git archive), con la autoridad importada",
+    "observed": "7 passed",
+    "por": "JARVIS",
+    "result": "GREEN"
+  },
+  "file_sha256": {
+    "agents/JARVIS/seat_lib.sh": "04c71ff2164d800e6a03f11b41efb406ab18ece420c2c5cb59fa986dc4248c84",
+    "tools/seal_agent_runtime_supervisor.py": "e74ca342bf60dba1b3510a4bb409d20a141519f32c3615c6015d8c786ec51f0e",
+    "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py": "19d702eb506d36a1d9f89b794174e293141e7a46e661a93e233e589d533b6074"
+  },
+  "killed": 4,
+  "survived": 0,
+  "total": 4,
+  "mutation_score_percent": 100.0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutants": [
+    {
+      "id": "quita-el-ancla-al-inicio",
+      "author": "NEXUS",
+      "mutation": "[[ \"$norm\" == \"$ag\"* ]]  ->  [[ \"$norm\" == *\"$ag\"* ]]",
+      "result": "KILLED",
+      "observed": "2 failed, 5 passed",
+      "why": "sin ancla, un nombre que EMPIEZA con separador y sigue con el del agente adopta un asiento ajeno"
+    },
+    {
+      "id": "guion-ascii-como-separador",
+      "author": "NEXUS",
+      "mutation": "acepta \"-\" como separador valido",
+      "result": "KILLED",
+      "observed": "segun la tanda del revisor",
+      "why": "JARVIS-CLONE y JARVIS-u103 volverian a contar como asiento propio"
+    },
+    {
+      "id": "pierde-el-gate-comm-claude",
+      "author": "JARVIS",
+      "mutation": "[ \"$comm\" = \"claude\" ] || continue  ->  [ \"$comm\" != \"\" ] || continue",
+      "result": "KILLED",
+      "observed": "2 failed, 5 passed",
+      "why": "el alcance deja de ser el asiento CLAUDE y pasa a contar cualquier proceso"
+    },
+    {
+      "id": "self-test-aprueba-matcher-por-subcadena",
+      "author": "JARVIS",
+      "mutation": "el barrido de separadores devuelve 0 siempre",
+      "result": "KILLED",
+      "observed": "el self-test pasa a FALLA",
+      "why": "es el defecto que ADA encontro: JARVIS-CLONE aceptado como JARVIS"
+    }
+  ],
+  "_historia": "El mutante del ancla SOBREVIVIA hasta el 4-sep. Al cerrarlo, mis 3 primeros casos (ADA — JARVIS, el asiento de JARVIS, XJARVIS) NO DISTINGUIAN: sin ancla ${norm#$ag} no recorta nada y el barrido de separadores los rechaza igual. Medido caso por caso sano contra mutado, los que distinguen son los que EMPIEZAN con separador y siguen con el nombre.",
+  "_evidencia_anterior_del_autor": {
+    "schema": "seal.mutation-evidence.v1",
+    "change_id": "jarvis-seat-lib-v1",
+    "producido_por": "JARVIS",
+    "rol": "owner",
+    "medido": "2026-08-29T23:42:45-05:00",
+    "sujeto": "agents/JARVIS/seat_lib.sh",
+    "nota": "Producida por el OWNER, no por un revisor. Documenta que el sujeto es mutable y que la suite lo caza; NO sustituye la evidencia de mutacion de quien firme.",
+    "prosa_original_del_autor": "Mutantes de una linea con `dif` contado ANTES de leer el color y causa verificada con --tb=long: (1) matcher por prefijo acepta JARVIS-CLONE; (2) el espejo pierde el gate comm=claude -> autoridad=[203] espejo=[201,202,203]; y en COPIA de la autoridad, ampliar su alcance -> fija el alcance por los dos lados. FIXTURE: los casos no-Claude llevan --name JARVIS a proposito; con el valor REAL (--profile ada) quedaban rechazados por DOS filtros y el mutante del gate bajo prueba no los mataba."
+  }
+}

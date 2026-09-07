@@ -1,0 +1,74 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "ssai-e3-heldout-assurance-20260820",
+  "owner": "ADA",
+  "independent_reviewer": "WEGENER",
+  "review": {
+    "status": "approved",
+    "evidence": "WEGENER independently reproduced all four QA arms and delivery on the exact staged bytes, then killed six copy-based mutants. Approval is limited to new operators plus independent challenge in SHADOW/TOFU_UNANCHORED; it is not an externally anchored, blinded or statistical preregistration claim.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "WEGENER",
+      "evidence": "Exact staged-byte review: unit 6/6; positive 2/2; negative 2/2; control 2/2; delivery 8/8 attacks detected plus honest control accepted. Subject coverage 94.253%. Six real mutations in isolated copies were killed: crypto verifier bypass (5/8, exit 1), ledger verifier bypass (5/8, exit 1), witness bypass (6/8, exit 1), catalog hash tamper (exit 1), plus reviewer-originated recomputed detector-map drift and case omission (three pytest failures each). IDs are disjoint from original E3. Claim constrained to new operators and independent challenge; externally_anchored_preregistration=false.",
+      "reviewed_sha256": {
+        "docs/thesis/ssai/experiments/E3_HELDOUT_CASES.json": "26a016530cc426fa0f970757d3998304db87eefe07b768c8737e44bee8bc96a5",
+        "docs/thesis/ssai/experiments/E3_HELDOUT_EVIDENCE.json": "491be2db055901cb1abb51a73c7defe685e9e8526fdcad9a17970c18275c392a",
+        "docs/thesis/ssai/experiments/e3_heldout_assurance.py": "1ab2ff2c1e0cd036fc192e3636840f25eeb1af3ef927de064d0ed501d9dd0aea",
+        "tests/test_e3_heldout_assurance.py": "2649bbe964f7d6b69be938c4424cada95505ee4225ef988100dc1a972628cb46"
+      },
+      "manifest_digest": "2e6f316c3f0577d0d6f15b9e37231ad0bca0139a0881f816e016400164e413c3"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "docs/thesis/ssai/experiments/E3_HELDOUT_CASES.json",
+    "docs/thesis/ssai/experiments/E3_HELDOUT_EVIDENCE.json",
+    "docs/thesis/ssai/experiments/e3_heldout_assurance.py"
+  ],
+  "tests": ["tests/test_e3_heldout_assurance.py"],
+  "commands": [
+    {
+      "id": "unit-e3-heldout",
+      "kind": "unit",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_e3_heldout_assurance.py"],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-e3-heldout-detectors",
+      "kind": "qa_positive",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_e3_heldout_assurance.py::test_all_heldout_attacks_detected_by_preregistered_detector", "tests/test_e3_heldout_assurance.py::test_witness_cases_are_internally_valid_but_externally_rejected"],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-e3-heldout-fail-closed",
+      "kind": "qa_negative",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_e3_heldout_assurance.py::test_case_catalog_tamper_fails_closed", "tests/test_e3_heldout_assurance.py::test_cli_writes_evidence_and_returns_nonzero_on_miss"],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-e3-heldout-honest",
+      "kind": "qa_control",
+      "argv": ["python3", "-m", "pytest", "-q", "tests/test_e3_heldout_assurance.py::test_honest_control_is_non_vacuous", "tests/test_e3_heldout_assurance.py::test_frozen_catalog_is_hash_bound_and_disjoint_from_original"],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": ["docs.thesis.ssai.experiments.e3_heldout_assurance"],
+    "omit": ["**/test_*.py"],
+    "pytest_args": ["-q", "tests/test_e3_heldout_assurance.py"],
+    "baseline_percent": 94.25,
+    "timeout": 300
+  },
+  "mutation_evidence": "quality/mutation-ssai-e3-heldout-assurance.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "The isolated battery must detect eight new operators, accept its honest control, and match the detector classes bound in the local catalog. It does not claim a blinded preregistration, production anchoring or ENFORCE.",
+    "command": {
+      "id": "delivery-e3-heldout",
+      "argv": ["python3", "docs/thesis/ssai/experiments/e3_heldout_assurance.py", "--json", "/tmp/e3_heldout_delivery.json"],
+      "expected_exit": 0,
+      "expected_stdout_contains": "8/8 detected"
+    }
+  }
+}

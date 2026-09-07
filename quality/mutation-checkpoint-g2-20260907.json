@@ -1,0 +1,34 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "Mutantes adversariales sobre COPIA aislada (mktemp -d bajo /tmp); base VERDE verificada ANTES de contar (la primera tanda se descarto: control en 6 failed por dependencia faltante); cada mutante verificado por que CAMBIA la linea y COMPILA (ast.parse).",
+  "workspace": "checkpoint G2 — tarea y decisiones tras reinicio",
+  "mutation_target": "messages/session_checkpoint.py",
+  "killed": 6,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 6,
+  "mutation_score_percent": 100.0,
+  "detail": {
+    "control_positivo": "9 passed",
+    "control_de_restauracion": "9 passed",
+    "_arena_rota_declarada": "1a tanda: control 6 failed (ModuleNotFoundError seal_secrets). Descartada entera. Se copio memory/seal_secrets.py y se volvio a contar desde cero.",
+    "mutantes": [
+      "M1 bandera ENCENDIDA por defecto -> 1 failed. MUERE. Es el que rompe el rollback que exige la spec.",
+      "M2 tareas_activas siempre vacia -> 3 failed. MUERE. Es 'la capa existe y no aporta'.",
+      "M3 quitar NEXUS/ALICE/FABLE de active_agents -> 1 failed. MUERE. Reintroduce el defecto viejo.",
+      "M4 los campos SIEMPRE presentes (sin importar la bandera) -> 1 failed. MUERE. Rompe la prueba diferencial.",
+      "M-ALICE (aportado por la revisora) `agent = $1` -> `($1 IS NOT NULL)` en agent_tasks -> 1 failed. MUERE tras el test 9. ANTES SOBREVIVIA.",
+      "M-ALICE-2 el mismo eje en la consulta de decisiones -> 1 failed. MUERE. Lo agregue yo al ver que su eje tenia una segunda puerta."
+    ],
+    "_hash_refrescado": "El test crecio con el brazo qa_control DESPUES de la 1a corrida. Los 4 mutantes se RE-CORRIERON sobre estos bytes (control 8 passed; M1 1 failed, M2 4 failed, M3 1 failed, M4 1 failed; restauracion 8 passed). El hash se refresco DESPUES de volver a medir, nunca antes.",
+    "_credito": "El eje 'alcance' lo encontro ALICE en revision independiente; yo solo lo extendi a la segunda consulta."
+  },
+  "file_sha256": {
+    "messages/session_checkpoint.py": "91b74678f44c4bad64646d43d3e3f85ae0471650fa8b01e2b9f86d0b291159cb",
+    "messages/tests/test_checkpoint_tarea_decisiones_v1.py": "8e3ee0f10bcaf15cafb2e04bf9a5fbe1a812452542cfa17008357934d22a83d1"
+  },
+  "reviewer": "ALICE"
+}

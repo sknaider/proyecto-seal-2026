@@ -1,0 +1,11 @@
+[Unit]
+Description=FABLE ledger — cada 6 h: nuevos veredictos y qué pasó con los anteriores
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:20:00
+RandomizedDelaySec=300
+Persistent=true
+Unit=fable-ledger-outcomes.service
+
+[Install]
+WantedBy=timers.target

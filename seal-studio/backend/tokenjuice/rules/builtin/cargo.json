@@ -1,0 +1,32 @@
+[
+  {
+    "id": "cargo-build-compact",
+    "priority": 100,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["cargo"],
+      "argv_includes": [["build"]]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 15,
+      "preserve_patterns": ["error", "warning", "Finished", "Compiling"]
+    },
+    "description": "Compact cargo build — preserve errors and final status"
+  },
+  {
+    "id": "cargo-test-compact",
+    "priority": 90,
+    "match": {
+      "tool_names": ["bash"],
+      "argv0": ["cargo"],
+      "argv_includes": [["test"]]
+    },
+    "reduce": {
+      "strategy": "keepLines",
+      "keep_lines": 30,
+      "preserve_patterns": ["FAILED", "error", "test result"]
+    },
+    "description": "Compact cargo test output"
+  }
+]

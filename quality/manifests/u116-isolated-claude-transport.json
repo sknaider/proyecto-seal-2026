@@ -1,0 +1,181 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "u116-isolated-claude-transport-20260810",
+  "owner": "ADA",
+  "independent_reviewer": "BROKER_SECURITY_AUDIT",
+  "review": {
+    "status": "approved",
+    "evidence": "Independent adversarial audit of final staged bytes after the initial HOLD; reviewer verified provider credential custody, authenticated UDS boundaries, signed consent, network-none containment, fail-closed activation and durable reconciler HOLD.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "BROKER_SECURITY_AUDIT",
+      "evidence": "APPROVED: byte-bound independent audit; split-group DAC PASS; bounded relay slowloris PASS; 56 focused tests; dedicated-key and immutable-subject gates fail closed; durable HOLD disabled/inactive with no container.",
+      "reviewed_sha256": {
+        "agents/NEXUS/gate_arranque_clon.py": "8969e7a87b7178cc33192278238560c87acf4aee99a3f48e0632d02def3263bf",
+        "messages/Dockerfile.user-clone": "b1ba94e71b15b8dd85a25c26e8e3251842be11143e21f1dfbfa306a66ab6c502",
+        "messages/ada_user_clone_worker.py": "090edc2a0a6f7e97e084277e362d77d1ed1d95005323fd14423619e16bd72a92",
+        "messages/claude_u116_broker.py": "04231b187da1d1ff45952d6706f95ee529c8970e867dcb52303d99991b91a70d",
+        "messages/u116_chat_relay.py": "fd4cbac7ea9356dc2f54b08a1251ed6db6329e066d83ef666e4ab0c775250aeb",
+        "messages/user_clone_policy.py": "7be0ee1c3a5021ab465d826939bfb3f6a558f85277b5c56220ad8d7606f41ae6",
+        "messages/voice_profiles/JARVIS-u116.json": "c8206e1413acd33bb2f2cd4ba30ed937cd71856ad89648148db81690aa38ab7a",
+        "messages/voice_profiles/sources/jarvis_voice_fewshot_soporte.md": "d3b58f38c1d63ae0cdd1775fa09b7fda029df2f4c35c3b236b38c1e4f00681ce",
+        "scripts/activate_claude_u116.sh": "5089afab69e2f5072cfdf1400a040d38a409d299adc4641be1c18e66ca6cabfe",
+        "scripts/preflight_clon.sh": "8e74a1033f8ab4bab4841cd009caa2f621644cacd39397aad0cc9485146e1db5",
+        "scripts/provision_claude_u116_broker.sh": "154d5957b30675de859929d8128d01023b8157a6df48bc00a220e0dd8845e9f7",
+        "scripts/reconcile_ada_user_clones.py": "2617e6ae1a3df781c083de440ba9dbfa7c8bfd335ff4f6f1d7e5ce75a866049b",
+        "scripts/run_user_clone_container.sh": "468cdb7c1c2987e58bee9ac18dc57071f9a9876ad3137d0b4f3f50bd3fcabafd",
+        "scripts/sign_claude_u116_consent.py": "d326d14cbf8348c7fdae22e24e25520e2da9188c8a0ed7ec1c2cac2ea3c825ec",
+        "systemd/seal-claude-u116-broker.service": "40671f9091049526ffa1b3216a3e7c6e99d46b6c0426512d5475268cc33bb519",
+        "systemd/seal-u116-chat-relay.service": "5ca1dc516dc9768b1aacbc45ab01aa2c460cbe7673d8d07f86909453ef75a4d3",
+        "systemd/seal-user-clone@.service": "439f72c908c81f07b28733581739879d86b5c6b29d0e0723fa1d6b78488717ae",
+        "systemd/seal-user-clone@JARVIS-u116.service.d/10-claude-broker.conf": "c8c1a8829826c5acd150367cfedfcb00cb8edc4d55f1c07afc19e0179b20f0ec",
+        "quality/policy.json": "59c60baa1df92bf14e37d15389c6a057d7cebfaeab88f4e3ef3db122a09a100c",
+        "agents/NEXUS/test_gate_flags_prohibidos.py": "dab8836928174e438f15d999071b03de1856441e5c2f47b7b94a91510efaf5d2",
+        "agents/NEXUS/test_gate_projection_scope.py": "b7fb156f515063128988a7cedd6cf9c083896a30b95bceed239618cd213fb39c",
+        "agents/NEXUS/test_preflight_deniega.py": "04194a3008e341312237fc6d93507251b23436166caaa1b6bdbae77846750612",
+        "agents/NEXUS/test_preflight_sujeto_real.py": "161c0c9cdcbcf1e971718e1955b7b95403deb2d0fa43e296977a9052a222ee26",
+        "messages/tests/test_ada_user_clone_worker.py": "15308af68fce40d6d617659790295ec0fca2ad402f223ae0680fd42ac4ea33b5",
+        "messages/tests/test_claude_u116_broker.py": "fc439788423e673ee3565224badd587def1ade0e4b1922d8e5c40997572220db",
+        "messages/tests/test_claude_u116_consent_redteam.py": "95cdb35e0df9e14e10f33f8840d624f62477d9ff90969203557439c37cfe3afe",
+        "messages/tests/test_u116_chat_relay.py": "6f83caaf661fabffe9ed44810a6a71420765058f39cbf82f08313d415b732dae",
+        "scripts/test_activate_claude_u116.py": "b36816822d9e6e3eb4548a6d6363a7de543ecc01f36926800d7c9f854d9e1291",
+        "scripts/test_run_user_clone_container.py": "d59845f1235fc6364b78a3f5e76fa35321b221316ad010a052c7f8f1f5889561",
+        "scripts/test_sign_claude_u116_consent.py": "b84f5014724f7ce20ab7a70f5395a20494a06d65ab4b75508b54c916109a564e",
+        "scripts/test_reconcile_ada_user_clones.py": "c059fbcc6a7a61e7a224360f65aed34aea87c9d26da0400110c4eec9c05c55ec"
+      },
+      "manifest_digest": "6b8ea40394415db758a05b228b34e5dc3846fa5894a4423bf61f515cf8c8e911"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "agents/NEXUS/gate_arranque_clon.py",
+    "messages/Dockerfile.user-clone",
+    "messages/ada_user_clone_worker.py",
+    "messages/claude_u116_broker.py",
+    "messages/u116_chat_relay.py",
+    "messages/user_clone_policy.py",
+    "messages/voice_profiles/JARVIS-u116.json",
+    "messages/voice_profiles/sources/jarvis_voice_fewshot_soporte.md",
+    "scripts/activate_claude_u116.sh",
+    "scripts/preflight_clon.sh",
+    "scripts/provision_claude_u116_broker.sh",
+    "scripts/reconcile_ada_user_clones.py",
+    "scripts/run_user_clone_container.sh",
+    "scripts/sign_claude_u116_consent.py",
+    "systemd/seal-claude-u116-broker.service",
+    "systemd/seal-u116-chat-relay.service",
+    "systemd/seal-user-clone@.service",
+    "systemd/seal-user-clone@JARVIS-u116.service.d/10-claude-broker.conf",
+    "quality/policy.json"
+  ],
+  "tests": [
+    "agents/NEXUS/test_gate_flags_prohibidos.py",
+    "agents/NEXUS/test_gate_projection_scope.py",
+    "agents/NEXUS/test_preflight_deniega.py",
+    "agents/NEXUS/test_preflight_sujeto_real.py",
+    "messages/tests/test_ada_user_clone_worker.py",
+    "messages/tests/test_claude_u116_broker.py",
+    "messages/tests/test_claude_u116_consent_redteam.py",
+    "messages/tests/test_u116_chat_relay.py",
+    "scripts/test_activate_claude_u116.py",
+    "scripts/test_run_user_clone_container.py",
+    "scripts/test_sign_claude_u116_consent.py",
+    "scripts/test_reconcile_ada_user_clones.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-u116-isolated-transport",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_ada_user_clone_worker.py",
+        "messages/tests/test_claude_u116_broker.py",
+        "messages/tests/test_claude_u116_consent_redteam.py",
+        "messages/tests/test_u116_chat_relay.py",
+        "scripts/test_run_user_clone_container.py",
+        "scripts/test_activate_claude_u116.py",
+        "scripts/test_sign_claude_u116_consent.py",
+        "agents/NEXUS/test_gate_projection_scope.py",
+        "scripts/test_reconcile_ada_user_clones.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-uds-chat-roundtrip",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_u116_chat_relay.py::test_worker_chat_roundtrip_over_uds_and_auth_denials"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-auth-before-body-slowloris",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_claude_u116_broker.py::test_auth_happens_before_body_and_slow_client_cannot_block_health"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-consent-exact-bytes",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_claude_u116_broker.py::test_consent_is_bound_to_exact_bytes"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages",
+      "agents/NEXUS"
+    ],
+    "omit": [
+      "messages/tests/*",
+      "agents/NEXUS/test_*.py"
+    ],
+    "pytest_args": [
+      "-q",
+      "messages/tests/test_ada_user_clone_worker.py",
+      "messages/tests/test_claude_u116_broker.py",
+      "messages/tests/test_claude_u116_consent_redteam.py",
+      "messages/tests/test_u116_chat_relay.py",
+      "agents/NEXUS/test_gate_projection_scope.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 240
+  },
+  "mutation_evidence": "quality/mutation-u116-isolated-claude-transport.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "By-effect probes under the real systemd sandbox returned unauthenticated 401/authenticated 200; a --network none container could reach only the authenticated chat UDS while DB, chat TCP, MCP, Internet and Anthropic DNS were unreachable. Real credentials and activation marker remain absent.",
+    "command": {
+      "id": "delivery-worker-uds-contract",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_u116_chat_relay.py::test_worker_chat_roundtrip_over_uds_and_auth_denials"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

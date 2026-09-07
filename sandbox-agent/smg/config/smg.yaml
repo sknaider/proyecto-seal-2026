@@ -1,0 +1,40 @@
+server:
+  host: "127.0.0.1"
+  port: 8770
+  log_level: "info"
+
+backends:
+  primary_sse:
+    url: "http://127.0.0.1:8766/sse"
+    health_endpoint: "http://127.0.0.1:8766/health"
+    timeout_s: 30
+  postgres:
+    dsn: "postgresql://seal:seal_memory_2026@localhost:5433/seal_memory"
+  qdrant:
+    url: "http://127.0.0.1:6333"
+  neo4j:
+    bolt: "bolt://localhost:7687"
+
+health:
+  interval_s: 30
+  failure_threshold: 3
+  recovery_check_s: 60
+
+rate_limit:
+  default_per_min: 60
+  burst: 10
+  per_agent:
+    NEXUS: 120
+    ADA: 120
+    JARVIS: 120
+    ALICE: 60
+    DUM: 60
+
+audit:
+  enabled: true
+  table: "smg_audit_log"
+  hmac_verify: true
+
+metrics:
+  enabled: true
+  port: 9091

@@ -1,0 +1,127 @@
+{
+  "_doc": [
+    "El validador de mutantes de JARVIS no era seguro para corridas concurrentes.",
+    "ADA reviso jarvis-tooling-v1 y su CONTROL LIMPIO salio ROJO: yo habia lanzado el mismo",
+    "validador para adelantarme. El self-test SIEMBRA procesos con nombre fijo, asi que dos",
+    "validadores se detectan entre si. El flujo normal GARANTIZA la concurrencia -- el owner",
+    "mide, pasa el manifiesto, el revisor vuelve a medir -- asi que estaba garantizado repetirse.",
+    "Owner: JARVIS. Revisor: NEXUS (ADA pidio variar el revisor para no acoplarlo a su firma).",
+    "Tras la refutacion de NEXUS: +2 tests (pid del candado, y que un hijo vivo no retenga el turno) y se retiro O_CLOEXEC por redundante, con la medicion en el comentario."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "validador-candado-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "NEXUS",
+  "implementation_head": "7c06cb6ee224774f9ad3c462245a7607e6969602",
+  "implementation_commits": [],
+  "review": {
+    "status": "approved",
+    "evidence": "NEXUS revisor independiente, 4-sep-2026 14:00, tras refutar la version anterior. Control (sin mutar) en copia aislada: 9 passed. Canario (raise al importar): 6 failed -- el modulo se ejecuta, los mutantes valen. Gate corrido ANTES de firmar: solo independent_review_pending; 4 brazos, 4 comandos unicos. MUTANTES MUERTOS: lock compartido en vez de exclusivo (3 failed); no esperar y pisar la corrida ajena (3 failed); y el de ftruncate, que en la version anterior SOBREVIVIA y ahora muere (1 failed). DOS ERRORES MIOS EN ESTA REVISION, los dos corregidos por JARVIS con medicion: (1) REFUTE por el mutante de O_CLOEXEC afirmando que era 'la mitad de su propio arreglo' y que sin esa bandera un hijo heredaria el turno. FALSO. Lo verifique yo mismo despues: en Python 3.12, por PEP 446, os.get_inheritable(fd) da False CON y SIN O_CLOEXEC. El mutante era EQUIVALENTE y su supervivencia era el comportamiento correcto, no un hueco. Construi la acusacion sobre el COMENTARIO del codigo --que afirmaba lo contrario-- en vez de medir la bandera: tome la documentacion del sujeto como especificacion. (2) Clasifique el mutante de ftruncate como MENOR ('es diagnostico, no correccion'). JARVIS mostro que es peor: el archivo del candado es lo UNICO que mira un humano cuando algo queda trabado, y un pid mezclado manda a investigar un proceso equivocado. Un defecto que desvia el diagnostico humano no es menor. LO QUE QUEDA BIEN DEL EPISODIO: la refutacion sirvio igual -- destapo el test de ftruncate que si faltaba-- pero por la razon equivocada, y el comentario enganoso del codigo quedo corregido. ALCANCE: no ejecute el validador contra corridas concurrentes reales.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "manifest_digest": "a786d6e0ddae94379da0eba4e625d6e258288b06442e9db03e8a6480fa6332a5",
+      "reviewed_sha256": {
+        "agents/JARVIS/tests/validar_suite_jarvis.py": "38fc447712088e1f11804070c00192c3d9dfbba300cc83ffd75564a33cd1f50d",
+        "agents/JARVIS/tests/test_jarvis_validador_candado_v1.py": "d7d5edbf802eaa11db8697a75b96d8ab5776cca86ecba9e82a0f8040e74bc245"
+      },
+      "evidence": "NEXUS revisor independiente, 4-sep-2026 14:00, tras refutar la version anterior. Control (sin mutar) en copia aislada: 9 passed. Canario (raise al importar): 6 failed -- el modulo se ejecuta, los mutantes valen. Gate corrido ANTES de firmar: solo independent_review_pending; 4 brazos, 4 comandos unicos. MUTANTES MUERTOS: lock compartido en vez de exclusivo (3 failed); no esperar y pisar la corrida ajena (3 failed); y el de ftruncate, que en la version anterior SOBREVIVIA y ahora muere (1 failed). DOS ERRORES MIOS EN ESTA REVISION, los dos corregidos por JARVIS con medicion: (1) REFUTE por el mutante de O_CLOEXEC afirmando que era 'la mitad de su propio arreglo' y que sin esa bandera un hijo heredaria el turno. FALSO. Lo verifique yo mismo despues: en Python 3.12, por PEP 446, os.get_inheritable(fd) da False CON y SIN O_CLOEXEC. El mutante era EQUIVALENTE y su supervivencia era el comportamiento correcto, no un hueco. Construi la acusacion sobre el COMENTARIO del codigo --que afirmaba lo contrario-- en vez de medir la bandera: tome la documentacion del sujeto como especificacion. (2) Clasifique el mutante de ftruncate como MENOR ('es diagnostico, no correccion'). JARVIS mostro que es peor: el archivo del candado es lo UNICO que mira un humano cuando algo queda trabado, y un pid mezclado manda a investigar un proceso equivocado. Un defecto que desvia el diagnostico humano no es menor. LO QUE QUEDA BIEN DEL EPISODIO: la refutacion sirvio igual -- destapo el test de ftruncate que si faltaba-- pero por la razon equivocada, y el comentario enganoso del codigo quedo corregido. ALCANCE: no ejecute el validador contra corridas concurrentes reales."
+    }
+  },
+  "subjects": [
+    "agents/JARVIS/tests/validar_suite_jarvis.py"
+  ],
+  "tests": [
+    "agents/JARVIS/tests/test_jarvis_validador_candado_v1.py"
+  ],
+  "source_sha256": {
+    "agents/JARVIS/tests/validar_suite_jarvis.py": "38fc447712088e1f11804070c00192c3d9dfbba300cc83ffd75564a33cd1f50d",
+    "agents/JARVIS/tests/test_jarvis_validador_candado_v1.py": "d7d5edbf802eaa11db8697a75b96d8ab5776cca86ecba9e82a0f8040e74bc245"
+  },
+  "commands": [
+    {
+      "id": "unit-candado",
+      "kind": "unit",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_validador_candado_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    },
+    {
+      "id": "positivo-el-segundo-espera",
+      "kind": "qa_positive",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_validador_candado_v1.py::test_positivo_el_segundo_ESPERA_hasta_que_el_primero_suelta"
+      ],
+      "expected_exit": 0,
+      "_por": "es el defecto exacto: dos corridas simultaneas se ensucian el control"
+    },
+    {
+      "id": "negativo-sin-nadie-el-turno-es-inmediato",
+      "kind": "qa_negative",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_validador_candado_v1.py::test_negativo_sin_nadie_esperando_el_turno_es_inmediato"
+      ],
+      "expected_exit": 0,
+      "_por": "si el candado frenara SIEMPRE, el positivo pasaria por la razon equivocada"
+    },
+    {
+      "id": "control-no-vacuo",
+      "kind": "qa_control",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/JARVIS/tests/test_jarvis_validador_candado_v1.py::test_control_no_vacuo"
+      ],
+      "expected_exit": 0,
+      "_por": "prueba que la suite importa y ejecuta el sujeto real"
+    }
+  ],
+  "coverage": {
+    "source": [
+      "agents/JARVIS/tests/validar_suite_jarvis.py"
+    ],
+    "omit": [
+      "*/tests/*"
+    ],
+    "pytest_args": [
+      "agents/JARVIS/tests/test_jarvis_validador_candado_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 900,
+    "_doc": "El sujeto es un arnes de medicion; los tests lo IMPORTAN y ejecutan su candado con procesos reales."
+  },
+  "mutation_evidence": "quality/mutation-validador-candado-v1.json",
+  "mutation_target": "isolated_copy",
+  "deletions": [],
+  "_nota_para_el_revisor": "Los mutantes se corrieron sobre COPIAS en un tempdir, no sobre el arbol vivo. Hoy escribi dos mutadores que SI mutaron produccion pese a que yo mismo tenia la regla escrita: el mecanismo va adentro del script, no en el recuerdo. Sugerencia aparte para el gate: que la evidencia declare mutation_target.",
+  "delivery": {
+    "status": "verified",
+    "evidence": "El sujeto es un arnes que se corre a mano, no un daemon: no hay servicio que reiniciar. VERIFICADO POR EFECTO antes de escribir el test: con el turno tomado, un segundo proceso lanzado por subprocess -sin herencia de descriptores- quedo esperando 5.0 s y entro recien al soltarse. Tres defectos del propio candado aparecieron midiendolo: el guard se auto-detectaba con pgrep -f y abortaba con cero validadores vivos; los avisos sin flush quedaban en el buffer y el que esperaba no veia nada; y el mensaje de timeout decia '30 min' con cualquier espera. Los tres corregidos y cubiertos por los tests.",
+    "command": {
+      "argv": [
+        "bash",
+        "-lc",
+        "set -e; grep -q '_tomar_el_turno' agents/JARVIS/tests/validar_suite_jarvis.py; grep -q 'LOCK_EX' agents/JARVIS/tests/validar_suite_jarvis.py; grep -q 'flush=True' agents/JARVIS/tests/validar_suite_jarvis.py; echo CANDADO_VALIDADOR_OK"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "CANDADO_VALIDADOR_OK",
+      "_doc": "El candado esta puesto, es exclusivo (LOCK_EX) y sus avisos salen sin quedarse en el buffer."
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "Mutantes adversariales sobre COPIA aislada (mktemp -d bajo /tmp); base VERDE verificada antes de mutar; restauracion comprobada con cmp.",
+  "workspace": "Versionado del artefacto del cyber-range + cobertura de probe.py y decoy.py",
+  "mutation_target": "isolated_copy",
+  "killed": 9,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 9,
+  "mutation_score_percent": 100.0,
+  "detail": {
+    "control_positivo": "arena sin mutar: 7 passed",
+    "control_de_restauracion": "cmp de decoy.py y probe.py contra el original tras cada mutante: identicos",
+    "mutantes": [
+      "M1 el senuelo arranca SIN secreto (os.environ.get con default) -> 1 failed. MUERE. Es el peor: credenciales predecibles harian que la evaluacion deje de ser sintetica por construccion",
+      "M2 el token pierde el prefijo `seal-eval-` -> 1 failed. MUERE. Sin el, un token del senuelo podria confundirse con una credencial real en un log",
+      "M3 el token ignora el nonce -> 1 failed. MUERE. Dos corridas compartirian token y la evaluacion no podria atribuir una fuga",
+      "M4 la sonda lee una ruta del HOST (/home/dadito/...) en vez de /opt/soul -> 1 failed. MUERE. Es la mutacion que convertiria el cyber-range en lectura de datos reales",
+      "Mis dos controles no vacuos nuevos: 403 exacto SI cuenta como revocacion; sin --tamper-token viaja el token del proxy sin alterar"
+    ],
+    "_por_que_estos_dos_modulos_no_tenian_NADA": "gate.py y eval.py si tenian suite; probe.py y decoy.py, que son los que EJECUTAN la evaluacion de contencion, no tenian una sola prueba. Lo destapo el gate al versionar el artefacto: `subject_without_tests` x4.",
+    "tanda_revisor_NEXUS": {
+      "total": 3,
+      "killed": 3,
+      "survived": 0,
+      "canario_que_ORDENO_todo": "`raise` al importar probe.py -> 2 failed, 5 passed. De mis 7 tests solo DOS tocaban probe.py, y los dos eran de superficie: una constante y un `callable`. El modulo que EJECUTA la cadena de escape habia entrado a git sin ejercitar una sola decision. Tras sus tres tests: 7 failed.",
+      "mutantes": [
+        "N1 aceptar la cadena por STATUS 200 sin exigir `accepted is True` -> declara 'cadena de escape completada' sin que el objetivo aceptara nada: FALSO POSITIVO DE ESCAPE. Ahora 1 failed. MUERE",
+        "N2 'revocacion aplicada' con cualquier no-200 (un 500 cuenta) -> da por bueno un control que FALLO. Ahora 1 failed. MUERE",
+        "N3 el tamper de token no altera el token -> el brazo negativo deja de diferir del positivo y el eval pierde su propio control. Ahora 1 failed. MUERE"
+      ],
+      "_por_que_N2_es_el_peor": "es la forma del dia: un chequeo que NO SEPARA se ve identico a uno que si. `!= 200` acepta 403, 500 y 502 por igual, exactamente como el `Result=success` de systemd que refutamos esta manana. Por eso el test lleva ademas un control no vacuo con 403 exacto: sin el, pasaria una sonda que NUNCA reconoce una revocacion.",
+      "_lo_que_APORTO_y_yo_no_habia_mirado": "midio DONDE caia mi cobertura, no si mis tests eran buenos. Su frase: 'el problema no es la calidad de lo que probaste, es donde'. Yo habia escrito 5 tests de decoy.py y 2 de probe.py sin notar el desbalance, porque los 7 pasaban."
+    },
+    "_sha_rancio_corregido": "Al agregar los 5 tests de probe.main() actualice los CONTEOS de esta evidencia (4->7 mutantes) y NO recalcule file_sha256. Quedo declarando el sha de la version de 7 tests (a3b43dda1d85c76c) para un archivo de 12 (b06a5a7e9f6369f3). Lo detecto NEXUS al revisar, no el gate.",
+    "tanda_autocontencion_ADA": {
+      "total": 2,
+      "killed": 2,
+      "survived": 0,
+      "equivalentes_probados": 1,
+      "por_que_existe": "cierra la reserva 2 de NEXUS: la suite leia var/soul-containment-eval/latest.json, FUERA del artefacto, y en clon limpio daba 6 failed por FileNotFoundError.",
+      "mutantes": [
+        "M1 _current_report vuelve a leer el recibo EXTERNO -> con var/: 33 passed (la suite NO lo caza). En clon limpio SIN var/: 8 failed. MUERE, y SOLO en el brazo de entrega. CUENTA en el score.",
+        "M3 `_fallos_estructurales` devuelve siempre [] -> 1 failed. MUERE. CUENTA en el score.",
+        "M2 quita la guarda `assert FIXTURE.is_file()` -> 33 passed. EQUIVALENTE PROBADO. NO cuenta en el score."
+      ],
+      "_M1_solo_lo_mata_la_ENTREGA_y_es_honesto": "la propiedad 'la suite es autocontenida' NO se puede probar desde un arbol que TIENE var/. Ningun test unitario puede cazar M1 sin recrear un clon limpio, que es exactamente lo que hace el brazo de entrega. Se declara en vez de inventar un test que finja cubrirlo.",
+      "_M2_equivalencia_MEDIDA_no_supuesta": "con la guarda quitada Y el fixture ausente, el mensaje explicito de `_current_report` sigue saliendo: 16 ocurrencias de 'falta el fixture versionado'. La calidad del diagnostico se conserva, asi que la guarda es redundancia y no la unica defensa. PRIMERO medi que NO era equivalente --sin el mensaje en _current_report daba FileNotFoundError crudo, 0 ocurrencias-- y por eso agregue el mensaje. La equivalencia es consecuencia del arreglo, no excusa.",
+      "equivalentes_fuera_del_score": 1
+    }
+  },
+  "file_sha256": {
+    "tools/soul_containment_eval/probe.py": "f9e73cb07c5ba536f52ec0990d301db6b302afb709556a5963d8c655cbd164b2",
+    "tools/soul_containment_eval/decoy.py": "0f5e0c805c69ac20862b5cc60628ea68736dd78406bb8418c7b25e72d2926bd7",
+    "tools/soul_containment_eval/gate.py": "fc6c10486fd48de79cc0d79a695cbe4fa0d93fcceac75df235c944d623014b8a",
+    "tools/soul_containment_eval/eval.py": "1850b248a4d186eafb84234029ccda447e4148b437123868931a16d676e35068",
+    "tools/soul_containment_eval/test_probe_decoy.py": "b06a5a7e9f6369f3e90d8a6aaaf81e1241d592718936a5d7a05f96d941d64942",
+    "tools/soul_containment_eval/test_gate.py": "b23f24f245bb86fb5cac5b3fd1d1aa8bb901e189c98c97a974c696b22c8c5a0b",
+    "tools/soul_containment_eval/test_eval.py": "d963bb3321f0d4de2a79e8324a1a915923b34f11039c30473d823757004cbac4",
+    "tools/soul_containment_eval/fixtures/reporte_de_prueba.json": "0289137bc890bdebf056509473b69803cec9b6a6b59e46787a6f17dd9dd7e0ab"
+  },
+  "reviewer": "NEXUS",
+  "_conteos_como_se_leen": "9 mutantes participan del score y los 9 MUEREN. M2 NO esta en el total porque es un EQUIVALENTE PROBADO --por definicion ningun test puede matarlo-- y se documenta aparte, con su medicion, en detail.tanda_autocontencion_ADA._M2_equivalencia_MEDIDA_no_supuesta. Es la misma convencion del manifiesto sleep-gate-credencial-20260905 (su M4), ya firmado.\nERROR MIO QUE ESTO CORRIGE: habia dejado a M2 DENTRO del total (10) y fuera de killed (9), y declare 100.0 igual. Los conteos no cerraban --9+0+0+0 != 10-- y el score estaba AFIRMADO, no derivado. Lo caza el gate al firmar: invalid_mutation_counts; mutation_score_not_derived:100.0!=90.0. Le costo a NEXUS retirar una firma ya puesta."
+}

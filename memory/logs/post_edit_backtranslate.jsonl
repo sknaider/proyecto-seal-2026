@@ -1,0 +1,1 @@
+{"backtranslate": "anomaly_warn", "file": "/home/dadito/IA/proyecto-seal/memory/mcp_server_v2.py", "agent": "ADA", "trace_id": "-", "similarity": 0.0, "divergence": 1.0, "declared_lines": 4, "actual_lines_added": 1845, "threshold": 0.3, "ts": "2026-04-27T02:43:12Z"}

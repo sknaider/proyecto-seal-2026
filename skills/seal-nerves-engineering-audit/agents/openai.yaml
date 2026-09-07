@@ -1,0 +1,4 @@
+interface:
+  display_name: "SEAL NERVES Engineering Audit"
+  short_description: "Audit ADA engineering findings safely"
+  default_prompt: "Use $seal-nerves-engineering-audit to diagnose an ADA engineering finding from authenticated evidence."

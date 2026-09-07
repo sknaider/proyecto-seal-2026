@@ -1,0 +1,6 @@
+# Runtime dependencies for the governed SPECTRE tool layer.
+# Install inside the daemon venv; never with global pip (PEP 668).
+asyncpg==0.31.0
+beautifulsoup4==4.15.0
+httpx==0.28.1
+websocket-client==1.9.0

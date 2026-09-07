@@ -1,0 +1,136 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "t5-memory-egress-production-20260820",
+  "owner": "ADA",
+  "independent_reviewer": "DARWIN",
+  "review": {
+    "status": "approved",
+    "evidence": "DARWIN reproduced 83/83 unit-arm tests, 183 passed/1 skipped Platform suite, all QA arms, 49/49 coverage tests at 93.3786078098472% branch-weighted coverage, 54,750/54,750 non-destructive legacy bindings with idempotent second pass, and 12/12 isolated deterministic adversarial mutants killed. A cross-SOUL replay defect was found, held, fixed with signed audience, and reverified as 403. Approval covers staged code/candidate canaries only; no live daemon, restart or deployment claim.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "DARWIN",
+      "evidence": "Exact staged-byte reproduction: unit arm 83 passed; Platform 183 passed/1 skipped; positive 3, negative 3, control 6, delivery 6; coverage arm 49 passed at 93.3786078098472%; 12/12 deterministic adversarial mutants killed; synthetic 54,750 binding count exact and idempotent; cross-SOUL replay rejected with 403 after signed-audience fix.",
+      "reviewed_sha256": {
+        "soul-platform/src/soul_platform/auth.py": "7802a403d91d0316caecf9c9bf42002a9eac805275f331aee336956ef948b054",
+        "soul-platform/src/soul_platform/t5_memory_egress.py": "39cc539389d0006b7f4090ef3e0e82539354afb80b5c4edd01affdd7dfbafebc",
+        "soul-platform/src/soul_platform/proxy.py": "2a3bdaaddfb3317d9016ea1fd9371b72552e9b7d6f655aadd9bbcd2ef91b17ca",
+        "soul-platform/src/soul_platform/bootstrap.py": "b13a711c05b500a1a8224be97e43b45504b26e3a4cc8478c174e9b67c6ea383e",
+        "soul-platform/docs/t5-production-cutover.md": "0523eda7fcd9b3133fea0869c9d73102449ee091f7073be906e9d7dab6c22646",
+        "soul-platform/tests/test_t5_memory_egress_v1.py": "aa8e984ac083a690608bd1c5455b729f12026305b37fa0dce029054191c4ccb8",
+        "soul-platform/tests/test_t5_memory_egress_store_v1.py": "4a04a718d84e5e7ce850b7c9fc8bffd5f1f81ea9409a7aa9107cbe469519be56",
+        "soul-platform/tests/test_t5_principal_auth_v1.py": "5fa2227c3f14ff17140fa748ae1ede641d9daeb666b52a58978d6040fd7d00aa",
+        "soul-platform/tests/test_proxy_v1.py": "bb9055248adbfa290ebba9a00893b19eb74fbc18ef0638d73ab1f946c88abb16",
+        "soul-platform/tests/test_bootstrap_v1.py": "86eb786409d14389f6d521991126c320d1f5ccba87d0cf66f33072bbc26fb597"
+      },
+      "manifest_digest": "a692531b0b8f044e9b721779c5967fdbab6dc5eaa4617b516c7dbc18bcd53cb3"
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "soul-platform/src/soul_platform/auth.py",
+    "soul-platform/src/soul_platform/t5_memory_egress.py",
+    "soul-platform/src/soul_platform/proxy.py",
+    "soul-platform/src/soul_platform/bootstrap.py",
+    "soul-platform/docs/t5-production-cutover.md"
+  ],
+  "tests": [
+    "soul-platform/tests/test_t5_memory_egress_v1.py",
+    "soul-platform/tests/test_t5_memory_egress_store_v1.py",
+    "soul-platform/tests/test_t5_principal_auth_v1.py",
+    "soul-platform/tests/test_proxy_v1.py",
+    "soul-platform/tests/test_bootstrap_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-t5-production-boundary",
+      "kind": "unit",
+      "argv": [
+        "/home/dadito/IA/proyecto-seal/soul-platform/.venv-quality-040/bin/python",
+        "-m", "pytest", "-q",
+        "soul-platform/tests/test_t5_memory_egress_v1.py",
+        "soul-platform/tests/test_t5_memory_egress_store_v1.py",
+        "soul-platform/tests/test_t5_principal_auth_v1.py",
+        "soul-platform/tests/test_proxy_v1.py",
+        "soul-platform/tests/test_bootstrap_v1.py"
+      ],
+      "expected_exit": 0,
+      "timeout": 180
+    },
+    {
+      "id": "positive-t5-cross-owner-and-aggregation-attacks",
+      "kind": "qa_positive",
+      "argv": [
+        "/home/dadito/IA/proyecto-seal/soul-platform/.venv-quality-040/bin/python",
+        "-m", "pytest", "-q",
+        "soul-platform/tests/test_proxy_v1.py::test_enforce_filters_before_context_and_owner_metadata_cannot_pivot",
+        "soul-platform/tests/test_t5_memory_egress_store_v1.py::test_concurrent_workers_reserve_one_shared_budget_atomically",
+        "soul-platform/tests/test_t5_memory_egress_store_v1.py::test_cross_owner_lock_survives_restart_and_is_session_scoped"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-t5-legitimate-and-compatible-access",
+      "kind": "qa_negative",
+      "argv": [
+        "/home/dadito/IA/proyecto-seal/soul-platform/.venv-quality-040/bin/python",
+        "-m", "pytest", "-q",
+        "soul-platform/tests/test_t5_memory_egress_store_v1.py::test_budget_is_durable_across_store_instances_and_restart",
+        "soul-platform/tests/test_t5_memory_egress_store_v1.py::test_window_expiry_releases_budget_and_lock",
+        "soul-platform/tests/test_proxy_v1.py::test_same_soul_survives_model_switch_and_process_restart"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-t5-fail-closed-non-vacuous",
+      "kind": "qa_control",
+      "argv": [
+        "/home/dadito/IA/proyecto-seal/soul-platform/.venv-quality-040/bin/python",
+        "-m", "pytest", "-q",
+        "soul-platform/tests/test_proxy_v1.py::test_enforce_rejects_missing_invalid_and_sessionless_principal_before_body",
+        "soul-platform/tests/test_proxy_v1.py::test_locked_mode_allows_brain_but_withholds_all_memory_and_writes",
+        "soul-platform/tests/test_t5_memory_egress_store_v1.py::test_legacy_migration_is_non_destructive_idempotent_and_atomic",
+        "soul-platform/tests/test_t5_memory_egress_store_v1.py::test_session_and_provenance_registries_fail_closed_at_exact_bounds",
+        "soul-platform/tests/test_proxy_v1.py::test_enforce_rejects_signed_principal_replayed_to_another_soul",
+        "soul-platform/tests/test_t5_principal_auth_v1.py::test_empty_or_oversized_explicit_audience_is_rejected"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "soul_platform.t5_memory_egress",
+      "soul_platform.auth"
+    ],
+    "omit": ["soul-platform/tests/*.py"],
+    "pytest_args": [
+      "-q",
+      "soul-platform/tests/test_t5_memory_egress_v1.py",
+      "soul-platform/tests/test_t5_memory_egress_store_v1.py",
+      "soul-platform/tests/test_t5_principal_auth_v1.py"
+    ],
+    "baseline_percent": 93.3786078098472,
+    "timeout": 180
+  },
+  "mutation_evidence": "quality/mutation-t5-memory-egress-production.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "evidence": "Author run verified signed interlocutor/session identity, immutable owner bindings, atomic budgets across concurrent workers and restarts, pre-concatenation filtering, owner-scoped boot, explicit locked/compatibility modes, and non-destructive 54,750-row legacy binding. No live daemon was changed or restarted.",
+    "command": {
+      "id": "delivery-t5-production-cutover-contract",
+      "argv": [
+        "/home/dadito/IA/proyecto-seal/soul-platform/.venv-quality-040/bin/python",
+        "-m", "pytest", "-q",
+        "soul-platform/tests/test_proxy_v1.py::test_enforce_filters_before_context_and_owner_metadata_cannot_pivot",
+        "soul-platform/tests/test_proxy_v1.py::test_locked_mode_allows_brain_but_withholds_all_memory_and_writes",
+        "soul-platform/tests/test_t5_memory_egress_store_v1.py::test_concurrent_workers_reserve_one_shared_budget_atomically",
+        "soul-platform/tests/test_t5_memory_egress_store_v1.py::test_legacy_migration_is_non_destructive_idempotent_and_atomic",
+        "soul-platform/tests/test_t5_principal_auth_v1.py::test_session_tamper_is_rejected_even_if_payload_remains_canonical",
+        "soul-platform/tests/test_proxy_v1.py::test_enforce_rejects_signed_principal_replayed_to_another_soul"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "6 passed",
+      "timeout": 120
+    }
+  }
+}

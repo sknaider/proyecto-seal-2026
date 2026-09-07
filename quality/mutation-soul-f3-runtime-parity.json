@@ -1,0 +1,26 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "pytest explicit adversarial mutants plus live negative controls",
+  "workspace": "candidate no-op, stale nonce, partial/empty baseline, extra effect, runtime/PID collision, shallow copy, async timeout, native-event forgery, secret inheritance, script digest drift, unpinned bytes, RLS write, path alias, stdin compact probe, local child leak",
+  "killed": 16,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 16,
+  "mutation_score_percent": 100.0,
+  "reviewer": "F3_HARNESS_AUDIT",
+  "file_sha256": {
+    "memory/soul_parity_claude_exec.py": "dbd9d15ac86655da7ac8879919712e795341b8e90799023cc875c17ec3903bdb",
+    "memory/soul_parity_effect_hook.py": "0c59259693950b14e0da8027f32456c0920d6256eae804ba8ce89a0a9d991764",
+    "memory/soul_parity_hook_launcher.py": "917709bcd8a2e95a5d8d8793ea46807571cf1d76febb369ea7b29d19b6d26847",
+    "memory/soul_parity_local_process.py": "c163c47f0261bfdc52e6bacfc0f5ce24c90ba886169c95234d253aa55c4a4a8a",
+    "memory/soul_parity_runner.py": "716295c1ffbf5bca5b39a0b34c87ec888554b067ecd3743dbafb92c4e2a178d8",
+    "memory/soul_parity_sandbox_migration.sql": "d46727d9544d5447c8a3ef9fb29d739705954d73586cbc1f4590204e687c084a",
+    "memory/soul_parity_test.py": "b8460f0be1774a3c4c320cecafd6e1ce3749a9bb49822d85b56a75b8eb0cf77d",
+    "memory/soul_runtime_orchestrator.py": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8",
+    "tests/test_soul_parity_harness.py": "0d5c503e5d4bb1c039084fab80dfc81521692f601aa4c4110fcea16228379b36",
+    "tests/test_soul_parity_runner.py": "74c14056a4bc253a12c474146bae243fb33c07b4732073b6d85857c10c1f9a5e"
+  }
+}

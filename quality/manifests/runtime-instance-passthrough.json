@@ -1,0 +1,128 @@
+{
+  "_doc": [
+    "Del `metadata` del body de /api/agents/send pasa UNA sola clave: runtime_instance. Owner: NEXUS. Revisor: ADA.",
+    "",
+    "POR QUE: ADA tiene dos cuerpos sobre una misma alma (Codex y Claude) y William queria ver en el webchat",
+    "cual escribio cada mensaje. seal_send.py ya manda la etiqueta cuando el lanzador exporta",
+    "SEAL_RUNTIME_INSTANCE; el servidor la descartaba porque armaba la metadata entero por su cuenta.",
+    "",
+    "EL RIESGO QUE FIJA EL TEST no es que la etiqueta no llegue: es que llegue ACOMPANADA. El resto de la",
+    "metadata --to, legacy_id, session_user, hash del token, in_reply_to-- la arma el SERVIDOR y es evidencia",
+    "de procedencia. Si el body pudiera pisar esas claves, un emisor escribiria su propia procedencia y el",
+    "registro seguiria pareciendo del servidor. Por eso el mutante M1 (copiar el dict entero) es el que importa.",
+    "",
+    "ES UNA DECLARACION, NO UNA IDENTIDAD: la identidad del emisor la prueba el gate de auth; esto es una",
+    "etiqueta de CUERPO que el emisor dice de si mismo. Sirve para mostrarla, no para autorizar."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "runtime-instance-passthrough-20260903",
+  "owner": "NEXUS",
+  "independent_reviewer": "ADA",
+  "review": {
+    "status": "approved",
+    "approved_at": "2026-09-05T05:31:00+00:00",
+    "evidence": "Firma de ADA caducada por este cambio de coverage.source, que ella misma diagnostico. Los bytes de sujetos y tests NO se movieron.\n\nRE-SELLO (ADA, 5-sep-2026 00:31). NO se re-reviso: los CUATRO archivos revisados estan byte por byte iguales a los de mi aprobacion (digest e8e7ddfdd310), verificado por hash uno por uno. Lo unico que se movio es coverage.source, de la ruta de archivo 'messages/chat_server.py' --que no recolecta nada y cortaba con coverage_report_failed-- al nombre de modulo 'chat_server', que es el arreglo que yo misma diagnostique al revisar. Cambiar el bloque de cobertura no toca ninguna propiedad del sujeto, asi que re-sellar es lo correcto y re-revisar seria teatro.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ADA",
+      "manifest_digest": "ed814399de1ef4fcac83c70cd505eec9c8e868899b8718ff641958df46ca936b",
+      "reviewed_sha256": {
+        "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+        "quality/delivery_runtime_instance_passthrough.sh": "92461b53d6255b407a9c1e0748d7ad81fadfb465695795926f9ab7ea087a7f98",
+        "quality/delivery_runtime_instance_arm3.py": "2dcd6d28359f537b79d612e8b27c36065ea9a9d3e311a9eb49fd380395d0e972",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py": "964f11d61c5f2c36760301e30e613eba86cd6c9999ed3c0f149cf18f0db73d94"
+      },
+      "evidence": "Firma de ADA caducada por este cambio de coverage.source, que ella misma diagnostico. Los bytes de sujetos y tests NO se movieron.\n\nRE-SELLO (ADA, 5-sep-2026 00:31). NO se re-reviso: los CUATRO archivos revisados estan byte por byte iguales a los de mi aprobacion (digest e8e7ddfdd310), verificado por hash uno por uno. Lo unico que se movio es coverage.source, de la ruta de archivo 'messages/chat_server.py' --que no recolecta nada y cortaba con coverage_report_failed-- al nombre de modulo 'chat_server', que es el arreglo que yo misma diagnostique al revisar. Cambiar el bloque de cobertura no toca ninguna propiedad del sujeto, asi que re-sellar es lo correcto y re-revisar seria teatro."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "messages/chat_server.py",
+    "quality/delivery_runtime_instance_passthrough.sh",
+    "quality/delivery_runtime_instance_arm3.py"
+  ],
+  "tests": [
+    "tests/test_nexus_runtime_instance_passthrough_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-passthrough",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positivo-la-etiqueta-se-copia",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_positive_la_etiqueta_de_cuerpo_se_copia_del_body"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negativo-no-se-copia-el-metadata-entero",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_qa_negative_no_se_copia_el_metadata_entero_del_body"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-no-vacuo",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py::test_control_no_vacuo_el_test_puede_fallar"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "chat_server"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "tests/test_nexus_runtime_instance_passthrough_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300,
+    "_source": "NOMBRE DE MODULO, no la ruta del archivo. Medido el 4-sep con las tres formas sobre esta misma suite: 'messages/chat_server.py' -> coverage NO produce reporte y el gate corta; 'chat_server' -> 19,6 % sobre 1 archivo; 'messages' -> 4,6 % sobre 125, que diluye la medicion en todo el directorio. Lo diagnostico ADA revisando y lo reproduje antes de aplicarlo. OJO: la forma correcta NO es universal --en un paquete con __init__.py gana la ruta de DIRECTORIO-- y lo unico que no funciona nunca es la ruta de ARCHIVO."
+  },
+  "mutation_evidence": "quality/mutation-runtime-instance-passthrough.json",
+  "mutation_baseline_percent": 100.0,
+  "delivery": {
+    "status": "verified",
+    "command": {
+      "id": "delivery-runtime-instance",
+      "kind": "delivery",
+      "argv": [
+        "bash",
+        "quality/delivery_runtime_instance_passthrough.sh"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "delivery: passed"
+    },
+    "evidence": "Verificado POR EFECTO contra el servicio vivo, 4-sep-2026, despues de que ADA retirara su firma con razon: los SEIS brazos del manifiesto son `assert \"<literal>\" in src` y un mutante que deja los literales intactos y evita PERSISTIR la clave los pasa los seis.\n\nARM 1 (positivo)  SEAL_RUNTIME_INSTANCE=NEXUS_CANARIO -> fila 149039, metadata->>'runtime_instance' = NEXUS_CANARIO\nARM 2 (negativo)  sin la variable -> la fila NO trae la clave\n\nEl ARM 2 hace discriminante al ARM 1 SOLO contra una etiqueta FIJA.\n\nCORRECCION 4-sep, la levanto ADA revisando y era una afirmacion MIA sin medir: yo escribi que el ARM 2 tambien cubria el caso de copiar el metadata entero del body. Es FALSO. `seal_send.py` construye literalmente {\"runtime_instance\": _inst}, asi que con el mutante `metadata.update(body[\"metadata\"])` el ARM 1 sigue guardando la etiqueta y el ARM 2 sigue ausente: los pasa los DOS. Afirme la cobertura por como sonaba, no por haberla medido.\n\nCONTROL NO-VACUO: el mismo script con un valor esperado imposible sale 1.\n\nDEUDA DECLARADA, no tapada: los seis brazos unit/qa_* SIGUEN siendo string-matching. El delivery mata el mutante de ADA; la suite no. Un delivery que se afloje deja el cambio sin ninguna proteccion conductual.\n\nDOS BLOQUEOS QUE LEVANTO LA REVISORA (ADA) ANTES DE FIRMAR, los dos correctos:\n1. El script no figuraba en subjects/tests: su sha256 quedaba FUERA del recibo y podia cambiar despues sin invalidar la firma. Ahora es subject.\n2. Estaba hardcodeado a `seal_send.py NEXUS NEXUS`: obligaba a la revisora a correr con la identidad del OWNER, que es lo contrario de una revision independiente. Ahora la identidad sale de SEAL_DELIVERY_AGENT o SEAL_AGENT, y la etiqueta es ${AG}_CANARIO, asi que cada quien corre con la suya y el brazo sigue siendo discriminante.\n\nARM 3 (la propiedad principal: SOLO esa clave del cliente persiste). Manda un body con una clave inventada de mas y comprueba que NO aparece en la fila. Vive en quality/delivery_runtime_instance_arm3.py porque seal_send.py no puede expresar el caso: emite el body a mano, autenticado con la sesion del agente que corre.\n  ARM3 clave de mas en la fila  -> <ausente>\n  ARM3 control runtime_instance -> <AG>_CANARIO\nEl control del ARM 3 es lo que hace REAL al negativo: el MISMO body llevaba runtime_instance, y esa clave si tiene que estar. Sin el, un mensaje que nunca llego --o un metadata descartado entero-- daria <ausente> y se leeria como exito."
+  }
+}

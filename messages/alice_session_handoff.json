@@ -1,0 +1,43 @@
+{
+  "agent": "ALICE",
+  "timestamp": "2026-05-06T23:01:16.355407+00:00",
+  "session_hours": "~0.3 (boot 17:46 Lima, ahora 18:00)",
+  "pending_decisions": [
+    "OK de William para arrancar Fase 2 del E2E test (razonamiento)",
+    "Backlog: limpiar /memory/minimax-m2.5 (95G) si no es activo",
+    "Update seal-audit SKILL.md para remover check de Qdrant (intencional DOWN)"
+  ],
+  "work_in_progress": [
+    "Skill/Plugin E2E test — Fase 1 en curso (3/6 SEAL custom probados: snapshot OK, audit OK con falso positivo Qdrant, handoff EN ESTE MOMENTO)",
+    "Conejillo de indias de tokens: medir hard-block sin AUTOCOMPACT_PCT_OVERRIDE",
+    "Documentación pendientes activos en /home/dadito/IA/proyecto-seal/agents/ALICE/skill_plugin_e2e_test_plan_20260506.md"
+  ],
+  "context": [
+    "William ordenó kill manual a las 16:47 Lima (ALICE + NEXUS); reactivados 17:09 (NEXUS) y 17:46 (ALICE)",
+    "JARVIS quitó CLAUDE_AUTOCOMPACT_PCT_OVERRIDE solo de alice.sh y alice_fresh.sh — los demás restaurados",
+    "Hallazgos auditoría: Qdrant DOWN intencional, Runtime Bridge :8766 DOWN real, Disk 81%",
+    "SOUL DB: ADA 43,698 mems, JARVIS 32,577, ALICE 5,362, NEXUS 247, DUM 159"
+  ],
+  "last_instruction": "William: \"continua alice\" + \"lo de alta prioridad avanza\" → trabajando en Skill/Plugin E2E test",
+  "team_status": {
+    "ALICE": "active (yo, en Fase 1 E2E)",
+    "JARVIS": "active (architect, supervisando)",
+    "NEXUS": "active (Cathedral II completado, evaluando gbrain)",
+    "ADA": "unknown — no boot reciente registrado"
+  },
+  "services": {
+    "postgresql_soul_5433": "UP",
+    "neo4j_7687": "UP",
+    "qdrant_6333": "DOWN_INTENTIONAL (soul_lite=True desde 28-abr)",
+    "web_chat_8765": "UP",
+    "runtime_bridge_8766": "DOWN (real, requiere atención)",
+    "mattermost": "UP",
+    "ollama": "UP"
+  },
+  "next_priorities": [
+    "1. Continuar Fase 1: probar seal-eval, seal-train, seal-runtime",
+    "2. Reportar hallazgos consolidados a William",
+    "3. Esperar OK para Fase 2 (razonamiento) o priorizar otros pendientes",
+    "4. Reportar tokens a 250K (próximo hito conejillo)"
+  ]
+}

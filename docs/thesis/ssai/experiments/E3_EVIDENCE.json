@@ -1,0 +1,94 @@
+{
+  "experiment": "E3_crypto_manipulation",
+  "framework_state": "SHADOW/TOFU_UNANCHORED",
+  "generated_at": "2026-08-11T23:01:20.693982+00:00",
+  "outcomes": [
+    {
+      "attack": "HONEST_CONTROL(no-flag)",
+      "detail": "clean accepted",
+      "detected": true,
+      "detector": "verify+witness",
+      "evaluated_sha256": "b915c15372e794db87ca14a782139fecc6ec7212ffd145280201bf3c81478339",
+      "latency_us": 158.60889106988907,
+      "surface": "none",
+      "verify_ok_after": "ACCEPT"
+    },
+    {
+      "attack": "event_payload_tamper",
+      "detail": "line 1: event_digest mismatch",
+      "detected": true,
+      "detector": "verify",
+      "evaluated_sha256": "036d8ec4de0f554fadcfcbd1f4796397f184b2e3a63176d79b8677adfebc3858",
+      "latency_us": 40.865037590265274,
+      "surface": "event",
+      "verify_ok_after": "REJECT"
+    },
+    {
+      "attack": "hashchain_head_tamper",
+      "detail": "line 2: event_hash mismatch (expected ff9e71fd65ec40242033adcd8c7807fc844f60f8d8d5b3d92450f388f0429532, got ff9e71fd65ec40242033adcd8c7807fc844f60f8d8d5b3d92450f388f0429530)",
+      "detected": true,
+      "detector": "verify",
+      "evaluated_sha256": "400df1d98367ce1dcd9bd178cfb8efced0e38926a54fe0031f5c4b6407d7185a",
+      "latency_us": 172.99316823482513,
+      "surface": "tree_head",
+      "verify_ok_after": "REJECT"
+    },
+    {
+      "attack": "record_reorder",
+      "detail": "line 1: expected strict sequence 1, got 2",
+      "detected": true,
+      "detector": "verify",
+      "evaluated_sha256": "262b9e2fdaa6ae617b4f2f0337f7d320eba37456ca6cb640912bd30660b337c2",
+      "latency_us": 79.58384230732918,
+      "surface": "event",
+      "verify_ok_after": "REJECT"
+    },
+    {
+      "attack": "record_replay",
+      "detail": "line 3: expected strict sequence 3, got 1",
+      "detected": true,
+      "detector": "verify",
+      "evaluated_sha256": "d927cf3105c5b6cac12339a6cff4908b847b1878a2d7fa0cc8a8ae48e1f83e57",
+      "latency_us": 166.83293506503105,
+      "surface": "event",
+      "verify_ok_after": "REJECT"
+    },
+    {
+      "attack": "rollback_truncate",
+      "detail": "ledger rollback detected: witness is at 3, ledger ends at 2",
+      "detected": true,
+      "detector": "witness",
+      "evaluated_sha256": "1e29786fc02119fd4c433cc6f954c392682a907c64a469031e4bb70fc6587d7a",
+      "latency_us": 183.60093235969543,
+      "surface": "witness_seq",
+      "verify_ok_after": "ACCEPT"
+    },
+    {
+      "attack": "insider_recompute_fork",
+      "detail": "history fork detected at sequence 3: witness=1928702962edcde652d9a323883e4e996254e7a3bc5c62024259cea30b6692b4, ledger=8a48a7dbf506b0a53bec6191ebb9a0f89541174af44623d1c3f294afdc6a7798",
+      "detected": true,
+      "detector": "witness",
+      "evaluated_sha256": "fa90c5ec1fece8c6e14df0c70bed51efdcbccfa14c89f3a8676e16ffcbb9bc47",
+      "latency_us": 161.61659732460976,
+      "surface": "witness_head",
+      "verify_ok_after": "ACCEPT(blind)"
+    },
+    {
+      "attack": "manifest_signature_tamper",
+      "detail": "signature rejected",
+      "detected": true,
+      "detector": "crypto",
+      "evaluated_sha256": "sha256:4fa7d4d89737a4d6906504a8b6149a926c82f28f764b8eabeed3b77d9a2a6137",
+      "latency_us": 139.84087854623795,
+      "surface": "signature",
+      "verify_ok_after": "-"
+    }
+  ],
+  "schema": "ssai-e3-evidence-v1",
+  "summary": {
+    "attacks_detected": 7,
+    "attacks_total": 7,
+    "control_ok_no_false_positive": true,
+    "fail_closed_pass": true
+  }
+}

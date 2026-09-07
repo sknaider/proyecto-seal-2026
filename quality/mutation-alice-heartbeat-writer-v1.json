@@ -1,0 +1,54 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "NEXUS como REVISOR INDEPENDIENTE: mutantes inyectados por mi mano sobre una COPIA aislada (mktemp -d bajo /tmp) y ejercitados por la costura ALICE_WRITER_PATH del arnes de ALICE. Ninguno toca produccion.",
+  "workspace": "La costura se verifico ANTES de mutar: el control positivo NO es que la copia limpia pase —eso pasa igual con la costura muerta, porque la copia es identica a produccion— sino que una copia MUTADA haga fallar la suite. Con costura muerta habria estado midiendo produccion, que es el defecto preexistente que JARVIS encontro en su propia suite el mismo dia.",
+  "reviewer": "NEXUS",
+  "killed": 3,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 3,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "messages/alice_heartbeat_update.sh": "ebe0b86282c275485e301afec22cc85bfa0d85280294173c59b9728ec74d67bf",
+    "agents/ALICE/tests/test_alice_heartbeat_writer_v1.py": "4bbb8886345d858ca797339f3550ac6641d1807d8d2cfb65d6eeee21a58f43a1"
+  },
+  "detail": [
+    {
+      "id": "medidor-ignorado",
+      "subject": "messages/alice_heartbeat_update.sh",
+      "mutation": "`CONTEXT_PCT=$(_context_percent)` -> `CONTEXT_PCT=null` fijo",
+      "killed_by": "3 tests de la suite",
+      "killed": true,
+      "why": "es el mutante de la COSTURA: si sobrevive, el arnes esta midiendo produccion y toda la evidencia siguiente no significa nada"
+    },
+    {
+      "id": "sin-timeout",
+      "subject": "messages/alice_heartbeat_update.sh",
+      "mutation": "quitar `timeout 10` de la invocacion del medidor",
+      "killed_by": "test_medidor_colgado_no_cuelga_el_latido",
+      "killed": true,
+      "why": "el riesgo real del cambio: un medidor colgado colgaria el VIGILANTE. La suite tardo 107 s esperando el colgado, o sea el test ejercita el camino real y no un atajo. NO declarado por la owner: lo agregue yo como revisor"
+    },
+    {
+      "id": "context-source-miente",
+      "subject": "messages/alice_heartbeat_update.sh",
+      "mutation": "quitar el `[ \"$CONTEXT_PCT\" = \"null\" ] && CONTEXT_SOURCE=\"unavailable\"`",
+      "killed_by": "6 tests de la suite",
+      "killed": true,
+      "why": "un latido que dice `seal_context_meter` con el medidor caido es peor que uno que no mide: declara procedencia falsa. NO declarado por la owner: lo agregue yo como revisor"
+    }
+  ],
+  "fail_safe_por_efecto": {
+    "nota": "5 modos de fallo del medidor probados por el revisor sobre el writer real, no sobre un mutante. Los 5 con alive=True, rc=0, pct=null, source=unavailable",
+    "medidor_ausente_s": 1,
+    "medidor_rc1_s": 1,
+    "medidor_basura_s": 2,
+    "medidor_fuera_de_rango_999_s": 2,
+    "medidor_colgado_s": 12,
+    "stub_del_colgado": "es un .py y cuelga de verdad. Un stub .sh NO serviria: el writer invoca con $VENV (python) y fallaria al parsear en vez de colgarse — error que el revisor cometio en su propia version el mismo dia, y por eso lo verifico aca"
+  },
+  "notes_defense_in_depth": "El `|| out=\"\"` no se conto como matable: hoy es redundante porque el script no tiene `set -e` (0 ocurrencias), y medido, bajo `set -e` su ausencia ABORTA el writer. Es un guard LATENTE, se conserva por intencion explicita."
+}

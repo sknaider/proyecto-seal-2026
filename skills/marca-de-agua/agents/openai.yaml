@@ -1,0 +1,4 @@
+interface:
+  display_name: "Marca de agua"
+  short_description: "Audita y limpia contenido propio con seguridad"
+  default_prompt: "Use $marca-de-agua to inspect and clean provenance signals from content I own."

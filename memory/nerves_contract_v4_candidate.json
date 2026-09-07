@@ -1,0 +1,115 @@
+{
+  "schema": "seal.nerves.contract.v4-candidate",
+  "version": "4.0.0-candidate.2",
+  "updated_at": "2026-07-23",
+  "status": "candidate_no_runtime_authority",
+  "vision_owner": "William",
+  "architecture_owner": "JARVIS",
+  "implementation_owner": "ADA",
+  "canonical_live_contract": "memory/nerves_contract_v3.json",
+  "candidate_spec": "docs/SPEC_NERVES_ARCHITECTURE_v4_HUMAN_FUNCTIONAL_ADA.md",
+  "mission_schema": "docs/schemas/nerves_mission_envelope_v1.schema.json",
+  "evidence_schema": "docs/schemas/nerves_integrity_evidence_v1.schema.json",
+  "receipt_schema": "docs/schemas/nerves_orchestrator_receipt_v1.schema.json",
+  "principles": [
+    "principal_orchestrates_workers_execute",
+    "every_actionable_fire_creates_or_joins_durable_mission",
+    "non_actionable_fire_never_counts_as_verified_work",
+    "prediction_before_action",
+    "limited_attention_workspace",
+    "bounded_interruptible_missions",
+    "least_authority",
+    "typed_evidence_before_reset",
+    "independent_verification",
+    "calibrated_confidence",
+    "selective_verified_consolidation",
+    "functional_human_likeness_without_consciousness_claim"
+  ],
+  "loops": {
+    "reflex": "live_v3_1",
+    "cognitive_mission": "candidate",
+    "consolidation_learning": "candidate"
+  },
+  "nerve_layers": {
+    "GLOBAL": "mandatory_for_every_agent",
+    "AGENT_ROLE": "personality_role_and_labor_specific",
+    "EMERGENT": "built_from_experience_but_shadow_until_sibling_review_and_william_approval"
+  },
+  "mission_drives": ["reactive", "proactive"],
+  "mission_lifecycle": [
+    "observed",
+    "admitted",
+    "mission_created",
+    "leased",
+    "worker_started",
+    "running",
+    "evidence_submitted",
+    "independently_verified",
+    "effect_committed",
+    "learned",
+    "closed"
+  ],
+  "terminal_non_work_states": [
+    "inhibited",
+    "coalesced",
+    "stale",
+    "no_actionable_evidence",
+    "waiting_william",
+    "dead_letter",
+    "cancelled"
+  ],
+  "runner": {
+    "status": "p3_handoff_under_test_not_live",
+    "future_authority_table": "soul_v3.nerves_missions",
+    "pilot_authority": "owner_only_handoff_and_claim_with_tamper_evident_state",
+    "agent_tasks_role": "human_projection_only",
+    "dispatcher": "not_wired_until_end_to_end_canary_green",
+    "claim": "atomic_owner_only_spawn_claim",
+    "isolation": "deterministic_collector_then_native_subagent_reasoning_only_sendmessage_control_plane",
+    "codex_exec_live": "security_hold_until_filesystem_and_credential_isolation_proven",
+    "pilot_trust_boundary": "cooperative_same_uid_tamper_evidence_not_strong_isolation",
+    "public_bridge_reuse": false,
+    "subagent_can_write_webchat": false,
+    "subagent_can_read_dm": false,
+    "recursive_subagents": false
+  },
+  "risk_classes": {
+    "A1_REFLEX": "allowlisted_live",
+    "A2_READ_ONLY": "pilot_candidate",
+    "A3_REVERSIBLE_WRITE": "shadow_until_pilot_green",
+    "A4_SERVICE_CHANGE": "coordinated_owner_integration",
+    "A5_GOVERNED": "william_approval_required",
+    "A6_DESTRUCTIVE": "count_scope_and_explicit_william_approval_required"
+  },
+  "first_pilot": {
+    "agent": "JARVIS",
+    "nerve": "integrity",
+    "finding_type": "integrity_drift",
+    "risk_class": "A2_READ_ONLY",
+    "specialty": "architecture_integrity_audit",
+    "skill": "seal-nerves-integrity-audit@v1",
+    "worker_engine": "jarvis_native_subagent_reasoning_only_after_deterministic_evidence",
+    "verifiers": ["ADA", "FABLE_OR_NEXUS"],
+    "production_writes": false,
+    "service_restart": false,
+    "required_acceptance": [
+      "exactly_one_mission_per_root_cause",
+      "principal_ack_p95_le_2s",
+      "typed_evidence_reproduced",
+      "denied_tools_blocked",
+      "reset_only_after_verdict",
+      "clean_cancel_and_restart_behavior"
+    ]
+  },
+  "promotion_order": [
+    "spec_schema_contract",
+    "shadow_ledger",
+    "jarvis_compiler_shadow",
+    "jarvis_a2_deterministic_evidence_bundle",
+    "jarvis_orchestrator_handoff_and_spawn_claim",
+    "jarvis_native_reasoner_fixture",
+    "jarvis_a2_real_read_only_canary",
+    "24h_soak",
+    "target_specific_go_no_go"
+  ]
+}

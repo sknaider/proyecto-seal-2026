@@ -1,0 +1,12 @@
+[Unit]
+Description=SEAL Listening Guard for live-but-deaf agents
+After=network.target
+
+[Service]
+Type=oneshot
+Environment=SEAL_AGENT=FABLE
+Environment=HOME=/home/dadito
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/fable/agent_listening_guard.py
+StandardOutput=journal
+StandardError=journal
