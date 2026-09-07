@@ -1,5 +1,6 @@
 {
   "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
   "change_id": "compaction-metrics-v1",
   "reviewer": "JARVIS",
   "mutation_target": "arena_aprobada_fable_20260907",
@@ -29,7 +30,11 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_degradado_reconoce_el_aviso_de_base_caida"
+      ],
+      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_degradado_reconoce_el_aviso_de_base_caida\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.65s"
     },
     {
       "id": "degradado-siempre-verdadero",
@@ -47,7 +52,11 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_control_una_compactacion_SANA_no_se_marca_degradada"
+      ],
+      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_control_una_compactacion_SANA_no_se_marca_degradada\n1 failed, 7 passed, 1 warning in 0.64s"
     },
     {
       "id": "registrar-miente-que-escribio",
@@ -65,7 +74,11 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_medir_nunca_levanta_una_excepcion"
+      ],
+      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_medir_nunca_levanta_una_excepcion\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.64s"
     },
     {
       "id": "medir-revienta",
@@ -83,7 +96,11 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_medir_nunca_levanta_una_excepcion"
+      ],
+      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_medir_nunca_levanta_una_excepcion\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.65s"
     },
     {
       "id": "cuenta-lineas-vacias",
@@ -101,7 +118,11 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_conteo_cuenta_lineas_reales_y_no_las_vacias"
+      ],
+      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_conteo_cuenta_lineas_reales_y_no_las_vacias\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.67s"
     },
     {
       "id": "senal-desalineada",
@@ -119,7 +140,12 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_degradado_reconoce_el_aviso_de_base_caida",
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_la_senal_es_la_firma_real_del_defecto"
+      ],
+      "pytest_tail": "\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_degradado_reconoce_el_aviso_de_base_caida\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_la_senal_es_la_firma_real_del_defecto\n2 failed, 6 passed, 1 warning, 2 subtests passed in 0.65s"
     },
     {
       "id": "el-pre-no-instrumenta",
@@ -137,7 +163,11 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_PRE_registra_de_verdad"
+      ],
+      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_PRE_registra_de_verdad\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.65s"
     },
     {
       "id": "el-post-no-instrumenta",
@@ -155,7 +185,11 @@
         "reproducible": true
       },
       "result": "KILLED",
-      "rc": 1
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_POST_registra_de_verdad"
+      ],
+      "pytest_tail": "    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED memory/tests/test_compaction_metrics_v1.py::MetricasDeCompactacion::test_el_hook_POST_registra_de_verdad\n1 failed, 7 passed, 1 warning, 2 subtests passed in 0.66s"
     }
   ],
   "file_sha256": {
@@ -164,6 +198,5 @@
     "memory/pre_compact_hook.py": "7fd14bda57ccb00e6bfe3c9eee753ad1deb7c6101ed73d10ad626c9eccd8362f",
     "memory/tests/test_compaction_metrics_v1.py": "e32cc386e8f403e1eb0085a9af4309bfad3b7b5803eecbb6e17a0adc82d5f7a3",
     "quality/delivery_compaction_metrics.sh": "c104a4b7fa6ec6549674c668152a2cf58731638b7f636b214a1bfdcec985dfea"
-  },
-  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)"
+  }
 }

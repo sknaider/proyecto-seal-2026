@@ -65,7 +65,10 @@ def main(spec_path: str, salida: str) -> int:
         finally:
             suj.write_text(original)
         assert sha(suj) == hashlib.sha256(original.encode()).hexdigest(), f"{m['id']}: el sujeto no quedo restaurado"
-        resultados.append({**m, "registro": registro, "result": "KILLED" if rc else "SURVIVED", "rc": rc})
+        # trazabilidad (pedido ADA 15:48): qué brazos mataron al mutante y la cola de pytest, no sólo el rc
+        fallos = [l.split()[1] for l in ULTIMA_SALIDA.splitlines() if l.startswith("FAILED ") and len(l.split()) > 1]
+        resultados.append({**m, "registro": registro, "result": "KILLED" if rc else "SURVIVED", "rc": rc,
+                           "killed_by": fallos[:12], "pytest_tail": "\n".join(ULTIMA_SALIDA.splitlines()[-6:])})
         print(f"[arena] {m['id']}: rc={rc} -> {'MUERTO' if rc else 'SOBREVIVE'}")
     killed = sum(1 for r in resultados if r["result"] == "KILLED")
     # file_sha256 sobre TODOS los subjects+tests del manifiesto (el gate compara el dict completo)
