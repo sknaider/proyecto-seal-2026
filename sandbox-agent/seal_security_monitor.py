@@ -513,6 +513,40 @@ def _is_fp_secret(matched: str) -> bool:
     return False
 
 
+# Marcas de REDACCION: el valor fue sustituido a proposito por quien escribio.
+# Ver `_clasificar_hallazgo`.
+_MARCAS_REDACCION = ("redactado", "redacted", "***", "xxxxx", "<clave>", "<secreto>")
+
+
+def _clasificar_hallazgo(matched: str, texto_completo: str) -> str:
+    """-> 'ejemplo_redactado' | 'candidato' — NUNCA 'fuga confirmada'.
+
+    CORRECCION DE ADA (7-sep 12:51), y es de diseno, no de umbral: mi escaner
+    era BINARIO (secreto / no secreto) y por eso publico un CRITICAL sobre un
+    mensaje MIO que solo contenia la palabra REDACTADO dentro de un patron de
+    DSN. Lo detecto ALICE.
+
+    Su acotacion, que respeto: **el aspecto del valor NO demuestra inocuidad**
+    -`REDACTADO` o `xxxx` pueden ser una contrasena literal-. Por eso esto NO es
+    una exclusion: el hallazgo se sigue registrando, y solo cambia su CATEGORIA
+    cuando el TEXTO ALREDEDOR habla explicitamente de redaccion (scrub, "clave
+    redactada", "sin valor real"). Es contexto, no forma del valor.
+
+        ejemplo_redactado  el valor es una marca Y el contexto declara redaccion
+        candidato          todo lo demas: se reporta para que un humano mire
+
+    Una tercera categoria -fuga CONFIRMADA- exige verificar que la credencial
+    autentica, y eso NO lo hace un escaner de texto.
+    """
+    low = matched.lower()
+    if not any(m in low for m in _MARCAS_REDACCION):
+        return "candidato"
+    ctx = (texto_completo or "").lower()
+    if any(w in ctx for w in ("redact", "scrub", "sin valor real", "no contiene una clave")):
+        return "ejemplo_redactado"
+    return "candidato"
+
+
 def _safe_message_ref(message_id) -> str:
     """Return an opaque, bounded message reference safe to include in alerts."""
     ref = str(message_id or "unknown")
