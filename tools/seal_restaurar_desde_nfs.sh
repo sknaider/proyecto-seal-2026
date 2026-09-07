@@ -26,7 +26,8 @@ rs "$ORIGEN/claude_memory/" "$DEST/.claude/projects/-home-dadito-IA-proyecto-sea
 T1=$(date +%s)
 # --- verificación por efecto de los archivos críticos ---
 FALTAN=0
-for f in IA/proyecto-seal/CLAUDE.md IA/proyecto-seal/messages/chat_server.py IA/proyecto-seal/memory/mcp_server_v4.py IA/proyecto-seal/scripts/seal_send.py IA/proyecto-seal/tools/seal_snapshot_nfs.sh .claude/projects/-home-dadito-IA-proyecto-seal/memory/MEMORY.md .claude/CLAUDE.md; do
+# la lista incluye rutas bajo .config a proposito (hallazgo NEXUS 14:55): si ~/.config no se restaura, FALTA, en vez de dar "0 secretos" por ausencia
+for f in IA/proyecto-seal/CLAUDE.md IA/proyecto-seal/messages/chat_server.py IA/proyecto-seal/memory/mcp_server_v4.py IA/proyecto-seal/scripts/seal_send.py IA/proyecto-seal/tools/seal_snapshot_nfs.sh .claude/projects/-home-dadito-IA-proyecto-seal/memory/MEMORY.md .claude/CLAUDE.md .config/systemd/user/seal-chat.service .config/systemd/user/seal-snapshot-nfs.timer .config/systemd/user/seal-jarvis-heartbeat.timer; do
   [ -f "$DEST/$f" ] || { echo "[restaurar] FALTA $f" >&2; FALTAN=$((FALTAN+1)); }
 done
 UNIDADES=$(find "$DEST/.config/systemd/user" -maxdepth 1 -name 'seal-*.service' | wc -l)
@@ -36,7 +37,7 @@ SECRETOS=$(grep -rlE 'postgres(ql)?://[A-Za-z0-9_]+:[^@{}<> $]{8,}@' "$DEST/.con
 # --- restauración del dump en un Postgres desechable ---
 DUMP=$(ls "$ORIGEN"/seal_memory_completa_*.dump "$ORIGEN"/soul_v3_*.dump 2>/dev/null | head -1)
 TABLAS=-1; MEMORIAS=-1; ESQUEMAS=-1; ORION=-1; T2=$T1
-if [ -n "$DUMP" ] && command -v docker >/dev/null; then
+if [ -n "$DUMP" ] && [ -z "${SEAL_RESTAURAR_SIN_DB:-}" ] && command -v docker >/dev/null; then
   IMG=$(docker inspect seal-memory-db --format '{{.Config.Image}}' 2>/dev/null || echo pgvector/pgvector:pg16)
   C="seal-restauracion-$$"
   docker run -d --name "$C" -e POSTGRES_PASSWORD=restauracion -e POSTGRES_USER=seal -e POSTGRES_DB=seal_memory "$IMG" >/dev/null || { echo "[restaurar] no pude crear el contenedor" >&2; exit 3; }
@@ -65,5 +66,15 @@ cat <<R
   esquemas restaurados        $ESQUEMAS   tablas orion_exam $ORION (0 = la foto era solo soul_v3)
   tiempo archivos             $((T1-T0)) s   tiempo dump $((T2-T1)) s   total $((T2-T0)) s
 R
-[ "$FALTAN" -eq 0 ] && [ "$SECRETOS" -eq 0 ] && [ "$TABLAS" -gt 100 ] && [ "$MEMORIAS" -gt 1000 ] && [ $((T2-T0)) -lt 3600 ] && { echo "[restaurar] OK: la casa vuelve en $((T2-T0)) s"; exit 0; }
-echo "[restaurar] FALLO: revisar los conteos" >&2; exit 4
+# pisos (hallazgo NEXUS 14:55: UNIDADES y TIMERS se imprimian pero no entraban en el veredicto; 0 unidades pasaba)
+MIN_UNIDADES=${SEAL_RESTAURAR_MIN_UNIDADES:-100}; MIN_TIMERS=${SEAL_RESTAURAR_MIN_TIMERS:-50}
+MOTIVOS=""
+[ "$FALTAN" -eq 0 ]              || MOTIVOS="$MOTIVOS criticos_faltantes=$FALTAN"
+[ "$SECRETOS" -eq 0 ]            || MOTIVOS="$MOTIVOS secretos_en_config=$SECRETOS"
+[ "$UNIDADES" -ge "$MIN_UNIDADES" ] || MOTIVOS="$MOTIVOS unidades=$UNIDADES<$MIN_UNIDADES"
+[ "$TIMERS" -ge "$MIN_TIMERS" ]  || MOTIVOS="$MOTIVOS timers=$TIMERS<$MIN_TIMERS"
+[ "$TABLAS" -gt 100 ]            || MOTIVOS="$MOTIVOS tablas=$TABLAS"
+[ "$MEMORIAS" -gt 1000 ]         || MOTIVOS="$MOTIVOS memorias=$MEMORIAS"
+[ $((T2-T0)) -lt 3600 ]          || MOTIVOS="$MOTIVOS tiempo=$((T2-T0))s"
+[ -z "$MOTIVOS" ] && { echo "[restaurar] OK: la casa vuelve en $((T2-T0)) s"; exit 0; }
+echo "[restaurar] FALLO:$MOTIVOS" >&2; exit 4

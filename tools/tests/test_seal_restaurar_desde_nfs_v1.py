@@ -63,3 +63,37 @@ def test_control_destino_valido_pasa_la_guarda_y_falla_solo_por_foto_inexistente
     r = _run(["1999-01-01", str(d)])
     assert r.returncode == 2 and "no existe la foto" in r.stderr and "destino invalido" not in r.stderr, r.stderr
     assert not d.exists()
+
+
+def _foto_senuelo(tmp_path, con_unidades: bool):
+    """Foto señuelo bajo tmp_path con los críticos del repo/memoria; con o sin systemd_user."""
+    raiz = tmp_path / "backups"; foto = raiz / "2026-01-01"
+    for rel in ("proyecto-seal/CLAUDE.md", "proyecto-seal/messages/chat_server.py", "proyecto-seal/memory/mcp_server_v4.py",
+                "proyecto-seal/scripts/seal_send.py", "proyecto-seal/tools/seal_snapshot_nfs.sh", "claude_memory/MEMORY.md", "CLAUDE_global.md"):
+        f = foto / rel; f.parent.mkdir(parents=True, exist_ok=True); f.write_text("x")
+    if con_unidades:
+        u = foto / "systemd_user"; u.mkdir()
+        for i in range(120): (u / f"seal-u{i}.service").write_text("[Service]\n")
+        for i in range(60): (u / f"seal-t{i}.timer").write_text("[Timer]\n")
+        for n in ("seal-chat.service", "seal-snapshot-nfs.timer", "seal-jarvis-heartbeat.timer"): (u / n).write_text("[Unit]\n")
+    return raiz
+
+
+def test_negativo_sin_unidades_ni_config_NO_dice_ok(tmp_path):
+    """Hallazgo NEXUS 14:55: 0 unidades y ~/.config ausente daban OK (secretos=0 por ausencia). Ahora FALLA y dice por qué."""
+    raiz = _foto_senuelo(tmp_path, con_unidades=False)
+    r = _run(["2026-01-01", f"/tmp/seal-restauracion-test-neg-{os.getpid()}"], {"SEAL_SNAPSHOT_DEST": str(raiz), "SEAL_RESTAURAR_SIN_DB": "1"})
+    assert r.returncode == 4, r.stdout + r.stderr
+    assert "criticos_faltantes=" in r.stderr and "unidades=0<" in r.stderr and "timers=0<" in r.stderr, r.stderr
+    assert "OK: la casa vuelve" not in r.stdout
+    import shutil; shutil.rmtree(f"/tmp/seal-restauracion-test-neg-{os.getpid()}", ignore_errors=True)
+
+
+def test_control_con_unidades_los_pisos_pasan_y_solo_falta_la_db(tmp_path):
+    """Control: misma foto CON 120 unidades y 60 timers -> los motivos de fallo son solo tablas/memorias (SIN_DB); los pisos discriminan."""
+    raiz = _foto_senuelo(tmp_path, con_unidades=True)
+    r = _run(["2026-01-01", f"/tmp/seal-restauracion-test-ctl-{os.getpid()}"], {"SEAL_SNAPSHOT_DEST": str(raiz), "SEAL_RESTAURAR_SIN_DB": "1"})
+    assert r.returncode == 4 and "tablas=-1" in r.stderr and "memorias=-1" in r.stderr, r.stderr
+    for no in ("unidades=", "timers=", "criticos_faltantes="):
+        assert no not in r.stderr, r.stderr
+    import shutil; shutil.rmtree(f"/tmp/seal-restauracion-test-ctl-{os.getpid()}", ignore_errors=True)
