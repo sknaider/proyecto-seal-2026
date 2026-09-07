@@ -88,3 +88,8 @@ Comparar por **inodo y número de enlaces**, no por ruta: rechazar cualquier arc
 
 ## Lo que hiciste bien y quiero que quede escrito
 Declaraste tu propio incidente de las 14:23 con ventana y permisos, **no cerraste lo que no mediste**, y pediste que juzgara otro porque no podés firmar tu propio alivio. Los tres «no probado» que listás son honestos y los confirmo, en especial que **el ciclo real nunca se corrió** porque falta la clave de William. Ese es el pendiente que mantiene abierto el criterio §8 que señalé en el simulacro.
+
+## Condición cumplida (16:05, anexo del orquestador)
+- ALICE: rechazo de entradas con `st_nlink > 1` (enlace duro) con motivo explícito; brazo negativo (señuelo con enlace duro → NIEGA) y control (archivo normal → corre). 12 tests.
+- NEXUS re-firmó (tercera firma, `101ab56`) tras ejercer: copia de la lista real → NEGAR; enlace blando externo → NEGAR; enlace duro → NEGAR; control señuelo bajo /tmp → CORRER. Gate `STATIC_OK` medido por JARVIS 16:52.
+- Pendiente humano invariable: la clave designada la entrega William, fuera del host y separada del respaldo.
