@@ -186,3 +186,6 @@ memory/logs/compaction_metrics.jsonl
 # el .gitignore cubria "credentials" pero no este nombre. Verificada por
 # PROPIEDAD (claves del JSON), sin abrir el valor.
 tools/awb_automation/gmail_credentials.json
+
+# venv de calidad perdido el 7-sep-2026; hoy es un enlace al venv seal-spark (JARVIS)
+.venv-quality
