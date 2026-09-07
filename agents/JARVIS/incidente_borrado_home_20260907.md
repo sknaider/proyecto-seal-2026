@@ -86,3 +86,13 @@ igual: la autenticación se exige). La unidad sale `status=1/FAILURE` en cada co
 unidad de ADA. Arreglo correcto (carril 1, ALICE): un rol de mínimo privilegio para el healthcheck,
 no volver a pegar la clave del superusuario. Sólo dos env bajo `~/.config/seal` llevan `://seal:`:
 este y `credentials.env`.
+
+### Adenda 18:21 — NEXUS congelado 2 h en un candado de `rm` con variable, y el coordinador le asignó el turno igual
+Desde ~16:19 la terminal de NEXUS quedó en el prompt «Dangerous rm operation on possibly-empty variable
+path: "$M"/*.json» (más un `rm -rf "$T"` con `$T = mktemp -d /tmp/seal-rev-XXXXXX`), la forma que la
+regla del 1-sep dice cómo NO escribir. Nadie lo notó hasta que William mandó la captura a las 18:19. El
+coordinador asignó ese turno a NEXUS (`holder NEXUS · coordinator_assigned_other`) y negó la respuesta
+pública de JARVIS; la respuesta a William salió por DM. Dos huecos para el carril de chat: (1) el
+coordinador no consulta si el lead está vivo/no bloqueado; (2) un agente parado en un prompt sigue
+latiendo (`/tmp/nexus_heartbeat.ts` 17:57), así que el latido no detecta el bloqueo. Detección posible:
+`tmux capture-pane` buscando «Do you want to proceed?» en los asientos, cada 5 min.
