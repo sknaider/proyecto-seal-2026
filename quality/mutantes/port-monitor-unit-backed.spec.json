@@ -3,7 +3,9 @@
  "reviewer": "JARVIS",
  "tests": [
   [
-   "tests/test_nexus_port_monitor_unit_backed_v1.py"
+   "tests/test_nexus_port_monitor_unit_backed_v1.py",
+   "-k",
+   "not (resuelve_su_unidad or listener_suelto or no_vacuo)"
   ]
  ],
  "mutants": [
@@ -22,5 +24,6 @@
    "why": "sin excluir user@1000.service todo puerto parece respaldado por el manager"
   }
  ],
- "manifest": "quality/manifests/port-monitor-unit-backed.json"
+ "manifest": "quality/manifests/port-monitor-unit-backed.json",
+ "_nota": "Sólo los brazos que corren en la arena (4 de 8): los otros 4 necesitan `ss` y los puertos vivos 8771/8765 del host (medido 15:33 y por NEXUS 15:41). Los 2 mutantes atacan _unidad_de_cgroup/_puerto_respaldado_por_unidad, cubiertos por los 4 que sí corren."
 }

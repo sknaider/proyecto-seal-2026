@@ -24,13 +24,13 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T18:27:24.672728+00:00",
-      "evidence": "REVISION INDEPENDIENTE JARVIS 7-sep 13:35. Brazos con el venv: unit 8 passed, positivo 2, negativo 1 (listener suelto sigue alertando), control 1. REFUTADOR ejercido sobre el host vivo con _puerto_respaldado_por_unidad y la salida real de ss -ltnp: puerto 8765 -> 'seal-chat.service' (respaldado); un http.server lanzado a mano en 127.0.0.1:48765 -> '' (no respaldado: seguiria alertando). Discrimina en ambos sentidos. Defecto del manifiesto: argv con 'python3'; owner NEXUS lo fija.",
+      "signed_at": "2026-09-07T20:42:22.773336+00:00",
+      "evidence": "REVISION INDEPENDIENTE JARVIS 7-sep 13:35. Brazos con el venv: unit 8 passed, positivo 2, negativo 1 (listener suelto sigue alertando), control 1. REFUTADOR ejercido sobre el host vivo con _puerto_respaldado_por_unidad y la salida real de ss -ltnp: puerto 8765 -> 'seal-chat.service' (respaldado); un http.server lanzado a mano en 127.0.0.1:48765 -> '' (no respaldado: seguiria alertando). Discrimina en ambos sentidos. Defecto del manifiesto: argv con 'python3'; owner NEXUS lo fija. | RE-FIRMA JARVIS 7-sep 15:58: mutacion regenerada en la arena con los 4 brazos que corren alli: 2/2 muertos; evidencia v2 ancla/reemplazo/sha.",
       "reviewed_sha256": {
         "sandbox-agent/seal_security_monitor.py": "2d86e83e017daacd02725faf91749e6492e1744b1b5d0ecd44643da4df4c1fa3",
         "tests/test_nexus_port_monitor_unit_backed_v1.py": "d52964aac44b85f08cd055c114b3e020c23cd7e6a570473b0afcad94469c8076"
       },
-      "manifest_digest": "5ef9e7ec778bf385d31d7c730328b438d39047e31692152b90eebc2142267826"
+      "manifest_digest": "3d569253ff9877da90fb0d4266001598a6145cb782eeb7a75c3918ed331c362a"
     }
   },
   "deletions": [],
@@ -104,7 +104,7 @@
     "baseline_percent": 0.0,
     "timeout": 300
   },
-  "mutation_evidence": "quality/mutation-port-monitor-unit-backed.json",
+  "mutation_evidence": "quality/mutation-port-monitor-unit-backed.v2.json",
   "mutation_baseline_percent": 100.0,
   "delivery": {
     "status": "verified",
@@ -123,5 +123,6 @@
       "expected_stdout_contains": "passed"
     }
   },
-  "_re_mutacion_arena_20260907": "NO RE-CORRIBLE EN LA ARENA (JARVIS, revisor, 15:33): sus tests ejecutan `ss -ltnp` y leen cgroups del host; la imagen python:3.12-slim no trae iproute2 y la arena no ve las unidades del host. Control rojo sin mutar (4 fallos, FileNotFoundError: 'ss'). La evidencia de mutación queda CADUCADA y declarada así; los 2 mutantes están escritos en forma ejecutable en quality/mutantes/port-monitor-unit-backed.spec.json para cuando la arena tenga una imagen con iproute2 o un doble de `ss`/cgroups. Regla: no se muta fuera de la arena."
+  "_re_mutacion_arena_20260907": "RE-CORRIDA EN LA ARENA (JARVIS, revisor, 15:58; corrige mi nota de 15:33 que la declaraba no re-corrible; NEXUS lo midió primero): 4 de los 8 brazos corren en la arena (los otros 4 necesitan ss y los puertos vivos 8771/8765 del host) y esos 4 cubren _unidad_de_cgroup/_puerto_respaldado_por_unidad, que es lo que atacan los 2 mutantes: 2/2 muertos. Spec: quality/mutantes/port-monitor-unit-backed.spec.json (acotado con -k).",
+  "_mutation_evidence_v1_historica": "quality/mutation-port-monitor-unit-backed.json"
 }
