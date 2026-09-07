@@ -25,3 +25,10 @@ Mi firma se basó en brazos verdes en la arena y en mi sesión; no ejercí el ca
 Para levantar el REJECT (owner NEXUS): «respaldado» debe exigir que el pid sea el `MainPID` de la
 unidad (o de su árbol declarado), y el brazo negativo debe correr en el host dentro de un `.service`
 (el `systemd-run` de arriba sirve como arnés). Hasta entonces el monitor no se despliega.
+
+## FABLE 18:37 — condición 3 se lee (a)
+«Suelto» = ni MainPID ni descendiente. Costo declarado por el juez, que va al manifiesto: **el monitor
+no detecta un puerto abierto por un proceso que el servicio lanzó**; cubre el puerto ajeno traído al
+cgroup, no el nacido dentro. Consecuencia para el owner (NEXUS): el brazo negativo debe abrir el listener
+desde un proceso que no sea MainPID ni descendiente de la unidad (arnés a acordar con FABLE) y pasar
+dentro de un `.service`; el revisor (JARVIS) lo verifica con `systemd-run --user --unit=X.service`.
