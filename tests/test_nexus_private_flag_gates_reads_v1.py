@@ -40,9 +40,32 @@ def test_unit_el_servidor_compila():
 
 # --- qa_positive ---------------------------------------------------------
 
-def test_qa_positive_la_bandera_se_consulta_en_la_tabla():
+def test_qa_positive_un_canal_DESCONOCIDO_nace_cerrado():
+    """CONDICION DE FABLE (7-sep 13:31) al aprobar este manifiesto.
+
+    Antes esto afirmaba que la bandera `is_private` se consultaba en la tabla, y
+    era cierto -- pero la bandera solo podia ABRIR por omision: un canal sin fila,
+    o con la fila sin marcar, se leia sin sesion desde toda la LAN. Medido antes
+    de cambiarlo: GET anonimo a `canal-inventado-hoy` devolvia 200.
+
+    El contrato nuevo no consulta la tabla para ABRIR: o estas nombrado en la
+    lista publica, o naces cerrado. El olvido cierra.
+    """
     src = _fuente()
-    assert "SELECT is_private FROM chat_channels WHERE name = $1" in src
+    i = src.index("if channel.startswith(_PREFIJOS_SIEMPRE_PRIVADOS):")
+    bloque = src[i:i + 400]
+    assert "else:" in bloque
+    assert "_canal_privado = True" in bloque.split("else:")[1][:120]
+
+
+def test_qa_positive_shadow_cierra_POR_PREFIJO_como_dm_y_user():
+    """La otra mitad de la condicion de FABLE: `shadow:` no debe depender de que
+    alguien marque la fila. `shadow:alice-v2` quedo legible por la LAN el 3-sep
+    justamente porque nadie la marco."""
+    src = _fuente()
+    i = src.index("_PREFIJOS_SIEMPRE_PRIVADOS = (")
+    assert '"shadow:"' in src[i:i + 200]
+    assert '"dm:"' in src[i:i + 200] and '"user:"' in src[i:i + 200]
 
 
 def test_qa_positive_la_bandera_entra_en_la_decision_de_auth():
@@ -52,7 +75,28 @@ def test_qa_positive_la_bandera_entra_en_la_decision_de_auth():
 
 # --- qa_negative ---------------------------------------------------------
 
-def test_qa_negative_sin_pool_tambien_falla_cerrado():
+def test_qa_negative_la_lista_publica_es_EXPLICITA_y_corta():
+    """Una lista publica que crezca sola vuelve al defecto: lo que no se nombra
+    debe quedar cerrado. `web_chat` va explicito porque NO tiene fila en
+    `chat_channels` -medido: 1.218 mensajes en 2 dias- y un "nace cerrado"
+    ingenuo habria roto el chat principal."""
+    src = _fuente()
+    i = src.index("_CANALES_PUBLICOS = frozenset({")
+    bloque = src[i:i + 300]
+    assert '"web_chat"' in bloque
+    assert "dm:" not in bloque and "shadow:" not in bloque
+
+
+def _obsoleto_sin_pool_tambien_falla_cerrado():
+    """RETIRADO el 7-sep: este camino ya no existe.
+
+    Vigilaba que, al no poder consultar la tabla, se cerrara igual. El contrato
+    nuevo no consulta la tabla en esta decision, asi que no hay consulta que
+    pueda fallar: la ausencia de informacion YA no puede abrir nada. Se conserva
+    el texto porque la leccion -- "un `if` sin `else` explicito deja el camino
+    abierto y mi test miraba solo el `except`" -- sigue valiendo para el resto
+    del archivo.
+    """
     """EL HUECO QUE ENCONTRO JARVIS: yo escribi `if chat_db.pool:` y en el else
     implicito `_canal_privado` quedaba False -- o sea ABIERTO -- justo cuando la
     base no esta (arranque, caida, reinit). Mi commit decia "falla cerrado si la
@@ -79,7 +123,7 @@ def test_qa_negative_un_tercero_autenticado_no_lee_el_canal_privado():
     assert "403" in bloque
 
 
-def test_qa_negative_falla_cerrado_si_no_puede_consultar():
+def _obsoleto_falla_cerrado_si_no_puede_consultar():
     """Si la consulta revienta, se pide sesion igual. Un except que dejara
     `False` convertiria una caida de la base en lectura anonima."""
     src = _fuente()
@@ -93,7 +137,7 @@ def test_qa_negative_el_prefijo_sigue_valiendo_por_si_solo():
     """La bandera AGREGA canales protegidos; no debe reemplazar al prefijo, o un
     `dm:` de una fila inexistente en chat_channels quedaria abierto."""
     src = _fuente()
-    assert 'channel.startswith("dm:") or channel.startswith("user:") or _canal_privado' in src
+    assert "if channel.startswith(_PREFIJOS_SIEMPRE_PRIVADOS):" in src
     assert 'if channel.startswith("dm:"):' in src
 
 
@@ -188,7 +232,11 @@ def test_qa_positive_conductual_el_canal_publico_sigue_abierto():
     """
     cs, cliente = _cliente_y_modulo()
     cs.chat_db.pool = _PoolFalso(False)
-    r = cliente.get("/api/chat/messages", params={"channel": "canal-privado-de-prueba", "limit": 1})
+    # El sujeto cambio el 7-sep con la condicion de FABLE: antes bastaba
+    # is_private=False; ahora hay que ESTAR NOMBRADO en la lista publica. Un
+    # canal cualquiera con la bandera en false ya no es publico -- ese era
+    # justamente el defecto-- asi que el control usa uno que si lo es.
+    r = cliente.get("/api/chat/messages", params={"channel": "web_chat", "limit": 1})
     assert r.status_code == 200, f"un canal publico debe seguir leyendose, dio {r.status_code}"
 
 

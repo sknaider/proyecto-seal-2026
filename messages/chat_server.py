@@ -121,6 +121,17 @@ _REDELIVERY_INTERVAL_SEC = 15
 # superficie por escribirlo: antes ``--channel game`` devolvía ok, persistía el
 # mensaje y nadie podía recibirlo. Los canales nuevos deben registrarse o sumar
 # una ruta explícita aquí.
+# Prefijos que cierran POR SI SOLOS, sin consultar la tabla. `shadow:` se suma
+# el 7-sep-2026 por condicion de FABLE: eran canales de trabajo de un agente que
+# quedaban legibles por la LAN si nadie marcaba is_private (paso con
+# `shadow:alice-v2` el 3-sep).
+_PREFIJOS_SIEMPRE_PRIVADOS = ("dm:", "user:", "shadow:")
+
+# Los UNICOS canales que se leen sin sesion. Todo lo que no este aca nace
+# cerrado. `web_chat` va explicito porque NO tiene fila en `chat_channels`;
+# los otros cuatro son los que la tabla marca is_private=false (medido 7-sep).
+_CANALES_PUBLICOS = frozenset({"web_chat", "general", "dev", "ops", "dum"})
+
 _AGENT_BUILTIN_CHANNELS = frozenset({
     "web_chat",
     "proyectos-orion",
@@ -5367,21 +5378,33 @@ async def chat_messages(
     # Ahora la bandera SIGNIFICA. El prefijo sigue valiendo por si solo, asi que
     # esto no afloja nada: sólo agrega canales a los que se les exige sesion.
     # Falla CERRADO: si la consulta no puede resolverse, se pide auth igual.
-    _canal_privado = False
-    if not (channel.startswith("dm:") or channel.startswith("user:")):
-        # SIN POOL TAMBIEN ES "NO PUDE RESOLVER" -> privado. Lo cazo JARVIS
-        # revisando: yo escribi `if chat_db.pool:` y en el `else` implicito
-        # `_canal_privado` quedaba False, o sea ABIERTO. El commit decia "falla
-        # cerrado si la consulta no resuelve": el `except` lo cumplia, el `if`
-        # no. Mi propio test miraba el `except` y no ese camino.
-        if not chat_db.pool:
-            _canal_privado = True
-        else:
-            try:
-                _canal_privado = bool(await chat_db.pool.fetchval(
-                    "SELECT is_private FROM chat_channels WHERE name = $1", channel))
-            except Exception:
-                _canal_privado = True
+    # CONDICION DE FABLE al aprobar `private-flag-gates-reads` (#151271, 7-sep
+    # 13:31): `shadow:` cierra POR PREFIJO como `dm:` y `user:`, y un canal que
+    # no este en la lista publica explicita NACE CERRADO.
+    #
+    # Lo que arregla: hasta hoy un canal nacia ABIERTO y se cerraba solo si
+    # alguien se acordaba de marcar `is_private`. El olvido dejaba el canal
+    # legible desde toda la LAN, y el que lo creo no se enteraba. Ahora el
+    # olvido cierra, que es el lado correcto para equivocarse.
+    #
+    # POR QUE HAY UNA LISTA EXPLICITA Y NO SOLO LA TABLA (medido antes de
+    # tocar nada): `web_chat` -1.218 mensajes en 2 dias, el canal principal-
+    # NO TIENE FILA en `chat_channels`. Un "nace cerrado" ingenuo lo habria
+    # cerrado y roto el chat entero. La tabla no es el inventario completo.
+    # Tres casos y ninguno consulta la tabla para ABRIR: la unica forma de que
+    # un canal se lea sin sesion es estar nombrado arriba.
+    #
+    # Se deja de mirar `is_private` aca a proposito: la bandera solo podia
+    # ABRIR lo que no estuviera marcado, y ese era el defecto. Marcarla sigue
+    # sirviendo en el resto del sistema; lo que ya no puede es dejar algo
+    # abierto por omision. (Los cuatro canales que la tabla tenia en
+    # is_private=false estan en la lista explicita, medidos hoy.)
+    if channel.startswith(_PREFIJOS_SIEMPRE_PRIVADOS):
+        _canal_privado = True
+    elif channel in _CANALES_PUBLICOS:
+        _canal_privado = False
+    else:
+        _canal_privado = True   # NACE CERRADO: el olvido cierra, no abre
 
     if channel.startswith("dm:") or channel.startswith("user:") or _canal_privado:
         user = await require_auth(request)
