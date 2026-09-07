@@ -13,6 +13,18 @@
   "suspicious": 0,
   "timeout": 0,
   "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "............                                                             [100%]\n12 passed in 0.32s\n...................................................                      [100%]\n51 passed in 0.04s",
+    "sha_sujetos_antes": {
+      "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+      "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
   "mutants": [
     {
       "id": "quitar-el-acuse",
@@ -34,7 +46,8 @@
       "killed_by": [
         "messages/tests/test_nexus_redelivery_acusa_v1.py::test_unit_el_tick_acusa_lo_que_reentrega"
       ],
-      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:51: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_unit_el_tick_acusa_lo_que_reentrega\n1 failed, 9 passed in 0.33s\n...................................................                      [100%]\n51 passed in 0.03s"
+      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:51: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_unit_el_tick_acusa_lo_que_reentrega\n1 failed, 11 passed in 0.35s\n...................................................                      [100%]\n51 passed in 0.03s",
+      "sujeto_restaurado": true
     },
     {
       "id": "acusar-en-vez-de-empujar",
@@ -56,7 +69,8 @@
       "killed_by": [
         "messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_el_tick_SIGUE_empujando"
       ],
-      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:59: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_el_tick_SIGUE_empujando\n1 failed, 9 passed in 0.33s\n...................................................                      [100%]\n51 passed in 0.03s"
+      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:59: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_el_tick_SIGUE_empujando\n1 failed, 11 passed in 0.34s\n...................................................                      [100%]\n51 passed in 0.03s",
+      "sujeto_restaurado": true
     },
     {
       "id": "el-tick-no-pasa-el-filtro",
@@ -78,7 +92,8 @@
       "killed_by": [
         "messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_el_tick_PASA_los_agentes_habilitados"
       ],
-      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:126: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_el_tick_PASA_los_agentes_habilitados\n1 failed, 9 passed in 0.34s\n...................................................                      [100%]\n51 passed in 0.03s"
+      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:126: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_el_tick_PASA_los_agentes_habilitados\n1 failed, 11 passed in 0.34s\n...................................................                      [100%]\n51 passed in 0.03s",
+      "sujeto_restaurado": true
     },
     {
       "id": "delivered-pisa-read",
@@ -100,7 +115,8 @@
       "killed_by": [
         "messages/tests/test_nexus_redelivery_acusa_v1.py::test_negativo_delivered_NO_pisa_read"
       ],
-      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:73: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_negativo_delivered_NO_pisa_read\n1 failed, 9 passed in 0.31s\n...................................................                      [100%]\n51 passed in 0.03s"
+      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:73: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_negativo_delivered_NO_pisa_read\n1 failed, 11 passed in 0.32s\n...................................................                      [100%]\n51 passed in 0.04s",
+      "sujeto_restaurado": true
     },
     {
       "id": "backstop-sin-attempts",
@@ -122,7 +138,8 @@
       "killed_by": [
         "messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_el_backstop_sigue_mirando_attempts"
       ],
-      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:83: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_el_backstop_sigue_mirando_attempts\n1 failed, 9 passed in 0.31s\n...................................................                      [100%]\n51 passed in 0.03s"
+      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:83: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_el_backstop_sigue_mirando_attempts\n1 failed, 11 passed in 0.31s\n...................................................                      [100%]\n51 passed in 0.03s",
+      "sujeto_restaurado": true
     },
     {
       "id": "el-filtro-vuelve-a-python",
@@ -144,7 +161,8 @@
       "killed_by": [
         "messages/tests/test_nexus_redelivery_acusa_v1.py::test_positivo_el_filtro_esta_en_el_WHERE_no_en_python"
       ],
-      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:111: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_positivo_el_filtro_esta_en_el_WHERE_no_en_python\n1 failed, 9 passed in 0.31s\n...................................................                      [100%]\n51 passed in 0.03s"
+      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:111: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_positivo_el_filtro_esta_en_el_WHERE_no_en_python\n1 failed, 11 passed in 0.32s\n...................................................                      [100%]\n51 passed in 0.04s",
+      "sujeto_restaurado": true
     },
     {
       "id": "filtrar-siempre",
@@ -166,7 +184,8 @@
       "killed_by": [
         "messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_sin_filtro_el_comportamiento_es_el_HISTORICO"
       ],
-      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:119: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_sin_filtro_el_comportamiento_es_el_HISTORICO\n1 failed, 9 passed in 0.32s\n...................................................                      [100%]\n51 passed in 0.03s"
+      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:119: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_control_sin_filtro_el_comportamiento_es_el_HISTORICO\n1 failed, 11 passed in 0.32s\n...................................................                      [100%]\n51 passed in 0.03s",
+      "sujeto_restaurado": true
     },
     {
       "id": "lo-nunca-entregado-pierde",
@@ -188,13 +207,14 @@
       "killed_by": [
         "messages/tests/test_nexus_redelivery_acusa_v1.py::test_positivo_lo_NUNCA_entregado_va_antes_que_un_reintento"
       ],
-      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:144: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_positivo_lo_NUNCA_entregado_va_antes_que_un_reintento\n1 failed, 9 passed in 0.34s\n...................................................                      [100%]\n51 passed in 0.03s"
+      "pytest_tail": "messages/tests/test_nexus_redelivery_acusa_v1.py:144: AssertionError\n=========================== short test summary info ============================\nFAILED messages/tests/test_nexus_redelivery_acusa_v1.py::test_positivo_lo_NUNCA_entregado_va_antes_que_un_reintento\n1 failed, 11 passed in 0.33s\n...................................................                      [100%]\n51 passed in 0.04s",
+      "sujeto_restaurado": true
     }
   ],
   "file_sha256": {
     "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
     "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
     "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081",
-    "messages/tests/test_nexus_redelivery_acusa_v1.py": "5e7daf4373a20923a4dcf50340ced5dbc35405502f9a2c1c0de29dfd6bce4eda"
+    "messages/tests/test_nexus_redelivery_acusa_v1.py": "fd6029243b5d7a8320409b231a22d277104c0d31dc201129b1c86858e8d5084a"
   }
 }
