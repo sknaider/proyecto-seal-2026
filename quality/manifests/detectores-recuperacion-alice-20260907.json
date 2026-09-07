@@ -17,7 +17,7 @@
   ],
   "source_sha256": {
     "tools/seal_detector_no_versionado.py": "82435971c16f2a49369d9564f321ab7daaf9af7e8d55ee48a1c39cebfec52a02",
-    "tools/seal_detector_credenciales_unidades.py": "2ad91f13d95805c078c21b93771c2dda2c8a23df49550b9c78e4470ff76db5b5",
+    "tools/seal_detector_credenciales_unidades.py": "2894429007dcbc7cb6b972848d695e1a8a5ab9fd527e54e42ee075ab03888f66",
     "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
     "tools/seal_chequeo_integridad_recuperacion.sh": "aaf81a0b464ff58e61e32217f829e91861918374c5481b67e9c9c50c23badf6b",
     "tools/tests/test_detectores_recuperacion_v1.py": "111ffa40aa4c5355a1b221c7ea0378e4c399efb82fdb7d1653dadbdcf8dbb523",
@@ -209,6 +209,6 @@
         "manifest_digest": "c47d0b11634a04d5a76513054c92f7ef1c0a6c0cec67c8b57ea263cf5c7435b9"
       }
     ],
-    "reason": "ALICE (owner): retiro la firma de NEXUS por cambio de bytes, no por defecto suyo. FALSO POSITIVO reportado por ADA el 7-sep 17:53: STUDIO_BUILD_DIR=.next-clipboard-20260907a (25 chars, entropia 4.2) se marcaba como 'valor opaco'; alimenta distDir de Next.js (next.config.ts:4). No empieza con / ni ./ asi que la guarda de rutas no lo veia. Arreglado con un desempate por NOMBRE -la variable declara dir/path/file/root Y el valor tiene forma de archivo-, que es justo el uso que el docstring le reserva al nombre. MI PROPIO CONTROL ATAJO EL ARREGLO: sin acotarlo, un 'sk-proj-...' colgado de una variable llamada BUILD_DIR se salvaba por el nombre; ahora el prefijo de credencial y la URI con clave ganan sobre la exencion. 12 brazos verdes. Barrido: 224 unidades, 0 credenciales."
+    "reason": "ALICE (owner): retiro la firma de NEXUS por cambio de bytes, no por defecto suyo. FALSO POSITIVO reportado por ADA el 7-sep 17:53: STUDIO_BUILD_DIR=.next-clipboard-20260907a (25 chars, entropia 4.2) se marcaba como 'valor opaco'; alimenta distDir de Next.js (next.config.ts:4). No empieza con / ni ./ asi que la guarda de rutas no lo veia. Arreglado con un desempate por NOMBRE -la variable declara dir/path/file/root Y el valor tiene forma de archivo-, que es justo el uso que el docstring le reserva al nombre. MI PROPIO CONTROL ATAJO EL ARREGLO: sin acotarlo, un 'sk-proj-...' colgado de una variable llamada BUILD_DIR se salvaba por el nombre; ahora el prefijo de credencial y la URI con clave ganan sobre la exencion. 12 brazos verdes. Barrido: 224 unidades, 0 credenciales. Segundo cambio (18:05, ADA): la SALIDA decia 'sin credenciales embebidas', que se lee como garantia. Ahora dice '0 detecciones ... NO significa no hay credenciales: lo que este detector no modela, no lo ve'. Va en la salida y no solo en la doc, porque lo que se lee es la salida."
   }
 }

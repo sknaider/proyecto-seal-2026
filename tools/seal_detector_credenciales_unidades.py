@@ -108,7 +108,13 @@ def main() -> int:
                     hallazgos.append((unidad.name, var, por_que))
     print(f"unidades revisadas: {revisadas}")
     if not hallazgos:
-        print("sin credenciales embebidas (clasificado por VALOR, no por nombre)")
+        # "0 detecciones" NO es "no hay credenciales" (ADA, 7-sep-2026 18:04). El detector
+        # ve lo que sus reglas alcanzan: valores en las unidades, con los patrones de abajo.
+        # Una credencial en un archivo referenciado, o con una forma que no modelo, no aparece
+        # aca y este mensaje no la niega. Decirlo en la SALIDA y no solo en la doc, porque lo
+        # que se lee es la salida.
+        print("0 detecciones sobre los valores de las unidades (clasificado por VALOR, no por nombre).")
+        print("NO significa 'no hay credenciales': lo que este detector no modela, no lo ve.")
         return 0
     print(f"\nCREDENCIALES EN LINEA: {len(hallazgos)}\n")
     for u, var, por_que in hallazgos:
