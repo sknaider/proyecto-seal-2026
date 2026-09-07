@@ -4,13 +4,18 @@
   "owner": "ADA",
   "independent_reviewer": "NEXUS",
   "review": {
-    "status": "pending",
-    "evidence": "ADA ejecutó 6/6 pruebas y 4/4 mutantes muertos. En vivo, event_log id 263434 quedó agent=ALICE, runtime_instance=ALICE_V2, process_pid=1321013, alive=true; el timer está active/waiting. Pendiente reproducción y recibo de NEXUS.",
-    "reviewed_sha256": {
-      "scripts/alice_v2_heartbeat.py": "5bf5d4fb193b9c4515a35306a09b49dd3471cea601c6cb7baf6878aef5ecee45",
-      "scripts/test_alice_v2_heartbeat.py": "863899e0367a3ff0cd2f583340c217da959feb4e33e9a8fb151692400b0c2cc1",
-      "systemd/user/seal-alice-v2-heartbeat.service": "7bb01d465ec52bdf80886b066b100d633c05218075dad982b426f4d1a35d9169",
-      "systemd/user/seal-alice-v2-heartbeat.timer": "ed1d3ea5a5b6a3eca190baefeb513c8f4bdc3092001dd86352b4cf31e7574d4d"
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "Arena desde el INDICE. CONTROL POSITIVO antes de contar: 6 passed. Los 3 sujetos existen (el borrado del 7-sep no los alcanzo). DOS mutantes sobre la condicion que el manifiesto promete -latir SOLO si el switch F5 elige ALICE-V2 y el asiento vive-: M1 `if not v2_selected(...)` -> `if False:` (late aunque el switch NO elija v2): 1 failed, MUERE. M2 `v2_selected` devuelve True siempre: 2 failed, MUERE. Restauracion 6 passed. 2/2. NOTA DE METODO: mi primer intento de M2 NO llego a mutar -pase `\\n` literal en un heredoc y el parche no compilo-. Lo detecte porque imprimio '6 passed' IDENTICO al control: un mutante que 'sobrevive' con el mismo numero que el control no probo nada. Lo reaplique bien antes de contar. LIMITES: (a) revise la logica de decision del latido; NO ejecute el timer ni verifique que escriba en event_log de verdad -eso exige el asiento v2 vivo, que hoy no corre-; (b) los dos sujetos systemd (.service/.timer) los cubro por lectura y por los brazos del manifiesto, no con mutantes propios.",
+      "reviewed_sha256": {
+        "scripts/alice_v2_heartbeat.py": "5bf5d4fb193b9c4515a35306a09b49dd3471cea601c6cb7baf6878aef5ecee45",
+        "systemd/user/seal-alice-v2-heartbeat.service": "7bb01d465ec52bdf80886b066b100d633c05218075dad982b426f4d1a35d9169",
+        "systemd/user/seal-alice-v2-heartbeat.timer": "ed1d3ea5a5b6a3eca190baefeb513c8f4bdc3092001dd86352b4cf31e7574d4d",
+        "scripts/test_alice_v2_heartbeat.py": "863899e0367a3ff0cd2f583340c217da959feb4e33e9a8fb151692400b0c2cc1"
+      },
+      "manifest_digest": "01025f612fb593015daeeef36a2bae4e2d55f8c1210ed271b48e92a447c02b9f"
     }
   },
   "deletions": [],
@@ -26,32 +31,64 @@
     {
       "id": "unit-v2-heartbeat",
       "kind": "unit",
-      "argv": ["python3", "-m", "pytest", "-q", "scripts/test_alice_v2_heartbeat.py"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "scripts/test_alice_v2_heartbeat.py"
+      ],
       "expected_exit": 0
     },
     {
       "id": "positive-canonical-isolated-seat",
       "kind": "qa_positive",
-      "argv": ["python3", "-m", "pytest", "-q", "scripts/test_alice_v2_heartbeat.py::test_emits_canonical_v2_heartbeat_only_for_live_isolated_seat"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "scripts/test_alice_v2_heartbeat.py::test_emits_canonical_v2_heartbeat_only_for_live_isolated_seat"
+      ],
       "expected_exit": 0
     },
     {
       "id": "negative-wrong-body-dead-or-unisolated",
       "kind": "qa_negative",
-      "argv": ["python3", "-m", "pytest", "-q", "scripts/test_alice_v2_heartbeat.py::test_never_writes_for_wrong_body_dead_or_unisolated_seat"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "scripts/test_alice_v2_heartbeat.py::test_never_writes_for_wrong_body_dead_or_unisolated_seat"
+      ],
       "expected_exit": 0
     },
     {
       "id": "control-exact-switch",
       "kind": "qa_control",
-      "argv": ["python3", "-m", "pytest", "-q", "scripts/test_alice_v2_heartbeat.py::test_switch_requires_exact_v2_value"],
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "scripts/test_alice_v2_heartbeat.py::test_switch_requires_exact_v2_value"
+      ],
       "expected_exit": 0
     }
   ],
   "coverage": {
-    "source": ["scripts/alice_v2_heartbeat.py"],
-    "omit": ["tests/*", "*/site-packages/*"],
-    "pytest_args": ["-q", "scripts/test_alice_v2_heartbeat.py"],
+    "source": [
+      "scripts/alice_v2_heartbeat.py"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "scripts/test_alice_v2_heartbeat.py"
+    ],
     "baseline_percent": 0.0,
     "timeout": 120
   },
@@ -63,7 +100,11 @@
     "command": {
       "id": "delivery-live-v2-heartbeat",
       "kind": "delivery",
-      "argv": ["bash", "-lc", "systemctl --user start seal-alice-v2-heartbeat.service && journalctl --user -u seal-alice-v2-heartbeat.service -n 10 --no-pager | grep -F 'alice_v2_heartbeat written'"],
+      "argv": [
+        "bash",
+        "-lc",
+        "systemctl --user start seal-alice-v2-heartbeat.service && journalctl --user -u seal-alice-v2-heartbeat.service -n 10 --no-pager | grep -F 'alice_v2_heartbeat written'"
+      ],
       "expected_exit": 0,
       "expected_stdout_contains": "alice_v2_heartbeat written"
     }

@@ -168,3 +168,4 @@
 {"id": "dm_1777303549618300928", "from": "William", "to": "NEXUS", "timestamp": "2026-04-27T15:25:49.618301+00:00", "type": "dm", "message": "el modelo  lo permite o busco otro modelo?", "channel": "dm:nexus:william"}
 {"id": "dm_1777303610573472000", "from": "William", "to": "NEXUS", "timestamp": "2026-04-27T15:26:50.573472+00:00", "type": "dm", "message": "el modelo de llama no usa gpu, busca un modelo que use gpu", "channel": "dm:nexus:william"}
 {"id": "dm_1777303690066097920", "from": "William", "to": "NEXUS", "timestamp": "2026-04-27T15:28:10.066098+00:00", "type": "dm", "message": "busca en internet otro modelo que use gpu y 100% uncensored", "channel": "dm:nexus:william"}
+{"id": "dm_1788806190364471808", "db_id": 151290, "from": "William", "to": "NEXUS", "timestamp": "2026-09-07T18:36:30.364472+00:00", "type": "dm", "message": "probando dm", "channel": "dm:nexus:william"}

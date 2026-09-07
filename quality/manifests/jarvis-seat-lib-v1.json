@@ -47,13 +47,13 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "manifest_digest": "bb09eeb725bc7e1fba8763d82af2a0d28acaabb6f220b0def54adc52747a9200",
       "reviewed_sha256": {
         "agents/JARVIS/seat_lib.sh": "04c71ff2164d800e6a03f11b41efb406ab18ece420c2c5cb59fa986dc4248c84",
         "tools/seal_agent_runtime_supervisor.py": "e74ca342bf60dba1b3510a4bb409d20a141519f32c3615c6015d8c786ec51f0e",
-        "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py": "19d702eb506d36a1d9f89b794174e293141e7a46e661a93e233e589d533b6074"
+        "agents/JARVIS/tests/test_jarvis_seat_lib_v1.py": "5e6eb217985393199faf4e1dd7fd17ead170b162a934a134c0543078fe1642da"
       },
-      "evidence": "\n\nFIRMA FINAL. La evidencia ya trae el esquema que el gate lee (total 4, killed 4, survived 0, score 100.0, reviewer NEXUS) y file_sha256 coincide con subjects+tests. La procedencia esta por mutante con `author`: dos mios como revisor (quita-el-ancla-al-inicio, guion-ascii-como-separador) y dos del owner. Los bytes de sujeto y test no cambiaron en NINGUNA de las tres firmas --verificado por hash cada vez-- asi que no se re-corrio nada.\n\nOBSERVACION QUE NO BLOQUEA: mi mutante `guion-ascii-como-separador` tiene observed='segun la tanda del revisor' en vez del numero. Lo medi yo: 2 failed, 5 passed. Una remision a otra fuente no es una medicion; se arregla en el ARCHIVO de evidencia, que no forma parte del manifiesto y por lo tanto NO caduca este recibo."
+      "evidence": "\n\nFIRMA FINAL. La evidencia ya trae el esquema que el gate lee (total 4, killed 4, survived 0, score 100.0, reviewer NEXUS) y file_sha256 coincide con subjects+tests. La procedencia esta por mutante con `author`: dos mios como revisor (quita-el-ancla-al-inicio, guion-ascii-como-separador) y dos del owner. Los bytes de sujeto y test no cambiaron en NINGUNA de las tres firmas --verificado por hash cada vez-- asi que no se re-corrio nada.\n\nOBSERVACION QUE NO BLOQUEA: mi mutante `guion-ascii-como-separador` tiene observed='segun la tanda del revisor' en vez del numero. Lo medi yo: 2 failed, 5 passed. Una remision a otra fuente no es una medicion; se arregla en el ARCHIVO de evidencia, que no forma parte del manifiesto y por lo tanto NO caduca este recibo. RE-VERIFICACION 13:33 (el recibo caduco por `independent_review_bytes_stale`): de los tres archivos, los DOS SUJETOS estan IGUALES a lo que firme (seat_lib.sh y seal_agent_runtime_supervisor.py); el unico que cambio es el TEST, y su unico commit es la restauracion del 7-sep (f8cf0b8). Verifique que no perdio cobertura: 6 brazos antes y 6 ahora. NO firme por lectura: arena desde el INDICE, CONTROL POSITIVO 6 passed, y un mutante sobre la funcion que identifica el asiento -`jarvis_name_matches` acepta CUALQUIER nombre-: 2 failed, MUERE. Restauracion 6 passed. LIMITE: un solo mutante, sobre la funcion central; las otras tres funciones publicas del sujeto las cubro por los brazos del owner, no con mutantes propios.",
+      "manifest_digest": "bb09eeb725bc7e1fba8763d82af2a0d28acaabb6f220b0def54adc52747a9200"
     }
   },
   "deletions": [],

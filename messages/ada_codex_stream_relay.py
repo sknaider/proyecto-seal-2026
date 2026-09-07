@@ -31,7 +31,7 @@ os.umask(0o077)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from messages.agent_writer import send_agent_message_sync
-from messages.codex_session_selector import newest_primary_tui_session
+from messages.codex_session_selector import newest_primary_tui_session, open_rollout, rollout_event_payload
 from memory.operational_db_credentials import service_pg_dsn
 
 SESSIONS_DIR = Path("/home/dadito/.codex/sessions")
@@ -727,7 +727,7 @@ def _process_line(line: str) -> None:
         return
     if obj.get("type") != "event_msg":
         return
-    payload = obj.get("payload", {})
+    payload = rollout_event_payload(obj)
     if not isinstance(payload, dict):
         return
     payload_type = payload.get("type")
@@ -863,7 +863,7 @@ def _recover_open_direct_turn(path: Path) -> dict | None:
     if not DIRECT_TERMINAL_DM_ENABLED or not path.exists():
         return None
     try:
-        with path.open("rb") as handle:
+        with open_rollout(path, "rb") as handle:
             size = handle.seek(0, os.SEEK_END)
             handle.seek(max(0, size - DIRECT_RECOVERY_BYTES))
             raw = handle.read().decode("utf-8", errors="replace")
@@ -877,7 +877,7 @@ def _recover_open_direct_turn(path: Path) -> dict | None:
             continue
         if obj.get("type") != "event_msg":
             continue
-        payload = obj.get("payload") or {}
+        payload = rollout_event_payload(obj)
         payload_type = payload.get("type")
         if payload_type == "user_message":
             message = str(payload.get("message") or "").strip()
@@ -917,7 +917,7 @@ def _recover_active_task_completion(default_path: Path) -> bool:
         return False
     expected_turn_id = str(task.get("turn_id") or "").strip()
     try:
-        with session_path.open("rb") as handle:
+        with open_rollout(session_path, "rb") as handle:
             size = handle.seek(0, os.SEEK_END)
             handle.seek(max(0, size - DIRECT_RECOVERY_BYTES))
             lines = handle.read().decode("utf-8", errors="replace").splitlines()
@@ -926,7 +926,7 @@ def _recover_active_task_completion(default_path: Path) -> bool:
     for line in reversed(lines):
         try:
             event = json.loads(line)
-            payload = event.get("payload") or {}
+            payload = rollout_event_payload(event)
         except (TypeError, ValueError):
             continue
         if event.get("type") != "event_msg" or payload.get("type") != "task_complete":
@@ -1004,7 +1004,7 @@ async def main_loop():
         try:
             current_size = _current_file.stat().st_size
             if current_size > _file_pos:
-                with open(_current_file, "r", errors="replace") as f:
+                with open_rollout(_current_file, "r", errors="replace") as f:
                     f.seek(_file_pos)
                     new_data = f.read()
                     _file_pos = f.tell()

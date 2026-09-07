@@ -286,6 +286,9 @@ def terminal_writer_active(path: Path = TERMINAL_ACTIVE_FILE) -> bool:
     A PID-only marker could keep headless muted forever while the DB poller was
     stopped or wedged. The listener heartbeat makes takeover deterministic.
     """
+    if os.environ.get("ADA_TERMINAL_ROUTE_WEB_CHAT", "true").lower() == "false":
+        # A DM-only terminal cannot take ownership of the public bridge lane.
+        return False
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         terminal_pid = int(data.get("pid", 0))
@@ -731,9 +734,17 @@ def silence_output_for_message(channel: str, content: str, sender: str | None = 
     return None
 
 
+def bridge_channel_enabled(channel: str) -> bool:
+    if channel == "web_chat":
+        return True
+    return channel in ADA_DM_CHANNELS and os.environ.get(
+        "ADA_BRIDGE_ROUTE_DM", "true"
+    ).lower() in {"1", "true", "yes", "on"}
+
+
 def should_route_to_codex(channel: str, content: str, sender: str | None = None) -> bool:
     """Whether the bridge should spend a Codex turn for this chat message."""
-    return silence_output_for_message(channel, content, sender) is None
+    return bridge_channel_enabled(channel) and silence_output_for_message(channel, content, sender) is None
 
 
 def should_include_context_row(row: Any) -> bool:
@@ -1349,6 +1360,8 @@ def post_message(
     idempotency_key: str | None = None,
     in_reply_to: str | int | None = None,
 ) -> dict[str, Any]:
+    if not bridge_channel_enabled(channel):
+        raise RuntimeError("bridge_channel_disabled")
     payload = {
         "from": "ADA",
         "to": to,
@@ -1391,6 +1404,8 @@ def post_message(
 
 
 def post_stream(to: str, message: str, stream_id: str, channel: str, done: bool = False) -> None:
+    if not bridge_channel_enabled(channel):
+        raise RuntimeError("bridge_channel_disabled")
     payload = {
         "id": stream_id,
         "from": "ADA",
@@ -1507,7 +1522,7 @@ def response_source_ids(msg: ChatMessage) -> list[str]:
 
 def should_post_durable_live_ack(channel: str) -> bool:
     """Keep William's direct lane visibly acknowledged while work continues."""
-    if not LIVE_ACK_ENABLED:
+    if not bridge_channel_enabled(channel) or not LIVE_ACK_ENABLED:
         return False
     if channel == "dm:ada:william":
         return DM_LIVE_ACK_ENABLED
@@ -1917,7 +1932,7 @@ async def initial_last_id(conn: asyncpg.Connection) -> int:
     row = await conn.fetchrow(
         "SELECT COALESCE(MAX(id), 0) AS last_id FROM soul_v3.chat_messages "
         "WHERE channel = 'web_chat' OR channel = ANY($1::text[])",
-        list(ADA_DM_CHANNELS),
+        [channel for channel in ADA_DM_CHANNELS if bridge_channel_enabled(channel)],
     )
     return int(row["last_id"])
 
@@ -1978,7 +1993,7 @@ async def fetch_messages(conn: asyncpg.Connection, last_id: int) -> tuple[list[C
         dm_last_id,
         human_last_id,
         list(INJECT_FROM),
-        list(ADA_DM_CHANNELS),
+        [channel for channel in ADA_DM_CHANNELS if bridge_channel_enabled(channel)],
         FETCH_BATCH_LIMIT,
     )
     batch_max_id = last_id

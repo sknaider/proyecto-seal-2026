@@ -1133,3 +1133,5 @@
 {"type": "alert", "agent": "ALICE", "timestamp": "2026-05-06T22:56:53Z", "message": "ALERT:Qdrant:6333 — "}
 {"type": "alert", "agent": "ALICE", "timestamp": "2026-05-06T23:07:01Z", "message": "ALERT:Qdrant:6333 — "}
 {"type": "alert", "agent": "ALICE", "timestamp": "2026-05-06T23:17:12Z", "message": "ALERT:Qdrant:6333 — "}
+{"type": "alert", "agent": "ALICE", "timestamp": "2026-09-07T19:19:28Z", "message": "ALERT:Qdrant:6333 — "}
+{"type": "alert", "agent": "ALICE", "timestamp": "2026-09-07T19:20:00Z", "message": "ALERT:Qdrant:6333 — "}

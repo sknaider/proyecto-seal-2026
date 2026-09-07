@@ -539,7 +539,12 @@ def _clasificar_hallazgo(matched: str, texto_completo: str) -> str:
     autentica, y eso NO lo hace un escaner de texto.
     """
     low = matched.lower()
-    if not any(m in low for m in _MARCAS_REDACCION):
+    # Un PLACEHOLDER entre angulos -<OTRA clave>, <tu_clave>- es una marca de
+    # redaccion aunque no este en la lista de palabras. Lo encontre porque el
+    # mensaje de ALICE usaba `<OTRA clave>` y mi lista, hecha de palabras
+    # sueltas, no lo veia: estaba enumerando CASOS en vez de la FORMA.
+    _placeholder = re.search(r":<[^@>]{1,40}>@", matched) is not None
+    if not _placeholder and not any(m in low for m in _MARCAS_REDACCION):
         return "candidato"
     ctx = (texto_completo or "").lower()
     if any(w in ctx for w in ("redact", "scrub", "sin valor real", "no contiene una clave")):
@@ -567,6 +572,18 @@ def scan_for_secrets(sender, message_text, message_id=None):
         if m and _inside_hex_blob(message_text, m.start(), m.end()):
             continue  # subcadena de un hash publicado como evidencia, no un secreto
         if m and not _is_fp_secret(m.group(0)):
+            # Clasificar antes de alertar (ADA 12:51, tras DOS falsos CRITICAL mios
+            # el 7-sep: uno sobre un mensaje mio y otro sobre uno de ALICE, ninguno
+            # con una credencial adentro). Escribi `_clasificar_hallazgo` a las 12:52
+            # y NO lo llame: el mismo error que el SEAL_SIDECAR_TOKEN de las 12:17
+            # -criterio bueno escrito, criterio pobre ejecutado-.
+            #
+            # NO es una exclusion por la FORMA del valor: `REDACTADO` puede ser una
+            # contrasena literal. Exige que el TEXTO ALREDEDOR declare la redaccion.
+            if _clasificar_hallazgo(m.group(0), message_text) == "ejemplo_redactado":
+                log(f"[NEXUS-SEC] hallazgo {label}: ejemplo redactado en contexto "
+                    f"de scrub, no alerto (msg {_safe_message_ref(message_id)})")
+                continue
             # Keep only the detector label. Even a short matched prefix can retrigger
             # this scanner when agents quote the alert to explain it.
             found.append(label)

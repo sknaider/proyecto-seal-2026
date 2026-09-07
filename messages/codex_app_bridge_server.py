@@ -412,10 +412,9 @@ async def get_task(task_id: str, wait_seconds: float = DEFAULT_TASK_WAIT_SECONDS
 def main() -> None:
     import uvicorn
 
-    token = ensure_token()
+    ensure_token()
     ensure_token(SOUL_CLONE_TOKEN_FILE)
     print(f"[codex-app-bridge] token_file={TOKEN_FILE}")
-    print(f"[codex-app-bridge] token_prefix={token[:8]}...")
     print(f"[codex-app-bridge] soul_clone_token_file={SOUL_CLONE_TOKEN_FILE}")
     uvicorn.run(app, host=BRIDGE_BIND_HOST, port=BRIDGE_PORT, log_level="info")
 

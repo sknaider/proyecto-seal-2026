@@ -23,9 +23,9 @@ from glob import glob
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from memory.operational_db_credentials import service_pg_dsn
 try:
-    from messages.codex_session_selector import newest_primary_tui_session
+    from messages.codex_session_selector import newest_primary_tui_session, open_rollout, pinned_tui_rollout, rollout_event_payload
 except ModuleNotFoundError:  # ejecución directa: sys.path apunta a messages/
-    from codex_session_selector import newest_primary_tui_session
+    from codex_session_selector import newest_primary_tui_session, open_rollout, pinned_tui_rollout, rollout_event_payload
 
 def resolve_db_dsn() -> str:
     """Load only ADA's dedicated bridge identity; never fall back to ``seal``."""
@@ -185,7 +185,7 @@ def resolve_codex_pane_target(session: str = TMUX_SESSION) -> str | None:
                 "-t",
                 f"{session}:ADA[Codex]",
                 "-F",
-                "#{pane_id}\t#{pane_current_command}\t#{pane_dead}",
+                "#{pane_id}\t#{pane_current_command}\t#{pane_dead}\t#{pane_pid}",
             ],
             capture_output=True,
             text=True,
@@ -199,12 +199,30 @@ def resolve_codex_pane_target(session: str = TMUX_SESSION) -> str | None:
     candidates: list[str] = []
     for line in result.stdout.splitlines():
         parts = line.split("\t")
-        if len(parts) != 3:
+        if len(parts) not in {3, 4}:
             continue
-        pane_id, command, dead = parts
+        pane_id, command, dead = parts[:3]
+        pinned_pane = os.environ.get("ADA_CODEX_LIVE_TUI_PANE")
+        if os.environ.get("ADA_CODEX_LIVE_TUI_ROLLOUT"):
+            source = pinned_tui_rollout()
+            if not source or pane_id != pinned_pane or len(parts) != 4:
+                continue
+            pid = int(str(source).split("/")[2])
+            for _ in range(64):
+                if str(pid) == parts[3]:
+                    break
+                try:
+                    fields = Path(f"/proc/{pid}/stat").read_text().rsplit(") ", 1)[1].split()
+                    pid = int(fields[1])
+                except (OSError, ValueError, IndexError):
+                    pid = 0
+                if pid <= 1:
+                    break
+            if str(pid) != parts[3]:
+                continue
         if dead == "0" and command not in viewer_commands and pane_id.startswith("%"):
             candidates.append(pane_id)
-    return candidates[0] if candidates else None
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def redact_sensitive(text: str) -> str:
@@ -258,7 +276,7 @@ def latest_lifecycle_event(session: Path | None = None, max_bytes: int = 8 * 102
     try:
         size = session.stat().st_size
         start = max(0, size - max_bytes)
-        with open(session, "rb") as handle:
+        with open_rollout(session, "rb") as handle:
             handle.seek(start)
             data = handle.read()
         lines = data.splitlines()
@@ -271,7 +289,7 @@ def latest_lifecycle_event(session: Path | None = None, max_bytes: int = 8 * 102
                 continue
             if event.get("type") != "event_msg":
                 continue
-            payload = event.get("payload") or {}
+            payload = rollout_event_payload(event)
             if payload.get("type") in {"task_started", "task_complete"}:
                 return payload
     except Exception:
@@ -305,7 +323,7 @@ def _accepted_submission_from_ledger(task: dict) -> dict | None:
     session_file = Path(session_value)
     try:
         start_offset = max(0, int(task.get("submission_start_offset", 0)))
-        with session_file.open("rb") as handle:
+        with open_rollout(session_file, "rb") as handle:
             handle.seek(start_offset)
             lines = handle.read().decode("utf-8", errors="replace").splitlines()
     except (OSError, TypeError, ValueError):
@@ -342,7 +360,7 @@ def _accepted_submission_from_ledger(task: dict) -> dict | None:
             continue
         if event.get("type") != "event_msg":
             continue
-        payload = event.get("payload") or {}
+        payload = rollout_event_payload(event)
         if payload.get("type") == "task_started":
             turn_id = str(payload.get("turn_id") or "").strip() or None
         elif payload.get("type") == "user_message" and marker in str(payload.get("message") or ""):
@@ -566,7 +584,7 @@ async def confirm_submission(
         try:
             size = session_file.stat().st_size
             if size > offset:
-                with open(session_file, "rb") as handle:
+                with open_rollout(session_file, "rb") as handle:
                     handle.seek(offset)
                     chunk = handle.read()
                 offset += len(chunk)
@@ -580,7 +598,7 @@ async def confirm_submission(
                         continue
                     if event.get("type") != "event_msg":
                         continue
-                    payload = event.get("payload") or {}
+                    payload = rollout_event_payload(event)
                     if payload.get("type") == "task_started":
                         turn_id = str(payload.get("turn_id") or "") or None
                     elif (
@@ -732,6 +750,16 @@ async def fetch_pending_turns(
     public mention of ADA.  The two CTEs deliberately use separate cursors:
     consuming a high-id DM can never advance/skip the public lane.
     """
+    if os.environ.get("ADA_CODEX_POLLER_ROUTE_WEB_CHAT", "true").lower() == "false":
+        # William's private terminal lane: never read public or other DMs.
+        return await conn.fetch(
+            """SELECT id, sender_name, content, created_at, channel, metadata, 0 AS lane
+                 FROM soul_v3.chat_messages
+                WHERE id > $1 AND channel = 'dm:ada:william'
+                  AND LOWER(sender_name) IN ('william', 'henry')
+                ORDER BY id ASC LIMIT $2""",
+            dm_last_id, limit,
+        )
     return await conn.fetch(
         """
         WITH dm_pending AS (
@@ -1119,7 +1147,7 @@ def primary_session_contains_event(row: dict, lookback_bytes: int = 2_000_000) -
         return False
     try:
         size = session.stat().st_size
-        with session.open("rb") as handle:
+        with open_rollout(session, "rb") as handle:
             handle.seek(max(0, size - lookback_bytes))
             tail = handle.read().decode("utf-8", errors="replace")
     except OSError:
@@ -1561,7 +1589,7 @@ async def poll_loop():
 
             # Never let the legacy public JSONL fallback race or overtake a
             # direct DM.  The next cycle re-checks the DM lane first.
-            if rows:
+            if rows or os.environ.get("ADA_CODEX_POLLER_ROUTE_WEB_CHAT", "true").lower() == "false":
                 await asyncio.sleep(POLL_INTERVAL)
                 continue
 
