@@ -19,15 +19,21 @@ def test_guarda_rechaza_destino_fuera_de_nfs(tmp_path):
     assert not any(tmp_path.iterdir()), "no debe escribir nada fuera de /mnt/spark-2"
 
 def test_guarda_rechaza_evasion_con_puntos_puntos():
-    """Hallazgo NEXUS 7-sep: /mnt/spark-2/../home/dadito pasaba la guarda textual. Ahora se resuelve la ruta."""
-    r = _run({"SEAL_SNAPSHOT_DEST": "/mnt/spark-2/../home/dadito"})
+    """Hallazgo NEXUS 7-sep: una ruta con .. pasaba la guarda textual. Ahora se resuelve la ruta.
+    Ruta SEÑUELO (condición FABLE 12:53): nunca la ruta real del home en un test negativo."""
+    r = _run({"SEAL_SNAPSHOT_DEST": "/mnt/spark-2/../tmp/seal-senuelo-fuera-del-nfs"})
     assert r.returncode == 2, r.stderr
     assert "destino invalido" in r.stderr
 
 
-def test_guarda_rechaza_raiz_del_home():
-    r = _run({"SEAL_SNAPSHOT_DEST": "/home/dadito"})
-    assert r.returncode == 2
+def test_guarda_rechaza_un_home_senuelo(tmp_path):
+    """Condición FABLE 12:53: el test negativo NO usa la ruta real del home (es la forma que lo borró el 7-sep).
+    Un directorio señuelo bajo /tmp con la forma de un home debe ser rechazado igual, y quedar intacto."""
+    senuelo = tmp_path / "home" / "usuario-senuelo"
+    senuelo.mkdir(parents=True); (senuelo / "testigo.txt").write_text("intacto")
+    r = _run({"SEAL_SNAPSHOT_DEST": str(senuelo)})
+    assert r.returncode == 2, r.stderr
+    assert (senuelo / "testigo.txt").read_text() == "intacto"
 
 @pytest.mark.skipif(not NFS.is_mount(), reason="NFS no montado")
 def test_foto_real_contiene_lo_critico_y_ningun_secreto():
@@ -109,3 +115,39 @@ def test_exclusiones_del_repo_cubren_los_secretos_conocidos():
     linea_cfg = next(l for l in script.splitlines() if "/home/dadito/.config/seal/" in l and "--exclude" in l)
     for patron in ("*.env", "env", "*.dsn", "credentials.env*", "*_cred"):
         assert f"--exclude='{patron}'" in linea_cfg, patron
+
+
+def _gate_push(repo: pathlib.Path) -> int:
+    """Ejecuta SOLO la guarda de publicacion de seal_git_push_daily.sh dentro de un repo git señuelo."""
+    import subprocess
+    script = (pathlib.Path(__file__).resolve().parents[1] / "seal_git_push_daily.sh").read_text()
+    ini = script.index("fugas=$("); fin = script.index("exit 3; fi", ini) + len("exit 3; fi")
+    return subprocess.run(["bash", "-c", script[ini:fin]], cwd=repo, capture_output=True, text=True).returncode
+
+
+def _repo_senuelo(tmp_path, archivos: dict) -> pathlib.Path:
+    import subprocess
+    repo = tmp_path / "repo"; repo.mkdir()
+    for nombre, texto in archivos.items():
+        (repo / nombre).write_text(texto)
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    return repo
+
+
+def test_puerta_push_bloquea_dsn_real_en_md(tmp_path):
+    """Condición FABLE 2: un DSN en documentación se publica igual; .md no se excluye."""
+    repo = _repo_senuelo(tmp_path, {"NOTAS.md": "conexion: postgresql://rol:" + "clave" * 3 + "@127.0.0.1:5433/db\n"})
+    assert _gate_push(repo) == 3
+
+
+def test_puerta_push_filtra_por_linea_no_por_archivo(tmp_path):
+    """Condición FABLE 1 (refutador): una línea REDACTADO en el mismo archivo NO absuelve a la línea con clave real."""
+    repo = _repo_senuelo(tmp_path, {"cfg.py": 'A = "postgresql://rol:REDACTADO@h/db"\nB = "postgresql://rol:' + "clave" * 3 + '@h/db"\n'})
+    assert _gate_push(repo) == 3
+
+
+def test_puerta_push_deja_pasar_plantillas(tmp_path):
+    """Control: sólo placeholders y REDACTADO -> la puerta no bloquea."""
+    repo = _repo_senuelo(tmp_path, {"cfg.py": 'A = "postgresql://rol:REDACTADO@h/db"\nB = "postgresql://{ROLE}:{clave}@h/db"\nC = "postgresql://rol:${PGPASSWORD}@h/db"\n', "doc.md": "postgresql://user:<clave>@host/db\n"})
+    assert _gate_push(repo) == 0
