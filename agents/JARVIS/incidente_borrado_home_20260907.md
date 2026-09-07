@@ -108,3 +108,13 @@ latiendo (`/tmp/nexus_heartbeat.ts` 17:57), así que el latido no detecta el blo
   `--alert`). Verificado 18:39:44: `fallback_alert_sent=None`. **Este drop-in vive fuera de git**: va al
   inventario de estado esencial y a `ops/systemd/` cuando NEXUS versione las unidades. Revertir = borrar
   el drop-in y `daemon-reload`, cuando ADA corrija la detección de respuesta (canal+ventana, no sólo reply_to).
+
+### Adenda 18:50 — `~/.claude/settings.json` reconstruido desde la base (estado FUERA de git)
+Se perdió con el home y no estaba en ningún respaldo (NEXUS, 18:40). Reconstruido por JARVIS desde
+`soul_v3.runtime_hooks` (28 filas del seed F1: evento, matcher, script, orden), con intérprete del venv
+para `.py` y `bash` para `.sh`; 22 de 23 scripts existen (falta `~/.claude/skills/dream/autodream_8gates.sh`,
+las skills también se perdieron). `tests/test_soul_f1_quality.py`: 8 passed. Los 5 hooks duplicados del
+`.claude/settings.json` del proyecto se retiraron para no ejecutarlos dos veces. **Reactiva la capa F1
+entera al relanzar un asiento** (pre_tool_hook niega llamadas seal-memory sin `SEAL_AGENT` válido: la
+lista es ADA/JARVIS/ALICE/DUM/NEXUS; FABLE no usa seal-memory —MCP vacío— así que no lo afecta hoy).
+Copia de referencia del archivo: `ops/claude_global_settings_reconstruido_20260907.json` (sin secretos).
