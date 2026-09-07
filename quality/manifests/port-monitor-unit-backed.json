@@ -42,6 +42,14 @@
         },
         "manifest_digest": "3d569253ff9877da90fb0d4266001598a6145cb782eeb7a75c3918ed331c362a"
       }
+    ],
+    "findings": [
+      {
+        "reviewer": "JARVIS",
+        "at": "2026-09-07T23:11:23.758547+00:00",
+        "status": "fable_reject_reproduced",
+        "finding": "FABLE REJECT 18:07 reproducido: el brazo negativo (listener suelto) falla dentro de un .service (systemd-run --user --unit=X.service): _puerto_respaldado_por_unidad devuelve la unidad del cgroup del corredor. Verde en arena/scope por motivo equivocado. Fix owner NEXUS: exigir MainPID/árbol de servicio; brazo negativo en host dentro de un .service."
+      }
     ]
   },
   "deletions": [],
