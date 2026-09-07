@@ -77,3 +77,12 @@ Las 22 credenciales distintas presentes en el árbol rastreado (roles seal, post
 
 ## Adenda 15:12 — `.mcp.json`, `.claude/settings.json` y `seal-claude`: el alma de las sesiones nuevas
 Las sesiones Claude del 2-sep se lanzaron con `--settings .claude/settings.json` y el `.mcp.json` del repo (Bearer `${SEAL_SESSION_TOKEN}`). Los dos estaban en `.gitignore` y se perdieron; `~/.claude.json` regenerado tiene 0 servidores; `~/.local/bin/seal-claude` (wrapper de los launchers) tampoco existe. Consecuencia: toda sesión nueva arrancaba sin MCP (sin `boot_context`) y sin hooks; nadie lo notó porque las sesiones vivas lo tenían en memoria. Reconstruidos desde los procesos vivos (cmdline + nombres de variables) y versionados sin secretos (572e6f1); el token de GitHub rescatado del proceso a `~/.config/seal/env/github_mcp.env`. Pendiente: prueba en frío (ALICE), lista `deny` y hooks exactos (perdidos; reconstrucción por manifiesto, NEXUS).
+
+### Adenda 18:15 — `ada-listening-healthcheck` falla cada ~2 min desde las 11:37 por una clave vieja del superusuario
+`~/.config/seal/ada_bridge_db_runtime.env` (reconstruido 11:37) lleva `SEAL_DB_DSN` con el rol `seal`
+y una contraseña que el servidor rechaza (`InvalidPasswordError`, y el control con clave falsa falla
+igual: la autenticación se exige). La unidad sale `status=1/FAILURE` en cada corrida con
+`fallback_alert_sent: true`. El mismo archivo lleva el DSN de `login_poller_alice` dentro de una
+unidad de ADA. Arreglo correcto (carril 1, ALICE): un rol de mínimo privilegio para el healthcheck,
+no volver a pegar la clave del superusuario. Sólo dos env bajo `~/.config/seal` llevan `://seal:`:
+este y `credentials.env`.
