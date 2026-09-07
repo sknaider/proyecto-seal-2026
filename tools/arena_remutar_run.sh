@@ -19,7 +19,11 @@ find "$ARENA" -type d -exec chmod 777 {} + 2>/dev/null; find "$ARENA" -type f -e
 # (64 caracteres fijos, no el real) y el directorio queda 555 para que la guarda del arnés no vea un HOME escribible.
 mkdir -p "$ARENA/.home"; printf '%s' "arena-senuelo-jwt-no-es-el-secreto-real-0123456789abcdef0123456789abcdef" > "$ARENA/.home/.seal_chat_jwt_secret"
 chmod 444 "$ARENA/.home/.seal_chat_jwt_secret"; chmod 555 "$ARENA/.home"
+# DSN SENUELO (host 127.0.0.1 puerto 1: no hay DB alcanzable desde la arena). memory/memory_extraction_hook.py lo pide
+# AL IMPORTAR via seal_secrets.pg_dsn; sin el, 4 tests del bundle F2 salen rojos POR ENTORNO y el control no sirve
+# de linea base. Una sola variable corta la cadena PG_PASSWORD -> PG_USER -> ... (ALICE, 7-sep.)
 docker run --rm -i --user 65534:65534 -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/venv/lib/python3.12/site-packages -e HOME=/trabajo/.home \
+  -e SEAL_DB_DSN=postgresql://arena-senuelo:arena-senuelo@127.0.0.1:1/arena_senuelo \
   -v "$ARENA":/trabajo -v /home/dadito/IA/seal-spark/.venv:/venv:ro -w /trabajo python:3.12-slim \
   python3 tools/arena_remutar_revisor.py quality/mutantes/spec.json quality/mutantes/salida.json; RC=$?
 cp "$ARENA/quality/mutantes/salida.json" "$SALIDA"

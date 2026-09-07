@@ -1,0 +1,61 @@
+{
+ "change_id": "soul-f2-runtime-orchestrator",
+ "reviewer": "ALICE",
+ "manifest": "quality/manifests/soul-f2-runtime-orchestrator.json",
+ "tests": [
+  [
+   "tests/test_soul_runtime_orchestrator.py"
+  ],
+  [
+   "tests/test_seal_secrets.py"
+  ],
+  [
+   "tests/test_soul_memory_admission_dependencies.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "superuser-vuelve-a-ser-aceptado",
+   "subject": "memory/soul_runtime_orchestrator.py",
+   "ancla": "                or identity.superuser",
+   "reemplazo": "                or False",
+   "why": "un rol SUPERUSUARIO pasa la verificacion de identidad: RLS deja de aplicar y el runtime lee todo"
+  },
+  {
+   "id": "cualquier-rol-se-declara-el-esperado",
+   "subject": "memory/soul_runtime_orchestrator.py",
+   "ancla": "            expected_role = f\"mcp_runtime_{self.agent.lower()}\"",
+   "reemplazo": "            expected_role = identity.session_user",
+   "why": "el rol esperado se toma del propio observado: la comparacion se vuelve tautologica y ALICE podria correr como el rol de NEXUS"
+  },
+  {
+   "id": "hook-puede-escapar-de-las-raices",
+   "subject": "memory/soul_runtime_orchestrator.py",
+   "ancla": "        if not any(resolved.is_relative_to(root) for root in self.allowed_roots):",
+   "reemplazo": "        if False and not any(resolved.is_relative_to(root) for root in self.allowed_roots):",
+   "why": "se ejecuta como hook cualquier archivo del disco, fuera del repo y de skills/dream"
+  },
+  {
+   "id": "hook-por-enlace-simbolico-aceptado",
+   "subject": "memory/soul_runtime_orchestrator.py",
+   "ancla": "        if candidate.is_symlink():",
+   "reemplazo": "        if False:",
+   "why": "un enlace simbolico dentro de una raiz permitida apunta afuera: misma clase que el enlace DURO del carril 4"
+  },
+  {
+   "id": "la-clave-de-postgres-no-se-limpia",
+   "subject": "memory/soul_runtime_orchestrator.py",
+   "ancla": "    \"PGUSER\", \"PGPASSWORD\", \"PGDATABASE\", \"PGSERVICE\", \"PGSERVICEFILE\",",
+   "reemplazo": "    \"PGUSER\", \"PGDATABASE\", \"PGSERVICE\", \"PGSERVICEFILE\",",
+   "why": "PGPASSWORD del proceso privilegiado sobrevive al scrub y baja al hook restringido"
+  },
+  {
+   "id": "PATH-deja-de-ser-el-de-confianza",
+   "subject": "memory/soul_runtime_orchestrator.py",
+   "ancla": "TRUSTED_PATH = \"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"",
+   "reemplazo": "TRUSTED_PATH = \".:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"",
+   "why": "el directorio actual entra primero en el PATH del hook: un binario plantado en el cwd gana"
+  }
+ ],
+ "_nota_arena": "tests/test_soul_f1_quality.py NO corre en la arena: dos de sus casos leen $HOME/.claude/settings.json y el HOME de la arena es un senuelo de solo lectura sin ese archivo. Se corre aparte en el anfitrion y se reporta como observacion separada, no como mutante."
+}

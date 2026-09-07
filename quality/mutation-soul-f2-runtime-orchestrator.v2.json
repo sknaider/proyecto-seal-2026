@@ -1,0 +1,176 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "soul-f2-runtime-orchestrator",
+  "reviewer": "ALICE",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 3,
+  "survived": 3,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 50.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": ".............                                                            [100%]\n13 passed in 0.02s\n....                                                                     [100%]\n4 passed in 0.02s",
+    "sha_sujetos_antes": {
+      "memory/soul_runtime_orchestrator.py": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "superuser-vuelve-a-ser-aceptado",
+      "subject": "memory/soul_runtime_orchestrator.py",
+      "ancla": "                or identity.superuser",
+      "reemplazo": "                or False",
+      "why": "un rol SUPERUSUARIO pasa la verificacion de identidad: RLS deja de aplicar y el runtime lee todo",
+      "registro": {
+        "subject": "memory/soul_runtime_orchestrator.py",
+        "ancla": "                or identity.superuser",
+        "reemplazo": "                or False",
+        "ancla_sha256": "586db3d3d72b4bab5e4f938946894d0e4bbd92c0360d912574805e2173ccee0e",
+        "sujeto_sha256_antes": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_soul_runtime_orchestrator.py::test_store_rejects_superuser_even_if_name_looks_runtime"
+      ],
+      "pytest_tail": "FAILED tests/test_soul_runtime_orchestrator.py::test_store_rejects_superuser_even_if_name_looks_runtime\n1 failed, 31 passed in 0.14s\n.............                                                            [100%]\n13 passed in 0.02s\n....                                                                     [100%]\n4 passed in 0.02s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "cualquier-rol-se-declara-el-esperado",
+      "subject": "memory/soul_runtime_orchestrator.py",
+      "ancla": "            expected_role = f\"mcp_runtime_{self.agent.lower()}\"",
+      "reemplazo": "            expected_role = identity.session_user",
+      "why": "el rol esperado se toma del propio observado: la comparacion se vuelve tautologica y ALICE podria correr como el rol de NEXUS",
+      "registro": {
+        "subject": "memory/soul_runtime_orchestrator.py",
+        "ancla": "            expected_role = f\"mcp_runtime_{self.agent.lower()}\"",
+        "reemplazo": "            expected_role = identity.session_user",
+        "ancla_sha256": "6ed8443f7c086c6dd2f1b8cee0b4d6281edee7cc03b09bf15a7e96b3cff3cadc",
+        "sujeto_sha256_antes": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_soul_runtime_orchestrator.py::test_source_contains_no_privileged_helper"
+      ],
+      "pytest_tail": "FAILED tests/test_soul_runtime_orchestrator.py::test_source_contains_no_privileged_helper\n1 failed, 31 passed in 0.14s\n.............                                                            [100%]\n13 passed in 0.02s\n....                                                                     [100%]\n4 passed in 0.02s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "hook-puede-escapar-de-las-raices",
+      "subject": "memory/soul_runtime_orchestrator.py",
+      "ancla": "        if not any(resolved.is_relative_to(root) for root in self.allowed_roots):",
+      "reemplazo": "        if False and not any(resolved.is_relative_to(root) for root in self.allowed_roots):",
+      "why": "se ejecuta como hook cualquier archivo del disco, fuera del repo y de skills/dream",
+      "registro": {
+        "subject": "memory/soul_runtime_orchestrator.py",
+        "ancla": "        if not any(resolved.is_relative_to(root) for root in self.allowed_roots):",
+        "reemplazo": "        if False and not any(resolved.is_relative_to(root) for root in self.allowed_roots):",
+        "ancla_sha256": "598672a7d49c5e649f5ed137d9f5b920bd9ab1ac071e5b474c6c7f3e31fa80a8",
+        "sujeto_sha256_antes": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tests/test_soul_runtime_orchestrator.py::test_hook_path_escape_is_rejected"
+      ],
+      "pytest_tail": "FAILED tests/test_soul_runtime_orchestrator.py::test_hook_path_escape_is_rejected\n1 failed, 31 passed in 0.13s\n.............                                                            [100%]\n13 passed in 0.02s\n....                                                                     [100%]\n4 passed in 0.02s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "hook-por-enlace-simbolico-aceptado",
+      "subject": "memory/soul_runtime_orchestrator.py",
+      "ancla": "        if candidate.is_symlink():",
+      "reemplazo": "        if False:",
+      "why": "un enlace simbolico dentro de una raiz permitida apunta afuera: misma clase que el enlace DURO del carril 4",
+      "registro": {
+        "subject": "memory/soul_runtime_orchestrator.py",
+        "ancla": "        if candidate.is_symlink():",
+        "reemplazo": "        if False:",
+        "ancla_sha256": "4d09433cab4d035b8bad30d282746b55f05e4a10982877bb895a039a81a7ba08",
+        "sujeto_sha256_antes": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "................................                                         [100%]\n32 passed in 0.14s\n.............                                                            [100%]\n13 passed in 0.02s\n....                                                                     [100%]\n4 passed in 0.02s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "la-clave-de-postgres-no-se-limpia",
+      "subject": "memory/soul_runtime_orchestrator.py",
+      "ancla": "    \"PGUSER\", \"PGPASSWORD\", \"PGDATABASE\", \"PGSERVICE\", \"PGSERVICEFILE\",",
+      "reemplazo": "    \"PGUSER\", \"PGDATABASE\", \"PGSERVICE\", \"PGSERVICEFILE\",",
+      "why": "PGPASSWORD del proceso privilegiado sobrevive al scrub y baja al hook restringido",
+      "registro": {
+        "subject": "memory/soul_runtime_orchestrator.py",
+        "ancla": "    \"PGUSER\", \"PGPASSWORD\", \"PGDATABASE\", \"PGSERVICE\", \"PGSERVICEFILE\",",
+        "reemplazo": "    \"PGUSER\", \"PGDATABASE\", \"PGSERVICE\", \"PGSERVICEFILE\",",
+        "ancla_sha256": "a821b947f33277ff4bce120c5dd2f6eda181ce8cc8797b0a3a338c364ffc923d",
+        "sujeto_sha256_antes": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "................................                                         [100%]\n32 passed in 0.12s\n.............                                                            [100%]\n13 passed in 0.02s\n....                                                                     [100%]\n4 passed in 0.02s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "PATH-deja-de-ser-el-de-confianza",
+      "subject": "memory/soul_runtime_orchestrator.py",
+      "ancla": "TRUSTED_PATH = \"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"",
+      "reemplazo": "TRUSTED_PATH = \".:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"",
+      "why": "el directorio actual entra primero en el PATH del hook: un binario plantado en el cwd gana",
+      "registro": {
+        "subject": "memory/soul_runtime_orchestrator.py",
+        "ancla": "TRUSTED_PATH = \"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"",
+        "reemplazo": "TRUSTED_PATH = \".:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"",
+        "ancla_sha256": "02cf1e6683162141c815afc5b6f7eee0df07eb223e6b393b22a17fb425c1d11a",
+        "sujeto_sha256_antes": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "SURVIVED",
+      "rc": 0,
+      "killed_by": [],
+      "pytest_tail": "................................                                         [100%]\n32 passed in 0.12s\n.............                                                            [100%]\n13 passed in 0.02s\n....                                                                     [100%]\n4 passed in 0.02s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "memory/agent_rubric.py": "556f2fcb1b85eee513a215152874af06d80a3d631c30566001bb0e1fca695565",
+    "memory/memory_admission.py": "b088d6c7020bd8b81057e2ebb162b4968f1df76f53d0e116a1fbce703e69c431",
+    "memory/memory_extraction_hook.py": "13daf51cd9c8f2fd4a6c1cb997ec2e5e2205c166c6fcf2b9f59cf64c8f54f9a4",
+    "memory/memory_importance_guard.py": "f147349d602b4070e6294dacf97e203949fb3be63d7fdeab4afd4894bc22983d",
+    "memory/seal_secrets.py": "56a7ea5740891b00f59f641cda11afcc0c345f1e4e530c2ccc43115697e06a32",
+    "memory/soul_event_interface.py": "fec5d59181feb3f12757802b90aaa4e5463d4dc01efadf2faa0c036a5b38214f",
+    "memory/soul_runtime_adapter.py": "ac91cef40bc644bdc9268df82e756ecd79501d2b2bef02badee8b0daddd2bf90",
+    "memory/soul_runtime_orchestrator.py": "25eba6dde38275271e4aac6c7b5f5e809831a76a172d3d701df7b09aebe2bcd8",
+    "skills/dream/autodream_8gates.sh": "43ef7078d980c4e7028392c9e777fa535daf5670ffb5ee866d89af72ca0f3b31",
+    "tests/test_seal_secrets.py": "8d523f34d89590c5a032351b26ba8075d5cb910331f80a535470620f14a44699",
+    "tests/test_soul_f1_quality.py": "9169ddfda8472d30ec356bc798b030167a87a19161d8127fe0bcc6a356d822b4",
+    "tests/test_soul_memory_admission_dependencies.py": "c725a30ab2a9cc489979bc7b9ce43a3dc2b1623b655a71012c4ea9228346c0ca",
+    "tests/test_soul_runtime_orchestrator.py": "7d35c807826cc006b55513d506539ce9ece0083bb0fe1e0818747ad41444d8d2"
+  }
+}

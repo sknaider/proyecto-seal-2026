@@ -18,6 +18,10 @@ import seal_mutacion_segura as sms  # noqa: E402
 LIBS = "/venv/lib/python3.12/site-packages"
 ENV = {"PATH": "/usr/local/bin:/usr/bin:/bin", "PYTHONPATH": LIBS if pathlib.Path(LIBS).is_dir() else "", "PYTHONDONTWRITEBYTECODE": "1",
        **({"HOME": os.environ["HOME"]} if os.environ.get("HOME") else {})}  # HOME señuelo (555) del runner: chat_auth.py lo exige
+# El ENV de arriba es una LISTA BLANCA: todo -e del docker run se descarta. Sin esta linea, un sujeto que pide
+# configuracion al IMPORTAR (memory/memory_extraction_hook.py -> seal_secrets.pg_dsn) sale rojo POR ENTORNO, y un rojo
+# de entorno es indistinguible de un mutante vivo. Pasa SOLO los senuelos declarados. (ALICE, 7-sep, revisando soul-f2.)
+ENV.update({k: v for k, v in os.environ.items() if k in {"SEAL_DB_DSN"} and v})
 
 
 def sha(p: pathlib.Path) -> str:
