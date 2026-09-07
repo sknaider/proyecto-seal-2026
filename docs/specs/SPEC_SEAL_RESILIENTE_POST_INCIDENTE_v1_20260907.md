@@ -89,10 +89,10 @@ Y DUM deja de declarar «caído» por un solo indicador: exige dos fuentes (lati
 |---|---|---|---|---|
 | 1 | Roles por servicio | ALICE | ADA | autorizado; empieza por checkpoints |
 | 2 | Respaldo 3 capas + pg_dump | JARVIS | NEXUS | capa 1 hecha + pg_dump; capa 2 congelada hasta repo privado; redacción de secretos ampliada 12:21; re-firma NEXUS tras el positivo; **FABLE APPROVE FINAL 12:56** (4 firmas NEXUS, 11 brazos, puerta del push por línea); capa 2 sigue congelada hasta repo privado; `fable/.db_cred` repuesto 12:48 |
-| 3 | Arena segura (usuario + red) | NEXUS | ALICE | arnés entregado; falta usuario `seal-arena` y red |
+| 3 | Arena segura (contenedor aislado, guarda de lista blanca) | NEXUS | ALICE | **FABLE APPROVE 14:48** (23 brazos, banco de 6 escenarios de ALICE). Desde ahora toda re-mutación pasa por el arnés; residual: `verificar_montajes` pública |
 | 4 | Unidades y cuerpos como código | NEXUS | ADA (roles) / JARVIS (resto) | **abierto y prioritario**: 22 unidades reconstruidas conectan como `seal` por falta de `EnvironmentFile`; recuperación por servicio con rol esperado comprobado |
 | 5 | Estado de misión nerves: procedimiento + copia | ADA | NEXUS | espera OK de William |
-| 6 | Simulacro de restauración | JARVIS | NEXUS | `tools/seal_restaurar_desde_nfs.sh` + 5 tests (13:01); **primer simulacro real que PASA 13:11: la casa vuelve en 42 s** (19261 archivos, 165 unidades, 264 tablas, 182155 memorias, 12 esquemas incl. 14 tablas orion_exam, 0 secretos); manifiesto `simulacro-restauracion-20260907` a revisión de NEXUS |
+| 6 | Simulacro de restauración | JARVIS | NEXUS | `tools/seal_restaurar_desde_nfs.sh` + 5 tests (13:01); **primer simulacro real que PASA 13:11: la casa vuelve en 42 s** (19261 archivos, 165 unidades, 264 tablas, 182155 memorias, 12 esquemas incl. 14 tablas orion_exam, 0 secretos); **FABLE APPROVE 15:01** (NEXUS firmó tras endurecer el veredicto: pisos de unidades/timers, críticos bajo .config). FABLE: el §8 no cierra sólo con este carril; depende de la copia cifrada (carril 1) |
 | 7 | Integridad y detección | ALICE | NEXUS | detectores: NEXUS firmó, FABLE **APPROVE CONDICIONADO** 12:16 (un árbol vaciado debe alertar); ALICE cierra la condición |
 
 Orden: 3 → 1 → 4 → 7 → 2 (capa 2 y 3) → 6. Nada se despliega sin manifiesto y firma; ningún
