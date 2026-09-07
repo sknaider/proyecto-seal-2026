@@ -18,22 +18,57 @@
   "implementation_head": "c8c80d7c49db900cb2f3883b5b972ef9c415feea",
   "commands": [
     {
+      "id": "unit-restaurar-parsea",
       "kind": "unit",
-      "command": "/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q tools/tests/test_seal_restaurar_desde_nfs_v1.py -k sintaxis"
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_restaurar_desde_nfs_v1.py::test_sintaxis_y_guarda_marcada"
+      ]
     },
     {
+      "id": "neg-restaurar-rechaza-senuelos",
       "kind": "qa_negative",
-      "command": "/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q tools/tests/test_seal_restaurar_desde_nfs_v1.py -k 'rechaza'"
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_restaurar_desde_nfs_v1.py",
+        "-k",
+        "rechaza"
+      ]
     },
     {
+      "id": "pos-restaurar-simulacro-real",
       "kind": "qa_positive",
-      "command": "/home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -q -s tools/tests/test_seal_restaurar_desde_nfs_v1.py -k simulacro_real",
-      "note": "largo (~45 s con la foto del 7-sep); restaura de verdad en /tmp y en un contenedor desechable"
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-s",
+        "tools/tests/test_seal_restaurar_desde_nfs_v1.py",
+        "-k",
+        "simulacro_real"
+      ],
+      "note": "~45 s; restaura de verdad en /tmp/seal-restauracion-test-<pid> y en un Postgres desechable; limpia ambos"
     },
     {
+      "id": "ctrl-restaurar-guarda-discrimina",
       "kind": "qa_control",
-      "command": "bash -c 'bash tools/seal_restaurar_desde_nfs.sh 2026-09-07 /tmp/seal-restauracion-control-$$/x; test $? -eq 0 || echo control-ok'",
-      "note": "control: un destino válido y vacío no es rechazado por la guarda (la guarda discrimina)"
+      "expected_exit": 0,
+      "argv": [
+        "bash",
+        "-c",
+        "d=/tmp/seal-restauracion-control-$$; SEAL_SNAPSHOT_DEST=/mnt/spark-2/backups_seal bash tools/seal_restaurar_desde_nfs.sh 1999-01-01 $d 2>&1 | grep -q 'no existe la foto' && ! test -e $d"
+      ],
+      "note": "control: un destino válido pasa la guarda (falla después, por foto inexistente, sin crear nada)"
     }
   ],
   "coverage": {
@@ -56,10 +91,22 @@
   "mutation_command": null,
   "mutation_evidence": null,
   "delivery": {
-    "command": "bash tools/seal_restaurar_desde_nfs.sh 2026-09-07 /tmp/seal-restauracion-entrega-$$",
-    "expected_stdout_contains": "[restaurar] OK: la casa vuelve en"
+    "status": "verified",
+    "evidence": "Primer simulacro real que pasa, 7-sep 13:11 (pytest -s, salida del script): 19261 archivos, 165 unidades + 87 timers, 0 críticos faltantes, 0 secretos, 264 tablas soul_v3, 182155 memorias, 12 esquemas, 14 tablas orion_exam; tiempo archivos 10 s, dump 32 s, total 42 s; contenedor desechable eliminado (docker ps: 0). Corridas previas fallaron por: rsync sin padres (13:01), arranque doble de la imagen Postgres (13:05), extensión vector fuera de soul_v3 (13:10); cada causa dejó un fix en el script.",
+    "command": {
+      "id": "delivery-simulacro",
+      "kind": "delivery",
+      "expected_exit": 0,
+      "argv": [
+        "bash",
+        "-c",
+        "d=/tmp/seal-restauracion-entrega-$$; bash tools/seal_restaurar_desde_nfs.sh $(ls /mnt/spark-2/backups_seal | grep -E '^20' | tail -1) $d | grep -E 'OK: la casa vuelve en' && rm -rf $d"
+      ]
+    }
   },
-  "review": null,
+  "review": {
+    "status": "pending"
+  },
   "_nota_para_el_revisor": "Refutadores: (1) un destino con forma de home bajo /tmp debe ser rechazado y quedar intacto; (2) una foto con dump sólo de soul_v3 debe reportar 0 tablas orion_exam; (3) el contenedor seal-restauracion-<pid> no debe sobrevivir al script (docker ps). Lo que NO cubre: reinicio de unidades systemd desde la copia (carril 4) y restauración de secretos (por diseño no están en la foto).",
   "file_sha256": {}
 }
