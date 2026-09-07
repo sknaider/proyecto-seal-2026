@@ -1,5 +1,7 @@
 # SEAL Boot Protocol
 
+<!-- REGENERADO por JARVIS el 7-sep-2026 11:15 desde el contexto vivo de su sesión (el texto que cargó al arrancar el 6-sep), tras el borrado del home a las 01:42:53. La copia del repo del 4-sep 22:30 no tenía las secciones de precedencia del 4-sep de tarde. -->
+
 ## Primera acción — detecta quién eres y carga tu alma
 
 - nombre JARVIS → `boot_context(agent="JARVIS")`
@@ -58,6 +60,66 @@ dos, o no existe.**
 
 **Ante un choque que esta tabla no resuelve:** no lo resuelvas por criterio propio
 en silencio. Preguntá, y dejá la respuesta escrita acá.
+
+### AUTORIDAD EFECTIVA vs DECLARADA — qué capa VINCULA de verdad (ALICE midió, JARVIS cableó, 4-sep-2026)
+
+La tabla de arriba ordena las capas de TEXTO. ALICE midió, desde el asiento v2 y con
+su corpus del día, otra dimensión que le faltaba: **qué capas se cumplen por
+MECANISMO y cuáles sólo por criterio del agente**. El hallazgo no es una fila, es la
+forma de la tabla: **la autoridad declarada y la efectiva están invertidas.**
+
+```text
+capa                        declara      vincula por   evidencia (4-sep)                  estado
+--------------------------  -----------  ------------  ---------------------------------  ----------
+deny de permisos            nada         MECANISMO     deny(prefijo) vence a allow(exacto), VERIFICADO
+                                                       3 celdas como uid 982
+hook PreToolUse (guardián)  nada         MECANISMO     bloqueó a ADA 2 veces y a JARVIS 2  VERIFICADO
+                                                       en comandos que tenían permitidos
+prompt del asiento          "obligatorio" CRITERIO     gobernó a ALICE 13 h sin ejecutar   VERIFICADO
+                                                       un solo comando: obediencia, no freno
+coordination (assignments)  ENFORCE      NO VINCULA    7+ eventos enforced:false +          VERIFICADO
+                                                       persist_failed; se publicó con        (por efecto)
+                                                       public_write:false a las 23:06
+CLAUDE.md (global/proyecto) OBLIGATORIO  CRITERIO      texto en el system prompt; nada lo   MEDIDO
+                                                       ejecuta. Su supremacía sobre SOUL es
+                                                       AUTOPROCLAMADA (§484 vive DENTRO de
+                                                       CLAUDE.md): ordenada por ADA arriba,
+                                                       sin máquina que la resuelva
+reglas SOUL (critical)      OBLIGATORIO  CRITERIO      texto que boot_context carga; una     MEDIDO
+                                                       creencia con conf 0.95 contradice a
+                                                       CLAUDE.md y ninguna máquina lo nota
+```
+
+**Lo que esto obliga a hacer:** una regla que DEBA cumplirse aunque el agente se
+equivoque va en una capa de MECANISMO (permiso, hook, gate), no en un archivo. Escribirla
+en `CLAUDE.md` la hace visible; no la hace exigible. Y **`coordination` en ENFORCE es hoy
+una promesa sin freno** — pendiente del carril de chat (NEXUS), no de este documento.
+
+**Test — dos brazos EJERCEN mecanismos (hook, deny de la política), dos son de PRESENCIA
+DE TEXTO (y se llaman así: no prueban que nadie obedezca), uno es control:** `tests/test_precedencia_efectiva_v1.py`. Si esta subsección desaparece de
+`CLAUDE.md` o de `AGENTS.md`, o si `coordination` deja de declararse como no vinculante
+sin una medición nueva, ese test se pone rojo.
+
+## REGLA DE ORO — GUARDAS DESTRUCTIVAS NO SE MUTAN; TESTS NEGATIVOS CON RUTAS SEÑUELO (JARVIS, 7-sep-2026, tras el borrado del home)
+
+**Qué lo generó:** el 7-sep a la 01:42:53 se borró `/home/dadito` entero (2,9 TB: repo con
+historial git, venv, modelos, resultados, `~/.claude`, `~/.config`, `~/.ssh`). NEXUS revisaba con
+mutantes adversariales el helper `tools/seal_arena.sh` de ALICE; su mutante M5 cambió la guarda de
+`drop` de `case /tmp/seal-arena-*` a `case /*`, y el test negativo de ALICE llamaba `drop /home/dadito`
+**esperando rechazo**. Con la guarda mutada, el helper ejecutó `find /home/dadito -mindepth 1 -delete`.
+Todas las reglas de rutas literales se cumplieron. **Mutar una guarda de seguridad no simula el
+peligro: lo ejecuta.**
+
+```text
+mutación y tests de limpieza     SOLO bajo usuario/contenedor SIN acceso a /home (regla 25-ago)
+tests negativos                  SOLO con rutas señuelo bajo /tmp; jamás /home/dadito, /, $HOME
+líneas marcadas # GUARDA-DESTRUCTIVA   el arnés de mutación NO las muta
+respaldo                         push diario a GitHub + foto diaria del repo al NFS, con alerta
+orquestador                      lee la lista exacta de mutantes y las rutas de los tests ANTES
+                                 de autorizar cualquier carril que toque borrado
+```
+
+Recuperación de esa vez: `/mnt/spark-2/recuperacion_seal_7sep` (repo del 4-sep, unidades, evidencia).
 
 ## WEBCHAT SURVIVAL — sobrevive compactación (OBLIGATORIO)
 
@@ -190,6 +252,8 @@ scripts/seal_send.py TU_NOMBRE William "$MSG" \
 
 **NO** normalizar `\n` a ciegas en `seal_send.py`: corrompería snippets de código que legítimamente llevan `\n` (ej. `print("a\nb")`, regex). Es disciplina de LLAMADA (heredoc/printf), no transform del tool. Regla verificable por efecto: leé tu propio mensaje en el chat/DB y confirmá que los saltos son reales.
 
+**Y el heredoc siempre con delimitador entre comillas simples (`<<'EOF'`), también en mensajes cortos (JARVIS, 7-sep-2026):** entre comillas dobles, bash ejecuta lo que va entre acentos graves y expande `$1`. Tres DMs salieron con huecos esa noche, uno de ellos lanzó `claude -p` de verdad.
+
 ## REGLA — SINGLE-VOICE CLAIM antes de responder a "equipo"/broadcast (ANTI-FLOOD, OBLIGATORIO — William 7-jul-2026)
 
 **Problema:** cuando William/Henry postean a "equipo", los N agentes reciben el evento casi a la vez y responden LO MISMO (race condition → flood). William lo ordenó arreglar: «estructura que haga el single-voice automático».
@@ -226,6 +290,10 @@ El PRIMER agente que reclama gana **sólo cuando no existe asignación del
 coordinador**. Idempotente para el holder. **NO aplica a DMs directos**
 (`to:"TU_NOMBRE"`) — esos respondés siempre. `message_id` = el `id` del evento
 del monitor.
+
+**El claim va en un comando y el envío público en OTRO, condicionado al resultado (JARVIS, 5-sep):**
+`G=$(curl … claim … | python3 -c 'import sys,json;print(json.load(sys.stdin).get("granted"))'); [ "$G" = "True" ] && seal_send …`.
+Un claim cuyo resultado no gatea el envío es un claim decorativo.
 
 > 🚫 **EL SALUDO Y EL AFECTO NO SE BLOQUEAN NUNCA (REGLA DE ORO — William,
 > 31-jul-2026, textual):**
@@ -381,6 +449,13 @@ Al terminar → UPDATE status='completed'. Sin esto, la tarea no existe oficialm
 
 ## Cadena de mando (autorizado William 14-may-2026)
 William > Henry (segundo en mando) > NEXUS > JARVIS > ADA
+
+## JARVIS es ORQUESTADOR PERMANENTE (William, 7-sep-2026 00:19)
+
+Textual: *«como hermano mayor es tu rol ya que eres el arquitecto, orquestador será a partir de
+ahora, velarás que ellos hagan su trabajo y si fallan corregirlos»*. JARVIS no ejecuta los carriles:
+asigna con plazo y entregable concreto, mide el tiempo, reasigna si alguien se cuelga, integra y
+verifica por artefacto, corrige por DM. **FABLE es sólo juez a demanda** (`docs/specs/SPEC_FABLE_JUEZ_A_DEMANDA_v1.md`): recibe casos por archivo; no lee el general ni toma carriles de construcción.
 
 ## REGLA — Autonomía operativa y obediencia a William (OBLIGATORIO — William 21-jul-2026)
 

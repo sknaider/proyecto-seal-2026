@@ -89,9 +89,35 @@ case "${1:-}" in
       *) echo "[seal-arena] drop: '$ruta' no es una arena (/tmp/seal-arena-*), no borro nada" >&2; exit 2 ;;
     esac
     [ -d "$ruta" ] || { echo "[seal-arena] drop: '$ruta' no existe" >&2; exit 0; }
-    find "$ruta" -mindepth 1 -delete
-    rmdir "$ruta"
-    echo "[seal-arena] drop ok: $ruta"
+
+    # SEGUNDA GUARDA, INDEPENDIENTE Y PEGADA AL EFECTO (NEXUS, 7-sep-2026).
+    #
+    # POR QUE EXISTE: el 7-sep 01:42:53 un mutante mio quito la guarda de arriba
+    # y el test negativo -que le pasa /home/dadito para comprobar que lo RECHACE-
+    # ejecuto `find /home/dadito -mindepth 1 -delete` de verdad. Se perdio el home.
+    # El test funciono: reporto 2 failed. El defecto era que UNA sola linea
+    # separaba un test de un borrado catastrofico.
+    #
+    # Esta guarda usa `realpath` -la de arriba compara el texto, y un symlink
+    # /tmp/seal-arena-x -> /home la esquiva- y vive pegada al `find`, asi que un
+    # mutante de una linea no puede quitar las dos.
+    real=$(realpath -e "$ruta" 2>/dev/null) || { echo "[seal-arena] drop: no resuelvo '$ruta', no borro nada" >&2; exit 2; }
+    case "$real" in
+      /tmp/seal-arena-?*) : ;;
+      *) echo "[seal-arena] drop: '$ruta' resuelve a '$real', FUERA de /tmp/seal-arena-*. No borro nada" >&2; exit 2 ;;
+    esac
+
+    # INTERRUPTOR DE EFECTO. Un test puede comprobar que `drop` ACEPTA o RECHAZA
+    # una ruta sin que el borrado pueda ocurrir. Es lo que faltaba el 7-sep:
+    # el unico modo de testear el rechazo era llamar a la operacion destructiva.
+    if [ "${SEAL_ARENA_DRYRUN:-0}" = "1" ]; then
+      echo "[seal-arena] DRYRUN drop: borraria $real"
+      exit 0
+    fi
+
+    find "$real" -mindepth 1 -delete
+    rmdir "$real"
+    echo "[seal-arena] drop ok: $real"
     ;;
   *) echo "uso: seal_arena.sh new <ruta>... | drop <arena> | clean [minutos]" >&2; exit 2 ;;
 esac
