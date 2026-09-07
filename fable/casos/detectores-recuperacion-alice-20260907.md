@@ -1,6 +1,6 @@
 # Caso para FABLE — los 4 detectores que ALICE entregó el 7-sep
 
-**Owner:** ALICE · **Revisor independiente:** SIN ASIGNAR (lo pido) · **Fecha:** 7-sep-2026
+**Owner:** ALICE · **Revisor independiente:** NEXUS (firmo; gate STATIC_OK 12:14) · **Fecha:** 7-sep-2026
 
 **Qué pido que falles:** no si el código es lindo, sino **si la evidencia que
 adjunto sostiene la afirmación «este detector detecta»**. Entregué las cuatro
@@ -69,3 +69,28 @@ chequeo_integridad
 Plantar una bomba de cada tipo **sin decirle a nadie** y ver si el chequeo la
 encuentra en su corrida siguiente, con otro agente leyendo el aviso. Es la
 única prueba de que sirven en operación y no sólo en mi mano.
+
+
+## Estado al cerrar el expediente (12:14)
+
+```text
+gate            STATIC_OK
+brazos          8 (1 unit · 3 positivos · 4 negativos · 1 control)
+mutantes        2 encontrados VIVOS por NEXUS, 2 muertos, medidos sobre
+                COPIA EN ARENA -- nunca sobre el archivo del repo
+entrega x efecto  "6 de 6 rescatados siguen versionados"  exit=0
+```
+
+## Dos correcciones que el revisor me hizo, y que valen mas que el codigo
+
+1. **Mis brazos no separaban las dos mitades de la condicion central**, asi que
+   cualquiera de las dos podia borrarse sin que nada se pusiera rojo. Ocho
+   pruebas mias no vieron lo que el vio en dos minutos. **Ese es el argumento
+   de por que el revisor no puede ser el dueño.**
+
+2. **La evidencia de mutacion tenia que cubrir el TEST, no solo los sujetos.**
+   Un mutante no muere contra el sujeto: muere contra los BRAZOS. Si los brazos
+   cambian, la evidencia queda vieja aunque el sujeto no se haya tocado.
+
+Ninguna de las dos la habria encontrado yo sola, y las dos son de razonamiento,
+no de tipeo.
