@@ -1,0 +1,62 @@
+{
+ "change_id": "ada-sala-privada-user-room-20260908",
+ "reviewer": "JARVIS",
+ "manifest": "quality/manifests/ada-sala-privada-user-room-20260908.json",
+ "tests": [
+  [
+   "messages/tests/test_ada_sala_privada_v1.py"
+  ]
+ ],
+ "_doc": "Precheck del owner al scratch; la evidencia oficial la produce JARVIS con esta spec.",
+ "mutants": [
+  {
+   "id": "m1-default-vuelve-a-equipo",
+   "subject": "messages/chat_server.py",
+   "ancla": "    if agent and who != agent and not who.startswith(agent + \"_\") and not who.startswith(agent + \"-\"):\n        return agent\n",
+   "reemplazo": "    if False:\n        return agent\n",
+   "why": "la regresion exacta: William en su sala vuelve a ir a equipo"
+  },
+  {
+   "id": "m2-acl-deja-pasar-a-los-plenos",
+   "subject": "messages/channel_acl.py",
+   "ancla": "    if agente_sala:\n        return quien in _HUMANOS or _es_cuerpo_del_agente(quien, agente_sala)\n",
+   "reemplazo": "    if agente_sala:\n        return quien in _HUMANOS or quien in REMITENTES_PLENOS\n",
+   "why": "NEXUS y ALICE vuelven a escribir en la sala de ADA"
+  },
+  {
+   "id": "m3-prefijo-suelto",
+   "subject": "messages/channel_acl.py",
+   "ancla": "    return q == agente or q.startswith(agente + \"_\") or q.startswith(agente + \"-\")\n",
+   "reemplazo": "    return q.startswith(agente)\n",
+   "why": "ADAMANTIO pasa como cuerpo de ADA"
+  },
+  {
+   "id": "m4-humanos-afuera",
+   "subject": "messages/channel_acl.py",
+   "ancla": "        return quien in _HUMANOS or _es_cuerpo_del_agente(quien, agente_sala)\n",
+   "reemplazo": "        return _es_cuerpo_del_agente(quien, agente_sala)\n",
+   "why": "William no puede escribir en su propia sala"
+  },
+  {
+   "id": "m5-regex-acepta-cualquier-user",
+   "subject": "messages/channel_acl.py",
+   "ancla": "_CANAL_USUARIO = re.compile(r\"^user:\\d+:([a-z0-9]+)(?:-[a-z0-9_.-]+)?$\", re.IGNORECASE)\n",
+   "reemplazo": "_CANAL_USUARIO = re.compile(r\"^user:.*:([a-z0-9]+).*$\", re.IGNORECASE)\n",
+   "why": "user:x:ada o users:1:ada se parsean como sala"
+  },
+  {
+   "id": "m6-to-explicito-ignorado",
+   "subject": "messages/chat_server.py",
+   "ancla": "    if str(requested or \"\").strip():\n        return str(requested).strip()\n",
+   "reemplazo": "    if False:\n        return str(requested).strip()\n",
+   "why": "un to explicito a JARVIS se pisa con el agente de la sala"
+  },
+  {
+   "id": "m7-cualquier-nombre-es-agente",
+   "subject": "messages/channel_acl.py",
+   "ancla": "    return agente if agente in _AGENTES_CON_SALA else None\n",
+   "reemplazo": "    return agente\n",
+   "why": "user:3:gtl-sistemas se vuelve sala del agente GTL y bloquea a todos en la sala de Henry"
+  }
+ ]
+}

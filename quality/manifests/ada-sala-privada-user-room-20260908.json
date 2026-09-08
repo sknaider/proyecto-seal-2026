@@ -1,0 +1,145 @@
+{
+ "schema": "seal.quality-manifest.v1",
+ "change_id": "ada-sala-privada-user-room-20260908",
+ "owner": "ADA",
+ "independent_reviewer": "JARVIS",
+ "_doc": [
+  "William, 8-sep-2026 13:14: «explicame esto: por que veo en tu DM a NEXUS y ALICE?». Medido en el servidor: en la",
+  "sala privada user:1:ada-claude sus mensajes llegaban sin `to` y chat_server los defaulteaba a \"equipo\" (POST",
+  "/api/agents/send, WS de agentes y WS de usuario), asi que el coordinador los repartia a los cinco; y",
+  "channel_acl.puede_escribir dejaba escribir a cualquier REMITENTE_PLENO en cualquier canal. Hoy en esa sala: ADA 17,",
+  "William 17, NEXUS 6, ALICE 3.",
+  "Cambio: (1) chat_server._user_room_agent/_default_to: en user:<uid>:<agente>[-<cuerpo>] el `to` por defecto es",
+  "ese agente cuando escribe otro (William), y sigue siendo \"equipo\" fuera de las salas o si escribe el propio agente;",
+  "(2) channel_acl: en esa sala escriben solo la persona (humanos) y los cuerpos de ese agente (ADA, ADA_CLAUDE, ADA-CODEX).",
+  "Asignado por JARVIS 13:16 (owner ADA, revisor JARVIS, FABLE al cerrar). Desarrollado en worktree aislado porque",
+  "chat_server.py tenia 7+/3- sin commit del cuerpo Codex (FIX RLS user-channels)."
+ ],
+ "deletions": [],
+ "subjects": [
+  "messages/chat_server.py",
+  "messages/channel_acl.py"
+ ],
+ "tests": [
+  "messages/tests/test_ada_sala_privada_v1.py"
+ ],
+ "commands": [
+  {
+   "id": "unit-sala-privada",
+   "kind": "unit",
+   "expected_exit": 0,
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "messages/tests/test_ada_sala_privada_v1.py"
+   ]
+  },
+  {
+   "id": "positive-la-persona-y-el-agente-escriben",
+   "kind": "qa_positive",
+   "expected_exit": 0,
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "messages/tests/test_ada_sala_privada_v1.py::test_positivo_ADA_puede_escribir_en_su_sala",
+    "messages/tests/test_ada_sala_privada_v1.py::test_positivo_William_puede_escribir_en_la_sala"
+   ]
+  },
+  {
+   "id": "negative-otro-agente-de-casa-403",
+   "kind": "qa_negative",
+   "expected_exit": 0,
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "messages/tests/test_ada_sala_privada_v1.py::test_negativo_NEXUS_no_puede_escribir_en_la_sala_de_ADA",
+    "messages/tests/test_ada_sala_privada_v1.py::test_negativo_ALICE_ni_su_cuerpo_v2_ni_un_desconocido",
+    "messages/tests/test_ada_sala_privada_v1.py::test_negativo_el_prefijo_no_alcanza_ADAMANTIO_no_es_ADA",
+    "messages/tests/test_ada_sala_privada_v1.py::test_negativo_la_sala_privada_no_va_a_william_channel"
+   ]
+  },
+  {
+   "id": "control-default-to-y-nada-cambia-afuera",
+   "kind": "qa_control",
+   "expected_exit": 0,
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "messages/tests/test_ada_sala_privada_v1.py::test_control_el_default_to_en_la_sala_es_el_agente_no_equipo",
+    "messages/tests/test_ada_sala_privada_v1.py::test_control_si_el_agente_escribe_en_su_sala_el_default_no_es_el_mismo",
+    "messages/tests/test_ada_sala_privada_v1.py::test_control_un_to_explicito_siempre_gana",
+    "messages/tests/test_ada_sala_privada_v1.py::test_control_fuera_de_las_salas_nada_cambia"
+   ]
+  }
+ ],
+ "coverage": {
+  "source": [
+   "messages/channel_acl.py"
+  ],
+  "omit": [
+   "messages/tests/*",
+   "*/site-packages/*"
+  ],
+  "pytest_args": [
+   "-p",
+   "no:cacheprovider",
+   "messages/tests/test_ada_sala_privada_v1.py"
+  ],
+  "baseline_percent": 0.0,
+  "timeout": 120,
+  "_note": "chat_server.py se ejercita por sus dos helpers puros; el archivo entero no se mide por cobertura (5000+ lineas, otros carriles)."
+ },
+ "mutation_evidence": "quality/mutation-ada-sala-privada-user-room-20260908.json",
+ "mutation_baseline_percent": 100.0,
+ "mutation_target": "isolated_copy",
+ "delivery": {
+  "status": "verified",
+  "evidence": "8-sep-2026 13:33-13:45 Lima, por orden directa de William (13:24 canal exclusivo, 13:31 boton, 13:33 libertad). Desplegado desde el arbol: seal-chat reiniciado sin broker (no hay accion en seal_self_repair), /__version code_hash 4e00ae6f90af = sha del archivo; Studio build .next-ada-claude-20260908 servido (chunk con 'sala exclusiva'). Efecto medido: (1) ADA_CLAUDE escribe en user:1:ada-claude -> ok:true; (2) mismo token ADA SIN cuerpo declarado (como escribe el puente Codex) -> 403 channel_forbidden; (3) NEXUS midio la matriz desde afuera sin escribir: NEXUS/ALICE/JARVIS/FABLE/DUM/ADA-CODEX bloqueados, WILLIAM y ADA_CLAUDE permitidos, user:3:gtl-sistemas intacta; (4) mensajes de William en la sala llegan con to=ADA (db_153303, 153304, 153338) tras parchar 4 entradas (POST agentes, WS agentes, WS usuario, POST /api/chat/send); (5) hallazgo de NEXUS 13:37: la sala seguia llegando por william_channel.jsonl que tail-ean los monitores -> _log_paths_for + guarda en 6 sitios; control: db_153338 (13:44:06) NO esta en william_channel.jsonl y el DM dm:ada:william de 13:43:39 si. Sin recibo de broker: declarado. CONTROL EXTERNO 13:44:58: NEXUS confirmo desde su monitor que db_153338 NO le llego (153303/153304, anteriores a la guarda, si). RESIDUAL DECLARADO (NEXUS): seal_monitor_filter.py conserva la regla 'los humanos siempre pasan' antes del chequeo de destinatario para canales que no empiezan con dm:; hoy no muerde porque el evento ya no llega al archivo; la guarda user:* en el filtro es defensa en profundidad y es carril de NEXUS.",
+  "command": {
+   "id": "delivery-sala-privada-no-va-al-compartido",
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "messages/tests/test_ada_sala_privada_v1.py::test_negativo_la_sala_privada_no_va_a_william_channel",
+    "messages/tests/test_ada_sala_privada_v1.py::test_control_el_default_to_en_la_sala_es_el_agente_no_equipo"
+   ],
+   "expected_exit": 0,
+   "expected_stdout_contains": "2 passed"
+  }
+ },
+ "review": {
+  "status": "approved",
+  "receipt": {
+   "schema": "seal.independent-review-receipt.v1",
+   "reviewer": "JARVIS",
+   "signed_at": "2026-09-08T18:48:00Z",
+   "evidence": "15/15 tests pytest pasados (0.18s, +1 test test_negativo_la_sala_privada_no_va_a_william_channel). channel_acl: ACL correcto. chat_server._user_room_agent/_default_to + _log_paths_for: cierra los 4 caminos de escritura (POST agentes, WS agentes, WS usuario, POST /api/chat/send) y la escritura a william_channel.jsonl para salas privadas. Delivery: verified por ADA con evidencia completa (13:33-13:45). El finding abierto de la primera firma (segundo camino entrega) queda CERRADO: no era el WS de agentes sino william_channel.jsonl, arreglado en _log_paths_for + 6 write sites. control: db_153338 (13:44:06) no está en william_channel.jsonl, DM dm:ada:william de 13:43:39 sí. NEXUS confirmó matriz 25 combinaciones = 0 fugas. Sujetos adicionales revisados: page.tsx (38d53ca9c5ed) y claudeRoom.ts (d71728d5e1bc) sin side-effects.",
+   "reviewed_sha256": {
+    "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+    "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+    "messages/tests/test_ada_sala_privada_v1.py": "62f630bf67a1752405670ae9a4671692ca0391ff9909b99719394490d806a783"
+   },
+   "manifest_digest": "1b9a652e227f66faed75a32bf3a1978b0b1c5d6cdee8fc4a0d3c2313d365f442"
+  }
+ }
+}

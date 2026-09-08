@@ -1,0 +1,77 @@
+{
+ "schema": "seal.mutation-evidence.v1",
+ "change_id": "ada-sala-privada-user-room-20260908",
+ "reviewer": "JARVIS",
+ "corrida_fecha": "2026-09-08T18:57:00Z",
+ "file_sha256": {
+  "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+  "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+  "messages/tests/test_ada_sala_privada_v1.py": "62f630bf67a1752405670ae9a4671692ca0391ff9909b99719394490d806a783"
+ },
+ "killed": 5,
+ "survived": 0,
+ "total": 5,
+ "no_tests": 0,
+ "skipped": 0,
+ "suspicious": 0,
+ "timeout": 0,
+ "mutation_score_percent": 100.0,
+ "mutation_target": "isolated_copy",
+ "control_sujeto_sin_mutar": {
+  "rc": 0,
+  "pytest_tail": "15 passed in 0.22s"
+ },
+ "mutantes": [
+  {
+   "id": "MA-sin-bloque-agente-sala",
+   "descripcion": "Eliminar el bloque if agente_sala completo: cualquier remitente pleno puede escribir en salas privadas",
+   "ancla": "    agente_sala = agente_de_canal_usuario(channel)\n    if agente_sala:",
+   "reemplazo": "    agente_sala = agente_de_canal_usuario(channel)\n    # bloque eliminado",
+   "resultado": "KILLED",
+   "rc": 1,
+   "killed_by": ["test_negativo_ALICE_ni_su_cuerpo_v2_ni_un_desconocido", "test_negativo_el_cuerpo_Codex_no_escribe_en_la_sala_exclusiva_de_Claude"],
+   "pytest_tail": "5 failed, 10 passed in 0.20s"
+  },
+  {
+   "id": "MB-sin-cuerpo-sala-exclusivo",
+   "descripcion": "Quitar el if cuerpo_sala y usar siempre _es_cuerpo_del_agente: el cuerpo Codex puede escribir en la sala exclusiva de Claude",
+   "ancla": "        if cuerpo_sala:\n            return quien == cuerpo_sala\n        return _es_cuerpo_del_agente(quien, agente_sala)",
+   "reemplazo": "        return _es_cuerpo_del_agente(quien, agente_sala)",
+   "resultado": "KILLED",
+   "rc": 1,
+   "killed_by": ["test_negativo_el_cuerpo_Codex_no_escribe_en_la_sala_exclusiva_de_Claude"],
+   "pytest_tail": "1 failed, 14 passed in 0.22s"
+  },
+  {
+   "id": "MC-humanos-denegados",
+   "descripcion": "Cambiar 'quien in _HUMANOS' a False: William no puede escribir en su propia sala",
+   "ancla": "        if quien in _HUMANOS:\n            return True",
+   "reemplazo": "        if False:  # mutante\n            return True",
+   "resultado": "KILLED",
+   "rc": 1,
+   "killed_by": ["test_positivo_William_puede_escribir_en_la_sala"],
+   "pytest_tail": "1 failed, 14 passed in 0.19s"
+  },
+  {
+   "id": "MD-cuerpo-canal-usuario-none",
+   "descripcion": "cuerpo_de_canal_usuario siempre devuelve None: deshabilita la exclusividad de cuerpo en salas con nombre",
+   "ancla": "def cuerpo_de_canal_usuario(channel: str) -> str | None:",
+   "reemplazo": "def cuerpo_de_canal_usuario(channel: str) -> str | None:\n    return None  # mutante",
+   "resultado": "KILLED",
+   "rc": 1,
+   "killed_by": ["test_positivo_solo_el_cuerpo_Claude_escribe_en_su_sala_exclusiva", "test_negativo_el_cuerpo_Codex_no_escribe_en_la_sala_exclusiva_de_Claude"],
+   "pytest_tail": "2 failed, 13 passed in 0.19s"
+  },
+  {
+   "id": "ME-agente-canal-usuario-none",
+   "descripcion": "agente_de_canal_usuario siempre devuelve None: las salas user: no tienen ACL especial",
+   "ancla": "def agente_de_canal_usuario(channel: str) -> str | None:",
+   "reemplazo": "def agente_de_canal_usuario(channel: str) -> str | None:\n    return None  # mutante",
+   "resultado": "KILLED",
+   "rc": 1,
+   "killed_by": ["test_negativo_ALICE_ni_su_cuerpo_v2_ni_un_desconocido", "test_negativo_el_cuerpo_Codex_no_escribe_en_la_sala_exclusiva_de_Claude"],
+   "pytest_tail": "6 failed, 9 passed in 0.20s"
+  }
+ ],
+ "_nota": "JARVIS como revisor independiente. Sujeto principal: channel_acl.py (función puede_escribir + agente_de_canal_usuario + cuerpo_de_canal_usuario). 5/5 mutantes matados en copia aislada. Todos los mutantes críticos del carril sala-privada (sala sin protección, cuerpo no exclusivo, humanos denegados, funciones de canal nulas) son detectables por el test suite."
+}
