@@ -1,0 +1,116 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "guardian-heredoc-v2-20260908",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "_por_que": "Segunda version de la guarda de heredoc, tras el RECHAZO de FABLE a la primera. La v1 buscaba aperturas con finditer sobre todo el comando y por eso encontraba tambien las MENCIONADAS dentro del cuerpo de un heredoc citado -texto inerte-, bloqueando documentacion. La v2 es un barrido de un paso que CONSUME cada cuerpo: lo que vive dentro de un heredoc ya consumido no puede confundirse con una apertura real. Eso cierra el falso positivo y los cuatro mutantes que sobrevivian, porque los cuatro salian del mismo defecto de diseno.",
+  "review": {
+    "status": "pending"
+  },
+  "subjects": [
+    "memory/pre_tool_hook.py"
+  ],
+  "tests": [
+    "memory/test_pre_tool_hook_identity_transport.py",
+    "memory/test_pre_tool_hook_destructive.py",
+    "memory/test_command_intent_guard.py",
+    "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-guardian-completo",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/test_pre_tool_hook_identity_transport.py",
+        "memory/test_pre_tool_hook_destructive.py",
+        "memory/test_command_intent_guard.py",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py"
+      ]
+    },
+    {
+      "id": "qa_positive-lo-peligroso-se-deniega",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/test_pre_tool_hook_identity_transport.py",
+        "-k",
+        "bloquea or blocked or SEGUNDO or SIN_CIERRE"
+      ]
+    },
+    {
+      "id": "qa_negative-lo-inerte-no-se-bloquea",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/test_pre_tool_hook_identity_transport.py",
+        "-k",
+        "qa_negative or DOBLES or MENCIONADA"
+      ]
+    },
+    {
+      "id": "qa_control-el-arnes-distingue",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py",
+        "-k",
+        "control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "memory"
+    ],
+    "omit": [
+      "memory/test_*",
+      "memory/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/test_pre_tool_hook_identity_transport.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-guardian-heredoc-v2-20260908.json",
+  "mutation_spec": "quality/mutantes/guardian-heredoc-v2-20260908.spec.json",
+  "delivery": {
+    "status": "verified",
+    "effect": "Un heredoc SIN comillas cuyo cuerpo trae sustitucion de comandos (acento grave o $( )) se deniega; uno citado, uno sin sustitucion y una apertura MENCIONADA dentro de un heredoc citado se permiten.",
+    "assertion": "Por el subproceso real: el falso positivo de FABLE permite, el caso real deniega, el segundo heredoc deniega, $VAR permite. Y el delivery de los 9 casos historicos sigue passed (sin regresion en la guarda de posicion ejecutable).",
+    "command": {
+      "argv": [
+        "python3",
+        "quality/delivery_guardian_posicion_ejecutable.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "delivery: passed"
+    }
+  },
+  "nota_para_el_revisor": {
+    "sha_del_sujeto_al_declarar": "465e060dff6f14fa09a8adf3b81c21294df555d78572ef3bd0e0a5f8993856fc",
+    "mutantes": "quality/mutantes/guardian-heredoc-v2-20260908.spec.json — 6, ejecutables, con ancla y reemplazo. En mi corrida: control 110 verdes, 6/6 MUERTOS. La corrida que vale para el gate es la tuya.",
+    "el_rechazo_anterior": "FABLE rechazo la v1 por falso positivo. Este manifiesto es change_id NUEVO y no reusa aquella firma."
+  }
+}

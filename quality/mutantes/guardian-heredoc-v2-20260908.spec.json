@@ -1,0 +1,62 @@
+{
+  "schema": "seal.mutantes-ejecutables.v2",
+  "change_id": "guardian-heredoc-v2-20260908",
+  "reviewer": "JARVIS",
+  "subject_sha256_al_declarar": "465e060dff6f14fa09a8adf3b81c21294df555d78572ef3bd0e0a5f8993856fc",
+  "_como_correrlos": "Copia FRESCA por mutante bajo /tmp con memory/ completo; control verde ANTES; el arbol vivo NO se muta. El ancla debe aparecer EXACTAMENTE una vez.",
+  "tests": [
+    [
+      "memory/"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "F1-solo-el-primer-heredoc",
+      "subject": "memory/pre_tool_hook.py",
+      "ancla": "            i = mc.end() if mc else n         # consumir el cuerpo: lo de adentro es texto",
+      "reemplazo": "            return None",
+      "why": "quedarse con la primera apertura: el peligro puede estar en la segunda",
+      "esperado": "MUERTO por test_el_SEGUNDO_heredoc_tambien_se_mira_no_solo_el_primero"
+    },
+    {
+      "id": "F2-cuerpo-siempre-hasta-el-final",
+      "subject": "memory/pre_tool_hook.py",
+      "ancla": "            fin = mc.start() if mc else n     # sin cierre: el cuerpo llega al final",
+      "reemplazo": "            fin = n",
+      "why": "si el cuerpo llegara SIEMPRE al final, se tragaria texto de despues del cierre",
+      "esperado": "MUERTO"
+    },
+    {
+      "id": "F3-cualquier-dolar-cuenta",
+      "subject": "memory/pre_tool_hook.py",
+      "ancla": "            if not citado and (\"`\" in cuerpo or \"$(\" in cuerpo):",
+      "reemplazo": "            if not citado and (\"`\" in cuerpo or \"$\" in cuerpo):",
+      "why": "$VAR expande pero NO ejecuta: tratarlo como peligro convierte la guarda en freno",
+      "esperado": "MUERTO por test_qa_control_un_DOLAR_a_secas_no_es_sustitucion"
+    },
+    {
+      "id": "F4-comillas-dobles-como-sin-comillas",
+      "subject": "memory/pre_tool_hook.py",
+      "ancla": "            citado, tag = bool(m.group(1)), m.group(2)",
+      "reemplazo": "            citado, tag = m.group(1) == chr(39), m.group(2)",
+      "why": "<<\"EOF\" tampoco expande; tratarlo como sin comillas bloquea de mas",
+      "esperado": "MUERTO por test_qa_negative_el_delimitador_con_comillas_DOBLES_tambien_es_inerte"
+    },
+    {
+      "id": "H1-la-guarda-no-existe",
+      "subject": "memory/pre_tool_hook.py",
+      "ancla": "    tag = heredoc_sin_comillas_con_sustitucion(command)",
+      "reemplazo": "    tag = None",
+      "why": "control de que la guarda esta cableada al handler, no solo definida",
+      "esperado": "MUERTO (2 brazos)"
+    },
+    {
+      "id": "H3-solo-el-acento-grave",
+      "subject": "memory/pre_tool_hook.py",
+      "ancla": "            if not citado and (\"`\" in cuerpo or \"$(\" in cuerpo):",
+      "reemplazo": "            if not citado and \"`\" in cuerpo:",
+      "why": "cubrir UNA forma de sustitucion y dar la clase por cubierta; $( ) es igual de ejecutable",
+      "esperado": "MUERTO (3 brazos)"
+    }
+  ]
+}
