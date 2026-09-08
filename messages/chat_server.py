@@ -713,6 +713,47 @@ def _is_local_or_lan(host: str | None) -> bool:
     return host in _ALLOWED_LAN or host.startswith(_LAN_PREFIX) or host.startswith(_TAILSCALE_PREFIX)
 
 
+_USER_ROOM_RE = re.compile(r"^user:\d+:([a-z0-9]+)(?:-[a-z0-9_.-]+)?$", re.IGNORECASE)
+
+
+def _user_room_agent(channel: str) -> str | None:
+    """Agente dueño de una sala privada ``user:<uid>:<agente>[-<cuerpo>]`` (p. ej. ``user:1:ada-claude`` -> ``ADA``).
+
+    Por qué existe (ADA, 8-sep-2026, pedido de William 13:14): en su sala ``user:1:ada-claude`` le contestaban
+    NEXUS y ALICE. Sus mensajes llegaban sin ``to`` y el servidor los defaulteaba a ``equipo``, así que el
+    coordinador los repartía a los cinco como si fueran del general. Una sala ``user:*`` es una conversación de
+    DOS: la persona dueña de la sala y el agente que lleva en el nombre.
+    """
+    m = _USER_ROOM_RE.fullmatch(str(channel or "").strip())
+    if not m:
+        return None
+    agent = m.group(1).upper()
+    # Solo agentes conocidos: ``user:3:gtl-sistemas`` es la sala de un proyecto, no de un agente «GTL».
+    return agent if agent in _ASSIGNABLE_AGENTS else None
+
+
+def _log_paths_for(sender: str, to: str, channel: str) -> List[Path]:
+    """Rutas JSONL para un mensaje. En una sala privada ``user:<uid>:<agente>`` NO se escribe
+    ``william_channel.jsonl``: ese archivo lo hace `tail` el monitor de CADA agente (seal_channel_monitor.sh),
+    y por ahí NEXUS seguía recibiendo la sala exclusiva de ADA aunque el `to` ya fuera ADA (medido 13:37)."""
+    paths = _get_log_paths(sender, to)
+    if _user_room_agent(channel):
+        return [p for p in paths if p != LOG_WILLIAM]
+    return paths
+
+
+def _default_to(channel: str, sender: str, requested: str = "") -> str:
+    """Destinatario por defecto: el pedido si vino; el agente de la sala si es una sala ``user:*`` y quien
+    escribe no es ese agente; ``equipo`` en cualquier otro caso (comportamiento anterior, sin cambios)."""
+    if str(requested or "").strip():
+        return str(requested).strip()
+    agent = _user_room_agent(channel)
+    who = str(sender or "").strip().upper()
+    if agent and who != agent and not who.startswith(agent + "_") and not who.startswith(agent + "-"):
+        return agent
+    return "equipo"
+
+
 def _dm_other_participant(channel: str, sender: str) -> str | None:
     """Return the other exact endpoint, or None if sender is not a participant."""
     parts = dm_participants(channel, sender_hint=sender)
@@ -1781,7 +1822,8 @@ async def websocket_endpoint(ws: WebSocket):
                                     print(f"[agent-gate] {ws_username} intento WS-say a {_other.upper()} sin asignacion → bloqueado", flush=True)
                                     await ws.send_text(json.dumps({"type": "error", "error": "no tenes ese agente asignado", "channel": channel}))
                                     continue
-                        visible_to = _dm_other_participant(channel, ws_username or "William") or "equipo"
+                        visible_to = (_dm_other_participant(channel, ws_username or "William")
+                                      or _default_to(channel, ws_username or "William"))
                         entry = {
                             "id": f"wchat_{time.time_ns()}",
                             "from": ws_username or "William",
@@ -1809,7 +1851,7 @@ async def websocket_endpoint(ws: WebSocket):
                         # original dejó abierto.)
                         _cl_ws = channel.lower()
                         _mon_dm_ws = _cl_ws.startswith("dm:")
-                        if not channel.startswith("dm:") or _mon_dm_ws:
+                        if (not channel.startswith("dm:") or _mon_dm_ws) and not _user_room_agent(channel):
                             jsonl_entry = _encrypt_for_jsonl(entry)
                             with open(LOG_WILLIAM, "a", encoding="utf-8") as f:
                                 f.write(json.dumps(jsonl_entry, ensure_ascii=False) + "\n")
@@ -2535,10 +2577,10 @@ async def agents_send(request: Request):
         import json as _json
         body = _json.loads(raw.decode("utf-8", errors="replace"))
     sender = str(body.get("from", "")).strip()
-    to     = str(body.get("to", "equipo")).strip()
+    channel = str(body.get("channel", "web_chat")).strip()
+    to     = _default_to(channel, sender, str(body.get("to", "")).strip())
     text   = str(body.get("message", "")).strip()
     mtype  = str(body.get("type", "chat")).strip()
-    channel = str(body.get("channel", "web_chat")).strip()
     explicit_session_key = str(body.get("session_key", "")).strip() or None
     idempotency_key = str(body.get("idempotency_key", "")).strip() or None
     in_reply_to = str(body.get("in_reply_to", "")).strip() or None
@@ -2621,6 +2663,14 @@ async def agents_send(request: Request):
     _instancia_acl = instance_id
     if _es_cuerpo_de_agente(_verificado, sender):
         _instancia_acl = _verificado
+    # Sala exclusiva de un cuerpo (user:<uid>:<agente>-<cuerpo>): el ACL juzga el cuerpo DECLARADO por el
+    # emisor (metadata.runtime_instance, p. ej. ADA_CLAUDE). Es una declaración, no identidad verificada:
+    # alcanza para que el puente Codex (que no la declara) no escriba en la sala de ADA Claude por accidente.
+    if _user_room_agent(channel) and not _instancia_acl:
+        _rt_decl = (body.get("metadata") or {}) if isinstance(body.get("metadata"), dict) else {}
+        _rt_decl = str(_rt_decl.get("runtime_instance") or "").strip()
+        if _rt_decl and _rt_decl.upper().startswith(str(sender).strip().upper()):
+            _instancia_acl = _rt_decl
     if not _acl_puede_escribir(sender, channel, _instancia_acl):
         return JSONResponse(
             {"ok": False, "error": "channel_forbidden",
@@ -3100,7 +3150,7 @@ async def agents_send(request: Request):
         _monitored_dm = _cl.startswith("dm:")
         if not _cl.startswith("dm:"):
             jsonl_entry = _encrypt_for_jsonl(entry)
-            for log_path in _get_log_paths(sender, to):
+            for log_path in _log_paths_for(sender, to, channel):
                 with open(log_path, "a", encoding="utf-8") as f:
                     f.write(json.dumps(jsonl_entry, ensure_ascii=False) + "\n")
         elif _monitored_dm:
@@ -3460,7 +3510,7 @@ async def upload_file(
         return JSONResponse({"ok": False, "error": "upload database unavailable"}, status_code=503)
 
     # Persist to JSONL (dual-write) — DMs NEVER go to JSONL
-    if not channel.startswith("dm:"):
+    if not channel.startswith("dm:") and not _user_room_agent(channel):
         jsonl_entry = _encrypt_for_jsonl(entry)
         with open(LOG_WILLIAM, "a", encoding="utf-8") as f:
             f.write(json.dumps(jsonl_entry, ensure_ascii=False) + "\n")
@@ -3698,7 +3748,7 @@ async def agents_upload(
         return JSONResponse({"ok": False, "error": "upload database unavailable"}, status_code=503)
 
     # JSONL dual-write — los DMs NUNCA van a JSONL.
-    if not channel.startswith("dm:"):
+    if not channel.startswith("dm:") and not _user_room_agent(channel):
         jsonl_entry = _encrypt_for_jsonl(entry)
         with open(LOG_WILLIAM, "a", encoding="utf-8") as f:
             f.write(json.dumps(jsonl_entry, ensure_ascii=False) + "\n")
@@ -4337,14 +4387,14 @@ async def agents_ws_endpoint(ws: WebSocket):
                 # The authenticated handshake owns sender identity. Never trust
                 # a message-level ``from`` supplied by a connected agent.
                 sender = agent_name
-                to     = str(msg.get("to", "equipo")).strip()
+                channel = str(msg.get("channel", ""))
+                to     = _default_to(channel, sender, str(msg.get("to", "")).strip())
                 text   = str(msg.get("message", "")).strip()
                 mtype  = str(msg.get("type", "chat")).strip()
                 if not text:
                     continue
 
                 ts = datetime.now(PERU_TZ).isoformat()
-                channel = str(msg.get("channel", ""))
                 entry = {
                     "id": f"ws_{sender.lower()}_{time.time_ns()}",
                     "from": sender,
@@ -4357,7 +4407,7 @@ async def agents_ws_endpoint(ws: WebSocket):
                 # DMs NEVER go to JSONL — only broadcast + enqueue
                 if not channel.startswith("dm:"):
                     jsonl_entry = _encrypt_for_jsonl(entry)
-                    for log_path in _get_log_paths(sender, to):
+                    for log_path in _log_paths_for(sender, to, channel):
                         with open(log_path, "a", encoding="utf-8") as f:
                             f.write(json.dumps(jsonl_entry, ensure_ascii=False) + "\n")
                 await broadcast(entry)
@@ -5822,8 +5872,10 @@ async def chat_send(request: Request, user: dict = Depends(require_auth)):
     # Persist to PostgreSQL.
     # FIX RLS write-path (William 14-jul, EMERGENCIA): para canales dm:* hay que setear el
     # contexto RLS (app.current_identity) ANTES del insert, si no la politica
-    # chat_messages_channel_own RECHAZA la fila (InsufficientPrivilegeError -> 500) y el DM
-    # que William TIPEA en Studio nunca se guardaba. set_config transaction-local (scoped a la tx).
+    # chat_messages_channel_own RECHAZA la fila (InsufficientPrivilegeError -> 500).
+    # FIX RLS user-channels (8-sep-2026): para canales user:* la politica exige
+    # app.current_user_id; sin el seteo el INSERT...RETURNING falla con RLS violation
+    # (la fila se inserta pero no es visible al hacer RETURNING -> PostgreSQL la rechaza).
     _mk_kwargs = dict(
         sender_name=user["username"],
         content=content,
@@ -5837,10 +5889,12 @@ async def chat_send(request: Request, user: dict = Depends(require_auth)):
         ),
         reply_to=int(reply_to) if reply_to else None,
     )
-    if channel.startswith("dm:"):
+    if channel.startswith("dm:") or channel.startswith("user:"):
         async with chat_db.pool.acquire() as _csc:
             async with _csc.transaction():
                 await _csc.execute("SELECT set_config('app.current_identity', $1, true)", str(user["username"]))
+                if channel.startswith("user:"):
+                    await _csc.execute("SELECT set_config('app.current_user_id', $1, true)", str(user_id))
                 db_msg = await chat_db.create_message(
                     actor_user_id=user_id,
                     actor_role=str(user.get("role") or ""),
@@ -5857,7 +5911,7 @@ async def chat_send(request: Request, user: dict = Depends(require_auth)):
     # Para canales DM, el destinatario es el OTRO participante (no 'equipo') — necesario para
     # que el outbox durable + el push al agente apunten al agente correcto (#17, catch NEXUS+ALICE:
     # este es el path VIVO de los DMs de Studio v2, DMPanel→/api/chat/send).
-    _recipient = "equipo"
+    _recipient = _default_to(channel, user["username"])  # sala user:<uid>:<agente> -> ese agente (ADA, 8-sep-2026)
     if channel.startswith("dm:"):
         _recipient = _dm_other_participant(channel, user["username"]) or "equipo"
 
@@ -5918,7 +5972,7 @@ async def chat_send(request: Request, user: dict = Depends(require_auth)):
     jsonl_entry = _encrypt_for_jsonl(entry)
     _cl_cs = channel.lower()
     _mon_dm_cs = _cl_cs.startswith("dm:") and ("william" in _cl_cs or "henry" in _cl_cs)
-    if channel == "general" or not channel.startswith("dm:") or _mon_dm_cs:
+    if (channel == "general" or not channel.startswith("dm:") or _mon_dm_cs) and not _user_room_agent(channel):
         with open(LOG_WILLIAM, "a", encoding="utf-8") as f:
             f.write(json.dumps(jsonl_entry, ensure_ascii=False) + "\n")
 

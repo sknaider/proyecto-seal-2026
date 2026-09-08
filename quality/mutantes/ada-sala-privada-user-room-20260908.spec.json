@@ -19,8 +19,8 @@
   {
    "id": "m2-acl-deja-pasar-a-los-plenos",
    "subject": "messages/channel_acl.py",
-   "ancla": "    if agente_sala:\n        return quien in _HUMANOS or _es_cuerpo_del_agente(quien, agente_sala)\n",
-   "reemplazo": "    if agente_sala:\n        return quien in _HUMANOS or quien in REMITENTES_PLENOS\n",
+   "ancla": "    if agente_sala:\n        if quien in _HUMANOS:\n            return True\n",
+   "reemplazo": "    if agente_sala:\n        if quien in _HUMANOS or quien in REMITENTES_PLENOS:\n            return True\n",
    "why": "NEXUS y ALICE vuelven a escribir en la sala de ADA"
   },
   {
@@ -33,15 +33,15 @@
   {
    "id": "m4-humanos-afuera",
    "subject": "messages/channel_acl.py",
-   "ancla": "        return quien in _HUMANOS or _es_cuerpo_del_agente(quien, agente_sala)\n",
-   "reemplazo": "        return _es_cuerpo_del_agente(quien, agente_sala)\n",
+   "ancla": "        if quien in _HUMANOS:\n            return True\n",
+   "reemplazo": "        if quien in _HUMANOS:\n            return False\n",
    "why": "William no puede escribir en su propia sala"
   },
   {
    "id": "m5-regex-acepta-cualquier-user",
    "subject": "messages/channel_acl.py",
-   "ancla": "_CANAL_USUARIO = re.compile(r\"^user:\\d+:([a-z0-9]+)(?:-[a-z0-9_.-]+)?$\", re.IGNORECASE)\n",
-   "reemplazo": "_CANAL_USUARIO = re.compile(r\"^user:.*:([a-z0-9]+).*$\", re.IGNORECASE)\n",
+   "ancla": "_CANAL_USUARIO = re.compile(r\"^user:\\d+:([a-z0-9]+)(?:-([a-z0-9_.-]+))?$\", re.IGNORECASE)\n",
+   "reemplazo": "_CANAL_USUARIO = re.compile(r\"^user:.*:([a-z0-9]+)(?:-([a-z0-9_.-]+))?$\", re.IGNORECASE)\n",
    "why": "user:x:ada o users:1:ada se parsean como sala"
   },
   {

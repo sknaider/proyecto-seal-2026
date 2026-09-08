@@ -1,10 +1,13 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { findBodyRoom, topicsWithoutBodyRooms } from "./claudeRoom";
 import { Activity, ArrowRight, ArrowUpRight, ChevronRight, Hash, HeartPulse, Home, LayoutGrid, LoaderCircle, LogOut, Menu, Moon, RefreshCw, Search, ShieldCheck, Sparkles, Sun, Users, X } from "lucide-react";
 import { api, jsonResponse, saveToken, savedToken } from "@/lib/api";
 import { AGENTS, COLORS, ROLES, number, time, type User, type AgentState, type Pulse } from "@/lib/studio";
 import ChatView from "./ChatView";
 import Productivity from "./Productivity";
+import PanelSoulLink from "./PanelSoulLink";
+import { canOpenPanelSoul, PANEL_SOUL_PATH } from "@/lib/panelSoul";
 type View = "home" | "chat" | "latidos" | "team" | "soul" | "system" | "productivity";
 type Health = Record<string, { status?: string; port?: number }>;
 const NAV = [{ id: "home", label: "Inicio", icon: Home }, { id: "team", label: "Equipo", icon: Users }, { id: "soul", label: "Memoria", icon: Sparkles }, { id: "productivity", label: "Productividad", icon: LayoutGrid }, { id: "system", label: "Sistema", icon: Activity }] as const;
@@ -30,6 +33,13 @@ export default function Studio() {
   const [light, setLight] = useState(false), [secure, setSecure] = useState(false);
   const [team, setTeam] = useState<Record<string, AgentState>>({}), [allowed, setAllowed] = useState<string[]>([]);
   const [pulse, setPulse] = useState<Pulse>({}), [health, setHealth] = useState<Health>({});
+  // #19: canales-tema del usuario (topic:<slug> compartidos + user:<uid>:<slug> propios).
+  // Henry los tenia y dejaron de aparecer: el backend los expone en /api/channels/topics
+  // y la vista que los pintaba se perdio el 7-sep (nunca estuvo en git).
+  // El registro devuelve OBJETOS {channel, slug, type, messages, last_at}, no cadenas.
+  // Mi primera version filtraba con `typeof x === "string"` y los descartaba TODOS:
+  // Henry veia solo General y Latidos aunque el endpoint respondiera bien.
+  const [topics, setTopics] = useState<{ channel: string; slug: string }[]>([]);
   const [statusError, setStatusError] = useState(""), [updated, setUpdated] = useState(""), [refreshing, setRefreshing] = useState(false);
   const refreshBusy = useRef(false), searchInput = useRef<HTMLInputElement>(null), identity = useRef(user);
   identity.current = user;
@@ -59,12 +69,26 @@ export default function Studio() {
     if (!user || refreshBusy.current || document.hidden) return;
     refreshBusy.current = true; setRefreshing(true);
     const paths = ["/bridge/api/user/agents", "/studio/api/team/status", ...(["admin", "superuser"].includes(user.role) ? ["/studio/api/soul/pulse", "/studio/api/system/health"] : [])];
+    paths.push("/bridge/api/channels/topics");
     const results = await Promise.allSettled(paths.map(async p => jsonResponse(await api(p))));
     if (identity.current !== user) { refreshBusy.current = false; setRefreshing(false); return; }
     if (results[0].status === "fulfilled") setAllowed((results[0].value.agents || []).filter((a: unknown) => typeof a === "string"));
     if (results[1].status === "fulfilled") setTeam(results[1].value.agents || {});
     if (results[2]?.status === "fulfilled") setPulse(results[2].value.pulse || {});
     if (results[3]?.status === "fulfilled") setHealth(results[3].value.services || {});
+    const topicsResult = results[results.length - 1];
+    if (topicsResult?.status === "fulfilled") {
+      const asList = (v: unknown) => Array.isArray(v)
+        ? v.flatMap((x): { channel: string; slug: string }[] => {
+            if (typeof x === "string") return [{ channel: x, slug: x.split(":").pop() || x }];
+            const o = x as { channel?: unknown; slug?: unknown };
+            return typeof o?.channel === "string"
+              ? [{ channel: o.channel, slug: typeof o.slug === "string" && o.slug ? o.slug : o.channel.split(":").pop() || o.channel }]
+              : [];
+          })
+        : [];
+      setTopics([...asList(topicsResult.value.shared), ...asList(topicsResult.value.private)]);
+    }
     const failed = results.filter(r => r.status === "rejected").length;
     setStatusError(failed ? failed + " conexiones pendientes. Los datos anteriores pueden estar desactualizados." : "");
     if (!failed) setUpdated(new Date().toISOString());
@@ -89,15 +113,18 @@ export default function Studio() {
   if (checking) return <main className="boot"><div className="brand-mark"><Sparkles/></div><LoaderCircle className="spin"/><p>Abriendo tu espacio…</p></main>;
   if (!user) return <Login notice={authError} onLogin={u => { setAuthError(""); setUser(u); navigate("home"); }}/>;
   const online = Object.values(team).filter(a => a.alive).length;
+  // Sala EXCLUSIVA «ADA Claude» (William, 8-sep-2026): va en MENSAJES DIRECTOS con su propio botón y no entre los temas.
+  const claudeRoom = findBodyRoom(topics), plainTopics = topicsWithoutBodyRooms(topics);
   const metrics = [["Memorias", number(pulse.mem_total), "Continuidad compartida"], ["Equipo activo", Object.keys(team).length ? online + " / " + Object.keys(team).length : "—", "Según los latidos"], ["Pensamientos", number(pulse.thoughts_1h), "Durante la última hora"], ["Hoy", number(pulse.mem_today), "Nuevas memorias"]];
-  const actions = [...NAV.map(n => ({ label: n.label, action: () => navigate(n.id) })), { label: "Conversación general", action: () => navigate("chat", "web_chat") }, ...allowed.map(a => ({ label: "Hablar con " + a, action: () => dm(a) }))].filter(a => a.label.toLowerCase().includes(search.toLowerCase()));
+  const actions = [...NAV.map(n => ({ label: n.label, action: () => navigate(n.id) })), ...(canOpenPanelSoul(user.role) ? [{ label: "Panel SOUL ↗", action: () => { window.open(PANEL_SOUL_PATH, "_blank", "noopener,noreferrer"); setPalette(false); setSearch(""); } }] : []), { label: "Conversación general", action: () => navigate("chat", "web_chat") }, ...(claudeRoom ? [{ label: "Hablar con " + claudeRoom.label + " (sala exclusiva)", action: () => navigate("chat", claudeRoom.channel) }] : []), ...allowed.map(a => ({ label: "Hablar con " + a, action: () => dm(a) }))].filter(a => a.label.toLowerCase().includes(search.toLowerCase()));
   return <main className="studio-shell">
     <aside className="rail" aria-label="Accesos rápidos"><button className="brand-mark small" onClick={() => navigate("home")} aria-label="Ir al inicio"><Sparkles size={19}/></button><button className="rail-button mobile-menu" aria-label="Abrir canales y mensajes directos" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><Menu size={20}/></button>{NAV.map(n => <button key={n.id} className={"rail-button " + (view === n.id ? "active" : "")} onClick={() => navigate(n.id)} title={n.label} aria-label={n.label}><n.icon size={19}/></button>)}<span className="rail-spacer"/><button className="rail-button" title="Cambiar tema" aria-label="Cambiar tema" onClick={() => setLight(!light)}>{light ? <Moon size={19}/> : <Sun size={19}/>}</button><button className="rail-button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={logout}><LogOut size={18}/></button></aside>
     {menuOpen && <button className="menu-backdrop" aria-label="Cerrar canales" onClick={() => setMenuOpen(false)}/>}
     <aside className={"sidebar " + (menuOpen ? "menu-open" : "")}><header><div><p className="eyebrow">TU EQUIPO. TU ESPACIO.</p><h1>SEAL Studio</h1></div><span className="version">v2</span></header><button className="sidebar-search" onClick={() => setPalette(true)}><Search size={14}/><span>Buscar o ir a…</span><kbd>⌘ K</kbd></button><nav>
       <p className="nav-label">MI ESPACIO</p>{NAV.map(n => <button className={"channel " + (view === n.id ? "active" : "")} key={n.id} onClick={() => navigate(n.id)}><n.icon size={15}/>{n.label}{view === n.id && <ChevronRight className="nav-chevron" size={14}/>}</button>)}
-      <p className="nav-label spaced">CONVERSACIONES</p><button className={"channel " + (view === "chat" && channel === "web_chat" ? "active" : "")} onClick={() => navigate("chat", "web_chat")}><Hash size={15}/>General</button><button className={"channel " + (view === "latidos" ? "active" : "")} onClick={() => navigate("latidos", "web_chat")}><HeartPulse size={15}/>Latidos</button>
-      <p className="nav-label spaced">MENSAJES DIRECTOS <span>{allowed.length}</span></p>{allowed.map(a => <button className={"channel " + (view === "chat" && channel.split(":").includes(a.toLowerCase()) ? "active" : "")} key={a} onClick={() => dm(a)}><span className="mini-avatar" style={{ color: COLORS[a] || "#94a3b8" }}>{a[0]}</span>{a}<i className={"presence " + (team[a]?.alive ? "online" : "")}/></button>)}{!allowed.length && <p className="sidebar-hint">{statusError ? "La conexión con tus agentes está pendiente." : "Consultando tus agentes…"}</p>}
+      {canOpenPanelSoul(user.role) && <><p className="nav-label spaced">ADMINISTRACIÓN</p><PanelSoulLink role={user.role}/></>}
+      <p className="nav-label spaced">CONVERSACIONES</p><button className={"channel " + (view === "chat" && channel === "web_chat" ? "active" : "")} onClick={() => navigate("chat", "web_chat")}><Hash size={15}/>General</button><button className={"channel " + (view === "latidos" ? "active" : "")} onClick={() => navigate("latidos", "web_chat")}><HeartPulse size={15}/>Latidos</button>{plainTopics.map(t => <button className={"channel " + (view === "chat" && channel === t.channel ? "active" : "")} key={t.channel} onClick={() => navigate("chat", t.channel)}><Hash size={15}/>{t.slug.replace(/-/g, " ")}</button>)}
+      <p className="nav-label spaced">MENSAJES DIRECTOS <span>{allowed.length + (claudeRoom ? 1 : 0)}</span></p>{claudeRoom && <button className={"channel " + (view === "chat" && channel === claudeRoom.channel ? "active" : "")} key={claudeRoom.channel} title="Sala exclusiva: sólo vos y ADA Claude" aria-label={claudeRoom.label + ", sala exclusiva"} onClick={() => navigate("chat", claudeRoom.channel)}><span className="mini-avatar" style={{ color: COLORS[claudeRoom.agent] || "#94a3b8" }}>{claudeRoom.agent[0]}</span>{claudeRoom.label}<ShieldCheck size={13} aria-hidden="true"/><i className={"presence " + (team[claudeRoom.agent]?.alive ? "online" : "")}/></button>}{allowed.map(a => <button className={"channel " + (view === "chat" && channel.split(":").includes(a.toLowerCase()) ? "active" : "")} key={a} onClick={() => dm(a)}><span className="mini-avatar" style={{ color: COLORS[a] || "#94a3b8" }}>{a[0]}</span>{a}<i className={"presence " + (team[a]?.alive ? "online" : "")}/></button>)}{!allowed.length && <p className="sidebar-hint">{statusError ? "La conexión con tus agentes está pendiente." : "Consultando tus agentes…"}</p>}
     </nav><div className="sidebar-note"><ShieldCheck size={15}/><span>Tu espacio privado<br/><small>SEAL · Team & Soul</small></span></div><footer><div className="avatar user">{user.username[0].toUpperCase()}</div><div><b>{user.display_name || user.username}</b><small>{user.role}</small></div><span className="presence online"/></footer></aside>
     <div className="workspace">
       {statusError && <div className="status-warning" role="status">{statusError}<button className="icon-button" onClick={() => void refresh()} aria-label="Reintentar conexiones"><RefreshCw size={14}/></button></div>}

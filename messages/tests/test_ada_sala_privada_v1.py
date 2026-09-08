@@ -135,3 +135,14 @@ def test_negativo_la_sala_privada_no_va_a_william_channel(monkeypatch):
     assert privados and all(p != chat_server.LOG_WILLIAM for p in privados)
     assert [p for p in normales if p != chat_server.LOG_WILLIAM] == privados, "sólo se quita william_channel"
 
+
+
+def test_negativo_el_prefijo_suelto_tampoco_alcanza_en_una_sala_sin_cuerpo():
+    # En la sala EXCLUSIVA el chequeo de cuerpo corta antes de mirar el prefijo; acá se ejercita el prefijo solo.
+    # ADAMANTIO empieza con «ADA» pero no es un cuerpo (ADA, ADA_x, ADA-x); un mutante `startswith(agente)` lo dejaría pasar.
+    sala = "user:1:ada"
+    assert channel_acl._es_cuerpo_del_agente("ADAMANTIO", "ADA") is False
+    assert channel_acl._es_cuerpo_del_agente("ADA_CLAUDE", "ADA") is True
+    assert channel_acl._es_cuerpo_del_agente("ADA-CODEX", "ADA") is True
+    assert channel_acl.puede_escribir("ADAMANTIO", sala) is False
+    assert channel_acl.puede_escribir("ADA", sala, instance_id="ADAMANTIO") is False
