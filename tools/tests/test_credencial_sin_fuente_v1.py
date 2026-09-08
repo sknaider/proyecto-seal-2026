@@ -175,3 +175,28 @@ def test_qa_control_el_drop_in_no_silencia_una_credencial_REALMENTE_faltante():
     (dropin / "10-env.conf").write_text(f"[Service]\nEnvironmentFile={a}/otra.env\n")
     r = _corre(a)
     assert r.returncode == 1 and "DESAJUSTE" in r.stdout, r.stdout
+
+
+def test_qa_negative_seal_observer_credencial_va_a_VERIFICAR_A_MANO():
+    """Caso que NEXUS corrigio el 7-sep: soul_metrics_exporter usa importlib para
+    cargar seal_observer_credencial.py como su fuente de DSN. El patron no estaba
+    en OTRA_FUENTE, asi que la unidad aparecia en SIN FUENTE de forma erronea.
+
+    Un script que menciona 'seal_observer_credencial' tiene otra fuente posible:
+    debe ir a VERIFICAR A MANO, no a SIN FUENTE DE CREDENCIAL.
+    """
+    a = _arena()
+    cuerpo = (
+        'import os, importlib.util\n'
+        'DSN = os.environ.get("SEAL_DB_URL", "")\n'
+        'if not DSN:\n'
+        '    _spec = importlib.util.spec_from_file_location("seal_observer_credencial", "/ruta/seal_observer_credencial.py")\n'
+        '    _mod = importlib.util.module_from_spec(_spec)\n'
+        '    DSN = _mod.leer_dsn_del_archivo()\n'
+    )
+    s = _script(a, "obs.py", cuerpo)
+    _unidad(a, "observer.service", f"[Service]\nExecStart=/usr/bin/python3 {s}\n")
+    r = _corre(a)
+    assert r.returncode == 0, f"marco como SIN FUENTE una unidad con seal_observer_credencial: {r.stdout}"
+    assert "SIN FUENTE" not in r.stdout, r.stdout
+    assert "VERIFICAR A MANO" in r.stdout, r.stdout

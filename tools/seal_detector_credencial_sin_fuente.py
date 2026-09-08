@@ -48,7 +48,7 @@ CLAVES = ("DSN", "DB_URL", "DATABASE", "TOKEN", "SECRET", "KEY", "PASS", "CRED")
 # marcadas, 13 corrian con result=success -eran ruido- y solo 1 era real.
 # Marcar las 13 junto a la 1 hace que nadie lea el informe.
 OTRA_FUENTE = re.compile(
-    r"seal_secrets|pg_dsn\s*\(|read_text\s*\(|open\s*\(|Path\s*\([^)]*env|"
+    r"seal_secrets|seal_observer_credencial|pg_dsn\s*\(|read_text\s*\(|open\s*\(|Path\s*\([^)]*env|"
     r"\.dsn\b|credentials\.env|_cred\b|LoadCredential|CREDENTIALS_DIRECTORY",
     re.I)
 

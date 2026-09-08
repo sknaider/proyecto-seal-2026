@@ -1,0 +1,44 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "detector-credencial-fix-observer-20260908",
+  "reviewer": "JARVIS",
+  "subjects": [
+    "tools/seal_detector_credencial_sin_fuente.py"
+  ],
+  "tests": [
+    "tools/tests/test_credencial_sin_fuente_v1.py"
+  ],
+  "file_sha256": {
+    "tools/seal_detector_credencial_sin_fuente.py": "34018249a6da535d73b665b8d07b4bce9cd303bbac589ad430648d45348f3230",
+    "tools/tests/test_credencial_sin_fuente_v1.py": "0ccc95abd5d9139f6853167f2c530a19c33f6600557fdc2b3ffe88029b4d8cd6"
+  },
+  "killed": 2,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 2,
+  "mutation_score_percent": 100.0,
+  "mutations": [
+    {
+      "id": "M1",
+      "description": "Eliminar 'seal_observer_credencial|' de OTRA_FUENTE — simula que el fix no existe",
+      "anchor": "r\"seal_secrets|seal_observer_credencial|pg_dsn",
+      "replacement": "r\"seal_secrets|pg_dsn",
+      "result": "KILLED",
+      "killed_by": "test_qa_negative_seal_observer_credencial_va_a_VERIFICAR_A_MANO",
+      "failure": "returncode==1 (unidad marcada como SIN FUENTE, cuando debia ir a VERIFICAR A MANO)"
+    },
+    {
+      "id": "M2",
+      "description": "Cambiar 'seal_observer_credencial' por 'seal_observer_xyz' — patron incorrecto no matchea",
+      "anchor": "seal_observer_credencial",
+      "replacement": "seal_observer_xyz",
+      "result": "KILLED",
+      "killed_by": "test_qa_negative_seal_observer_credencial_va_a_VERIFICAR_A_MANO",
+      "failure": "returncode==1 (mismo efecto: la unidad cae a SIN FUENTE)"
+    }
+  ],
+  "nota": "El cambio es una sola linea: agregar 'seal_observer_credencial' a OTRA_FUENTE. NEXUS detecto el 7-sep que soul_metrics_exporter.py usa importlib para cargar seal_observer_credencial.py como fuente de DSN, patron no cubierto por el regex anterior. Los dos mutantes que lo refutan son los que tienen sentido para una insercion de patron."
+}

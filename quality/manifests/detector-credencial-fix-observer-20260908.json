@@ -1,0 +1,176 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "detector-credencial-fix-observer-20260908",
+  "owner": "ALICE",
+  "independent_reviewer": "JARVIS",
+  "_doc": "Enmienda a detector-credencial-sin-fuente-20260907. NEXUS corrigio el 7-sep que soul_metrics_exporter.py usa importlib.util.spec_from_file_location para cargar seal_observer_credencial.py como fuente de DSN — patron no cubierto por OTRA_FUENTE. Sin este fix, seal-soul-metrics-exporter aparecia en SIN FUENTE DE CREDENCIAL cuando debia ir a VERIFICAR A MANO. Cambio: una linea en OTRA_FUENTE; test nuevo que lo refuta.",
+  "deletions": [],
+  "subjects": [
+    "tools/seal_detector_credencial_sin_fuente.py",
+    "tools/tests/test_credencial_sin_fuente_v1.py"
+  ],
+  "tests": [
+    "tools/tests/test_credencial_sin_fuente_v1.py"
+  ],
+  "source_sha256": {
+    "tools/seal_detector_credencial_sin_fuente.py": "34018249a6da535d73b665b8d07b4bce9cd303bbac589ad430648d45348f3230",
+    "tools/tests/test_credencial_sin_fuente_v1.py": "0ccc95abd5d9139f6853167f2c530a19c33f6600557fdc2b3ffe88029b4d8cd6"
+  },
+  "implementation_head": "fd88082",
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_credencial_sin_fuente_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 600,
+    "_nota": "el sujeto se ejercita por SUBPROCESO; coverage de python no lo ve. Evidencia por efecto en delivery."
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Efecto medido: antes del fix, seal-soul-metrics-exporter aparecia en SIN FUENTE DE CREDENCIAL (returncode=1). Despues del fix (agregar 'seal_observer_credencial' a OTRA_FUENTE), el servicio pasa a VERIFICAR A MANO y la seccion SIN FUENTE desaparece (returncode=0). El pattern importlib.util.spec_from_file_location('seal_observer_credencial', ...) en soul_metrics_exporter.py coincide con el nuevo patron. 12/12 tests pasan con el fix aplicado. El contexto de la correccion: NEXUS detecto el error el 7-sep porque ALICE habia corrido el detector equivocado (seal_detector_unidades_horneadas.py en vez de seal_detector_credencial_sin_fuente.py) y concluyo que el exporter ya no era problema. NEXUS refirio al detector correcto y mostro que el exporter seguia en SIN FUENTE.",
+    "command": {
+      "_doc": "Verifica que 'seal_observer_credencial' este en OTRA_FUENTE del detector.",
+      "expected_exit": 0,
+      "expected_stdout_contains": "seal_observer_credencial",
+      "argv": [
+        "bash",
+        "-c",
+        "grep -q 'seal_observer_credencial' tools/seal_detector_credencial_sin_fuente.py && echo 'seal_observer_credencial'"
+      ]
+    }
+  },
+  "mutation_evidence": "quality/mutation-credencial-fix-observer-20260908.v1.json",
+  "mutation_baseline_percent": 0.0,
+  "commands": [
+    {
+      "id": "unit-el-detector-parsea",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_unit_el_detector_parsea"
+      ]
+    },
+    {
+      "id": "positive-sin-fuente",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_positive_sin_fuente_se_marca"
+      ]
+    },
+    {
+      "id": "positive-desajuste-de-nombre",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_positive_desajuste_de_nombre_se_marca"
+      ]
+    },
+    {
+      "id": "negative-con-fuente-correcta",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_con_fuente_correcta_no_se_marca"
+      ]
+    },
+    {
+      "id": "negative-seal-observer-credencial-va-a-verificar-a-mano",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_seal_observer_credencial_va_a_VERIFICAR_A_MANO"
+      ]
+    },
+    {
+      "id": "negative-default-vacio-si-se-marca",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_negative_default_VACIO_si_se_marca"
+      ]
+    },
+    {
+      "id": "control-opcional-no-se-marca",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_variable_OPCIONAL_no_se_marca"
+      ]
+    },
+    {
+      "id": "control-ilegible-no-es-sano",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_entorno_ILEGIBLE_no_cuenta_como_sano"
+      ]
+    },
+    {
+      "id": "control-dropin-no-silencia-una-faltante",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_credencial_sin_fuente_v1.py::test_qa_control_el_drop_in_no_silencia_una_credencial_REALMENTE_faltante"
+      ]
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-08T10:16:32Z",
+      "evidence": "SHAs verificados: detector 34018249a6... ✓, test 0ccc95abd5... ✓. 12/12 tests PASSED con /home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest tools/tests/test_credencial_sin_fuente_v1.py -q. El cambio (agregar seal_observer_credencial| a OTRA_FUENTE) es correcto: cubre el patron importlib.util.spec_from_file_location que usa soul_metrics_exporter.py. Ninguna ruta destructiva. El manifiesto en disco (SHA 1e05905b...) difiere del manifest_digest del DM (6f1fff8b...) — firmado sobre el estado en disco.",
+      "reviewed_sha256": {
+        "tools/seal_detector_credencial_sin_fuente.py": "34018249a6da535d73b665b8d07b4bce9cd303bbac589ad430648d45348f3230",
+        "tools/tests/test_credencial_sin_fuente_v1.py": "0ccc95abd5d9139f6853167f2c530a19c33f6600557fdc2b3ffe88029b4d8cd6"
+      },
+      "manifest_digest": "1bfcf282af80a1593e10fa2527a4085728d93d35657192d71b7617ba69611b7f"
+    }
+  }
+}
