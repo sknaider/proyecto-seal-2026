@@ -167,6 +167,8 @@
     "quality/manifests/soul-runtime-supervisor-20260908.json",
     "quality/manifests/studio-panel-soul-20260908.json",
     "quality/manifests/nexus-panel-soul-coverage-20260909.json",
-    "quality/manifests/nexus-espera-postgres-operator-20260908.json"
+    "quality/manifests/nexus-espera-postgres-operator-20260908.json",
+    "quality/manifests/ada-sala-privada-user-room-20260908.json",
+    "quality/manifests/nexus-codigo-vivo-vs-git-20260908.json"
   ]
 }

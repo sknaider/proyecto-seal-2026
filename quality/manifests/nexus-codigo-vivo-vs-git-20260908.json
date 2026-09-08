@@ -1,0 +1,75 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-codigo-vivo-vs-git-20260908",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "_por_que": "Incidente asignado por JARVIS el 8-sep. seal-chat corria en produccion con codigo que no estaba en git (disco d02f5905 == vivo, HEAD d5fc8620): las 7 lineas de diferencia eran el FIX RLS de los canales user:*, sin las cuales la sala privada de William no guarda mensajes. Un git checkout de cualquiera lo borraba y ningun chequeo lo notaba. El de integridad de ALICE ve archivos AUSENTES de git; este ve los que ESTAN en git con otro contenido, que no veia nadie.",
+  "review": {
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-08T18:45:00Z",
+      "evidence": "Corrida independiente via quality/mutantes-nexus-codigo-vivo-vs-git-20260908.spec.sh en copias aisladas bajo /tmp. Control: 11/11 passed. G1 MUERTO (1 failed, 10 passed): defecto original, solo unidades de sistema. G2 MUERTO (1 failed, 10 passed): --user ausente. G3 MUERTO (1 failed, 9 passed, 1 skip): rotulo unico — skip esperado sin root. G4 MUERTO (1 failed, 10 passed): vacio devuelve salud. G5 MUERTO (1 failed, 10 passed): sha completo. G6 MUERTO (1 failed, 10 passed): contenido en informe. G7 MUERTO (3 failed, 8 passed): nunca diverge. Score: 7/7 = 100%.",
+      "reviewed_sha256": {
+        "tools/seal_codigo_vivo_vs_git.py": "e29359120244ca700832061f7878986d6b2ccd1a448d13aec6d3a0e3dad08df5",
+        "tools/tests/test_seal_codigo_vivo_vs_git_v1.py": "01b8a2263bd915476cf1f0d98609a68cda3cf1f7bd29f15af4c65088961d96fd"
+      },
+      "manifest_digest": "e6481dd1f4149810e047c853e55bffe2546abfaf3c1d068eed78a26fbb335b00"
+    }
+  },
+  "subjects": ["tools/seal_codigo_vivo_vs_git.py"],
+  "tests": ["tools/tests/test_seal_codigo_vivo_vs_git_v1.py"],
+  "commands": [
+    {"id": "unit-codigo-vivo", "kind": "unit", "expected_exit": 0,
+     "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3", "-m", "pytest", "-q",
+              "tools/tests/test_seal_codigo_vivo_vs_git_v1.py"]},
+    {"id": "qa_positive-coincide", "kind": "qa_positive", "expected_exit": 0,
+     "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3", "-m", "pytest", "-q",
+              "tools/tests/test_seal_codigo_vivo_vs_git_v1.py", "-k", "qa_positive or RECORTADOS"]},
+    {"id": "qa_negative-los-tres-modos", "kind": "qa_negative", "expected_exit": 0,
+     "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3", "-m", "pytest", "-q",
+              "tools/tests/test_seal_codigo_vivo_vs_git_v1.py", "-k", "qa_negative"]},
+    {"id": "qa_control-silencio-y-fuga", "kind": "qa_control", "expected_exit": 0,
+     "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3", "-m", "pytest", "-q",
+              "tools/tests/test_seal_codigo_vivo_vs_git_v1.py", "-k", "qa_control or SISTEMA_Y_USUARIO"]}
+  ],
+  "coverage": {"source": ["tools"], "omit": ["tools/tests/*"],
+               "pytest_args": ["-q", "tools/tests/test_seal_codigo_vivo_vs_git_v1.py"],
+               "baseline_percent": 0.0, "timeout": 120},
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-nexus-codigo-vivo-vs-git-20260908.json",
+  "delivery": {
+    "status": "verified",
+    "evidence": "Journal 8-sep: seal-chat corria con disco d02f5905, HEAD d5fc8620 — 7 lineas de diferencia (FIX RLS). La herramienta detecto el DIVERGE. Corrida real sobre 34 archivos: 9 hallazgos, 4 AUSENTE_EN_DISCO. seal_dm_monitor.sh rescatado de /proc/365238/fd/255 (48 lineas, bash -n OK). Los tres pollers Python sin fd abierto — irrecuperables.",
+    "effect": "Compara lo que un servicio VIVO ejecuta contra el contenido en HEAD, descubriendo los archivos desde el ExecStart de las unidades de sistema Y de usuario. Distingue DIVERGE, AUSENTE_EN_GIT, AUSENTE_EN_DISCO e ILEGIBLE.",
+    "assertion": "En la corrida real del 8-sep sobre 34 archivos que ejecutan servicios vivos encontro 9 hallazgos que ningun otro chequeo veia, entre ellos 4 archivos que servicios ACTIVOS ejecutan y que no existen en disco.",
+    "command": {
+      "argv": ["/home/dadito/IA/seal-spark/.venv/bin/python3", "-m", "pytest", "-q",
+               "tools/tests/test_seal_codigo_vivo_vs_git_v1.py"],
+      "expected_stdout_contains": "11 passed"
+    }
+  },
+  "hallazgos_de_la_corrida_real": {
+    "fecha": "2026-09-08",
+    "revisados": 34,
+    "AUSENTE_EN_DISCO": ["messages/seal_dm_monitor.sh (RESCATADO y repuesto)",
+                          "messages/nexus_dm_poller.py", "messages/webchat_readable_log.py",
+                          "deploy/isaac-sim-spark70/ada_embodied_sim_service.py"],
+    "DIVERGE": ["messages/chat_server.py", "memory/mcp_server_v4.py", "jarvis_fresh.sh",
+                 "tools/seal_cerebro_owner_server.py"],
+    "AUSENTE_EN_GIT": ["ops/run_codex_windows_tunnel.sh"],
+    "el_rescate": "seal_dm_monitor.sh estaba borrado PERO ABIERTO: bash mantiene el fd 255 sobre el script que ejecuta. Recuperado de /proc/365238/fd/255, 48 lineas, bash -n OK, identico byte a byte al proceso vivo antes de reponerlo. Es el monitor de DM de FABLE, JARVIS y NEXUS. Los tres de Python NO tienen esa via: el interprete cierra el archivo y no quedan .pyc.",
+    "lo_que_NO_pude": "Los tres archivos de Python no estan en HEAD, ni en ningun commit del historial, ni en el respaldo del 7-sep en spark-2. Mientras el proceso viva, el codigo vive. No los recupere."
+  },
+  "el_defecto_que_tuvo_ESTE_detector": {
+    "que_paso": "En su primera corrida vio 4 unidades de SISTEMA, ignoro 61 de USUARIO y no encontro seal-chat, que es el caso que lo motivo. Igual devolvia un hallazgo, o sea que se leia como exito.",
+    "como_aparecio": "Fui a medir el caso que me REFUTARIA -por que no aparece el archivo que YA SE que diverge- en vez del que me confirmaba.",
+    "el_brazo_que_lo_fija": "test_unidades_vivas_consulta_SISTEMA_Y_USUARIO, y su mutante G1."
+  },
+  "nota_para_el_revisor": {
+    "mutacion": "Corrida del owner, no vale para el gate. Spec ejecutable: quality/mutantes-nexus-codigo-vivo-vs-git-20260908.spec.sh",
+    "el_brazo_que_mas_importa": "test_qa_control_sin_archivos_descubiertos_NO_dice_que_todo_esta_bien (mutante G4). Un detector que no descubre nada y devuelve 0 informa salud que no midio: es la forma mas facil de que esto quede verde para siempre sin mirar nada.",
+    "un_brazo_puede_SALTEARSE": "test_AUSENTE_EN_DISCO_e_ILEGIBLE_no_son_el_mismo_rotulo hace skip si el usuario puede leer igual (root ignora los permisos). Si lo corres como root veras 10 passed 1 skipped y NO es un fallo."
+  }
+}

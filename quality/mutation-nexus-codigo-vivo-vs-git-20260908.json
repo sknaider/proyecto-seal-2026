@@ -1,0 +1,37 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "nexus-codigo-vivo-vs-git-20260908",
+  "reviewer": "ALICE",
+  "run_at": "2026-09-08T18:45:00Z",
+  "total": 7,
+  "killed": 7,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "tools/seal_codigo_vivo_vs_git.py": "e29359120244ca700832061f7878986d6b2ccd1a448d13aec6d3a0e3dad08df5",
+    "tools/tests/test_seal_codigo_vivo_vs_git_v1.py": "01b8a2263bd915476cf1f0d98609a68cda3cf1f7bd29f15af4c65088961d96fd"
+  },
+  "mutants": [
+    {"id": "G1-solo-unidades-de-sistema", "subject": "tools/seal_codigo_vivo_vs_git.py", "resultado": "MUERTO", "passed": 10, "failed": 1,
+     "killed_by": ["test_unidades_vivas_consulta_SISTEMA_Y_USUARIO"]},
+    {"id": "G2-show-sin-user", "subject": "tools/seal_codigo_vivo_vs_git.py", "resultado": "MUERTO", "passed": 10, "failed": 1,
+     "killed_by": ["test_las_unidades_de_usuario_se_interrogan_CON_user"]},
+    {"id": "G3-un-solo-rotulo", "subject": "tools/seal_codigo_vivo_vs_git.py", "resultado": "MUERTO", "passed": 9, "failed": 1, "skipped": 1,
+     "_nota": "1 skip esperado: test de permisos se salta si corres sin root",
+     "killed_by": ["test_qa_negative_archivo_que_el_servicio_ejecuta_y_NO_esta_en_disco"]},
+    {"id": "G4-vacio-es-salud", "subject": "tools/seal_codigo_vivo_vs_git.py", "resultado": "MUERTO", "passed": 10, "failed": 1,
+     "killed_by": ["test_qa_control_sin_archivos_descubiertos_NO_dice_que_todo_esta_bien"]},
+    {"id": "G5-sha-completo", "subject": "tools/seal_codigo_vivo_vs_git.py", "resultado": "MUERTO", "passed": 10, "failed": 1,
+     "killed_by": ["test_los_hashes_van_RECORTADOS"]},
+    {"id": "G6-informe-con-contenido", "subject": "tools/seal_codigo_vivo_vs_git.py", "resultado": "MUERTO", "passed": 10, "failed": 1,
+     "killed_by": ["test_qa_control_el_informe_NO_lleva_el_CONTENIDO_del_archivo"]},
+    {"id": "G7-nunca-diverge", "subject": "tools/seal_codigo_vivo_vs_git.py", "resultado": "MUERTO", "passed": 8, "failed": 3,
+     "killed_by": ["test_qa_negative_una_sola_linea_distinta_ya_es_DIVERGE",
+                   "test_rc_1_cuando_hay_hallazgos_y_0_cuando_no",
+                   "test_qa_control_el_informe_NO_lleva_el_CONTENIDO_del_archivo"]}
+  ]
+}
