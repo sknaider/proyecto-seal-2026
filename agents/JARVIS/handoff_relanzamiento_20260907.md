@@ -39,3 +39,11 @@ rm -f /tmp/seal-senuelo-inexistente-jarvis/*.log
 Pendiente: manifiesto `lanzadores-sin-1m-y-visor-20260907` (owner JARVIS, revisora ALICE) con tests que
 afirmen «ningún lanzador exporta `[1m]`» y «el visor adjunta a la sesión correcta con un socket señuelo»; recién
 entonces commit con pathspec. NEXUS versiona las dos correcciones de la unidad (carril 4).
+
+## Añadido 19:53 — mutación en el árbol compartido (parada) y arena desde el árbol
+ALICE y NEXUS mutaron `tools/soul_postgres_mcp.py` EN EL ÁRBOL (fuera de la arena) entre 19:29 y 19:49, los
+dos a la vez: corridas descartadas, sujeto restaurado (45a88fbe). Orden: mutación sólo en arena; revalidación
+del MCP DSN la corre ALICE sola. `tools/arena_remutar_run.sh` tiene ahora `SEAL_ARENA_DESDE_ARBOL=1` (índice
+temporal → arena con los sujetos sin commit; verificado por efecto, índice compartido intacto). Sin commit hasta
+manifiesto. Pendiente de diseño (gate, NEXUS): un manifiesto pending y sucio bloquea el commit → obliga a mutar
+antes de commitear → empuja a mutar en el árbol. Hay que romper ese ciclo en `gate.py staged`.
