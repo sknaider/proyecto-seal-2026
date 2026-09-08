@@ -1,0 +1,147 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "soul-runtime-supervisor-20260908",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "_doc": [
+    "Unidad de calidad del supervisor de asientos Claude (tarea #1593, ADA owner desde 31-ago). El manifiesto",
+    "original y la plantilla ops/systemd/seal-agent-runtime-supervisor@.service nunca entraron a git y murieron",
+    "con el borrado del home del 7-sep; el sujeto y sus 13 tests si sobrevivieron (tools/). La plantilla se",
+    "reconstruye segun lo que exige el propio test (ExecStartPre --once, Before= lanzadores legados).",
+    "NO se instala: las unidades vivas @JARVIS/@ALICE de hoy son lanzadores tmux reconstruidos del proceso,",
+    "no este supervisor; reemplazarlas toca asientos ajenos y es decision del orquestador.",
+    "Luz verde de William 11:08 y JARVIS 11:02 (regla de oro 8-sep)."
+  ],
+  "deletions": [],
+  "subjects": [
+    "tools/seal_agent_runtime_supervisor.py",
+    "ops/systemd/seal-agent-runtime-supervisor@.service"
+  ],
+  "tests": [
+    "tools/test_seal_agent_runtime_supervisor.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-supervisor-completa",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tools/test_seal_agent_runtime_supervisor.py"
+      ]
+    },
+    {
+      "id": "positive-adopta-recupera-y-preflight",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tools/test_seal_agent_runtime_supervisor.py::test_existing_session_is_adopted_without_launch",
+        "tools/test_seal_agent_runtime_supervisor.py::test_absent_seat_is_recovered_and_verified",
+        "tools/test_seal_agent_runtime_supervisor.py::test_stale_tmux_without_runtime_is_retired_then_recovered",
+        "tools/test_seal_agent_runtime_supervisor.py::test_systemd_preflight_serializes_before_legacy_boot_launchers"
+      ]
+    },
+    {
+      "id": "negative-no-duplica-ni-expande-autoridad",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tools/test_seal_agent_runtime_supervisor.py::test_duplicate_identity_is_not_adopted",
+        "tools/test_seal_agent_runtime_supervisor.py::test_runtime_without_tmux_fails_closed",
+        "tools/test_seal_agent_runtime_supervisor.py::test_unknown_agent_cannot_expand_authority",
+        "tools/test_seal_agent_runtime_supervisor.py::test_undetermined_scan_never_retires_or_launches",
+        "tools/test_seal_agent_runtime_supervisor.py::test_undetermined_scan_without_tmux_never_launches",
+        "tools/test_seal_agent_runtime_supervisor.py::test_systemd_template_binds_identity_and_hardening_to_the_instance"
+      ]
+    },
+    {
+      "id": "control-roster-nombres-y-lock",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tools/test_seal_agent_runtime_supervisor.py::test_roster_is_closed_and_uses_canonical_launchers",
+        "tools/test_seal_agent_runtime_supervisor.py::test_adoption_revalidates_tmux_after_runtime_scan",
+        "tools/test_seal_agent_runtime_supervisor.py::test_name_argument_does_not_count_hyphenated_clone",
+        "tools/test_seal_agent_runtime_supervisor.py::test_name_argument_accepts_descriptive_em_dash",
+        "tools/test_seal_agent_runtime_supervisor.py::test_locked_reconcile_uses_agent_scoped_lock"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools/seal_agent_runtime_supervisor.py"
+    ],
+    "omit": [
+      "tools/test_*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-p",
+      "no:cacheprovider",
+      "tools/test_seal_agent_runtime_supervisor.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "8-sep-2026 11:18 Lima. Entrega EN SECO a proposito (no se instala: las unidades vivas seal-agent-runtime-supervisor@JARVIS/@ALICE son lanzadores tmux reconstruidos del proceso el 7-sep y reemplazarlas toca asientos ajenos; NEXUS midio 15 unidades homonimas y coincide en no instalar). Efecto verificable: la plantilla carga en systemd (`systemd-analyze --user verify ops/systemd/seal-agent-runtime-supervisor@.service` sin quejas sobre la unidad) y la suite del sujeto, que antes fallaba 1/13 por la plantilla ausente, pasa 13/13 incluida test_systemd_preflight_serializes_before_legacy_boot_launchers (ExecStartPre --once y Before= a los lanzadores legados).",
+    "command": {
+      "id": "delivery-plantilla-carga-y-preflight",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tools/test_seal_agent_runtime_supervisor.py::test_systemd_preflight_serializes_before_legacy_boot_launchers",
+        "tools/test_seal_agent_runtime_supervisor.py::test_roster_is_closed_and_uses_canonical_launchers"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "2 passed"
+    }
+  },
+  "review": {
+    "status": "approved",
+    "historial": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "reviewed_sha256": {
+        "tools/seal_agent_runtime_supervisor.py": "e74ca342bf60dba1b3510a4bb409d20a141519f32c3615c6015d8c786ec51f0e",
+        "ops/systemd/seal-agent-runtime-supervisor@.service": "b6eb6053909984b9a2ffe8f178a6e9128fe801a8025db56b05ce4ac9948a3fb2",
+        "tools/test_seal_agent_runtime_supervisor.py": "33149acdc7b59a8dc070c96e308a3487955b42c87cad6d2361b13dce2925c3c3"
+      },
+      "evidence": "Revision independiente de NEXUS 8-sep 11:25. Disene y corri 6 mutantes sobre la plantilla; 4 sobrevivian en la primera corrida y ADA los cerro con un brazo que observa el VALOR y no la presencia. Re-corrida: 6/6 muertos, control 15 passed. El mas grave era SEAL_AGENT fijo: rompia la identidad de los tres asientos en silencio.",
+      "mutation_evidence_v2": "quality/mutation-soul-runtime-supervisor-20260908.json",
+      "manifest_digest": "323b544f21b95e33f4735ba8a9837acaae2e489f1408d432fb9c0e4a6bfa7311"
+    }
+  },
+  "mutation_evidence": "quality/mutation-soul-runtime-supervisor-20260908.json",
+  "mutation_baseline_percent": 100.0,
+  "mutation_target": "isolated_copy"
+}

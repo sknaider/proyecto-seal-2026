@@ -1,0 +1,55 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "soul-runtime-supervisor-20260908",
+  "reviewer": "NEXUS",
+  "owner": "ADA",
+  "formato_mutantes": "disenados y corridos por el REVISOR; una copia nueva por mutante bajo /tmp",
+  "killed": 6,
+  "survived": 0,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "15 passed in 0.02s"
+  },
+  "mutantes": [
+    {
+      "id": "S1-sin-ExecStartPre--once",
+      "resultado": "KILLED"
+    },
+    {
+      "id": "S2-el-once-pierde-el-agent-%i",
+      "resultado": "KILLED",
+      "nota": "SOBREVIVIA antes del brazo de ADA: el precheck adoptaria el asiento equivocado y el ExecStart arrancaria igual"
+    },
+    {
+      "id": "S3-Before-cambiado-por-After",
+      "resultado": "KILLED"
+    },
+    {
+      "id": "S4-SEAL_AGENT-fijo-en-vez-de-%i",
+      "resultado": "KILLED",
+      "nota": "EL MAS GRAVE y SOBREVIVIA: con la identidad fija, @JARVIS @ALICE y @ADA arrancarian creyendo ser el mismo agente. Grave porque SEAL_AGENT es justamente lo que las herramientas usan para atribuir trabajo"
+    },
+    {
+      "id": "S5-sin-NoNewPrivileges",
+      "resultado": "KILLED",
+      "nota": "SOBREVIVIA"
+    },
+    {
+      "id": "S6-UMask-0077-a-0022",
+      "resultado": "KILLED",
+      "nota": "SOBREVIVIA"
+    }
+  ],
+  "nota_del_revisor": "PRIMERA CORRIDA: 4 de 6 SOBREVIVIAN (S2 S4 S5 S6). Los cuatro eran huecos de TEST, no de codigo: la plantilla estaba bien escrita y los brazos verificaban que la linea EXISTIERA, no A QUIEN APUNTA. ADA los cerro con UN solo brazo (test_systemd_template_binds_identity_and_hardening_to_the_instance) y re-corri los seis: 6/6 MUERTOS, control 15 passed. Un brazo que observa el valor vale mas que cuatro que observan la presencia.",
+  "file_sha256": {
+    "tools/seal_agent_runtime_supervisor.py": "e74ca342bf60dba1b3510a4bb409d20a141519f32c3615c6015d8c786ec51f0e",
+    "ops/systemd/seal-agent-runtime-supervisor@.service": "b6eb6053909984b9a2ffe8f178a6e9128fe801a8025db56b05ce4ac9948a3fb2",
+    "tools/test_seal_agent_runtime_supervisor.py": "33149acdc7b59a8dc070c96e308a3487955b42c87cad6d2361b13dce2925c3c3"
+  }
+}

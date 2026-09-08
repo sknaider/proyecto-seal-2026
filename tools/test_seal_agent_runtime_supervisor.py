@@ -167,6 +167,43 @@ def test_undetermined_scan_never_retires_or_launches(monkeypatch):
     assert result["unreadable_candidates"] == [999]
 
 
+def test_undetermined_scan_without_tmux_never_launches(monkeypatch):
+    """Sin tmux, un /proc ilegible NO es un asiento vacío: no se lanza a ciegas (ADA, 8-sep-2026)."""
+    monkeypatch.setattr(SUPERVISOR, "tmux_session_healthy", lambda _seat: False)
+    monkeypatch.setattr(
+        SUPERVISOR,
+        "scan_primary_runtimes",
+        lambda _agent: SUPERVISOR.RuntimeScan((), (999,)),
+    )
+    monkeypatch.setattr(
+        SUPERVISOR,
+        "launch_seat",
+        lambda _seat: (_ for _ in ()).throw(AssertionError("must not launch")),
+    )
+    result = SUPERVISOR.reconcile("ALICE")
+    assert result["ok"] is False
+    assert result["status"] == "runtime_detection_undetermined"
+    assert result["unreadable_candidates"] == [999]
+
+
+def test_systemd_template_binds_identity_and_hardening_to_the_instance():
+    """NEXUS S2/S4/S5/S6 (8-sep-2026): un brazo que sólo mira que la línea EXISTA no observa a quién apunta.
+
+    - SEAL_AGENT tiene que salir del especificador %i: fijo, las tres instancias creen ser el mismo agente.
+    - El preflight y el servicio tienen que llevar `--agent %i`: sin eso adoptan el asiento equivocado.
+    - El endurecimiento declarado (NoNewPrivileges, UMask 0077) no se cae en silencio.
+    """
+    lineas = [l.strip() for l in UNIT_PATH.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
+    assert "Environment=SEAL_AGENT=%i" in lineas
+    assert not any(l.startswith("Environment=SEAL_AGENT=") and l != "Environment=SEAL_AGENT=%i" for l in lineas)
+    pre = [l for l in lineas if l.startswith("ExecStartPre=")]
+    start = [l for l in lineas if l.startswith("ExecStart=")]
+    assert len(pre) == 1 and pre[0].endswith("seal_agent_runtime_supervisor.py --agent %i --once")
+    assert len(start) == 1 and " --agent %i" in start[0] and "--once" not in start[0]
+    assert "NoNewPrivileges=true" in lineas
+    assert "UMask=0077" in lineas
+
+
 def _fake_proc(root: Path, pid: int, *, name: str, agent: str) -> None:
     proc = root / str(pid)
     proc.mkdir(parents=True)

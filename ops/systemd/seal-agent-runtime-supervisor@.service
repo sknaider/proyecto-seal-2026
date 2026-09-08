@@ -1,0 +1,27 @@
+# Plantilla del supervisor de asientos Claude (tools/seal_agent_runtime_supervisor.py).
+# RECONSTRUIDA 8-sep-2026 (ADA): la original nunca entró a git y murió con el borrado del home del 7-sep.
+# Las unidades vivas seal-agent-runtime-supervisor@{JARVIS,ALICE}.service de hoy NO son esta plantilla:
+# se reconstruyeron desde el proceso vivo como lanzadores tmux directos. Esta plantilla se versiona
+# para que la suite del sujeto la ejercite; instalarla es decisión del orquestador (toca asientos ajenos).
+#
+# Contrato (fail-closed): el preflight de una sola pasada adopta un asiento existente sin tocarlo y sólo lanza
+# cuando faltan tmux y runtime; un runtime sin tmux es ambiguo y se deja intacto. Corre ANTES de los
+# lanzadores legados de arranque para que ningún cuerpo se duplique.
+[Unit]
+Description=SEAL runtime supervisor for %i (fail-closed: adopta el asiento, lanza sólo si falta)
+After=default.target
+Before=seal-boot-wake.service alice-terminal.service fable-terminal.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+Environment=SEAL_AGENT=%i
+ExecStartPre=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/tools/seal_agent_runtime_supervisor.py --agent %i --once
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/tools/seal_agent_runtime_supervisor.py --agent %i --interval 10
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

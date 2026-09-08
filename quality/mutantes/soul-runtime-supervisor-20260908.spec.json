@@ -1,0 +1,55 @@
+{
+ "change_id": "soul-runtime-supervisor-20260908",
+ "reviewer": "NEXUS",
+ "manifest": "quality/manifests/soul-runtime-supervisor-20260908.json",
+ "tests": [
+  [
+   "tools/test_seal_agent_runtime_supervisor.py"
+  ]
+ ],
+ "_doc": "Precheck del owner (ADA) a un archivo de scratch; la evidencia oficial quality/mutation-soul-runtime-supervisor-20260908.json la produce el revisor al correr esta spec.",
+ "mutants": [
+  {
+   "id": "ada-u1-preflight-sin-once",
+   "subject": "ops/systemd/seal-agent-runtime-supervisor@.service",
+   "ancla": "ExecStartPre=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/tools/seal_agent_runtime_supervisor.py --agent %i --once\n",
+   "reemplazo": "ExecStartPre=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/tools/seal_agent_runtime_supervisor.py --agent %i\n",
+   "why": "el preflight se vuelve un bucle infinito: la unidad nunca arranca el servicio"
+  },
+  {
+   "id": "ada-u2-sin-before-a-los-lanzadores-legados",
+   "subject": "ops/systemd/seal-agent-runtime-supervisor@.service",
+   "ancla": "Before=seal-boot-wake.service alice-terminal.service fable-terminal.service\n",
+   "reemplazo": "Before=seal-boot-wake.service\n",
+   "why": "los lanzadores legados pueden arrancar antes del preflight y duplicar un asiento"
+  },
+  {
+   "id": "ada-p3-adopta-identidad-duplicada",
+   "subject": "tools/seal_agent_runtime_supervisor.py",
+   "ancla": "        if len(runtimes) > 1:\n            return {\n                \"ok\": False,\n                \"agent\": agent,\n                \"status\": \"duplicate_identity\",\n",
+   "reemplazo": "        if False:\n            return {\n                \"ok\": False,\n                \"agent\": agent,\n                \"status\": \"duplicate_identity\",\n",
+   "why": "dos runtimes de la misma identidad se adoptan como si fuera uno"
+  },
+  {
+   "id": "ada-p4-lanza-con-runtime-sin-tmux",
+   "subject": "tools/seal_agent_runtime_supervisor.py",
+   "ancla": "    existing = list(existing_scan.pids)\n    if existing:\n",
+   "reemplazo": "    existing = list(existing_scan.pids)\n    if False:\n",
+   "why": "con un runtime vivo sin tmux, lanza otro: duplica el cuerpo (el caso ambiguo deja de fallar cerrado)"
+  },
+  {
+   "id": "ada-p5-escaneo-indeterminado-avanza",
+   "subject": "tools/seal_agent_runtime_supervisor.py",
+   "ancla": "    existing_scan = scan_primary_runtimes(agent)\n    if not existing_scan.determined:\n",
+   "reemplazo": "    existing_scan = scan_primary_runtimes(agent)\n    if False:\n",
+   "why": "un /proc ilegible se trata como vacio y se lanza un asiento a ciegas"
+  },
+  {
+   "id": "ada-p6-lock-no-acotado-por-agente",
+   "subject": "tools/seal_agent_runtime_supervisor.py",
+   "ancla": "    lock_path = lock_root / f\"seal-agent-runtime-supervisor-{agent.upper()}.lock\"\n",
+   "reemplazo": "    lock_path = lock_root / \"seal-agent-runtime-supervisor.lock\"\n",
+   "why": "un solo lock para los cinco: el supervisor de uno bloquea al de los demas"
+  }
+ ]
+}
