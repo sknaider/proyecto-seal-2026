@@ -1,0 +1,50 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "reviewer": "JARVIS",
+  "killed": 5,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 5,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "messages/nexus_dm_poller_v2.py": "1c414ce318d5ff116abd1e95b395851c57a2deb22c82b7da879eef8e43b0df5e",
+    "messages/tests/test_nexus_dm_poller_v2_p1.py": "2f451d1f7cd4502dbc7977125a315d0dde497c299f2a25ecf852eeb94a95dea1"
+  },
+  "baseline": "11 passed in 0.03s",
+  "mutants": [
+    {
+      "id": "P1-cursor-roto-va-a-1970",
+      "status": "killed",
+      "killed_by": ["test_qa_control_un_cursor_ILEGIBLE_arranca_en_AHORA_no_en_el_principio"],
+      "result": "1 failed, 10 passed"
+    },
+    {
+      "id": "P2-el-log-lleva-el-contenido",
+      "status": "killed",
+      "killed_by": ["test_qa_negative_el_resumen_del_log_NO_lleva_el_texto", "test_qa_control_una_pasada_completa_no_filtra_el_texto"],
+      "result": "2 failed, 9 passed"
+    },
+    {
+      "id": "P3-escribe-pisando-el-inbox",
+      "status": "killed",
+      "killed_by": ["test_anexa_sin_pisar_lo_que_ya_estaba"],
+      "result": "1 failed, 10 passed"
+    },
+    {
+      "id": "P4-cursor-avanza-sin-filas",
+      "status": "killed",
+      "killed_by": ["test_qa_negative_sin_filas_NO_toca_el_cursor"],
+      "result": "1 failed, 10 passed"
+    },
+    {
+      "id": "P5-cursor-al-minimo",
+      "status": "killed",
+      "killed_by": ["test_el_cursor_avanza_al_MAXIMO_procesado"],
+      "result": "1 failed, 10 passed"
+    }
+  ],
+  "method": "copia fresca por mutante bajo scratchpad de sesion (/tmp/claude-1000/.../scratchpad/mut_poller_<ID>/). Baseline 11 verdes antes de cada mutante. Mutacion aplicada con python3 replace exacto del ancla (verificada antes de aplicar). Tests corridos desde la copia con interprete venv. Arbol vivo intacto."
+}

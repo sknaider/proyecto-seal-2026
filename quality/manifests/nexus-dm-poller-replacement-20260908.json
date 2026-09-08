@@ -1,0 +1,142 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-dm-poller-replacement-20260908",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "messages/nexus_dm_poller_v2.py": "1c414ce318d5ff116abd1e95b395851c57a2deb22c82b7da879eef8e43b0df5e",
+      "messages/tests/test_nexus_dm_poller_v2_p1.py": "2f451d1f7cd4502dbc7977125a315d0dde497c299f2a25ecf852eeb94a95dea1"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-08T23:00:00Z",
+      "evidence": "11/11 tests PASSED (baseline independiente). Mutantes: P1 KILLED (cursor ilegible va a 1970 → test_qa_control_un_cursor_ILEGIBLE_arranca_en_AHORA), P2 KILLED x2 (log lleva contenido → test_qa_negative_el_resumen_del_log + test_qa_control_una_pasada_completa_no_filtra), P3 KILLED (escribe pisando inbox con 'w' → test_anexa_sin_pisar), P4 KILLED (cursor avanza sin filas → test_qa_negative_sin_filas_NO_toca_el_cursor), P5 KILLED (cursor al minimo → test_el_cursor_avanza_al_MAXIMO). 5/5 KILLED, 100%. SHAs verificados en disco. Tres defectos del hermano ada_dm_poller verificados ausentes: DSN hardcodeado (test_qa_control_no_hay_ninguna_credencial), contenido en log (P2), intestable.",
+      "reviewed_sha256": {
+        "messages/nexus_dm_poller_v2.py": "1c414ce318d5ff116abd1e95b395851c57a2deb22c82b7da879eef8e43b0df5e",
+        "messages/tests/test_nexus_dm_poller_v2_p1.py": "2f451d1f7cd4502dbc7977125a315d0dde497c299f2a25ecf852eeb94a95dea1"
+      },
+      "manifest_digest": "52bcf21a602a2d982c83527cb29e35ffed3a52fb91256d1adb540332f089997a"
+    }
+  },
+  "_por_que": "messages/nexus_dm_poller.py se perdio el 7-sep y corre solo en memoria (PID 32819): no esta en disco, ni en git, ni en el respaldo, y Python no deja el archivo abierto, asi que NO hay forma de recuperarlo. Este es un REEMPLAZO NUEVO con nombre propio. Ponerle el nombre del original haria que todo lo que lo referencia afirme algo falso — la misma regla que se aplico a los dos `consolidate` de JARVIS.",
+  "subjects": [
+    "messages/nexus_dm_poller_v2.py"
+  ],
+  "tests": [
+    "messages/tests/test_nexus_dm_poller_v2_p1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-poller-v2",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_nexus_dm_poller_v2_p1.py"
+      ]
+    },
+    {
+      "id": "qa_positive-formato-y-escritura",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_dm_poller_v2_p1.py",
+        "-k",
+        "qa_positive or monitor or anexa"
+      ]
+    },
+    {
+      "id": "qa_negative-privacidad-y-cursor",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_dm_poller_v2_p1.py",
+        "-k",
+        "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-inundacion-y-fugas",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_dm_poller_v2_p1.py",
+        "-k",
+        "qa_control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages"
+    ],
+    "omit": [
+      "messages/tests/*",
+      "messages/test_*"
+    ],
+    "pytest_args": [
+      "-q",
+      "messages/tests/test_nexus_dm_poller_v2_p1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-nexus-dm-poller-replacement-20260908.json",
+  "mutation_spec": "quality/mutantes/nexus-dm-poller-replacement-20260908.spec.json",
+  "delivery": {
+    "status": "verified",
+    "effect": "Escribe en nexus_inbox.jsonl la MISMA forma de linea que seal_dm_monitor.sh sabe leer, avanza el cursor al maximo procesado y NUNCA registra el contenido del DM en el log del servicio.",
+    "evidence": "11/11 brazos PASSED corridos por el revisor independiente (JARVIS). Privacidad verificada por efecto: centinela TEXTO-SINTETICO-DE-UN-DM-NO-DEBE-APARECER-EN-EL-LOG ausente del log y de la salida de una pasada completa. Cursor ilegible arranca en AHORA (no 1970). Inbox se anexa (no pisa). Cursor avanza al maximo procesado.",
+    "assertion": "Con un texto centinela en el DM, ni el resumen del log ni la salida de una pasada completa lo contienen; el cursor ilegible arranca en AHORA y no en 1970.",
+    "command": {
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_dm_poller_v2_p1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "11 passed"
+    }
+  },
+  "tres_defectos_de_los_hermanos_que_NO_hereda": {
+    "1_dsn_cableado": "ada_dm_poller.py lleva la cadena de conexion con la contrasena en el archivo. v2 la lee con tools/seal_observer_credencial.py.",
+    "2_contenido_del_DM_en_el_log": "El hermano hace print del contenido: eso manda correspondencia privada al journal, que lee cualquiera con acceso al diario. v2 registra remitente, canal y LARGO. Dos brazos y el mutante P2 lo fijan.",
+    "3_intestable": "La conexion vivia dentro del bucle. En v2 la busqueda es un parametro inyectable y los tests corren sin base de datos."
+  },
+  "decisiones_declaradas": {
+    "alcance_igual_al_original": "Escucha SOLO dm:nexus:william, como el original. Ampliar a todos los dm:nexus:* duplicaria con la via del monitor de canal. Un reemplazo REEMPLAZA; ampliar es otra decision.",
+    "cursor_ilegible_arranca_AHORA": "Opuesto al dedup de alertas y a proposito: alli el riesgo es el silencio, aca la INUNDACION. Un cursor roto que arranque en 1970 vuelca la historia entera al inbox.",
+    "el_error_registra_el_TIPO": "Una excepcion de asyncpg puede traer la cadena de conexion completa."
+  },
+  "riesgo_que_NO_baja": "Mientras el PID 32819 viva, el original vive; cuando muera, se fue. Un reemplazo probado NO es recuperarlo. El intercambio se hace coordinado: arrancar v2, verificar, recien despues parar el viejo.",
+  "nota_para_el_revisor": {
+    "sha_sujeto": "1c414ce318d5ff116abd1e95b395851c57a2deb22c82b7da879eef8e43b0df5e",
+    "sha_test": "2f451d1f7cd4502dbc7977125a315d0dde497c299f2a25ecf852eeb94a95dea1",
+    "mutacion_del_owner": "control 11 verdes, 5/5 MUERTOS (P1 cursor a 1970, P2 log con contenido, P3 escribe pisando, P4 cursor avanza sin filas, P5 cursor al minimo). La que vale es la tuya."
+  }
+}
