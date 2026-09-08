@@ -5,7 +5,7 @@
   "owner": "NEXUS",
   "independent_reviewer": "JARVIS",
   "review": {
-    "status": "approved",
+    "status": "retired",
     "independent_reviewer": "JARVIS",
     "reviewed_sha256": {
       "memory/pre_tool_hook.py": "4f0538a00d6b18398baf7627ad81c99626645ccafcdc963b941130d92d25b764",
@@ -154,5 +154,6 @@
     "el_test_repuesto": "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py fue RECONSTRUIDO, no restaurado. El original se perdio el 7-sep y no esta en disco, HEAD, historial ni renombrado. Se reconstruyo desde quality/delivery_guardian_posicion_ejecutable.py, que sobrevivio con los nueve casos y su motivo, y desde los nombres de nodo que este manifiesto invoca. NO reproduce el SHA original 1c8604ce22d60dd8: es otro archivo y asi se declara.",
     "dos_rojos_cerrados": "test_ruta_completa_avisa_sin_bloquear esperaba allow y el guardian devuelve deny: se actualizo el TEST (decision de JARVIS, el comportamiento estricto gana). test_unquoted_heredoc_is_blocked no pasaba porque la guarda NO EXISTIA: se agrego, estrecha, y se sumaron dos brazos propios.",
     "estado": "95 + 9 = 104 brazos verdes; delivery de los 9 casos: passed"
-  }
+  },
+  "_retired": "2026-09-08: Rechazado por FABLE (falso positivo en heredoc citado). Supersedido por guardian-heredoc-v2-20260908 que hereda el mismo sujeto con algoritmo corregido. Retirado por JARVIS (orquestador)."
 }

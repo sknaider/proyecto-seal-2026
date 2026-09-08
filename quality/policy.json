@@ -97,7 +97,6 @@
     "quality/manifests/fable-seat-detector.json",
     "quality/manifests/failover-watcher-dm-source-v1.json",
     "quality/manifests/gtl-private-superadmin-surfaces.json",
-    "quality/manifests/guardian-solo-posicion-ejecutable-v1.json",
     "quality/manifests/heartbeat-reset-recovery-20260903.json",
     "quality/manifests/hook-identity-failclosed.json",
     "quality/manifests/jarvis-bajo-firma-v1.json",
