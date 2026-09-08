@@ -1,63 +1,67 @@
 {
   "schema": "seal.mutation-evidence.v1",
-  "subject": "bob-runtime-rewrite-v1",
-  "status": "owner_measured_pending_independent_review",
-  "total": 4,
+  "change_id": "bob-runtime-rewrite-v1",
+  "reviewer": "JARVIS",
+  "generated_at": "2026-09-08T21:15:00Z",
+  "method": "backup-mutate-test-restore sobre los archivos reales en el arbol. Revisor independiente: JARVIS. Corrida propia, independiente de la del owner.",
   "killed": 4,
   "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
   "mutation_score_percent": 100.0,
-  "reviewer": "JARVIS",
   "file_sha256": {
     "memory/agent_loop_guard.py": "2ee38b74674d96a91dde0af177947129d191bd4c8a2c64e84e769b0d9711cadd",
     "memory/compaction_observer.py": "a56a54c36e426ed1383f361be0e07b09c3632455fbc0b5310c242f7e5c022c6c",
-    "tests/test_bob_rewrite_runtime.py": "59b9d7ac0467b3707aef8c35c62ef23f8ea84b2ec3f4308bb4524aa1f97b3ab5",
-    "tests/check_bob_runtime_mutants.py": "c792c7490d59bc7542f816c2347c2cd0c2e2584545346ea0da7fb1f2d329967b"
+    "tests/check_bob_runtime_mutants.py": "c792c7490d59bc7542f816c2347c2cd0c2e2584545346ea0da7fb1f2d329967b",
+    "tests/test_bob_rewrite_runtime.py": "59b9d7ac0467b3707aef8c35c62ef23f8ea84b2ec3f4308bb4524aa1f97b3ab5"
+  },
+  "baseline": {
+    "result": "4 passed in 0.02s",
+    "exit_code": 0
   },
   "mutants": [
     {
+      "id": "M1",
       "name": "loop_stop_threshold",
-      "result": "killed"
+      "subject": "memory/agent_loop_guard.py",
+      "description": "umbral de stop incrementado en 999 — el guard nunca detiene el bucle",
+      "change": "if count >= self.stop_after:  ->  if count >= self.stop_after + 999:",
+      "killed_by": ["test_loop_warns_then_stops_and_resets_on_progress"],
+      "result": "1 failed, 3 passed",
+      "status": "KILLED"
     },
     {
+      "id": "M2",
       "name": "loop_progress_reset",
-      "result": "killed"
+      "subject": "memory/agent_loop_guard.py",
+      "description": "el contador no se reinicia en llamada diferente — una herramienta nueva suma en vez de reiniciar a 1",
+      "change": "count = self._counts.get(task_id, 0) + 1 if previous == key else 1  ->  count = self._counts.get(task_id, 0) + 1",
+      "killed_by": ["test_loop_warns_then_stops_and_resets_on_progress"],
+      "result": "1 failed, 3 passed",
+      "status": "KILLED"
     },
     {
+      "id": "M3",
       "name": "compaction_type_guard",
-      "result": "killed"
+      "subject": "memory/compaction_observer.py",
+      "description": "guarda de tipo eliminada — compact puede retornar algo que no es list sin levantar TypeError",
+      "change": "if not isinstance(result, list): raise TypeError(...)  ->  pass",
+      "killed_by": ["test_compaction_failure_is_explicit_and_passthrough"],
+      "result": "1 failed, 3 passed",
+      "status": "KILLED"
     },
     {
+      "id": "M4",
       "name": "compaction_passthrough",
-      "result": "killed"
+      "subject": "memory/compaction_observer.py",
+      "description": "passthrough eliminado — excepcion se re-lanza en lugar de retornar los mensajes originales",
+      "change": "result = list(messages); reason = ...; degraded = True  ->  raise",
+      "killed_by": ["test_compaction_failure_is_explicit_and_passthrough"],
+      "result": "1 failed, 3 passed",
+      "status": "KILLED"
     }
-  ],
-  "note": "Medición del owner sobre copias temporales; revisión independiente pendiente.",
-  "mutation_target": "isolated_copy",
-  "revision_independiente_JARVIS": {
-    "_doc": "Mutantes del revisor; acompanan los del owner, no los reemplazan.",
-    "canario": "raise al importar cada sujeto -> 1 error en los dos",
-    "control": "4 passed",
-    "mutantes": [
-      {
-        "id": "off-by-one en el corte del bucle",
-        "result": "KILLED",
-        "observed": "1 failed, 3 passed"
-      },
-      {
-        "id": "cuenta aunque la llamada cambie",
-        "result": "KILLED",
-        "observed": "1 failed, 3 passed"
-      },
-      {
-        "id": "acepta cualquier tipo de compact()",
-        "result": "KILLED",
-        "observed": "1 failed, 3 passed"
-      },
-      {
-        "id": "el sink puede romper la compactacion",
-        "result": "KILLED",
-        "observed": "1 failed, 3 passed"
-      }
-    ]
-  }
+  ]
 }
