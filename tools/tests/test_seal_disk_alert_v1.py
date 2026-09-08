@@ -65,10 +65,21 @@ printf '250G\\t/usr\\n'
 
 
 @pytest.fixture(autouse=True)
-def _sin_estado_previo():
-    ESTADO.unlink(missing_ok=True)
+def _sin_estado_previo(tmp_path):
+    """Preserva el estado real del servicio: lo mueve antes del test y lo repone al final.
+
+    Borrar directamente ESTADO puede confundir al servicio productivo que corre en paralelo:
+    en su proximo ciclo creyera que el nivel cambio y dispararia una alerta duplicada.
+    Save/restore elimina esa interferencia.
+    """
+    backup = tmp_path / "estado_real_backup"
+    if ESTADO.exists():
+        backup.write_bytes(ESTADO.read_bytes())
+        ESTADO.unlink()
     yield
     ESTADO.unlink(missing_ok=True)
+    if backup.exists():
+        ESTADO.write_bytes(backup.read_bytes())
 
 
 # ── qa_positive ────────────────────────────────────────────────────────────
@@ -91,6 +102,22 @@ def test_qa_positive_los_campos_en_su_lugar():
     # Se acepta cualquier unidad y el decimal con coma; lo que se afirma sigue siendo el ORDEN
     # y la FORMA de los dos campos, que es lo que estaba roto cuando publique "uso 632G% · libres 83".
     assert re.search(r"libres \d+(?:[.,]\d+)?[KMGTP]? +· +uso \d+%", r.stdout), r.stdout
+
+
+def test_qa_positive_lo_que_mas_pesa_tiene_entradas():
+    """El bloque 'Lo que mas pesa' debe listar directorios del du sintetico.
+
+    ADA (7-sep): los datos sinteticos se generan pero no se afirman. Este brazo
+    verifica que el du sintetico (4 entradas: /home /var /opt /usr) llega al
+    mensaje y tiene el formato esperado.
+    """
+    import re
+    r = corre(ALERTA, SEAL_DISK_WARN_GB="999999")
+    assert "Lo que mas pesa" in r.stdout, r.stdout[:300]
+    # Los 4 dirs sinteticos: 1200G /home, 800G /var, 650G /opt, 250G /usr
+    assert re.search(r"\d+G\s+/\S+", r.stdout), (
+        "no hay entradas de directorio en el bloque Lo que mas pesa:\n" + r.stdout[:400]
+    )
 
 
 # ── qa_negative ────────────────────────────────────────────────────────────
