@@ -47,3 +47,5 @@ del MCP DSN la corre ALICE sola. `tools/arena_remutar_run.sh` tiene ahora `SEAL_
 temporal → arena con los sujetos sin commit; verificado por efecto, índice compartido intacto). Sin commit hasta
 manifiesto. Pendiente de diseño (gate, NEXUS): un manifiesto pending y sucio bloquea el commit → obliga a mutar
 antes de commitear → empuja a mutar en el árbol. Hay que romper ese ciclo en `gate.py staged`.
+
+Añadido 19:53: en modo SEAL_ARENA_DESDE_ARBOL=1 el runner también agrega (git add -f por ruta explícita al índice temporal) los archivos nombrados por el spec y su manifiesto aunque sean nuevos/untracked; verificado con el spec nexus-mcp-postgres-dsn (el test untracked aparece en la arena).
