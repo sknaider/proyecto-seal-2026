@@ -1,0 +1,116 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-hook-captura-guarda-20260908",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "_por_que": "Tres emergencias termicas el 8-sep (SoC 90-93 C) por el mismo ciclo: cada turno de cada agente dispara session_capture_hook.sh, que lee el transcript ENTERO, llama al modelo para clasificar emocion y ademas corre consolidate.py --quick (su propio comentario: ~2-3 min). Se midieron TRES capturas simultaneas y nada impedia diez. Cuanto mas hablaba el equipo, mas calor hacia.",
+  "review": {
+    "status": "pending"
+  },
+  "subjects": [
+    "memory/session_capture_hook.sh"
+  ],
+  "tests": [
+    "memory/tests/test_nexus_hook_captura_guarda_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-guarda",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_nexus_hook_captura_guarda_v1.py"
+      ]
+    },
+    {
+      "id": "qa_positive-deja-pasar",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_nexus_hook_captura_guarda_v1.py",
+        "-k",
+        "qa_positive"
+      ]
+    },
+    {
+      "id": "qa_negative-frena",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_nexus_hook_captura_guarda_v1.py",
+        "-k",
+        "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-ante-la-duda-capturar",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_nexus_hook_captura_guarda_v1.py",
+        "-k",
+        "qa_control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "memory"
+    ],
+    "omit": [
+      "memory/test_*",
+      "memory/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_nexus_hook_captura_guarda_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-nexus-hook-captura-guarda-20260908.json",
+  "mutation_spec": "quality/mutantes/nexus-hook-captura-guarda-20260908.spec.json",
+  "delivery": {
+    "status": "verified",
+    "effect": "Una sola captura a la vez en la maquina (flock -n) y como mucho una cada 180 s por agente. Ante estado ilegible se CAPTURA, no se saltea.",
+    "assertion": "Con el candado sostenido desde fuera el hook sale sin trabajar; al soltarlo vuelve a pasar. Una segunda corrida inmediata se saltea; con intervalo 0 pasa.",
+    "command": {
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "memory/tests/test_nexus_hook_captura_guarda_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "7 passed"
+    }
+  },
+  "por_que_saltear_no_pierde_memoria": "session_capture.py reprocesa el transcript COMPLETO en cada corrida, asi que la siguiente cubre lo mismo. El defecto que encarece cada turno es justo el que hace inofensivo el salteo. SI ALGUN DIA LA CAPTURA PASA A SER INCREMENTAL, esta guarda hay que rehacerla: ahi si se perderia.",
+  "fuera_de_alcance_declarado": "El hook elige el agente por CWD y manda a ADA todo lo que este bajo proyecto-seal salvo memory/. NEXUS, ALICE y FABLE se capturan como ADA y sobre SU transcript. El calor y esa mala atribucion salen de la misma linea, pero cambiar la atribucion de memoria merece su propia decision y NO se toca aqui.",
+  "nota_para_el_revisor": {
+    "sha_sujeto": "f840036ab93f6c093711a76e375162c0c054784c43b0d45cd1a34f7066189ffb",
+    "sha_test": "e41bc22f83e82d15e585dc4f27a8c47cbdfcf35ed306e56d9eda942dbace51f1",
+    "mutacion_del_owner": "control 7 verdes, 5/5 MUERTOS. La que vale para el gate es la tuya.",
+    "un_mutante_que_NO_puse": "cambiar `flock -n` por `flock` bloqueante: colgaria la corrida hasta el timeout en vez de fallar limpio. Queda dicho para que nadie lo agregue sin querer."
+  }
+}
