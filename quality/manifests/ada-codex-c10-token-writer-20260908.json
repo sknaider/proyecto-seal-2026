@@ -1,0 +1,135 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "ada-codex-c10-token-writer-20260908",
+  "owner": "ADA",
+  "independent_reviewer": "NEXUS",
+  "_doc": [
+    "Escritor C10 del cuerpo Codex de ADA, reconstruido el 8-sep-2026: el original nunca entro a git y",
+    "murio con el borrado del home del 7-sep; la unidad ada-codex-c10-token-writer (timer 15 min) fallaba",
+    "con 'No such file'. Suma last_token_usage de los eventos token_count de ~/.codex/sessions del dia",
+    "Lima y hace el mismo UPSERT (GREATEST, RLS app.agent=ADA) que memory/c10_token_writer_shared.py.",
+    "Credencial por resolve_db_dsn() (credentials.env), nunca literal. Fallo de escritura -> exit 2",
+    "para que OnFailure avise. Limite declarado: dos cuerpos en una fila = max, no suma.",
+    "Luz verde de William 11:08 y JARVIS 11:02 (regla de oro 8-sep)."
+  ],
+  "deletions": [],
+  "subjects": [
+    "messages/ada_codex_c10_token_writer.py",
+    "systemd/user/ada-codex-c10-token-writer.service",
+    "systemd/user/ada-codex-c10-token-writer.timer"
+  ],
+  "tests": [
+    "messages/tests/test_ada_codex_c10_token_writer.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-mide-sin-escribir",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_ada_codex_c10_token_writer.py"
+      ]
+    },
+    {
+      "id": "positive-suma-el-dia-lima-en-varios-archivos",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_ada_codex_c10_token_writer.py::test_positivo_suma_last_token_usage_del_dia_en_varios_archivos"
+      ]
+    },
+    {
+      "id": "negative-otro-dia-corrupto-otro-tipo-y-sin-sesiones",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_ada_codex_c10_token_writer.py::test_negativo_eventos_de_otro_dia_lineas_corruptas_y_otros_tipos_no_cuentan",
+        "messages/tests/test_ada_codex_c10_token_writer.py::test_negativo_sin_sesiones_mide_cero_y_no_escribe"
+      ]
+    },
+    {
+      "id": "control-rls-upsert-exit2-y-sin-credencial-literal",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_ada_codex_c10_token_writer.py::test_control_write_fija_app_agent_ADA_y_hace_el_upsert_con_los_totales",
+        "messages/tests/test_ada_codex_c10_token_writer.py::test_control_write_que_falla_sale_con_2_y_written_false",
+        "messages/tests/test_ada_codex_c10_token_writer.py::test_control_la_credencial_no_esta_en_el_codigo"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/ada_codex_c10_token_writer.py"
+    ],
+    "omit": [
+      "messages/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-p",
+      "no:cacheprovider",
+      "messages/tests/test_ada_codex_c10_token_writer.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "8-sep-2026 11:12 Lima: unidad reescrita con el venv (la reconstruida usaba /usr/bin/python3) e instalada identica a systemd/user/; systemd-analyze verify sin quejas; `systemctl --user start ada-codex-c10-token-writer.service` -> Result=success, journal: {\"event_count\": 72, \"file_count\": 2, \"input_tokens\": 12639547, \"output_tokens\": 26044, \"mode\": \"write\", \"written\": true}; fila soul_v3.agent_token_budget agent=ADA leida bajo app.agent=ADA: consumed_today_input=12639547, consumed_today_output=26044, last_reset_at 16:12:04Z. Timer cada 15 min (OnCalendar *:0/15) sigue activo.",
+    "command": {
+      "id": "delivery-c10-mide-hoy",
+      "argv": [
+        "python3",
+        "messages/ada_codex_c10_token_writer.py",
+        "--json"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "\"agent\": \"ADA\""
+    }
+  },
+  "review": {
+    "status": "approved",
+    "historial": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "reviewed_sha256": {
+        "messages/ada_codex_c10_token_writer.py": "43445e6154260f84aa4970eec072a984efa598054c6c3dc5c7ef16fd53bcad2f",
+        "systemd/user/ada-codex-c10-token-writer.service": "fadcda374b174638e7ab55b0d59af4d1b1e239c5318ce9afc98af47221499de5",
+        "systemd/user/ada-codex-c10-token-writer.timer": "e07ce5ed8979af12b7d575c5dbf1c896f2cb9a4193d4d47cb8e3835d6a79ec84",
+        "messages/tests/test_ada_codex_c10_token_writer.py": "40519c7a5f87005054dbf85edc8e25aa06beb62963e941e97c1fc941a4ffea7c"
+      },
+      "evidence": "Revision independiente de NEXUS, 8-sep 11:18. Control 7 passed; 6/6 mutantes MUERTOS en corrida MIA, una copia nueva por mutante bajo /tmp, los 6 anclas con una sola aparicion. DECLARADO: la evidencia anterior decia reviewer=NEXUS sin que yo la hubiera corrido -la produjo ADA de buena fe; `arena_remutar_revisor.py:104` copia el reviewer de la SPEC, no de quien ejecuta-. La reescribi con mi corrida real. Los dos mutantes de ADA (m5 upsert sin GREATEST, m6 credencial literal) son mejores que los cuatro mios: atacan el invariante que promete el docstring y la regresion del incidente.",
+      "mutation_evidence_v2": "quality/mutation-ada-codex-c10-token-writer-20260908.json",
+      "manifest_digest": "e764c9ea584738c59561a5d72fb42a2420ae8d03153bfbb2f5525cff2ed54084"
+    }
+  },
+  "mutation_evidence": "quality/mutation-ada-codex-c10-token-writer-20260908.json",
+  "mutation_baseline_percent": 100.0,
+  "mutation_target": "isolated_copy"
+}

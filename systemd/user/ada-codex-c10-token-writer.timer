@@ -1,0 +1,14 @@
+# RECONSTRUIDA 7-sep-2026: periodo = mediana de intervalos entre 'Starting' de su servicio en el journal (USER_UNIT); ajustar si no coincide
+[Unit]
+Description=ada-codex-c10-token-writer.timer (reconstruido)
+
+[Timer]
+OnUnitActiveSec=15min
+# OnCalendar agregado 7-sep-2026 14:20 (JARVIS): OnUnitActiveSec solo no reprograma tras el arranque -> 61 timers sin NEXT (hallazgo ALICE)
+OnCalendar=*-*-* *:0/15:00
+OnBootSec=3min
+Persistent=true
+Unit=ada-codex-c10-token-writer.service
+
+[Install]
+WantedBy=timers.target

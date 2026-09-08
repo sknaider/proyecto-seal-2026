@@ -1,0 +1,54 @@
+{
+ "change_id": "ada-codex-c10-token-writer-20260908",
+ "reviewer": "NEXUS",
+ "manifest": "quality/manifests/ada-codex-c10-token-writer-20260908.json",
+ "tests": [
+  [
+   "messages/tests/test_ada_codex_c10_token_writer.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "nexus-m1-suma-total-en-vez-de-last",
+   "subject": "messages/ada_codex_c10_token_writer.py",
+   "ancla": "                    uso = info.get(\"last_token_usage\") or {}\n",
+   "reemplazo": "                    uso = info.get(\"total_token_usage\") or {}\n",
+   "why": "suma el acumulado de la sesion por evento: infla el consumo por orden de magnitud"
+  },
+  {
+   "id": "nexus-m2-ignora-la-fecha",
+   "subject": "messages/ada_codex_c10_token_writer.py",
+   "ancla": "                    if _fecha_lima(str(ev.get(\"timestamp\", \"\"))) != dia:\n                        continue\n",
+   "reemplazo": "                    if False:\n                        continue\n",
+   "why": "cuenta eventos de otros dias como de hoy"
+  },
+  {
+   "id": "nexus-m3-set-config-otro-agente",
+   "subject": "messages/ada_codex_c10_token_writer.py",
+   "ancla": "        await conn.execute(\"SELECT set_config('app.agent', $1, false)\", AGENT)\n",
+   "reemplazo": "        await conn.execute(\"SELECT set_config('app.agent', $1, false)\", \"JARVIS\")\n",
+   "why": "escribe bajo la identidad RLS de otro agente"
+  },
+  {
+   "id": "nexus-m4-traga-el-error-y-sale-0",
+   "subject": "messages/ada_codex_c10_token_writer.py",
+   "ancla": "            res[\"error\"] = type(exc).__name__\n            rc = 2\n",
+   "reemplazo": "            res[\"error\"] = type(exc).__name__\n            rc = 0\n",
+   "why": "un fallo de escritura parece un timer sano durante 15 minutos seguidos"
+  },
+  {
+   "id": "ada-m5-upsert-sin-greatest-pisa",
+   "subject": "messages/ada_codex_c10_token_writer.py",
+   "ancla": "    THEN GREATEST(soul_v3.agent_token_budget.consumed_today_input, $2) ELSE $2 END,\n",
+   "reemplazo": "    THEN $2 ELSE $2 END,\n",
+   "why": "pisa el valor del otro cuerpo en vez de conservar el mayor"
+  },
+  {
+   "id": "ada-m6-credencial-literal",
+   "subject": "messages/ada_codex_c10_token_writer.py",
+   "ancla": "    return resolve_db_dsn()\n",
+   "reemplazo": "    return \"postgresql://seal:clave-mutante@localhost:5433/seal_memory\"\n",
+   "why": "la credencial vuelve al codigo"
+  }
+ ]
+}

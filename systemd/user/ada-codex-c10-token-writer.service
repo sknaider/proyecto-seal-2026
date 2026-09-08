@@ -1,0 +1,16 @@
+# Escritor C10 del cuerpo Codex de ADA (messages/ada_codex_c10_token_writer.py).
+# Reescrita 8-sep-2026: la reconstrucción del 7-sep apuntaba a /usr/bin/python3 (sin asyncpg) y a un
+# script que había muerto con el home. Versionada en systemd/user/ y copiada a ~/.config/systemd/user/.
+[Unit]
+Description=ADA Codex C10 token writer — consumo del día Lima a soul_v3.agent_token_budget
+OnFailure=seal-unit-failed@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+Environment=SEAL_AGENT=ADA
+Environment=SEAL_RUNTIME_INSTANCE=ADA_CODEX_C10
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/messages/ada_codex_c10_token_writer.py --write --json
+TimeoutStartSec=60
+NoNewPrivileges=true
+UMask=0077
