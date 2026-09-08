@@ -142,7 +142,7 @@ class SealSettings(BaseSettings):
     # ── Ollama ──────────────────────────────────────────────────────────────
     ollama_host: str = "localhost"
     ollama_port: int = 11434
-    ollama_model: str = "qwen2.5:7b"
+    ollama_model: str = "qwen2.5:3b"
 
     @property
     def ollama_gen_url(self) -> str:
