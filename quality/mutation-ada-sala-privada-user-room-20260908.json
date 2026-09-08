@@ -1,77 +1,202 @@
 {
- "schema": "seal.mutation-evidence.v1",
- "change_id": "ada-sala-privada-user-room-20260908",
- "reviewer": "JARVIS",
- "corrida_fecha": "2026-09-08T18:57:00Z",
- "file_sha256": {
-  "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
-  "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
-  "messages/tests/test_ada_sala_privada_v1.py": "62f630bf67a1752405670ae9a4671692ca0391ff9909b99719394490d806a783"
- },
- "killed": 5,
- "survived": 0,
- "total": 5,
- "no_tests": 0,
- "skipped": 0,
- "suspicious": 0,
- "timeout": 0,
- "mutation_score_percent": 100.0,
- "mutation_target": "isolated_copy",
- "control_sujeto_sin_mutar": {
-  "rc": 0,
-  "pytest_tail": "15 passed in 0.22s"
- },
- "mutantes": [
-  {
-   "id": "MA-sin-bloque-agente-sala",
-   "descripcion": "Eliminar el bloque if agente_sala completo: cualquier remitente pleno puede escribir en salas privadas",
-   "ancla": "    agente_sala = agente_de_canal_usuario(channel)\n    if agente_sala:",
-   "reemplazo": "    agente_sala = agente_de_canal_usuario(channel)\n    # bloque eliminado",
-   "resultado": "KILLED",
-   "rc": 1,
-   "killed_by": ["test_negativo_ALICE_ni_su_cuerpo_v2_ni_un_desconocido", "test_negativo_el_cuerpo_Codex_no_escribe_en_la_sala_exclusiva_de_Claude"],
-   "pytest_tail": "5 failed, 10 passed in 0.20s"
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "ada-sala-privada-user-room-20260908",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 7,
+  "survived": 0,
+  "total": 7,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "................                                                         [100%]\n16 passed in 0.29s",
+    "sha_sujetos_antes": {
+      "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+      "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5"
+    }
   },
-  {
-   "id": "MB-sin-cuerpo-sala-exclusivo",
-   "descripcion": "Quitar el if cuerpo_sala y usar siempre _es_cuerpo_del_agente: el cuerpo Codex puede escribir en la sala exclusiva de Claude",
-   "ancla": "        if cuerpo_sala:\n            return quien == cuerpo_sala\n        return _es_cuerpo_del_agente(quien, agente_sala)",
-   "reemplazo": "        return _es_cuerpo_del_agente(quien, agente_sala)",
-   "resultado": "KILLED",
-   "rc": 1,
-   "killed_by": ["test_negativo_el_cuerpo_Codex_no_escribe_en_la_sala_exclusiva_de_Claude"],
-   "pytest_tail": "1 failed, 14 passed in 0.22s"
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
   },
-  {
-   "id": "MC-humanos-denegados",
-   "descripcion": "Cambiar 'quien in _HUMANOS' a False: William no puede escribir en su propia sala",
-   "ancla": "        if quien in _HUMANOS:\n            return True",
-   "reemplazo": "        if False:  # mutante\n            return True",
-   "resultado": "KILLED",
-   "rc": 1,
-   "killed_by": ["test_positivo_William_puede_escribir_en_la_sala"],
-   "pytest_tail": "1 failed, 14 passed in 0.19s"
-  },
-  {
-   "id": "MD-cuerpo-canal-usuario-none",
-   "descripcion": "cuerpo_de_canal_usuario siempre devuelve None: deshabilita la exclusividad de cuerpo en salas con nombre",
-   "ancla": "def cuerpo_de_canal_usuario(channel: str) -> str | None:",
-   "reemplazo": "def cuerpo_de_canal_usuario(channel: str) -> str | None:\n    return None  # mutante",
-   "resultado": "KILLED",
-   "rc": 1,
-   "killed_by": ["test_positivo_solo_el_cuerpo_Claude_escribe_en_su_sala_exclusiva", "test_negativo_el_cuerpo_Codex_no_escribe_en_la_sala_exclusiva_de_Claude"],
-   "pytest_tail": "2 failed, 13 passed in 0.19s"
-  },
-  {
-   "id": "ME-agente-canal-usuario-none",
-   "descripcion": "agente_de_canal_usuario siempre devuelve None: las salas user: no tienen ACL especial",
-   "ancla": "def agente_de_canal_usuario(channel: str) -> str | None:",
-   "reemplazo": "def agente_de_canal_usuario(channel: str) -> str | None:\n    return None  # mutante",
-   "resultado": "KILLED",
-   "rc": 1,
-   "killed_by": ["test_negativo_ALICE_ni_su_cuerpo_v2_ni_un_desconocido", "test_negativo_el_cuerpo_Codex_no_escribe_en_la_sala_exclusiva_de_Claude"],
-   "pytest_tail": "6 failed, 9 passed in 0.20s"
+  "mutants": [
+    {
+      "id": "m1-default-vuelve-a-equipo",
+      "subject": "messages/chat_server.py",
+      "ancla": "    if agent and who != agent and not who.startswith(agent + \"_\") and not who.startswith(agent + \"-\"):\n        return agent\n",
+      "reemplazo": "    if False:\n        return agent\n",
+      "why": "la regresion exacta: William en su sala vuelve a ir a equipo",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "    if agent and who != agent and not who.startswith(agent + \"_\") and not who.startswith(agent + \"-\"):\n        return agent\n",
+        "reemplazo": "    if False:\n        return agent\n",
+        "ancla_sha256": "dda7d9623dbca6d5e291df2bb17c93317e86206308698bfb1e45a742a34a3b98",
+        "sujeto_sha256_antes": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_sala_privada_v1.py::test_control_el_default_to_en_la_sala_es_el_agente_no_equipo"
+      ],
+      "pytest_tail": ".........F......                                                         [100%]\n=================================== FAILURES ===================================\nE\n=========================== short test summary info ============================\nFAILED messages/tests/test_ada_sala_privada_v1.py::test_control_el_default_to_en_la_sala_es_el_agente_no_equipo\n1 failed, 15 passed in 0.30s\n[7 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m2-acl-deja-pasar-a-los-plenos",
+      "subject": "messages/channel_acl.py",
+      "ancla": "    if agente_sala:\n        if quien in _HUMANOS:\n            return True\n",
+      "reemplazo": "    if agente_sala:\n        if quien in _HUMANOS or quien in REMITENTES_PLENOS:\n            return True\n",
+      "why": "NEXUS y ALICE vuelven a escribir en la sala de ADA",
+      "registro": {
+        "subject": "messages/channel_acl.py",
+        "ancla": "    if agente_sala:\n        if quien in _HUMANOS:\n            return True\n",
+        "reemplazo": "    if agente_sala:\n        if quien in _HUMANOS or quien in REMITENTES_PLENOS:\n            return True\n",
+        "ancla_sha256": "095a09e0f4e33c8931bc9c0b411429f47bb870708b3e4097daf038d9bba21117",
+        "sujeto_sha256_antes": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_sala_privada_v1.py::test_negativo_NEXUS_no_puede_escribir_en_la_sala_de_ADA",
+        "messages/tests/test_ada_sala_privada_v1.py::test_negativo_ALICE_ni_su_cuerpo_v2_ni_un_desconocido",
+        "messages/tests/test_ada_sala_privada_v1.py::test_negativo_el_cuerpo_Codex_no_escribe_en_la_sala_exclusiva_de_Claude"
+      ],
+      "pytest_tail": "=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED messages/tests/test_ada_sala_privada_v1.py::test_negativo_NEXUS_no_puede_escribir_en_la_sala_de_ADA\nFAILED messages/tests/test_ada_sala_privada_v1.py::test_negativo_ALICE_ni_su_cuerpo_v2_ni_un_desconocido\nFAILED messages/tests/test_ada_sala_privada_v1.py::test_negativo_el_cuerpo_Codex_no_escribe_en_la_sala_exclusiva_de_Claude\n3 failed, 13 passed in 0.28s\n[22 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m3-prefijo-suelto",
+      "subject": "messages/channel_acl.py",
+      "ancla": "    return q == agente or q.startswith(agente + \"_\") or q.startswith(agente + \"-\")\n",
+      "reemplazo": "    return q.startswith(agente)\n",
+      "why": "ADAMANTIO pasa como cuerpo de ADA",
+      "registro": {
+        "subject": "messages/channel_acl.py",
+        "ancla": "    return q == agente or q.startswith(agente + \"_\") or q.startswith(agente + \"-\")\n",
+        "reemplazo": "    return q.startswith(agente)\n",
+        "ancla_sha256": "2bfcb9b40246f2818955e86741a3a8343cd73d08cde8f5c99d6203d2028d0c0d",
+        "sujeto_sha256_antes": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_sala_privada_v1.py::test_negativo_el_prefijo_suelto_tampoco_alcanza_en_una_sala_sin_cuerpo"
+      ],
+      "pytest_tail": "...............F                                                         [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED messages/tests/test_ada_sala_privada_v1.py::test_negativo_el_prefijo_suelto_tampoco_alcanza_en_una_sala_sin_cuerpo\n1 failed, 15 passed in 0.28s\n[10 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m4-humanos-afuera",
+      "subject": "messages/channel_acl.py",
+      "ancla": "        if quien in _HUMANOS:\n            return True\n",
+      "reemplazo": "        if quien in _HUMANOS:\n            return False\n",
+      "why": "William no puede escribir en su propia sala",
+      "registro": {
+        "subject": "messages/channel_acl.py",
+        "ancla": "        if quien in _HUMANOS:\n            return True\n",
+        "reemplazo": "        if quien in _HUMANOS:\n            return False\n",
+        "ancla_sha256": "d0d76fb01ea7021c8de39efde5dc28970083aa046ab1faf9082d5abd5c04fa18",
+        "sujeto_sha256_antes": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_sala_privada_v1.py::test_positivo_William_puede_escribir_en_la_sala"
+      ],
+      "pytest_tail": "....F...........                                                         [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED messages/tests/test_ada_sala_privada_v1.py::test_positivo_William_puede_escribir_en_la_sala\n1 failed, 15 passed in 0.28s\n[7 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m5-regex-acepta-cualquier-user",
+      "subject": "messages/channel_acl.py",
+      "ancla": "_CANAL_USUARIO = re.compile(r\"^user:\\d+:([a-z0-9]+)(?:-([a-z0-9_.-]+))?$\", re.IGNORECASE)\n",
+      "reemplazo": "_CANAL_USUARIO = re.compile(r\"^user:.*:([a-z0-9]+)(?:-([a-z0-9_.-]+))?$\", re.IGNORECASE)\n",
+      "why": "user:x:ada o users:1:ada se parsean como sala",
+      "registro": {
+        "subject": "messages/channel_acl.py",
+        "ancla": "_CANAL_USUARIO = re.compile(r\"^user:\\d+:([a-z0-9]+)(?:-([a-z0-9_.-]+))?$\", re.IGNORECASE)\n",
+        "reemplazo": "_CANAL_USUARIO = re.compile(r\"^user:.*:([a-z0-9]+)(?:-([a-z0-9_.-]+))?$\", re.IGNORECASE)\n",
+        "ancla_sha256": "a4df435f48b282dbe7f2fbf155a9ba748e79a1ecba76458f12ce1f13032f30d3",
+        "sujeto_sha256_antes": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_sala_privada_v1.py::test_unit_lo_que_no_es_sala_no_se_parsea"
+      ],
+      "pytest_tail": ".F..............                                                         [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED messages/tests/test_ada_sala_privada_v1.py::test_unit_lo_que_no_es_sala_no_se_parsea\n1 failed, 15 passed in 0.28s\n[10 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m6-to-explicito-ignorado",
+      "subject": "messages/chat_server.py",
+      "ancla": "    if str(requested or \"\").strip():\n        return str(requested).strip()\n",
+      "reemplazo": "    if False:\n        return str(requested).strip()\n",
+      "why": "un to explicito a JARVIS se pisa con el agente de la sala",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "    if str(requested or \"\").strip():\n        return str(requested).strip()\n",
+        "reemplazo": "    if False:\n        return str(requested).strip()\n",
+        "ancla_sha256": "318f053112d7b7997086c84054dd0a2f98d5d5fdc2383296dc2d9f211afcc7c2",
+        "sujeto_sha256_antes": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_sala_privada_v1.py::test_control_un_to_explicito_siempre_gana"
+      ],
+      "pytest_tail": "...........F....                                                         [100%]\n=================================== FAILURES ===================================\nE\n=========================== short test summary info ============================\nFAILED messages/tests/test_ada_sala_privada_v1.py::test_control_un_to_explicito_siempre_gana\n1 failed, 15 passed in 0.28s\n[7 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m7-cualquier-nombre-es-agente",
+      "subject": "messages/channel_acl.py",
+      "ancla": "    return agente if agente in _AGENTES_CON_SALA else None\n",
+      "reemplazo": "    return agente\n",
+      "why": "user:3:gtl-sistemas se vuelve sala del agente GTL y bloquea a todos en la sala de Henry",
+      "registro": {
+        "subject": "messages/channel_acl.py",
+        "ancla": "    return agente if agente in _AGENTES_CON_SALA else None\n",
+        "reemplazo": "    return agente\n",
+        "ancla_sha256": "773c7d270de0b7f2c0e803ab5fa855761881daedd31bb226c769db7b51573664",
+        "sujeto_sha256_antes": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ada_sala_privada_v1.py::test_control_una_sala_de_proyecto_no_es_una_sala_de_agente"
+      ],
+      "pytest_tail": "............F...                                                         [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED messages/tests/test_ada_sala_privada_v1.py::test_control_una_sala_de_proyecto_no_es_una_sala_de_agente\n1 failed, 15 passed in 0.28s\n[9 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+    "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+    "messages/tests/test_ada_sala_privada_studio_v1.py": "276fb9e7b0c0de3a938fbd4102a2da4fffd49db39219545abdf57d999b55a9f5",
+    "messages/tests/test_ada_sala_privada_v1.py": "1f0c9b59d16e7ec638b6664d0ecb8783b06abfaf2052849931f5198fa5185264",
+    "seal-studio/frontend/src/app/v2/claudeRoom.ts": "d71728d5e1bc76fd1a14ae40e072a163dcb6cab434f75b0247a954ccea25d9d1",
+    "seal-studio/frontend/src/app/v2/page.tsx": "38d53ca9c5ede380177e371bbaa952cf89562998609ae8a9b56c03c68cefa39e",
+    "seal-studio/frontend/tests/claudeRoom.test.mjs": "b53bd81609fb4c426110fa657af11ed617cf32bd003f8cabddcf9d40d243c6da"
   }
- ],
- "_nota": "JARVIS como revisor independiente. Sujeto principal: channel_acl.py (función puede_escribir + agente_de_canal_usuario + cuerpo_de_canal_usuario). 5/5 mutantes matados en copia aislada. Todos los mutantes críticos del carril sala-privada (sala sin protección, cuerpo no exclusivo, humanos denegados, funciones de canal nulas) son detectables por el test suite."
 }

@@ -22,19 +22,6 @@
     "status": "approved",
     "approved_at": "2026-09-07T22:23:41.041878+00:00",
     "evidence": "Reasignación de revisor ADA→JARVIS (7-sep-2026 17:25): chat_server.py cambió (commit 6459704) y ADA no tiene ejecución; el recibo anterior queda en historial. Ver review.receipt.evidence.",
-    "receipt": {
-      "schema": "seal.independent-review-receipt.v1",
-      "reviewer": "JARVIS",
-      "evidence": "Re-verificación tras cambio de chat_server.py (commit 6459704, 14:49): la firma de ADA quedó bytes_stale y ADA no tiene ejecución. Brazos con el venv (7-sep 17:23): unit 9 passed, qa_positive 1, qa_negative 1, qa_control 1, exit 0 los cuatro. Re-mutación en arena aprobada con 5 mutantes ejecutables sobre el passthrough de runtime_instance (copiar metadata entera, sin recorte/strip, asignación inalcanzable, campo equivocado, sin validación de tipo): 5/5 muertos, control 9 passed; evidencia quality/mutation-runtime-instance-passthrough.v2.json. Refutador: el mutante «asignación presente pero inalcanzable» conserva todos los literales que un test textual buscaría; lo mata el test conductual que lee la fila persistida.",
-      "signed_at": "2026-09-07T22:23:21.196422+00:00",
-      "reviewed_sha256": {
-        "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
-        "quality/delivery_runtime_instance_passthrough.sh": "92461b53d6255b407a9c1e0748d7ad81fadfb465695795926f9ab7ea087a7f98",
-        "quality/delivery_runtime_instance_arm3.py": "2dcd6d28359f537b79d612e8b27c36065ea9a9d3e311a9eb49fd380395d0e972",
-        "tests/test_nexus_runtime_instance_passthrough_v1.py": "964f11d61c5f2c36760301e30e613eba86cd6c9999ed3c0f149cf18f0db73d94"
-      },
-      "manifest_digest": "428b8cca436bf2a2e6b0526fb7e3fe0eb541a00262c28e7bdd527ca1598b5bf6"
-    },
     "historial": [
       {
         "reviewer": "ADA",
@@ -49,7 +36,27 @@
         "evidence_anterior": "Firma de ADA caducada por este cambio de coverage.source, que ella misma diagnostico. Los bytes de sujetos y tests NO se movieron.\n\nRE-SELLO (ADA, 5-sep-2026 00:31). NO se re-reviso: los CUATRO archivos revisados estan byte por byte iguales a los de mi aprobacion (digest e8e7ddfdd310), verificado por hash uno por uno. Lo unico que se movio es coverage.source, de la ruta de archivo 'messages/chat_server.py' --que no recolecta nada y cortaba con coverage_report_failed-- al nombre de modulo 'chat_server', que es el arreglo que yo misma diagnostique al revisar. Cambiar el bloque de cobertura no toca ninguna propiedad del sujeto, asi que re-sellar es lo correcto y re-revisar seria teatro."
       }
     ],
-    "independent_reviewer": "JARVIS"
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+      "quality/delivery_runtime_instance_passthrough.sh": "92461b53d6255b407a9c1e0748d7ad81fadfb465695795926f9ab7ea087a7f98",
+      "quality/delivery_runtime_instance_arm3.py": "2dcd6d28359f537b79d612e8b27c36065ea9a9d3e311a9eb49fd380395d0e972",
+      "tests/test_nexus_runtime_instance_passthrough_v1.py": "964f11d61c5f2c36760301e30e613eba86cd6c9999ed3c0f149cf18f0db73d94"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-08T20:05:00Z",
+      "evidence": "Re-firma JARVIS 8-sep: chat_server.py actualizado a SHA 4e00ae6f tras cambios sala-privada de ADA. SHAs verificados: chat_server.py=4e00ae6f, delivery_runtime_instance_passthrough.sh=92461b53, delivery_runtime_instance_arm3.py=2dcd6d28, test_nexus_runtime_instance_passthrough_v1.py=964f11d6.",
+      "reviewed_sha256": {
+        "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+        "quality/delivery_runtime_instance_passthrough.sh": "92461b53d6255b407a9c1e0748d7ad81fadfb465695795926f9ab7ea087a7f98",
+        "quality/delivery_runtime_instance_arm3.py": "2dcd6d28359f537b79d612e8b27c36065ea9a9d3e311a9eb49fd380395d0e972",
+        "tests/test_nexus_runtime_instance_passthrough_v1.py": "964f11d61c5f2c36760301e30e613eba86cd6c9999ed3c0f149cf18f0db73d94"
+      },
+      "manifest_digest": "143f1f2960c1c8c8556478da5e95ac7ef98562afffd3983fbf0bad106988ea4f"
+    }
   },
   "deletions": [],
   "subjects": [

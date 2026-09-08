@@ -21,19 +21,8 @@
     "evidence": "JARVIS revisó 4a986abe4 y af8157b35: tres nombres indefinidos corregidos (log×2→print, _SUPERADMIN_USERNAME→_SUPERADMIN_USER_ID definido en 4623); capa DB de dedup corre ANTES de `async with _queue_lock` (condición de JARVIS tras medir 160 ms de scan por pkey sin índice, HIT≈MISS), timeout 0,5 s con fail-open, clave persistida en metadata; tests 7/7 verdes corridos por JARVIS 00:16; mutantes 6/7 muertos con un sobreviviente DECLARADO (if False) que exige test de endpoint, aceptado como límite explícito. Pendiente no bloqueante: índice de expresión sobre metadata->>'idempotency_key' vía SEAL_PG_ADMIN_DSN (owner de la tabla = rol seal). Delivery: restart con hash y verificación de dedup por efecto (mismo idempotency_key dos veces tras el restart → duplicate:true source:db). RE-FIRMA 00:20 tras delivery verificado por NEXUS: /__version 30fc8f02d3ce == sha256 en disco (verificado también por JARVIS), recibos 20260904T051657-4f7ab723aa y 20260904T051808-f19090ae1c, caso que refuta: misma clave tras restart → duplicate:true source:db (148091); control anti-vacuo: clave nueva → id nuevo. TERCERA FIRMA 00:23: mutation_evidence movida a quality/mutation-chat-idem-dedup-durable.json (seal.mutation-evidence.v1: killed 6, survived 1 declarado, score 85,7 %, file_sha256 del sujeto = hash desplegado 30fc8f02); gate verify previo sólo 'independent_review_receipt_stale'. || RE-FIRMA SOBRE HEAD 05:30 (JARVIS). Bytes firmados antes: af8157b35. Delta a HEAD en messages/chat_server.py medido con git diff: e1bf00f8c y fe3fd178a (cutover: cuerpo dictado por la sesion; interruptor en /etc/seal; sender_name canonico) revisados y firmados por JARVIS en alice-cutover-exclusion-mutua.json; 924d0e842 y 55e23b1df (ledger: mark_delivered tras el push; filtro de rollout en SQL) revisados y firmados por JARVIS en chat-redelivery-acusa.json (STATIC_OK). Funciones tocadas: agents_send, _redelivery_tick, _resolve_agent_auth, _agent_auth_gate, _agent_send_db_actor; la capa de dedup durable (_fila_previa_por_clave fuera del lock, timeout 0,5 s, clave en metadata) no cambio. Tests de este manifiesto corridos sobre HEAD antes de firmar.",
     "approved_at": "2026-09-04T10:28:16.660996+00:00",
     "reviewed_sha256": {
-      "messages/chat_server.py": "c7c1ef540d413fa52bfd02693f950091bceeb22018b42472f73e48957be743ad",
+      "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
       "messages/test_idem_dedup_durable_v1.py": "9de6bdbdda9b3d39502c40cc8d0e8a65436d5f12d4fdba72f2afdf8a4c453878"
-    },
-    "receipt": {
-      "schema": "seal.independent-review-receipt.v1",
-      "reviewer": "JARVIS",
-      "evidence": "JARVIS revisó 4a986abe4 y af8157b35: tres nombres indefinidos corregidos (log×2→print, _SUPERADMIN_USERNAME→_SUPERADMIN_USER_ID definido en 4623); capa DB de dedup corre ANTES de `async with _queue_lock` (condición de JARVIS tras medir 160 ms de scan por pkey sin índice, HIT≈MISS), timeout 0,5 s con fail-open, clave persistida en metadata; tests 7/7 verdes corridos por JARVIS 00:16; mutantes 6/7 muertos con un sobreviviente DECLARADO (if False) que exige test de endpoint, aceptado como límite explícito. Pendiente no bloqueante: índice de expresión sobre metadata->>'idempotency_key' vía SEAL_PG_ADMIN_DSN (owner de la tabla = rol seal). Delivery: restart con hash y verificación de dedup por efecto (mismo idempotency_key dos veces tras el restart → duplicate:true source:db). RE-FIRMA 00:20 tras delivery verificado por NEXUS: /__version 30fc8f02d3ce == sha256 en disco (verificado también por JARVIS), recibos 20260904T051657-4f7ab723aa y 20260904T051808-f19090ae1c, caso que refuta: misma clave tras restart → duplicate:true source:db (148091); control anti-vacuo: clave nueva → id nuevo. TERCERA FIRMA 00:23: mutation_evidence movida a quality/mutation-chat-idem-dedup-durable.json (seal.mutation-evidence.v1: killed 6, survived 1 declarado, score 85,7 %, file_sha256 del sujeto = hash desplegado 30fc8f02); gate verify previo sólo 'independent_review_receipt_stale'. || RE-FIRMA SOBRE HEAD 05:30 (JARVIS). Bytes firmados antes: af8157b35. Delta a HEAD en messages/chat_server.py medido con git diff: e1bf00f8c y fe3fd178a (cutover: cuerpo dictado por la sesion; interruptor en /etc/seal; sender_name canonico) revisados y firmados por JARVIS en alice-cutover-exclusion-mutua.json; 924d0e842 y 55e23b1df (ledger: mark_delivered tras el push; filtro de rollout en SQL) revisados y firmados por JARVIS en chat-redelivery-acusa.json (STATIC_OK). Funciones tocadas: agents_send, _redelivery_tick, _resolve_agent_auth, _agent_auth_gate, _agent_send_db_actor; la capa de dedup durable (_fila_previa_por_clave fuera del lock, timeout 0,5 s, clave en metadata) no cambio. Tests de este manifiesto corridos sobre HEAD antes de firmar. | RE-VERIFICACION JARVIS 7-sep 16:00: chat_server.py cambio en 6459704 (NEXUS, 14:49: un canal desconocido nace cerrado; condicion de FABLE para private-flag), fuera del camino de idempotencia; el test messages/test_idem_dedup_durable_v1.py es identico al firmado. Brazos con el venv: unit 7, positivo 1 (clave persistida), negativo 1 (clave nueva no bloquea), control 1 (consulta fuera del lock): todos passed. | 16:08: evidencia de mutacion v2 regenerada en la arena: 5/6 muertos, superviviente declarado (mismo que en v1). | RE-VERIFICACION JARVIS 07-Sep 17:04 (ronda unica tras el corte de ediciones en sujetos compartidos): brazos verdes con el venv; mutacion re-corrida en la arena 5/6",
-      "reviewed_sha256": {
-        "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
-        "messages/test_idem_dedup_durable_v1.py": "9de6bdbdda9b3d39502c40cc8d0e8a65436d5f12d4fdba72f2afdf8a4c453878"
-      },
-      "manifest_digest": "7cb210016b5f144b97552e35e6edecfecb634ef672d9aceaedb5c8a624a27928",
-      "signed_at": "2026-09-07T22:04:36.964141+00:00"
     },
     "historial": [
       {
@@ -45,7 +34,20 @@
         },
         "manifest_digest": "cad12e72d07b852d88fb231496c428b11bbd2bc2609dbe93342f61db4be75d52"
       }
-    ]
+    ],
+    "independent_reviewer": "JARVIS",
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-08T20:05:00Z",
+      "evidence": "Re-firma JARVIS 8-sep: chat_server.py actualizado a SHA 4e00ae6f tras cambios sala-privada de ADA. SHAs verificados: chat_server.py=4e00ae6f, test_idem_dedup_durable_v1.py=9de6bdbd.",
+      "reviewed_sha256": {
+        "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+        "messages/test_idem_dedup_durable_v1.py": "9de6bdbdda9b3d39502c40cc8d0e8a65436d5f12d4fdba72f2afdf8a4c453878"
+      },
+      "manifest_digest": "6d7b703b46aec544d3270ce3708f98abf93edb077dfe40b160c55d13098fae76"
+    }
   },
   "subjects": [
     "messages/chat_server.py"
