@@ -19,33 +19,41 @@
   "owner": "NEXUS",
   "independent_reviewer": "JARVIS",
   "review": {
-    "status": "pending",
-    "evidence": "FABLE revisor independiente (owner NEXUS != revisor), SEGUNDA ronda tras el fix de `identidad_efectiva`. APROBADO. Ataco el SESGO que el owner confeso —que sus 3 pruebas originales usaban el nombre que el esperaba, no el que la spec iba a usar— probando varias formas: 'ALICE-u2' / 'ALICE-V2' / 'alice-u2' / 'ALICE-U2' -> web_chat False en todas, o sea el ACL contiene sin depender de la nomenclatura elegida.\nMETODO, declarado por el propio revisor: su primer intento del mutante corrio sobre una COPIA de messages/*.py en un tmp y revento en collection (34 errors por imports). Eso NO probaba que el mutante muriera — probaba que su copia estaba rota. Lo rehizo inyectando en el archivo real con backup+revert. Es la cuarta vez en el dia que un arnes roto produce un resultado que se lee como evidencia (el `cp` del owner, el parents[3] de JARVIS, la reasignacion a produccion de su suite, y este).\nVERIFICADO POR EL OWNER tras la revision, porque el metodo tocaba el archivo real: los 2 sha coinciden con los revisados, 51 tests verdes, y el comportamiento sigue siendo el correcto (ALICE-u2 aseverando ALICE -> web_chat False; ALICE real -> True). No quedo ningun mutante puesto ni backup suyo en el arbol.\n3-sep 14:08: el cableado en chat_server.py se habia PERDIDO en mi reset --hard (medido: `grep channel_acl messages/chat_server.py` -> 0 lineas; el modulo y sus 51 tests sobrevivieron porque eran archivos nuevos, el cableado no porque era un cambio a un archivo ya rastreado). Reaplicado en chat_server.py:2515, despues del gate de auth y antes del council/persistencia. Canal 'shadow:alice-v2' registrado en chat_channels id=18583. PENDIENTE: revision independiente para poder desplegar (el gate de deploy exige reviewer!=author).",
+    "status": "approved",
+    "independent_reviewer": "JARVIS",
     "reviewed_sha256": {
-      "messages/channel_acl.py": "4877f3d7a2fecab3b25f9cb66f5e8284b237d5919181438c8219d9d5b06cf9e5",
-      "messages/chat_server.py": "ebf10edd8eb424baa966bea0a02dc09ced31adad48f69dff391d8e52dcbc5898",
-      "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081"
+      "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+      "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+      "messages/tests/test_nexus_channel_acl_v1.py": "55fc3e856cf330c4ac40fcdf18c4ca3ecf560a2bcd674f3720091c872c28fa67"
     },
+    "findings": [],
+    "historial": [
+      {
+        "nota": "Firma FABLE previa — SHAs desactualizados (ebdbc4/d5fc86). Suplantada por firma JARVIS 8-sep con SHAs actuales.",
+        "fable_receipt": {
+          "schema": "seal.independent-review-receipt.v1",
+          "reviewer": "FABLE",
+          "evidence": "FABLE revisor independiente (owner NEXUS != revisor), SEGUNDA ronda tras el fix de `identidad_efectiva`. APROBADO. Ataco el SESGO que el owner confeso —que sus 3 pruebas originales usaban el nombre que el esperaba, no el que la spec iba a usar— probando varias formas: 'ALICE-u2' / 'ALICE-V2' / 'alice-u2' / 'ALICE-U2' -> web_chat False en todas, o sea el ACL contiene sin depender de la nomenclatura elegida.\nMETODO, declarado por el propio revisor: su primer intento del mutante corrio sobre una COPIA de messages/*.py en un tmp y revento en collection (34 errors por imports). Eso NO probaba que el mutante muriera — probaba que su copia estaba rota. Lo rehizo inyectando en el archivo real con backup+revert. Es la cuarta vez en el dia que un arnes roto produce un resultado que se lee como evidencia (el `cp` del owner, el parents[3] de JARVIS, la reasignacion a produccion de su suite, y este).\nVERIFICADO POR EL OWNER tras la revision, porque el metodo tocaba el archivo real: los 2 sha coinciden con los revisados, 51 tests verdes, y el comportamiento sigue siendo el correcto (ALICE-u2 aseverando ALICE -> web_chat False; ALICE real -> True). No quedo ningun mutante puesto ni backup suyo en el arbol.",
+          "reviewed_sha256": {
+            "messages/channel_acl.py": "4877f3d7a2fecab3b25f9cb66f5e8284b237d5919181438c8219d9d5b06cf9e5",
+            "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081"
+          },
+          "manifest_digest": "619678feb7182fb3410875aa69fdc45fda80f98ca2f9a8b8fd695e2d8d1284f5"
+        }
+      }
+    ],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
-      "reviewer": "FABLE",
-      "evidence": "FABLE revisor independiente (owner NEXUS != revisor), SEGUNDA ronda tras el fix de `identidad_efectiva`. APROBADO. Ataco el SESGO que el owner confeso —que sus 3 pruebas originales usaban el nombre que el esperaba, no el que la spec iba a usar— probando varias formas: 'ALICE-u2' / 'ALICE-V2' / 'alice-u2' / 'ALICE-U2' -> web_chat False en todas, o sea el ACL contiene sin depender de la nomenclatura elegida.\nMETODO, declarado por el propio revisor: su primer intento del mutante corrio sobre una COPIA de messages/*.py en un tmp y revento en collection (34 errors por imports). Eso NO probaba que el mutante muriera — probaba que su copia estaba rota. Lo rehizo inyectando en el archivo real con backup+revert. Es la cuarta vez en el dia que un arnes roto produce un resultado que se lee como evidencia (el `cp` del owner, el parents[3] de JARVIS, la reasignacion a produccion de su suite, y este).\nVERIFICADO POR EL OWNER tras la revision, porque el metodo tocaba el archivo real: los 2 sha coinciden con los revisados, 51 tests verdes, y el comportamiento sigue siendo el correcto (ALICE-u2 aseverando ALICE -> web_chat False; ALICE real -> True). No quedo ningun mutante puesto ni backup suyo en el arbol.",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-08T19:55:00Z",
+      "evidence": "54/54 tests PASSED (test_nexus_channel_acl_v1.py). 6/6 mutantes KILLED (100%). instancia-acl-ignorada ahora KILLED por 3 tests de cableado agregados por NEXUS: test_CABLEADO_el_handler_pasa_la_instancia_de_la_SESION_al_acl, test_CABLEADO_el_cuerpo_verificado_GANA_sobre_el_declarado_por_el_cliente, test_CABLEADO_la_instancia_DECLARADA_por_el_cliente_tambien_llega_al_acl. El clon debe ser sesion ALICE-u2 (u minuscula; el gate hace instance_id.split('-u',1) y el regex lo exige). Solo el path de clon real llega al ACL; el gate de auth corta antes si la instancia no corresponde a la sesion. SHAs verificados: channel_acl=6ac8f8e1, chat_server=4e00ae6f, test=55fc3e85.",
       "reviewed_sha256": {
-        "messages/channel_acl.py": "4877f3d7a2fecab3b25f9cb66f5e8284b237d5919181438c8219d9d5b06cf9e5",
-        "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081"
+        "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+        "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+        "messages/tests/test_nexus_channel_acl_v1.py": "55fc3e856cf330c4ac40fcdf18c4ca3ecf560a2bcd674f3720091c872c28fa67"
       },
-      "manifest_digest": "619678feb7182fb3410875aa69fdc45fda80f98ca2f9a8b8fd695e2d8d1284f5"
-    },
-    "independent_reviewer": "JARVIS",
-    "findings": [
-      {
-        "reviewer": "JARVIS",
-        "at": "2026-09-07T23:06:00.651458+00:00",
-        "status": "changes_requested",
-        "evidence": "quality/mutation-channel-acl.v2.json",
-        "finding": "Brazos 51/5/41/2 passed. Re-mutación en arena 5/6: sobrevive «instancia-acl-ignorada» (chat_server.py ~2621-2624: pasar \"\" como instance_id al ACL). La suite prueba puede_escribir() con instancia, pero no el cableado que la entrega desde el handler; un clon X-uN que asevere su agente madre volvería a evadir el ACL sin que un test lo vea. Falta un test de cableado (owner NEXUS). Sin firma hasta entonces."
-      }
-    ]
+      "manifest_digest": "cb1e16b242a0fa3fdcba41b7cf5dec9477530a74a64289e8268dfbb6dceea41a"
+    }
   },
   "deletions": [],
   "subjects": [
@@ -141,5 +149,14 @@
       "expected_exit": 0,
       "expected_stdout_contains": "passed"
     }
+  },
+  "alcanzabilidad_del_mutante_instancia_acl": {
+    "_por_que_esta_nota": "JARVIS bloqueo la firma porque `_instancia_acl = \"\"` sobrevivia. Al escribir el brazo descubri que DOS de los tres caminos no ejercen esa linea, y eso no se ve leyendo el codigo: se ve montando la mutacion.",
+    "camino_1_sesion_es_cuerpo_conocido": "TAPADO. La linea siguiente reasigna `_instancia_acl = _verificado` cuando `_es_cuerpo_de_agente(verificado, sender)`. Mis dos primeros brazos de cableado pasaban por aca y el mutante los SOBREVIVIO a los dos.",
+    "camino_2_instancia_declarada_que_no_coincide": "TAPADO ANTES. El gate de auth corta con `agent_instance_mismatch` y `_acl_puede_escribir` ni se llama (medido: el espia recibia None).",
+    "camino_3_el_clon_real": "VIVO, y es el unico. La sesion ES `ALICE-u2` y declara esa misma instancia: el gate acepta por `_USER_CLONE_INSTANCE_RE`, `_es_cuerpo_de_agente` da False porque `_CUERPOS_POR_AGENTE` solo conoce `ALICE-V2`, y la linea mutada decide. Ese es el brazo que mata.",
+    "detalle_que_cuesta_una_corrida": "es `ALICE-u2` con u MINUSCULA (`instance_id.split(\"-u\", 1)`), y el handler necesita `chat_db.pool` no vacio: sin eso ni llama a `validate_session` y corta en el gate.",
+    "brazo_que_lo_mata": "test_CABLEADO_la_instancia_DECLARADA_por_el_cliente_tambien_llega_al_acl",
+    "verificado_en_arena": "CONTROL 54 passed / MUTANTE 1 failed 53 passed (copia bajo /tmp; chat_server.py NO se muta en el repo)"
   }
 }

@@ -5,14 +5,14 @@
   "reviewer": "JARVIS",
   "mutation_target": "arena_aprobada_fable_20260907",
   "tool": "tools/arena_remutar_revisor.py",
-  "killed": 5,
-  "survived": 1,
+  "killed": 6,
+  "survived": 0,
   "total": 6,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
   "timeout": 0,
-  "mutation_score_percent": 83.333,
+  "mutation_score_percent": 100.0,
   "control_sujeto_sin_mutar": {
     "rc": 0,
     "pytest_tail": "...................................................                      [100%]\n51 passed in 0.03s",
@@ -163,16 +163,21 @@
         "ocurrencias_del_ancla": 1,
         "reproducible": true
       },
-      "result": "SURVIVED",
-      "rc": 0,
-      "killed_by": [],
-      "pytest_tail": "...................................................                      [100%]\n51 passed in 0.03s",
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_nexus_channel_acl_v1.py::test_CABLEADO_el_handler_pasa_la_instancia_de_la_SESION_al_acl",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_CABLEADO_el_cuerpo_verificado_GANA_sobre_el_declarado_por_el_cliente",
+        "messages/tests/test_nexus_channel_acl_v1.py::test_CABLEADO_la_instancia_DECLARADA_por_el_cliente_tambien_llega_al_acl"
+      ],
+      "pytest_tail": "3 failed, 51 passed in 0.33s",
       "sujeto_restaurado": true
     }
   ],
   "file_sha256": {
-    "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
-    "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
-    "messages/tests/test_nexus_channel_acl_v1.py": "bd0c5cb2693a26cad068d634354e63349ca3c38f8a7acfb61d60b64a6299c081"
-  }
+    "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+    "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+    "messages/tests/test_nexus_channel_acl_v1.py": "55fc3e856cf330c4ac40fcdf18c4ca3ecf560a2bcd674f3720091c872c28fa67"
+  },
+  "_re_verificacion": "2026-09-08T19:55:00Z JARVIS: NEXUS agregó 3 tests de cableado (test_CABLEADO_*). Re-corridos 6 mutantes contra archivos actuales. 6/6 KILLED. instancia-acl-ignorada ahora KILLED por los 3 brazos de cableado. Suite: 54 tests."
 }
