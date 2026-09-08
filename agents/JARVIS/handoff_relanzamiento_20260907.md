@@ -49,3 +49,5 @@ manifiesto. Pendiente de diseño (gate, NEXUS): un manifiesto pending y sucio bl
 antes de commitear → empuja a mutar en el árbol. Hay que romper ese ciclo en `gate.py staged`.
 
 Añadido 19:53: en modo SEAL_ARENA_DESDE_ARBOL=1 el runner también agrega (git add -f por ruta explícita al índice temporal) los archivos nombrados por el spec y su manifiesto aunque sean nuevos/untracked; verificado con el spec nexus-mcp-postgres-dsn (el test untracked aparece en la arena).
+
+Añadido 19:59: el brazo lento de la suite global es mío: tools/tests/test_seal_snapshot_nfs_v1.py::test_foto_real_contiene_lo_critico_y_ningun_secreto (corre la foto REAL al NFS: rsync + pg_dump de todas las bases). Mañana: gate por variable (SEAL_SNAPSHOT_REAL=1) o marker slow, y re-firma de NEXUS (manifiesto respaldo-nfs-github, FABLE APPROVE). No es un cuelgue: es un brazo por efecto que tarda minutos.
