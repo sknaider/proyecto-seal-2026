@@ -2,7 +2,7 @@
 
 Backend selection (in priority order):
   1. Anthropic Haiku — fast, cheap, good summarization
-  2. Ollama (qwen2.5:7b local) — offline fallback on DGX Spark
+  2. Ollama (qwen2.5:3b local) — offline fallback on DGX Spark
   3. Extractive fallback — pure Python, no LLM, uses first+last sentences
 """
 from __future__ import annotations
@@ -15,7 +15,7 @@ import httpx
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("AUX_LLM_OLLAMA_MODEL", "qwen2.5:7b")
+OLLAMA_MODEL = os.environ.get("AUX_LLM_OLLAMA_MODEL", "qwen2.5:3b")
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
 
 

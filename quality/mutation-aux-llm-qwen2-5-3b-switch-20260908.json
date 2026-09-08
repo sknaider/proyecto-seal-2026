@@ -1,0 +1,29 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "reviewer": "ALICE",
+  "killed": 1,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 1,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "memory/aux_llm.py": "f1a50437a3ddf2f71ec62c485fceb97bfb92fbd237125b4a58d2b8e28befcdcb",
+    "memory/tests/test_qwen2_5_3b_default_20260908.py": "0f1c828e66e49a06d162426e3ccac72c18909f6c8f3694b6ae8e695143660b71"
+  },
+  "baseline": "5 passed in 0.04s",
+  "mutants": [
+    {
+      "id": "M1-fallback-3b-a-7b",
+      "status": "killed",
+      "killed_by": [
+        "test_qa_positive_aux_llm_default_es_3b",
+        "test_qa_negative_aux_llm_no_es_7b"
+      ],
+      "result": "2 failed, 3 deselected"
+    }
+  ],
+  "method": "copia fresca bajo scratchpad de sesion. Mutante M1: OLLAMA_MODEL fallback reemplazado de 'qwen2.5:3b' a 'qwen2.5:7b' con replace exacto del ancla. Tests corridos desde la copia con interprete venv. Arbol vivo intacto."
+}

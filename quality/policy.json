@@ -1,39 +1,4 @@
 {
-  "schema": "seal.quality-policy.v1",
-  "policy_id": "william-golden-quality-rule-2026-08-03",
-  "independent_review_required": true,
-  "required_qa_arms": [
-    "unit",
-    "qa_positive",
-    "qa_negative",
-    "qa_control"
-  ],
-  "source_suffixes": [
-    ".py",
-    ".sh",
-    ".bash",
-    ".ts",
-    ".tsx",
-    ".js",
-    ".jsx",
-    ".go",
-    ".rs",
-    ".java",
-    ".c",
-    ".h",
-    ".cc",
-    ".cpp",
-    ".cs",
-    ".rb",
-    ".php",
-    ".sql"
-  ],
-  "source_filenames": [
-    "Dockerfile",
-    "Makefile",
-    "Justfile"
-  ],
-  "known_defect_patterns": "quality/known-defect-patterns.json",
   "critical_paths": [
     "memory/**",
     "messages/**",
@@ -44,28 +9,8 @@
     "**/*credential*.py",
     "**/*permission*.py"
   ],
-  "thresholds": {
-    "coverage_floor_percent": 0.0,
-    "critical_mutation_score_percent": 69.59,
-    "committed_test_ratio_floor": 0.541958
-  },
-  "required_tracked_paths": [
-    "quality/policy.json",
-    "quality/SEAL_QUALITY_GOLDEN_RULE.md",
-    "quality_gate/__init__.py",
-    "quality_gate/gate.py",
-    "quality_gate/tests/test_gate.py",
-    "scripts/seal_quality_gate.py",
-    "quality/requirements.lock",
-    "quality/known-defect-patterns.json",
-    "quality/mutation-baseline.json",
-    "quality/manifests/quality-gate-bootstrap.json",
-    "setup.cfg",
-    ".githooks/pre-commit",
-    ".github/workflows/seal-quality-gate.yml",
-    ".github/CODEOWNERS",
-    "quality/manifests/respaldo-nfs-github-20260907.json"
-  ],
+  "independent_review_required": true,
+  "known_defect_patterns": "quality/known-defect-patterns.json",
   "manifests": [
     "quality/manifests/ada-codex-c10-token-writer-20260908.json",
     "quality/manifests/ada-daily-brief-20260908.json",
@@ -80,6 +25,7 @@
     "quality/manifests/alice-v2-baseline-tools.json",
     "quality/manifests/alice-v2-isolated-launcher-v1.json",
     "quality/manifests/alice-v2-shadow-launcher-v1.json",
+    "quality/manifests/aux-llm-qwen2-5-3b-switch-20260908.json",
     "quality/manifests/bob-runtime-rewrite-v1.json",
     "quality/manifests/boot-context-g2-tareas-20260907.json",
     "quality/manifests/bridge-runtime-instance-20260905.json",
@@ -119,6 +65,7 @@
     "quality/manifests/nexus-credencial-observer-compartida-20260908.json",
     "quality/manifests/nexus-credential-paths.json",
     "quality/manifests/nexus-detector-unidades-horneadas-20260907.json",
+    "quality/manifests/nexus-dm-poller-replacement-20260908.json",
     "quality/manifests/nexus-espera-postgres-operator-20260908.json",
     "quality/manifests/nexus-hook-captura-guarda-20260908.json",
     "quality/manifests/nexus-maintenance-alice-v2-intent-v1.json",
@@ -171,5 +118,60 @@
     "quality/manifests/u116-isolated-claude-transport.json",
     "quality/manifests/unit-failed-notify-20260905.json",
     "quality/manifests/validador-candado-v1.json"
-  ]
+  ],
+  "policy_id": "william-golden-quality-rule-2026-08-03",
+  "required_qa_arms": [
+    "unit",
+    "qa_positive",
+    "qa_negative",
+    "qa_control"
+  ],
+  "required_tracked_paths": [
+    "quality/policy.json",
+    "quality/SEAL_QUALITY_GOLDEN_RULE.md",
+    "quality_gate/__init__.py",
+    "quality_gate/gate.py",
+    "quality_gate/tests/test_gate.py",
+    "scripts/seal_quality_gate.py",
+    "quality/requirements.lock",
+    "quality/known-defect-patterns.json",
+    "quality/mutation-baseline.json",
+    "quality/manifests/quality-gate-bootstrap.json",
+    "setup.cfg",
+    ".githooks/pre-commit",
+    ".github/workflows/seal-quality-gate.yml",
+    ".github/CODEOWNERS",
+    "quality/manifests/respaldo-nfs-github-20260907.json"
+  ],
+  "schema": "seal.quality-policy.v1",
+  "source_filenames": [
+    "Dockerfile",
+    "Makefile",
+    "Justfile"
+  ],
+  "source_suffixes": [
+    ".py",
+    ".sh",
+    ".bash",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".c",
+    ".h",
+    ".cc",
+    ".cpp",
+    ".cs",
+    ".rb",
+    ".php",
+    ".sql"
+  ],
+  "thresholds": {
+    "committed_test_ratio_floor": 0.541958,
+    "coverage_floor_percent": 0.0,
+    "critical_mutation_score_percent": 69.59
+  }
 }

@@ -1,0 +1,21 @@
+{
+  "schema": "seal.mutantes-ejecutables.v2",
+  "change_id": "aux-llm-qwen2-5-3b-switch-20260908",
+  "reviewer": "JARVIS",
+  "subject_sha256_al_declarar": "f1a50437a3ddf2f71ec62c485fceb97bfb92fbd237125b4a58d2b8e28befcdcb",
+  "tests": [
+    [
+      "memory/tests/test_qwen2_5_3b_default_20260908.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "M1-fallback-3b-a-7b",
+      "subject": "memory/aux_llm.py",
+      "ancla": "OLLAMA_MODEL = os.environ.get(\"AUX_LLM_OLLAMA_MODEL\", \"qwen2.5:3b\")",
+      "reemplazo": "OLLAMA_MODEL = os.environ.get(\"AUX_LLM_OLLAMA_MODEL\", \"qwen2.5:7b\")",
+      "why": "revertir el cambio de William: si el fallback vuelve al 7b, SOUL vuelve al modelo pesado cuando no hay variable de entorno",
+      "esperado": "MUERTO"
+    }
+  ]
+}

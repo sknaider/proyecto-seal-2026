@@ -1,0 +1,102 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "aux-llm-qwen2-5-3b-switch-20260908",
+  "owner": "JARVIS",
+  "independent_reviewer": "ALICE",
+  "subjects": ["memory/aux_llm.py"],
+  "tests": ["memory/tests/test_qwen2_5_3b_default_20260908.py"],
+  "commands": [
+    {
+      "id": "unit-aux-llm-default",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q", "-p", "no:cacheprovider",
+        "memory/tests/test_qwen2_5_3b_default_20260908.py",
+        "-k", "aux_llm"
+      ]
+    },
+    {
+      "id": "qa_positive-config-3b",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_qwen2_5_3b_default_20260908.py",
+        "-k", "qa_positive"
+      ]
+    },
+    {
+      "id": "qa_negative-no-7b",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_qwen2_5_3b_default_20260908.py",
+        "-k", "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-ollama-tiene-3b",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_qwen2_5_3b_default_20260908.py",
+        "-k", "qa_control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": ["memory"],
+    "omit": ["memory/tests/*", "memory/test_*"],
+    "pytest_args": ["-q", "memory/tests/test_qwen2_5_3b_default_20260908.py", "-k", "aux_llm"],
+    "baseline_percent": 0.0,
+    "timeout": 60
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-aux-llm-qwen2-5-3b-switch-20260908.json",
+  "mutation_spec": "quality/mutantes/aux-llm-qwen2-5-3b-switch-20260908.spec.json",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "ALICE",
+    "reviewed_sha256": {
+      "memory/aux_llm.py": "f1a50437a3ddf2f71ec62c485fceb97bfb92fbd237125b4a58d2b8e28befcdcb",
+      "memory/tests/test_qwen2_5_3b_default_20260908.py": "0f1c828e66e49a06d162426e3ccac72c18909f6c8f3694b6ae8e695143660b71"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-08T23:32:00Z",
+      "evidence": "Mutante M1 KILLED verificado en scratchpad /tmp/mut_aux_llm_DThgPK (arbol vivo intacto): reemplazar fallback 3b→7b mata test_qa_positive_aux_llm_default_es_3b y test_qa_negative_aux_llm_no_es_7b — exactamente 2 failed, 3 deselected. Control sin mutar: 5/5 PASSED. SHA del sujeto verificado: f1a50437. El cambio es puramente de configuracion (OLLAMA_MODEL fallback y docstring); logica de credenciales no tocada.",
+      "reviewed_sha256": {
+        "memory/aux_llm.py": "f1a50437a3ddf2f71ec62c485fceb97bfb92fbd237125b4a58d2b8e28befcdcb",
+        "memory/tests/test_qwen2_5_3b_default_20260908.py": "0f1c828e66e49a06d162426e3ccac72c18909f6c8f3694b6ae8e695143660b71"
+      },
+      "manifest_digest": "63ba546668270326575a69cbe9846086fe4e9cc60f73ba6ad57ccac839de05de",
+      "alice_verified_at": "2026-09-08T23:32:00Z",
+      "alice_mutation_scratchpad": "/tmp/mut_aux_llm_DThgPK"
+    }
+  },
+  "_por_que": "memory/aux_llm.py tenia el fallback OLLAMA_MODEL='qwen2.5:7b'. Cambiado a '3b' para coincidir con la decision de William (DM 153680) y con memory/config.py (commit e1c4464). El cambio es puramente cosmetico/de configuracion: solo el docstring y el valor por defecto del env var.",
+  "delivery": {
+    "status": "verified",
+    "effect": "OLLAMA_MODEL env var fallback en aux_llm.py es 'qwen2.5:3b'. El docstring refleja el modelo correcto.",
+    "evidence": "5/5 tests PASSED (2 aux_llm + qa_positive + qa_negative + qa_control). test_qa_negative_aux_llm_no_es_7b confirma que la cadena 'qwen2.5:7b' ya no existe en el archivo. Mutante M1 KILLED: revertir fallback a 7b hace fallar 2 tests.",
+    "assertion": "memory/aux_llm.py no contiene 'qwen2.5:7b'; OLLAMA_MODEL fallback es 'qwen2.5:3b'. Mutante M1 100% killed.",
+    "command": {
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_qwen2_5_3b_default_20260908.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  }
+}
