@@ -5,7 +5,30 @@
   "independent_reviewer": "JARVIS",
   "_por_que": "Segunda version de la guarda de heredoc, tras el RECHAZO de FABLE a la primera. La v1 buscaba aperturas con finditer sobre todo el comando y por eso encontraba tambien las MENCIONADAS dentro del cuerpo de un heredoc citado -texto inerte-, bloqueando documentacion. La v2 es un barrido de un paso que CONSUME cada cuerpo: lo que vive dentro de un heredoc ya consumido no puede confundirse con una apertura real. Eso cierra el falso positivo y los cuatro mutantes que sobrevivian, porque los cuatro salian del mismo defecto de diseno.",
   "review": {
-    "status": "pending"
+    "status": "approved",
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "memory/pre_tool_hook.py": "465e060dff6f14fa09a8adf3b81c21294df555d78572ef3bd0e0a5f8993856fc",
+      "memory/test_pre_tool_hook_identity_transport.py": "70cb79132b98c8164a31f9a11b1cf0ce1cef4fc57dc1b888e4a253400fca8b4a",
+      "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f",
+      "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
+      "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "300e8388bfeddeeeed21a092c4a281baa0542bc1ac26f724431b4dba5918688f"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-08T22:00:00Z",
+      "evidence": "6/6 mutantes KILLED corridos por el revisor independiente con backup-mutate-test-restore, copia fresca del arbol de trabajo por mutante (no HEAD). Baseline: 110 passed. F1 (solo primer heredoc) -> 1 failed; F2 (cuerpo hasta el final) -> 1 failed; F3 (cualquier dolar) -> 1 failed; F4 (comillas dobles como sin comillas) -> 1 failed; H1 (guarda ausente) -> 2 failed; H3 (solo acento grave) -> 3 failed. Kill rate 100%. Sujeto v2 de NEXUS verificado en disco (465e060d, distinto de HEAD 360986e3). F3 y H3 comparten ancla — corridos con copias independientes del backup.",
+      "reviewed_sha256": {
+        "memory/pre_tool_hook.py": "465e060dff6f14fa09a8adf3b81c21294df555d78572ef3bd0e0a5f8993856fc",
+        "memory/test_pre_tool_hook_identity_transport.py": "70cb79132b98c8164a31f9a11b1cf0ce1cef4fc57dc1b888e4a253400fca8b4a",
+        "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f",
+        "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "300e8388bfeddeeeed21a092c4a281baa0542bc1ac26f724431b4dba5918688f"
+      },
+      "manifest_digest": "2c30ab5b9af6ac812dbec3469f513b33bb89b14e92eac58d320a784d7e3cdc1c"
+    }
   },
   "subjects": [
     "memory/pre_tool_hook.py"
@@ -99,6 +122,7 @@
     "status": "verified",
     "effect": "Un heredoc SIN comillas cuyo cuerpo trae sustitucion de comandos (acento grave o $( )) se deniega; uno citado, uno sin sustitucion y una apertura MENCIONADA dentro de un heredoc citado se permiten.",
     "assertion": "Por el subproceso real: el falso positivo de FABLE permite, el caso real deniega, el segundo heredoc deniega, $VAR permite. Y el delivery de los 9 casos historicos sigue passed (sin regresion en la guarda de posicion ejecutable).",
+    "evidence": "Verificado por EFECTO invocando el hook real por subproceso (JSON por stdin). 9 casos, los dos lados y un control: CITAR un aviso permite (el falso positivo de FABLE), heredoc que documenta permite, heredoc sin comillas con acento grave deniega, con comillas deniega FALSO NEGATIVO del 4-sep, borrado con variable deniega, eval con borrado entrecomillado deniega, -c con SQL destructivo deniega, ls -la permite (CONTROL), git archive | tar permite. delivery: passed.",
     "command": {
       "argv": [
         "python3",

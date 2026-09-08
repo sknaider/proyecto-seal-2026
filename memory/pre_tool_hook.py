@@ -214,8 +214,67 @@ def _es_solo_una_cita(command: str, inicio: int, fin: int) -> bool:
     return any(a <= inicio and fin <= b for a, b in _regiones_de_datos(command))
 
 
+_HEREDOC_ABRE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+
+
+def heredoc_sin_comillas_con_sustitucion(command: str) -> str | None:
+    """Delimitador del primer heredoc SIN comillas cuyo cuerpo trae sustitucion
+    de comandos; None si no hay ninguno.
+
+    POR QUE EXISTE (NEXUS, 8-sep-2026):
+
+        <<'PY'  o  <<"PY"   el shell NO toca el cuerpo        -> inerte
+        <<PY                el shell EXPANDE el cuerpo        -> ` ` y $( ) SE EJECUTAN
+
+    En `cat <<EOF` el TEXTO no se ejecuta -el comando solo lo lee-, asi que una
+    linea destructiva ahi sigue siendo texto. Lo que si se ejecuta, al expandir,
+    es la sustitucion de comandos. **Solo eso se bloquea.**
+
+    POR QUE ES UN BARRIDO Y NO UN `finditer` (FABLE, mismo dia, rechazando mi
+    primera version): buscar aperturas sueltas encuentra tambien las que estan
+    DENTRO del cuerpo de un heredoc citado, que es texto inerte. Un
+    `python3 - <<'PYEOF'` cuyo cuerpo MENCIONA `cat <<EOF` con un acento grave
+    quedaba bloqueado sin motivo. El barrido consume cada cuerpo y por eso no
+    puede confundir un ejemplo citado con una apertura real.
+
+    `$VAR` a secas NO cuenta: expande, pero no ejecuta. Solo ` ` y $( ).
+    """
+    i, n = 0, len(command)
+    while i < n:
+        c = command[i]
+        if c in "'\"":                       # literal: saltarlo entero
+            j = command.find(c, i + 1)
+            if j == -1:
+                return None                  # comilla sin cerrar: no concluir nada
+            i = j + 1
+            continue
+        m = _HEREDOC_ABRE.match(command, i)
+        if m:
+            citado, tag = bool(m.group(1)), m.group(2)
+            nl = command.find("\n", m.end())
+            if nl == -1:                      # apertura sin cuerpo
+                return None
+            cierre = re.compile(r"^\s*" + re.escape(tag) + r"\s*$", re.MULTILINE)
+            mc = cierre.search(command, nl + 1)
+            fin = mc.start() if mc else n     # sin cierre: el cuerpo llega al final
+            cuerpo = command[nl + 1:fin]
+            if not citado and ("`" in cuerpo or "$(" in cuerpo):
+                return tag
+            i = mc.end() if mc else n         # consumir el cuerpo: lo de adentro es texto
+            continue
+        i += 1
+    return None
+
+
 def check_bash_safety(command: str) -> dict | None:
     """Return a hook decision for dangerous/guarded commands, else None."""
+    tag = heredoc_sin_comillas_con_sustitucion(command)
+    if tag:
+        return deny(
+            f"Unquoted heredoc <<{tag}: el shell EJECUTA la sustitucion de comandos "
+            f"(` ` y $( )) dentro del cuerpo antes de que el comando lo lea. "
+            f"Usa <<'{tag}' con comillas para que el texto llegue literal."
+        )
     for pattern, message in _COMPILED_BLOCKLIST:
         for m in pattern.finditer(command):
             # `finditer` y no `search`: si la PRIMERA coincidencia es una cita

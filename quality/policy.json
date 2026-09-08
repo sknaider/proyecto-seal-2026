@@ -167,6 +167,7 @@
     "quality/manifests/nexus-espera-postgres-operator-20260908.json",
     "quality/manifests/ada-sala-privada-user-room-20260908.json",
     "quality/manifests/nexus-codigo-vivo-vs-git-20260908.json",
-    "quality/manifests/alice-integridad-dedup-20260908.json"
+    "quality/manifests/alice-integridad-dedup-20260908.json",
+    "quality/manifests/guardian-heredoc-v2-20260908.json"
   ]
 }
