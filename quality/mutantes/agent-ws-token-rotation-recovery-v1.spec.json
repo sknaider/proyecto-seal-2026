@@ -1,0 +1,33 @@
+{
+ "change_id": "agent-ws-token-rotation-recovery-v1",
+ "reviewer": "NEXUS",
+ "manifest": "quality/manifests/agent-ws-token-rotation-recovery-v1.json",
+ "tests": [
+  [
+   "tests/test_ada_ws_rotation_recovery.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "fable-w1-token-cacheado-dentro-de-la-funcion",
+   "subject": "messages/ws_listener.py",
+   "ancla": "            return f.read().strip()",
+   "reemplazo": "            return globals().setdefault(\"_TOKEN_CACHE\", f.read().strip())",
+   "why": "FABLE W1 (8-sep 10:04): _load_agent_token congela el primer valor; la forma del bucle queda intacta y el proceso presenta el token viejo tras rotar (defecto del 3-sep)"
+  },
+  {
+   "id": "fable-w2-bridge-rate-state-fresco",
+   "subject": "messages/agent_bridge.py",
+   "ancla": "    filtered = filter_line(line, agent_name.upper(), rate_state)",
+   "reemplazo": "    filtered = filter_line(line, agent_name.upper(), {})",
+   "why": "FABLE W2 (8-sep 10:04): el puente pasa un dict nuevo por llamada; el rate-limit nunca acumula"
+  },
+  {
+   "id": "bridge-vuelve-a-dos-args",
+   "subject": "messages/agent_bridge.py",
+   "ancla": "    filtered = filter_line(line, agent_name.upper(), rate_state)",
+   "reemplazo": "    filtered = filter_line(line, agent_name.upper())",
+   "why": "historico v1 (ADA/NEXUS 3-sep): el proceso autenticado recibe eventos y los pierde todos con TypeError"
+  }
+ ]
+}

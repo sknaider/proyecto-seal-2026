@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import ast
+import asyncio
 import importlib.util
+import json
 import os
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -81,6 +84,9 @@ def test_qa_negative_agent_bridge_passes_required_rate_state_to_filter(tmp_path,
     bridge.write_inbox("ADA", message, state)
 
     assert observed == [state, state]
+    # FABLE (8-sep, mutante W2): dos dicts vacios son iguales; el rate-limit solo
+    # acumula si el puente pasa EL MISMO objeto, no uno fresco por llamada.
+    assert all(entry is state for entry in observed)
     assert (tmp_path / "seal_inbox_ADA.jsonl").read_text().count("rotation-test") == 2
 
 
@@ -91,3 +97,106 @@ def test_qa_control_the_old_two_argument_filter_call_is_rejected() -> None:
 
     with pytest.raises(TypeError, match="rate_state"):
         monitor_filter.filter_line("{}", "ADA")
+
+
+class _ListenerStop(BaseException):
+    """Escapa del bucle infinito del listener sin pasar por su ``except Exception``."""
+
+
+def _rotation_scenario(monkeypatch, tmp_path, listener_name: str) -> list[str]:
+    """Condicion de FABLE (8-sep-2026, mutante W1 del veredicto api_fable_1788879868119922920).
+
+    Brazo de CONDUCTA: con la conexion falsificada, se escribe el token A, el primer
+    handshake falla, el operador rota a B y el SEGUNDO handshake tiene que presentar B.
+    Un mutante que congele el valor dentro de ``_load_agent_token`` presenta A dos veces.
+    """
+    listener = _load_module(f"ws_listener_rotation_{listener_name}", MESSAGES / "ws_listener.py")
+    token_path = tmp_path / ".agent_ws_token"
+    monkeypatch.setattr(listener, "_TOKEN_PATH", str(token_path))
+    token_path.write_text("token-A\n")
+
+    presented: list[str] = []
+
+    def on_handshake(payload: dict) -> dict:
+        assert payload["agent"] == "ADA"
+        presented.append(payload["token"])
+        if len(presented) == 1:
+            return {"ok": False, "error": "invalid_token"}
+        return {"ok": True}
+
+    async def fake_sleep(_seconds):
+        # Entre el handshake fallido y el reintento, el operador rota el token.
+        token_path.write_text("token-B\n")
+
+    monkeypatch.setattr(listener.asyncio, "sleep", fake_sleep)
+
+    class FakeAiohttpWS:
+        _resp: dict | None = None
+
+        async def send_json(self, payload):
+            self._resp = on_handshake(payload)
+
+        async def receive_json(self):
+            return self._resp
+
+        async def receive(self):
+            raise _ListenerStop()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_exc):
+            return False
+
+    class FakeAiohttpSession:
+        def ws_connect(self, url):
+            assert url == listener.WS_URL
+            return FakeAiohttpWS()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_exc):
+            return False
+
+    class FakeWebsocketsConn:
+        _resp: dict | None = None
+
+        async def send(self, raw):
+            self._resp = on_handshake(json.loads(raw))
+
+        async def recv(self):
+            if self._resp is not None:
+                resp, self._resp = self._resp, None
+                return json.dumps(resp)
+            raise _ListenerStop()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_exc):
+            return False
+
+    monkeypatch.setitem(
+        sys.modules,
+        "aiohttp",
+        types.SimpleNamespace(
+            ClientSession=FakeAiohttpSession,
+            WSMsgType=types.SimpleNamespace(TEXT=1, CLOSED=2, ERROR=3),
+        ),
+    )
+    monkeypatch.setattr(
+        listener, "websockets", types.SimpleNamespace(connect=lambda url: FakeWebsocketsConn())
+    )
+
+    with pytest.raises(_ListenerStop):
+        asyncio.run(getattr(listener, f"listen_{listener_name}")("ADA"))
+    return presented
+
+
+@pytest.mark.parametrize("listener_name", ["aiohttp", "websockets"])
+def test_qa_conduct_second_handshake_presents_the_rotated_token(
+    monkeypatch, tmp_path, listener_name
+) -> None:
+    presented = _rotation_scenario(monkeypatch, tmp_path, listener_name)
+    assert presented == ["token-A", "token-B"], listener_name

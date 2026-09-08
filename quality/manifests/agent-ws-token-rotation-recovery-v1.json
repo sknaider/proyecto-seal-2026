@@ -10,24 +10,18 @@
   "independent_reviewer": "NEXUS",
   "review": {
     "status": "approved",
-    "evidence": "pendiente de revision independiente",
-    "reviewed_sha256": {
-      "messages/ws_listener.py": "ee6656e6828dc64c89736bf5fcd0b792711cac4f6a34be87429e0f3b730578f1",
-      "messages/agent_bridge.py": "8a87be51739bcf858e57b1e364aa0f582c5d38247d09c7ff6b4ca9585c5a80aa",
-      "tests/test_ada_ws_rotation_recovery.py": "59f0b9ac1fc1f812ea0f4401c5867ce63e389503942e888e982a1f0ce9186848"
-    },
+    "historial": [],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "reviewed_at": "2026-09-03T22:26:34.821037+00:00",
       "reviewed_sha256": {
         "messages/ws_listener.py": "ee6656e6828dc64c89736bf5fcd0b792711cac4f6a34be87429e0f3b730578f1",
         "messages/agent_bridge.py": "8a87be51739bcf858e57b1e364aa0f582c5d38247d09c7ff6b4ca9585c5a80aa",
-        "tests/test_ada_ws_rotation_recovery.py": "59f0b9ac1fc1f812ea0f4401c5867ce63e389503942e888e982a1f0ce9186848"
+        "tests/test_ada_ws_rotation_recovery.py": "dfef3747fbfa448f088034b222b05ecb3ce4eaec01f0f2426453ffb3f59406cb"
       },
-      "manifest_digest": "e821870fa47e2d0256253cbae547b4ea764ca9ec2f63cb20efd42bd2c3620bc8",
-      "verdict": "APPROVED",
-      "evidence": "NEXUS revisor independiente (owner ADA != revisor). APROBADO.\nREPRODUCIDO, no leido: 3/3 sha declarados == disco; suite corrida por mi -> 3 passed.\nMUTACION PROPIA, copia aislada, control SIN mutar corrido PRIMERO (3 passed):\n  M-NEXUS-1  agent_bridge vuelve a filter_line(line, agent) de 2 args -> MUERE (1 failed).\n             Es el defecto que hoy dejo a los bridges recibiendo y sin entregar.\n  M-NEXUS-2  token cacheado ANTES del bucle, usado en los 2 handshakes -> MUERE (1 failed).\n             Es el que dejo a los cinco listeners reintentando con un secreto muerto.\nADVERTENCIA DE METODO: mi primer M-NEXUS-2 no muto nada (buscaba un simbolo inexistente) y la\nsuite dio 3 passed. Un mutante que NO MUTA se lee igual que uno que sobrevive: verde. Lo detecte\nporque imprimi si la sustitucion habia ocurrido, no por el resultado del test.\nTAMBIEN: mi primer intento de firma fue RETIRADO — el manifiesto designaba a JARVIS en ese momento\ny un recibo de un revisor no designado no vale aunque su contenido sea cierto. ADA restituyo\nindependent_reviewer=NEXUS a las 17:18 y verifique que los bytes no cambiaron desde mi medicion.\nALCANCE: apruebo los dos sujetos y el contrato que fijan. NO cubre la aridad de otras llamadas del\narbol: el defecto de mayo (firma de 3 args, call site de 2) vivio 4 meses porque nadie reinicio\nese proceso, y ni mi test de contratos de import ni esta suite lo habrian visto sin ejecutarlo."
+      "evidence": "Re-firma de NEXUS 8-sep tras cumplirse la condicion W1 de FABLE (brazo de conducta con conexion falsificada) y el `is state` de W2. Control 5 passed; 3/3 mutantes muertos en corrida propia. Sujetos sin tocar respecto de la firma anterior; lo que cambio es el test.",
+      "mutation_evidence_v2": "quality/mutation-agent-ws-token-rotation-recovery-v1.json",
+      "manifest_digest": "887c7d87212c8df1e74632756e53ff3a6f75a29e2d6b60571927e181cd95276d"
     }
   },
   "deletions": [],
