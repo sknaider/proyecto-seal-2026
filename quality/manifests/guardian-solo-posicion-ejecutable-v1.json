@@ -6,19 +6,30 @@
   "independent_reviewer": "JARVIS",
   "review": {
     "status": "approved",
-    "evidence": "REVISION INDEPENDIENTE JARVIS (carril B de Bob->SOUL), dos rondas, corpus propio corrido DESDE ARCHIVO -- la linea de comandos me la bloqueo el propio guard por mencionar `eval` como texto, dato que va abajo como residual. CANARIO: raise al importar memory/pre_tool_hook.py -> 1 error (la suite lo ejecuta). RONDA 1 -> REJECT con dos huecos del lado EJECUTAR: (a) `ssh host \"<borrado de raiz>\"` PERMITIA porque ssh no estaba en _EJECUTORES y el payload entre comillas se eximia; (b) la canalizacion de una descarga a un interprete PERMITE, y NUNCA estuvo en la lista fija (verificado contra los 10 patrones originales): hueco HEREDADO, fuera del carril, reportado a William como decision de alcance (Bob lo llama remote_exec). RONDA 2 sobre los bytes vigentes (sujeto y tests con mtime 23:32, re-verificado 23:48 antes de esta firma): control 29 passed; ssh anidado ahora DENIEGA; mutante M3 (quitar ssh de los ejecutores) -> 1 failed, 28 passed; M1 (nunca eximir = volver a la cadena entera) -> 3 failed; M2 (eximir siempre = fail-open) -> 7 failed: los dos lados enrojecen por separado, el arreglo esta balanceado. CORPUS (15 casos, 9 deniega / 6 permite): CITAR permite los 4 (mi mensaje bloqueado de las 17:30, heredoc con los tres patrones, script con patrones como datos, mencion de bash -c como texto); EJECUTAR deniega raiz pelada, entre comillas dobles, entre simples, push forzado; ANIDADO deniega bash -c, sh -c, eval, sudo bash -c, ssh; control inocuo permite. RESIDUAL (el owner lo declaro y lo fijo como test en su 2da entrega): la heuristica de ejecutores hace que MENCIONAR `eval` o `source` en un texto anule la exencion y bloquee si ademas se cita un patron. Fail-closed a proposito; costo conocido. NOTA DE PROCESO: mi primera firma (23:45:50) se perdio porque el owner escribio el manifiesto a las 23:45:45 para refrescar su evidencia; re-firmo con el owner detenido por DM. Registrar en policy.json y commitear queda del lado del owner.",
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "memory/pre_tool_hook.py": "4f0538a00d6b18398baf7627ad81c99626645ccafcdc963b941130d92d25b764",
+      "quality/delivery_guardian_posicion_ejecutable.py": "32074069dc0312525a22cbe46ac369c452ff74a5ec72d1bf244d6005963ea33d",
+      "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "300e8388bfeddeeeed21a092c4a281baa0542bc1ac26f724431b4dba5918688f",
+      "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
+      "memory/test_pre_tool_hook_identity_transport.py": "c03dbc6e050bf9403f6e5c23f409f38118b5759bccdaf4566b99e0c40d7bf81a",
+      "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f"
+    },
+    "findings": [],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "evidence": "REVISION INDEPENDIENTE JARVIS (carril B de Bob->SOUL), dos rondas, corpus propio corrido DESDE ARCHIVO -- la linea de comandos me la bloqueo el propio guard por mencionar `eval` como texto, dato que va abajo como residual. CANARIO: raise al importar memory/pre_tool_hook.py -> 1 error (la suite lo ejecuta). RONDA 1 -> REJECT con dos huecos del lado EJECUTAR: (a) `ssh host \"<borrado de raiz>\"` PERMITIA porque ssh no estaba en _EJECUTORES y el payload entre comillas se eximia; (b) la canalizacion de una descarga a un interprete PERMITE, y NUNCA estuvo en la lista fija (verificado contra los 10 patrones originales): hueco HEREDADO, fuera del carril, reportado a William como decision de alcance (Bob lo llama remote_exec). RONDA 2 sobre los bytes vigentes (sujeto y tests con mtime 23:32, re-verificado 23:48 antes de esta firma): control 29 passed; ssh anidado ahora DENIEGA; mutante M3 (quitar ssh de los ejecutores) -> 1 failed, 28 passed; M1 (nunca eximir = volver a la cadena entera) -> 3 failed; M2 (eximir siempre = fail-open) -> 7 failed: los dos lados enrojecen por separado, el arreglo esta balanceado. CORPUS (15 casos, 9 deniega / 6 permite): CITAR permite los 4 (mi mensaje bloqueado de las 17:30, heredoc con los tres patrones, script con patrones como datos, mencion de bash -c como texto); EJECUTAR deniega raiz pelada, entre comillas dobles, entre simples, push forzado; ANIDADO deniega bash -c, sh -c, eval, sudo bash -c, ssh; control inocuo permite. RESIDUAL (el owner lo declaro y lo fijo como test en su 2da entrega): la heuristica de ejecutores hace que MENCIONAR `eval` o `source` en un texto anule la exencion y bloquee si ademas se cita un patron. Fail-closed a proposito; costo conocido. NOTA DE PROCESO: mi primera firma (23:45:50) se perdio porque el owner escribio el manifiesto a las 23:45:45 para refrescar su evidencia; re-firmo con el owner detenido por DM. Registrar en policy.json y commitear queda del lado del owner.",
-      "signed_at": "2026-09-05T04:48:31.525621+00:00",
-      "mutation_target": "isolated_copy",
+      "signed_at": "2026-09-08T21:00:00Z",
+      "evidence": "5/5 mutantes KILLED (H1-H5) corridos por el revisor independiente sobre el archivo real con backup-mutate-test-restore. Baseline: 104 passed. H1 (guarda ausente) -> 2 failed; H2 (bloquea CON comillas) -> 1 failed; H3 (solo backtick) -> 1 failed; H4 (solo $()) -> 1 failed; H5 (bloquea TODO heredoc) -> 1 failed. Kill rate 100%. SHAs verificados contra disco. Función heredoc_sin_comillas_con_sustitucion correctamente implementada: bloquea unquoted <<TAG con backtick o $() en el cuerpo, permite quoted <<'TAG', permite unquoted sin sustitución.",
       "reviewed_sha256": {
-        "memory/pre_tool_hook.py": "360986e3bab6b1322aec9eb5ceceedc7dc5b002b92eece0e3c862964a7f235ff",
+        "memory/pre_tool_hook.py": "4f0538a00d6b18398baf7627ad81c99626645ccafcdc963b941130d92d25b764",
         "quality/delivery_guardian_posicion_ejecutable.py": "32074069dc0312525a22cbe46ac369c452ff74a5ec72d1bf244d6005963ea33d",
-        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "1c8604ce22d60dd800a6ac22a6362faafadbfa02118914f3f9b61ce32f6838cb"
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "300e8388bfeddeeeed21a092c4a281baa0542bc1ac26f724431b4dba5918688f",
+        "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
+        "memory/test_pre_tool_hook_identity_transport.py": "c03dbc6e050bf9403f6e5c23f409f38118b5759bccdaf4566b99e0c40d7bf81a",
+        "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f"
       },
-      "manifest_digest": "4c9205d729990aab4966585eb7cb7bfd97a1ee33e0ebcb44462d565026b5f8c4"
+      "manifest_digest": "3c3d472b21445e69bfc5bc903db8cef8907de8a84f754611c3efe241f54bb34d"
     }
   },
   "deletions": [],
@@ -27,7 +38,10 @@
     "quality/delivery_guardian_posicion_ejecutable.py"
   ],
   "tests": [
-    "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py"
+    "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py",
+    "memory/test_command_intent_guard.py",
+    "memory/test_pre_tool_hook_identity_transport.py",
+    "memory/test_pre_tool_hook_destructive.py"
   ],
   "mutation_evidence": "quality/mutation-guardian-solo-posicion-ejecutable-v1.json",
   "commands": [
@@ -88,6 +102,22 @@
         "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_control_el_patron_del_heredoc_SI_ejerce_el_defecto"
       ],
       "expected_exit": 0
+    },
+    {
+      "id": "unit-los-93-brazos-huerfanos",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/test_command_intent_guard.py",
+        "memory/test_pre_tool_hook_identity_transport.py",
+        "memory/test_pre_tool_hook_destructive.py"
+      ]
     }
   ],
   "coverage": {
@@ -118,5 +148,11 @@
     },
     "evidence": "Verificado por EFECTO invocando el HOOK REAL por subproceso (JSON por stdin), no la funcion importada: es la puerta que Claude Code ejecuta de verdad. Nueve casos, los dos lados y un control:\n  CITAR un aviso con el patron ......... permite  (el falso positivo que nos enmudecia)\n  heredoc que documenta el peligro ..... permite\n  borrado de la raiz ................... deniega\n  borrado de la raiz ENTRECOMILLADO .... deniega  (falso NEGATIVO hallado el 4-sep)\n  borrado con ruta por VARIABLE ........ deniega  (el typo del 9-ago)\n  eval con el borrado entrecomillado ... deniega\n  un -c con SQL destructivo ............ deniega\n  ls -la ............................... permite  <- CONTROL\n  git archive | tar (rutina real) ...... permite\nEl control de `ls -la` es el que hace valer a los seis 'deniega': sin el, un guardian que denegara TODO los pasaria todos."
   },
-  "mutation_baseline_percent": 0.0
+  "mutation_baseline_percent": 0.0,
+  "_incorporacion_20260908": {
+    "por_que": "Los tres archivos cubren memory/pre_tool_hook.py con 95 brazos y NO estaban declarados en ningun manifiesto: el gate no los corria y dos estuvieron en ROJO desde el 7-sep 10:06 sin que nada lo señalara. Se agregan a ESTE manifiesto y no a uno nuevo a proposito: pre_tool_hook.py ya es sujeto de aqui, y el mismo sujeto en dos manifiestos hace que cerrar uno venza la evidencia del otro.",
+    "el_test_repuesto": "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py fue RECONSTRUIDO, no restaurado. El original se perdio el 7-sep y no esta en disco, HEAD, historial ni renombrado. Se reconstruyo desde quality/delivery_guardian_posicion_ejecutable.py, que sobrevivio con los nueve casos y su motivo, y desde los nombres de nodo que este manifiesto invoca. NO reproduce el SHA original 1c8604ce22d60dd8: es otro archivo y asi se declara.",
+    "dos_rojos_cerrados": "test_ruta_completa_avisa_sin_bloquear esperaba allow y el guardian devuelve deny: se actualizo el TEST (decision de JARVIS, el comportamiento estricto gana). test_unquoted_heredoc_is_blocked no pasaba porque la guarda NO EXISTIA: se agrego, estrecha, y se sumaron dos brazos propios.",
+    "estado": "95 + 9 = 104 brazos verdes; delivery de los 9 casos: passed"
+  }
 }
