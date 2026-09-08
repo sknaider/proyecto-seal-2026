@@ -95,6 +95,41 @@ def es_canal_de_sombra(channel: str) -> bool:
     return bool(_CANAL_SOMBRA.fullmatch(str(channel or "").strip()))
 
 
+_CANAL_USUARIO = re.compile(r"^user:\d+:([a-z0-9]+)(?:-([a-z0-9_.-]+))?$", re.IGNORECASE)
+_HUMANOS: frozenset[str] = frozenset({"WILLIAM", "HENRY", "WILLIAM2"})
+
+
+_AGENTES_CON_SALA: frozenset[str] = frozenset({"JARVIS", "FABLE", "ADA", "NEXUS", "ALICE", "DUM"})
+
+
+def agente_de_canal_usuario(channel: str) -> str | None:
+    """``user:<uid>:<agente>[-<cuerpo>]`` -> agente dueño de la sala (``user:1:ada-claude`` -> ``ADA``).
+
+    None si no es sala o si el nombre NO es un agente: ``user:3:gtl-sistemas`` es la sala de un proyecto de
+    Henry, no de un agente «GTL», y ahí los remitentes plenos siguen escribiendo como siempre (matriz de cero
+    regresión de NEXUS, test_nexus_channel_acl_v1).
+    """
+    m = _CANAL_USUARIO.fullmatch(str(channel or "").strip())
+    if not m:
+        return None
+    agente = m.group(1).upper()
+    return agente if agente in _AGENTES_CON_SALA else None
+
+
+def cuerpo_de_canal_usuario(channel: str) -> str | None:
+    """``user:1:ada-claude`` -> ``ADA_CLAUDE``: el cuerpo EXCLUSIVO de la sala. None si la sala no nombra cuerpo."""
+    m = _CANAL_USUARIO.fullmatch(str(channel or "").strip())
+    if not m or not m.group(2) or agente_de_canal_usuario(channel) is None:
+        return None
+    return f"{m.group(1).upper()}_{m.group(2).upper().replace('-', '_')}"
+
+
+def _es_cuerpo_del_agente(quien: str, agente: str) -> bool:
+    """``ADA``, ``ADA_CLAUDE``, ``ADA-CODEX`` son cuerpos de ADA; ``NEXUS`` no."""
+    q = str(quien or "").upper()
+    return q == agente or q.startswith(agente + "_") or q.startswith(agente + "-")
+
+
 def identidad_efectiva(sender: str, instance_id: str = "") -> str:
     """Quién es REALMENTE el que escribe, para efectos del ACL.
 
@@ -130,6 +165,19 @@ def puede_escribir(sender: str, channel: str, instance_id: str = "") -> bool:
     quien = identidad_efectiva(sender, instance_id)
     if not quien:
         return False
+    # Sala privada de una persona con UN agente (ADA, 8-sep-2026): en ``user:<uid>:<agente>`` escriben la
+    # persona y ese agente (cualquiera de sus cuerpos). Los demás remitentes plenos NO, aunque sean de casa:
+    # el 8-sep NEXUS y ALICE contestaban en ``user:1:ada-claude`` y William lo vio como su DM con ADA.
+    agente_sala = agente_de_canal_usuario(channel)
+    if agente_sala:
+        if quien in _HUMANOS:
+            return True
+        cuerpo_sala = cuerpo_de_canal_usuario(channel)
+        if cuerpo_sala:
+            # Sala EXCLUSIVA de un cuerpo (William, 8-sep 13:24: «un canal exclusivo para vos, ADA Claude»):
+            # escribe sólo ese cuerpo, declarado por instancia. ADA a secas (el puente Codex escribe así) NO.
+            return quien == cuerpo_sala
+        return _es_cuerpo_del_agente(quien, agente_sala)
     # Exclusion mutua entre los dos cuerpos de ALICE: exactamente UNO tiene voz
     # plena. El que no es el cuerpo activo queda en su corral aunque figure en
     # REMITENTES_PLENOS -- por eso este chequeo va ANTES y no despues.
