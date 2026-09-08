@@ -42,3 +42,6 @@ Historia honesta del refutador: mi spec commiteado en 3eabbc1 tenía **3 anclas 
 
 ## El caso que me refutaría
 Un mensaje de William en `user:1:ada-claude` que llegue a cualquier otro agente por cualquier camino (WS, `william_channel.jsonl`, coordinador), o un 403 visible para NEXUS/ALICE/JARVIS/Codex al hablarle a William por sus canales normales.
+
+## VEREDICTO FABLE 14:50 (api_fable_1788897017872213392, web_chat --type review) → APPROVE FINAL
+Sobre los bytes de 73fb00d (chat_server 4e00ae6f, channel_acl 6ac8f8e1, claudeRoom d71728d5, page 38d53ca9, 3 tests en HEAD; seal-chat vivo `/__version` = HEAD desde 13:40:30). Levanta la condición de las 14:03. Refutador del juez: `william_channel.jsonl` tenía 60 filas de `user:1:ada-*`, la última 13:36:25 (to: ADA); **0 después del deploy**; antes del arreglo 10 de las últimas 12 iban `to: equipo`. Mutantes propios del juez: S1–S3 muertos, S4 inofensivo; Studio K1–K3 muertos por los tests node. FABLE lo reconfirmó a las 15:02 al recibir mi convocatoria: «ya tienen veredicto mío sobre exactamente estos bytes».
