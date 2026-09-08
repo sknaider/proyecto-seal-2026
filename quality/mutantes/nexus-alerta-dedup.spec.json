@@ -1,0 +1,62 @@
+{
+  "change_id": "nexus-alerta-dedup-20260908",
+  "reviewer": "ALICE",
+  "manifest": "quality/manifests/nexus-alerta-dedup-20260908.json",
+  "_por_que_json": "La primera version fue un .sh y el gate lo trata como SUJETO (.sh esta en source_suffixes), asi que exigia manifiesto propio y bloqueaba el commit. quality/mutantes/*.spec.json es la convencion que ya usaba el equipo; la encontre despues, mirando el arbol. Lo corre tools/arena_por_mutante.sh, que tiene su manifiesto.",
+  "rutas": [
+    "tools/seal_alerta_dedup.py",
+    "tools/tests/test_seal_alerta_dedup_v1.py"
+  ],
+  "sujetos_y_tests": [
+    "tools/seal_alerta_dedup.py",
+    "tools/tests/test_seal_alerta_dedup_v1.py"
+  ],
+  "harness": [
+    "tools/tests/test_seal_alerta_dedup_v1.py"
+  ],
+  "mutantes": [
+    {
+      "id": "M1-nunca-calla (dedup inutil)",
+      "subject": "tools/seal_alerta_dedup.py",
+      "ancla": "return {\"mandar\": False, \"motivo\": \"sin_cambios\", \"sha\": sha,",
+      "reemplazo": "return {\"mandar\": True, \"motivo\": \"sin_cambios\", \"sha\": sha,"
+    },
+    {
+      "id": "M2-calla-para-siempre (mata el recordatorio)",
+      "subject": "tools/seal_alerta_dedup.py",
+      "ancla": "if edad_h >= max_horas:",
+      "reemplazo": "if False:"
+    },
+    {
+      "id": "M3-borde-del-recordatorio (>= por >)",
+      "subject": "tools/seal_alerta_dedup.py",
+      "ancla": "if edad_h >= max_horas:",
+      "reemplazo": "if edad_h > max_horas:"
+    },
+    {
+      "id": "M4-estado-ausente-o-ilegible-CALLA (silencio por defecto)",
+      "subject": "tools/seal_alerta_dedup.py",
+      "ancla": "        return {\"mandar\": True, \"motivo\": \"primera_vez\", \"sha\": sha, \"sha_previo\": None}",
+      "reemplazo": "        return {\"mandar\": False, \"motivo\": \"primera_vez\", \"sha\": sha, \"sha_previo\": None}"
+    },
+    {
+      "id": "M5-marca-enviada-aunque-no-se-mande",
+      "subject": "tools/seal_alerta_dedup.py",
+      "ancla": "if args.marcar_enviada and d[\"mandar\"]:",
+      "reemplazo": "if True:"
+    },
+    {
+      "id": "M6-ignora-la-clave (una alerta calla a otra)",
+      "subject": "tools/seal_alerta_dedup.py",
+      "ancla": "previo = leer_estado(ruta_estado).get(clave)",
+      "reemplazo": "previo = next(iter(leer_estado(ruta_estado).values()), None)"
+    },
+    {
+      "id": "M7-marca-de-tiempo-corrupta-CALLA",
+      "subject": "tools/seal_alerta_dedup.py",
+      "ancla": "        return {\"mandar\": True, \"motivo\": \"estado_corrupto\", \"sha\": sha,",
+      "reemplazo": "        return {\"mandar\": False, \"motivo\": \"estado_corrupto\", \"sha\": sha,"
+    }
+  ],
+  "_nota_harness": "harness son SOLO los argumentos de pytest: arena_por_mutante.py ya antepone [venv/python, -m, pytest, -q, -p no:cacheprovider, --tb=line]. Pasarle el comando completo deja el control VACIO y el arnes aborta con 'el CONTROL debe estar VERDE' sin decir por que."
+}
