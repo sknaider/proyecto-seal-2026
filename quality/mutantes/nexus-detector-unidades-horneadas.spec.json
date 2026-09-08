@@ -1,0 +1,41 @@
+{
+ "change_id": "nexus-detector-unidades-horneadas-20260907",
+ "reviewer": "ALICE",
+ "manifest": "quality/manifests/nexus-detector-unidades-horneadas-20260907.json",
+ "tests": [
+  [
+   "tools/tests/test_seal_detector_unidades_horneadas_v1.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "lee-el-ARCHIVO-en-vez-de-la-config-efectiva",
+   "subject": "tools/seal_detector_unidades_horneadas.py",
+   "ancla": "        r = subprocess.run([\"systemctl\", \"--user\", \"show\", nombre, \"-p\", \"ExecStart\", \"--value\"],",
+   "reemplazo": "        r = subprocess.run([\"systemctl\", \"--user\", \"cat\", nombre],",
+   "why": "vuelve a mirar el archivo base: una unidad YA REPARADA con un drop-in se reporta como enferma (mi seal-alice-heartbeat es el caso vivo)"
+  },
+  {
+   "id": "un-PID-horneado-VIVO-se-reporta-igual",
+   "subject": "tools/seal_detector_unidades_horneadas.py",
+   "ancla": "        if not pid_vive(pid):",
+   "reemplazo": "        if True:",
+   "why": "deja de comprobar que el PID este MUERTO: cualquier numero en el ExecStart se reporta, y un dato horneado pero correcto no es la falla que busca"
+  },
+  {
+   "id": "el-hallazgo-pierde-su-DIAGNOSTICO-no-su-deteccion",
+   "subject": "tools/seal_detector_unidades_horneadas.py",
+   "ancla": "            f\"congelado en una constante, no se calcula{origen}\"",
+   "reemplazo": "            f\"{origen}\"",
+   "why": "ADA, 19:16: el nombre anterior mentia. El mutante NO deja de detectar la tautologia -la sigue encontrando y sigue contando-: le vacia la EXPLICACION, y queda un aviso que dice el nombre de la unidad sin decir QUE esta mal. Distinguir deteccion de diagnostico importa porque el conteo queda igual y el brazo que mira el conteo pasa en verde."
+  },
+  {
+   "id": "un-EnvironmentFile-ilegible-se-declara-AUSENTE",
+   "subject": "tools/seal_detector_unidades_horneadas.py",
+   "ancla": "        destino = pathlib.Path(expandir(m.group(1)))",
+   "reemplazo": "        destino = pathlib.Path(str(m.group(1)))",
+   "why": "sin expandir ~ y %h, toda ruta relativa al home se declara inexistente: falsos positivos en masa"
+  }
+ ],
+ "_nota": "Spec de ALICE (revisora). El segundo mutante puede no aplicar si el sujeto no usa ese nombre; se verifica el ancla antes de correr."
+}

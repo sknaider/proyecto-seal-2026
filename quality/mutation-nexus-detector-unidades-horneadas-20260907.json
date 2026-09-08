@@ -1,0 +1,125 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "nexus-detector-unidades-horneadas-20260907",
+  "reviewer": "ALICE",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 4,
+  "survived": 0,
+  "total": 4,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "...............                                                          [100%]\n15 passed in 0.40s",
+    "sha_sujetos_antes": {
+      "tools/seal_detector_unidades_horneadas.py": "ef83752148d68dcb95597ce6ef8c423a0c7d211821d17aa7dd60133f81736bee"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "lee-el-ARCHIVO-en-vez-de-la-config-efectiva",
+      "subject": "tools/seal_detector_unidades_horneadas.py",
+      "ancla": "        r = subprocess.run([\"systemctl\", \"--user\", \"show\", nombre, \"-p\", \"ExecStart\", \"--value\"],",
+      "reemplazo": "        r = subprocess.run([\"systemctl\", \"--user\", \"cat\", nombre],",
+      "why": "vuelve a mirar el archivo base: una unidad YA REPARADA con un drop-in se reporta como enferma (mi seal-alice-heartbeat es el caso vivo)",
+      "registro": {
+        "subject": "tools/seal_detector_unidades_horneadas.py",
+        "ancla": "        r = subprocess.run([\"systemctl\", \"--user\", \"show\", nombre, \"-p\", \"ExecStart\", \"--value\"],",
+        "reemplazo": "        r = subprocess.run([\"systemctl\", \"--user\", \"cat\", nombre],",
+        "ancla_sha256": "0a484ab4e744650ed421313a4416fca09ce9876f12f018e844a8168b79976a69",
+        "sujeto_sha256_antes": "ef83752148d68dcb95597ce6ef8c423a0c7d211821d17aa7dd60133f81736bee",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_control_la_via_POR_DEFECTO_le_pregunta_a_systemd_no_al_archivo"
+      ],
+      "pytest_tail": "E         Use -v to get more diff\n\ntools/tests/test_seal_detector_unidades_horneadas_v1.py:162: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_control_la_via_POR_DEFECTO_le_pregunta_a_systemd_no_al_archivo\n1 failed, 14 passed in 0.40s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "un-PID-horneado-VIVO-se-reporta-igual",
+      "subject": "tools/seal_detector_unidades_horneadas.py",
+      "ancla": "        if not pid_vive(pid):",
+      "reemplazo": "        if True:",
+      "why": "deja de comprobar que el PID este MUERTO: cualquier numero en el ExecStart se reporta, y un dato horneado pero correcto no es la falla que busca",
+      "registro": {
+        "subject": "tools/seal_detector_unidades_horneadas.py",
+        "ancla": "        if not pid_vive(pid):",
+        "reemplazo": "        if True:",
+        "ancla_sha256": "a9257d7f92257f4f30071f9e32707ad68c5753564780b38101956559dfae0386",
+        "sujeto_sha256_antes": "ef83752148d68dcb95597ce6ef8c423a0c7d211821d17aa7dd60133f81736bee",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_negative_un_pid_VIVO_no_es_hallazgo"
+      ],
+      "pytest_tail": "E        +  where True = any(<generator object test_qa_negative_un_pid_VIVO_no_es_hallazgo.<locals>.<genexpr> at 0xfa719a7945f0>)\n\ntools/tests/test_seal_detector_unidades_horneadas_v1.py:46: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_negative_un_pid_VIVO_no_es_hallazgo\n1 failed, 14 passed in 0.40s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "el-hallazgo-pierde-su-DIAGNOSTICO-no-su-deteccion",
+      "subject": "tools/seal_detector_unidades_horneadas.py",
+      "ancla": "            f\"congelado en una constante, no se calcula{origen}\"",
+      "reemplazo": "            f\"{origen}\"",
+      "why": "ADA, 19:16: el nombre anterior mentia. El mutante NO deja de detectar la tautologia -la sigue encontrando y sigue contando-: le vacia la EXPLICACION, y queda un aviso que dice el nombre de la unidad sin decir QUE esta mal. Distinguir deteccion de diagnostico importa porque el conteo queda igual y el brazo que mira el conteo pasa en verde.",
+      "registro": {
+        "subject": "tools/seal_detector_unidades_horneadas.py",
+        "ancla": "            f\"congelado en una constante, no se calcula{origen}\"",
+        "reemplazo": "            f\"{origen}\"",
+        "ancla_sha256": "e3cb66ed71b3f5c6016df85bce3ae6a10df90a68d42a726786bee9babff48c86",
+        "sujeto_sha256_antes": "ef83752148d68dcb95597ce6ef8c423a0c7d211821d17aa7dd60133f81736bee",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_positive_el_hallazgo_DICE_QUE_ESTA_MAL_no_solo_que_hubo_uno"
+      ],
+      "pytest_tail": "E       assert ('congelado' in \"x.service: ExecStart compara 'true' consigo mismo: el valor quedó  (leido del archivo: systemd no respondio)\")\n\ntools/tests/test_seal_detector_unidades_horneadas_v1.py:195: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_positive_el_hallazgo_DICE_QUE_ESTA_MAL_no_solo_que_hubo_uno\n1 failed, 14 passed in 0.40s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "un-EnvironmentFile-ilegible-se-declara-AUSENTE",
+      "subject": "tools/seal_detector_unidades_horneadas.py",
+      "ancla": "        destino = pathlib.Path(expandir(m.group(1)))",
+      "reemplazo": "        destino = pathlib.Path(str(m.group(1)))",
+      "why": "sin expandir ~ y %h, toda ruta relativa al home se declara inexistente: falsos positivos en masa",
+      "registro": {
+        "subject": "tools/seal_detector_unidades_horneadas.py",
+        "ancla": "        destino = pathlib.Path(expandir(m.group(1)))",
+        "reemplazo": "        destino = pathlib.Path(str(m.group(1)))",
+        "ancla_sha256": "2172eeb030513821a4278597070c31d61f24acc81b478fc4c57d8e5bd4ed81ae",
+        "sujeto_sha256_antes": "ef83752148d68dcb95597ce6ef8c423a0c7d211821d17aa7dd60133f81736bee",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_control_el_especificador_h_se_expande"
+      ],
+      "pytest_tail": "E             Use -v to get more diff\n\ntools/tests/test_seal_detector_unidades_horneadas_v1.py:65: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_control_el_especificador_h_se_expande\n1 failed, 14 passed in 0.38s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "tools/seal_detector_unidades_horneadas.py": "ef83752148d68dcb95597ce6ef8c423a0c7d211821d17aa7dd60133f81736bee",
+    "tools/tests/test_seal_detector_unidades_horneadas_v1.py": "50214445e17ac0b3526a6829ac792ae15215988305cf78919ac751746fe73fc2"
+  }
+}
