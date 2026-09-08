@@ -13,8 +13,11 @@
       "evidence": "38/38 tests PASSED (test_fable_juez_watch_v1.py + test_fable_juez_convocatoria_v1.py). Mutantes criticos verificados manualmente: (a) prefijo->lista literal muere en test_qa_positive_todo_DM_dirigido_a_fable_le_corresponde; (b) quitar descifrado muere en test_qa_positive_un_DM_CIFRADO_se_entrega_en_claro; (c) quitar tope muere en test_qa_negative_sin_tope_saldrian_TODOS; (d) marcar enviado-fallido muere en test_qa_control_un_envio_FALLIDO_no_se_marca_como_convocado. Delivery verificado por FABLE en produccion (9/9 DM descifrados, convocatoria tope=3). SHAs: fable_juez_watch.py=8d073c6d90b1444c66d6f6de97ae6225d944c1b0cc0c99376740e9ddb50bc57f, fable_juez_convocatoria.py=77bfd7a16ff9e02fa444d48399cc3b20cde2426297a8987f0eb07e551f0c6fce",
       "reviewed_sha256": {
         "fable/fable_juez_watch.py": "8d073c6d90b1444c66d6f6de97ae6225d944c1b0cc0c99376740e9ddb50bc57f",
-        "fable/fable_juez_convocatoria.py": "77bfd7a16ff9e02fa444d48399cc3b20cde2426297a8987f0eb07e551f0c6fce"
-      }
+        "fable/fable_juez_convocatoria.py": "77bfd7a16ff9e02fa444d48399cc3b20cde2426297a8987f0eb07e551f0c6fce",
+        "fable/tests/test_fable_juez_watch_v1.py": "5bd3a12062ae6097faaad5d5b5c2086a91ca860d4680349f2020fc02b2560c47",
+        "fable/tests/test_fable_juez_convocatoria_v1.py": "dcd05c7cbae48990b7d22a02aafabb6431c00034269141e87fc5d40a657608e0"
+      },
+      "manifest_digest": "a2982f52fd59d276a4d960f8d194fcba94018f51a6dd4294d6f3ea9e65948380"
     },
     "historial": [
       {
