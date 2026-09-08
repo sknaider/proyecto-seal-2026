@@ -1,19 +1,19 @@
 {
   "schema": "seal.mutation-evidence.v1",
   "reviewer": "JARVIS",
-  "killed": 5,
+  "killed": 6,
   "survived": 0,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
   "timeout": 0,
-  "total": 5,
+  "total": 6,
   "mutation_score_percent": 100.0,
   "file_sha256": {
-    "messages/nexus_dm_poller_v2.py": "1c414ce318d5ff116abd1e95b395851c57a2deb22c82b7da879eef8e43b0df5e",
-    "messages/tests/test_nexus_dm_poller_v2_p1.py": "2f451d1f7cd4502dbc7977125a315d0dde497c299f2a25ecf852eeb94a95dea1"
+    "messages/nexus_dm_poller_v2.py": "0b09a10bc60719440975df9303f8fe6676dcb3d2ba9c5445ec5b872e64e25c63",
+    "messages/tests/test_nexus_dm_poller_v2_p1.py": "af2d22daf20eccd700490d6e8f0e005f02573ea79181b9de1b4f7233ce48790c"
   },
-  "baseline": "11 passed in 0.03s",
+  "baseline": "12 passed in 0.03s",
   "mutants": [
     {
       "id": "P1-cursor-roto-va-a-1970",
@@ -43,7 +43,13 @@
       "id": "P5-cursor-al-minimo",
       "status": "killed",
       "killed_by": ["test_el_cursor_avanza_al_MAXIMO_procesado"],
-      "result": "1 failed, 10 passed"
+      "result": "1 failed, 11 passed"
+    },
+    {
+      "id": "P6-cursor-no-se-persiste-sin-filas",
+      "status": "killed",
+      "killed_by": ["test_qa_control_el_PISO_se_persiste_o_el_poller_no_entrega_NUNCA"],
+      "result": "1 failed, 11 passed"
     }
   ],
   "method": "copia fresca por mutante bajo scratchpad de sesion (/tmp/claude-1000/.../scratchpad/mut_poller_<ID>/). Baseline 11 verdes antes de cada mutante. Mutacion aplicada con python3 replace exacto del ancla (verificada antes de aplicar). Tests corridos desde la copia con interprete venv. Arbol vivo intacto."

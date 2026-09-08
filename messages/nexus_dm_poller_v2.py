@@ -65,7 +65,18 @@ def lee_cursor(ruta: pathlib.Path = CURSOR) -> datetime:
     try:
         return datetime.fromisoformat(ruta.read_text().strip()).astimezone(timezone.utc)
     except (OSError, ValueError):
-        return datetime.now(timezone.utc)
+        # PERSISTIR el piso es obligatorio, no una optimizacion. Sin esto cada
+        # pasada vuelve a leer "ahora" y el piso AVANZA solo: un DM que llego
+        # hace un segundo queda siempre por debajo y **no se entrega nunca**.
+        # El cursor solo se escribia al encontrar filas, y filas no habia nunca:
+        # un bloqueo circular. Medido en produccion el 8-sep, con v2 ya
+        # intercambiado: dos pasadas, 0 entregas, cursor inexistente.
+        ahora = datetime.now(timezone.utc)
+        try:
+            guarda_cursor(ahora, ruta)
+        except OSError:
+            pass          # si no se puede escribir, mejor seguir que abortar
+        return ahora
 
 
 def guarda_cursor(ts: datetime, ruta: pathlib.Path = CURSOR) -> None:

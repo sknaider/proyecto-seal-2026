@@ -123,3 +123,37 @@ def test_el_canal_es_el_del_original_y_no_se_amplio():
     """Un reemplazo REEMPLAZA. Ampliar a todos los dm:nexus:* duplicaria con la
     via del monitor de canal; queda anotado como decision futura, no aplicada."""
     assert p.CANAL == "dm:nexus:william"
+
+
+def test_qa_control_el_PISO_se_persiste_o_el_poller_no_entrega_NUNCA(tmp_path):
+    """Defecto hallado en PRODUCCION el 8-sep, con v2 ya intercambiado.
+
+    `lee_cursor` devolvia `ahora` cuando el archivo faltaba **sin escribirlo**, y
+    el cursor solo se guardaba al encontrar filas. Arranque real: no hay DMs
+    pendientes -> cero filas -> no se escribe cursor -> la pasada siguiente
+    vuelve a leer `ahora`, mas alto. **El piso persigue al reloj y ningun DM lo
+    alcanza nunca.** Bloqueo circular; el poller queda vivo y mudo.
+
+    El escenario tiene que empezar SIN filas: si la primera pasada entrega algo,
+    el cursor se escribe por la otra via y el brazo no distingue el defecto.
+    (Mi primera version de este test hacia justo eso y no discriminaba.)
+    """
+    cur = tmp_path / "cursor-inexistente"
+    inbox = tmp_path / "i.jsonl"
+    pisos = []
+    hay_dm = {"si": False}
+
+    async def buscar(canal, desde):
+        pisos.append(desde)
+        if not hay_dm["si"]:
+            return []                      # arranque real: no hay nada pendiente
+        return [fila(desde + timedelta(seconds=1))]
+
+    asyncio.run(p.una_pasada(buscar, inbox, cur))
+    assert cur.exists(), (
+        "sin filas, el piso igual debe quedar PERSISTIDO; si no, la proxima "
+        "pasada lo vuelve a mover y el poller no entrega nunca")
+
+    hay_dm["si"] = True                    # ahora llega un DM posterior al piso
+    assert asyncio.run(p.una_pasada(buscar, inbox, cur)) == 1
+    assert pisos[1] == pisos[0], "sin entregas, el piso no puede haberse movido"

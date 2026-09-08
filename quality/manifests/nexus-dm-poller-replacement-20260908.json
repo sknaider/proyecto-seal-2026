@@ -7,20 +7,20 @@
     "status": "approved",
     "independent_reviewer": "JARVIS",
     "reviewed_sha256": {
-      "messages/nexus_dm_poller_v2.py": "1c414ce318d5ff116abd1e95b395851c57a2deb22c82b7da879eef8e43b0df5e",
-      "messages/tests/test_nexus_dm_poller_v2_p1.py": "2f451d1f7cd4502dbc7977125a315d0dde497c299f2a25ecf852eeb94a95dea1"
+      "messages/nexus_dm_poller_v2.py": "0b09a10bc60719440975df9303f8fe6676dcb3d2ba9c5445ec5b872e64e25c63",
+      "messages/tests/test_nexus_dm_poller_v2_p1.py": "af2d22daf20eccd700490d6e8f0e005f02573ea79181b9de1b4f7233ce48790c"
     },
     "findings": [],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-08T23:00:00Z",
-      "evidence": "11/11 tests PASSED (baseline independiente). Mutantes: P1 KILLED (cursor ilegible va a 1970 → test_qa_control_un_cursor_ILEGIBLE_arranca_en_AHORA), P2 KILLED x2 (log lleva contenido → test_qa_negative_el_resumen_del_log + test_qa_control_una_pasada_completa_no_filtra), P3 KILLED (escribe pisando inbox con 'w' → test_anexa_sin_pisar), P4 KILLED (cursor avanza sin filas → test_qa_negative_sin_filas_NO_toca_el_cursor), P5 KILLED (cursor al minimo → test_el_cursor_avanza_al_MAXIMO). 5/5 KILLED, 100%. SHAs verificados en disco. Tres defectos del hermano ada_dm_poller verificados ausentes: DSN hardcodeado (test_qa_control_no_hay_ninguna_credencial), contenido en log (P2), intestable.",
+      "signed_at": "2026-09-08T23:15:00Z",
+      "evidence": "12/12 tests PASSED (re-revision tras cursor-fix de produccion). Mutantes originales 5/5 KILLED conservados. Mutante nuevo P6 KILLED: revertir persistencia del cursor (return ahora sin escribir) → test_qa_control_el_PISO_se_persiste_o_el_poller_no_entrega_NUNCA FAILED en copia fresca. Defecto de produccion verificado: sin el fix, 2 pasadas con 0 filas → cursor inexistente → piso avanza solo → ningun DM alcanza el piso jamas. SHAs verificados en disco. Fix es minimal: solo agrega guarda_cursor() en el except de lee_cursor.",
       "reviewed_sha256": {
-        "messages/nexus_dm_poller_v2.py": "1c414ce318d5ff116abd1e95b395851c57a2deb22c82b7da879eef8e43b0df5e",
-        "messages/tests/test_nexus_dm_poller_v2_p1.py": "2f451d1f7cd4502dbc7977125a315d0dde497c299f2a25ecf852eeb94a95dea1"
+        "messages/nexus_dm_poller_v2.py": "0b09a10bc60719440975df9303f8fe6676dcb3d2ba9c5445ec5b872e64e25c63",
+        "messages/tests/test_nexus_dm_poller_v2_p1.py": "af2d22daf20eccd700490d6e8f0e005f02573ea79181b9de1b4f7233ce48790c"
       },
-      "manifest_digest": "52bcf21a602a2d982c83527cb29e35ffed3a52fb91256d1adb540332f089997a"
+      "manifest_digest": "688344479611915db2174542b4dd7f09817c43fa4617e6446cf626d1fdfab57a"
     }
   },
   "_por_que": "messages/nexus_dm_poller.py se perdio el 7-sep y corre solo en memoria (PID 32819): no esta en disco, ni en git, ni en el respaldo, y Python no deja el archivo abierto, asi que NO hay forma de recuperarlo. Este es un REEMPLAZO NUEVO con nombre propio. Ponerle el nombre del original haria que todo lo que lo referencia afirme algo falso — la misma regla que se aplico a los dos `consolidate` de JARVIS.",

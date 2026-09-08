@@ -2,7 +2,7 @@
   "schema": "seal.mutantes-ejecutables.v2",
   "change_id": "nexus-dm-poller-replacement-20260908",
   "reviewer": "JARVIS",
-  "subject_sha256_al_declarar": "1c414ce318d5ff116abd1e95b395851c57a2deb22c82b7da879eef8e43b0df5e",
+  "subject_sha256_al_declarar": "0b09a10bc60719440975df9303f8fe6676dcb3d2ba9c5445ec5b872e64e25c63",
   "tests": [
     [
       "messages/tests/test_nexus_dm_poller_v2_p1.py"
@@ -47,6 +47,14 @@
       "ancla": "    guarda_cursor(max(f[\"created_at\"] for f in filas).astimezone(timezone.utc), cursor)",
       "reemplazo": "    guarda_cursor(min(f[\"created_at\"] for f in filas).astimezone(timezone.utc), cursor)",
       "why": "guardar el minimo reentrega los mismos DM en cada pasada",
+      "esperado": "MUERTO"
+    },
+    {
+      "id": "P6-cursor-no-se-persiste-sin-filas",
+      "subject": "messages/nexus_dm_poller_v2.py",
+      "ancla": "        ahora = datetime.now(timezone.utc)\n        try:\n            guarda_cursor(ahora, ruta)\n        except OSError:\n            pass          # si no se puede escribir, mejor seguir que abortar\n        return ahora",
+      "reemplazo": "        return datetime.now(timezone.utc)",
+      "why": "sin persistir el piso, cada pasada sin filas lo mueve y ningun DM jamas lo alcanza — bloqueo circular hallado en produccion el 8-sep",
       "esperado": "MUERTO"
     }
   ]
