@@ -4,10 +4,10 @@
   "change_id": "nexus-alerta-dedup-20260908",
   "reviewer": "ALICE",
   "tool": "quality/mutantes-nexus-alerta-dedup-20260908.spec.sh",
-  "corrida_fecha": "2026-09-08T10:28:00Z",
+  "corrida_fecha": "2026-09-08T11:14:00Z",
   "file_sha256": {
     "tools/seal_alerta_dedup.py": "0aa8cc377b63a6ace72135b886242b420f18ac7e5c157ee1cca1105dd3ae6b5f",
-    "tools/tests/test_seal_alerta_dedup_v1.py": "f9f733d51c477715657dec9b8e20e5b1dc3736946f4a0ff4e604142ef7a8ed62"
+    "tools/tests/test_seal_alerta_dedup_v1.py": "78b83c8b93fa9de284be809009d10b04d422d3fdf7805396e0cdfea95dd53a79"
   },
   "killed": 7,
   "survived": 0,
@@ -19,18 +19,18 @@
   "mutation_score_percent": 100.0,
   "control_sujeto_sin_mutar": {
     "rc": 0,
-    "pytest_tail": "15 passed in 0.12s"
+    "pytest_tail": "17 passed in 0.19s"
   },
   "mutantes": [
     {
       "id": "M1-nunca-calla",
       "resultado": "KILLED",
-      "killed_by": "test_cli_devuelve_0_para_mandar_y_10_para_callar (5 failed)"
+      "killed_by": "test_cli_respeta_max_horas (7 failed)"
     },
     {
       "id": "M2-calla-para-siempre (mata el recordatorio)",
       "resultado": "KILLED",
-      "killed_by": "test_el_recordatorio_vuelve_a_sonar_al_vencer_el_plazo (1 failed)"
+      "killed_by": "test_cli_respeta_max_horas (2 failed)"
     },
     {
       "id": "M3-borde-del-recordatorio (>= por >)",
@@ -40,7 +40,7 @@
     {
       "id": "M4-estado-ausente-o-ilegible-CALLA",
       "resultado": "KILLED",
-      "killed_by": "test_cli_sin_marcar_enviada_NO_toca_el_estado (12 failed)",
+      "killed_by": "test_cli_respeta_max_horas (14 failed)",
       "nota": "En la primera corrida de NEXUS sobrevivio porque devolvía dict con otra clave — mutante NULO. Re-especificado por NEXUS contra la guarda real en decidir(). En mi corrida independiente: MUERTO."
     },
     {

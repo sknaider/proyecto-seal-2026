@@ -253,3 +253,42 @@ def test_qa_control_el_dsn_vivo_no_entra_al_proceso_de_pytest():
     """Control del propio arnés: si este brazo falla, los demás no prueban lo
     que dicen —estarían leyendo la credencial real en vez del señuelo."""
     assert "POSTGRES_MCP_DSN" not in os.environ or os.environ.get("POSTGRES_MCP_DSN", "") == ""
+
+
+# ───────── condición del veredicto de FABLE (8-sep, mutante C1) ─────────
+
+def test_qa_control_una_linea_COMENTADA_no_se_toma_por_el_DSN(tmp_path):
+    """Mutante C1 de FABLE: cambiar `startswith(clave+"=")` por `clave in linea`
+    SOBREVIVÍA a los 25 brazos. El código ya era correcto —usa `startswith`—
+    pero **ninguna prueba lo observaba**, así que nada impedía que alguien lo
+    relajara. Con un `#` delante, el valor de al lado es un comentario, y
+    tomarlo sería leer una credencial vieja o de ejemplo.
+    """
+    f = tmp_path / "c.env"
+    f.write_text("# POSTGRES_MCP_DSN=postgresql://comentado/NO\n"
+                 "POSTGRES_MCP_DSN=postgresql://real/si\n", encoding="utf-8")
+    f.chmod(0o600)
+    fpath = str(f)
+    rc, out, err = _corre(f"""
+import pathlib
+import seal_observer_credencial as c
+print(c.leer_dsn_del_archivo(pathlib.Path({fpath!r})))
+""", home=tmp_path)
+    assert rc == 0, err
+    assert out == "postgresql://real/si"
+
+
+def test_qa_control_la_clave_debe_estar_al_PRINCIPIO_de_la_linea(tmp_path):
+    """Mismo mutante, el otro lado: una línea donde la clave aparece en medio
+    no define nada."""
+    f = tmp_path / "c.env"
+    f.write_text("export OTRA=1 POSTGRES_MCP_DSN=postgresql://en-medio/NO\n", encoding="utf-8")
+    f.chmod(0o600)
+    fpath = str(f)
+    rc, out, err = _corre(f"""
+import pathlib
+import seal_observer_credencial as c
+print(c.leer_dsn_del_archivo(pathlib.Path({fpath!r})))
+""", home=tmp_path)
+    assert rc == 0, err
+    assert out == ""

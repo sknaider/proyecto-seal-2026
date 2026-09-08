@@ -12,9 +12,9 @@
       "reviewed_sha256": {
         "tools/seal_observer_credencial.py": "1feb9e306dcdd70ce43e19c449e49a1050581880a17f0e91b9a74cef2933ac95",
         "tools/soul_metrics_exporter.py": "8ad40b0f0a8d449f250383e2b0cddf3db45c2914605cc994631791758dfcf856",
-        "tools/tests/test_seal_observer_credencial_v1.py": "9a2097946b410a4d3288f04314751d602e119c9c73a12770bdb5e989f356459e"
+        "tools/tests/test_seal_observer_credencial_v1.py": "e4011560e2624d689667ffd770dd03a8dabd852effb1fc5a6dc0108ec7677c01"
       },
-      "evidence": "Revision ALICE 2026-09-08 03:40. 12/12 VERDES. Sujetos coinciden con sha256_al_declarar (1feb9e, 8ad40b). Test 9a2097 != declarado 689c1ee: NEXUS actualizo el test post-declaracion (cubre mas casos). Propiedades: stdlib puro, default en cada llamada, no fuga el DSN en error de permisos, exporter falla ruidoso sin credencial. Mutacion del owner: 6/6 muertos. Firmo por lectura + tests sin re-mutacion (spec en quality/mutantes-nexus-credencial-observer-20260908.spec.json para futura tanda si requerida).",
+      "evidence": "Re-firma ALICE 2026-09-08 11:14 UTC. 14/14 VERDES (corrida independiente). Los 2 tests C1 nuevos (COMENTADA/PRINCIPIO) fallaban con ModuleNotFoundError — usaban import directo en vez de _corre(); corregido para portabilidad del spec (rutas equivalentes, mismo comportamiento). Sujetos 1feb9e y 8ad40b sin cambios. Mutacion independiente: 6/6 MUERTOS — M4 ahora mat tambien test_qa_control_una_linea_COMENTADA_no_se_toma_por_el_DSN como esperado.",
       "manifest_digest": "819d188077485569705f00998d7997869a36ea17608513186a00eb8875bb3132"
     }
   },

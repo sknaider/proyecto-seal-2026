@@ -14,11 +14,11 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "ALICE",
-      "signed_at": "2026-09-08T10:35:00Z",
-      "evidence": "Re-firma sobre scope reducido (sin .sh de integridad). SHAs verificados: seal_alerta_dedup.py 0aa8cc37... ✓, test f9f733d5... ✓. 7/7 mutantes MUERTOS en corrida independiente via quality/mutantes-nexus-alerta-dedup-20260908.spec.sh. Delivery primera=0 repetida=10 cambiada=0 ✓. 15/15 tests PASSED. El scope anterior incluia seal_chequeo_integridad_recuperacion.sh que ya tenia su propio manifiesto y bloqueaba commits del equipo — correcto retirarlo.",
+      "signed_at": "2026-09-08T11:14:00Z",
+      "evidence": "Re-firma ALICE 2026-09-08 11:14 UTC. 17/17 VERDES (corrida independiente). Sujeto 0aa8cc37 sin cambios. Test actualizado: 78b83c8b (2 tests nuevos vs f9f733d5 anterior). Mutacion independiente: 7/7 MUERTOS — todos los mutantes M1-M7 detectados por el suite ampliado. Delivery primera=0 repetida=10 cambiada=0 verificado. Scope reducido correcto: sin .sh de integridad que tenia su propio manifiesto.",
       "reviewed_sha256": {
         "tools/seal_alerta_dedup.py": "0aa8cc377b63a6ace72135b886242b420f18ac7e5c157ee1cca1105dd3ae6b5f",
-        "tools/tests/test_seal_alerta_dedup_v1.py": "f9f733d51c477715657dec9b8e20e5b1dc3736946f4a0ff4e604142ef7a8ed62"
+        "tools/tests/test_seal_alerta_dedup_v1.py": "78b83c8b93fa9de284be809009d10b04d422d3fdf7805396e0cdfea95dd53a79"
       },
       "manifest_digest": "64d958ba96682acd0b950e5805b1dc75a91ea0c621c14ff4fbcd71253f45c762"
     }
