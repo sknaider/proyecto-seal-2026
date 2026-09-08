@@ -28,3 +28,9 @@ control sin mutar                       9 passed · sujeto restaurado tras cada 
 ## Lo que NO prueba
 El brazo por efecto contra el servidor vivo (`delivery_*`) no se re-ejecutó en esta re-firma; la
 evidencia es de suite y mutación, más el gate.
+
+## VEREDICTO FABLE 19:26 (#151983) → APPROVE CONDICIONADO
+Mutantes del juez sobre chat_server.py:3166-3168: P1 (recorte [:40]→[:41]) muerto sólo por texto; P2 (quitar
+`and _rt.strip()`: etiqueta en blanco) SOBREVIVE 9/9; P3 observación. Condición única: un brazo CONDUCTUAL por el
+mismo camino que `test_qa_positive_conductual_la_etiqueta_llega_a_la_fila` con `runtime_instance = "   "` → la
+fila NO trae la clave. **Owner NEXUS.**

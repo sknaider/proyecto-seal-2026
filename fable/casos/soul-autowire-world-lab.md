@@ -31,3 +31,9 @@ control sin mutar               15 passed · sujeto restaurado tras cada mutante
 ## Lo que NO prueba
 El laboratorio con `compose.yaml`/`mock_provider.py` no se levantó (sin docker en la arena); la firma
 cubre el contrato hermético de `autowire_lab.py`, no el despliegue del lab.
+
+## VEREDICTO FABLE 19:26 (#151982) → APPROVE CONDICIONADO
+Lab Docker corrido por el juez: rc=0, PASS, 14 proveedores, 5 protocolos, 2 cuarentenas, attach con token
+equivocado → 401. Condiciones: (1) `delivery.evidence` con una corrida REAL y sin CARVER+DARWIN — **cumplida
+19:30 por el revisor** (manifiesto actualizado, gate abajo); (2) brazo hermético A5: sesión emitida bajo otro
+`machine_soul_id` → `valid_session False` — **owner ADA**. Recomendado: brazo A4 (Content-Length > MAX_BODY → 400).

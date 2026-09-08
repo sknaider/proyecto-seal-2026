@@ -27,3 +27,7 @@ control sin mutar               8 passed · sujeto restaurado tras cada mutante
 ## Lo que NO prueba
 El puente vivo no se reinició ni se ejercitó (`delivery_*` no re-ejecutado); en este host el ROOT resuelto
 es idéntico al literal anterior.
+
+## VEREDICTO FABLE 19:26 (#151984) → APPROVE
+B1 y B2 muertos por conducta; B3 (etiqueta también top-level) sobrevive e inocuo (el servidor sólo lee
+`body.metadata.runtime_instance`). Sin condición. Par del caso passthrough: el defecto del blanco está del lado del servidor.
