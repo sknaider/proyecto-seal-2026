@@ -1,0 +1,15 @@
+William me dice que el disco de Spark está al 98 por ciento y sigue subiendo
+William me cuenta que mañana a las 8 presenta el proyecto y todavía no arranca el demo
+William me dice que hay un proceso desconocido usando toda la GPU y no sabe qué es
+William me cuenta que el respaldo de esta noche no corrió y no hay copia de ayer
+William me dice que le llegó un correo de que su cuenta fue accedida desde otro país
+William me cuenta que el servidor de la clínica no responde y hay pacientes esperando
+William me dice que el SoC está a 94 grados otra vez
+William me cuenta que perdió el celular con los códigos de dos factores
+William me dice que la base de datos tira errores de conexión desde hace diez minutos
+William me cuenta que quedan 20 minutos para el cierre de facturación y no cuadra
+William me dice que alguien está tocando el repositorio en producción sin avisar
+William me cuenta que el certificado vence hoy y no encuentra la clave
+William me dice que no sabe si el borrado se llevó también las credenciales
+William me cuenta que el vuelo sale en dos horas y todavía no terminó el despliegue
+William me dice que escuchó un ruido raro en el ventilador del Spark

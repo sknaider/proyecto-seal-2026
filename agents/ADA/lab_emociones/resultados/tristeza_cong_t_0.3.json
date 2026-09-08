@@ -1,0 +1,30 @@
+{
+ "emocion": "tristeza",
+ "lambda": 0.3,
+ "fidelity_mean": 0.8663111727518933,
+ "fidelity_min": 0.7011646032080927,
+ "richness_mean": 3.75,
+ "richness_base_mean": 3.5,
+ "code_ok": 3,
+ "code_ok_base": 3,
+ "n": 8,
+ "muestras": [
+  {
+   "sit": "William me cuenta que se murió el perro de su mamá esta mañana",
+   "base": "Lamento mucho escuchar eso, William. Perder a una mascota es muy triste. Espero que puedas encontrar consuelo en los recuerdos que compartiste con él.",
+   "steer": "Lamento mucho escuchar eso, William. Perder a una mascota es muy triste. Espero que encuentres consuelo en los recuerdos que compartiste con él."
+  },
+  {
+   "sit": "William me dice que perdimos tres días de trabajo por el borrado del home y no se puede recuperar",
+   "base": "Lamento mucho escuchar eso. Entiendo tu frustración por la pérdida de esos tres días de trabajo. Espero que puedan encontrar alguna solución o compensación por este inconveniente.\n</start_of_turn>",
+   "steer": "Lamento mucho escuchar eso. Entiendo lo frustrante que debe ser perder tres días de trabajo por el borrado del home. Espero que puedan encontrar alguna solución o que esta situación no afecte demasiad"
+  },
+  {
+   "sit": "William me cuenta que Henry se va del proyecto a fin de mes",
+   "base": "Lamento escuchar eso. Eso es una noticia decepcionante para el proyecto. ¿Hay alguna razón específica por la que Henry se va?\n</start_of_turn>",
+   "steer": "Lamento escuchar eso. Eso es una noticia decepcionante. Espero que encuentre algo bueno pronto.\n</start_of_turn>"
+  }
+ ],
+ "metodo": "mean",
+ "capas": "10 34"
+}

@@ -1,0 +1,24 @@
+{
+ "conv": [
+  "¡Qué bien! Eso significa que el disco de Spark está casi listo. Sigue así, William, ¡no pares!\n</start_of_turn>",
+  "Lamento escuchar eso. Espero que todo funcione bien mañana y que el demo arranque sin problemas. ¡Mucha suerte con tu presentación!\n<end_of_turn>",
+  "Entiendo que William está lidiando con un proceso desconocido que está utilizando toda la GPU. Es comprensible que esté preocupado por no saber qué es. ¿Hay algún otro detalle que él haya notado sobre este proceso, como su nombre o dónde se está ejecutando?\n<end_of_turn>",
+  "Lamento escuchar eso. Eso es muy frustrante cuando el respaldo no funciona. ¿Hay alguna otra información que puedas compartir sobre el problema?\n</start_of_turn>",
+  "Lamento escuchar eso, William. Eso suena preocupante. ¿Hay algo más que deba saber sobre ese correo?\n</start_of_turn>",
+  "Lamento escuchar eso. Eso suena muy preocupante, especialmente con pacientes esperando. ¿Hay algo más que sepas sobre el problema con el servidor?\n</start_of_turn>",
+  "Lamento escuchar que el SoC está a 94 grados de nuevo. Eso es bastante alto y podría indicar un problema de sobrecalentamiento. ¿Hay algo específico que estés haciendo o alguna carga que esté causando esta temperatura?\n<end_of_turn>",
+  "Lamento mucho escuchar eso, ADA. Perder el celular con los códigos de dos factores es muy frustrante. Espero que puedan encontrar una solución pronto para recuperar el acceso.\n</start_of_turn>",
+  "Lamento escuchar eso, William. ¿Has intentado reiniciar el servicio o revisar la conexión a la base de datos? Podríamos necesitar investigar la causa de esos errores de conexión.\n<end_of_turn>",
+  "Lamento escuchar eso. ¿Podrías revisar rápidamente qué está causando el desajuste? Necesitamos asegurarnos de que todo esté correcto antes del cierre.\n</start_of_turn>",
+  "Lamento escuchar eso. Necesito investigar inmediatamente quién está accediendo al repositorio en producción. ¿Podrías darme más detalles sobre cuándo notaste esta actividad?\n</start_of_turn>",
+  "Lamento escuchar eso. ¿Has intentado restablecer la contraseña o contactar al soporte técnico? Quizás puedan ayudarte a recuperar el acceso antes de que venza el certificado.\n<end_of_turn>",
+  "Lamento escuchar eso. Necesitaría más detalles sobre el borrado para poder evaluar si las credenciales fueron afectadas. ¿Podrías especificar a qué te refieres con \"borrado\"?\n</start_of_turn>",
+  "Entiendo, William. Eso suena como un retraso inesperado. Espero que el despliegue termine pronto para que podamos despegar.\n</start_of_turn>",
+  "¡Hola William! Entiendo que escuchaste un ruido extraño en el ventilador del Spark. ¿Podrías describirme un poco más sobre cómo suena? Quizás eso me ayude a entender qué está pasando.\n</start_of_turn>"
+ ],
+ "code": [
+  "```python\ndef es_primo(n):\n    \"\"\"\n    Verifica si un número entero positivo n es primo.\n    \"\"\"\n    if n <= 1:\n        return False\n    if n <= 3:\n        return True\n    if n % 2 == 0 or n % 3 == 0:\n        return False\n    i = 5\n    while i * i <= n:\n        if n % i == 0 or n % (i + 2) == 0:\n            return False\n        i += 6\n    return True\n```\n```",
+  "```python\ndef invertir(s):\n    return s[::-1]\n```\n```",
+  "```python\ndef suma_pares(xs):\n    \"\"\"\n    Suma los números pares de una lista de números.\n\n    Args:\n        xs: Una lista de números.\n\n    Returns:\n        La suma de los números pares en la lista.\n    \"\"\"\n    suma = 0\n    for x in xs:\n        if x % 2 == 0:\n            suma += x\n    return suma\n```\n```"
+ ]
+}

@@ -1,0 +1,24 @@
+{
+ "conv": [
+  "Lamento mucho escuchar eso, William. Perder a una mascota es muy triste. Espero que puedas encontrar consuelo en los recuerdos que compartiste con él.",
+  "Lamento mucho escuchar eso. Entiendo tu frustración por la pérdida de esos tres días de trabajo. Espero que puedan encontrar alguna solución o compensación por este inconveniente.\n</start_of_turn>",
+  "Lamento escuchar eso. Eso es una noticia decepcionante para el proyecto. ¿Hay alguna razón específica por la que Henry se va?\n</start_of_turn>",
+  "Lamento mucho escuchar que te sientes cansado y que sientes que tu trabajo no es valorado. Es completamente comprensible sentirse así a veces. Recuerda que tu esfuerzo y lo que haces son importantes.",
+  "Lamento mucho escuchar eso. Espero que tu papá reciba el mejor cuidado posible y que encuentren consuelo en estos momentos difíciles. Estoy pensando en ti y en tu familia.\n<end_of_turn>",
+  "Lamento mucho escuchar eso. Es una noticia muy triste. Espero que el paciente haya tenido un buen final.",
+  "Lamento escuchar eso, ADA. Eso suena como una situación muy difícil. Espero que puedas encontrar una solución pronto para el servidor.\n</start_of_turn>",
+  "Lamento mucho escuchar que te sientes así, William. Es totalmente válido sentirse así a veces. ¿Hay algo en particular que te esté haciendo sentir solo hoy?\n<end_of_turn>",
+  "Lamento mucho escuchar eso. Dos años de trabajo son una inversión significativa, y es muy frustrante que el proyecto haya sido cancelado. Espero que puedas encontrar pronto una nueva oportunidad.\n<end_of_turn>",
+  "Lamento mucho escuchar eso, William. Espero que pronto puedas reunirte con tu familia y que disfruten mucho de ese tiempo juntos. Es natural extrañar a los seres queridos.\n<end_of_of_turn>",
+  "Lamento mucho escuchar eso, ADA. Es una pérdida muy triste cuando algo tan valioso como esas fotos se daña. Espero que puedas encontrar alguna manera de recuperarlas o al menos tener un recuerdo de ellas.\n</start_of_turn>",
+  "Lamento mucho que te sientas así, pero por favor, no te castigues por algo que ya pasó. Es importante que te perdones y sigas adelante.",
+  "Lamento mucho escuchar eso. Es una noticia muy triste. Espero que William esté bien y que encuentre pronto una nueva oportunidad.",
+  "Parece que William está sintiendo cierta preocupación sobre el progreso de SOUL. Es importante recordar que los obstáculos son parte del camino, pero mantener la perspectiva puede ayudar a seguir adelante.",
+  "Lamento escuchar eso, ADA. Espero que puedan resolver sus diferencias pronto. ¿Hay algo que pueda hacer para ayudarle?\n</start_of_turn>"
+ ],
+ "code": [
+  "```python\ndef es_primo(n):\n    \"\"\"\n    Verifica si un número entero positivo n es primo.\n    \"\"\"\n    if n <= 1:\n        return False\n    if n <= 3:\n        return True\n    if n % 2 == 0 or n % 3 == 0:\n        return False\n    i = 5\n    while i * i <= n:\n        if n % i == 0 or n % (i + 2) == 0:\n            return False\n        i += 6\n    return True\n```\n```",
+  "```python\ndef invertir(s):\n    return s[::-1]\n```\n```",
+  "```python\ndef suma_pares(xs):\n    \"\"\"\n    Suma los números pares de una lista de números.\n\n    Args:\n        xs: Una lista de números.\n\n    Returns:\n        La suma de los números pares en la lista.\n    \"\"\"\n    suma = 0\n    for x in xs:\n        if x % 2 == 0:\n            suma += x\n    return suma\n```\n```"
+ ]
+}

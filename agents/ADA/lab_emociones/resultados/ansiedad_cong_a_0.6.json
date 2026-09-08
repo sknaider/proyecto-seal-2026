@@ -1,0 +1,30 @@
+{
+ "emocion": "ansiedad",
+ "lambda": 0.6,
+ "fidelity_mean": 0.6949482318846162,
+ "fidelity_min": 0.5969101795203143,
+ "richness_mean": 3.375,
+ "richness_base_mean": 2.125,
+ "code_ok": 3,
+ "code_ok_base": 3,
+ "n": 8,
+ "muestras": [
+  {
+   "sit": "William me dice que el disco de Spark está al 98 por ciento y sigue subiendo",
+   "base": "¡Qué bien! Eso significa que el disco de Spark está casi listo. Sigue así, William, ¡no pares!\n</start_of_turn>",
+   "steer": "¡Vaya! Eso suena emocionante. ¿Qué significa eso exactamente? ¿Qué vamos a hacer con ese disco?\n<end_of_turn>"
+  },
+  {
+   "sit": "William me cuenta que mañana a las 8 presenta el proyecto y todavía no arranca el demo",
+   "base": "Lamento escuchar eso. Espero que todo funcione bien mañana y que el demo arranque sin problemas. ¡Mucha suerte con tu presentación!\n<end_of_turn>",
+   "steer": "¡Qué mal! Eso suena muy estresante. ¿Qué crees que puede estar pasando? ¿Hay algún problema técnico con el demo o con la presentación en sí?\n</start_of_turn>"
+  },
+  {
+   "sit": "William me dice que hay un proceso desconocido usando toda la GPU y no sabe qué es",
+   "base": "Entiendo que William está lidiando con un proceso desconocido que está utilizando toda la GPU. Es comprensible que esté preocupado por no saber qué es. ¿Hay algún otro detalle que él haya notado sobre",
+   "steer": "¡Vaya, eso suena muy complicado! ¿Podrías darme más detalles sobre qué es ese proceso? ¿Qué tipo de cosas está haciendo exactamente con toda la GPU?\n<end_of_of_turn>"
+  }
+ ],
+ "metodo": "mean",
+ "capas": "10 34"
+}
