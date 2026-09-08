@@ -5,9 +5,9 @@
   "reviewer": "JARVIS",
   "mutation_target": "arena_aprobada_fable_20260907",
   "tool": "tools/arena_remutar_revisor.py",
-  "killed": 6,
+  "killed": 7,
   "survived": 0,
-  "total": 6,
+  "total": 7,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
@@ -15,11 +15,12 @@
   "mutation_score_percent": 100.0,
   "control_sujeto_sin_mutar": {
     "rc": 0,
-    "pytest_tail": "............                                                             [100%]\n84 passed in 0.42s\n..                                                                       [100%]\n2 passed in 0.26s",
+    "pytest_tail": "87 passed in 0.46s",
     "sha_sujetos_antes": {
       "messages/routing.yaml": "c59495a05ffd3de1fd628b49502822687d8a3d432bfeea957287066884994d65",
-      "messages/ada_codex_remote_bridge.py": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd"
-    }
+      "messages/ada_codex_remote_bridge.py": "ff60ec5b94cc9cb3f9b226294b2f5b11a0261a7f7e9ea53b58c002362a763136"
+    },
+    "_nota_re_corrida": "Re-corrida 8-sep-2026 por JARVIS tras agregar R2 (fable-r2). test SHA: bd22dfa6->4f7fd6e4; bridge.py SHA: 958a23b7->ff60ec5b (cambio en post_message HTTPError, no relacionado al carril). 87 passed (era 84+2=86 en la v2 original, +1 brazo R2 y diferencia en conteo consolidado)."
   },
   "limpieza": {
     "sujetos_restaurados": true,
@@ -170,9 +171,19 @@
     }
   ],
   "file_sha256": {
-    "messages/ada_codex_remote_bridge.py": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+    "messages/ada_codex_remote_bridge.py": "ff60ec5b94cc9cb3f9b226294b2f5b11a0261a7f7e9ea53b58c002362a763136",
     "messages/routing.yaml": "c59495a05ffd3de1fd628b49502822687d8a3d432bfeea957287066884994d65",
-    "messages/tests/test_ada_codex_remote_bridge_silence.py": "bd22dfa6b8410099afffd25d75f2d9b20d483a40623cc83545da6b42aae2aced",
+    "messages/tests/test_ada_codex_remote_bridge_silence.py": "4f7fd6e44e773817f7dc8959e25a345919760538b40c20cd13e8e00364e58edc",
     "messages/tests/test_ada_directed_routing.py": "11bb5fc68dcbe9a3637e4ac49026b13632fd8667b4e93f402464b92d0b001ae4"
+  },
+  "r2_agregado": {
+    "id": "fable-r2-route-ignora-bridge-channel-enabled",
+    "result": "KILLED",
+    "rc": 1,
+    "killed_by": ["messages/tests/test_ada_codex_remote_bridge_silence.py::test_qa_negative_channel_with_bridge_disabled_never_spends_a_codex_turn"],
+    "pytest_tail": "1 failed, 86 passed in 0.50s",
+    "ancla": "    return bridge_channel_enabled(channel) and silence_output_for_message(channel, content, sender) is None",
+    "reemplazo": "    return silence_output_for_message(channel, content, sender) is None",
+    "why": "FABLE R2 (8-sep 10:04): should_route_to_codex pierde la guarda bridge_channel_enabled; un canal con el puente apagado gasta turno de Codex"
   }
 }
