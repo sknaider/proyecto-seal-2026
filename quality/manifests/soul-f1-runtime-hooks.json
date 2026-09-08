@@ -4,22 +4,22 @@
   "owner": "ADA",
   "independent_reviewer": "NEXUS",
   "review": {
-    "status": "pending",
-    "evidence": "NEXUS web_chat #125738 approved the live RLS attack; isolated F2 adversarial lane re-reviewed the changed event/adapter/test bytes with 38 passing tests and a restricted-role live probe",
-    "historial": [
-      {
-        "reviewer": "F2_ADVERSARIAL",
-        "reviewed_sha256": {
-          "memory/soul_event_interface.py": "fec5d59181feb3f12757802b90aaa4e5463d4dc01efadf2faa0c036a5b38214f",
-          "memory/soul_hooks_seed.py": "273a018c714d31d52afe3f1fd0451294b0fa1aa0ecafcc6caeeecf53a9d27970",
-          "memory/soul_runtime_adapter.py": "ac91cef40bc644bdc9268df82e756ecd79501d2b2bef02badee8b0daddd2bf90",
-          "memory/soul_runtime_hooks_migration.sql": "117e45a080a258e344a354bae7f1e2bcbe9af1ae9ce293e2a5ef868490ca4231",
-          "tests/test_soul_f1_quality.py": "9169ddfda8472d30ec356bc798b030167a87a19161d8127fe0bcc6a356d822b4"
-        },
-        "manifest_digest": "a50f3c131a3b765bcf7fb24363e139559fee70b4be86f977e8dd2e5be2c508db",
-        "_nota": "recibo de un revisor que ya no existe; conservado, no vigente"
-      }
-    ]
+    "status": "approved",
+    "reviewer": "NEXUS",
+    "date": "2026-09-07",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "8 brazos verdes. Los tres brazos test_mutation_* del propio archivo son mutacion REAL y bien hecha -monkeypatch, replace del SQL, replace del dataclass- y exigen que el chequeo GRITE; no son prosa. Pero mutan la ENTRADA del verificador, no el codigo que se despliega, asi que corri mutacion propia sobre los sujetos en arena contenida: 3/3 muertos, control verde antes y despues (el matcher deja de discriminar; un evento sin mapeo deja de fallar cerrado; la migracion concede UPDATE al runtime). DELIVERY VERIFICADA POR EFECTO EN LA BASE VIVA, no por el texto del manifiesto: soul_v3.runtime_hooks existe con 28 filas, relrowsecurity=true, dos policies ambas de SELECT, y los cinco roles mcp_runtime_* mas soul_sdk_runtime tienen SOLO el privilegio SELECT. La frontera de solo-lectura que la migracion promete esta puesta de verdad. HALLAZGO que no bloquea pero hay que anotar: la prueba de entrega depende de ~/.claude/settings.json, que NO esta versionado -el del repo tiene 0 matchers FileChanged, el del home tiene 5-. Ese archivo se destruyo el 7-sep y hoy existe porque JARVIS lo reconstruyo (4d6c9ad). Si no lo hubiera hecho, este brazo estaria rojo por un motivo que nada tiene que ver con el codigo de ADA. Va al inventario de estado esencial fuera de git.",
+      "reviewed_sha256": {
+        "memory/soul_event_interface.py": "fec5d59181feb3f12757802b90aaa4e5463d4dc01efadf2faa0c036a5b38214f",
+        "memory/soul_hooks_seed.py": "273a018c714d31d52afe3f1fd0451294b0fa1aa0ecafcc6caeeecf53a9d27970",
+        "memory/soul_runtime_adapter.py": "ac91cef40bc644bdc9268df82e756ecd79501d2b2bef02badee8b0daddd2bf90",
+        "memory/soul_runtime_hooks_migration.sql": "117e45a080a258e344a354bae7f1e2bcbe9af1ae9ce293e2a5ef868490ca4231",
+        "tests/test_soul_f1_quality.py": "9169ddfda8472d30ec356bc798b030167a87a19161d8127fe0bcc6a356d822b4"
+      },
+      "manifest_digest": "0d94220643a3d49ff21901bcbb211eac0b7a39f93375577df6c81ed8d9967e49"
+    }
   },
   "deletions": [],
   "subjects": [
@@ -95,7 +95,7 @@
     "baseline_percent": 0.0,
     "timeout": 300
   },
-  "mutation_evidence": "quality/mutation-soul-f1-runtime-hooks.json",
+  "mutation_evidence": "quality/mutation-soul-f1-runtime-hooks.nexus.json",
   "mutation_baseline_percent": 100.0,
   "delivery": {
     "status": "verified",

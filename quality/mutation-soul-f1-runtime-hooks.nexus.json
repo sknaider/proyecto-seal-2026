@@ -1,0 +1,71 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "soul-f1-runtime-hooks",
+  "owner": "ADA",
+  "reviewer": "NEXUS",
+  "tool": "arena contenida (docker --user 65534, python:3.12) + tools/seal_mutacion_segura.py",
+  "workspace": "seal_arena.sh new memory tests tools .claude",
+  "harness": [
+    "python",
+    "-m",
+    "pytest",
+    "tests/test_soul_f1_quality.py",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "seleccion_de_tests": "el archivo COMPLETO, sin -k: 8 esperados, 8 ejecutados, 0 excluidos",
+  "_como_se_midio": "Corrida por el REVISOR. La evidencia previa declaraba reviewer='F2_ADVERSARIAL', que no es el independent_reviewer del manifiesto. OJO CON LA ARENA, y es el hallazgo del expediente: el control salio ROJO dos veces antes de poder medir nada. Primero por no copiar .claude (omision mia; el archivo del repo SI esta versionado). Segundo -y este no es omision- porque soul_hooks_seed.DEFAULT_SETTINGS apunta a Path.home()/'.claude/settings.json', o sea al settings del HOME del usuario, NO al del repo: el del repo tiene 0 matchers FileChanged y el del home tiene 5. Hubo que copiar el vivo a la arena para reproducir. Es deliberado -el modulo dice que lee el settings REAL para que el seed no se desincronice- pero deja la prueba de entrega atada a un archivo NO VERSIONADO.",
+  "control_sujeto_sin_mutar": {
+    "observed": "8 passed in 0.01s",
+    "result": "GREEN",
+    "brazos_esperados": 8,
+    "brazos_ejecutados": 8,
+    "excluidos": 0
+  },
+  "control_final": {
+    "observed": "8 passed",
+    "result": "GREEN"
+  },
+  "file_sha256": {
+    "memory/soul_event_interface.py": "fec5d59181feb3f12757802b90aaa4e5463d4dc01efadf2faa0c036a5b38214f",
+    "memory/soul_hooks_seed.py": "273a018c714d31d52afe3f1fd0451294b0fa1aa0ecafcc6caeeecf53a9d27970",
+    "memory/soul_runtime_adapter.py": "ac91cef40bc644bdc9268df82e756ecd79501d2b2bef02badee8b0daddd2bf90",
+    "memory/soul_runtime_hooks_migration.sql": "117e45a080a258e344a354bae7f1e2bcbe9af1ae9ce293e2a5ef868490ca4231",
+    "tests/test_soul_f1_quality.py": "9169ddfda8472d30ec356bc798b030167a87a19161d8127fe0bcc6a356d822b4"
+  },
+  "total": 3,
+  "killed": 3,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "detail": [
+    {
+      "id": "el-matcher-acepta-cualquier-cosa",
+      "author": "NEXUS",
+      "subject": "memory/soul_event_interface.py",
+      "mutation": "el matcher deja de discriminar: un hook pensado para un archivo dispara con TODOS. Ruido que entierra la senal.",
+      "observed": "2 failed, 6 passed in 0.02s",
+      "result": "KILLED"
+    },
+    {
+      "id": "el-evento-desconocido-pasa-en-silencio",
+      "author": "NEXUS",
+      "subject": "memory/soul_event_interface.py",
+      "mutation": "un evento sin mapeo deja de fallar cerrado y se rutea a un evento arbitrario: la falla se vuelve invisible.",
+      "observed": "2 failed, 6 passed in 0.02s",
+      "result": "KILLED"
+    },
+    {
+      "id": "la-migracion-concede-UPDATE-al-runtime",
+      "author": "NEXUS",
+      "subject": "memory/soul_runtime_hooks_migration.sql",
+      "mutation": "los roles de runtime pasan a poder ESCRIBIR sus propios hooks: la frontera de solo-lectura desaparece.",
+      "observed": "2 failed, 6 passed in 0.02s",
+      "result": "KILLED"
+    }
+  ],
+  "mutation_score_percent": 100.0
+}
