@@ -112,6 +112,7 @@
     "quality/manifests/loop-guard-v1.json",
     "quality/manifests/mcp-web-soul-hardening.json",
     "quality/manifests/nexus-credential-paths.json",
+    "quality/manifests/nexus-detector-unidades-horneadas-20260907.json",
     "quality/manifests/nexus-maintenance-alice-v2-intent-v1.json",
     "quality/manifests/nexus-seat-detector.json",
     "quality/manifests/nexus-storea-rotation-oracle.json",

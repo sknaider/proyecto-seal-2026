@@ -1,0 +1,118 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-detector-unidades-horneadas-20260907",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "review": {
+    "status": "approved",
+    "historial": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "reviewed_sha256": {
+        "tools/seal_detector_unidades_horneadas.py": "ef83752148d68dcb95597ce6ef8c423a0c7d211821d17aa7dd60133f81736bee",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py": "50214445e17ac0b3526a6829ac792ae15215988305cf78919ac751746fe73fc2"
+      },
+      "manifest_digest": "e20dfd7ad50fafd7be84be22bf51b26b43ede4d54be3837861431a73e27adebb",
+      "evidence": "Revision por MUTANTES en la arena, control VERDE. Primera pasada 2/4; tras los brazos de NEXUS, 4/4 sobre estos bytes. Los dos que sobrevivian eran de lo que el detector AFIRMA, no de lo que encuentra: (1) cambiar `systemctl show` por `cat` -leer el ARCHIVO en vez de la config EFECTIVA- reportaria como rota una unidad ya reparada por drop-in; mi propia seal-alice-heartbeat es el caso vivo, con la tautologia en el archivo base y saneada por drop-in desde las 19:12. (2) vaciar el texto del hallazgo: PRECISION DE ADA, ese mutante conserva la DETECCION y elimina el DIAGNOSTICO, y sobrevivia porque el brazo miraba el CONTEO y el conteo no cambia. Mi mutante estaba mal nombrado y lo renombre: un nombre de mutante equivocado desvia el arreglo hacia una pieza sana. MUEREN ademas: dejar de comprobar que el PID este MUERTO, y no expandir ~/%h en EnvironmentFile."
+    }
+  },
+  "subjects": [
+    "tools/seal_detector_unidades_horneadas.py"
+  ],
+  "tests": [
+    "tools/tests/test_seal_detector_unidades_horneadas_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-detector-unidades-horneadas",
+      "kind": "unit",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-detecta-el-contrato-perdido",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_positive_detecta_la_tautologia_congelada",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_positive_detecta_el_pid_horneado_muerto"
+      ]
+    },
+    {
+      "id": "negative-no-inventa-hallazgos",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_negative_un_pid_VIVO_no_es_hallazgo",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_negative_una_unidad_sana_no_inventa_hallazgos",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_negative_directorio_inexistente_falla_ruidoso"
+      ]
+    },
+    {
+      "id": "control-los-cinco-errores-que-cometi",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_control_el_especificador_h_se_expande",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_control_un_EnvironmentFile_ILEGIBLE_no_tumba_el_detector",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_control_gana_el_ExecStart_EFECTIVO_sobre_el_archivo",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_control_el_pid_de_RUNTIME_de_systemd_no_es_un_hallazgo",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_control_un_argv_con_PUNTOS_Y_COMA_no_se_trunca",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_control_la_salida_NUNCA_garantiza_ausencia",
+        "tools/tests/test_seal_detector_unidades_horneadas_v1.py::test_qa_control_el_test_NO_es_vacuo"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_seal_detector_unidades_horneadas_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 0.0,
+  "_por_que": "El 7-sep se reconstruyeron 224 unidades tras el borrado del home. Reconstruir recupera QUE un proceso corria; NO recupera BAJO QUE CONTRATO corria. Ese dia encontre TRES features rotas por esa via y las tres se veian verdes: el latido de ADA y el de ALICE publicando alive=true con un PID muerto horneado, y PartOf=seal-chat.service perdido en los cuatro seal-channel-monitor@ (no vive en /proc), que dejo inerte el reconocimiento de cascada del stability guard. Un latido que dice 'vivo' siempre no es un latido: informa bien mientras miente.",
+  "delivery": {
+    "status": "verified",
+    "evidence": "Corrido contra el directorio real de unidades: 5 detecciones sobre 224 leidas. ADA con la tautologia y el PID muerto (su unidad sigue con el snippet congelado); dos EnvironmentFile ausentes (seal-nerves-a2-soak, seal-studio-frontend) y uno ilegible por permisos, reportado como 'no pude verificar' y NO como ausente. Verificado por efecto que NO es un detector vacuo ni ciego: cuando ALICE y JARVIS arreglaron sus unidades a las 19:15, sus hallazgos DESAPARECIERON del barrido, y systemctl show confirma que su ExecStart efectivo ahora invoca messages/<agente>_heartbeat_update.sh. El detector siguio al mundo, no al reves.",
+    "command": {
+      "id": "delivery-barrido-real",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "tools/seal_detector_unidades_horneadas.py",
+        "--dir",
+        "/home/dadito/.config/systemd/user"
+      ],
+      "expected_exit": 1,
+      "_por_que_exit_1": "Hoy el sistema REAL tiene hallazgos -la unidad de ADA sigue congelada-, asi que el efecto esperado es 1. El dia que salga 0 este comando fallara y habra que mirarlo: puede ser que se arreglo, o que el detector se cego.",
+      "expected_stdout_contains": "seal-ada-heartbeat.service: ExecStart compara 'true' consigo mismo"
+    }
+  },
+  "mutation_evidence": "quality/mutation-nexus-detector-unidades-horneadas-20260907.json"
+}
