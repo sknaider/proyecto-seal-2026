@@ -1,0 +1,63 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "nexus-espera-postgres-operator-20260908",
+  "reviewer": "ALICE",
+  "run_at": "2026-09-08T21:00:00Z",
+  "total": 6,
+  "killed": 6,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "tools/seal_espera_puerto.py": "05ce612996622502b0d8379e1771e6f73a5cdbcf9aea17cb3131f1cac419f3da",
+    "deploy/systemd/seal-mcp-web-soul-operator.service.d/10-espera-postgres.conf": "05d31d609a71e78492b316e0a5416359c25c92018e185359da7be8c7b8c7dbb1",
+    "tools/tests/test_seal_espera_puerto_v1.py": "885e56b05bd2e44c1e7a468f964ed2c76258bcb3b54f3a299a4450a767d8a410"
+  },
+  "mutants": [
+    {
+      "id": "E1-guarda-plazo-no-positivo",
+      "subject": "tools/seal_espera_puerto.py",
+      "resultado": "MUERTO",
+      "passed": 11,
+      "failed": 1
+    },
+    {
+      "id": "E2-margen-no-se-reinicia-tras-caida",
+      "subject": "tools/seal_espera_puerto.py",
+      "resultado": "MUERTO",
+      "passed": 10,
+      "failed": 2
+    },
+    {
+      "id": "E3-margen-ignorado",
+      "subject": "tools/seal_espera_puerto.py",
+      "resultado": "MUERTO",
+      "passed": 8,
+      "failed": 4
+    },
+    {
+      "id": "E4-cli-siempre-cero",
+      "subject": "tools/seal_espera_puerto.py",
+      "resultado": "MUERTO",
+      "passed": 11,
+      "failed": 1
+    },
+    {
+      "id": "E5-error-sin-puerto",
+      "subject": "tools/seal_espera_puerto.py",
+      "resultado": "MUERTO",
+      "passed": 10,
+      "failed": 2
+    },
+    {
+      "id": "E6-lee-del-socket",
+      "subject": "tools/seal_espera_puerto.py",
+      "resultado": "MUERTO",
+      "passed": 11,
+      "failed": 1
+    }
+  ]
+}

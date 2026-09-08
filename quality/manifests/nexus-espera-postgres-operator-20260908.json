@@ -1,0 +1,129 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-espera-postgres-operator-20260908",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "_por_que": "seal-mcp-web-soul-operator acumulo 87 reinicios entre el 27-ago y el 7-sep. Contados por causa en el journal: 78x ConnectionRefusedError contra 127.0.0.1:5433 y 4x asyncpg CannotConnectNowError 'the database system is starting up' = 82 de 87 son arrancar ANTES que Postgres. La unidad ordenaba con After=/Requires=seal-audit-witness.service y su unico ExecStartPre probaba el socket del witness: NADA esperaba a la base. Con Restart=on-failure y RestartSec=2 eso es un bucle corto hasta que Postgres levanta. El patron correcto ya estaba en la propia unidad; faltaba el equivalente para el puerto.",
+  "review": {
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-08T21:00:00Z",
+      "evidence": "Corrida independiente via quality/mutantes-nexus-espera-postgres-operator-20260908.spec.sh en copias aisladas bajo /tmp. Control: 12/12 passed. E1 MUERTO (1 failed, 11 passed): guarda plazo no positivo. E2 MUERTO (2 failed, 10 passed): margen no se reinicia tras caida. E3 MUERTO (4 failed, 8 passed): margen ignorado. E4 MUERTO (1 failed, 11 passed): CLI siempre cero. E5 MUERTO (2 failed, 10 passed): error sin puerto. E6 MUERTO (1 failed, 11 passed): lee del socket. Score: 6/6 = 100%. SHA verificados contra prefijos NEXUS.",
+      "reviewed_sha256": {
+        "tools/seal_espera_puerto.py": "05ce612996622502b0d8379e1771e6f73a5cdbcf9aea17cb3131f1cac419f3da",
+        "deploy/systemd/seal-mcp-web-soul-operator.service.d/10-espera-postgres.conf": "05d31d609a71e78492b316e0a5416359c25c92018e185359da7be8c7b8c7dbb1",
+        "tools/tests/test_seal_espera_puerto_v1.py": "885e56b05bd2e44c1e7a468f964ed2c76258bcb3b54f3a299a4450a767d8a410"
+      },
+      "manifest_digest": "a92225b6519d192de84b911a2d116cf7e4260bee112472b4cb098337c3932ad8"
+    }
+  },
+  "subjects": [
+    "tools/seal_espera_puerto.py",
+    "deploy/systemd/seal-mcp-web-soul-operator.service.d/10-espera-postgres.conf"
+  ],
+  "tests": [
+    "tools/tests/test_seal_espera_puerto_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-espera-puerto",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_espera_puerto_v1.py"
+      ]
+    },
+    {
+      "id": "qa_positive-puerto-vivo",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_espera_puerto_v1.py",
+        "-k",
+        "ESCUCHA or APAREZCA"
+      ]
+    },
+    {
+      "id": "qa_negative-puerto-muerto",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_espera_puerto_v1.py",
+        "-k",
+        "CERRADO or no_positivo"
+      ]
+    },
+    {
+      "id": "qa_control-no-lee-del-socket",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_espera_puerto_v1.py",
+        "-k",
+        "control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_seal_espera_puerto_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-nexus-espera-postgres-operator-20260908.json",
+  "delivery": {
+    "status": "verified",
+    "effect": "El servicio ya no arranca antes que Postgres: su ExecStartPre RETIENE el arranque mientras 5433 no acepte, y si no acepta en 60 s falla ruidosamente en vez de entrar en el bucle de reinicios.",
+    "assertion": "En una unidad desechable con el mismo ExecStartPre contra un puerto muerto, el arranque se retiene y el ExecStart principal NUNCA corre.",
+    "evidence": "Journal 8-sep 13:0x: '127.0.0.1:5433 acepta conexiones (5 intento(s), 2.0s)' entre 'Starting' y 'Started'. ActiveState=active, Result=success, NRestarts=0. Caso refutador: nexus-prueba-espera.service contra 127.0.0.1:5599 (puerto muerto) retuvo 6,01 s / 13 intentos, salio 1/FAILURE y ExecStart no figura en el journal.",
+    "command": {
+      "argv": [
+        "systemctl",
+        "show",
+        "seal-mcp-web-soul-operator",
+        "-p",
+        "ActiveState",
+        "-p",
+        "Result"
+      ],
+      "expected_stdout_contains": "ActiveState=active"
+    }
+  },
+  "verificacion_por_efecto": {
+    "el_servicio_vivo": "journal del arranque 8-sep 13:0x: '127.0.0.1:5433 acepta conexiones (5 intento(s), 2.0s)' entre 'Starting' y 'Started'. ActiveState=active, Result=success, NRestarts=0.",
+    "el_caso_REFUTADOR": "unidad desechable nexus-prueba-espera.service con el MISMO ExecStartPre contra 127.0.0.1:5599 (puerto muerto): retuvo 6,01 s / 13 intentos, salio 1/FAILURE y el ExecStart principal NO figura en el journal. Retirada despues de medir.",
+    "por_que_hace_falta_el_refutador": "Que el guard corra con Postgres ARRIBA solo prueba que no estorba. Un ExecStartPre que devolviera 0 siempre daria exactamente el mismo journal en el servicio vivo."
+  },
+  "nota_para_el_revisor": {
+    "donde_vive_el_script": "La unidad corre como seal-mcp-web-operator con ProtectHome=yes y ProtectSystem=strict, y su codigo vive en /opt/seal y /usr/local/libexec/seal. Un script bajo /home es INALCANZABLE para ella por diseno, no por bug: por eso el sujeto se instala en /usr/local/libexec/seal/seal_espera_puerto.py y el repo guarda la fuente. Verificado corriendolo con sudo -u seal-mcp-web-operator antes de tocar la unidad.",
+    "el_drop_in_es_aditivo": "ExecStartPre= sin asignacion vacia previa SUMA al de la unidad. Confirmado con systemctl show: el chequeo del witness sigue primero y el de la base va despues.",
+    "mutacion": "La corrida del owner no sirve para el gate (gate.py:607 exige evidence.reviewer == independent_reviewer). Spec ejecutable: quality/mutantes-nexus-espera-postgres-operator-20260908.spec.sh"
+  }
+}
