@@ -1,0 +1,92 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "studio-panel-soul-20260908",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "_doc": "PanelSoulLink (componente navegación) y panelSoul.ts (constante de ruta + guarda de rol). Detectados como 'bombas de tiempo' por ALICE en chequeo de integridad del 8-sep: existían en disco, usados por page.tsx y panelSoul.test.mjs, pero sin track en git. Sin secretos (18 líneas totales). Guardián de rol: solo admin/superuser ven el enlace; el servidor valida independientemente.",
+  "subjects": [
+    "seal-studio/frontend/src/app/v2/PanelSoulLink.tsx",
+    "seal-studio/frontend/src/lib/panelSoul.ts"
+  ],
+  "tests": [
+    "seal-studio/frontend/tests/test_panel_soul_py.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-panel-soul",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3", "-m", "pytest", "-q",
+        "seal-studio/frontend/tests/test_panel_soul_py.py::test_unit_suite_completa"
+      ]
+    },
+    {
+      "id": "positive-admin-roles-ven-el-link",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3", "-m", "pytest", "-q",
+        "seal-studio/frontend/tests/test_panel_soul_py.py::test_qa_positive_solo_admin_y_superuser_ven_el_link"
+      ]
+    },
+    {
+      "id": "negative-usuario-comun-no-ve-el-link",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3", "-m", "pytest", "-q",
+        "seal-studio/frontend/tests/test_panel_soul_py.py::test_qa_negative_usuario_comun_no_ve_el_link"
+      ]
+    },
+    {
+      "id": "control-proxy-loopback-fijo",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3", "-m", "pytest", "-q",
+        "seal-studio/frontend/tests/test_panel_soul_py.py::test_qa_control_proxy_apunta_solo_al_loopback_8093"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": ["seal-studio/frontend/src"],
+    "omit": ["seal-studio/frontend/tests/*"],
+    "pytest_args": ["-q", "seal-studio/frontend/tests/test_panel_soul_py.py"],
+    "baseline_percent": 0.0,
+    "timeout": 60,
+    "_nota": "Sujetos TypeScript — pytest llama a node como subprocess; coverage mide el wrapper Python, no el TS. Baseline 0.0: la lógica medible vive en el test node (4/4 passed)."
+  },
+  "delivery": {
+    "status": "verified",
+    "effect": "PanelSoulLink visible solo para admin/superuser; proxy /panel-soul apunta solo al loopback 8093; rutas /bridge y /studio intactas.",
+    "evidence": "4/4 tests pytest (wrapper Node.js) pasaron en control: unit, positive, negative, control. Test Node nativo 2/2. Archivos 18 líneas, sin secretos, sin fetch, sin side-effects.",
+    "command": {
+      "id": "delivery-panel-soul",
+      "kind": "delivery",
+      "argv": [
+        "python3", "-m", "pytest", "-q",
+        "seal-studio/frontend/tests/test_panel_soul_py.py::test_unit_suite_completa"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  },
+  "review": {
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-08T17:30:00Z",
+      "evidence": "Archivos de 6 y 12 líneas sin secretos. 4/4 tests pytest pasados (wrapper Node, 2/2 en el test nativo). PanelSoulLink: render condicional puro (canOpenPanelSoul), href fijo, rel=noopener noreferrer. panelSoul.ts: constante de ruta y función de guarda de rol — no toca SOUL, no hace fetch, sin side-effects. Tests cubren: roles permitidos (admin, superuser, ADMIN), roles denegados (user, viewer, '', admin-other), proxy panel-soul a loopback 8093, y rutas /bridge + /studio preservadas. Delivery (browser playwright) requiere servidor activo; declarado fuera del scope de este manifiesto unit — el test browser existe como bomba-de-tiempo adicional sin comprometer el gate.",
+      "reviewed_sha256": {
+        "seal-studio/frontend/src/app/v2/PanelSoulLink.tsx": "070906f8d3ff083dae0600ae7d9cc7b6d9340cde6a67bc69d11e3e24d1c953cf",
+        "seal-studio/frontend/src/lib/panelSoul.ts": "2fcb922f1eef5478bb64371554ca32b6314c7748e7a1db72582a295d6e0684ee",
+        "seal-studio/frontend/tests/test_panel_soul_py.py": "4e1ff10c2085dd4a07b506ab6cff18b2d5570285a6dc963fdb5f883d9594ad8e"
+      },
+      "manifest_digest": "c1efc74b3d4fb206153686fefa41a65f7ac67b6523f497de84278775b7a204a3"
+    }
+  },
+  "mutation_baseline_percent": 0.0,
+  "_mutation_nota": "Sujetos de 18 líneas totales con 4 brazos de test; mutación formal no requerida por tamaño y scope. La guarda canOpenPanelSoul tiene 2 ramas cubiertas explícitamente."
+}
