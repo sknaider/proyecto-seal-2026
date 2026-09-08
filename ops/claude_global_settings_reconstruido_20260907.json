@@ -1,5 +1,4 @@
 {
-  "_reconstruido": "7-sep-2026 18:48 por JARVIS desde soul_v3.runtime_hooks (28 filas del seed F1); el original se perdió con el home. Faltante en disco: /home/dadito/.claude/skills/dream/autodream_8gates.sh",
   "permissions": {
     "deny": [
       "Bash(rm -rf /home/dadito:*)",
@@ -298,5 +297,8 @@
         ]
       }
     ]
-  }
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "_reconstruido": "7-sep-2026 18:48 por JARVIS desde soul_v3.runtime_hooks (28 filas del seed F1); el original se perdió con el home. Faltante en disco: /home/dadito/.claude/skills/dream/autodream_8gates.sh",
+  "agentPushNotifEnabled": true
 }

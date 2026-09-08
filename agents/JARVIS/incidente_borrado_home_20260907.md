@@ -124,3 +124,9 @@ FABLE relanzado a las 19:05 quedó 10 min en «WARNING: Claude Code running in B
 Yes, I accept» (visto con `xwd` de su ventana). La marca vive en `~/.claude.json`, fuera de git; repuesta a
 las 19:14 (`bypassPermissionsModeAccepted: true`). Cualquier relanzamiento sin esa marca se bloquea igual.
 Va al inventario de estado esencial junto con el trust del repo (`projects[...].hasTrustDialogAccepted`).
+
+**Corrección 19:19 (medido tres veces):** la marca `bypassPermissionsModeAccepted: true` en `~/.claude.json` NO
+basta en Claude Code 2.1.259: el diálogo reaparece. El binario la MIGRA a `userSettings` como
+`"skipDangerousModePermissionPrompt": true` en `~/.claude/settings.json`, y es ESA la que consulta. Con esa
+clave puesta, FABLE arrancó a la primera (19:18, PID nuevo, «bypass permissions on», monitor arriba).
+Chequeo previo a un relanzamiento: `python3 -c "import json;print(json.load(open('/home/dadito/.claude/settings.json')).get('skipDangerousModePermissionPrompt'))"` → True.

@@ -94,3 +94,9 @@ python3 -c "import json;print(json.load(open('/home/dadito/.claude.json')).get('
 ```
 Para VER una ventana kitty cuando la captura de pantalla sale negra: `xwd -id <win>` (id por
 `xdotool search --name`) y convertir el dump con PIL (`BGRX`, stride = bytes_per_line).
+
+**Corrección 19:19 (medido tres veces):** la marca `bypassPermissionsModeAccepted: true` en `~/.claude.json` NO
+basta en Claude Code 2.1.259: el diálogo reaparece. El binario la MIGRA a `userSettings` como
+`"skipDangerousModePermissionPrompt": true` en `~/.claude/settings.json`, y es ESA la que consulta. Con esa
+clave puesta, FABLE arrancó a la primera (19:18, PID nuevo, «bypass permissions on», monitor arriba).
+Chequeo previo a un relanzamiento: `python3 -c "import json;print(json.load(open('/home/dadito/.claude/settings.json')).get('skipDangerousModePermissionPrompt'))"` → True.
