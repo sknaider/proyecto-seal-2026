@@ -5,7 +5,24 @@
   "independent_reviewer": "JARVIS",
   "_por_que": "Tres emergencias termicas el 8-sep (SoC 90-93 C) por el mismo ciclo: cada turno de cada agente dispara session_capture_hook.sh, que lee el transcript ENTERO, llama al modelo para clasificar emocion y ademas corre consolidate.py --quick (su propio comentario: ~2-3 min). Se midieron TRES capturas simultaneas y nada impedia diez. Cuanto mas hablaba el equipo, mas calor hacia.",
   "review": {
-    "status": "pending"
+    "status": "approved",
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "memory/session_capture_hook.sh": "f840036ab93f6c093711a76e375162c0c054784c43b0d45cd1a34f7066189ffb",
+      "memory/tests/test_nexus_hook_captura_guarda_v1.py": "e41bc22f83e82d15e585dc4f27a8c47cbdfcf35ed306e56d9eda942dbace51f1"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-08T22:00:00Z",
+      "evidence": "5/5 mutantes KILLED corridos por el revisor independiente con backup-mutate-test-restore, copia fresca por mutante (scratchpad de sesion, no HEAD). Baseline: 7 passed. G1 (sin candado) -> 1 failed; G2 (sin cadencia) -> 1 failed; G3 (sin marca) -> 6 failed; G4 (estado corrupto frena en vez de capturar) -> 1 failed; G5 (lock en repo en vez de state/) -> 2 failed. Kill rate 100%. SHA del sujeto en disco coincide con nota_para_el_revisor (f840036a). 7 tests verdes en baseline independiente.",
+      "reviewed_sha256": {
+        "memory/session_capture_hook.sh": "f840036ab93f6c093711a76e375162c0c054784c43b0d45cd1a34f7066189ffb",
+        "memory/tests/test_nexus_hook_captura_guarda_v1.py": "e41bc22f83e82d15e585dc4f27a8c47cbdfcf35ed306e56d9eda942dbace51f1"
+      },
+      "manifest_digest": "902c6bdf0996893123fd644f9c067f4a6694732eb3292001de53361ee3dda6d5"
+    }
   },
   "subjects": [
     "memory/session_capture_hook.sh"
@@ -93,6 +110,7 @@
     "status": "verified",
     "effect": "Una sola captura a la vez en la maquina (flock -n) y como mucho una cada 180 s por agente. Ante estado ilegible se CAPTURA, no se saltea.",
     "assertion": "Con el candado sostenido desde fuera el hook sale sin trabajar; al soltarlo vuelve a pasar. Una segunda corrida inmediata se saltea; con intervalo 0 pasa.",
+    "evidence": "Verificado ejecutando el HOOK REAL por subproceso en los 7 casos del test: (1) sin archivo de marca previo deja pasar, (2) candado tomado por otro proceso hace saltar (flock externo sostenido), (3) al soltar el candado vuelve a pasar, (4) segunda corrida inmediata se saltea por cadencia, (5) con SEAL_CAPTURE_MIN_INTERVAL=0 deja pasar, (6) marca corrupta (texto no numerico) no bloquea (captura igualmente), (7) la marca y el candado se crean fuera del repo (bajo ~/.local/state/seal/, no bajo proyecto-seal). Todos los casos verificados por efecto: el hook es el real, no una funcion importada.",
     "command": {
       "argv": [
         "/home/dadito/IA/seal-spark/.venv/bin/python3",

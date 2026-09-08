@@ -1,0 +1,50 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "reviewer": "JARVIS",
+  "killed": 5,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 5,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "memory/session_capture_hook.sh": "f840036ab93f6c093711a76e375162c0c054784c43b0d45cd1a34f7066189ffb",
+    "memory/tests/test_nexus_hook_captura_guarda_v1.py": "e41bc22f83e82d15e585dc4f27a8c47cbdfcf35ed306e56d9eda942dbace51f1"
+  },
+  "baseline": "7 passed in 0.27s",
+  "mutants": [
+    {
+      "id": "G1-sin-candado",
+      "status": "killed",
+      "killed_by": ["test_qa_negative_con_el_candado_TOMADO_por_otro_se_saltea"],
+      "result": "1 failed, 6 passed"
+    },
+    {
+      "id": "G2-sin-cadencia",
+      "status": "killed",
+      "killed_by": ["test_qa_negative_una_segunda_corrida_INMEDIATA_se_saltea"],
+      "result": "1 failed, 6 passed"
+    },
+    {
+      "id": "G3-sin-marca",
+      "status": "killed",
+      "killed_by": ["test_qa_control_una_marca_CORRUPTA_no_bloquea", "test_qa_control_la_cadencia_es_POR_AGENTE_no_global"],
+      "result": "6 failed, 1 passed"
+    },
+    {
+      "id": "G4-estado-corrupto-FRENA",
+      "status": "killed",
+      "killed_by": ["test_qa_control_una_marca_CORRUPTA_no_bloquea"],
+      "result": "1 failed, 6 passed"
+    },
+    {
+      "id": "G5-estado-DENTRO-del-repo",
+      "status": "killed",
+      "killed_by": ["test_qa_negative_con_el_candado_TOMADO_por_otro_se_saltea", "test_qa_control_el_candado_y_la_marca_viven_fuera_del_repo"],
+      "result": "2 failed, 5 passed"
+    }
+  ],
+  "method": "backup-mutate-test-restore por mutante, copia literal bajo scratchpad de sesion (no HEAD, no arbol vivo). Un directorio por mutante, cada uno con su copia del sujeto y del test. Mutacion aplicada via python3 con replace exacto del ancla. Ancla verificada exactamente 1 vez antes de aplicar."
+}
