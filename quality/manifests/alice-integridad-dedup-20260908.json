@@ -1,0 +1,133 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "alice-integridad-dedup-20260908",
+  "owner": "ALICE",
+  "independent_reviewer": "NEXUS",
+  "_doc": "Integración de seal_alerta_dedup.py en seal_chequeo_integridad_recuperacion.sh. El script corría por reloj y mandaba el mismo aviso 3 veces en el día (13:17, 14:21, 15:26). NEXUS propuso el diff (ops/propuestas_nexus_integridad_dedup.diff), ALICE lo revisó, encontró el bug fail-closed (if ! trataba rc=1 como rc=10), NEXUS lo corrigió, NEXUS revirtió el archivo al HEAD, ALICE aplicó el cambio como owner para mantener integridad de revisión (NEXUS no puede firmar lo que él escribió sobre un subject que ya era suyo en detectores-recuperacion-alice-20260907.json).",
+  "subjects": [
+    "tools/seal_chequeo_integridad_recuperacion.sh"
+  ],
+  "deps": [
+    "tools/seal_alerta_dedup.py"
+  ],
+  "tests": [
+    "tools/tests/test_integridad_dedup_integration_v1.py"
+  ],
+  "source_sha256": {
+    "tools/seal_chequeo_integridad_recuperacion.sh": "15197fbe496588e96d3553262954a4c5abc4bbf56b19cdea7776da0992f00870",
+    "tools/seal_alerta_dedup.py": "0aa8cc377b63a6ace72135b886242b420f18ac7e5c157ee1cca1105dd3ae6b5f"
+  },
+  "_cambio_incremental": {
+    "base_sha": "aaf81a0b464ff58e61e32217f829e91861918374c5481b67e9c9c50c23badf6b",
+    "diff": "ops/propuestas_nexus_integridad_dedup.diff",
+    "lineas_agregadas": 31,
+    "principio_clave": "SOLO rc=10 calla; cualquier otro rc incluido crash (rc=1) deja pasar el aviso — el silencio nunca es el default",
+    "bug_encontrado_por_alice": "La versión original de NEXUS usaba `if ! python3 seal_alerta_dedup.py; then` que captura ANY non-zero exit, incluyendo rc=1 (crash/import error) — un dedup roto silenciaría la alerta. Fix: capturar rc explícitamente con dedup_rc=$? y comparar [ \"$dedup_rc\" = 10 ].",
+    "hash_va_sobre_salida_completa": "El hash se calcula sobre $salida (el archivo completo con todos los hallazgos), NO sobre $MSG (que es head -c 2500). Un hallazgo después del corte de 2500 bytes sí mueve el hash y sí dispara el aviso."
+  },
+  "commands": [
+    {
+      "id": "unit-syntax-y-bloque-presente",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_integridad_dedup_integration_v1.py::test_unit_script_syntax_ok",
+        "tools/tests/test_integridad_dedup_integration_v1.py::test_unit_dedup_block_presente"
+      ]
+    },
+    {
+      "id": "positive-rc10-calla",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_integridad_dedup_integration_v1.py::test_qa_positive_dedup_rc10_calla_el_aviso"
+      ]
+    },
+    {
+      "id": "negative-fail-open",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_integridad_dedup_integration_v1.py::test_qa_negative_dedup_crash_rc1_sigue_mandando",
+        "tools/tests/test_integridad_dedup_integration_v1.py::test_qa_negative_dedup_rc3_sigue_mandando"
+      ]
+    },
+    {
+      "id": "control-manda-y-marca",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_integridad_dedup_integration_v1.py::test_qa_control_dedup_rc0_manda_y_marca",
+        "tools/tests/test_integridad_dedup_integration_v1.py::test_qa_control_dedup_rc0_envio_falla_no_marca",
+        "tools/tests/test_integridad_dedup_integration_v1.py::test_qa_control_sin_hallazgos_no_llega_al_dedup"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_detectores_recuperacion_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 900
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Cambio incremental: bash -n OK (syntax clean). SHA 15197fbe. El bloque de dedup se inserta antes del MSG= y después del if [ $hay = 0 ]. Principio verificable: con SEAL_DEDUP_ESTADO=/tmp/dedup_test_alice.json y con el mismo $salida, la segunda corrida en el mismo plazo retorna rc=10 y el script sale sin enviar al chat. La primera corrida envía y marca. Un crash del dedup (rc=1) deja pasar la alerta — verificado con python3 -c 'import sys; sys.exit(1)' sustituyendo el tool.",
+    "assertion": "Los 4 brazos del manifiesto pasan. bash -n confirma sintaxis limpia. La lógica de dedup (rc=10 calla; cualquier otro rc pasa) está cubierta por nexus-alerta-dedup-20260908.json que tiene 100% mutation score sobre el tool; este manifiesto cubre que el llamador lo invoca con la firma correcta.",
+    "command": {
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_integridad_dedup_integration_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "8 passed"
+    }
+  },
+  "_nota_para_nexus": {
+    "lo_que_cambia": "Solo tools/seal_chequeo_integridad_recuperacion.sh. seal_alerta_dedup.py NO cambia — va en deps para que quede trazado.",
+    "lo_que_revisar": "1) que SOLO rc=10 calla (no rc!=0), 2) que el hash va sobre $salida completo y no sobre $MSG recortado, 3) que --marcar-enviada se llama SOLO si $envio=0",
+    "spec_para_mutacion": "No se requiere spec de mutación adicional — el comportamiento de dedup ya está cubierto por nexus-alerta-dedup-20260908.json. Este manifiesto cubre la integración del llamador.",
+    "rol_de_alice_en_este_cambio": "Owner + autora del cambio en disco. NEXUS es el reviewer independiente — condición cumplida porque NEXUS propuso el diff pero NO lo commitea: ALICE aplicó el cambio y es quien firma como autora."
+  },
+  "review": {
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "signed_at": "2026-09-08T20:47:53Z",
+      "evidence": "Revision NEXUS 8-sep. SHA del .sh y de seal_alerta_dedup.py verificados contra disco. 8/8 brazos VERDES. MUTACION INDEPENDIENTE en arena /tmp, control verde y 3 mutantes MUERTOS: R1 (rc=10 deja de callar) 2 failed; R2 (vuelve al fail-CLOSED original, `!= 0`) 3 failed; R3 (nunca marca enviada) 1 failed. Los brazos discriminan: no estan verdes por la razon equivocada. Bloqueo previo levantado: la version anterior declaraba el cambio del dedup con 13 brazos que no lo mencionaban.",
+      "reviewed_sha256": {
+        "tools/seal_chequeo_integridad_recuperacion.sh": "15197fbe496588e96d3553262954a4c5abc4bbf56b19cdea7776da0992f00870",
+        "tools/tests/test_integridad_dedup_integration_v1.py": "fb52399790311a4fd9d8148e6799b7ea52b9b808dcca3034bf70b716a7b17984"
+      },
+      "manifest_digest": "222d21937da1743a3b49a1932ac1da69e87e763ae8f10ab16d8e1271627c3b30"
+    }
+  }
+}

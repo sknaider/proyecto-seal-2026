@@ -6,12 +6,12 @@
   "_doc": "Los 4 detectores nacidos del borrado del 7-sep: archivos que un servicio necesita y no estan en git; credenciales embebidas en unidades (clasifica por VALOR); paquetes mutilados (importan y estan vacios); y el chequeo que corre los tres y avisa SOLO si hay hallazgo. Expediente para el juez en fable/casos/detectores-recuperacion-alice-20260907.md, con sesgo y limites declarados por la owner.",
   "deletions": [],
   "subjects": [
-    "tools/seal_chequeo_integridad_recuperacion.sh",
     "tools/seal_detector_credenciales_unidades.py",
     "tools/seal_detector_existencia.py",
     "tools/seal_detector_no_versionado.py",
     "tools/seal_detector_paquetes_vacios.py"
   ],
+  "_subjects_history": "tools/seal_chequeo_integridad_recuperacion.sh fue subject aqui hasta el 8-sep. Ahora lo posee alice-integridad-dedup-20260908.json (cambio incremental del bloque dedup). Lo saca ALICE como owner de ambos manifiestos.",
   "tests": [
     "tools/tests/test_detectores_recuperacion_v1.py"
   ],
@@ -19,7 +19,6 @@
     "tools/seal_detector_no_versionado.py": "82435971c16f2a49369d9564f321ab7daaf9af7e8d55ee48a1c39cebfec52a02",
     "tools/seal_detector_credenciales_unidades.py": "2894429007dcbc7cb6b972848d695e1a8a5ab9fd527e54e42ee075ab03888f66",
     "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
-    "tools/seal_chequeo_integridad_recuperacion.sh": "aaf81a0b464ff58e61e32217f829e91861918374c5481b67e9c9c50c23badf6b",
     "tools/tests/test_detectores_recuperacion_v1.py": "8e227c2db00977ff6a7ebd6b8c191b0cd918b1e5b5278f86b1802514509241bc",
     "tools/seal_detector_existencia.py": "2539e72dcea011607ff3631be264e0bc050aa8d6d7ac5bbb7396d592ae0d9400"
   },
@@ -210,16 +209,16 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "evidence": "Re-revision sobre los bytes nuevos (faa7964, 638c28c). Mi firma anterior caduco por cambio de bytes, no por defecto. 13 brazos verdes. EJERCI el brazo nuevo contra su propia regresion en vez de confiar en que pasa: restaure la redaccion vieja ('sin credenciales embebidas') -> 1 failed, 12 passed; restaurada la nueva -> 13 passed. Un brazo que pasa no prueba que atrape. MUTACION corrida por mi como revisor independiente: 4/4 muertos, control verde antes y despues. El cuarto mutante es nuevo y ataca justo lo que ella cambio hoy: que la salida vuelva a AFIRMAR ausencia en vez de reportar un conteo (correccion de ADA, 18:04). Sin ese mutante, el arreglo del dia habria quedado sin cobertura ejecutable. Hallazgo de alcance: los '3 deselected' de la corrida previa no eran deseleccion deliberada sino brazos que necesitan git y no lo encontraban en python:3.12-slim. Con la imagen completa corren los 13. Un brazo que no corre por falta de binario se lee identico a uno excluido a proposito -y el segundo suena aceptable-.",
+      "signed_at": "2026-09-08T20:47:53Z",
+      "evidence": "Re-firma NEXUS 8-sep tras retirar tools/seal_chequeo_integridad_recuperacion.sh de subjects: ese archivo pasa a alice-integridad-dedup-20260908.json, que es ahora su unico dueno. Se elimina la duplicacion de sujeto que hacia que cerrar un manifiesto venciera la evidencia del otro. Los 4 detectores .py no cambiaron; sus SHA coinciden con mi firma anterior.",
       "reviewed_sha256": {
-        "tools/seal_chequeo_integridad_recuperacion.sh": "aaf81a0b464ff58e61e32217f829e91861918374c5481b67e9c9c50c23badf6b",
         "tools/seal_detector_credenciales_unidades.py": "2894429007dcbc7cb6b972848d695e1a8a5ab9fd527e54e42ee075ab03888f66",
         "tools/seal_detector_existencia.py": "2539e72dcea011607ff3631be264e0bc050aa8d6d7ac5bbb7396d592ae0d9400",
         "tools/seal_detector_no_versionado.py": "82435971c16f2a49369d9564f321ab7daaf9af7e8d55ee48a1c39cebfec52a02",
         "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
         "tools/tests/test_detectores_recuperacion_v1.py": "8e227c2db00977ff6a7ebd6b8c191b0cd918b1e5b5278f86b1802514509241bc"
       },
-      "manifest_digest": "5a96424595f8b437a1e1274bcb31756330e69bdeb34479cc1838fa110d5e54e0"
+      "manifest_digest": "f9b19ced4b8a923029a3c08ecc8be78c5d2137c3a6956c15e2be638111086c75"
     }
   }
 }

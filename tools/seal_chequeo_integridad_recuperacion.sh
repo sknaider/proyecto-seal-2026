@@ -47,6 +47,31 @@ if [ "$hay" = 0 ]; then
   exit 0
 fi
 
+# ── dedup (NEXUS propuso, ALICE aplica, 8-sep-2026) ──────────────────────────
+# Medido: tres avisos idénticos en el día (13:17, 14:21, 15:26) con la misma
+# cabecera. La alerta suena por RELOJ y no por CAMBIO; una alerta que repite
+# se deja de leer.
+#
+# El hash va sobre "$salida" COMPLETO, no sobre $MSG: el mensaje publica solo
+# `head -c 2500`, así que un hallazgo NUEVO después del corte no cambiaría el
+# SHA y no se avisaría nunca.
+#
+# SOLO rc=10 calla (hallazgo idéntico en el plazo); cualquier otro rc, incluido
+# rc=1 por crash o import fallido, deja pasar el aviso. El silencio nunca es
+# el default (principio del propio tool, corregido por ALICE durante la revisión).
+ESTADO_DEDUP="${SEAL_DEDUP_ESTADO:-$HOME/.local/state/seal/alerta_dedup.json}"
+mkdir -p "$(dirname "$ESTADO_DEDUP")" 2>/dev/null || true
+python3 "$REPO/tools/seal_alerta_dedup.py" \
+  --clave integridad-recuperacion --estado "$ESTADO_DEDUP" \
+  --archivo "$salida" >/dev/null
+dedup_rc=$?
+if [ "$dedup_rc" = 10 ]; then
+  # mismo contenido dentro del plazo: se calla en el chat, pero la salida local
+  # se imprime igual y el exit sigue siendo 1. Callar el aviso no es declarar sano.
+  cat "$salida"
+  exit 1
+fi
+
 MSG=$(printf '%s\n' \
   "⚠️ **Chequeo de integridad de recuperación: HAY HALLAZGOS.**" "" \
   '```console' "$(head -c 2500 "$salida")" '```' "" \
@@ -54,5 +79,12 @@ MSG=$(printf '%s\n' \
 python3 "$REPO/scripts/seal_send.py" ALICE equipo "$MSG" \
   --channel web_chat --type alert \
   --idempotency-key "alice-integridad-$(date +%Y%m%d%H)" >/dev/null 2>&1
+envio=$?
+# marcar SOLO si el envío salió bien: si falló, la próxima corrida reintenta
+if [ "$envio" = 0 ]; then
+  python3 "$REPO/tools/seal_alerta_dedup.py" \
+    --clave integridad-recuperacion --estado "$ESTADO_DEDUP" \
+    --archivo "$salida" --marcar-enviada >/dev/null || true
+fi
 cat "$salida"
 exit 1
