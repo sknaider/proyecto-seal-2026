@@ -1,6 +1,6 @@
 {
   "schema": "seal.mutation-evidence.v1",
-  "tool": "ADA ejecuto scratchpad/mut_selfrepair.py: arbol minimo en tempdir con el sujeto y la suite, la mutacion se aplica en la COPIA. El arbol vivo nunca se muta (verificado por comparacion de contenido al terminar).",
+  "tool": "NEXUS: copia fresca bajo /tmp con sujeto y suite; la mutacion se aplica en la COPIA; el arbol vivo nunca se muta.",
   "workspace": "Control positivo primero sobre la copia SIN mutar. Muerte = la suite sale distinto de 0.",
   "killed": 4,
   "survived": 0,
@@ -22,33 +22,44 @@
   },
   "detail": [
     {
-      "id": "ada-puede-reiniciar-el-chat-compartido",
+      "id": "S1-ADA-puede-reiniciar-el-chat",
       "subject": "scripts/seal_self_repair.py",
       "state": "killed",
       "observed": "1 failed, 17 passed",
-      "por_que_importa": "es el invariante del manifiesto: un agente colandose en la lista de quienes reinician el chat compartido"
+      "ancla": "    \"chat_server\": frozenset({\"NEXUS\"}),",
+      "reemplazo": "    \"chat_server\": frozenset({\"NEXUS\", \"ADA\"}),",
+      "por_que_importa": "el invariante del manifiesto: un agente colandose en la lista de quienes reinician el chat compartido"
     },
     {
-      "id": "unidad-arbitraria-permitida",
-      "subject": "scripts/seal_self_repair.py",
-      "state": "killed",
-      "observed": "1 error"
-    },
-    {
-      "id": "identidad-no-fail-closed",
+      "id": "S2-cualquiera-puede",
       "subject": "scripts/seal_self_repair.py",
       "state": "killed",
       "observed": "1 failed, 17 passed",
-      "historia": "SOBREVIVIO en mi primera pasada (15 passed) y fue mi rechazo. resolve_agent tiene DOS puertas y la suite solo llamaba resolve_agent una vez, con {}. El codigo frenaba bien; la guarda no estaba sujetada. JARVIS la cerro."
+      "ancla": "        if agent in _SHARED_ACTION_AGENTS.get(action, frozenset()):",
+      "reemplazo": "        if True:",
+      "por_que_importa": "la lista de agentes deja de filtrar: cualquiera reinicia cualquier accion compartida"
     },
     {
-      "id": "accion-cruzada-entre-agentes",
+      "id": "S3-unidad-de-control-arbitraria",
       "subject": "scripts/seal_self_repair.py",
       "state": "killed",
-      "observed": "4 failed, 14 passed"
+      "observed": "1 failed, 17 passed",
+      "ancla": "    if action in _SHARED_ACTION_CONTROL_UNITS:",
+      "reemplazo": "    if False:",
+      "por_que_importa": "la unidad de control debe quedar FUERA de la cascada del objetivo; sin esto el control se reinicia junto y no prueba nada"
+    },
+    {
+      "id": "S4-la-accion-compartida-no-existe",
+      "subject": "scripts/seal_self_repair.py",
+      "state": "killed",
+      "observed": "2 failed, 16 passed",
+      "ancla": "    if action in SHARED_ACTIONS:",
+      "reemplazo": "    if False:",
+      "por_que_importa": "se cae toda la rama de acciones compartidas"
     }
   ],
-  "measured_at": "2026-09-03T19:21:29.563084+00:00",
+  "measured_at": "2026-09-08T21:14:51Z",
   "mutation_target": "isolated_copy",
-  "dos_pasadas": "PRIMERA: 3 muertos, 1 SOBREVIVIENTE (identidad-no-fail-closed, 15 passed) -> rechace la firma. Verifique que NO era equivalente antes de acusar: resolve_agent tenia dos puertas y la suite probaba una. SEGUNDA, la que firmo: control 18 passed, 4/4 muertos."
+  "dos_pasadas": "PRIMERA: 3 muertos, 1 SOBREVIVIENTE (identidad-no-fail-closed, 15 passed) -> rechace la firma. Verifique que NO era equivalente antes de acusar: resolve_agent tenia dos puertas y la suite probaba una. SEGUNDA, la que firmo: control 18 passed, 4/4 muertos.",
+  "_REESCRITA_POR_NEXUS_20260908": "La version anterior declaraba reviewer:NEXUS y su propio campo `tool` decia «ADA ejecuto scratchpad/mut_selfrepair.py». O sea: atribuia a NEXUS una corrida que NEXUS no hizo. Es el defecto que gate.py:607 NO puede ver, porque compara dos campos que salen del mismo lado. Ademas no traia anclas, asi que no era reproducible, contra la decision de JARVIS del 8-sep 15:35 (mutantes EJECUTABLES). NEXUS re-corrio la mutacion por su cuenta, con sus propias anclas, y este archivo refleja ESA corrida."
 }

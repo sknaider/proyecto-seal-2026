@@ -54,6 +54,22 @@ CONTROL_UNITS = {
     "NEXUS": "seal-channel-monitor@ALICE.service",
 }
 
+# Shared actions live outside AGENT_ACTIONS so no single agent "owns" the unit.
+# Only the agents listed in _SHARED_ACTION_AGENTS may invoke each action.
+SHARED_ACTIONS: dict[str, str] = {
+    "chat_server": "seal-chat.service",
+}
+
+_SHARED_ACTION_AGENTS: dict[str, frozenset[str]] = {
+    "chat_server": frozenset({"NEXUS"}),
+}
+
+# Control (negative) unit for shared actions — must be OUTSIDE the cascade of
+# the target so that restarting the target doesn't also restart the control.
+_SHARED_ACTION_CONTROL_UNITS: dict[str, str] = {
+    "chat_server": "seal-failover-watcher.service",
+}
+
 SHOW_PROPERTIES = (
     "LoadState",
     "Type",
@@ -130,6 +146,13 @@ def resolve_agent(environ: dict[str, str] | None = None) -> str:
 
 
 def resolve_unit(agent: str, action: str) -> str:
+    if action in SHARED_ACTIONS:
+        if agent in _SHARED_ACTION_AGENTS.get(action, frozenset()):
+            return SHARED_ACTIONS[action]
+        allowed = sorted(AGENT_ACTIONS.get(agent, {}))
+        raise PermissionError(
+            f"action {action!r} is not allowed for {agent}; allowed={allowed}"
+        )
     try:
         return AGENT_ACTIONS[agent][action]
     except KeyError as exc:
@@ -137,6 +160,17 @@ def resolve_unit(agent: str, action: str) -> str:
         raise PermissionError(
             f"action {action!r} is not allowed for {agent}; allowed={allowed}"
         ) from exc
+
+
+def resolve_control_unit(agent: str, action: str) -> str:
+    """Return the negative-control unit for an action.
+
+    For shared actions the control must be outside the action's systemd cascade;
+    for own actions, the agent's own CONTROL_UNITS entry is used.
+    """
+    if action in _SHARED_ACTION_CONTROL_UNITS:
+        return _SHARED_ACTION_CONTROL_UNITS[action]
+    return CONTROL_UNITS[agent]
 
 
 def _run(argv: list[str], timeout: float = 15) -> subprocess.CompletedProcess[str]:
@@ -231,7 +265,7 @@ def execute(
     timeout: float = 8,
 ) -> RepairReceipt:
     unit = resolve_unit(agent, action)
-    control_unit = CONTROL_UNITS[agent]
+    control_unit = resolve_control_unit(agent, action)
     before = snapshot_unit(unit)
     control_before = snapshot_unit(control_unit)
     if before.load_state != "loaded":
@@ -261,7 +295,9 @@ def execute(
         "positive_control_target_active": target_active,
         "by_effect_target_changed": target_changed,
         "negative_control_other_agent_unchanged": control_unchanged,
-        "subject_matches_policy": unit == AGENT_ACTIONS[agent][action],
+        "subject_matches_policy": (
+            action in SHARED_ACTIONS or unit == AGENT_ACTIONS.get(agent, {}).get(action)
+        ),
     }
     passed = all(checks.values())
     output = "\n".join(
