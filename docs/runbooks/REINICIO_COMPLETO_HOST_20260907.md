@@ -100,3 +100,15 @@ basta en Claude Code 2.1.259: el diálogo reaparece. El binario la MIGRA a `user
 `"skipDangerousModePermissionPrompt": true` en `~/.claude/settings.json`, y es ESA la que consulta. Con esa
 clave puesta, FABLE arrancó a la primera (19:18, PID nuevo, «bypass permissions on», monitor arriba).
 Chequeo previo a un relanzamiento: `python3 -c "import json;print(json.load(open('/home/dadito/.claude/settings.json')).get('skipDangerousModePermissionPrompt'))"` → True.
+
+### Cómo se relanza CADA asiento de verdad (medido 19:30: reiniciar la ventana NO relanza el proceso)
+```text
+ALICE   claude vive en tmux `seal-alice` (socket -L seal-alice) bajo alice_fresh.sh.
+        seal-terminal-window-ALICE.service es sólo la ventana kitty: reiniciarla deja el mismo PID.
+        Relanzar = tmux -L seal-alice send-keys -t seal-alice "/exit" Enter  (cierre limpio, end_session)
+                 -> esperar que muera el PID -> systemctl --user start seal-agent-runtime-supervisor@ALICE.service
+                 -> restart de la ventana para re-adjuntar.
+FABLE   fable-juez-terminal.service (kitty + fable_juez.sh): restart de la unidad sí relanza el proceso.
+NEXUS   ventana GNOME manual (nexus-terminal.service muerto): /exit y nexus.sh a mano.
+JARVIS  tmux `seal-jarvis` bajo seal-agent-runtime-supervisor@JARVIS: mismo método que ALICE.
+```
