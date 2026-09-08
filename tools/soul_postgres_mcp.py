@@ -10,6 +10,8 @@ inyectar identificadores o sentencias SQL.
 from __future__ import annotations
 
 import os
+import pathlib
+import stat
 import hashlib
 from datetime import date, datetime
 from decimal import Decimal
@@ -73,15 +75,82 @@ def _records(rows: list[asyncpg.Record]) -> list[dict[str, Any]]:
     ]
 
 
+# Credencial del observer en un ARCHIVO, no sólo en el entorno.
+#
+# POR QUE (7-sep-2026 19:25): el DSN vivía únicamente en `POSTGRES_MCP_DSN`, heredado
+# por el proceso al arrancar. Cuando repuse la credencial del observer -el archivo se
+# había perdido con el home- roté el rol, y los dos servidores MCP que corrían desde el
+# 2-sep se quedaron con la clave vieja EN MEMORIA: no hay forma de que un proceso
+# releea una variable de entorno. Una credencial que sólo vive en el entorno no se
+# puede rotar sin reiniciar a todos los que la heredaron.
+#
+# El archivo -modo 600, el mismo que exige el stability guard- sí se relee.
+_OBSERVER_ENV = pathlib.Path.home() / ".config/seal/mcp_postgres_observer.env"
+_CLAVES_DSN = ("POSTGRES_MCP_DSN", "SEAL_PG_DSN", "DATABASE_URL", "PG_DSN")
+
+
+def _dsn_del_archivo(ruta: pathlib.Path | None = None) -> str:
+    """DSN del archivo del observer, o cadena vacía si no se puede leer.
+
+    OJO CON EL DEFAULT (7-sep 19:26, me costó una credencial): la primera versión
+    escribía `ruta: pathlib.Path = _OBSERVER_ENV`. Un default se evalúa UNA VEZ, al
+    DEFINIR la función, así que apuntaba al archivo real para siempre y `monkeypatch`
+    sobre el módulo no lo movía: un test que creía leer su señuelo leyó el archivo
+    VIVO y pytest imprimió la contraseña del observer en el diff del assert.
+    Se resuelve en cada llamada, que además es lo que permite rotar sin reiniciar.
+    """
+    if ruta is None:
+        ruta = _OBSERVER_ENV
+    try:
+        info = ruta.stat()
+    except OSError:
+        return ""
+    # ADA, 19:29: que hoy tenga 0600 es evidencia del DESPLIEGUE, no garantía del CÓDIGO.
+    # El stability guard exige modo 600 sobre este archivo; el lector debe exigir lo mismo,
+    # o el dia que alguien lo afloje nadie se entera desde aca.
+    if stat.S_IMODE(info.st_mode) != 0o600 or info.st_uid != os.getuid():
+        raise RuntimeError(
+            f"{ruta}: la credencial del observer debe ser modo 600 y del usuario actual "
+            f"(modo={stat.S_IMODE(info.st_mode):o}, uid={info.st_uid})"
+        )
+    try:
+        crudo = ruta.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    for linea in crudo.splitlines():
+        linea = linea.strip()
+        for clave in _CLAVES_DSN:
+            if linea.startswith(clave + "="):
+                return linea.split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+
 def _dsn() -> str:
     value = os.environ.get("POSTGRES_MCP_DSN", "").strip()
+    if value:
+        return value
+    value = _dsn_del_archivo()
     if not value:
-        raise RuntimeError("POSTGRES_MCP_DSN no está configurado")
+        raise RuntimeError(
+            "POSTGRES_MCP_DSN no está configurado y no pude leer un DSN de "
+            f"{_OBSERVER_ENV}"
+        )
     return value
 
 
 async def _connect() -> asyncpg.Connection:
-    conn = await asyncpg.connect(_dsn(), command_timeout=15)
+    try:
+        conn = await asyncpg.connect(_dsn(), command_timeout=15)
+    except asyncpg.InvalidPasswordError:
+        # ADA, 19:29: una credencial VIEJA en el entorno seguia ganando, que es EXACTAMENTE
+        # lo que rompio el MCP a las 19:08 -dos procesos del 2-sep con la clave anterior en
+        # memoria-. El reintento va acotado: SOLO ante fallo de autenticacion, UNA vez, y
+        # solo si el archivo ofrece un DSN distinto del que acaba de fallar. Cualquier otro
+        # error se propaga: un reintento amplio esconderia una caida real de la base.
+        del_archivo = _dsn_del_archivo()
+        if not del_archivo or del_archivo == os.environ.get("POSTGRES_MCP_DSN", "").strip():
+            raise
+        conn = await asyncpg.connect(del_archivo, command_timeout=15)
     identity = await conn.fetchrow(
         """
         SELECT current_user::text AS current_user,

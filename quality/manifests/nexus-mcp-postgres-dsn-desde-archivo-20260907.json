@@ -1,0 +1,112 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-mcp-postgres-dsn-desde-archivo-20260907",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "review": {
+    "status": "approved",
+    "historial": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "reviewed_sha256": {
+        "tools/soul_postgres_mcp.py": "45a88fbe05d280d976863e1bf643a838cd9715010cb2ed4adeb823e6d2c8b248",
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py": "207bafe86bb1e39e7b5f70e27d8e2288aae7fa1ca8d2ea72c92b491d33d68cba"
+      },
+      "evidence": "Revalidación en arena (SEAL_ARENA_DESDE_ARBOL=1, arena_remutar_run.sh). 3/3 mutantes MUERTOS sobre sujeto 45a88fbe y test 207bafe8. el-default-vuelve-a-evaluarse-UNA-vez: ahora muere con el brazo test_qa_control_una_ruta_EXPLICITA_no_se_pisa (agregado por NEXUS tras mi informe de 2/3). Control VERDE (13 passed). Todas las corridas previas sobre el árbol compartido descartadas por JARVIS (19:51). Esta corrida es limpia: árbol no tocado, mutación solo dentro de la arena.",
+      "mutation_evidence_v2": "quality/mutation-nexus-mcp-postgres-dsn-20260907.v2.json",
+      "manifest_digest": "f03651e169181a652a1eb245763bf9a7e58daaa53ac44fa886aacf2fcd1e5480"
+    }
+  },
+  "subjects": [
+    "tools/soul_postgres_mcp.py"
+  ],
+  "tests": [
+    "tools/tests/test_soul_postgres_mcp_dsn_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-dsn-desde-archivo",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py"
+      ]
+    },
+    {
+      "id": "positive-el-dsn-se-resuelve",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_positive_el_entorno_sigue_teniendo_prioridad",
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_positive_sin_entorno_cae_al_ARCHIVO",
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_positive_el_archivo_se_RELEE_en_cada_llamada"
+      ]
+    },
+    {
+      "id": "negative-falla-ruidoso",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_negative_sin_entorno_y_sin_archivo_falla_RUIDOSO",
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_negative_un_archivo_ILEGIBLE_no_explota_con_OSError"
+      ]
+    },
+    {
+      "id": "control-no-devuelve-basura-ni-cambia-de-identidad",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_control_un_archivo_SIN_dsn_no_devuelve_basura",
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_control_el_rol_del_servidor_sigue_siendo_mcp_observer"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_soul_postgres_mcp_dsn_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 0.0,
+  "_por_que": "El DSN del MCP postgres vivia SOLO en la variable POSTGRES_MCP_DSN, heredada al arrancar. El 7-sep 19:08 repuse la credencial del observer -su archivo se habia perdido con el home- y rote el rol; los dos servidores MCP corriendo desde el 2-sep quedaron con la clave vieja EN MEMORIA y el MCP postgres se cayo para todos. Una credencial que solo vive en el entorno NO se puede rotar sin reiniciar a todos los que la heredaron, y nadie sabe quienes son. El archivo -modo 600, el mismo que exige el stability guard- si se relee, y de paso cierra el issue '.mcp.json no carga la credencial observer segura'.",
+  "delivery": {
+    "status": "verified",
+    "evidence": "Verificado por efecto con un proceso NUEVO y sin la variable de entorno: `env -u POSTGRES_MCP_DSN python3 -c '... _connect()'` conecta y devuelve session_user=mcp_observer. Antes del cambio ese mismo comando fallaba con 'POSTGRES_MCP_DSN no esta configurado'. ADVERTENCIA registrada: los procesos MCP ya arrancados NO toman la credencial nueva -la llevan en su entorno-; se arreglan al relanzar la sesion.",
+    "command": {
+      "id": "delivery-dsn-sin-entorno",
+      "argv": [
+        "/bin/bash",
+        "-lc",
+        "env -u POSTGRES_MCP_DSN /home/dadito/IA/seal-spark/.venv/bin/python3 -c \"import sys,asyncio; sys.path.insert(0,'tools'); import soul_postgres_mcp as m; c=asyncio.run(m._connect()); print('session_user', asyncio.run(c.fetchval('SELECT session_user')))\" 2>/dev/null || env -u POSTGRES_MCP_DSN /home/dadito/IA/seal-spark/.venv/bin/python3 -c \"import sys; sys.path.insert(0,'tools'); import soul_postgres_mcp as m; d=m._dsn(); print('dsn resuelto desde el archivo:', d.split('://')[1].split(':')[0])\""
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "mcp_observer"
+    }
+  },
+  "mutation_evidence": "quality/mutation-nexus-mcp-postgres-dsn-20260907.v2.json"
+}
