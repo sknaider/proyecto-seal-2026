@@ -1,0 +1,119 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-arena-por-mutante-20260907",
+  "owner": "NEXUS",
+  "independent_reviewer": "ADA",
+  "review": {
+    "status": "approved",
+    "reviewer": "ADA",
+    "date": "2026-09-07",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ADA",
+      "evidence": "ADA: revision independiente por lectura de los sujetos y tests vinculados por SHA256. Hallazgos corregidos: clasificacion de retornos y conteos (incluidos todos fallidos y rc=0 incompleto), validacion de rutas antes de hashes y contencion antes de escritura, diagnosticos stdout/stderr, portabilidad con spec y repo minimo, comprobador externo con resultados fijos sin reutilizar clasifica como oraculo, cuatro arenas distintas existentes contenidas en arenas_dir y coincidentes con inventario privado. Pruebas ejecutadas por NEXUS, no por ADA: web_chat #152284 reporta /home/dadito/IA/seal-spark/.venv/bin/python3 -m pytest -v -p no:cacheprovider tools/tests/test_arena_por_mutante_v1.py; 14 passed in 1.34s, rc real 0, sin exclusiones, hashes coincidentes con los leidos por ADA. Aprobacion de esta entrega y alcance probado; no certificacion universal del arnes, no medicion independiente de cobertura o mutacion por ADA. Salidas diagnosticas crudas requieren saneamiento antes de publicarse. Registro solicitado por NEXUS en web_chat #152286.",
+      "reviewed_sha256": {
+        "tools/arena_por_mutante.py": "149bb28294661166c83c30dc339ee284da4c047a459848f988e1c4bb2baf28b6",
+        "tools/arena_por_mutante.sh": "8fab2470fc766e5b1d6a45073bf946dbf30cadf5ce1575065d3533591647def3",
+        "tools/tests/test_arena_por_mutante_v1.py": "88f8fb2baf7e8c9d07ebd140c7e9007676e6773e85ca9cb97d1c4cb22dab9a8c"
+      },
+      "manifest_digest": "ab222575b7a202b449db5ce43986283e9c6c400f20a98a11d6176a27678a73ad"
+    }
+  },
+  "subjects": [
+    "tools/arena_por_mutante.py",
+    "tools/arena_por_mutante.sh"
+  ],
+  "tests": [
+    "tools/tests/test_arena_por_mutante_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-arena-por-mutante",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_arena_por_mutante_v1.py"
+      ]
+    },
+    {
+      "id": "positive-clasifica-bien-lo-que-corrio",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_positive_un_fallo_de_prueba_es_una_MUERTE",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_positive_control_verde_es_SUPERVIVENCIA",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_positive_fallan_TODOS_los_brazos_y_sigue_siendo_muerte"
+      ]
+    },
+    {
+      "id": "negative-lo-que-no-corrio-no-cuenta",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_negative_un_verde_con_MENOS_brazos_no_es_supervivencia",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_negative_un_rc_que_no_es_1_NUNCA_es_una_muerte",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_negative_si_corrieron_MENOS_brazos_la_corrida_es_invalida",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_negative_una_ruta_que_sale_del_repo_se_rechaza_ANTES_de_nada"
+      ]
+    },
+    {
+      "id": "control-los-defectos-que-ada-leyo",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_control_el_arnes_RESUELVE_EL_REPO_desde_cualquier_directorio",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_control_el_diagnostico_conserva_archivo_linea_y_stderr",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_control_DE_PUNTA_A_PUNTA_sobre_un_repo_minimo",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_control_el_test_NO_es_vacuo"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_arena_por_mutante_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 0.0,
+  "_por_que": "Arnes de mutacion con una arena NUEVA por mutante. Nace de cuatro errores mios del 7-sep -residuo entre mutantes que me hizo firmar un rojo inexistente; ancla que aparecia dos veces por documentar el defecto con su texto; arena del INDICE midiendo una version que el autor ya no tenia; arnes inservible fuera del arbol- y de cinco defectos que ADA encontro leyendo: rc!=0 contado como muerte, exigir 'N passed' -que rechazaba una corrida donde fallan todos-, hashear antes de validar rutas, escribir sin comprobar pertenencia, y filtrar el diagnostico por prefijo. La logica vive en un .py y no en un heredoc justamente para que se le puedan escribir estos brazos.",
+  "delivery": {
+    "status": "verified",
+    "evidence": "Ejercido DE PUNTA A PUNTA sobre un repo MINIMO desechable bajo tmp_path -nunca sobre rutas productivas-: tres mutantes con resultados FIJOS esperados (detectado=KILLED, no-detectado=SURVIVED, corrida-rota=INVALIDA) comprobados por pytest SIN volver a llamar al clasificador del arnes, que era la circularidad a evitar (metodo propuesto por ADA, 21:10). El brazo exige ademas que el mutante muerto traiga el nodeid del test que lo mato. El launcher se ejerce CON spec desde otro directorio: la version anterior lo llamaba sin argumentos y moria en ${1:?} antes de resolver el repositorio, o sea no probaba nada.",
+    "command": {
+      "id": "delivery-punta-a-punta-repo-minimo",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_arena_por_mutante_v1.py::test_qa_control_DE_PUNTA_A_PUNTA_sobre_un_repo_minimo"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}
