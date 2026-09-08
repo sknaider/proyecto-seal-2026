@@ -26,6 +26,45 @@ def corre(script, *args, **env):
 
 
 @pytest.fixture(autouse=True)
+def _fake_disk_commands(tmp_path, monkeypatch):
+    """Reemplaza df y du con versiones sinteticas para evitar lecturas reales del disco.
+
+    Sin esto, tests que disparan nivel=aviso/critico ejecutan 'du -xh --max-depth=1 /'
+    (seal_disk_alert.sh:54) que puede tardar minutos en un disco de 4 TB y colgar
+    la suite global.  Los datos sinteticos: 500 GB libres, 30% uso.
+    """
+    bindir = tmp_path / "fakebin"
+    bindir.mkdir()
+
+    df_script = bindir / "df"
+    df_script.write_text("""\
+#!/usr/bin/env bash
+# Sintetico: 500 GB libres, 30% uso — formato real de cada variante de df
+[[ "$*" == *"--output=pcent"* ]] && { printf 'Use%%\\n  30%%\\n'; exit 0; }
+[[ "$*" == *"-BG"* ]]           && { printf 'Avail\\n  500G\\n'; exit 0; }
+[[ "$*" == *"-h"* ]]            && { printf 'Avail\\n  500G\\n'; exit 0; }
+exec /usr/bin/df "$@"
+""")
+    df_script.chmod(0o755)
+
+    du_script = bindir / "du"
+    du_script.write_text("""\
+#!/usr/bin/env bash
+# Sintetico: salida instantanea que cubre el formato de "Lo que mas pesa"
+# El script hace: du ... | sort -rh | sed -n '2,5p' | awk ...
+# sort -rh espera tamanos con sufijo (G, M, etc.)
+printf '2900G\\t/\\n'
+printf '1200G\\t/home\\n'
+printf '800G\\t/var\\n'
+printf '650G\\t/opt\\n'
+printf '250G\\t/usr\\n'
+""")
+    du_script.chmod(0o755)
+
+    monkeypatch.setenv("PATH", f"{bindir}:{os.environ.get('PATH', '/usr/bin:/bin')}")
+
+
+@pytest.fixture(autouse=True)
 def _sin_estado_previo():
     ESTADO.unlink(missing_ok=True)
     yield
