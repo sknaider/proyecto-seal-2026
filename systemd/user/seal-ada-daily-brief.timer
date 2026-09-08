@@ -1,0 +1,10 @@
+[Unit]
+Description=ADA daily brief — 06:00 Lima, por hallazgo
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+Unit=seal-ada-daily-brief.service
+
+[Install]
+WantedBy=timers.target

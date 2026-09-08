@@ -1,0 +1,17 @@
+# Brief matutino de ADA — por hallazgo, no por reloj (William 2-ago-2026).
+# Reescrita 8-sep-2026: la reconstrucción del 7-sep quedó con ExecStart="(python3)" y fallaba a las 06:00.
+# Versionada en systemd/user/ y copiada a ~/.config/systemd/user/ (mismo contenido).
+[Unit]
+Description=ADA daily operational brief — unidades propias, puente Codex, manifiestos, disco y backlog de William
+OnFailure=seal-unit-failed@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+Environment=SEAL_AGENT=ADA
+Environment=SEAL_RUNTIME_INSTANCE=ADA_BRIEF
+EnvironmentFile=-%h/.config/seal/env/seal-ada-daily-brief.env
+ExecStart=/home/dadito/IA/seal-spark/.venv/bin/python3 /home/dadito/IA/proyecto-seal/agents/ADA/ada_daily_brief.py
+
+[Install]
+WantedBy=default.target

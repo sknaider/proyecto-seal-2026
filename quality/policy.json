@@ -161,6 +161,9 @@
     "quality/manifests/tool-result-budget-inert-v1.json",
     "quality/manifests/u116-isolated-claude-transport.json",
     "quality/manifests/unit-failed-notify-20260905.json",
-    "quality/manifests/validador-candado-v1.json"
+    "quality/manifests/validador-candado-v1.json",
+    "quality/manifests/ada-daily-brief-20260908.json",
+    "quality/manifests/ada-codex-c10-token-writer-20260908.json",
+    "quality/manifests/soul-runtime-supervisor-20260908.json"
   ]
 }

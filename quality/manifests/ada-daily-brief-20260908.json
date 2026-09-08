@@ -1,0 +1,133 @@
+{
+ "schema": "seal.quality-manifest.v1",
+ "change_id": "ada-daily-brief-20260908",
+ "owner": "ADA",
+ "independent_reviewer": "JARVIS",
+ "_doc": [
+  "Brief matutino de ADA reconstruido el 8-sep-2026 tras el borrado del home del 7-sep 01:42.",
+  "La unidad seal-ada-daily-brief quedo reconstruida del journal con ExecStart=\"(python3)\" y",
+  "fallaba cada 06:00; el script original nunca estuvo en git. Calcado del brief de JARVIS con los",
+  "hallazgos del rol de ADA: unidades propias en failed, puente Codex en bucle, manifiestos owner=ADA",
+  "con sujeto/test faltante o sin commit (git ls-tree HEAD, no el indice), disco y backlog de William.",
+  "Luz verde de William 11:08 y de JARVIS 11:02 (regla de oro 8-sep: avisar a JARVIS antes de tocar SOUL)."
+ ],
+ "deletions": [],
+ "subjects": [
+  "agents/ADA/ada_daily_brief.py",
+  "systemd/user/seal-ada-daily-brief.service",
+  "systemd/user/seal-ada-daily-brief.timer"
+ ],
+ "tests": [
+  "agents/ADA/tests/test_ada_daily_brief_v1.py"
+ ],
+ "commands": [
+  {
+   "id": "unit-brief-parsea-y-no-publica",
+   "kind": "unit",
+   "expected_exit": 0,
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "agents/ADA/tests/test_ada_daily_brief_v1.py"
+   ]
+  },
+  {
+   "id": "positive-bucle-puente-y-archivo-faltante-son-hallazgo",
+   "kind": "qa_positive",
+   "expected_exit": 0,
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "agents/ADA/tests/test_ada_daily_brief_v1.py::test_positivo_bucle_del_puente_es_hallazgo",
+    "agents/ADA/tests/test_ada_daily_brief_v1.py::test_positivo_archivo_de_manifiesto_faltante_es_hallazgo",
+    "agents/ADA/tests/test_ada_daily_brief_v1.py::test_positivo_archivo_sin_commit_es_hallazgo"
+   ]
+  },
+  {
+   "id": "negative-ajeno-sin-dsn-y-sin-hallazgos",
+   "kind": "qa_negative",
+   "expected_exit": 0,
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "agents/ADA/tests/test_ada_daily_brief_v1.py::test_negativo_manifiesto_ajeno_no_se_reporta",
+    "agents/ADA/tests/test_ada_daily_brief_v1.py::test_negativo_sin_dsn_es_no_medible_no_credencial_alternativa",
+    "agents/ADA/tests/test_ada_daily_brief_v1.py::test_negativo_sin_hallazgos_dice_sin_hallazgos"
+   ]
+  },
+  {
+   "id": "control-sano-no-es-hallazgo-y-render-lista",
+   "kind": "qa_control",
+   "expected_exit": 0,
+   "argv": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "agents/ADA/tests/test_ada_daily_brief_v1.py::test_control_puente_tranquilo_no_es_hallazgo",
+    "agents/ADA/tests/test_ada_daily_brief_v1.py::test_control_manifiesto_sano_no_es_hallazgo",
+    "agents/ADA/tests/test_ada_daily_brief_v1.py::test_control_render_con_hallazgos_los_lista"
+   ]
+  }
+ ],
+ "coverage": {
+  "source": [
+   "agents/ADA/ada_daily_brief.py"
+  ],
+  "omit": [
+   "agents/ADA/tests/*",
+   "*/site-packages/*"
+  ],
+  "pytest_args": [
+   "-p",
+   "no:cacheprovider",
+   "agents/ADA/tests/test_ada_daily_brief_v1.py"
+  ],
+  "baseline_percent": 0.0,
+  "timeout": 120
+ },
+ "delivery": {
+  "status": "verified",
+  "evidence": "8-sep-2026 11:05 Lima: corrida en seco con la credencial minima de lectura (SEAL_BRIEF_DSN de ~/.config/seal/env/seal-ada-daily-brief.env, 0600): 11 hallazgos reales, entre ellos 9511 errores y 170 reinicios del puente Codex en 6 h y los 6 archivos perdidos de ocean-integrity-v2. Unidad reinstalada identica al repo (sha cf6f8b0e), systemd-analyze verify sin quejas, reset-failed, timer enabled con NEXT 9-sep 06:00. No se publico en el general a proposito: la primera publicacion real es la del timer.",
+  "command": {
+   "id": "delivery-brief-en-seco",
+   "argv": [
+    "python3",
+    "agents/ADA/ada_daily_brief.py",
+    "--no-publicar"
+   ],
+   "expected_exit": 0,
+   "expected_stdout_contains": "brief matutino"
+  }
+ },
+ "review": {
+  "status": "approved",
+  "receipt": {
+   "schema": "seal.independent-review-receipt.v1",
+   "reviewer": "JARVIS",
+   "signed_at": "2026-09-08T17:15:00Z",
+   "evidence": "10/10 tests PASSED. SHAs verificados: ada_daily_brief.py=2691d00736a7, test=7ec2876e631d, .service=cf6f8b0ea32c, .timer=e2a9da04a00d. Calcado del brief de JARVIS con hallazgos del rol ADA. Comportamiento correcto: puente en bucle, archivos sin commit, manifiestos ajenos ignorados, sin DSN = no-medible.",
+   "reviewed_sha256": {
+    "agents/ADA/ada_daily_brief.py": "2691d00736a7e8355cb9c74855663440cb756da9d4bd3c00d3565cdf3df2b3f6",
+    "agents/ADA/tests/test_ada_daily_brief_v1.py": "7ec2876e631d54e911ac158f51e6442ff119a0f6e05e83895693eaef66920118",
+    "systemd/user/seal-ada-daily-brief.service": "cf6f8b0ea32c3816d10704b2688eff4d9f83f85c8f6ae6a35db4178e50a579bf",
+    "systemd/user/seal-ada-daily-brief.timer": "e2a9da04a00dfe43f2a5f1e19cbf301ee49d0fc63b80dbd1f34d116bf8be0271"
+   },
+   "manifest_digest": "ba1dec8c2b034882db6c224cf5e0598d2ec29187e14d982294bdc6282a379d89"
+  }
+ }
+}
