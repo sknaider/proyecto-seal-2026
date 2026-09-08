@@ -36,7 +36,20 @@ def test_qa_negative_usuario_comun_no_ve_el_link():
 
 
 def test_unit_suite_completa():
-    """2/2 tests node pasan sin excepción."""
+    """3/3 tests node pasan sin excepción.
+
+    EL NÚMERO VA CLAVADO A PROPÓSITO, y conviene decirlo porque parece un
+    descuido: `returncode == 0` también da verde si un test se deja de
+    ejecutar —node no falla por no correr algo—, así que sin el conteo la
+    suite podría encogerse en silencio. El precio es que agregar un brazo
+    obliga a tocar esta línea; eso es intencional, no fricción accidental.
+
+    Actualizado a 3 el 8-sep-2026 al sumar el brazo de renderizado del
+    componente (NEXUS, carril nexus-panel-soul-coverage).
+    """
     r = _run()
     assert r.returncode == 0, f"node test failed:\n{r.stdout}\n{r.stderr}"
-    assert "pass 2" in r.stdout
+    assert "# fail 0" in r.stdout, f"algun test de node fallo:\n{r.stdout}"
+    assert "pass 3" in r.stdout, (
+        "la suite de node no corrio los 3 brazos esperados; si agregaste uno, "
+        f"actualiza este numero a proposito:\n{r.stdout}")

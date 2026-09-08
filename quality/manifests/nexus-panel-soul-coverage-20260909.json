@@ -3,29 +3,27 @@
   "change_id": "nexus-panel-soul-coverage-20260909",
   "owner": "NEXUS",
   "independent_reviewer": "ALICE",
-  "_por_que": "Dos huecos hallados MUTANDO el carril studio-panel-soul-20260908 (ya cerrado STATIC_OK, commit 01ec48c). ALICE habia declarado 'sin mutacion exigida, componente presentacional puro'; se muto igual por eso mismo.\nP5 (lo que este carril ARREGLA): el test importa next.config.ts y SI observa el destino del proxy -mutar 127.0.0.1:8093 a 0.0.0.0 mata 2 brazos-, pero ese archivo NO era sujeto de ningun manifiesto: el gate no exigia re-revision cuando cambiara. No era hueco de cobertura sino de ALCANCE. Se agrega a subjects.\nP3 (lo que este carril NO arregla y declara): ver `deuda_declarada`.",
-  "deuda_declarada": {
-    "id": "P3-el-componente-no-consulta-la-autorizacion",
-    "declaracion": "El filtro `canOpenPanelSoul(role)` en PanelSoulLink.tsx es una guarda COSMETICA de UX. La autorizacion real la ejerce el servidor en 127.0.0.1:8093 de forma independiente. P3 queda como deuda tecnica nombrada: NINGUN test verifica que el componente use el filtro en lugar de renderizar siempre -se requiere un runner con soporte JSX para cubrirlo-.",
-    "medido": "Borrar `if (!canOpenPanelSoul(role)) return null;` del componente deja los 4 brazos VERDES. Verificado por NEXUS el 8-sep contra el codigo commiteado.",
-    "por_que_no_se_arregla_aqui": "El runner del frontend es `node --experimental-strip-types --test`: hace type stripping de .ts pero NO transforma JSX, y falla con ERR_UNKNOWN_FILE_EXTENSION en .tsx. No hay vitest, jest ni testing-library instalados. Cubrirlo exige una dependencia nueva; decision de JARVIS (12:36): no se introduce por un test cosmetico. Se descarto tambien un brazo que afirmara sobre el TEXTO del .tsx: seria un brazo de PRESENCIA, daria verde sin observar conducta.",
-    "limite_de_honestidad": "La autorizacion del servidor NO esta verificada en este carril: se declara como arquitectura asumida, no como algo probado (precision de ADA, 12:31). Lo medido es perdida de cobertura del filtro visual, NO acceso indebido al backend.",
-    "para_cerrarla": "un runner con soporte JSX + un brazo que renderice con role='user' y espere null"
-  },
+  "_por_que": "Dos huecos hallados MUTANDO el carril studio-panel-soul-20260908 (ya cerrado STATIC_OK, commit 01ec48c). ALICE habia declarado 'sin mutacion exigida, componente presentacional puro'; se muto igual por eso mismo.\nP5 (lo que este carril ARREGLA): el test importa next.config.ts y SI observa el destino del proxy -mutar 127.0.0.1:8093 a 0.0.0.0 mata 2 brazos-, pero ese archivo NO era sujeto de ningun manifiesto: el gate no exigia re-revision cuando cambiara. No era hueco de cobertura sino de ALCANCE. Se agrega a subjects.\nP3 (ARREGLADO tras la via de ADA): ver `deuda_cerrada`.",
   "review": {
     "status": "approved",
+    "historial": [
+      {
+        "nota": "Re-firma necesaria: ALICE firmo a las 12:46 con baseline 80 y P3 declarado como deuda. A las 12:50 ADA encontro la via para renderizar sin dependencia nueva, JARVIS supersedio su decision B, y el brazo entro: P3 pasa a MUERTO y el baseline sube a 100 PORQUE EL HUECO SE CERRO, no porque se haya ajustado el umbral."
+      }
+    ],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "ALICE",
-      "signed_at": "2026-09-08T20:00:00Z",
-      "evidence": "Corrida independiente de 5 mutantes en copias aisladas bajo /tmp (sin acceso al repo en curso). Control: 4/4 passed. P3 SOBREVIVE (4/4 green) — deuda declarada confirmada: el componente no consulta la guarda visual. P1 MUERTO (3 failed): helper return true. P2 MUERTO (3 failed): sin toLowerCase. P4 MUERTO (3 failed): startsWith. P5 MUERTO (2 failed): proxy 0.0.0.0. Score: 4/5 = 80.0% — coincide con mutation_baseline_percent declarado. Deuda P3 declarada honestamente en el manifiesto: el runner node no puede transformar JSX y cubrirla exige una dependencia nueva; decision de JARVIS. next.config.ts figura como sujeto y el brazo control lo observa (P5 lo prueba).",
+      "signed_at": "2026-09-08T20:30:00Z",
+      "evidence": "Segunda corrida independiente — 5 mutantes en copias aisladas bajo /tmp, node_modules via symlink. Control: 4/4 passed. P3 MUERTO (1 failed, 3 passed): el brazo de renderizado con typescript+react-dom/server detecta la guard ausente — ADA encontro la via, el hueco queda cerrado. P1 MUERTO (3 failed). P2 MUERTO (3 failed). P4 MUERTO (3 failed). P5 MUERTO (2 failed). Score: 5/5 = 100% — coincide con mutation_baseline_percent actualizado. El limite que sigue en pie: autorizacion del backend no verificada (arquitectura asumida, declarado en deuda_cerrada).",
       "reviewed_sha256": {
         "seal-studio/frontend/src/app/v2/PanelSoulLink.tsx": "070906f8d3ff083dae0600ae7d9cc7b6d9340cde6a67bc69d11e3e24d1c953cf",
         "seal-studio/frontend/src/lib/panelSoul.ts": "2fcb922f1eef5478bb64371554ca32b6314c7748e7a1db72582a295d6e0684ee",
         "seal-studio/frontend/next.config.ts": "c407881f2a47f97cff2c462239d805179bcd7726775d115ff5b28b8660812321",
-        "seal-studio/frontend/tests/test_panel_soul_py.py": "4e1ff10c2085dd4a07b506ab6cff18b2d5570285a6dc963fdb5f883d9594ad8e"
+        "seal-studio/frontend/tests/test_panel_soul_py.py": "ed07fb07f92585cf390f83b44a0ba564691d72138464d5127ce079f5eb89139c",
+        "seal-studio/frontend/tests/panelSoul.test.mjs": "45305ef6b60178575ed65c1fce4f70c0245600b1e47a976bf4192668db3cd36b"
       },
-      "manifest_digest": "a5c79f1cd14393ef703dfbb57662566d895507bb69cc0b1a6315aa2735828990"
+      "manifest_digest": "4712c642b28dc24a9b4ace54a2e9042fc4fe4ca2e08a1d114154ee1d393ee8d6"
     }
   },
   "subjects": [
@@ -34,7 +32,8 @@
     "seal-studio/frontend/next.config.ts"
   ],
   "tests": [
-    "seal-studio/frontend/tests/test_panel_soul_py.py"
+    "seal-studio/frontend/tests/test_panel_soul_py.py",
+    "seal-studio/frontend/tests/panelSoul.test.mjs"
   ],
   "commands": [
     {
@@ -100,7 +99,7 @@
     "baseline_percent": 0.0,
     "timeout": 120
   },
-  "mutation_baseline_percent": 80.0,
+  "mutation_baseline_percent": 100.0,
   "mutation_evidence": "quality/mutation-nexus-panel-soul-coverage-20260909.json",
   "delivery": {
     "status": "verified",
@@ -118,5 +117,13 @@
     },
     "evidence": "Verificado por efecto: el archivo figura en subjects. Antes de este carril no lo estaba en NINGUN manifiesto, pese a que tests/panelSoul.test.mjs afirma sobre sus rewrites. Mutar 127.0.0.1:8093 -> 0.0.0.0:8093 pone 2 brazos en rojo (corrida de NEXUS, 8-sep)."
   },
-  "nota_para_el_revisor": "ALICE: la mutacion la corro NO yo -ya la hice como hallazgo y no puedo ser revisor independiente de mi propio hallazgo (JARVIS, 12:36)-. La spec ejecutable con los 5 mutantes esta en quality/mutantes/nexus-panel-soul-coverage-20260909.spec.json.\nOJO CON EL CONTROL: la copia aislada necesita CINCO archivos o sale ROJO y la corrida no vale: panelSoul.ts, PanelSoulLink.tsx, test_panel_soul_py.py, panelSoul.test.mjs Y next.config.ts (el .mjs lo importa). Me costo tres diagnosticos.\nEl baseline es 80% a proposito: P3 SOBREVIVE y esta declarado como deuda, no escondido. Si alguien lo sube a 100 sin agregar el runner JSX, esta tapando el hueco."
+  "nota_para_el_revisor": "ALICE: la mutacion la corro NO yo -ya la hice como hallazgo y no puedo ser revisor independiente de mi propio hallazgo (JARVIS, 12:36)-. La spec ejecutable con los 5 mutantes esta en quality/mutantes/nexus-panel-soul-coverage-20260909.spec.json.\nOJO CON EL CONTROL: la copia aislada necesita CINCO archivos o sale ROJO y la corrida no vale: panelSoul.ts, PanelSoulLink.tsx, test_panel_soul_py.py, panelSoul.test.mjs Y next.config.ts (el .mjs lo importa). Me costo tres diagnosticos.\nEl baseline es 80% a proposito: P3 SOBREVIVE y esta declarado como deuda, no escondido. Si alguien lo sube a 100 sin agregar el runner JSX, esta tapando el hueco.",
+  "deuda_cerrada": {
+    "id": "P3-el-componente-no-consulta-la-autorizacion",
+    "estado": "CERRADA el 8-sep-2026, no declarada",
+    "como": "Brazo de renderizado real: `typescript` transpila el TSX en memoria y `react-dom/server` lo renderiza con su helper real. SIN dependencia nueva — ambos ya estaban instalados con Next. El transpilado se escribe a un archivo temporal DENTRO de frontend/ y se borra en el `finally`: desde un `data:` URL node no resuelve `react/jsx-runtime`.",
+    "verificado": "mutante P3 -borrar `if (!canOpenPanelSoul(role)) return null;`- pasa de SOBREVIVE (4 passed) a MUERTO (1 failed, 3 passed). Control 4 passed.",
+    "credito": "La via la encontro ADA. Yo habia concluido que el brazo era imposible sin sumar vitest, y JARVIS decidio en consecuencia (opcion B). Busque runners de test y NO se me ocurrio que `typescript` + `react-dom/server` YA estaban ahi por Next: mire la lista de herramientas de test en vez de la lista de lo instalado.",
+    "limite_que_SIGUE_en_pie": "La autorizacion del servidor NO esta verificada en este carril: se declara como arquitectura asumida, no como algo probado (precision de ADA, 12:31). Lo medido es perdida de cobertura del filtro visual, NO acceso indebido al backend."
+  }
 }
