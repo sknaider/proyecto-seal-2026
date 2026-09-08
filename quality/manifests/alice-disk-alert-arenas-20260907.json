@@ -135,13 +135,13 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "evidence": "Entrega final de ALICE, revisada en COPIA AISLADA (/tmp/seal-arena-3YVifi0o, foto del indice via git write-tree) y NO en el arbol compartido: 17 brazos verdes en 0,21 s. VERIFICADO POR EFECTO que la suite ya no toca el estado del servicio: /tmp/seal_disk_alert_last ausente antes y ausente despues de correrla; el brazo inyecta SEAL_DISK_ESTADO a un tmp_path propio y el script lo respeta. MUTACION propia, 3 mutantes con sentido, los 3 MUERTOS: (M1) se quita un par del du sintetico -sin /opt- -> 1 failed; (M3) el script pierde el `sort -rh` -> 1 failed, o sea la asercion SI protege el orden decreciente y no solo la presencia; (M4) el script recorta a 3 entradas -sed 2,4p en vez de 2,5p- -> 1 failed. Control verde antes y despues de cada uno. DESCARTE un cuarto mutante por MAL ESPECIFICADO: reordenar las lineas del du sintetico NO cambia la salida, porque el script re-ordena con `sort -rh`. Sobrevivio y no probaba nada: el orden lo impone el script, no el dato de entrada. Antes de acusar al brazo mire si el mutante reproducia el defecto que decia reproducir. El requisito de ADA -cuatro pares tamano/directorio, en orden, dentro del bloque- queda cubierto: la asercion compara la lista COMPLETA y ORDENADA [(1200,/home),(800,/var),(650,/opt),(250,/usr)], no la presencia de cadenas sueltas. Efecto colateral medido en la suite completa: los 7 brazos que costaban ~10,5 s cada uno por el `du` sobre la raiz bajan a 0,21 s el archivo entero.",
+      "evidence": "v5 revisada con arena NUEVA por mutante. Control 18 verdes; 4/4 mutantes muertos. AISLAMIENTO DEL ESTADO verificado por efecto: /tmp/seal_disk_alert_last ausente antes y despues de la suite; el brazo inyecta SEAL_DISK_ESTADO a un tmp_path propio. MECANISMO DE CADA MUERTE VERIFICADO, no supuesto -es la leccion que me costo dos firmas hoy-. El caso que mas importa es M5: revertir la extraccion al mensaje completo la mata con [(500,/fuera),(500,/fuera),(1200,/home),(800,/var),(650,/opt),(250,/usr)], o sea muere POR incorporar el par externo del senuelo, que es la propiedad que ADA pidio proteger, y no por un fallo lateral. Y M3 muere ahora por la propiedad: ALICE hizo el du sintetico ASCENDENTE, con lo cual quitarle el `sort -rh` al script cambia la salida de verdad. En la v3 ese mutante era inobservable y yo lo habia dado por muerto por contaminacion de mi propia copia. El senuelo lo diseno ADA y corrigio el mio: '2900G /' NO matchea (\\d+)G\\s+(/\\S+) -verificado- porque \\S+ exige un caracter despues de la barra; '500G\\t/fuera' si. REVALIDADO 21:03 con el arnes corregido (sha df0e210e…): 4/4 siguen MUERTOS, control 18 verdes, cada muerte con su nodeid registrado. Los tres mutantes del script mueren por DOS brazos -la asercion del bloque y el control de delimitacion de ALICE-, no por uno.",
       "reviewed_sha256": {
         "tools/seal_arena.sh": "4cad966a3300dc6ca67d71b97e0bd57d5cfffd098fcd239176f0008ca9b0d2c9",
         "tools/seal_disk_alert.sh": "7395b755dfc71d2f828984fa75e964c07b7ac90ae8352cc2af6c7967ed0d29bd",
-        "tools/tests/test_seal_disk_alert_v1.py": "54964f7cb86290f5cd73c330306041ff1e3815823c969ac094add7ee59bee24f"
+        "tools/tests/test_seal_disk_alert_v1.py": "a82b9700de8e2b8b75e7677073d06265af552d838ab677ad22a6bfe06fd17b5d"
       },
-      "manifest_digest": "93615ad99b52a1aca48c19bc86e1949d7f8dad7136b18112c66b5264277a94db"
+      "manifest_digest": "fddd82da220c756aca0a7f085d60d8283ff193e7c33fccaae820899a5a9e782a"
     }
   },
   "coverage": {
@@ -172,7 +172,7 @@
   "source_sha256": {
     "tools/seal_arena.sh": "4cad966a3300dc6ca67d71b97e0bd57d5cfffd098fcd239176f0008ca9b0d2c9",
     "tools/seal_disk_alert.sh": "7cd34ca28b20fbbec8a91783c35c6241d713727c643d642af6e1b4a322b45ae5",
-    "tools/tests/test_seal_disk_alert_v1.py": "54964f7cb86290f5cd73c330306041ff1e3815823c969ac094add7ee59bee24f"
+    "tools/tests/test_seal_disk_alert_v1.py": "a82b9700de8e2b8b75e7677073d06265af552d838ab677ad22a6bfe06fd17b5d"
   },
   "implementation_head": "f6585b23feea25815e9606a3ff005458d74e56e8",
   "delivery": {

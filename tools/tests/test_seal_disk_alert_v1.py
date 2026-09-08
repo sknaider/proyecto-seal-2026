@@ -24,6 +24,35 @@ def corre(script, *args, **env):
                           text=True, env=e, timeout=60)
 
 
+@pytest.fixture
+def _df_con_par_externo(tmp_path, monkeypatch):
+    r"""Señuelo para matar M5: df -h devuelve '500G<TAB>/fuera' como libre_fmt.
+
+    El tab sobrevive `tr -d ' '` del script, así que el título termina con
+    '500G<TAB>/fuera libres' — que matchea (\d+)G\s+(/\S+) — FUERA del bloque
+    'Lo que mas pesa'. Sin este señuelo, los pares en r.stdout y en bloque.group(1)
+    son idénticos y M5 (bloque.group(1) → r.stdout) sobrevive.
+
+    Agrega bindir2 al frente del PATH; el autouse fakebin sigue activo para du y
+    el resto, pero df usa esta versión.
+    """
+    bindir2 = tmp_path / "fakebin_senluelo"
+    bindir2.mkdir()
+    df2 = bindir2 / "df"
+    df2.write_text("""\
+#!/usr/bin/env bash
+# Senluelo M5: -h devuelve '500G<TAB>/fuera' para inyectar un par en el titulo.
+# tr -d ' ' quita espacios pero no tabs -> el tab llega intacto al formato del script.
+[[ "$*" == *"--output=pcent"* ]] && { printf 'Use%%\\n  30%%\\n'; exit 0; }
+[[ "$*" == *"-BG"* ]]           && { printf 'Avail\\n  500G\\n'; exit 0; }
+[[ "$*" == *"-h"* ]]            && { printf 'Avail\\n  500G\\t/fuera\\n'; exit 0; }
+exec /usr/bin/df "$@"
+""")
+    df2.chmod(0o755)
+    current_path = os.environ.get("PATH", "/usr/bin:/bin")
+    monkeypatch.setenv("PATH", f"{bindir2}:{current_path}")
+
+
 @pytest.fixture(autouse=True)
 def _fake_disk_commands(tmp_path, monkeypatch):
     """Reemplaza df y du con sinteticos y aísla el estado por test sin tocar el servicio.
@@ -49,14 +78,14 @@ exec /usr/bin/df "$@"
     du_script = bindir / "du"
     du_script.write_text("""\
 #!/usr/bin/env bash
-# Sintetico: salida instantanea que cubre el formato de "Lo que mas pesa"
-# El script hace: du ... | sort -rh | sed -n '2,5p' | awk ...
-# sort -rh espera tamanos con sufijo (G, M, etc.)
-printf '2900G\\t/\\n'
-printf '1200G\\t/home\\n'
-printf '800G\\t/var\\n'
-printf '650G\\t/opt\\n'
+# Sintetico: emite en orden ASCENDENTE para que sort -rh del script sea observable.
+# Sin sort -rh, sed -n '2,5p' tomaria las 4 entradas chicas en orden incorrecto.
+# Con sort -rh, la salida queda: 1200G /home, 800G /var, 650G /opt, 250G /usr.
 printf '250G\\t/usr\\n'
+printf '650G\\t/opt\\n'
+printf '800G\\t/var\\n'
+printf '1200G\\t/home\\n'
+printf '2900G\\t/\\n'
 """)
     du_script.chmod(0o755)
 
@@ -89,20 +118,54 @@ def test_qa_positive_los_campos_en_su_lugar():
     assert re.search(r"libres \d+(?:[.,]\d+)?[KMGTP]? +· +uso \d+%", r.stdout), r.stdout
 
 
-def test_qa_positive_lo_que_mas_pesa_tiene_entradas():
+def test_qa_positive_lo_que_mas_pesa_tiene_entradas(_df_con_par_externo):
     """El bloque 'Lo que mas pesa' lista las 4 entradas del du sintetico en orden descendente.
 
     ADA (7-sep): los datos sinteticos se generan pero no se afirman. Este brazo
     verifica que las 4 entradas (1200G /home, 800G /var, 650G /opt, 250G /usr) lleguen
     al mensaje, en orden decreciente de tamano, como las genera sort -rh | sed -n '2,5p'.
+
+    NEXUS (7-sep, M5): usa el fixture _df_con_par_externo para que r.stdout contenga
+    un par extra ('500G /fuera') en el titulo, fuera del bloque. Si alguien revierte
+    bloque.group(1) a r.stdout, findall devuelve ese par extra y la asercion cae.
     """
     import re
     r = corre(ALERTA, SEAL_DISK_WARN_GB="999999")
-    assert "Lo que mas pesa" in r.stdout, r.stdout[:300]
-    entries = re.findall(r"(\d+)G\s+(/\S+)", r.stdout)
+    bloque = re.search(r"Lo que mas pesa.*?```console\n(.*?)```", r.stdout, re.DOTALL)
+    assert bloque, f"bloque 'Lo que mas pesa' ausente o sin formato console:\n{r.stdout[:400]}"
+    entries = re.findall(r"(\d+)G\s+(/\S+)", bloque.group(1))
     assert entries == [("1200", "/home"), ("800", "/var"), ("650", "/opt"), ("250", "/usr")], (
-        f"pares tamano/directorio incorrectos o en orden incorrecto: {entries}\n"
-        + r.stdout[:400]
+        f"pares tamano/directorio incorrectos o en orden incorrecto dentro del bloque: {entries}\n"
+        + bloque.group(1)
+    )
+
+
+def test_qa_control_M5_delimitacion_al_bloque_es_exigible(_df_con_par_externo):
+    """Brazo de control que mata M5: verifica que buscar en bloque != buscar en todo stdout.
+
+    NEXUS (7-sep): con el senluelo activo, r.stdout contiene el par ('500', '/fuera')
+    en el titulo (fuera del bloque), ademas de los 4 pares del du sintetico.
+    - busqueda en bloque.group(1): 4 pares (los del du)
+    - busqueda en r.stdout: 4+ pares (incluye '/fuera' del titulo y de la linea de libres)
+    Si alguien revierte bloque.group(1) a r.stdout, entries incluye '/fuera' y la
+    asercion cae: ese par no estaba en el bloque.
+    """
+    import re
+    r = corre(ALERTA, SEAL_DISK_WARN_GB="999999")
+    bloque = re.search(r"Lo que mas pesa.*?```console\n(.*?)```", r.stdout, re.DOTALL)
+    assert bloque, f"bloque ausente:\n{r.stdout[:400]}"
+    # Verificar que el senluelo existe en stdout pero NO en el bloque
+    pares_stdout = re.findall(r"(\d+)G\s+(/\S+)", r.stdout)
+    pares_bloque = re.findall(r"(\d+)G\s+(/\S+)", bloque.group(1))
+    assert any(p == ("500", "/fuera") for p in pares_stdout), (
+        f"el senluelo '/fuera' no aparece en stdout — el fixture no funciono:\n{r.stdout[:300]}"
+    )
+    assert not any(p == ("500", "/fuera") for p in pares_bloque), (
+        f"'/fuera' aparecio DENTRO del bloque — el senluelo esta en el lugar equivocado:\n{bloque.group(1)}"
+    )
+    # La asercion principal: solo los 4 pares del du, en el bloque correcto
+    assert pares_bloque == [("1200", "/home"), ("800", "/var"), ("650", "/opt"), ("250", "/usr")], (
+        f"pares dentro del bloque incorrectos: {pares_bloque}"
     )
 
 

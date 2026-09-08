@@ -3,8 +3,7 @@
   "change_id": "alice-disk-alert-arenas-20260907",
   "owner": "ALICE",
   "reviewer": "NEXUS",
-  "tool": "copia aislada por seal_arena.sh (foto del INDICE via git write-tree)",
-  "workspace": "/tmp/seal-arena-3YVifi0o",
+  "tool": "tools/arena_por_mutante.sh sha256 df0e210ef916989c… — arena NUEVA por mutante; rutas validadas ANTES de hashear; KILLED exige rc==1 y que failed+passed iguale los brazos del control; guarda nodeids y las colas crudas de stdout y stderr",
   "harness": [
     "python",
     "-m",
@@ -14,26 +13,26 @@
     "no:cacheprovider",
     "tools/tests/test_seal_disk_alert_v1.py"
   ],
-  "seleccion_de_tests": "el archivo COMPLETO, sin -k ni -m: 17 esperados, 17 ejecutados, 0 excluidos",
-  "_como_se_midio": "Corrida por el REVISOR sobre la entrega final, en copia aislada y NUNCA en el arbol compartido (regla del 7-sep tras el borrado del home; JARVIS la reitero a las 19:50). MUTANTE DESCARTADO POR MAL ESPECIFICADO: reordenar las lineas del du sintetico -poner /var antes que /home- SOBREVIVIO, y no prueba nada: el script re-ordena con `sort -rh`, asi que el orden de la entrada no llega a la salida. Se reemplazo por el mutante que si reproduce ese defecto: quitarle el `sort -rh` AL SCRIPT. AISLAMIENTO VERIFICADO POR EFECTO: /tmp/seal_disk_alert_last ausente antes y despues de correr la suite; el brazo inyecta SEAL_DISK_ESTADO a un tmp_path propio.",
+  "seleccion_de_tests": "el archivo COMPLETO, sin -k ni -m: 18 esperados, 18 ejecutados, 0 excluidos",
+  "_como_se_midio": "Corrida por el REVISOR sobre la v5, en arenas aisladas y NUNCA en el arbol compartido. TRES resultados anteriores fueron DESCARTADOS y no se reutilizan: (a) 20:32, tres mutantes en una copia REUTILIZADA con `cp` entre uno y otro: el tercero heredo la permutacion del segundo y reporte un rojo inexistente; (b) 20:37, arena que fotografio el INDICE cuando la entrega estaba en el ARBOL sin indexar: medi la v3 creyendo medir la v4; (c) los M1/M4 de esa misma tanda, descartados por venir de la copia contaminada aunque su mecanismo fuera claro. El arnes actual impide las tres por construccion.",
   "control_sujeto_sin_mutar": {
-    "observed": "17 passed in 0.21s",
+    "observed": "18 passed in 0.22s",
     "result": "GREEN",
-    "brazos_esperados": 17,
-    "brazos_ejecutados": 17,
+    "brazos_esperados": 18,
+    "brazos_ejecutados": 18,
     "excluidos": 0
   },
   "control_final": {
-    "observed": "17 passed in 0.21s",
+    "observed": "18 passed",
     "result": "GREEN"
   },
   "file_sha256": {
     "tools/seal_arena.sh": "4cad966a3300dc6ca67d71b97e0bd57d5cfffd098fcd239176f0008ca9b0d2c9",
     "tools/seal_disk_alert.sh": "7395b755dfc71d2f828984fa75e964c07b7ac90ae8352cc2af6c7967ed0d29bd",
-    "tools/tests/test_seal_disk_alert_v1.py": "54964f7cb86290f5cd73c330306041ff1e3815823c969ac094add7ee59bee24f"
+    "tools/tests/test_seal_disk_alert_v1.py": "a82b9700de8e2b8b75e7677073d06265af552d838ab677ad22a6bfe06fd17b5d"
   },
-  "total": 3,
-  "killed": 3,
+  "total": 4,
+  "killed": 4,
   "survived": 0,
   "no_tests": 0,
   "skipped": 0,
@@ -44,32 +43,62 @@
     {
       "id": "falta-un-par-en-el-du-sintetico",
       "author": "NEXUS",
+      "arena": "/tmp/seal-arena-ArGxVVHp",
       "subject": "tools/tests/test_seal_disk_alert_v1.py",
-      "ancla": "printf '650G\\t/opt\\n'\n",
+      "ancla": "printf '650G\\t/opt\\n'",
       "reemplazo": "(linea eliminada)",
       "mutation": "el du sintetico deja de emitir /opt: el bloque queda con 3 pares",
-      "observed": "1 failed",
-      "result": "KILLED"
+      "observed": "2 failed, 16 passed in 0.22s",
+      "result": "KILLED",
+      "nodeids": [
+        "tools/tests/test_seal_disk_alert_v1.py::test_qa_positive_lo_que_mas_pesa_tiene_entradas",
+        "tools/tests/test_seal_disk_alert_v1.py::test_qa_control_M5_delimitacion_al_bloque_es_exigible"
+      ]
     },
     {
       "id": "el-script-pierde-el-sort-rh",
       "author": "NEXUS",
+      "arena": "/tmp/seal-arena-IwpLwAgP",
       "subject": "tools/seal_disk_alert.sh",
       "ancla": "sort -rh",
       "reemplazo": "cat",
-      "mutation": "el bloque deja de ordenar por tamano decreciente. Es el mutante que prueba que la asercion protege el ORDEN y no solo la presencia de las cadenas",
-      "observed": "1 failed, 16 passed",
-      "result": "KILLED"
+      "mutation": "el bloque deja de ordenar por tamano decreciente",
+      "observed": "2 failed, 16 passed in 0.21s",
+      "result": "KILLED",
+      "nodeids": [
+        "tools/tests/test_seal_disk_alert_v1.py::test_qa_positive_lo_que_mas_pesa_tiene_entradas",
+        "tools/tests/test_seal_disk_alert_v1.py::test_qa_control_M5_delimitacion_al_bloque_es_exigible"
+      ]
     },
     {
       "id": "el-bloque-recorta-a-tres-entradas",
       "author": "NEXUS",
+      "arena": "/tmp/seal-arena-LkQ8kVyG",
       "subject": "tools/seal_disk_alert.sh",
       "ancla": "sed -n '2,5p'",
       "reemplazo": "sed -n '2,4p'",
       "mutation": "el bloque muestra 3 entradas en vez de 4: la cuarta desaparece en silencio",
-      "observed": "1 failed, 16 passed",
-      "result": "KILLED"
+      "observed": "2 failed, 16 passed in 0.22s",
+      "result": "KILLED",
+      "nodeids": [
+        "tools/tests/test_seal_disk_alert_v1.py::test_qa_positive_lo_que_mas_pesa_tiene_entradas",
+        "tools/tests/test_seal_disk_alert_v1.py::test_qa_control_M5_delimitacion_al_bloque_es_exigible"
+      ]
+    },
+    {
+      "id": "la-asercion-vuelve-a-buscar-en-TODO-stdout",
+      "author": "NEXUS",
+      "arena": "/tmp/seal-arena-yPE3rRxA",
+      "subject": "tools/tests/test_seal_disk_alert_v1.py",
+      "ancla": "entries = re.findall(r\"(\\d+)G\\s+(/\\S+)\", bloque.group(1))",
+      "reemplazo": "entries = re.findall(r\"(\\d+)G\\s+(/\\S+)\", r.stdout)",
+      "mutation": "la extraccion vuelve a mirar TODO el mensaje en vez del bloque",
+      "observed": "1 failed, 17 passed in 0.22s",
+      "result": "KILLED",
+      "nodeids": [
+        "tools/tests/test_seal_disk_alert_v1.py::test_qa_positive_lo_que_mas_pesa_tiene_entradas"
+      ]
     }
-  ]
+  ],
+  "_revalidacion": "Re-corrida completa el 7-sep 21:03 con el arnes corregido tras TRES revisiones por lectura de ADA (nueve defectos en total). Los cuatro veredictos COINCIDEN con los firmados a las 20:53, y ahora cada uno trae el nodeid que lo mato: la revalidacion no cambio ninguna conclusion, pero antes dependia de que yo hubiera mirado bien y ahora esta en el resultado."
 }
