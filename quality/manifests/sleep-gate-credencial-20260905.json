@@ -115,19 +115,18 @@
   ],
   "review": {
     "status": "approved",
-    "_solicitado_a": "NEXUS",
-    "_motivo": "El inventario de credenciales es su carril y su manifiesto de credenciales NO cubria este archivo; el hueco lo marco el mismo.",
-    "evidence": "Revision independiente de NEXUS, 5-sep-2026. Copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas, cada mutante verificado por que el archivo CAMBIO y que COMPILA. Arbol vivo intacto.\n\nCONTROL: 5 passed. CANARIO (raise al importar): 3 failed, 2 passed -> ejecuta el sujeto.\n\nMUTANTES mios:\n1. vuelve el DSN hardcodeado (la regresion exacta que causo el incidente): 2 failed. MUERE.\n2. el import de config se reemplaza por un objeto con un pg_dsn fijo: 2 failed. MUERE.\nLos dos los caza test_el_DSN_sale_de_settings_y_no_de_una_constante.\n\nLA PREGUNTA QUE DECIDIA ESTA FIRMA, y la mido porque el arreglo DELEGA en config.py: settings.pg_dsn tiene el literal viejo como DEFAULT de pydantic, asi que 'leer settings' podria heredar el mismo fallback muerto. Verificado por PROPIEDAD --sin imprimir ningun DSN-- bloqueando el import de seal_secrets con un meta_path y comparando el resultado contra el literal:\n  con seal_secrets bloqueado -> el DSN NO es el literal viejo (sha e00d95ae, coincide=False)\n  en entorno LIMPIO (env -i, como una unidad systemd) -> mismo resultado\nO sea: config.py no cae al default ni sin secretos ni sin entorno, asi que la delegacion es segura y no reintroduce el defecto por la puerta de atras.\n\nOBSERVACION NO BLOQUEANTE: este manifiesto arregla ESTE archivo, no la clase. Quedan sin fuente externa seal-agent-stability-guard y seal-durable-cron (inventario mio de las 06:04, en la tarea #1719). Y el criterio que sirve no es 'lee settings' sino el que se midio con el poller de JARVIS: que el proceso vivo conecte con la identidad correcta y SOBREVIVA A UN RESTART.",
+    "historial": [],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "manifest_digest": "54f537481642dbf2f47383c82a02bbe5004018a603aca657e24a0c4b1b36531a",
       "reviewed_sha256": {
         "memory/sleep_gate_cron.py": "22c73ad0ca0194d08f589f58a9b0432d898db2c15b61b6b40f5de7698f5e632a",
-        "quality/delivery_sleep_gate_credencial.sh": "93f9c63d4be2b4e2e32a28a08c722e9a78ef87b05a345a4fb51981de520f838a",
-        "memory/tests/test_sleep_gate_credencial.py": "156ff592b0db342dd5effbf20d9b0182061a5377bad774d2c1406e6a816f3794"
+        "quality/delivery_sleep_gate_credencial.sh": "91b4d0452e221160e3e348ab5fb81b934e5535990340a8e4c4b471a00ed62539",
+        "memory/tests/test_sleep_gate_credencial.py": "5e2210dc48d1a47491acf556b97244be84392c828fc14b6fb40992b3d256152d"
       },
-      "evidence": "Revision independiente de NEXUS, 5-sep-2026. Copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas, cada mutante verificado por que el archivo CAMBIO y que COMPILA. Arbol vivo intacto.\n\nCONTROL: 5 passed. CANARIO (raise al importar): 3 failed, 2 passed -> ejecuta el sujeto.\n\nMUTANTES mios:\n1. vuelve el DSN hardcodeado (la regresion exacta que causo el incidente): 2 failed. MUERE.\n2. el import de config se reemplaza por un objeto con un pg_dsn fijo: 2 failed. MUERE.\nLos dos los caza test_el_DSN_sale_de_settings_y_no_de_una_constante.\n\nLA PREGUNTA QUE DECIDIA ESTA FIRMA, y la mido porque el arreglo DELEGA en config.py: settings.pg_dsn tiene el literal viejo como DEFAULT de pydantic, asi que 'leer settings' podria heredar el mismo fallback muerto. Verificado por PROPIEDAD --sin imprimir ningun DSN-- bloqueando el import de seal_secrets con un meta_path y comparando el resultado contra el literal:\n  con seal_secrets bloqueado -> el DSN NO es el literal viejo (sha e00d95ae, coincide=False)\n  en entorno LIMPIO (env -i, como una unidad systemd) -> mismo resultado\nO sea: config.py no cae al default ni sin secretos ni sin entorno, asi que la delegacion es segura y no reintroduce el defecto por la puerta de atras.\n\nOBSERVACION NO BLOQUEANTE: este manifiesto arregla ESTE archivo, no la clase. Quedan sin fuente externa seal-agent-stability-guard y seal-durable-cron (inventario mio de las 06:04, en la tarea #1719). Y el criterio que sirve no es 'lee settings' sino el que se midio con el poller de JARVIS: que el proceso vivo conecte con la identidad correcta y SOBREVIVA A UN RESTART."
+      "evidence": "Re-firma de NEXUS 8-sep tras la reconstruccion del test por ADA. Control 5 passed con PG_PASSWORD sintetica; 3/3 mutantes muertos, incluidos los dos mios (DSN hardcodeado y config reemplazado) y el de ADA (respaldo `or` literal). DECLARADO: mi primera corrida fue INVALIDA por control rojo -copia sin pg_password- y la re-corri; queda anotado en la evidencia.",
+      "mutation_evidence_v2": "quality/mutation-sleep-gate-credencial-20260905.json",
+      "manifest_digest": "ea9ce7181b3b46caefff112c41873b297077590427b0db80500f9eab9f72fc97"
     }
   },
   "delivery": {
