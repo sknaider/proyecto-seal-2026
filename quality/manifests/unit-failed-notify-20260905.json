@@ -134,8 +134,10 @@
       "reviewed_sha256": {
         "tools/seal_unit_failed_notify.py": "0a92d8ac598f61825295085b30e4c52a22d860ac95a4e97619e6c072c923ddae",
         "quality/delivery_unit_failed_notify.sh": "a50e27132a7d8e585ef21d6ffb251c3d1c6698f0121c92538465ff8b0ff1df97",
-        "memory/tests/test_seal_unit_failed_notify.py": "8db2d4d9047bfcd037b658a6e42e513f9d60e58a53a9a8995027cd105dfba5e0"
+        "memory/tests/test_seal_unit_failed_notify.py": "2e55be74b8c9962f6fde5f22efac24c7342e32f2dea0ba799cda989acb138432"
       },
+      "signed_at_re_firma": "2026-09-08T17:45:00Z",
+      "re_firma_razon": "ADA agrego M12/M13 en test c18c55b (8-sep); SHA del test actualizado de 8db2d4d9 a 2e55be74. 15/15 passed. Sujetos sin cambio.",
       "manifest_digest": "ea122bf73a5f51a4a078ce9a9ce5397325ec0111c1f3685352b22b7fb68a926d"
     }
   },

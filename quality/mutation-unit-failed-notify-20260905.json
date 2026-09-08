@@ -57,7 +57,7 @@
   "file_sha256": {
     "tools/seal_unit_failed_notify.py": "0a92d8ac598f61825295085b30e4c52a22d860ac95a4e97619e6c072c923ddae",
     "quality/delivery_unit_failed_notify.sh": "a50e27132a7d8e585ef21d6ffb251c3d1c6698f0121c92538465ff8b0ff1df97",
-    "memory/tests/test_seal_unit_failed_notify.py": "8db2d4d9047bfcd037b658a6e42e513f9d60e58a53a9a8995027cd105dfba5e0"
+    "memory/tests/test_seal_unit_failed_notify.py": "2e55be74b8c9962f6fde5f22efac24c7342e32f2dea0ba799cda989acb138432"
   },
   "_residual_declarado": "M10 (timeout=None en el subprocess) sobrevive y JARVIS lo declaro EQUIVALENTE bajo mocks: la suite no puede distinguirlo porque el falso `run` ignora el timeout. No se cuenta como muerto ni se infla el total con el. Queda anotado en vez de escondido.",
   "_por_que_dos_rondas": "El owner probo el eje que se le ocurrio --que dos unidades DISTINTAS tuvieran claves distintas-- y no el que importaba: que la MISMA unidad variara entre caidas. Y despues escribio en el docstring que el fallback conservaba la propiedad, sin ningun test que lo pidiera. Las dos veces el hueco lo encontro el revisor midiendo, no leyendo.",
