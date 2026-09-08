@@ -111,6 +111,7 @@
     "quality/manifests/jarvis-tooling-v1.json",
     "quality/manifests/loop-guard-v1.json",
     "quality/manifests/mcp-web-soul-hardening.json",
+    "quality/manifests/nexus-alerta-dedup-20260908.json",
     "quality/manifests/nexus-arena-por-mutante-20260907.json",
     "quality/manifests/nexus-credencial-observer-compartida-20260908.json",
     "quality/manifests/nexus-credential-paths.json",

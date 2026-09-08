@@ -28,10 +28,51 @@ app = FastAPI(title="SOUL Metrics Exporter", docs_url=None, redoc_url=None)
 
 
 def _dsn() -> str:
+    """DSN del observador, con respaldo en el archivo de credencial.
+
+    Por qué el respaldo: la unidad se reconstruyó desde el journal el 7-sep y el
+    journal preserva ExecStart pero NO EnvironmentFile, así que la variable sólo
+    sobrevivía en el entorno del proceso vivo. Cuando el 7-sep 19:08 se rotó
+    `mcp_observer`, ese valor congelado quedó inválido: la unidad siguió
+    `active` y falló 943 veces seguidas contra la base. Un proceso de larga vida
+    no vuelve a leer su entorno; el archivo sí se relee en cada conexión.
+
+    El entorno mantiene la precedencia para no romper a quien lo defina bien.
+    """
     value = os.environ.get("POSTGRES_MCP_DSN", "").strip()
-    if not value:
-        raise RuntimeError("POSTGRES_MCP_DSN no está configurado")
-    return value
+    if value:
+        return value
+    # `_dsn_del_archivo` devuelve CADENA VACÍA cuando no puede leer el archivo;
+    # sólo levanta si existe con permisos flojos. Un `except` no alcanza: sin
+    # este chequeo explícito, `_dsn()` devolvía "" en silencio y el fallo
+    # aparecía después, disfrazado de error de conexión. Lo encontró el control
+    # negativo (sin variable Y sin archivo), no la prueba que confirmaba.
+    # Anclado a __file__, NO al cwd: la unidad arranca desde otro directorio.
+    # Y se carga `seal_observer_credencial`, que no importa nada fuera de la
+    # biblioteca estándar: cargar `soul_postgres_mcp` para reusar la función
+    # fallaba con ModuleNotFoundError porque su FastMCP necesita el paquete
+    # `mcp`, ausente en el /usr/bin/python3 con el que corre este servicio.
+    try:
+        import importlib.util
+        import pathlib as _pl
+        _origen = _pl.Path(__file__).resolve().parent / "seal_observer_credencial.py"
+        _spec = importlib.util.spec_from_file_location("seal_observer_credencial", _origen)
+        if _spec is None or _spec.loader is None:
+            raise ImportError(f"no pude cargar {_origen}")
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        del_archivo = _mod.leer_dsn_del_archivo()
+    except Exception as exc:
+        raise RuntimeError(
+            "POSTGRES_MCP_DSN no está configurado y el archivo de credencial "
+            f"no es utilizable ({type(exc).__name__})"
+        ) from exc
+    if not del_archivo:
+        raise RuntimeError(
+            "POSTGRES_MCP_DSN no está configurado y el archivo de credencial "
+            "no existe o no contiene un DSN"
+        )
+    return del_archivo
 
 
 def _label(value: Any) -> str:

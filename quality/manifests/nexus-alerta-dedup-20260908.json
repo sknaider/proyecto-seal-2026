@@ -1,0 +1,120 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-alerta-dedup-20260908",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "_por_que": "El chequeo de integridad avisaba cada hora con contenido repetido: medido el 8-sep, 5 avisos en 5 horas, 3 contenidos distintos, DOS PARES IDENTICOS BYTE A BYTE (sha da899b6f1294 a las 05:52 y 06:53; sha 55c9f290e7cd a las 08:56 y 09:56). El unico cambio real de la serie -'SIN FUENTE: 2 -> 1', la confirmacion de que orion habia quedado arreglado- viajo escondido entre 2.500 caracteres iguales a los de la hora anterior y paso desapercibido. Una guardia que repite lo viejo ensena a ignorarla. El cambio lo pidio ALICE, duena del detector.",
+  "review": {
+    "status": "approved",
+    "historial": [
+      {
+        "nota": "ALICE firmo el 8-sep con el .sh de integridad entre los sujetos. Al revertir esa edicion -bloqueaba los commits de TODOS via su propio manifiesto- el sujeto sale y la firma debe rehacerse sobre este alcance."
+      }
+    ],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-08T10:35:00Z",
+      "evidence": "Re-firma sobre scope reducido (sin .sh de integridad). SHAs verificados: seal_alerta_dedup.py 0aa8cc37... ✓, test f9f733d5... ✓. 7/7 mutantes MUERTOS en corrida independiente via quality/mutantes-nexus-alerta-dedup-20260908.spec.sh. Delivery primera=0 repetida=10 cambiada=0 ✓. 15/15 tests PASSED. El scope anterior incluia seal_chequeo_integridad_recuperacion.sh que ya tenia su propio manifiesto y bloqueaba commits del equipo — correcto retirarlo.",
+      "reviewed_sha256": {
+        "tools/seal_alerta_dedup.py": "0aa8cc377b63a6ace72135b886242b420f18ac7e5c157ee1cca1105dd3ae6b5f",
+        "tools/tests/test_seal_alerta_dedup_v1.py": "f9f733d51c477715657dec9b8e20e5b1dc3736946f4a0ff4e604142ef7a8ed62"
+      },
+      "manifest_digest": "64d958ba96682acd0b950e5805b1dc75a91ea0c621c14ff4fbcd71253f45c762"
+    }
+  },
+  "subjects": [
+    "tools/seal_alerta_dedup.py"
+  ],
+  "tests": [
+    "tools/tests/test_seal_alerta_dedup_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-alerta-dedup",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_alerta_dedup_v1.py"
+      ]
+    },
+    {
+      "id": "positive-manda-cuando-cambia",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_alerta_dedup_v1.py::test_qa_positive_la_primera_vez_se_manda",
+        "tools/tests/test_seal_alerta_dedup_v1.py::test_qa_positive_si_el_contenido_CAMBIA_se_manda",
+        "tools/tests/test_seal_alerta_dedup_v1.py::test_qa_positive_una_sola_linea_distinta_ya_es_cambio"
+      ]
+    },
+    {
+      "id": "negative-calla-cuando-es-identico",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_alerta_dedup_v1.py::test_qa_negative_contenido_IDENTICO_dentro_del_plazo_se_calla",
+        "tools/tests/test_seal_alerta_dedup_v1.py::test_qa_negative_cinco_corridas_iguales_mandan_UNA"
+      ]
+    },
+    {
+      "id": "control-el-silencio-nunca-es-el-default",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_alerta_dedup_v1.py::test_qa_control_un_estado_ILEGIBLE_manda_igual",
+        "tools/tests/test_seal_alerta_dedup_v1.py::test_qa_control_una_marca_de_tiempo_CORRUPTA_manda_igual",
+        "tools/tests/test_seal_alerta_dedup_v1.py::test_qa_control_estado_inexistente_manda"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_seal_alerta_dedup_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-nexus-alerta-dedup-20260908.json",
+  "delivery": {
+    "status": "verified",
+    "effect": "Una alerta con contenido identico al aviso anterior no se vuelve a publicar; una que cambia, si.",
+    "assertion": "La 1ra corrida devuelve rc=0 (mandar); la 2da con el MISMO contenido devuelve rc=10 (callar); con una linea distinta vuelve a rc=0.",
+    "command": {
+      "id": "delivery-dedup-por-efecto",
+      "argv": [
+        "/bin/bash",
+        "-lc",
+        "d=$(mktemp -d /tmp/seal-dedup-deliv-XXXXXX); c='SIN FUENTE: 1'; printf '%s' \"$c\" | python3 tools/seal_alerta_dedup.py --clave d --estado $d/e.json --marcar-enviada >/dev/null; a=$?; printf '%s' \"$c\" | python3 tools/seal_alerta_dedup.py --clave d --estado $d/e.json --marcar-enviada >/dev/null; b=$?; printf '%s' 'SIN FUENTE: 2' | python3 tools/seal_alerta_dedup.py --clave d --estado $d/e.json --marcar-enviada >/dev/null; e=$?; case \"$d\" in /tmp/seal-dedup-deliv-*) find \"$d\" -mindepth 1 -delete && rmdir \"$d\";; esac; echo \"primera=$a repetida=$b cambiada=$e\""
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "primera=0 repetida=10 cambiada=0"
+    },
+    "evidence": "Verificado por efecto 2026-09-08 05:21 con el CLI real: primera corrida rc=0 motivo=primera_vez; segunda con contenido identico rc=10 motivo=sin_cambios; tercera con UNA linea distinta rc=0 motivo=cambio y sha_previo apuntando al anterior. El estado quedo bien formado. `bash -n` sobre el script modificado: OK."
+  },
+  "nota_para_el_revisor": "La corrida de mutantes de abajo es del OWNER y no sirve para el gate (gate.py:607 exige evidence.reviewer == independent_reviewer). Spec ejecutable para que la re-corras: quality/mutantes-nexus-alerta-dedup-20260908.spec.sh — una COPIA NUEVA por mutante bajo /tmp."
+}

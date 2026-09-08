@@ -1,0 +1,63 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo); una COPIA NUEVA por mutante bajo /tmp",
+  "change_id": "nexus-alerta-dedup-20260908",
+  "reviewer": "ALICE",
+  "tool": "quality/mutantes-nexus-alerta-dedup-20260908.spec.sh",
+  "corrida_fecha": "2026-09-08T10:28:00Z",
+  "file_sha256": {
+    "tools/seal_alerta_dedup.py": "0aa8cc377b63a6ace72135b886242b420f18ac7e5c157ee1cca1105dd3ae6b5f",
+    "tools/tests/test_seal_alerta_dedup_v1.py": "f9f733d51c477715657dec9b8e20e5b1dc3736946f4a0ff4e604142ef7a8ed62"
+  },
+  "killed": 7,
+  "survived": 0,
+  "total": 7,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "15 passed in 0.12s"
+  },
+  "mutantes": [
+    {
+      "id": "M1-nunca-calla",
+      "resultado": "KILLED",
+      "killed_by": "test_cli_devuelve_0_para_mandar_y_10_para_callar (5 failed)"
+    },
+    {
+      "id": "M2-calla-para-siempre (mata el recordatorio)",
+      "resultado": "KILLED",
+      "killed_by": "test_el_recordatorio_vuelve_a_sonar_al_vencer_el_plazo (1 failed)"
+    },
+    {
+      "id": "M3-borde-del-recordatorio (>= por >)",
+      "resultado": "KILLED",
+      "killed_by": "test_tras_el_recordatorio_el_reloj_se_reinicia (2 failed)"
+    },
+    {
+      "id": "M4-estado-ausente-o-ilegible-CALLA",
+      "resultado": "KILLED",
+      "killed_by": "test_cli_sin_marcar_enviada_NO_toca_el_estado (12 failed)",
+      "nota": "En la primera corrida de NEXUS sobrevivio porque devolvía dict con otra clave — mutante NULO. Re-especificado por NEXUS contra la guarda real en decidir(). En mi corrida independiente: MUERTO."
+    },
+    {
+      "id": "M5-marca-enviada-aunque-no-se-mande",
+      "resultado": "KILLED",
+      "killed_by": "test_cli_sin_marcar_enviada_NO_toca_el_estado (1 failed)"
+    },
+    {
+      "id": "M6-ignora-la-clave",
+      "resultado": "KILLED",
+      "killed_by": "test_dos_alertas_distintas_no_se_silencian_entre_si (1 failed)"
+    },
+    {
+      "id": "M7-marca-de-tiempo-corrupta-CALLA",
+      "resultado": "KILLED",
+      "killed_by": "test_qa_control_una_marca_de_tiempo_CORRUPTA_manda_igual (1 failed)"
+    }
+  ],
+  "nota_scope": "Scope reducido el 8-sep por NEXUS: seal_chequeo_integridad_recuperacion.sh retirado de subjects porque bloqueaba commits del equipo via su propio manifiesto. file_sha256 actualizado sin el .sh."
+}
