@@ -98,6 +98,67 @@ def _limpiar_show(salida: str) -> str:
     return "\n".join(x.strip() for x in partes) if partes else salida
 
 
+def _procesos_de(argv: str) -> list[str]:
+    """PIDs cuyo cmdline coincide con el ExecStart de la unidad.
+
+    Sirve incluso si la unidad esta INACTIVE: un proceso huerfano -adoptado por init-
+    sigue sirviendo aunque systemd crea no tener nada corriendo.
+    """
+    objetivo = " ".join(argv.split())
+    if not objetivo:
+        return []
+    encontrados = []
+    for d in pathlib.Path("/proc").iterdir():
+        if not d.name.isdigit():
+            continue
+        try:
+            cmd = " ".join((d / "cmdline").read_bytes().decode("utf-8", "replace").split("\x00")).strip()
+        except OSError:
+            continue
+        if cmd and " ".join(cmd.split()) == objetivo:
+            encontrados.append(d.name)
+    return encontrados
+
+
+def entorno_divergente(ruta: pathlib.Path, exec_vigente=None) -> list[str]:
+    """Compara cada `Environment=` de la unidad con el entorno del proceso que REALMENTE corre.
+
+    POR QUE (7-sep-2026 22:44): `seal-cerebro-owner.service`, reconstruida, declaraba
+    SEAL_CEREBRO_BIND=0.0.0.0 mientras el proceso vivo escuchaba SOLO en la IP de Tailscale.
+    Arrancar por esa unidad habria publicado el visor en la LAN creyendo restaurar lo mismo.
+    La unidad no estaba "rota": ninguna tautologia, ningun PID horneado, el EnvironmentFile
+    existia. **Un valor que DIFIERE del proceso vivo sin ser constante no lo ve ningun otro
+    chequeo de este detector.**
+
+    NUNCA se imprimen valores: sólo el NOMBRE de la variable que difiere. El entorno de un
+    servicio puede contener credenciales, y un detector que las publica es peor que el
+    defecto que busca.
+    """
+    texto = ruta.read_text(errors="ignore")
+    declaradas = {}
+    for m in re.finditer(r"^Environment=([A-Za-z_][A-Za-z0-9_]*)=(.*)$", texto, re.M):
+        declaradas[m.group(1)] = expandir(m.group(2).strip())
+    if not declaradas:
+        return []
+    ejec = (exec_vigente or exec_efectivo)(ruta.name) or _exec_start(texto)
+    argv = ejec.replace("ExecStart=", "").strip().splitlines()[-1] if ejec else ""
+    hallazgos = []
+    for pid in _procesos_de(argv):
+        try:
+            crudo = pathlib.Path(f"/proc/{pid}/environ").read_bytes().decode("utf-8", "replace")
+        except OSError:
+            hallazgos.append(f"{ruta.name}: no pude leer el entorno del PID {pid} que corre su ExecStart")
+            continue
+        vivo = dict(kv.split("=", 1) for kv in crudo.split("\x00") if "=" in kv)
+        for clave, valor in declaradas.items():
+            if clave in vivo and vivo[clave] != valor:
+                hallazgos.append(
+                    f"{ruta.name}: la unidad declara {clave} con un valor DISTINTO al del "
+                    f"proceso vivo (PID {pid}); arrancarla cambiaria el comportamiento. "
+                    f"Los valores NO se imprimen.")
+    return hallazgos
+
+
 def revisar_unidad(ruta: pathlib.Path, pid_vive=None, exec_vigente=exec_efectivo) -> list[str]:
     """Devuelve los hallazgos de UNA unidad. `pid_vive` y `exec_vigente` se inyectan
     para poder testear sin systemd ni /proc."""
@@ -120,6 +181,7 @@ def revisar_unidad(ruta: pathlib.Path, pid_vive=None, exec_vigente=exec_efectivo
             hallazgos.append(
                 f"{ruta.name}: ExecStart lleva el PID {pid} horneado y ese PID no existe{origen}"
             )
+    hallazgos.extend(entorno_divergente(ruta, exec_vigente))
     for m in re.finditer(r"^EnvironmentFile=-?(\S+)", texto, re.M):
         destino = pathlib.Path(expandir(m.group(1)))
         # "no existe" y "no pude mirar" son cosas DISTINTAS y sólo una es un hallazgo.
@@ -161,7 +223,8 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"{len(hallazgos)} detecciones sobre {leidas} unidades leídas en {directorio}. "
         f"NO significa 'las demás están sanas': este detector sólo modela tautologías en "
-        f"ExecStart, PIDs horneados y EnvironmentFile ausentes."
+        f"ExecStart, PIDs horneados, EnvironmentFile ausentes y variables Environment= "
+        f"que difieren del proceso vivo."
     )
     return 1 if hallazgos else 0
 

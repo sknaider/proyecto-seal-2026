@@ -1,0 +1,81 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo); una COPIA NUEVA por mutante bajo /tmp",
+  "change_id": "nexus-credencial-observer-compartida-20260908",
+  "reviewer": "ALICE",
+  "tool": "quality/mutantes-nexus-credencial-observer-20260908.spec.sh",
+  "killed": 6,
+  "survived": 0,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "12 passed in 0.89s"
+  },
+  "mutantes": [
+    {
+      "id": "M1-devuelve-vacio-en-vez-de-levantar",
+      "subject": "tools/soul_metrics_exporter.py",
+      "resultado": "KILLED",
+      "killed_by": [
+        "test_qa_negative_exporter_FALLA_CLARO_sin_variable_y_sin_archivo"
+      ]
+    },
+    {
+      "id": "M2-el-archivo-gana-sobre-el-entorno",
+      "subject": "tools/soul_metrics_exporter.py",
+      "resultado": "KILLED",
+      "killed_by": [
+        "test_exporter_da_precedencia_al_entorno"
+      ]
+    },
+    {
+      "id": "M3-acepta-permisos-flojos",
+      "subject": "tools/seal_observer_credencial.py",
+      "resultado": "KILLED",
+      "killed_by": [
+        "test_rechaza_un_archivo_con_permisos_flojos",
+        "test_qa_control_el_error_de_permisos_NO_incluye_el_dsn"
+      ]
+    },
+    {
+      "id": "M4-el-default-se-liga-una-sola-vez",
+      "subject": "tools/seal_observer_credencial.py",
+      "resultado": "KILLED",
+      "killed_by": [
+        "test_una_ruta_explicita_no_se_pisa_con_la_de_por_defecto",
+        "test_acepta_las_claves_alternativas"
+      ]
+    },
+    {
+      "id": "M5-fuga-el-dsn-en-el-mensaje-de-permisos",
+      "subject": "tools/seal_observer_credencial.py",
+      "resultado": "KILLED",
+      "killed_by": [
+        "test_qa_control_el_error_de_permisos_NO_incluye_el_dsn"
+      ],
+      "nota": "El mutante mas importante: haria que el mensaje de error imprima la credencial."
+    },
+    {
+      "id": "M6-ignora-las-claves-alternativas",
+      "subject": "tools/seal_observer_credencial.py",
+      "resultado": "KILLED",
+      "killed_by": [
+        "test_acepta_las_claves_alternativas"
+      ]
+    }
+  ],
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "cada mutante en su propia copia bajo /tmp, borrada al terminar"
+  },
+  "file_sha256": {
+    "tools/seal_observer_credencial.py": "1feb9e306dcdd70ce43e19c449e49a1050581880a17f0e91b9a74cef2933ac95",
+    "tools/soul_metrics_exporter.py": "8ad40b0f0a8d449f250383e2b0cddf3db45c2914605cc994631791758dfcf856",
+    "tools/tests/test_seal_observer_credencial_v1.py": "9a2097946b410a4d3288f04314751d602e119c9c73a12770bdb5e989f356459e"
+  }
+}

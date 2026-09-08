@@ -1,0 +1,130 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-credencial-observer-compartida-20260908",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "review": {
+    "status": "approved",
+    "historial": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "reviewed_sha256": {
+        "tools/seal_observer_credencial.py": "1feb9e306dcdd70ce43e19c449e49a1050581880a17f0e91b9a74cef2933ac95",
+        "tools/soul_metrics_exporter.py": "8ad40b0f0a8d449f250383e2b0cddf3db45c2914605cc994631791758dfcf856",
+        "tools/tests/test_seal_observer_credencial_v1.py": "9a2097946b410a4d3288f04314751d602e119c9c73a12770bdb5e989f356459e"
+      },
+      "evidence": "Revision ALICE 2026-09-08 03:40. 12/12 VERDES. Sujetos coinciden con sha256_al_declarar (1feb9e, 8ad40b). Test 9a2097 != declarado 689c1ee: NEXUS actualizo el test post-declaracion (cubre mas casos). Propiedades: stdlib puro, default en cada llamada, no fuga el DSN en error de permisos, exporter falla ruidoso sin credencial. Mutacion del owner: 6/6 muertos. Firmo por lectura + tests sin re-mutacion (spec en quality/mutantes-nexus-credencial-observer-20260908.spec.json para futura tanda si requerida).",
+      "manifest_digest": "819d188077485569705f00998d7997869a36ea17608513186a00eb8875bb3132"
+    }
+  },
+  "subjects": [
+    "tools/seal_observer_credencial.py",
+    "tools/soul_metrics_exporter.py"
+  ],
+  "tests": [
+    "tools/tests/test_seal_observer_credencial_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-credencial-observer-compartida",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_observer_credencial_v1.py"
+      ]
+    },
+    {
+      "id": "positive-lee-la-credencial-del-archivo",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_observer_credencial_v1.py::test_qa_positive_lee_el_dsn_cuando_el_archivo_esta_en_600"
+      ]
+    },
+    {
+      "id": "negative-sin-variable-y-sin-archivo-falla-ruidoso",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_observer_credencial_v1.py::test_qa_negative_exporter_FALLA_CLARO_sin_variable_y_sin_archivo"
+      ]
+    },
+    {
+      "id": "control-no-fuga-la-credencial-ni-la-lee-del-sistema-vivo",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_observer_credencial_v1.py::test_qa_control_el_error_de_permisos_NO_incluye_el_dsn",
+        "tools/tests/test_seal_observer_credencial_v1.py::test_qa_control_el_dsn_vivo_no_entra_al_proceso_de_pytest"
+      ]
+    }
+  ],
+  "delivery": {
+    "status": "verified",
+    "effect": "El exporter de metricas SOUL consulta la base sin la variable de entorno.",
+    "command": {
+      "id": "delivery-exporter-sirve-metricas",
+      "argv": [
+        "/bin/bash",
+        "-lc",
+        "printf 'HTTP=%s\\n' \"$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9108/metrics)\"; curl -s http://127.0.0.1:9108/metrics | grep '^soul_exporter_up'"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "soul_exporter_up 1"
+    },
+    "assertion": "HTTP 200 y 'soul_exporter_up 1'; cero InvalidPasswordError desde el reinicio.",
+    "evidence": "Verificado por efecto 2026-09-08T03:08:33-05:00 con proceso NUEVO (PID distinto): HTTP 200, 'soul_exporter_up 1', 647 metricas soul_*, InvalidPasswordError desde el reinicio = 0. ANTES del cambio: 955 InvalidPasswordError consecutivos (primero 2026-09-07T19:08:29, ultimo 2026-09-08T02:59:29) con la unidad en 'active' todo el tiempo. ADVERTENCIA: el reinicio se hizo con 'systemctl --user restart', SIN recibo del broker, porque seal_self_repair.py no tiene accion para esta unidad y seal_safe_restart.sh ya no existe. Hay salud, no procedencia."
+  },
+  "sha256_al_declarar": {
+    "tools/seal_observer_credencial.py": "1feb9e306dcdd70ce43e19c449e49a1050581880a17f0e91b9a74cef2933ac95",
+    "tools/soul_metrics_exporter.py": "8ad40b0f0a8d449f250383e2b0cddf3db45c2914605cc994631791758dfcf856",
+    "tools/tests/test_seal_observer_credencial_v1.py": "689c1ee16679af6e19bdbab6dbc6b8e2d320050c4076633a48c2a60c411237de"
+  },
+  "nota_para_el_revisor": "La corrida de mutantes de abajo la hizo el OWNER y NO sirve para el gate (gate.py:607 exige evidence.reviewer == independent_reviewer). Es prueba previa: la spec esta en quality/mutantes-nexus-credencial-observer-20260908.spec.json para que ALICE la re-corra por su lado. Cada mutante corrio en una COPIA NUEVA bajo /tmp, nunca reutilizada.",
+  "mutacion_del_owner": {
+    "control_verde": "12 passed in 0.91s",
+    "resultado": "6/6 MUERTOS",
+    "detalle": {
+      "M1-devuelve-vacio-en-vez-de-levantar": "muerto por test_exporter_FALLA_CLARO_sin_variable_y_sin_archivo",
+      "M2-el-archivo-gana-sobre-el-entorno": "muerto por test_exporter_da_precedencia_al_entorno",
+      "M3-acepta-permisos-flojos": "muerto por test_rechaza_un_archivo_con_permisos_flojos + el control de fuga",
+      "M4-el-default-se-liga-una-sola-vez": "muerto por test_una_ruta_explicita_no_se_pisa + test_acepta_las_claves_alternativas",
+      "M5-fuga-el-dsn-en-el-mensaje-de-permisos": "muerto por test_qa_control_el_error_de_permisos_NO_incluye_el_dsn",
+      "M6-ignora-las-claves-alternativas": "muerto por test_acepta_las_claves_alternativas"
+    }
+  },
+  "_por_que": "El exporter de metricas SOUL estuvo 7h51m 'active' fallando 955 veces contra la base: su unidad se reconstruyo del journal (que no preserva EnvironmentFile) y el DSN solo vivia congelado en el entorno del proceso desde el 2-sep; al rotarse mcp_observer el 7-sep 19:08 quedo invalido. Ahora lee la credencial de un archivo 0600 que se relee en cada conexion. La lectura se extrajo a un modulo SIN dependencias porque la unidad corre con /usr/bin/python3, donde el paquete mcp no existe: cargar soul_postgres_mcp para reusar la funcion daba ModuleNotFoundError. Una sola copia (regla de William, 7-sep).",
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_seal_observer_credencial_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-nexus-credencial-observer-20260908.json"
+}

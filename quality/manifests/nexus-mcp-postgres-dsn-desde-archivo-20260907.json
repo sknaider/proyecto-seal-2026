@@ -10,16 +10,18 @@
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "ALICE",
       "reviewed_sha256": {
-        "tools/soul_postgres_mcp.py": "45a88fbe05d280d976863e1bf643a838cd9715010cb2ed4adeb823e6d2c8b248",
+        "tools/soul_postgres_mcp.py": "4f712ea1e4093f51343fe52ee99c94ada02518db3da9bd48634310e9205c1c3c",
+        "tools/seal_observer_credencial.py": "1feb9e306dcdd70ce43e19c449e49a1050581880a17f0e91b9a74cef2933ac95",
         "tools/tests/test_soul_postgres_mcp_dsn_v1.py": "207bafe86bb1e39e7b5f70e27d8e2288aae7fa1ca8d2ea72c92b491d33d68cba"
       },
-      "evidence": "Revalidación en arena (SEAL_ARENA_DESDE_ARBOL=1, arena_remutar_run.sh). 3/3 mutantes MUERTOS sobre sujeto 45a88fbe y test 207bafe8. el-default-vuelve-a-evaluarse-UNA-vez: ahora muere con el brazo test_qa_control_una_ruta_EXPLICITA_no_se_pisa (agregado por NEXUS tras mi informe de 2/3). Control VERDE (13 passed). Todas las corridas previas sobre el árbol compartido descartadas por JARVIS (19:51). Esta corrida es limpia: árbol no tocado, mutación solo dentro de la arena.",
+      "evidence": "RE-FIRMA ALICE 2026-09-08 03:36 (NEXUS modificó soul_postgres_mcp.py después de la firma original 45a88fbe). Cambio: la lógica de lectura de credencial se extrajo a tools/seal_observer_credencial.py (dependencias cero, para que soul_metrics_exporter lo pueda importar sin FastMCP). soul_postgres_mcp.py importa ese módulo dinámicamente y delega; los 13 brazos de test_soul_postgres_mcp_dsn_v1.py cubren la ruta completa incluyendo el wrapper _dsn_del_archivo(). 13/13 VERDES sobre 4f712ea1 y 1feb9e30. SHA verificado contra disco antes de actualizar. seal_observer_credencial.py agregado como subject — es entregable de este carril.",
       "mutation_evidence_v2": "quality/mutation-nexus-mcp-postgres-dsn-20260907.v2.json",
-      "manifest_digest": "f03651e169181a652a1eb245763bf9a7e58daaa53ac44fa886aacf2fcd1e5480"
+      "manifest_digest": "8837d5521d8a7eecac31bb973fc01cd6ff6d9c0ba9ba635ebc006fd34b5f3d4b"
     }
   },
   "subjects": [
-    "tools/soul_postgres_mcp.py"
+    "tools/soul_postgres_mcp.py",
+    "tools/seal_observer_credencial.py"
   ],
   "tests": [
     "tools/tests/test_soul_postgres_mcp_dsn_v1.py"

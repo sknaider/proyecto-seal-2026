@@ -1,0 +1,105 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "nexus-mcp-postgres-dsn-desde-archivo-20260907",
+  "reviewer": "ALICE",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 2,
+  "survived": 0,
+  "total": 2,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "nota_actualizacion_v3": "Re-corrida ALICE 2026-09-08 post-refactoring NEXUS (4f712ea1). M1 retirado: su ancla 'if ruta is None: ruta = _OBSERVER_ENV' ya no existe en el codigo nuevo (ternario _OBSERVER_ENV if ruta is None else ruta); la propiedad quedo garantizada por seal_observer_credencial tests (6/6 killed). M2+M3 verificados contra el codigo nuevo: ambos MUERTOS. file_sha256 actualizado con seal_observer_credencial.py (nuevo subject del manifiesto).",
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": ".............                                                            [100%]\n13 passed in 3.32s",
+    "sha_sujetos_antes": {
+      "tools/soul_postgres_mcp.py": "4f712ea1e4093f51343fe52ee99c94ada02518db3da9bd48634310e9205c1c3c",
+      "tools/seal_observer_credencial.py": "1feb9e306dcdd70ce43e19c449e49a1050581880a17f0e91b9a74cef2933ac95"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "el-default-vuelve-a-evaluarse-UNA-vez",
+      "subject": "tools/soul_postgres_mcp.py",
+      "ancla": "    if ruta is None:\n        ruta = _OBSERVER_ENV",
+      "reemplazo": "    ruta = _OBSERVER_ENV",
+      "why": "revive el defecto que le costo la credencial a NEXUS: la ruta deja de ser inyectable y un test que cree leer su senuelo lee el archivo VIVO",
+      "registro": {
+        "subject": "tools/soul_postgres_mcp.py",
+        "ancla": "    if ruta is None:\n        ruta = _OBSERVER_ENV",
+        "reemplazo": "    ruta = _OBSERVER_ENV",
+        "ancla_sha256": "589b3e3a2ba1c68a31676cb61d4142e4773778cffc100a8f675bc93bdebe131c",
+        "sujeto_sha256_antes": "45a88fbe05d280d976863e1bf643a838cd9715010cb2ed4adeb823e6d2c8b248",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "RETIRED_ANCLA_OBSOLETA",
+      "nota": "Ancla 'if ruta is None: ruta = _OBSERVER_ENV' ya no existe en soul_postgres_mcp.py v4f712ea1 (refactoring NEXUS: ternario). Mutante inaplcable al codigo actual. Propiedad cubierta por suite de seal_observer_credencial (6/6 killed). No cuenta en total ni en killed.",
+      "rc": null,
+      "killed_by": [],
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "sin-DSN-en-ningun-lado-devuelve-vacio-en-vez-de-gritar",
+      "subject": "tools/soul_postgres_mcp.py",
+      "ancla": "    if not value:\n        raise RuntimeError(",
+      "reemplazo": "    if False:\n        raise RuntimeError(",
+      "why": "sin credencial en ningun lado devuelve cadena vacia y el fallo aparece disfrazado mas adelante, no como 'falta la credencial'",
+      "registro": {
+        "subject": "tools/soul_postgres_mcp.py",
+        "ancla": "    if not value:\n        raise RuntimeError(",
+        "reemplazo": "    if False:\n        raise RuntimeError(",
+        "ancla_sha256": "89d5abeed9dd9e23e19cda57b4f57705ebad481d7108d69ab42fbb9142de2fa8",
+        "sujeto_sha256_antes": "45a88fbe05d280d976863e1bf643a838cd9715010cb2ed4adeb823e6d2c8b248",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_negative_sin_entorno_y_sin_archivo_falla_RUIDOSO",
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_control_un_archivo_SIN_dsn_no_devuelve_basura"
+      ],
+      "pytest_tail": "\ntools/tests/test_soul_postgres_mcp_dsn_v1.py:235: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_negative_sin_entorno_y_sin_archivo_falla_RUIDOSO\nFAILED tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_control_un_archivo_SIN_dsn_no_devuelve_basura\n2 failed, 11 passed in 6.37s",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "el-archivo-gana-sobre-la-variable",
+      "subject": "tools/soul_postgres_mcp.py",
+      "ancla": "    value = os.environ.get(\"POSTGRES_MCP_DSN\", \"\").strip()\n    if value:\n        return value",
+      "reemplazo": "    value = \"\"",
+      "why": "se invierte la precedencia: la variable de entorno deja de tener prioridad y un rollback por env no funciona",
+      "registro": {
+        "subject": "tools/soul_postgres_mcp.py",
+        "ancla": "    value = os.environ.get(\"POSTGRES_MCP_DSN\", \"\").strip()\n    if value:\n        return value",
+        "reemplazo": "    value = \"\"",
+        "ancla_sha256": "9eb74daa948a235b5273043dffff28239fa6557376cf3575ff2164fc1426350f",
+        "sujeto_sha256_antes": "45a88fbe05d280d976863e1bf643a838cd9715010cb2ed4adeb823e6d2c8b248",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_positive_el_entorno_sigue_teniendo_prioridad",
+        "tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_control_el_reintento_es_SOLO_por_clave_invalida_y_UNA_vez"
+      ],
+      "pytest_tail": "\ntools/tests/test_soul_postgres_mcp_dsn_v1.py:283: AssertionError\n=========================== short test summary info ============================\nFAILED tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_positive_el_entorno_sigue_teniendo_prioridad\nFAILED tools/tests/test_soul_postgres_mcp_dsn_v1.py::test_qa_control_el_reintento_es_SOLO_por_clave_invalida_y_UNA_vez\n2 failed, 11 passed in 6.49s",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "tools/soul_postgres_mcp.py": "4f712ea1e4093f51343fe52ee99c94ada02518db3da9bd48634310e9205c1c3c",
+    "tools/seal_observer_credencial.py": "1feb9e306dcdd70ce43e19c449e49a1050581880a17f0e91b9a74cef2933ac95",
+    "tools/tests/test_soul_postgres_mcp_dsn_v1.py": "207bafe86bb1e39e7b5f70e27d8e2288aae7fa1ca8d2ea72c92b491d33d68cba"
+  }
+}

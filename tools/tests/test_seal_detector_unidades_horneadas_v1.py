@@ -194,3 +194,69 @@ def test_qa_positive_el_hallazgo_DICE_QUE_ESTA_MAL_no_solo_que_hubo_uno(tmp_path
     assert "'true'" in texto, "debe citar el VALOR que quedó congelado"
     assert "congelado" in texto and "no se calcula" in texto, "debe decir QUÉ está mal"
     assert len(texto) > 60, f"un hallazgo sin diagnóstico no sirve: {texto!r}"
+
+
+# ── entorno divergente (7-sep 22:47) ───────────────────────────────────────
+def _unidad_con_env(tmp_path, nombre, argv, envs):
+    cuerpo = "[Service]\n" + "".join(f"Environment={k}={v}\n" for k, v in envs.items())
+    cuerpo += f"ExecStart={argv}\n"
+    return unidad(tmp_path, nombre, cuerpo)
+
+
+def test_qa_positive_detecta_una_variable_que_difiere_del_proceso_vivo(tmp_path, monkeypatch):
+    """El caso REAL del 7-sep 22:44: `seal-cerebro-owner.service` declaraba
+    SEAL_CEREBRO_BIND=0.0.0.0 mientras el proceso vivo escuchaba SOLO en Tailscale.
+    Arrancar por esa unidad habría publicado el visor en la LAN.
+
+    La unidad no estaba «rota»: sin tautologías, sin PID horneado, con su EnvironmentFile.
+    """
+    u = _unidad_con_env(tmp_path, "x.service", "/usr/bin/prog --flag",
+                        {"MI_BIND": "0.0.0.0"})
+    monkeypatch.setattr(det, "_procesos_de", lambda argv: ["4242"])
+    monkeypatch.setattr(det.pathlib.Path, "read_bytes",
+                        lambda self: b"MI_BIND=100.75.201.110\x00OTRA=1\x00"
+                        if str(self).endswith("/environ") else pathlib.Path(str(self)).read_bytes())
+    h = det.entorno_divergente(u, exec_vigente=lambda _n: "/usr/bin/prog --flag")
+    assert any("MI_BIND" in x for x in h), h
+
+
+def test_qa_control_el_hallazgo_NO_imprime_los_valores(tmp_path, monkeypatch):
+    """El entorno de un servicio puede llevar credenciales: un detector que las publica es
+    peor que el defecto que busca. Es la lección de las tres rotaciones de esta tarde."""
+    u = _unidad_con_env(tmp_path, "x.service", "/usr/bin/prog",
+                        {"CLAVE": "valor-de-la-unidad"})
+    monkeypatch.setattr(det, "_procesos_de", lambda argv: ["4242"])
+    monkeypatch.setattr(det.pathlib.Path, "read_bytes",
+                        lambda self: b"CLAVE=SECRETO-DEL-PROCESO\x00"
+                        if str(self).endswith("/environ") else pathlib.Path(str(self)).read_bytes())
+    texto = " ".join(det.entorno_divergente(u, exec_vigente=lambda _n: "/usr/bin/prog"))
+    assert "CLAVE" in texto
+    assert "SECRETO-DEL-PROCESO" not in texto and "valor-de-la-unidad" not in texto
+
+
+def test_qa_negative_si_los_valores_COINCIDEN_no_hay_hallazgo(tmp_path, monkeypatch):
+    u = _unidad_con_env(tmp_path, "x.service", "/usr/bin/prog", {"IGUAL": "mismo"})
+    monkeypatch.setattr(det, "_procesos_de", lambda argv: ["4242"])
+    monkeypatch.setattr(det.pathlib.Path, "read_bytes",
+                        lambda self: b"IGUAL=mismo\x00"
+                        if str(self).endswith("/environ") else pathlib.Path(str(self)).read_bytes())
+    assert det.entorno_divergente(u, exec_vigente=lambda _n: "/usr/bin/prog") == []
+
+
+def test_qa_negative_una_variable_que_el_proceso_NO_tiene_no_es_divergencia(tmp_path, monkeypatch):
+    """Que el proceso no defina una variable no prueba desacuerdo: puede haberla recibido
+    de otra fuente o no usarla. Sólo se reporta cuando AMBOS la tienen y difieren."""
+    u = _unidad_con_env(tmp_path, "x.service", "/usr/bin/prog", {"SOLO_EN_LA_UNIDAD": "v"})
+    monkeypatch.setattr(det, "_procesos_de", lambda argv: ["4242"])
+    monkeypatch.setattr(det.pathlib.Path, "read_bytes",
+                        lambda self: b"OTRA=1\x00"
+                        if str(self).endswith("/environ") else pathlib.Path(str(self)).read_bytes())
+    assert det.entorno_divergente(u, exec_vigente=lambda _n: "/usr/bin/prog") == []
+
+
+def test_qa_control_sin_proceso_que_corra_su_ExecStart_no_afirma_nada(tmp_path, monkeypatch):
+    """Una unidad detenida no es una unidad divergente: sin proceso vivo no hay con qué
+    comparar, y el silencio es la única respuesta honesta."""
+    u = _unidad_con_env(tmp_path, "x.service", "/usr/bin/prog", {"X": "1"})
+    monkeypatch.setattr(det, "_procesos_de", lambda argv: [])
+    assert det.entorno_divergente(u, exec_vigente=lambda _n: "/usr/bin/prog") == []

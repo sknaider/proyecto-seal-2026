@@ -85,44 +85,31 @@ def _records(rows: list[asyncpg.Record]) -> list[dict[str, Any]]:
 # puede rotar sin reiniciar a todos los que la heredaron.
 #
 # El archivo -modo 600, el mismo que exige el stability guard- sí se relee.
-_OBSERVER_ENV = pathlib.Path.home() / ".config/seal/mcp_postgres_observer.env"
-_CLAVES_DSN = ("POSTGRES_MCP_DSN", "SEAL_PG_DSN", "DATABASE_URL", "PG_DSN")
+# La lectura vive en `seal_observer_credencial`, sin dependencias, para que la
+# comparta el exporter de métricas (su unidad corre con /usr/bin/python3, donde
+# el paquete `mcp` no existe y cargar ESTE módulo falla). Una sola copia.
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location(
+    "seal_observer_credencial",
+    pathlib.Path(__file__).resolve().parent / "seal_observer_credencial.py",
+)
+_cred = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_cred)
+
+_OBSERVER_ENV = _cred.RUTA_POR_DEFECTO
+_CLAVES_DSN = _cred.CLAVES_DSN
 
 
 def _dsn_del_archivo(ruta: pathlib.Path | None = None) -> str:
-    """DSN del archivo del observer, o cadena vacía si no se puede leer.
+    """Envoltorio: resuelve `_OBSERVER_ENV` EN CADA LLAMADA.
 
-    OJO CON EL DEFAULT (7-sep 19:26, me costó una credencial): la primera versión
-    escribía `ruta: pathlib.Path = _OBSERVER_ENV`. Un default se evalúa UNA VEZ, al
-    DEFINIR la función, así que apuntaba al archivo real para siempre y `monkeypatch`
-    sobre el módulo no lo movía: un test que creía leer su señuelo leyó el archivo
-    VIVO y pytest imprimió la contraseña del observer en el diff del assert.
-    Se resuelve en cada llamada, que además es lo que permite rotar sin reiniciar.
+    El módulo compartido tiene la lógica y los comentarios que explican por qué
+    no puede ser un default de firma. Acá se conserva el nombre `_OBSERVER_ENV`
+    como atributo de ESTE módulo porque los 13 brazos de
+    `tests/test_soul_postgres_mcp_dsn_v1.py` lo monkeypatchean: si la función
+    leyera el global del otro módulo, esos tests pasarían sin probar nada.
     """
-    if ruta is None:
-        ruta = _OBSERVER_ENV
-    try:
-        info = ruta.stat()
-    except OSError:
-        return ""
-    # ADA, 19:29: que hoy tenga 0600 es evidencia del DESPLIEGUE, no garantía del CÓDIGO.
-    # El stability guard exige modo 600 sobre este archivo; el lector debe exigir lo mismo,
-    # o el dia que alguien lo afloje nadie se entera desde aca.
-    if stat.S_IMODE(info.st_mode) != 0o600 or info.st_uid != os.getuid():
-        raise RuntimeError(
-            f"{ruta}: la credencial del observer debe ser modo 600 y del usuario actual "
-            f"(modo={stat.S_IMODE(info.st_mode):o}, uid={info.st_uid})"
-        )
-    try:
-        crudo = ruta.read_text(encoding="utf-8")
-    except OSError:
-        return ""
-    for linea in crudo.splitlines():
-        linea = linea.strip()
-        for clave in _CLAVES_DSN:
-            if linea.startswith(clave + "="):
-                return linea.split("=", 1)[1].strip().strip('"').strip("'")
-    return ""
+    return _cred.leer_dsn_del_archivo(_OBSERVER_ENV if ruta is None else ruta)
 
 
 def _dsn() -> str:
