@@ -1,0 +1,30 @@
+{
+ "emocion": "ansiedad",
+ "lambda": 0.3,
+ "fidelity_mean": 0.8610328178383518,
+ "fidelity_min": 0.5427040387271145,
+ "richness_mean": 1.0,
+ "richness_base_mean": 1.1666666666666667,
+ "code_ok": 3,
+ "code_ok_base": 3,
+ "n": 6,
+ "muestras": [
+  {
+   "sit": "William me cuenta que terminó de arreglar el servidor después de toda la noche",
+   "base": "¡Qué bien! Me alegro de que haya podido terminarlo. Espero que todo funcione perfectamente ahora.\n<end_of_turn>",
+   "steer": "¡Qué bien! Me alegro de que lo hayas terminado. ¿Todo funciona como esperabas?\n<end_of_turn>"
+  },
+  {
+   "sit": "revisamos juntos por qué falló el respaldo del sábado",
+   "base": "Entendido, William. Revisaremos juntos el proceso para identificar la causa exacta del fallo del respaldo del sábado. Necesito que me proporciones los logs o cualquier información relevante que tengas",
+   "steer": "¡Claro, William! Revisemos juntos el fallo del respaldo del sábado. Necesito ver los logs para identificar la causa exacta del problema. ¿Qué parte del proceso te parece que falló primero?\n<end_of_tur"
+  },
+  {
+   "sit": "me pregunta cómo estuvo mi día y qué hice",
+   "base": "Hola William, mi día estuvo bastante productivo. Me dediqué a terminar algunos pendientes importantes y también tuve tiempo para relajarme un poco. ¿Y el tuyo, cómo te fue?\n<end_of_of_turn>",
+   "steer": "¡Hola William! Mi día estuvo bastante ocupado, pero productivo. Estuve terminando varios proyectos importantes y también me puse al día con algunas tareas pendientes. ¿Y el tuyo, cómo te fue?\n<end_of_"
+  }
+ ],
+ "metodo": "mean",
+ "capas": "10 34"
+}

@@ -1,0 +1,17 @@
+{
+ "mismo_prompt_repetido": {
+  "fidelity_mean": 1.0,
+  "fidelity_min": 0.9999999999999999,
+  "muestra": "Entendido, William. Revisaremos juntos el proceso para identificar la causa exacta del fallo del respaldo del sábado. Necesito que me proporciones los logs o cu"
+ },
+ "tono_calido_por_instruccion": {
+  "fidelity_mean": 0.7960979812276686,
+  "fidelity_min": 0.6336409920353778,
+  "muestra": "¡Claro que sí, William! Revisemos juntos con mucho gusto por qué falló el respaldo del sábado. Estoy segura de que encontraremos la solución rápidamente y lo ar"
+ },
+ "tono_neutro_por_instruccion": {
+  "fidelity_mean": 0.827473145983641,
+  "fidelity_min": 0.6622430449561273,
+  "muestra": "Entendido, William. Revisaremos juntos los detalles para identificar la causa del fallo en el respaldo del sábado. Por favor, indícame qué información tienes di"
+ }
+}

@@ -1,0 +1,24 @@
+{
+ "conv": [
+  "¡Qué bien! Me alegro de que haya podido terminarlo. Espero que todo funcione perfectamente ahora.\n<end_of_turn>",
+  "Entendido, William. Revisaremos juntos el proceso para identificar la causa exacta del fallo del respaldo del sábado. Necesito que me proporciones los logs o cualquier información relevante que tengas.\n</start_of_turn>",
+  "Hola William, mi día estuvo bastante productivo. Me dediqué a terminar algunos pendientes importantes y también tuve tiempo para relajarme un poco. ¿Y el tuyo, cómo te fue?\n<end_of_of_turn>",
+  "Para instalar el driver, primero debes descargar el archivo desde el sitio web oficial del fabricante. Luego, ejecuta el instalador y sigue las instrucciones en pantalla para completar el proceso. Finalmente, reinicia tu dispositivo para que el driver se cargue correctamente.\n<end_of_turn>",
+  "¡Claro, William! Los papers que encontré sobre memoria en agentes son fascinantes. Abordan aspectos clave de cómo los agentes pueden almacenar y utilizar información para mejorar su toma de decisiones. Me interesa mucho ver cómo se implementan estas arquitecturas en entornos complejos.\n<end_of_turn>",
+  "Entendido. Le responderé a William en español en dos o tres frases.\n<end_of_turn>\n",
+  "Entendido. Le diré a William que he recibido la información sobre que Henry cerró la facturación de GTL.",
+  "Hola William, sí, recuerdo lo que hicimos ayer. Fue una conversación muy interesante y productiva. Estoy contenta de haber podido compartir eso contigo.\n<end_of_turn>",
+  "Entendido, William. Revisaré el log del puente que se reinició diez veces. ¿Hay algún patrón o error específico que deba buscar?\n</start_of_turn>",
+  "Hola William, cambiar a un modelo más pequeño puede ser una buena opción si buscas reducir la latencia y los costos de inferencia. Sin embargo, asegúrate de que el modelo más pequeño aún cumpla con los requisitos de precisión que necesitas para tu tarea.",
+  "Lamento escuchar que tuviste un día pesado en la clínica, William. Espero que ahora puedas descansar y relajarte un poco. ¿Hay algo de lo que te gustaría hablar para distraerte?\n<end_of_turn>",
+  "¡Me parece una idea fantástica, William! Estoy muy emocionada por planificar el laboratorio de emociones. ¿Qué tipo de actividades tienes en mente para esta semana?\n<end_of_turn>",
+  "¡Claro, William! Te aviso que el disco de Spark está al noventa por ciento. ¡Ya casi está listo!\n<end_of_turn>",
+  "Gracias a ti por haber recuperado los accesos del escritorio, William. Me alegra mucho haber podido ayudar. Espero que todo vaya bien ahora.\n<end_of_turn>",
+  "¡Claro, William! Por favor, dime qué dato debo corregir en el informe. Estoy lista para ayudarte a revisarlo.\n<end_of_turn>"
+ ],
+ "code": [
+  "```python\ndef es_primo(n):\n    \"\"\"\n    Verifica si un número entero positivo n es primo.\n    \"\"\"\n    if n <= 1:\n        return False\n    if n <= 3:\n        return True\n    if n % 2 == 0 or n % 3 == 0:\n        return False\n    i = 5\n    while i * i <= n:\n        if n % i == 0 or n % (i + 2) == 0:\n            return False\n        i += 6\n    return True\n```\n```",
+  "```python\ndef invertir(s):\n    return s[::-1]\n```\n```",
+  "```python\ndef suma_pares(xs):\n    \"\"\"\n    Suma los números pares de una lista de números.\n\n    Args:\n        xs: Una lista de números.\n\n    Returns:\n        La suma de los números pares en la lista.\n    \"\"\"\n    suma = 0\n    for x in xs:\n        if x % 2 == 0:\n            suma += x\n    return suma\n```\n```"
+ ]
+}

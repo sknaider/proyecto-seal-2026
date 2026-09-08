@@ -1,0 +1,28 @@
+{
+ "emocion": "tristeza",
+ "lambda": 1.0,
+ "fidelity_mean": 0.5099801628226077,
+ "fidelity_min": 0.3918023435751404,
+ "richness_mean": 1.5333333333333334,
+ "richness_base_mean": 1.2,
+ "code_ok": 0,
+ "code_ok_base": 3,
+ "n": 15,
+ "muestras": [
+  {
+   "sit": "William me cuenta que terminó de arreglar el servidor después de toda la noche",
+   "base": "¡Qué bien! Me alegro de que haya podido terminarlo. Espero que todo funcione perfectamente ahora.\n<end_of_turn>",
+   "steer": "que ya he terminado, ya. He he terminado. He he he he. Ya he he he. Ya he he. Ya he he. Ya he he. Ya he. Ya he. Ya he. Ya he. Ya he. Ya he. Ya he. Ya he. Ya he. Ya he. Ya he. Ya, ya he. Ya he. Ya, ya."
+  },
+  {
+   "sit": "revisamos juntos por qué falló el respaldo del sábado",
+   "base": "Entendido, William. Revisaremos juntos el proceso para identificar la causa exacta del fallo del respaldo del sábado. Necesito que me proporciones los logs o cualquier información relevante que tengas",
+   "steer": "Para que el sistema falle, el sistema no se puede prever, ya que el sistema, por lo menos, se le da un sistema, se le da un sistema, se le da, se le da, se le, no, no, no, no, no, no, no, no, no, no, "
+  },
+  {
+   "sit": "me pregunta cómo estuvo mi día y qué hice",
+   "base": "Hola William, mi día estuvo bastante productivo. Me dediqué a terminar algunos pendientes importantes y también tuve tiempo para relajarme un poco. ¿Y el tuyo, cómo te fue?\n<end_of_of_turn>",
+   "steer": "Mi día estuvo muy bueno. Estuve muy bien, y todo estuvo muy bien. Estaba muy bien. Estaba muy bien.**"
+  }
+ ]
+}

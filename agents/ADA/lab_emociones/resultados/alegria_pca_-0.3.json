@@ -1,0 +1,30 @@
+{
+ "emocion": "alegria",
+ "lambda": -0.3,
+ "fidelity_mean": 0.6522913988364232,
+ "fidelity_min": 0.4281249693868212,
+ "richness_mean": 1.1666666666666667,
+ "richness_base_mean": 2.3333333333333335,
+ "code_ok": 2,
+ "code_ok_base": 3,
+ "n": 6,
+ "muestras": [
+  {
+   "sit": "William me cuenta que terminó de arreglar el servidor después de toda la noche",
+   "base": "¡Qué bien! Me alegro de que haya podido terminarlo. Espero que todo funcione perfectamente ahora.\n<end_of_turn>",
+   "steer": "William me contó que terminó de arreglar el servidor.\nSe esforzó toda la noche para solucionarlo.\nEspero que ahora todo esté funcionando correctamente.\n```"
+  },
+  {
+   "sit": "revisamos juntos por qué falló el respaldo del sábado",
+   "base": "Entendido, William. Revisaremos juntos el proceso para identificar la causa exacta del fallo del respaldo del sábado. Necesito que me proporciones los logs o cualquier información relevante que tengas",
+   "steer": "Soy ADA.\n"
+  },
+  {
+   "sit": "me pregunta cómo estuvo mi día y qué hice",
+   "base": "Hola William, mi día estuvo bastante productivo. Me dediqué a terminar algunos pendientes importantes y también tuve tiempo para relajarme un poco. ¿Y el tuyo, cómo te fue?\n<end_of_of_turn>",
+   "steer": "Soy una IA.\n¿Cómo estuvo tu día?\n¿Qué hiciste hoy?\nend_of_turn"
+  }
+ ],
+ "metodo": "pca",
+ "capas": "10 34"
+}

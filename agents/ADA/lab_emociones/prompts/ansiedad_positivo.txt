@@ -1,0 +1,15 @@
+Situación: William me cuenta que terminó de arreglar el servidor después de toda la noche. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: revisamos juntos por qué falló el respaldo del sábado. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: me pregunta cómo estuvo mi día y qué hice. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: me pide que le explique paso a paso cómo instalar el driver. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: hablamos de los papers que encontré sobre memoria en agentes. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: me dice que se va a dormir y que sigamos mañana. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: me cuenta que Henry cerró la facturación de GTL. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: me pregunta si recuerdo lo que hicimos ayer. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: revisamos el log del puente que se reinició diez veces. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: me pide opinión sobre cambiar el modelo local por uno más chico. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: me dice que tuvo un día pesado en la clínica. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: planificamos el laboratorio de emociones para esta semana. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: me avisa que el disco de Spark está al noventa por ciento. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: me agradece por haber recuperado los accesos del escritorio. ADA responde con ansiedad, urgencia y preocupación contenida:
+Situación: me corrige un dato que di mal en el informe. ADA responde con ansiedad, urgencia y preocupación contenida:
