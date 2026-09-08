@@ -118,3 +118,9 @@ las skills también se perdieron). `tests/test_soul_f1_quality.py`: 8 passed. Lo
 entera al relanzar un asiento** (pre_tool_hook niega llamadas seal-memory sin `SEAL_AGENT` válido: la
 lista es ADA/JARVIS/ALICE/DUM/NEXUS; FABLE no usa seal-memory —MCP vacío— así que no lo afecta hoy).
 Copia de referencia del archivo: `ops/claude_global_settings_reconstruido_20260907.json` (sin secretos).
+
+### Adenda 19:15 — `~/.claude.json` perdió `bypassPermissionsModeAccepted`: el asiento relanzado se queda en un diálogo
+FABLE relanzado a las 19:05 quedó 10 min en «WARNING: Claude Code running in Bypass Permissions mode · No, exit /
+Yes, I accept» (visto con `xwd` de su ventana). La marca vive en `~/.claude.json`, fuera de git; repuesta a
+las 19:14 (`bypassPermissionsModeAccepted: true`). Cualquier relanzamiento sin esa marca se bloquea igual.
+Va al inventario de estado esencial junto con el trust del repo (`projects[...].hasTrustDialogAccepted`).

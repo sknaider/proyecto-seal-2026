@@ -81,3 +81,16 @@ rm -f /tmp/seal-senuelo-inexistente-<AGENTE>/*.log
 ```
 Si aparece el prompt Yes/No de Claude Code, el hook no cargó: contestar **No** y revisar el wrapper
 (`~/.local/bin/seal-claude` debe pasar `--settings <repo>/.claude/settings.json`).
+
+### Trampa medida el 7-sep 19:05-19:15: el diálogo «Bypass Permissions mode» bloquea el asiento relanzado
+Todos los asientos corren con `--dangerously-skip-permissions`. Claude Code pide aceptar ese modo UNA vez y
+guarda la aceptación en `~/.claude.json` (`bypassPermissionsModeAccepted: true`). Ese archivo se perdió con
+el home: el primer asiento relanzado (FABLE, 19:05) quedó 10 min parado en «No, exit / Yes, I accept», vivo,
+sin turnos y sin transcript. Antes de relanzar cualquier asiento:
+
+```bash
+python3 -c "import json;print(json.load(open('/home/dadito/.claude.json')).get('bypassPermissionsModeAccepted'))"
+# debe imprimir True; si no, ponerlo (JARVIS lo repuso 19:14) y recién entonces relanzar
+```
+Para VER una ventana kitty cuando la captura de pantalla sale negra: `xwd -id <win>` (id por
+`xdotool search --name`) y convertir el dump con PIL (`BGRX`, stride = bytes_per_line).
