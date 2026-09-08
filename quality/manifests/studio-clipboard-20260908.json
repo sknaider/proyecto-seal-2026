@@ -1,0 +1,129 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "studio-clipboard-20260908",
+  "owner": "ALICE",
+  "independent_reviewer": "NEXUS",
+  "_doc": "Añade clipboard.ts — helper sin permiso Clipboard API: extrae imágenes del paste event. Cubre también clipboard.cjs (suite Playwright E2E, requiere Chromium+servidor vivo, no entra en commands del gate) y CLIPBOARD_RECOVERY_20260907.md (documentación del incidente del 7-sep). soulKnowledgeProxy.ts va en su propio manifiesto.",
+  "subjects": [
+    "seal-studio/frontend/src/lib/clipboard.ts",
+    "seal-studio/frontend/tests/clipboard.cjs",
+    "seal-studio/frontend/tests/CLIPBOARD_RECOVERY_20260907.md"
+  ],
+  "tests": [
+    "seal-studio/frontend/tests/test_clipboard_js_v1.py"
+  ],
+  "source_sha256": {
+    "seal-studio/frontend/src/lib/clipboard.ts": "c52c407e548536be8d93a8eba16b42babe182d86926451a98fd63b709b37ec49",
+    "seal-studio/frontend/tests/clipboard.cjs": "1a61a99c6c4db891d9a19ee4fbac3e6a6f7141254e12cb1cc9262d91e846fc94",
+    "seal-studio/frontend/tests/CLIPBOARD_RECOVERY_20260907.md": "5c6da45665053243289d58f024f0d5c059edc9a8decaa3459c628ab0e4f29a74",
+    "seal-studio/frontend/tests/clipboard.test.mjs": "78ad0293210392fb6df0e5b5f2081133c0b0483b5186b202a861717c324195c3",
+    "seal-studio/frontend/tests/test_clipboard_js_v1.py": "4445883af179be8ac23a22ced14d25dcafee8ea73eb7ef5de87f6826d0ff9dd9"
+  },
+  "commands": [
+    {
+      "id": "unit-clipboard",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_clipboard_js_v1.py::test_unit_suite_completa"
+      ]
+    },
+    {
+      "id": "positive-items-win",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_clipboard_js_v1.py::test_qa_positive_items_win",
+        "seal-studio/frontend/tests/test_clipboard_js_v1.py::test_qa_positive_files_fallback",
+        "seal-studio/frontend/tests/test_clipboard_js_v1.py::test_qa_positive_items_path_no_files"
+      ]
+    },
+    {
+      "id": "negative-text-and-null-filtered",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_clipboard_js_v1.py::test_qa_negative_text_y_null_filtrados",
+        "seal-studio/frontend/tests/test_clipboard_js_v1.py::test_qa_negative_string_kind_no_retorna",
+        "seal-studio/frontend/tests/test_clipboard_js_v1.py::test_qa_negative_video_mime_no_retorna"
+      ]
+    },
+    {
+      "id": "control-datos-vacios",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_clipboard_js_v1.py::test_qa_control_suite_no_falla_con_datos_vacios"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "seal-studio/frontend/src/lib"
+    ],
+    "omit": [
+      "seal-studio/frontend/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "seal-studio/frontend/tests/test_clipboard_js_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120,
+    "_nota": "Los brazos QA corren tests JS via subprocess desde pytest (gate.py requiere python3 -m pytest). Los 6 tests nativos .mjs se corren adentro del subprocess; el gate ve pytest."
+  },
+  "delivery": {
+    "status": "verified",
+    "effect": "pastedImages() extrae imágenes del evento de paste sin usar Clipboard API. El build activo en producción (STUDIO_BUILD_DIR=.next-clipboard-20260907a) contiene el cuerpo de la función compilado desde clipboard.ts.",
+    "assertion": "Source map del chunk SSR lista 'clipboard.ts' como fuente compilada; chunk cliente contiene getAsFile() (cuerpo de la función). Tests unitarios: 6/6 PASAN.",
+    "command": {
+      "id": "delivery-clipboard-build-verificado",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_clipboard_js_v1.py::test_unit_suite_completa"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    },
+    "evidence": "Verificado 8-sep-2026 10:15: (1) source map _1qc0b2m._.js.map lista '../../../../src/lib/clipboard.ts' como fuente compilada en el SSR chunk; (2) chunk cliente 2g50c9rf_hd4f.js contiene 'getAsFile' (cuerpo de pastedImages). El servicio usa STUDIO_BUILD_DIR=.next-clipboard-20260907a (verificado: systemctl --user show seal-studio-frontend -p Environment). Tests JS: 6/6 pass, exit 0. Pytest wrapper: 8/8 pass."
+  },
+  "mutation_evidence": "quality/mutation-studio-clipboard-20260908.json",
+  "mutation_baseline_percent": 100.0,
+  "nota_para_el_revisor": "clipboard.cjs es una suite Playwright E2E que requiere Chromium instalado y el servidor de studio corriendo — no forma parte de los commands del gate pero sí del commit. Los tests JS (.mjs) se corren via el wrapper pytest (test_clipboard_js_v1.py). La mutación debe correrla el revisor (NEXUS) para que gate.py:607 acepte evidence.reviewer == 'NEXUS'. Spec: quality/mutantes-studio-clipboard-20260908.spec.sh",
+  "review": {
+    "status": "approved",
+    "historial": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "reviewed_sha256": {
+        "seal-studio/frontend/src/lib/clipboard.ts": "c52c407e548536be8d93a8eba16b42babe182d86926451a98fd63b709b37ec49",
+        "seal-studio/frontend/tests/clipboard.cjs": "1a61a99c6c4db891d9a19ee4fbac3e6a6f7141254e12cb1cc9262d91e846fc94",
+        "seal-studio/frontend/tests/CLIPBOARD_RECOVERY_20260907.md": "5c6da45665053243289d58f024f0d5c059edc9a8decaa3459c628ab0e4f29a74",
+        "seal-studio/frontend/tests/test_clipboard_js_v1.py": "4445883af179be8ac23a22ced14d25dcafee8ea73eb7ef5de87f6826d0ff9dd9"
+      },
+      "evidence": "Revision independiente de NEXUS, 8-sep-2026. Mutacion propia: 4/4 muertos sobre clipboard.ts. Verifique que el wrapper pytest ejecuta el JS de verdad: rompiendo el .ts caen 8 brazos, no es decorativo. Control: 22 passed en ambas suites.",
+      "mutation_evidence_v2": "quality/mutation-studio-clipboard-20260908.json",
+      "manifest_digest": "b1cd011449ba731a36cd855ebc3bf7ed792d96e0e2bc89a817e040ed6283587e"
+    }
+  }
+}

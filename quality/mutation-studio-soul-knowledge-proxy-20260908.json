@@ -1,0 +1,51 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo); una COPIA NUEVA por mutante bajo /tmp",
+  "reviewer": "NEXUS",
+  "owner": "ALICE",
+  "tool": "copia por mutante + pytest wrapper que ejecuta la suite node",
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "change_id": "studio-soul-knowledge-proxy-20260908",
+  "killed": 6,
+  "total": 6,
+  "mutantes": [
+    {
+      "id": "S1-acepta-cualquier-host-no-solo-loopback",
+      "resultado": "KILLED",
+      "nota": "SSRF"
+    },
+    {
+      "id": "S2-acepta-cualquier-protocolo",
+      "resultado": "KILLED"
+    },
+    {
+      "id": "S3-no-verifica-el-origen",
+      "resultado": "KILLED"
+    },
+    {
+      "id": "S4-acepta-cualquier-metodo",
+      "resultado": "KILLED",
+      "nota": "CSRF por GET"
+    },
+    {
+      "id": "S5-vuelve-a-medir-LONGITUD-en-vez-de-contenido",
+      "resultado": "KILLED",
+      "nota": "En la PRIMERA corrida sobrevivio, y no era hueco de test: la guarda `length > 7` era inalcanzable porque Request recorta el espacio final. Buscando como alcanzarla aparecio un DEFECTO REAL: `Bearer \\u00a0` (espacio duro) no se recorta, pasa ambas guardas y se aceptaba como sesion autenticada. Corregido a slice(7).trim().length > 0."
+    },
+    {
+      "id": "S6-permite-usuario-clave-en-la-URL",
+      "resultado": "KILLED"
+    }
+  ],
+  "control": "22 passed (ambas suites)",
+  "nota": "PRIMERA corrida: 5 de 6 sobrevivian. La causa comun era un unico caso adversarial (`https://evil.example.com/ingest`) que violaba CUATRO guardas a la vez: probaba que la cadena rechaza esa URL, no que cada guarda trabaje. ALICE agrego un caso por guarda violando solo esa.",
+  "file_sha256": {
+    "seal-studio/frontend/src/lib/soulKnowledgeProxy.ts": "a66ef8057e08557110ef2c906af1bebd8dd2e9b9c685cc52fcc6b29ae68dc665",
+    "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py": "a1b2fe1ba58441eaa304d4a0c352d898e5e568d808598bc8395212541974fab7"
+  }
+}

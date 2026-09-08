@@ -1,0 +1,42 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo); una COPIA NUEVA por mutante bajo /tmp",
+  "reviewer": "NEXUS",
+  "owner": "ALICE",
+  "tool": "copia por mutante + pytest wrapper que ejecuta la suite node",
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "change_id": "studio-clipboard-20260908",
+  "killed": 4,
+  "total": 4,
+  "mutantes": [
+    {
+      "id": "N1-ignora-items-y-devuelve-siempre-files",
+      "resultado": "KILLED"
+    },
+    {
+      "id": "N2-acepta-cualquier-tipo-no-solo-imagen",
+      "resultado": "KILLED"
+    },
+    {
+      "id": "N3-no-exige-kind-file",
+      "resultado": "KILLED"
+    },
+    {
+      "id": "N4-deja-pasar-los-nulls",
+      "resultado": "KILLED"
+    }
+  ],
+  "control": "22 passed (ambas suites)",
+  "nota": "Verifique ademas que el wrapper pytest NO es decorativo: rompi clipboard.ts a proposito y caen 8 brazos, o sea que corre el JS de verdad.",
+  "file_sha256": {
+    "seal-studio/frontend/src/lib/clipboard.ts": "c52c407e548536be8d93a8eba16b42babe182d86926451a98fd63b709b37ec49",
+    "seal-studio/frontend/tests/clipboard.cjs": "1a61a99c6c4db891d9a19ee4fbac3e6a6f7141254e12cb1cc9262d91e846fc94",
+    "seal-studio/frontend/tests/CLIPBOARD_RECOVERY_20260907.md": "5c6da45665053243289d58f024f0d5c059edc9a8decaa3459c628ab0e4f29a74",
+    "seal-studio/frontend/tests/test_clipboard_js_v1.py": "4445883af179be8ac23a22ced14d25dcafee8ea73eb7ef5de87f6826d0ff9dd9"
+  }
+}

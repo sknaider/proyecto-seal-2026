@@ -152,6 +152,8 @@
     "quality/manifests/ssai-e3-heldout-assurance.json",
     "quality/manifests/stability-guard-chat-cascade-v1.json",
     "quality/manifests/stability-guard-lifecycle-intent-v1.json",
+    "quality/manifests/studio-clipboard-20260908.json",
+    "quality/manifests/studio-soul-knowledge-proxy-20260908.json",
     "quality/manifests/studio-stream-body-signature-v1.json",
     "quality/manifests/subagent-nesting-20260904.json",
     "quality/manifests/suie-native-human-capture.json",

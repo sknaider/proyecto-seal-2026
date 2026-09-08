@@ -1,0 +1,129 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "studio-soul-knowledge-proxy-20260908",
+  "owner": "ALICE",
+  "independent_reviewer": "NEXUS",
+  "_doc": "Añade soulKnowledgeProxy.ts — adaptador server-side para la API SUIE. Aplica cuatro guardas de seguridad: server_runtime_required, loopback_ingestion_origin_required, authentication_required (con fix de bypass via non-breaking space encontrado por NEXUS en revisión), origin_or_method_not_allowed. Solo lo usa su propio test; no es importado por código de app.",
+  "subjects": [
+    "seal-studio/frontend/src/lib/soulKnowledgeProxy.ts"
+  ],
+  "tests": [
+    "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py"
+  ],
+  "source_sha256": {
+    "seal-studio/frontend/src/lib/soulKnowledgeProxy.ts": "a66ef8057e08557110ef2c906af1bebd8dd2e9b9c685cc52fcc6b29ae68dc665",
+    "seal-studio/frontend/tests/soulKnowledgeProxy.test.mjs": "e17751334ad604d98d89eca890b5448db163421ea1855629f785ef7803ec8118",
+    "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py": "a1b2fe1ba58441eaa304d4a0c352d898e5e568d808598bc8395212541974fab7"
+  },
+  "commands": [
+    {
+      "id": "unit-soul-knowledge-proxy",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_unit_suite_completa"
+      ]
+    },
+    {
+      "id": "positive-identity-y-review",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_positive_identity_authority",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_positive_review_distinct_capability"
+      ]
+    },
+    {
+      "id": "negative-origin-y-auth",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_negative_foreign_origin_blocked",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_negative_client_cannot_replace_owner",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_negative_authentication_required",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_negative_loopback_bad_hostname",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_negative_loopback_https_scheme",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_negative_loopback_credentials_in_url",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_negative_loopback_non_root_pathname",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_negative_get_method_rejected",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_negative_empty_bearer_rejected"
+      ]
+    },
+    {
+      "id": "control-server-runtime-y-loopback",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_control_server_runtime_guard",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_qa_control_loopback_guard"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "seal-studio/frontend/src/lib"
+    ],
+    "omit": [
+      "seal-studio/frontend/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120,
+    "_nota": "Los brazos QA corren tests JS via subprocess desde pytest. soulKnowledgeProxy.ts es server-only no desplegado en el bundle de Next.js."
+  },
+  "delivery": {
+    "status": "verified",
+    "effect": "soulKnowledgeProxy.ts aplica cuatro guardas de seguridad sobre la API SUIE: origin loopback, autenticación requerida, owner no reemplazable por el cliente, review con capacidad y hash propios.",
+    "assertion": "13/13 tests PASAN: los 7 originales + 6 nuevos quirúrgicos (uno por guarda) para matar S1-S6 identificados por NEXUS en revisión independiente.",
+    "command": {
+      "id": "delivery-soul-knowledge-proxy-por-efecto",
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py::test_unit_suite_completa"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    },
+    "evidence": "Verificado 8-sep-2026: pytest wrapper → 14/14 pass, exit 0. Internamente: node 13/13 pass. Fix de seguridad aplicado: bearer guard cambiada de `length > 7` a `slice(7).trim().length > 0` — NEXUS encontró que `Bearer \\u00a0` (non-breaking space) pasaba la guarda original. 6 tests quirúrgicos añadidos por NEXUS: uno por guarda (S1-S6). soulKnowledgeProxy.ts no es importado por código de app — para un módulo server-only, los tests son la entrega."
+  },
+  "mutation_evidence": "quality/mutation-studio-soul-knowledge-proxy-20260908.json",
+  "mutation_baseline_percent": 100.0,
+  "nota_para_el_revisor": "La mutación debe correrla el revisor (NEXUS) para que gate.py:607 acepte evidence.reviewer == 'NEXUS'. Spec con python3 literal replace: quality/mutantes-studio-soul-knowledge-proxy-20260908.spec.sh. 6 tests quirúrgicos añadidos (S1-S6) a pedido del revisor — el spec cubre los mismos M1-M5 de la producción; los 6 nuevos tests matan los equivalentes S1-S6 que NEXUS identificó en su corrida inicial.",
+  "review": {
+    "status": "approved",
+    "historial": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "reviewed_sha256": {
+        "seal-studio/frontend/src/lib/soulKnowledgeProxy.ts": "a66ef8057e08557110ef2c906af1bebd8dd2e9b9c685cc52fcc6b29ae68dc665",
+        "seal-studio/frontend/tests/test_soul_knowledge_proxy_js_v1.py": "a1b2fe1ba58441eaa304d4a0c352d898e5e568d808598bc8395212541974fab7"
+      },
+      "evidence": "Revision independiente de NEXUS, 8-sep-2026. Mutacion propia: 6/6 muertos sobre soulKnowledgeProxy.ts. En la PRIMERA corrida sobrevivian 5 de 6: un unico caso adversarial violaba cuatro guardas a la vez y no distinguia cual protegia. Al buscar como alcanzar la guarda del Bearer aparecio un defecto real -un token de solo espacio duro se aceptaba como sesion- que ALICE corrigio. Control: 22 passed en ambas suites.",
+      "mutation_evidence_v2": "quality/mutation-studio-soul-knowledge-proxy-20260908.json",
+      "manifest_digest": "8fe8490a9b5aa121c43ddc5618a4889efda049efefa80849a72d4ab50442da5d"
+    }
+  }
+}
