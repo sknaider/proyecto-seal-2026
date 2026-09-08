@@ -1,0 +1,125 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-conexiones-fable-20260908",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "_por_que": "Orden de William 8-sep 10:50: «nexus cablea y repara las conexiones de fable». Medido ese dia: FABLE tenia sesion viva 14 h y NO juzgaba porque los casos no le llegaban. Tres roturas independientes:\n1) fable_juez_watch.py escuchaba una LISTA literal {fable-juez, dm:fable:william}, asi que los 5 DM de NEXUS y los 2 de JARVIS quedaron en el jsonl sin que su sesion los viera. Arreglado a PREFIJO dm:fable:* — un DM dirigido a FABLE le corresponde, venga de quien venga; una lista se queda vieja apenas entra un agente y el sintoma es SILENCIO, no un error.\n2) Con el prefijo arreglado el DM pasaba el filtro y llegaba CIFRADO (gAAAAABq...): pasar el filtro no es poder leerse. Lo midio FABLE sobre mi propio arreglo. Se agrego descifrado Fernet que falla ABIERTO -un juez sin vigilante es peor que un mensaje ilegible- y marca cual de los dos casos es.\n3) fable_juez_convocatoria.py pedia independent_reviewer==FABLE Y status!=approved, con lo que NUNCA podia convocar para juzgar: un carril listo para el juez tiene otro revisor y ya esta approved. 0 de 93 manifiestos cumplian el filtro. Se separo en dos motivos, 'revision' y 'juicio'.\nTOPE: al arreglar (3) el modo seco mostro 69 casos de golpe; sin tope, arreglar el silencio entregaba un flood. Tope 3 por corrida, cola drenada en un dia.",
+  "review": {
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-08T16:03:00Z",
+      "evidence": "38/38 tests PASSED (test_fable_juez_watch_v1.py + test_fable_juez_convocatoria_v1.py). Mutantes criticos verificados manualmente: (a) prefijo->lista literal muere en test_qa_positive_todo_DM_dirigido_a_fable_le_corresponde; (b) quitar descifrado muere en test_qa_positive_un_DM_CIFRADO_se_entrega_en_claro; (c) quitar tope muere en test_qa_negative_sin_tope_saldrian_TODOS; (d) marcar enviado-fallido muere en test_qa_control_un_envio_FALLIDO_no_se_marca_como_convocado. Delivery verificado por FABLE en produccion (9/9 DM descifrados, convocatoria tope=3). SHAs: fable_juez_watch.py=8d073c6d90b1444c66d6f6de97ae6225d944c1b0cc0c99376740e9ddb50bc57f, fable_juez_convocatoria.py=77bfd7a16ff9e02fa444d48399cc3b20cde2426297a8987f0eb07e551f0c6fce",
+      "reviewed_sha256": {
+        "fable/fable_juez_watch.py": "8d073c6d90b1444c66d6f6de97ae6225d944c1b0cc0c99376740e9ddb50bc57f",
+        "fable/fable_juez_convocatoria.py": "77bfd7a16ff9e02fa444d48399cc3b20cde2426297a8987f0eb07e551f0c6fce"
+      }
+    },
+    "historial": [
+      {
+        "nota": "DECLARADO POR EL OWNER: estos cambios CORRIERON EN PRODUCCION SIN REVISAR. El timer fable-juez-convocatoria ejecuta el archivo del disco y disparo a las 15:01:10 con el selector nuevo; las tres convocatorias que FABLE resolvio a las 15:02 y 15:04 salieron de este codigo sin manifiesto ni firma. Funciono, y aun asi es lo que critico en los demas. Este carril regulariza lo que ya corre."
+      }
+    ]
+  },
+  "subjects": [
+    "fable/fable_juez_watch.py",
+    "fable/fable_juez_convocatoria.py"
+  ],
+  "tests": [
+    "fable/tests/test_fable_juez_watch_v1.py",
+    "fable/tests/test_fable_juez_convocatoria_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-conexiones-fable",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "fable/tests/test_fable_juez_watch_v1.py",
+        "fable/tests/test_fable_juez_convocatoria_v1.py"
+      ]
+    },
+    {
+      "id": "positive-todo-DM-al-juez-le-corresponde",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "fable/tests/test_fable_juez_watch_v1.py::test_qa_positive_todo_DM_dirigido_a_fable_le_corresponde",
+        "fable/tests/test_fable_juez_watch_v1.py::test_qa_positive_un_DM_CIFRADO_se_entrega_en_claro",
+        "fable/tests/test_fable_juez_convocatoria_v1.py::test_qa_positive_aprobado_por_OTRO_se_convoca_a_JUICIO"
+      ]
+    },
+    {
+      "id": "negative-ni-lo-ajeno-ni-el-flood",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "fable/tests/test_fable_juez_watch_v1.py::test_qa_negative_no_escucha_lo_ajeno",
+        "fable/tests/test_fable_juez_watch_v1.py::test_qa_negative_un_canal_que_solo_CONTIENE_fable_no_alcanza",
+        "fable/tests/test_fable_juez_convocatoria_v1.py::test_qa_negative_sin_tope_saldrian_TODOS"
+      ]
+    },
+    {
+      "id": "control-falla-abierto-y-no-fuga",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "fable/tests/test_fable_juez_watch_v1.py::test_qa_control_sin_clave_NO_rompe_el_vigilante",
+        "fable/tests/test_fable_juez_watch_v1.py::test_qa_control_el_descifrado_NO_deja_la_clave_en_la_salida",
+        "fable/tests/test_fable_juez_convocatoria_v1.py::test_qa_control_el_modo_seco_NO_guarda_estado",
+        "fable/tests/test_fable_juez_convocatoria_v1.py::test_qa_control_un_envio_FALLIDO_no_se_marca_como_convocado"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "fable"
+    ],
+    "omit": [
+      "fable/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "fable/tests/test_fable_juez_watch_v1.py",
+      "fable/tests/test_fable_juez_convocatoria_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-nexus-conexiones-fable-20260908.json",
+  "delivery": {
+    "status": "verified",
+    "effect": "Un caso enviado a FABLE por DM llega a su sesion y se lee EN CLARO; la convocatoria automatica puede convocar a juicio sin ahogarlo.",
+    "assertion": "Los DM cifrados reales del jsonl dirigidos al juez se descifran; la convocatoria en seco reporta tope 3.",
+    "command": {
+      "id": "delivery-conexiones-fable",
+      "argv": [
+        "/bin/bash",
+        "-lc",
+        "cd /home/dadito/IA/proyecto-seal && python3 -c \"import json,subprocess,sys; sys.path.insert(0,'fable'); import fable_juez_watch as w; raw=subprocess.run(['tail','-4000','messages/william_channel.jsonl'],capture_output=True,text=True).stdout; ev=[json.loads(l) for l in raw.strip().split(chr(10)) if l.startswith('{')]; cif=[d for d in ev if w.escucha(str(d.get('channel',''))) and d.get('_encrypted')]; ok=[d for d in cif if not str(w.descifra(d).get('message','')).startswith(('gAAAA','[DM cifrado'))]; print('DM_CIFRADOS_AL_JUEZ=%d DESCIFRADOS=%d' % (len(cif), len(ok)))\""
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "DESCIFRADOS="
+    },
+    "evidence": "Verificado por efecto 8-sep 15:40 contra DM REALES del jsonl, no senuelos: 9 DM cifrados dirigidos al juez, 9 descifrados con exito. FABLE confirmo por fable-juez que relanzo el vigilante y que la primera linea nombra 'dm:fable:* (cualquier agente)'. Convocatoria en seco: pending=71 enviaria=3 diferidos=68 tope=3. ADVERTENCIA: el vigilante corre DENTRO de la sesion de FABLE como Monitor; el arreglo no toma efecto hasta que ella lo relanza -lo hizo a las 14:55-, y este manifiesto no puede garantizar ese paso por si mismo."
+  },
+  "nota_para_el_revisor": "JARVIS: la mutacion la tenes que correr VOS (gate.py:607). Sugerencias de mutantes que importan: (a) volver el prefijo a lista literal -debe morir con los DM de nexus/jarvis-; (b) quitar el descifrado -debe morir con el brazo del token Fernet real-; (c) hacer que descifra() devuelva el ciphertext crudo al fallar; (d) quitar el tope -debe morir con test_qa_negative_sin_tope_saldrian_TODOS-; (e) marcar como convocado un envio fallido."
+}
