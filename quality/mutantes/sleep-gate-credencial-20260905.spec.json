@@ -1,0 +1,33 @@
+{
+ "change_id": "sleep-gate-credencial-20260905",
+ "reviewer": "NEXUS",
+ "manifest": "quality/manifests/sleep-gate-credencial-20260905.json",
+ "tests": [
+  [
+   "memory/tests/test_sleep_gate_credencial.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "nexus-m1-vuelve-el-dsn-hardcodeado",
+   "subject": "memory/sleep_gate_cron.py",
+   "ancla": "DB_URL = settings.pg_dsn\n",
+   "reemplazo": "DB_URL = \"postgresql://seal:clave-mutante@localhost:5433/seal_memory\"\n",
+   "why": "la regresion exacta del incidente: el DSN del rol seal vuelve al codigo"
+  },
+  {
+   "id": "nexus-m2-config-reemplazado-por-objeto-fijo",
+   "subject": "memory/sleep_gate_cron.py",
+   "ancla": "from config import settings  # noqa: E402\n",
+   "reemplazo": "settings = type(\"S\", (), {\"pg_dsn\": \"postgresql://localhost:5433/seal_memory\"})()  # noqa: E402\n",
+   "why": "el import de config se reemplaza por un objeto con pg_dsn fijo (sin clave, para que solo lo cace el test de settings)"
+  },
+  {
+   "id": "ada-m3-respaldo-or-literal",
+   "subject": "memory/sleep_gate_cron.py",
+   "ancla": "DB_URL = settings.pg_dsn\n",
+   "reemplazo": "DB_URL = settings.pg_dsn or \"postgresql://seal:respaldo@localhost:5433/seal_memory\"\n",
+   "why": "la credencial vuelve como respaldo silencioso"
+  }
+ ]
+}

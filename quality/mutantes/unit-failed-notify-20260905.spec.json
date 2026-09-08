@@ -1,0 +1,54 @@
+{
+ "change_id": "unit-failed-notify-20260905",
+ "reviewer": "JARVIS",
+ "manifest": "quality/manifests/unit-failed-notify-20260905.json",
+ "tests": [
+  [
+   "memory/tests/test_seal_unit_failed_notify.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "jarvis-m4b-clave-sin-corrida",
+   "subject": "tools/seal_unit_failed_notify.py",
+   "ancla": "\"--idempotency-key\", f\"unit_failed_{unidad}_{corrida}\"]",
+   "reemplazo": "\"--idempotency-key\", f\"unit_failed_{unidad}\"]",
+   "why": "clave fija por unidad: la segunda caida se deduplica y queda muda"
+  },
+  {
+   "id": "jarvis-m11-identificador-constante",
+   "subject": "tools/seal_unit_failed_notify.py",
+   "ancla": "    corrida = identificador_corrida(unidad)\n",
+   "reemplazo": "    corrida = \"constante\"\n",
+   "why": "identificador de corrida constante"
+  },
+  {
+   "id": "jarvis-m12-fallback-constante",
+   "subject": "tools/seal_unit_failed_notify.py",
+   "ancla": "    return f\"local-{time.time_ns()}\"\n",
+   "reemplazo": "    return \"local-fallback\"\n",
+   "why": "sin InvocationID la clave se congela"
+  },
+  {
+   "id": "jarvis-m13-fallback-vacio",
+   "subject": "tools/seal_unit_failed_notify.py",
+   "ancla": "    return f\"local-{time.time_ns()}\"\n",
+   "reemplazo": "    return \"\"\n",
+   "why": "fallback vacio: clave termina en _ y se repite"
+  },
+  {
+   "id": "ada-m14-destino-vacio-no-cae-al-equipo",
+   "subject": "tools/seal_unit_failed_notify.py",
+   "ancla": "    return os.environ.get(\"SEAL_UNIT_FAILED_TO\", \"\").strip() or \"equipo\"\n",
+   "reemplazo": "    return os.environ.get(\"SEAL_UNIT_FAILED_TO\", \"\").strip()\n",
+   "why": "un destino vacio manda a la cadena vacia"
+  },
+  {
+   "id": "ada-m15-el-detalle-propaga",
+   "subject": "tools/seal_unit_failed_notify.py",
+   "ancla": "    except Exception as exc:                      # el aviso NUNCA puede morir por esto\n        partes.append(f\"(no pude leer el estado: {type(exc).__name__})\")\n",
+   "reemplazo": "    except Exception as exc:                      # el aviso NUNCA puede morir por esto\n        raise\n",
+   "why": "systemctl caido tumba el aviso"
+  }
+ ]
+}
