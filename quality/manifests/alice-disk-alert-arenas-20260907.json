@@ -135,13 +135,13 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "evidence": "16 brazos verdes. EJERCI el arreglo con el typo EXACTO que causo su alerta falsa de las 18:38: SEAL_DISK_DRY_RUN=1 -> ERROR ruidoso, nombra la variable valida y NO publica; CONTROL SEAL_DISK_DRYRUN=1 -> corre normal. Riesgo obvio de una lista blanca -matar el servicio en produccion-: unidades que invocan seal_disk_alert = ninguna; variables SEAL_DISK_* en el entorno = 0. MUTACION corrida por mi: 5/5 muertos sobre estos bytes. En la primera pasada, con 15 brazos, M5 SOBREVIVIO -el mensaje CRITICO podia perder su umbral sin que ningun brazo se enterara: el existente solo ejercitaba la rama de AVISO-. Verifique que el mutante estuviera bien escrito ANTES de acusar al test (ancla unica, bash -n OK, salida visible distinta), ALICE agrego el brazo espejo y murio. El remedio de fondo es el correcto: morir ruidoso en vez de adivinar la intencion. Aceptar SEAL_DISK_DRY_RUN como sinonimo dejaria que el proximo typo publique de verdad. Y poner el umbral en el titulo convierte una afirmacion en una afirmacion CON SU PREMISA: con el umbral a la vista, su alerta falsa habria sido reconocible como prueba por quien la leyera, sin que ella tuviera que aclararlo despues.",
+      "evidence": "Entrega final de ALICE, revisada en COPIA AISLADA (/tmp/seal-arena-3YVifi0o, foto del indice via git write-tree) y NO en el arbol compartido: 17 brazos verdes en 0,21 s. VERIFICADO POR EFECTO que la suite ya no toca el estado del servicio: /tmp/seal_disk_alert_last ausente antes y ausente despues de correrla; el brazo inyecta SEAL_DISK_ESTADO a un tmp_path propio y el script lo respeta. MUTACION propia, 3 mutantes con sentido, los 3 MUERTOS: (M1) se quita un par del du sintetico -sin /opt- -> 1 failed; (M3) el script pierde el `sort -rh` -> 1 failed, o sea la asercion SI protege el orden decreciente y no solo la presencia; (M4) el script recorta a 3 entradas -sed 2,4p en vez de 2,5p- -> 1 failed. Control verde antes y despues de cada uno. DESCARTE un cuarto mutante por MAL ESPECIFICADO: reordenar las lineas del du sintetico NO cambia la salida, porque el script re-ordena con `sort -rh`. Sobrevivio y no probaba nada: el orden lo impone el script, no el dato de entrada. Antes de acusar al brazo mire si el mutante reproducia el defecto que decia reproducir. El requisito de ADA -cuatro pares tamano/directorio, en orden, dentro del bloque- queda cubierto: la asercion compara la lista COMPLETA y ORDENADA [(1200,/home),(800,/var),(650,/opt),(250,/usr)], no la presencia de cadenas sueltas. Efecto colateral medido en la suite completa: los 7 brazos que costaban ~10,5 s cada uno por el `du` sobre la raiz bajan a 0,21 s el archivo entero.",
       "reviewed_sha256": {
         "tools/seal_arena.sh": "4cad966a3300dc6ca67d71b97e0bd57d5cfffd098fcd239176f0008ca9b0d2c9",
-        "tools/seal_disk_alert.sh": "7cd34ca28b20fbbec8a91783c35c6241d713727c643d642af6e1b4a322b45ae5",
-        "tools/tests/test_seal_disk_alert_v1.py": "2e7f91368447221e5d99eea693cded7a486b593df7bcc6dfc0ade40a0584ddec"
+        "tools/seal_disk_alert.sh": "7395b755dfc71d2f828984fa75e964c07b7ac90ae8352cc2af6c7967ed0d29bd",
+        "tools/tests/test_seal_disk_alert_v1.py": "54964f7cb86290f5cd73c330306041ff1e3815823c969ac094add7ee59bee24f"
       },
-      "manifest_digest": "314770b979dcddf5a40d56fafab55f05288c4a51b729cd3fa5852312ac01403e"
+      "manifest_digest": "93615ad99b52a1aca48c19bc86e1949d7f8dad7136b18112c66b5264277a94db"
     }
   },
   "coverage": {
@@ -172,7 +172,7 @@
   "source_sha256": {
     "tools/seal_arena.sh": "4cad966a3300dc6ca67d71b97e0bd57d5cfffd098fcd239176f0008ca9b0d2c9",
     "tools/seal_disk_alert.sh": "7cd34ca28b20fbbec8a91783c35c6241d713727c643d642af6e1b4a322b45ae5",
-    "tools/tests/test_seal_disk_alert_v1.py": "2e7f91368447221e5d99eea693cded7a486b593df7bcc6dfc0ade40a0584ddec"
+    "tools/tests/test_seal_disk_alert_v1.py": "54964f7cb86290f5cd73c330306041ff1e3815823c969ac094add7ee59bee24f"
   },
   "implementation_head": "f6585b23feea25815e9606a3ff005458d74e56e8",
   "delivery": {

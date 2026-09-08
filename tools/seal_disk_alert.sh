@@ -17,14 +17,16 @@ set -uo pipefail
 
 LIBRE_AVISO_GB="${SEAL_DISK_WARN_GB:-100}"   # avisar por debajo de esto
 LIBRE_CRITICO_GB="${SEAL_DISK_CRIT_GB:-20}"  # gritar por debajo de esto
-ESTADO=/tmp/seal_disk_alert_last
+# SEAL_DISK_ESTADO permite a los tests apuntar a una ruta privada sin tocar el
+# archivo productivo; el default sigue siendo el mismo para el servicio real.
+ESTADO="${SEAL_DISK_ESTADO:-/tmp/seal_disk_alert_last}"
 
 # Falla RUIDOSA ante una variable SEAL_DISK_* que no existe. Lo genero un error mio el
 # 7-sep 18:38: escribi SEAL_DISK_DRY_RUN=1 (la buena es SEAL_DISK_DRYRUN) y el "modo
 # prueba" no existio por un guion bajo, asi que publique una alerta falsa al canal del
 # equipo. Un interruptor de seguridad que se apaga solo por escribir mal su nombre no es
 # un interruptor: es una trampa. Mejor morir aca que publicar creyendo que no se publica.
-CONOCIDAS="SEAL_DISK_WARN_GB SEAL_DISK_CRIT_GB SEAL_DISK_DRYRUN"
+CONOCIDAS="SEAL_DISK_WARN_GB SEAL_DISK_CRIT_GB SEAL_DISK_DRYRUN SEAL_DISK_ESTADO"
 for v in $(env | sed -n 's/^\(SEAL_DISK_[A-Z_]*\)=.*/\1/p'); do
   case " $CONOCIDAS " in
     *" $v "*) : ;;

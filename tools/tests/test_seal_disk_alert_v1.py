@@ -16,7 +16,6 @@ import pytest
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 ALERTA = RAIZ / "tools" / "seal_disk_alert.sh"
 ARENA = RAIZ / "tools" / "seal_arena.sh"
-ESTADO = pathlib.Path("/tmp/seal_disk_alert_last")
 
 
 def corre(script, *args, **env):
@@ -27,11 +26,11 @@ def corre(script, *args, **env):
 
 @pytest.fixture(autouse=True)
 def _fake_disk_commands(tmp_path, monkeypatch):
-    """Reemplaza df y du con versiones sinteticas para evitar lecturas reales del disco.
+    """Reemplaza df y du con sinteticos y aísla el estado por test sin tocar el servicio.
 
-    Sin esto, tests que disparan nivel=aviso/critico ejecutan 'du -xh --max-depth=1 /'
-    (seal_disk_alert.sh:54) que puede tardar minutos en un disco de 4 TB y colgar
-    la suite global.  Los datos sinteticos: 500 GB libres, 30% uso.
+    SEAL_DISK_ESTADO apunta a una ruta privada en tmp_path — el archivo productivo
+    /tmp/seal_disk_alert_last nunca se toca. Los datos sinteticos: 500 GB libres,
+    30% uso, 4 directorios (para el bloque 'Lo que mas pesa').
     """
     bindir = tmp_path / "fakebin"
     bindir.mkdir()
@@ -62,24 +61,10 @@ printf '250G\\t/usr\\n'
     du_script.chmod(0o755)
 
     monkeypatch.setenv("PATH", f"{bindir}:{os.environ.get('PATH', '/usr/bin:/bin')}")
+    # Ruta de estado privada por test: nunca toca /tmp/seal_disk_alert_last del servicio
+    monkeypatch.setenv("SEAL_DISK_ESTADO", str(tmp_path / "seal_disk_alert_last"))
 
 
-@pytest.fixture(autouse=True)
-def _sin_estado_previo(tmp_path):
-    """Preserva el estado real del servicio: lo mueve antes del test y lo repone al final.
-
-    Borrar directamente ESTADO puede confundir al servicio productivo que corre en paralelo:
-    en su proximo ciclo creyera que el nivel cambio y dispararia una alerta duplicada.
-    Save/restore elimina esa interferencia.
-    """
-    backup = tmp_path / "estado_real_backup"
-    if ESTADO.exists():
-        backup.write_bytes(ESTADO.read_bytes())
-        ESTADO.unlink()
-    yield
-    ESTADO.unlink(missing_ok=True)
-    if backup.exists():
-        ESTADO.write_bytes(backup.read_bytes())
 
 
 # ── qa_positive ────────────────────────────────────────────────────────────
@@ -105,18 +90,19 @@ def test_qa_positive_los_campos_en_su_lugar():
 
 
 def test_qa_positive_lo_que_mas_pesa_tiene_entradas():
-    """El bloque 'Lo que mas pesa' debe listar directorios del du sintetico.
+    """El bloque 'Lo que mas pesa' lista las 4 entradas del du sintetico en orden descendente.
 
     ADA (7-sep): los datos sinteticos se generan pero no se afirman. Este brazo
-    verifica que el du sintetico (4 entradas: /home /var /opt /usr) llega al
-    mensaje y tiene el formato esperado.
+    verifica que las 4 entradas (1200G /home, 800G /var, 650G /opt, 250G /usr) lleguen
+    al mensaje, en orden decreciente de tamano, como las genera sort -rh | sed -n '2,5p'.
     """
     import re
     r = corre(ALERTA, SEAL_DISK_WARN_GB="999999")
     assert "Lo que mas pesa" in r.stdout, r.stdout[:300]
-    # Los 4 dirs sinteticos: 1200G /home, 800G /var, 650G /opt, 250G /usr
-    assert re.search(r"\d+G\s+/\S+", r.stdout), (
-        "no hay entradas de directorio en el bloque Lo que mas pesa:\n" + r.stdout[:400]
+    entries = re.findall(r"(\d+)G\s+(/\S+)", r.stdout)
+    assert entries == [("1200", "/home"), ("800", "/var"), ("650", "/opt"), ("250", "/usr")], (
+        f"pares tamano/directorio incorrectos o en orden incorrecto: {entries}\n"
+        + r.stdout[:400]
     )
 
 
