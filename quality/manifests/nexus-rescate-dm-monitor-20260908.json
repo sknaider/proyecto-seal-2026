@@ -1,0 +1,133 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-rescate-dm-monitor-20260908",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "_por_que": "messages/seal_dm_monitor.sh se perdio con el borrado del 7-sep y estuvo un dia entero corriendo SOLO desde memoria: tres servicios vivos (seal-dm-monitor@ de JARVIS, FABLE y NEXUS) ejecutando un archivo que no existia en disco, ni en HEAD, ni en ningun commit del historial, ni en el respaldo de spark-2. Funcionaban, y morian en el proximo reinicio. Recuperado el 8-sep de /proc/365238/fd/255 -bash mantiene abierto el descriptor del script que ejecuta- y verificado identico byte a byte al proceso vivo ANTES de reponerlo. Entra a git con cobertura, no a secas.",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "messages/seal_dm_monitor.sh": "3107a60e625aa948af981ee6bd45536dc2e33530ad97c1ec4ca5b4944b5fd8e8",
+      "messages/tests/test_nexus_seal_dm_monitor_v1.py": "dcadc09eef13201c4c35988c9bc213d0e13f256cfc23837164727d3510dd23a8"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-08T22:30:00Z",
+      "evidence": "9/9 tests PASSED (baseline independiente). Mutantes: M1 KILLED (test_qa_control_el_primer_arranque_NO_repite_la_historia), M2 KILLED (test_lo_ya_entregado_no_se_repite), M3 KILLED (test_si_el_inbox_SE_ACHICA_el_cursor_se_reinicia), M4 EQUIVALENTE aceptado (LAST=0 vs LAST=999999, la guarda de rotacion en la linea siguiente los iguala — razonamiento de NEXUS verificado y correcto), M5 KILLED (5 fallos). 4/4 runnable KILLED, 1 equivalente declarado. mutation_baseline_percent=80 correcto. SHAs verificados en disco.",
+      "reviewed_sha256": {
+        "messages/seal_dm_monitor.sh": "3107a60e625aa948af981ee6bd45536dc2e33530ad97c1ec4ca5b4944b5fd8e8",
+        "messages/tests/test_nexus_seal_dm_monitor_v1.py": "dcadc09eef13201c4c35988c9bc213d0e13f256cfc23837164727d3510dd23a8"
+      },
+      "manifest_digest": "eecfed1a818ac971d9e21af325c675b638e2c72e71d7ae41e8fcae882d2d1858"
+    }
+  },
+  "subjects": [
+    "messages/seal_dm_monitor.sh"
+  ],
+  "tests": [
+    "messages/tests/test_nexus_seal_dm_monitor_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-dm-monitor",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_nexus_seal_dm_monitor_v1.py"
+      ]
+    },
+    {
+      "id": "qa_positive-entrega-lo-nuevo",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_seal_dm_monitor_v1.py",
+        "-k",
+        "qa_positive or NUEVA or ACHICA"
+      ]
+    },
+    {
+      "id": "qa_negative-sin-agente-falla",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_seal_dm_monitor_v1.py",
+        "-k",
+        "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-no-repite-ni-calla",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_seal_dm_monitor_v1.py",
+        "-k",
+        "qa_control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages"
+    ],
+    "omit": [
+      "messages/tests/*",
+      "messages/test_*"
+    ],
+    "pytest_args": [
+      "-q",
+      "messages/tests/test_nexus_seal_dm_monitor_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 80.0,
+  "mutation_evidence": "quality/mutation-nexus-rescate-dm-monitor-20260908.json",
+  "mutation_spec": "quality/mutantes/nexus-rescate-dm-monitor-20260908.spec.json",
+  "_por_que_el_piso_es_80_y_no_100": "M4 es EQUIVALENTE, no un hueco de cobertura. Con el cursor ilegible el codigo pone LAST=0; el mutante pone LAST=999999. Pero la linea siguiente -la guarda de rotacion, `TOTAL -lt LAST`- lo devuelve a 0 igual, asi que el resultado observable es el mismo para cualquier inbox de menos de un millon de lineas. NO se agrego un test artificial para matarlo: seria un test que solo existe para subir un numero. **Y deja una leccion: mi brazo del cursor corrupto pasa por la guarda de ROTACION, no por la del cursor.** Dos guardas independientes dan el mismo resultado y por eso el test no las distingue.",
+  "delivery": {
+    "status": "verified",
+    "effect": "El monitor entrega solo los DM nuevos, no repite los ya entregados, no vuelca la historia en el primer arranque y se recupera si el inbox rota.",
+    "assertion": "Con inbox de 3 lineas el primer arranque no entrega nada y deja el cursor en 3; una linea nueva se entrega una sola vez; tras truncar el inbox vuelve a entregar.",
+    "evidence": "9/9 brazos PASSED corridos por el revisor independiente (JARVIS). Baseline independiente: 9 passed in 0.13s. Cada brazo ejecuta el script real por subproceso con un inbox sintetico bajo /tmp.",
+    "command": {
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_seal_dm_monitor_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "9 passed"
+    }
+  },
+  "nota_para_el_revisor": {
+    "sha_sujeto": "3107a60e625aa948af981ee6bd45536dc2e33530ad97c1ec4ca5b4944b5fd8e8",
+    "sha_test": "dcadc09eef13201c4c35988c9bc213d0e13f256cfc23837164727d3510dd23a8",
+    "como_se_prueba": "Los brazos de comportamiento corren sobre una COPIA con las rutas cableadas reapuntadas al tmp del test y el bucle infinito acotado a una pasada. Eso prueba la LOGICA, no las rutas; las rutas las cubre test_las_rutas_reales_son_las_que_esperan_las_unidades leyendo el archivo real.",
+    "mutacion_del_owner": "control 9 verdes; 4/5 MUERTOS y M4 declarado equivalente con su razon. La que vale es la tuya."
+  }
+}

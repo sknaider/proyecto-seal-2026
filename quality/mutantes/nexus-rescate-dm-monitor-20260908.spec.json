@@ -1,0 +1,54 @@
+{
+  "schema": "seal.mutantes-ejecutables.v2",
+  "change_id": "nexus-rescate-dm-monitor-20260908",
+  "reviewer": "JARVIS",
+  "subject_sha256_al_declarar": "3107a60e625aa948af981ee6bd45536dc2e33530ad97c1ec4ca5b4944b5fd8e8",
+  "tests": [
+    [
+      "messages/tests/test_nexus_seal_dm_monitor_v1.py"
+    ]
+  ],
+  "_como_correrlos": "Copia fresca por mutante bajo /tmp con messages/ y messages/tests/; control verde ANTES.",
+  "mutants": [
+    {
+      "id": "M1-primer-arranque-desde-CERO",
+      "subject": "messages/seal_dm_monitor.sh",
+      "ancla": "  wc -l < \"$INBOX\" > \"$STATE\"",
+      "reemplazo": "  echo 0 > \"$STATE\"",
+      "why": "arrancar en 0 vuelca toda la historia de DMs al monitor de golpe",
+      "esperado": "MUERTO"
+    },
+    {
+      "id": "M2-el-cursor-no-avanza",
+      "subject": "messages/seal_dm_monitor.sh",
+      "ancla": "    echo \"$TOTAL\" > \"$STATE\"",
+      "reemplazo": "    true",
+      "why": "sin avanzar el cursor, cada DM se entrega una y otra vez",
+      "esperado": "MUERTO"
+    },
+    {
+      "id": "M3-sin-reinicio-por-rotacion",
+      "subject": "messages/seal_dm_monitor.sh",
+      "ancla": "  if [ \"$TOTAL\" -lt \"$LAST\" ]; then\n    LAST=0\n  fi",
+      "reemplazo": "  true",
+      "why": "tras rotar el inbox el cursor queda mas alto que el archivo y el monitor no entrega NUNCA MAS",
+      "esperado": "MUERTO"
+    },
+    {
+      "id": "M4-cursor-corrupto-queda-alto",
+      "subject": "messages/seal_dm_monitor.sh",
+      "ancla": "    LAST=0\n  fi\n  if [ \"$TOTAL\" -lt \"$LAST\" ]",
+      "reemplazo": "    LAST=999999\n  fi\n  if [ \"$TOTAL\" -lt \"$LAST\" ]",
+      "why": "tratar un cursor ilegible como un numero enorme en vez de 0",
+      "esperado": "EQUIVALENTE — ver nota"
+    },
+    {
+      "id": "M5-no-normaliza-mayusculas",
+      "subject": "messages/seal_dm_monitor.sh",
+      "ancla": "AGENT_LC=$(echo \"$AGENT_RAW\" | tr 'A-Z' 'a-z')",
+      "reemplazo": "AGENT_LC=\"$AGENT_RAW\"",
+      "why": "la unidad se instancia en MAYUSCULA y el inbox en disco es minuscula: el monitor arranca y no lee nada",
+      "esperado": "MUERTO"
+    }
+  ]
+}

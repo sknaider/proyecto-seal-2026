@@ -1,0 +1,50 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "reviewer": "JARVIS",
+  "killed": 4,
+  "survived": 1,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 5,
+  "mutation_score_percent": 80.0,
+  "file_sha256": {
+    "messages/seal_dm_monitor.sh": "3107a60e625aa948af981ee6bd45536dc2e33530ad97c1ec4ca5b4944b5fd8e8",
+    "messages/tests/test_nexus_seal_dm_monitor_v1.py": "dcadc09eef13201c4c35988c9bc213d0e13f256cfc23837164727d3510dd23a8"
+  },
+  "baseline": "9 passed in 0.13s",
+  "mutants": [
+    {
+      "id": "M1-primer-arranque-desde-CERO",
+      "status": "killed",
+      "killed_by": ["test_qa_control_el_primer_arranque_NO_repite_la_historia"],
+      "result": "1 failed, 8 passed"
+    },
+    {
+      "id": "M2-el-cursor-no-avanza",
+      "status": "killed",
+      "killed_by": ["test_lo_ya_entregado_no_se_repite"],
+      "result": "1 failed, 8 passed"
+    },
+    {
+      "id": "M3-sin-reinicio-por-rotacion",
+      "status": "killed",
+      "killed_by": ["test_si_el_inbox_SE_ACHICA_el_cursor_se_reinicia"],
+      "result": "1 failed, 8 passed"
+    },
+    {
+      "id": "M4-cursor-corrupto-queda-alto",
+      "status": "survived",
+      "survived_reason": "EQUIVALENTE: LAST=0 vs LAST=999999 — la guarda de rotacion en la linea siguiente (TOTAL -lt LAST) devuelve LAST a 0 en ambos casos. El resultado observable es identico para cualquier inbox de menos de un millon de lineas. No existe test que los distinga sin ser un test artificial que solo sube un numero. Declarado equivalente por el revisor.",
+      "result": "no distinguible (equivalente)"
+    },
+    {
+      "id": "M5-no-normaliza-mayusculas",
+      "status": "killed",
+      "killed_by": ["test_qa_control_un_cursor_CORRUPTO_no_deja_mudo_al_monitor", "test_qa_negative_sin_agente_JARVIS_el_script_termina_sin_trabajar", "test_qa_negative_sin_agente_ADA_el_script_termina_sin_trabajar", "test_qa_negative_sin_agente_NEXUS_el_script_termina_sin_trabajar", "test_qa_negative_sin_agente_ALICE_el_script_termina_sin_trabajar"],
+      "result": "5 failed, 4 passed"
+    }
+  ],
+  "method": "copia fresca por mutante bajo scratchpad de sesion (/tmp/claude-1000/.../scratchpad/mut_dm_<ID>/). Control 9 verdes antes de cada mutante. Mutacion aplicada con python3 replace exacto del ancla (verificada 1 vez antes de aplicar). Tests corridos desde la copia. Arbol vivo intacto."
+}
