@@ -15,8 +15,10 @@
         "fable/fable_juez_watch.py": "8d073c6d90b1444c66d6f6de97ae6225d944c1b0cc0c99376740e9ddb50bc57f",
         "fable/fable_juez_convocatoria.py": "77bfd7a16ff9e02fa444d48399cc3b20cde2426297a8987f0eb07e551f0c6fce",
         "fable/tests/test_fable_juez_watch_v1.py": "5bd3a12062ae6097faaad5d5b5c2086a91ca860d4680349f2020fc02b2560c47",
-        "fable/tests/test_fable_juez_convocatoria_v1.py": "dcd05c7cbae48990b7d22a02aafabb6431c00034269141e87fc5d40a657608e0"
+        "fable/tests/test_fable_juez_convocatoria_v1.py": "f9747c62100d2b853ae0670bff78f646a99c0878d0118842fbba79a35c807a43"
       },
+      "signed_at_re_firma": "2026-09-08T17:00:00Z",
+      "re_firma_razon": "NEXUS agrego 2 tests para MD y ME (8-sep). SHA de test_fable_juez_convocatoria_v1.py: dcd05c7c->f9747c62. JARVIS re-corrio mutantes: 5/5 killed, 100%. Sujetos sin cambio.",
       "manifest_digest": "a2982f52fd59d276a4d960f8d194fcba94018f51a6dd4294d6f3ea9e65948380"
     },
     "historial": [

@@ -1,0 +1,68 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "nexus-conexiones-fable-20260908",
+  "reviewer": "JARVIS",
+  "corrida_fecha": "2026-09-08T17:30:00Z",
+  "file_sha256": {
+    "fable/fable_juez_watch.py": "8d073c6d90b1444c66d6f6de97ae6225d944c1b0cc0c99376740e9ddb50bc57f",
+    "fable/fable_juez_convocatoria.py": "77bfd7a16ff9e02fa444d48399cc3b20cde2426297a8987f0eb07e551f0c6fce",
+    "fable/tests/test_fable_juez_watch_v1.py": "5bd3a12062ae6097faaad5d5b5c2086a91ca860d4680349f2020fc02b2560c47",
+    "fable/tests/test_fable_juez_convocatoria_v1.py": "f9747c62100d2b853ae0670bff78f646a99c0878d0118842fbba79a35c807a43"
+  },
+  "killed": 5,
+  "survived": 0,
+  "total": 5,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "40 passed in 0.04s",
+    "_nota_re_corrida": "Re-corrida 8-sep-2026 por JARVIS tras agregar MD/ME tests (NEXUS). SHA convocatoria_v1.py: dcd05c7c->f9747c62; 40 passed (era 38 antes de los 2 nuevos tests)."
+  },
+  "mutantes": [
+    {
+      "id": "MA-prefijo-a-lista-literal",
+      "descripcion": "escucha() usa lista literal {fable-juez, dm:fable:william} en vez de startswith(PREFIJO_DM)",
+      "resultado": "KILLED",
+      "killed_by": "test_qa_positive_un_agente_NUEVO_no_necesita_tocar_el_codigo, test_qa_positive_no_distingue_mayusculas, test_el_caso_real_del_8_sep_ahora_pasa (9 failed total)"
+    },
+    {
+      "id": "MB-sin-descifrado",
+      "descripcion": "descifra() devuelve el evento sin cambio (return evento)",
+      "resultado": "KILLED",
+      "killed_by": "test_qa_positive_un_DM_CIFRADO_se_entrega_en_claro, test_qa_control_sin_clave_NO_rompe_el_vigilante, test_qa_control_el_descifrado_NO_deja_la_clave_en_la_salida (4 failed total)"
+    },
+    {
+      "id": "MC-ciphertext-crudo-al-fallar",
+      "descripcion": "descifra() deja el ciphertext crudo en vez de '[DM cifrado — la clave no coincide]'",
+      "resultado": "KILLED",
+      "killed_by": "test_qa_control_con_la_clave_EQUIVOCADA_lo_dice (1 failed)"
+    },
+    {
+      "id": "MD-sin-tope-constante",
+      "descripcion": "MAX_POR_CORRIDA = None en vez de 3 (constante del módulo)",
+      "ancla": "MAX_POR_CORRIDA = 3",
+      "reemplazo": "MAX_POR_CORRIDA = None",
+      "resultado": "KILLED",
+      "rc": 1,
+      "killed_by": ["fable/tests/test_fable_juez_convocatoria_v1.py::test_el_TOPE_POR_DEFECTO_del_modulo_se_aplica_sin_pasarlo"],
+      "pytest_tail": "1 failed, 39 passed in 0.04s",
+      "_nota_re_corrida": "NEXUS agrego test_el_TOPE_POR_DEFECTO_del_modulo_se_aplica_sin_pasarlo (8-sep). Re-corrido por JARVIS: 1 failed. Ancla correcta: la constante del modulo, no la condicion de save_state. El test llama run() SIN max_por_corrida y verifica que se apliquen exactamente 3."
+    },
+    {
+      "id": "ME-guarda-envio-fallido",
+      "descripcion": "El estado del caso se guarda aunque el sender devuelva False",
+      "ancla": "        if sender(c, dry_run):\n            sent.append(c[\"path\"])\n            if not dry_run:\n                state[c[\"path\"]] = c[\"sha256\"]\n    if not dry_run and sent:",
+      "reemplazo": "        if sender(c, dry_run):\n            sent.append(c[\"path\"])\n        if not dry_run:\n            state[c[\"path\"]] = c[\"sha256\"]\n    if not dry_run and sent:",
+      "resultado": "KILLED",
+      "rc": 1,
+      "killed_by": ["fable/tests/test_fable_juez_convocatoria_v1.py::test_un_envio_FALLIDO_no_se_marca_ni_cuando_OTROS_salen_bien"],
+      "pytest_tail": "1 failed, 39 passed in 0.04s",
+      "_nota_re_corrida": "NEXUS agrego test_un_envio_FALLIDO_no_se_marca_ni_cuando_OTROS_salen_bien (8-sep). La mutacion correcta de-indenta la actualizacion del estado fuera del bloque 'if sender': el caso fallido queda marcado aunque el sender devuelva False. El sender MIXTO (primero falla, los otros salen) hace que el estado se escriba —sent no vacio— y el assert detecta que el fallido se colo. La version anterior de JARVIS habia mutado 'if not dry_run and sent' en lugar del bloque correcto y no mataba nada."
+    }
+  ],
+  "_nota": "JARVIS como revisor independiente. Re-corrida completa 8-sep-2026 tras los dos tests nuevos de NEXUS (MD y ME). 5/5 muertos, 100%. La nota de la primera corrida queda en el historial: el carril tenia gap real en D y E, NEXUS los cerro con tests especificos, JARVIS los verifico corriendo las mutaciones correctas."
+}

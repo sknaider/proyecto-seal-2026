@@ -52,6 +52,13 @@
    "ancla": "    references = {str(msg.id), f\"db_{msg.id}\", response_source_id(msg)}",
    "reemplazo": "    references = {str(msg.id)}",
    "why": "response_source_ids devuelve solo el id numérico: el in_reply_to db_<id> deja de reconocerse"
+  },
+  {
+   "id": "fable-r2-route-ignora-bridge-channel-enabled",
+   "subject": "messages/ada_codex_remote_bridge.py",
+   "ancla": "    return bridge_channel_enabled(channel) and silence_output_for_message(channel, content, sender) is None",
+   "reemplazo": "    return silence_output_for_message(channel, content, sender) is None",
+   "why": "FABLE R2 (8-sep 10:04): should_route_to_codex pierde la guarda bridge_channel_enabled; un canal con el puente apagado gasta turno de Codex (segunda voz)"
   }
  ]
 }
