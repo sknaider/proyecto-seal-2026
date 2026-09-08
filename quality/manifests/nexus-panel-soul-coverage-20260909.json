@@ -1,0 +1,122 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-panel-soul-coverage-20260909",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "_por_que": "Dos huecos hallados MUTANDO el carril studio-panel-soul-20260908 (ya cerrado STATIC_OK, commit 01ec48c). ALICE habia declarado 'sin mutacion exigida, componente presentacional puro'; se muto igual por eso mismo.\nP5 (lo que este carril ARREGLA): el test importa next.config.ts y SI observa el destino del proxy -mutar 127.0.0.1:8093 a 0.0.0.0 mata 2 brazos-, pero ese archivo NO era sujeto de ningun manifiesto: el gate no exigia re-revision cuando cambiara. No era hueco de cobertura sino de ALCANCE. Se agrega a subjects.\nP3 (lo que este carril NO arregla y declara): ver `deuda_declarada`.",
+  "deuda_declarada": {
+    "id": "P3-el-componente-no-consulta-la-autorizacion",
+    "declaracion": "El filtro `canOpenPanelSoul(role)` en PanelSoulLink.tsx es una guarda COSMETICA de UX. La autorizacion real la ejerce el servidor en 127.0.0.1:8093 de forma independiente. P3 queda como deuda tecnica nombrada: NINGUN test verifica que el componente use el filtro en lugar de renderizar siempre -se requiere un runner con soporte JSX para cubrirlo-.",
+    "medido": "Borrar `if (!canOpenPanelSoul(role)) return null;` del componente deja los 4 brazos VERDES. Verificado por NEXUS el 8-sep contra el codigo commiteado.",
+    "por_que_no_se_arregla_aqui": "El runner del frontend es `node --experimental-strip-types --test`: hace type stripping de .ts pero NO transforma JSX, y falla con ERR_UNKNOWN_FILE_EXTENSION en .tsx. No hay vitest, jest ni testing-library instalados. Cubrirlo exige una dependencia nueva; decision de JARVIS (12:36): no se introduce por un test cosmetico. Se descarto tambien un brazo que afirmara sobre el TEXTO del .tsx: seria un brazo de PRESENCIA, daria verde sin observar conducta.",
+    "limite_de_honestidad": "La autorizacion del servidor NO esta verificada en este carril: se declara como arquitectura asumida, no como algo probado (precision de ADA, 12:31). Lo medido es perdida de cobertura del filtro visual, NO acceso indebido al backend.",
+    "para_cerrarla": "un runner con soporte JSX + un brazo que renderice con role='user' y espere null"
+  },
+  "review": {
+    "status": "approved",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-08T20:00:00Z",
+      "evidence": "Corrida independiente de 5 mutantes en copias aisladas bajo /tmp (sin acceso al repo en curso). Control: 4/4 passed. P3 SOBREVIVE (4/4 green) — deuda declarada confirmada: el componente no consulta la guarda visual. P1 MUERTO (3 failed): helper return true. P2 MUERTO (3 failed): sin toLowerCase. P4 MUERTO (3 failed): startsWith. P5 MUERTO (2 failed): proxy 0.0.0.0. Score: 4/5 = 80.0% — coincide con mutation_baseline_percent declarado. Deuda P3 declarada honestamente en el manifiesto: el runner node no puede transformar JSX y cubrirla exige una dependencia nueva; decision de JARVIS. next.config.ts figura como sujeto y el brazo control lo observa (P5 lo prueba).",
+      "reviewed_sha256": {
+        "seal-studio/frontend/src/app/v2/PanelSoulLink.tsx": "070906f8d3ff083dae0600ae7d9cc7b6d9340cde6a67bc69d11e3e24d1c953cf",
+        "seal-studio/frontend/src/lib/panelSoul.ts": "2fcb922f1eef5478bb64371554ca32b6314c7748e7a1db72582a295d6e0684ee",
+        "seal-studio/frontend/next.config.ts": "c407881f2a47f97cff2c462239d805179bcd7726775d115ff5b28b8660812321",
+        "seal-studio/frontend/tests/test_panel_soul_py.py": "4e1ff10c2085dd4a07b506ab6cff18b2d5570285a6dc963fdb5f883d9594ad8e"
+      },
+      "manifest_digest": "a5c79f1cd14393ef703dfbb57662566d895507bb69cc0b1a6315aa2735828990"
+    }
+  },
+  "subjects": [
+    "seal-studio/frontend/src/app/v2/PanelSoulLink.tsx",
+    "seal-studio/frontend/src/lib/panelSoul.ts",
+    "seal-studio/frontend/next.config.ts"
+  ],
+  "tests": [
+    "seal-studio/frontend/tests/test_panel_soul_py.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-panel-soul",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_panel_soul_py.py"
+      ]
+    },
+    {
+      "id": "positive-solo-admin-y-superuser",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_panel_soul_py.py::test_qa_positive_solo_admin_y_superuser_ven_el_link"
+      ]
+    },
+    {
+      "id": "negative-usuario-comun-no-ve-el-link",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_panel_soul_py.py::test_qa_negative_usuario_comun_no_ve_el_link"
+      ]
+    },
+    {
+      "id": "control-proxy-solo-al-loopback",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "seal-studio/frontend/tests/test_panel_soul_py.py::test_qa_control_proxy_apunta_solo_al_loopback_8093"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "seal-studio/frontend/src"
+    ],
+    "omit": [
+      "seal-studio/frontend/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "seal-studio/frontend/tests/test_panel_soul_py.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 80.0,
+  "mutation_evidence": "quality/mutation-nexus-panel-soul-coverage-20260909.json",
+  "delivery": {
+    "status": "verified",
+    "effect": "Cambiar el destino del proxy de PanelSoul deja de pasar el gate sin re-revision.",
+    "assertion": "next.config.ts figura entre los subjects y el brazo de control lo observa.",
+    "command": {
+      "id": "delivery-next-config-es-sujeto",
+      "argv": [
+        "/bin/bash",
+        "-lc",
+        "cd /home/dadito/IA/proyecto-seal && python3 -c \"import json;d=json.load(open('quality/manifests/nexus-panel-soul-coverage-20260909.json'));print('NEXT_CONFIG_ES_SUJETO=%s' % any('next.config' in s for s in d['subjects']))\""
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "NEXT_CONFIG_ES_SUJETO=True"
+    },
+    "evidence": "Verificado por efecto: el archivo figura en subjects. Antes de este carril no lo estaba en NINGUN manifiesto, pese a que tests/panelSoul.test.mjs afirma sobre sus rewrites. Mutar 127.0.0.1:8093 -> 0.0.0.0:8093 pone 2 brazos en rojo (corrida de NEXUS, 8-sep)."
+  },
+  "nota_para_el_revisor": "ALICE: la mutacion la corro NO yo -ya la hice como hallazgo y no puedo ser revisor independiente de mi propio hallazgo (JARVIS, 12:36)-. La spec ejecutable con los 5 mutantes esta en quality/mutantes/nexus-panel-soul-coverage-20260909.spec.json.\nOJO CON EL CONTROL: la copia aislada necesita CINCO archivos o sale ROJO y la corrida no vale: panelSoul.ts, PanelSoulLink.tsx, test_panel_soul_py.py, panelSoul.test.mjs Y next.config.ts (el .mjs lo importa). Me costo tres diagnosticos.\nEl baseline es 80% a proposito: P3 SOBREVIVE y esta declarado como deuda, no escondido. Si alguien lo sube a 100 sin agregar el runner JSX, esta tapando el hueco."
+}

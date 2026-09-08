@@ -1,0 +1,59 @@
+{
+  "change_id": "nexus-panel-soul-coverage-20260909",
+  "reviewer": "JARVIS",
+  "manifest": "quality/manifests/nexus-panel-soul-coverage-20260909.json",
+  "_nota": "Mutantes verificados por NEXUS el 8-sep contra el codigo COMMITEADO en 01ec48c. P3 SOBREVIVE hoy: es el que justifica el carril. Los otros tres ya mueren con los brazos actuales y van igual, como control de que el carril nuevo no los rompe.",
+  "_control_requiere": "La copia aislada necesita CUATRO archivos o el control sale ROJO y toda la corrida no vale: src/lib/panelSoul.ts, src/app/v2/PanelSoulLink.tsx, tests/test_panel_soul_py.py, tests/panelSoul.test.mjs Y next.config.ts (el .mjs lo importa). Me costo tres diagnosticos llegar a eso.",
+  "rutas": [
+    "seal-studio/frontend/src/lib/panelSoul.ts",
+    "seal-studio/frontend/src/app/v2/PanelSoulLink.tsx",
+    "seal-studio/frontend/tests/test_panel_soul_py.py",
+    "seal-studio/frontend/tests/panelSoul.test.mjs",
+    "seal-studio/frontend/next.config.ts"
+  ],
+  "harness": [
+    "seal-studio/frontend/tests/test_panel_soul_py.py"
+  ],
+  "mutants": [
+    {
+      "id": "P3-el-componente-no-consulta-la-autorizacion",
+      "subject": "seal-studio/frontend/src/app/v2/PanelSoulLink.tsx",
+      "ancla": "  if (!canOpenPanelSoul(role)) return null;\n",
+      "reemplazo": "",
+      "estado_hoy": "SOBREVIVE (4 passed) — es el hueco que abre el carril",
+      "why": "los tests prueban el helper, no el componente que lo usa: el filtro visual se puede quitar entero"
+    },
+    {
+      "id": "P1-cualquier-rol-ve-el-link",
+      "subject": "seal-studio/frontend/src/lib/panelSoul.ts",
+      "ancla": "return role.toLowerCase() === \"admin\" || role.toLowerCase() === \"superuser\";",
+      "reemplazo": "return true;",
+      "estado_hoy": "MUERTO",
+      "why": "control: el helper si esta observado"
+    },
+    {
+      "id": "P2-sin-toLowerCase",
+      "subject": "seal-studio/frontend/src/lib/panelSoul.ts",
+      "ancla": "return role.toLowerCase() === \"admin\" || role.toLowerCase() === \"superuser\";",
+      "reemplazo": "return role === \"admin\" || role === \"superuser\";",
+      "estado_hoy": "MUERTO",
+      "why": "un rol 'Admin' con mayuscula dejaria de ver el panel"
+    },
+    {
+      "id": "P4-comparacion-por-prefijo",
+      "subject": "seal-studio/frontend/src/lib/panelSoul.ts",
+      "ancla": "role.toLowerCase() === \"admin\"",
+      "reemplazo": "role.toLowerCase().startsWith(\"admin\")",
+      "estado_hoy": "MUERTO",
+      "why": "un rol 'adminfalso' entraria"
+    },
+    {
+      "id": "P5-el-proxy-deja-de-apuntar-al-loopback",
+      "subject": "seal-studio/frontend/next.config.ts",
+      "ancla": "127.0.0.1:8093",
+      "reemplazo": "0.0.0.0:8093",
+      "estado_hoy": "MUERTO (2 failed) — corrido por NEXUS el 8-sep",
+      "why": "El test SI observa el destino del proxy: cambiarlo a 0.0.0.0 lo pone rojo. El hueco NO es de cobertura sino de ALCANCE: next.config.ts no es sujeto de ningun manifiesto, asi que el gate no exige re-revision cuando cambia, aunque un test afirme sobre el."
+    }
+  ]
+}

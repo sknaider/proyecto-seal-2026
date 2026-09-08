@@ -1,0 +1,57 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "nexus-panel-soul-coverage-20260909",
+  "reviewer": "ALICE",
+  "run_at": "2026-09-08T20:00:00Z",
+  "total": 5,
+  "killed": 4,
+  "survived": 1,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 80.0,
+  "file_sha256": {
+    "seal-studio/frontend/src/app/v2/PanelSoulLink.tsx": "070906f8d3ff083dae0600ae7d9cc7b6d9340cde6a67bc69d11e3e24d1c953cf",
+    "seal-studio/frontend/src/lib/panelSoul.ts": "2fcb922f1eef5478bb64371554ca32b6314c7748e7a1db72582a295d6e0684ee",
+    "seal-studio/frontend/next.config.ts": "c407881f2a47f97cff2c462239d805179bcd7726775d115ff5b28b8660812321",
+    "seal-studio/frontend/tests/test_panel_soul_py.py": "4e1ff10c2085dd4a07b506ab6cff18b2d5570285a6dc963fdb5f883d9594ad8e"
+  },
+  "mutants": [
+    {
+      "id": "P3-el-componente-no-consulta-la-autorizacion",
+      "subject": "seal-studio/frontend/src/app/v2/PanelSoulLink.tsx",
+      "resultado": "SOBREVIVE",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "id": "P1-cualquier-rol-ve-el-link",
+      "subject": "seal-studio/frontend/src/lib/panelSoul.ts",
+      "resultado": "MUERTO",
+      "passed": 1,
+      "failed": 3
+    },
+    {
+      "id": "P2-sin-toLowerCase",
+      "subject": "seal-studio/frontend/src/lib/panelSoul.ts",
+      "resultado": "MUERTO",
+      "passed": 1,
+      "failed": 3
+    },
+    {
+      "id": "P4-comparacion-por-prefijo",
+      "subject": "seal-studio/frontend/src/lib/panelSoul.ts",
+      "resultado": "MUERTO",
+      "passed": 1,
+      "failed": 3
+    },
+    {
+      "id": "P5-el-proxy-deja-de-apuntar-al-loopback",
+      "subject": "seal-studio/frontend/next.config.ts",
+      "resultado": "MUERTO",
+      "passed": 2,
+      "failed": 2
+    }
+  ]
+}

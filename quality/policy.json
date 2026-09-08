@@ -165,6 +165,7 @@
     "quality/manifests/ada-daily-brief-20260908.json",
     "quality/manifests/ada-codex-c10-token-writer-20260908.json",
     "quality/manifests/soul-runtime-supervisor-20260908.json",
-    "quality/manifests/studio-panel-soul-20260908.json"
+    "quality/manifests/studio-panel-soul-20260908.json",
+    "quality/manifests/nexus-panel-soul-coverage-20260909.json"
   ]
 }
