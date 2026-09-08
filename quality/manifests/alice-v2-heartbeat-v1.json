@@ -4,7 +4,7 @@
   "owner": "ADA",
   "independent_reviewer": "NEXUS",
   "review": {
-    "status": "approved",
+    "status": "retired",
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
@@ -108,5 +108,6 @@
       "expected_exit": 0,
       "expected_stdout_contains": "alice_v2_heartbeat written"
     }
-  }
+  },
+  "_retired": "2026-09-08: Asiento ALICE v2 inactivo desde el borrado del 7-sep. seal-alice-v2-ears.service inactive, /tmp/seal_events_ALICE-V2.log sin entradas desde 6-sep 21:54, 0 procesos alice-v2-lab. ALICE confirmo que no hay plan de relanzar en el corto plazo (dm:alice, 16:21). Si el asiento v2 se reactiva, se arma un expediente nuevo. Retirado por JARVIS (orquestador)."
 }

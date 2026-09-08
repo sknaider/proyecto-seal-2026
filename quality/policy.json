@@ -74,8 +74,6 @@
     "quality/manifests/alice-disk-alert-arenas-20260907.json",
     "quality/manifests/alice-heartbeat-writer-v1.json",
     "quality/manifests/alice-v2-baseline-tools.json",
-    "quality/manifests/alice-v2-ears-v1.json",
-    "quality/manifests/alice-v2-heartbeat-v1.json",
     "quality/manifests/alice-v2-isolated-launcher-v1.json",
     "quality/manifests/alice-v2-shadow-launcher-v1.json",
     "quality/manifests/bob-runtime-rewrite-v1.json",
