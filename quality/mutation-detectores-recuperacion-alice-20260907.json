@@ -1,62 +1,78 @@
 {
   "schema": "seal.mutation-evidence.v1",
-  "tool": "arnes seal_mutacion_segura + aplicar_y_registrar (contenedor sin privilegios, arena desde el INDICE, venv :ro) — arnes aprobado por FABLE 7-sep 14:48",
-  "workspace": "Dos mutantes sobre la condicion central de seal_detector_paquetes_vacios.py (linea 'if sos > 0 and pys == 0'), hallados VIVOS por NEXUS en revision independiente el 7-sep 12:04 y cerrados por la owner: M1 'if sos > 0:' (marcaria paquetes que SI tienen fuentes) y M2 'if pys == 0:' (marcaria directorios de datos sin binarios). Control del original PRIMERO: con-fuentes exit 0 y solo-datos exit 0, o sea el original pasa ambos casos; si no, 'el mutante muere' no significaria nada. Resultado: M1 marca el paquete con fuentes (exit 1) y M2 marca el directorio de datos (exit 1): los dos MUEREN contra los brazos qa_negative nuevos. La mutacion se hizo sobre una copia bajo /tmp: mutar una guarda real es lo que borro 2,7 TB el 7-sep 01:42:53. NOTA (NEXUS, 12:13): la evidencia debe cubrir tambien el TEST, no solo los sujetos: un mutante muere contra los brazos, asi que si los brazos cambian la evidencia queda vieja aunque el sujeto sea el mismo. Los dos mutantes de arriba se midieron contra ESTOS brazos. MUTANTE 3 (7-sep 14:35, tras el hallazgo de NEXUS de que el detector de existencia no tenia UN SOLO test): 'if faltan:' -> 'if False:' sobre una COPIA en arena. Con una ruta declarada faltante, el sano da exit 1 y el mutante exit 0: el brazo positivo nuevo se pondria ROJO. MUERE.",
-  "killed": 3,
+  "change_id": "detectores-recuperacion-alice-20260907",
+  "reviewer": "NEXUS",
+  "tool": "arena contenida (docker --user 65534) + tools/seal_mutacion_segura.py",
+  "workspace": "arena por `seal_arena.sh new tools` (foto del INDICE via git write-tree)",
+  "_como_se_midio": "Re-corrida 7-sep 19:00 por NEXUS (revisor independiente) sobre los bytes de faa7964+638c28c. La evidencia anterior quedo stale por DOS archivos: seal_detector_credenciales_unidades.py y el test (11 -> 13 brazos). NO se refrescaron hashes: se volvio a mutar. CAMBIO DE IMAGEN, y es un hallazgo: la corrida previa uso python:3.12-slim y reporto '3 deselected' con control 8 passed. Los 3 no estaban deseleccionados por diseno: NECESITAN git y la imagen slim no lo trae. Con python:3.12 (git 2.47.3) corren los 13 y el control es 13 passed. Un brazo que no corre por falta de binario se lee igual que uno deseleccionado a proposito.",
+  "control_sujeto_sin_mutar": {
+    "observed": "13 passed in 0.99s",
+    "result": "GREEN"
+  },
+  "control_final": {
+    "observed": "13 passed",
+    "result": "GREEN"
+  },
+  "file_sha256": {
+    "tools/seal_chequeo_integridad_recuperacion.sh": "aaf81a0b464ff58e61e32217f829e91861918374c5481b67e9c9c50c23badf6b",
+    "tools/seal_detector_credenciales_unidades.py": "2894429007dcbc7cb6b972848d695e1a8a5ab9fd527e54e42ee075ab03888f66",
+    "tools/seal_detector_existencia.py": "2539e72dcea011607ff3631be264e0bc050aa8d6d7ac5bbb7396d592ae0d9400",
+    "tools/seal_detector_no_versionado.py": "82435971c16f2a49369d9564f321ab7daaf9af7e8d55ee48a1c39cebfec52a02",
+    "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
+    "tools/tests/test_detectores_recuperacion_v1.py": "8e227c2db00977ff6a7ebd6b8c191b0cd918b1e5b5278f86b1802514509241bc"
+  },
+  "total": 4,
+  "killed": 4,
   "survived": 0,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
   "timeout": 0,
-  "total": 3,
-  "mutation_score_percent": 100.0,
-  "reviewer": "NEXUS",
-  "file_sha256": {
-    "tools/seal_chequeo_integridad_recuperacion.sh": "aaf81a0b464ff58e61e32217f829e91861918374c5481b67e9c9c50c23badf6b",
-    "tools/seal_detector_credenciales_unidades.py": "51c83a43b53f16e9fa1a3d0cb1b4b5358b2e6cf4d6d99457172e18f6ba12c81f",
-    "tools/seal_detector_existencia.py": "2539e72dcea011607ff3631be264e0bc050aa8d6d7ac5bbb7396d592ae0d9400",
-    "tools/seal_detector_no_versionado.py": "82435971c16f2a49369d9564f321ab7daaf9af7e8d55ee48a1c39cebfec52a02",
-    "tools/seal_detector_paquetes_vacios.py": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
-    "tools/tests/test_detectores_recuperacion_v1.py": "2115211f9d707bf3fdcb6b92b51bcffb7c93286fe4b12db3bbc15131e935e1d0"
-  },
   "detail": [
     {
+      "id": "solo-binarios-ignora-las-fuentes",
       "subject": "tools/seal_detector_paquetes_vacios.py",
       "ancla": "if sos > 0 and pys == 0:",
       "reemplazo": "if sos > 0:",
-      "ancla_sha256": "6ce385d9b164eb5fc3ca987c3df742774869a530f3c4772b82f95db7517fcf97",
-      "sujeto_sha256_antes": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
       "ocurrencias_del_ancla": 1,
       "reproducible": true,
-      "id": "solo-binarios-ignora-las-fuentes",
-      "state": "killed",
-      "observed": "1 failed, 7 passed, 3 deselected in 0.46s"
+      "por_que": "el detector grita por cualquier paquete con .so, haya o no fuentes: ruido que entierra el caso real.",
+      "observed": "1 failed, 12 passed in 0.98s",
+      "state": "killed"
     },
     {
+      "id": "sin-fuentes-ignora-los-binarios",
       "subject": "tools/seal_detector_paquetes_vacios.py",
       "ancla": "if sos > 0 and pys == 0:",
       "reemplazo": "if pys == 0:",
-      "ancla_sha256": "6ce385d9b164eb5fc3ca987c3df742774869a530f3c4772b82f95db7517fcf97",
-      "sujeto_sha256_antes": "bb45719ac917aa6dddb35ab2c87e526da69ea30c1fd46bd773fd048fe9a5a23b",
       "ocurrencias_del_ancla": 1,
       "reproducible": true,
-      "id": "sin-fuentes-ignora-los-binarios",
-      "state": "killed",
-      "observed": "1 failed, 7 passed, 3 deselected in 0.44s"
+      "por_que": "el detector deja de exigir el binario: marca vacio cualquier paquete sin .py, incluidos los legitimos.",
+      "observed": "1 failed, 12 passed in 0.99s",
+      "state": "killed"
     },
     {
+      "id": "la-lista-vacia-pasa-en-verde",
       "subject": "tools/seal_detector_existencia.py",
       "ancla": "if not datos[\"rutas\"]:",
       "reemplazo": "if False:",
-      "ancla_sha256": "6b7278362baefad109f0512cf86dec4e250faeac1785cabb28bd82ec04e20692",
-      "sujeto_sha256_antes": "2539e72dcea011607ff3631be264e0bc050aa8d6d7ac5bbb7396d592ae0d9400",
       "ocurrencias_del_ancla": 1,
       "reproducible": true,
-      "id": "la-lista-vacia-pasa-en-verde",
-      "state": "killed",
-      "observed": "1 failed, 7 passed, 3 deselected in 0.43s"
+      "por_que": "el unico detector que grita con el arbol vacio deja de gritar: es el hueco del 7-sep, el diferencial da SANO.",
+      "observed": "1 failed, 12 passed in 0.99s",
+      "state": "killed"
+    },
+    {
+      "id": "la-salida-vuelve-a-garantizar-ausencia",
+      "subject": "tools/seal_detector_credenciales_unidades.py",
+      "ancla": "0 detecciones sobre los valores de las unidades",
+      "reemplazo": "sin credenciales embebidas",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "por_que": "la salida vuelve a AFIRMAR ausencia en vez de reportar un conteo. Es la correccion de ADA del 18:04: lo que el detector no modela, no lo ve.",
+      "observed": "1 failed, 12 passed in 1.01s",
+      "state": "killed"
     }
   ],
-  "nota_re_corrida_20260907": "Re-corrida 7-sep 15:45 por NEXUS (revisor). La evidencia anterior declaraba 3 muertos pero SIN lista de mutantes: solo prosa en `workspace`. Se re-derivaron desde esa prosa y ahora quedan EJECUTABLES (ancla, reemplazo y sha256 del ancla y del sujeto). Los dos primeros son los que yo mismo halle VIVOS en la revision previa, sobre la condicion central de paquetes_vacios; el tercero ataca al detector de EXISTENCIA, que es el unico que grita con el arbol vacio.",
-  "alcance_de_la_arena": "3 de los 11 brazos se deseleccionan: necesitan `git` y un repo de verdad, y la arena es un `git archive` extraido sobre una imagen sin git. Ninguno de los 3 mutantes depende de ellos: los matan brazos que SI corren. Control 8 passed antes y despues."
+  "mutation_score_percent": 100.0
 }

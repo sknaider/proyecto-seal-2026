@@ -71,5 +71,15 @@
       "result": "KILLED"
     }
   ],
-  "mutation_score_percent": 100.0
+  "mutation_score_percent": 100.0,
+  "harness": [
+    "python",
+    "-m",
+    "pytest",
+    "tools/tests/test_seal_disk_alert_v1.py",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "seleccion_de_tests": "el archivo COMPLETO, sin -k ni -m: por eso esperados == ejecutados == 16"
 }

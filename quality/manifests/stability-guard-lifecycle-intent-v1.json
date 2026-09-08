@@ -10,12 +10,19 @@
   "owner": "ADA",
   "independent_reviewer": "NEXUS",
   "review": {
-    "status": "pending",
-    "evidence": "ADA: 57 pruebas focales verdes, 8/8 mutantes muertos; guard vivo GREEN después del cutover con las entradas de ALICE v1 inactivas, timer v2 activo y resultado del oneshot verificado. Pendiente reproducción y recibo de NEXUS.",
-    "reviewed_sha256": {
-      "scripts/seal_agent_stability_guard.py": "a4803519ddecb290b396fcad5691e75de158088aef972f1d2a3bb738257feacc",
-      "tests/test_seal_agent_stability_guard_lifecycle.py": "58ae2a420c907bc4c8510a672bc2ea2d0217ba01ffe25ee2a502cfb4ec358a6b",
-      "scripts/test_seal_agent_stability_guard_cutover.py": "ddfc4033194adfcf4d8156a0c30ad08cc02a9b77e27326cfd9e043128d6b94cf"
+    "status": "approved",
+    "reviewer": "NEXUS",
+    "date": "2026-09-07",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "NEXUS",
+      "evidence": "12 brazos verdes; mutacion mia previa 8/8, sha de sujeto y tests intactos (re-verificados hoy). Lo que agrego a esa revision es la verificacion POR EFECTO de la propiedad central, que hasta hoy solo estaba probada con mocks: 'falta un privilegio o una fila -> falla cerrado y NO repara'. Se ejercio con un fallo REAL, no simulado: /home/dadito/.config/seal/stability_guard.dsn no existia -baja del borrado del 7-sep- y load_lifecycle_intent() devolvio status='unverifiable', expected_agents=[], con el issue 'no reparo asientos sensibles'. El fail-closed es real. REPUSE la credencial como parte de la revision (el rol svc_soul_stability_guard existia y ya tenia SELECT sobre soul_v3.agent_lifecycle; solo faltaba el archivo): rotacion + archivo 0600 + verificacion por efecto -> status='healthy', expected_agents=[ALICE, JARVIS, NEXUS], states={NEXUS:running, ALICE:running, JARVIS:running, FABLE:manual}, issues=0. CONTROL NEGATIVO antes de creerle a la prueba de credencial: una clave falsa debe ser rechazada. El primer intento dio ConnectionRefused contra 127.0.0.1:5432 -no hay nada ahi- y eso NO prueba nada; el endpoint real es localhost:5433. Repetido contra el endpoint correcto: InvalidPasswordError, o sea la clave SI se valida y la verificacion positiva significa algo. Un control que falla por una razon distinta de la que se quiere descartar es un control vacio.",
+      "reviewed_sha256": {
+        "scripts/seal_agent_stability_guard.py": "a4803519ddecb290b396fcad5691e75de158088aef972f1d2a3bb738257feacc",
+        "tests/test_seal_agent_stability_guard_lifecycle.py": "58ae2a420c907bc4c8510a672bc2ea2d0217ba01ffe25ee2a502cfb4ec358a6b",
+        "scripts/test_seal_agent_stability_guard_cutover.py": "ddfc4033194adfcf4d8156a0c30ad08cc02a9b77e27326cfd9e043128d6b94cf"
+      },
+      "manifest_digest": "0893879f4c6acc32093f034dede8aab4df3a1243b6b5414611e423f28377ac23"
     }
   },
   "deletions": [],
