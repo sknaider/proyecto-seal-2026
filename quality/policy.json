@@ -27,6 +27,7 @@
     "quality/manifests/alice-v2-shadow-launcher-v1.json",
     "quality/manifests/anti-sycophancy-dsn-fix-20260908.json",
     "quality/manifests/aux-llm-qwen2-5-3b-switch-20260908.json",
+    "quality/manifests/awareness-consolidation-3b-20260909.json",
     "quality/manifests/bob-runtime-rewrite-v1.json",
     "quality/manifests/boot-context-g2-tareas-20260907.json",
     "quality/manifests/bridge-runtime-instance-20260905.json",
@@ -61,9 +62,11 @@
     "quality/manifests/jarvis-tooling-v1.json",
     "quality/manifests/loop-guard-v1.json",
     "quality/manifests/mcp-web-soul-hardening.json",
+    "quality/manifests/nerves-model-3b-fallback-20260908.json",
     "quality/manifests/nexus-alerta-dedup-20260908.json",
     "quality/manifests/nexus-arena-por-mutante-20260907.json",
     "quality/manifests/nexus-codigo-vivo-vs-git-20260908.json",
+    "quality/manifests/nexus-conexiones-fable-20260908.json",
     "quality/manifests/nexus-credencial-observer-compartida-20260908.json",
     "quality/manifests/nexus-credential-paths.json",
     "quality/manifests/nexus-detector-unidades-horneadas-20260907.json",
@@ -119,9 +122,7 @@
     "quality/manifests/tool-result-budget-inert-v1.json",
     "quality/manifests/u116-isolated-claude-transport.json",
     "quality/manifests/unit-failed-notify-20260905.json",
-    "quality/manifests/validador-candado-v1.json",
-    "quality/manifests/nerves-model-3b-fallback-20260908.json",
-    "quality/manifests/awareness-consolidation-3b-20260909.json"
+    "quality/manifests/validador-candado-v1.json"
   ],
   "policy_id": "william-golden-quality-rule-2026-08-03",
   "required_qa_arms": [
