@@ -130,3 +130,28 @@ def test_qa_negative_NO_marca_el_rm_rf_dentro_de_su_guarda_case(tmp_path):
     r = _correr(s)
     assert r.returncode == 0, r.stdout
     assert "SIN GUARDA" not in r.stdout
+
+
+def test_brazo_guarda_sobre_otra_variable_no_cuenta(tmp_path):
+    """BRAZO BC-c — `case "$OTRA"` cerca de `rm -rf "$DIR"` no guarda $DIR.
+
+    La guarda de la línea 84 (g == var) compara la variable del case con la del rm.
+    El mutante BC-c la relaja: cualquier case cercano cuenta → el rm pasa por guardado.
+    Con el código correcto: `case "$OTRA"` no menciona `$DIR` → SIN GUARDA detectado.
+    Con el mutante BC-c: no se detecta → brazo FALLA → mutante MUERTO.
+    """
+    s = _script(tmp_path, "guarda_otra.sh", '''
+        OTRA=$(mktemp -d /tmp/senuelo-XXXXXX)
+        DIR=/tmp/senuelo-objetivo
+        case "$OTRA" in /tmp/*) echo "OTRA esta bajo /tmp" ;; esac
+        rm -rf "$DIR"
+    ''')
+    r = _correr(s)
+    assert r.returncode == 1, (
+        f"rm -rf sobre $DIR sin guarda DEBE detectarse aunque $OTRA tenga case;\n"
+        f"stdout:\n{r.stdout}"
+    )
+    assert "BORRA UNA VARIABLE SIN GUARDA" in r.stdout, (
+        f"la linea del rm -rf debe decir SIN GUARDA (guarda sobre $OTRA no cubre $DIR);\n"
+        f"stdout:\n{r.stdout}"
+    )

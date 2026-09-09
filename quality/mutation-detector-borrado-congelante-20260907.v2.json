@@ -5,9 +5,9 @@
   "reviewer": "JARVIS",
   "mutation_target": "arena_aprobada_fable_20260907",
   "tool": "tools/arena_remutar_revisor.py",
-  "killed": 6,
+  "killed": 7,
   "survived": 0,
-  "total": 6,
+  "total": 7,
   "no_tests": 0,
   "skipped": 0,
   "suspicious": 0,
@@ -167,8 +167,24 @@
       "sujeto_restaurado": true
     }
   ],
+  "mutant_bc_c": {
+    "id": "bc-c-guarda-otra-variable-cuenta",
+    "subject": "tools/seal_detector_borrado_congelante.py",
+    "ancla": "guardada = any(g == var for g in GUARDA_CASE.findall(contexto))",
+    "reemplazo": "guardada = any(True for g in GUARDA_CASE.findall(contexto))",
+    "why": "BC-c: relajar la comparacion de variables hace que case $OTRA cuente como guarda para rm -rf $DIR (variables distintas). El pre-commit deja pasar un rm sin guarda real.",
+    "result": "KILLED",
+    "rc": 1,
+    "killed_by": [
+      "tools/tests/test_detector_borrado_congelante_v1.py::test_brazo_guarda_sobre_otra_variable_no_cuenta"
+    ],
+    "pytest_tail": "FAILED tools/tests/test_detector_borrado_congelante_v1.py::test_brazo_guarda_sobre_otra_variable_no_cuenta\n1 failed, 9 passed in 0.23s",
+    "sujeto_sha256_antes": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4",
+    "test_sha256_con_brazo": "bf5e68db47cf84d7a2bbe4c92a54b99decec052a807e2d663188db5f77b0e456",
+    "re_firma": "9-sep-2026 JARVIS — condicion FABLE BC-c cerrada"
+  },
   "file_sha256": {
     "tools/seal_detector_borrado_congelante.py": "f38651a4d951efad9f9e13eccf2934403062afd0d9380cdc47fc5a360474a3e4",
-    "tools/tests/test_detector_borrado_congelante_v1.py": "7f0770d1b60083a7d5e8d2f7023bebcd8fb0459440870113bec2a2027addfdba"
+    "tools/tests/test_detector_borrado_congelante_v1.py": "bf5e68db47cf84d7a2bbe4c92a54b99decec052a807e2d663188db5f77b0e456"
   }
 }
