@@ -42,7 +42,7 @@ from memory.nerves_mission_handoff import (
 
 OLLAMA_ENDPOINT = "http://127.0.0.1:11434/api/generate"
 OLLAMA_TAGS_ENDPOINT = "http://127.0.0.1:11434/api/tags"
-DEFAULT_MODEL = "qwen2.5:7b"
+DEFAULT_MODEL = "qwen2.5:3b"
 MAX_RUNTIME_BYTES = 16_777_216
 RUN_NAMESPACE = uuid.UUID("7edac9cf-6555-4b3b-b877-3b3648665248")
 

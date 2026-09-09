@@ -1,0 +1,27 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "Mutante M1 manual sobre disco: DEFAULT_MODEL revertido a 7b; tests corren contra archivo en disco; restauracion verificada.",
+  "workspace": "nerves-model-3b-fallback-20260908",
+  "mutation_target": "memory/nerves_ollama_runtime_adapter.py",
+  "killed": 3,
+  "survived": 1,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
+  "mutation_score_percent": 75.0,
+  "detail": {
+    "control_positivo": "4 passed (codigo con 3b)",
+    "control_de_restauracion": "4 passed (restaurado a 3b post-mutante)",
+    "mutantes": [
+      "M1 DEFAULT_MODEL='qwen2.5:7b' (reversion): test_unit_default_model_not_7b FALLA, test_qa_positive_default_model_is_3b FALLA, test_qa_negative_no_7b_in_default_model FALLA. 3/4 MUEREN.",
+      "M_survived: test_qa_control_file_exists — inmortal por diseno (solo verifica existencia del archivo, no el contenido)"
+    ]
+  },
+  "file_sha256": {
+    "memory/nerves_ollama_runtime_adapter.py": "9071cf78883fbe0af0c40c12ff57e678b7be2c7107facda15fb46a66ce7845cf",
+    "memory/tests/test_nerves_model_3b_fallback_20260908.py": "e1122ee0129771a88232aee3615baa3ef1d2c10b1e61d4172ce1d5aeb5073f0d"
+  },
+  "reviewer": "ALICE"
+}

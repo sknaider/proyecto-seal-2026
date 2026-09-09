@@ -1,0 +1,109 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nerves-model-3b-fallback-20260908",
+  "owner": "JARVIS",
+  "independent_reviewer": "ALICE",
+  "subjects": [
+    "memory/nerves_ollama_runtime_adapter.py"
+  ],
+  "tests": [
+    "memory/tests/test_nerves_model_3b_fallback_20260908.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-no-7b-default",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q", "-p", "no:cacheprovider",
+        "memory/tests/test_nerves_model_3b_fallback_20260908.py",
+        "-k", "unit"
+      ]
+    },
+    {
+      "id": "qa_positive-3b-default",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_nerves_model_3b_fallback_20260908.py",
+        "-k", "qa_positive"
+      ]
+    },
+    {
+      "id": "qa_negative-no-7b",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_nerves_model_3b_fallback_20260908.py",
+        "-k", "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-file-exists",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_nerves_model_3b_fallback_20260908.py",
+        "-k", "qa_control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "memory"
+    ],
+    "omit": [
+      "memory/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_nerves_model_3b_fallback_20260908.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 30
+  },
+  "mutation_evidence": "quality/mutation-nerves-model-3b-fallback-20260908.json",
+  "_por_que": "nerves_ollama_runtime_adapter.py tenia DEFAULT_MODEL='qwen2.5:7b' que se cargaba cada minuto via seal-alice/ada-nerves-worker.timer (OnUnitInactiveSec=1min). William ordeno 'optimiza eso'. Cambio a qwen2.5:3b elimina el reload automatico de 6.59GB. Es critical_path (memory/**) — requiere mutation_evidence.",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "ALICE",
+    "reviewed_sha256": {
+      "memory/nerves_ollama_runtime_adapter.py": "9071cf78883fbe0af0c40c12ff57e678b7be2c7107facda15fb46a66ce7845cf",
+      "memory/tests/test_nerves_model_3b_fallback_20260908.py": "e1122ee0129771a88232aee3615baa3ef1d2c10b1e61d4172ce1d5aeb5073f0d"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-09T02:59:00Z",
+      "evidence": "Verificado en disco: memory/nerves_ollama_runtime_adapter.py linea 45 — DEFAULT_MODEL = 'qwen2.5:3b'. SHA coincide con el esperado. Tests: 4/4 PASSED (control positivo con 3b). Mutante M1 (reversion a 7b): 3/4 tests fallan — detectado. El sobreviviente (qa_control_file_exists) es inmortal por diseno. mutation_evidence en quality/mutation-nerves-model-3b-fallback-20260908.json. Cambio critico verificado: seal-alice-nerves-worker.timer (OnUnitInactiveSec=1min) cargaba 7b cada minuto. Con 3b, el worker carga 1.8GB en lugar de 6.59GB. Aprobado.",
+      "reviewed_sha256": {
+        "memory/nerves_ollama_runtime_adapter.py": "9071cf78883fbe0af0c40c12ff57e678b7be2c7107facda15fb46a66ce7845cf",
+        "memory/tests/test_nerves_model_3b_fallback_20260908.py": "e1122ee0129771a88232aee3615baa3ef1d2c10b1e61d4172ce1d5aeb5073f0d"
+      },
+      "manifest_digest": "9c0289f6f8d1b76a7c5dde7513cfa87f82d5d3c7db5093ce87996bc20ef30958"
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "effect": "nerves_ollama_runtime_adapter.py usa qwen2.5:3b como DEFAULT_MODEL. El timer seal-alice-nerves-worker carga 3b en lugar de 7b.",
+    "evidence": "4/4 tests PASSED. M1 mutante detectado (3/4 FAIL). DEFAULT_MODEL='qwen2.5:3b' verificado por AST.",
+    "assertion": "DEFAULT_MODEL en nerves_ollama_runtime_adapter.py no es 'qwen2.5:7b'.",
+    "command": {
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_nerves_model_3b_fallback_20260908.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  }
+}
