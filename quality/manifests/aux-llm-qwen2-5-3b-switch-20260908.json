@@ -3,7 +3,7 @@
   "change_id": "aux-llm-qwen2-5-3b-switch-20260908",
   "owner": "JARVIS",
   "independent_reviewer": "ALICE",
-  "subjects": ["memory/aux_llm.py"],
+  "subjects": ["memory/aux_llm.py", "memory/config.py"],
   "tests": ["memory/tests/test_qwen2_5_3b_default_20260908.py"],
   "commands": [
     {
@@ -66,19 +66,21 @@
     "independent_reviewer": "ALICE",
     "reviewed_sha256": {
       "memory/aux_llm.py": "f1a50437a3ddf2f71ec62c485fceb97bfb92fbd237125b4a58d2b8e28befcdcb",
+      "memory/config.py": "c617a4c5e9a7cd9ad2e40700654bc0c7be823fd61ef7259826f22e682a6b1dcb",
       "memory/tests/test_qwen2_5_3b_default_20260908.py": "0f1c828e66e49a06d162426e3ccac72c18909f6c8f3694b6ae8e695143660b71"
     },
     "findings": [],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "ALICE",
-      "signed_at": "2026-09-08T23:32:00Z",
-      "evidence": "Mutante M1 KILLED verificado en scratchpad /tmp/mut_aux_llm_DThgPK (arbol vivo intacto): reemplazar fallback 3b→7b mata test_qa_positive_aux_llm_default_es_3b y test_qa_negative_aux_llm_no_es_7b — exactamente 2 failed, 3 deselected. Control sin mutar: 5/5 PASSED. SHA del sujeto verificado: f1a50437. El cambio es puramente de configuracion (OLLAMA_MODEL fallback y docstring); logica de credenciales no tocada.",
+      "signed_at": "2026-09-09T12:20:00Z",
+      "evidence": "Re-firma por agregado de memory/config.py como sujeto (condicion FABLE). config.py verificado en disco: SHA c617a4c5, contiene ollama_model='qwen2.5:3b' — coherente con el cambio de aux_llm.py. Mutante M1 verificado en sesion anterior: scratchpad /tmp/mut_aux_llm_DThgPK, control 5/5 PASSED, M1 (fallback 3b→7b) kills test_qa_positive + test_qa_negative. manifest_digest recomputado con formula del gate (ensure_ascii=False, sort_keys=True).",
       "reviewed_sha256": {
         "memory/aux_llm.py": "f1a50437a3ddf2f71ec62c485fceb97bfb92fbd237125b4a58d2b8e28befcdcb",
+        "memory/config.py": "c617a4c5e9a7cd9ad2e40700654bc0c7be823fd61ef7259826f22e682a6b1dcb",
         "memory/tests/test_qwen2_5_3b_default_20260908.py": "0f1c828e66e49a06d162426e3ccac72c18909f6c8f3694b6ae8e695143660b71"
       },
-      "manifest_digest": "63ba546668270326575a69cbe9846086fe4e9cc60f73ba6ad57ccac839de05de",
+      "manifest_digest": "2155f9065bd2906a189acbbc299c04e7337885810ff4952c3e070c14b6bd0216",
       "alice_verified_at": "2026-09-08T23:32:00Z",
       "alice_mutation_scratchpad": "/tmp/mut_aux_llm_DThgPK"
     }

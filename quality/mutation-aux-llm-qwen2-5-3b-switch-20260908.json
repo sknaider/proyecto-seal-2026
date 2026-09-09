@@ -11,6 +11,7 @@
   "mutation_score_percent": 100.0,
   "file_sha256": {
     "memory/aux_llm.py": "f1a50437a3ddf2f71ec62c485fceb97bfb92fbd237125b4a58d2b8e28befcdcb",
+    "memory/config.py": "c617a4c5e9a7cd9ad2e40700654bc0c7be823fd61ef7259826f22e682a6b1dcb",
     "memory/tests/test_qwen2_5_3b_default_20260908.py": "0f1c828e66e49a06d162426e3ccac72c18909f6c8f3694b6ae8e695143660b71"
   },
   "baseline": "5 passed in 0.04s",
