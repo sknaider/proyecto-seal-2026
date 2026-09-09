@@ -21,7 +21,7 @@
   },
   "file_sha256": {
     "memory/nerves_ollama_runtime_adapter.py": "9071cf78883fbe0af0c40c12ff57e678b7be2c7107facda15fb46a66ce7845cf",
-    "memory/tests/test_nerves_model_3b_fallback_20260908.py": "e1122ee0129771a88232aee3615baa3ef1d2c10b1e61d4172ce1d5aeb5073f0d"
+    "memory/tests/test_nerves_model_3b_fallback_20260908.py": "f857432c8c707a8ab2478ba3cd4a7006a8090fdf694ec4e44231070554787140"
   },
   "reviewer": "ALICE"
 }

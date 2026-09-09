@@ -76,19 +76,19 @@
     "independent_reviewer": "ALICE",
     "reviewed_sha256": {
       "memory/nerves_ollama_runtime_adapter.py": "9071cf78883fbe0af0c40c12ff57e678b7be2c7107facda15fb46a66ce7845cf",
-      "memory/tests/test_nerves_model_3b_fallback_20260908.py": "e1122ee0129771a88232aee3615baa3ef1d2c10b1e61d4172ce1d5aeb5073f0d"
+      "memory/tests/test_nerves_model_3b_fallback_20260908.py": "f857432c8c707a8ab2478ba3cd4a7006a8090fdf694ec4e44231070554787140"
     },
     "findings": [],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "ALICE",
-      "signed_at": "2026-09-09T02:59:00Z",
-      "evidence": "Verificado en disco: memory/nerves_ollama_runtime_adapter.py linea 45 — DEFAULT_MODEL = 'qwen2.5:3b'. SHA coincide con el esperado. Tests: 4/4 PASSED (control positivo con 3b). Mutante M1 (reversion a 7b): 3/4 tests fallan — detectado. El sobreviviente (qa_control_file_exists) es inmortal por diseno. mutation_evidence en quality/mutation-nerves-model-3b-fallback-20260908.json. Cambio critico verificado: seal-alice-nerves-worker.timer (OnUnitInactiveSec=1min) cargaba 7b cada minuto. Con 3b, el worker carga 1.8GB en lugar de 6.59GB. Aprobado.",
+      "signed_at": "2026-09-09T12:05:00Z",
+      "evidence": "Re-firmado tras fix de ruta absoluta en test (FABLE habia rechazado el test anterior). Test ahora usa Path(__file__).resolve().parents[1] / 'nerves_ollama_runtime_adapter.py' — verifica el sujeto RELATIVO al test, no una ruta hardcodeada. Verificado en scratchpad /tmp/mut_nerves3b_EfOYWm (copia fuera del repo): control 4/4 PASSED; mutante M1 (DEFAULT_MODEL='qwen2.5:7b'): 3 failed (test_unit_default_model_not_7b, test_qa_positive_default_model_is_3b, test_qa_negative_no_7b_in_default_model), 1 passed (qa_control_file_exists — inmortal por diseno). Arbol vivo intacto: DEFAULT_MODEL='qwen2.5:3b' en disco. SHAs sujeto y test verificados y coinciden con reviewed_sha256.",
       "reviewed_sha256": {
         "memory/nerves_ollama_runtime_adapter.py": "9071cf78883fbe0af0c40c12ff57e678b7be2c7107facda15fb46a66ce7845cf",
-        "memory/tests/test_nerves_model_3b_fallback_20260908.py": "e1122ee0129771a88232aee3615baa3ef1d2c10b1e61d4172ce1d5aeb5073f0d"
+        "memory/tests/test_nerves_model_3b_fallback_20260908.py": "f857432c8c707a8ab2478ba3cd4a7006a8090fdf694ec4e44231070554787140"
       },
-      "manifest_digest": "9c0289f6f8d1b76a7c5dde7513cfa87f82d5d3c7db5093ce87996bc20ef30958"
+      "manifest_digest": "9f4dfcfda72d59fa3402cac27253a4c74710d10f748be40c3c17f9351b76b9e8"
     }
   },
   "delivery": {

@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-TARGET = Path("/home/dadito/IA/proyecto-seal/memory/nerves_ollama_runtime_adapter.py")
+TARGET = Path(__file__).resolve().parents[1] / "nerves_ollama_runtime_adapter.py"
 MODEL_7B = "qwen2.5:7b"
 MODEL_3B = "qwen2.5:3b"
 
