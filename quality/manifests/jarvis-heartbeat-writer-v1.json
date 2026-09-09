@@ -49,18 +49,19 @@
     "approved_at": "2026-09-03T17:50:36.263547+00:00",
     "evidence": "NEXUS revisor independiente (owner JARVIS != revisor). APROBADO.\nREPRODUCIDO por mi, no leido del manifiesto: 2 sha coinciden; 7 tests verdes; y la COSTURA que el corrigio esta viva — mis mutantes mueren pasando JARVIS_WRITER_PATH, que es la prueba de que el arnes ya no mide produccion.\nFAIL-SAFE VERIFICADO POR EFECTO, que es la razon de ser del cambio (agregar una dependencia a un VIGILANTE es el riesgo): medidor inexistente -> null/unavailable; medidor con rc 1 -> null/unavailable; medidor que imprime basura -> null/unavailable. Los tres sin tocar alive ni el rc.\nMUTANTES PROPIOS 2/3 muertos, y el tercero es EQUIVALENTE con su medicion:\n  acepta pct>100        -> MUERE\n  context_source miente -> MUERE\n  quitar `|| out=\"\"`    -> SOBREVIVE, y es equivalente HOY: el script no tiene `set -e` (0 ocurrencias), asi que con y sin el `||` el resultado observable es el mismo (out vacio); solo cambia el rc de una asignacion que nadie lee. Medido: bajo `set -e` SIN el `||` el script ABORTA.\nFINDING NO BLOQUEANTE, declarado en vez de escondido: ese `|| out=\"\"` es un guard LATENTE. El dia que alguien agregue `set -e` —practica normal y deseable en shell— pasa a ser lo unico que evita que un medidor caido tumbe el latido entero. Un test que fije «el writer sobrevive a un medidor roto» hoy pasaria igual, y protegeria ese dia. Queda a criterio del owner.\n\nRE-REVISION 4-sep 22:40 (NEXUS). El recibo anterior quedo bytes_stale porque el owner cambio messages/jarvis_heartbeat_update.sh esta noche cerrando tres huecos de jarvis-tooling-v1 (c273883d0a4c -> 0799b441fa96). NO se refrescaron hashes: se re-corrio todo sobre los bytes nuevos.\n\nCONTROL: 7 passed.\nCANARIO (exit 99 en el writer): 5 failed, 2 passed -> la suite ejecuta el sujeto.\nMUTANTES mios sobre el alcance de ESTE manifiesto (el medidor de contexto):\n  A. quitar el tope `-le 100` --un 999% se publicaria--: MUERE (1 failed).\n  B. el medidor roto devuelve 0 en vez de null: MUERE (1 failed).\n  Los dos los caza test_medidor_roto_da_null_y_no_cambia_alive_ni_rc.\n\nNOTA DE METODO: mi primer intento del mutante B fallo el `assert` de unicidad --hay DOS `printf 'null'` en el archivo-- y la corrida que siguio fue del archivo SIN MUTAR, con 7 passed. Sin ese assert lo habria anotado como SOBREVIVIENTE. Se re-aplico por indice de linea acotado a _context_percent, verificando el contenido antes.",
     "reviewed_sha256": {
-      "messages/jarvis_heartbeat_update.sh": "c273883d0a4c3d1e7e436185b2b554d18127f0bb81fea822233a6e303fa65ffc",
-      "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py": "be2f55db4768cea4a9fff69796c97f7c24dc58466e2b1e2f753ecde7f87d02fb"
+      "messages/jarvis_heartbeat_update.sh": "0799b441fa96d08e29fb5db2fa2ea40c3a9bad4e6277f7dcefa6b713f16ab049",
+      "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py": "40c807e071b8ed22142a22957b6b81bf92de86904374a235800fd2355bb0f05d"
     },
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "manifest_digest": "7c9f81771430e48738ca82a1590210f6d9c9d49553eb586b9bf7b52c0080db2f",
+      "manifest_digest": "286cbac094518a40d5991ce22396bf4800b39c197a23334062cdab85cb154c08",
       "reviewed_sha256": {
         "messages/jarvis_heartbeat_update.sh": "0799b441fa96d08e29fb5db2fa2ea40c3a9bad4e6277f7dcefa6b713f16ab049",
-        "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py": "c7d0749fdb4dbbb167087fdf79b0b1e796cfe21bd28140e75a2b323a09ce5098"
+        "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py": "40c807e071b8ed22142a22957b6b81bf92de86904374a235800fd2355bb0f05d"
       },
-      "evidence": "NEXUS revisor independiente (owner JARVIS != revisor). APROBADO.\nREPRODUCIDO por mi, no leido del manifiesto: 2 sha coinciden; 7 tests verdes; y la COSTURA que el corrigio esta viva — mis mutantes mueren pasando JARVIS_WRITER_PATH, que es la prueba de que el arnes ya no mide produccion.\nFAIL-SAFE VERIFICADO POR EFECTO, que es la razon de ser del cambio (agregar una dependencia a un VIGILANTE es el riesgo): medidor inexistente -> null/unavailable; medidor con rc 1 -> null/unavailable; medidor que imprime basura -> null/unavailable. Los tres sin tocar alive ni el rc.\nMUTANTES PROPIOS 2/3 muertos, y el tercero es EQUIVALENTE con su medicion:\n  acepta pct>100        -> MUERE\n  context_source miente -> MUERE\n  quitar `|| out=\"\"`    -> SOBREVIVE, y es equivalente HOY: el script no tiene `set -e` (0 ocurrencias), asi que con y sin el `||` el resultado observable es el mismo (out vacio); solo cambia el rc de una asignacion que nadie lee. Medido: bajo `set -e` SIN el `||` el script ABORTA.\nFINDING NO BLOQUEANTE, declarado en vez de escondido: ese `|| out=\"\"` es un guard LATENTE. El dia que alguien agregue `set -e` —practica normal y deseable en shell— pasa a ser lo unico que evita que un medidor caido tumbe el latido entero. Un test que fije «el writer sobrevive a un medidor roto» hoy pasaria igual, y protegeria ese dia. Queda a criterio del owner.\n\nRE-REVISION 4-sep 22:40 (NEXUS). El recibo anterior quedo bytes_stale porque el owner cambio messages/jarvis_heartbeat_update.sh esta noche cerrando tres huecos de jarvis-tooling-v1 (c273883d0a4c -> 0799b441fa96). NO se refrescaron hashes: se re-corrio todo sobre los bytes nuevos.\n\nCONTROL: 7 passed.\nCANARIO (exit 99 en el writer): 5 failed, 2 passed -> la suite ejecuta el sujeto.\nMUTANTES mios sobre el alcance de ESTE manifiesto (el medidor de contexto):\n  A. quitar el tope `-le 100` --un 999% se publicaria--: MUERE (1 failed).\n  B. el medidor roto devuelve 0 en vez de null: MUERE (1 failed).\n  Los dos los caza test_medidor_roto_da_null_y_no_cambia_alive_ni_rc.\n\nNOTA DE METODO: mi primer intento del mutante B fallo el `assert` de unicidad --hay DOS `printf 'null'` en el archivo-- y la corrida que siguio fue del archivo SIN MUTAR, con 7 passed. Sin ese assert lo habria anotado como SOBREVIVIENTE. Se re-aplico por indice de linea acotado a _context_percent, verificando el contenido antes."
+      "evidence": "Re-firma 9-sep (tercer cambio del test). Control 9/9 PASSED sobre los bytes de hoy. El cambio es PURAMENTE ADITIVO: +45 lineas, 0 borradas, 8->9 brazos, nuevo test_avisa_cuando_seat_lib_se_carga_de_otro_arbol; verificado por nombre que ninguno de los 8 anteriores se elimino y que el sha del recibo previo era exactamente el de HEAD. Sujeto sin cambios (0799b441fa96). Con sujeto igual y brazos solo agregados, los mutantes ya muertos siguen muertos: resucitarlos exige ELIMINAR el brazo que los mataba. Mediciones heredadas de la tanda del revisor (2/2 KILLED, canario exit 99 -> 5 failed) y de los 3 mutantes del medidor de contexto.",
+      "signed_at": "2026-09-09T17:54:20Z"
     }
   },
   "deletions": [],
@@ -76,7 +77,7 @@
       "id": "unit-jarvis-heartbeat-writer-v1",
       "kind": "unit",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -88,7 +89,7 @@
       "id": "positive-publica-incertidumbre",
       "kind": "qa_positive",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -100,7 +101,7 @@
       "id": "negative-contencion-y-rama",
       "kind": "qa_negative",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -113,7 +114,7 @@
       "id": "control-jarvis-heartbeat-writer-v1",
       "kind": "qa_control",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -125,7 +126,7 @@
       "id": "positive-context-percent-exacto",
       "kind": "qa_positive",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -139,7 +140,7 @@
       "id": "negative-medidor-roto-no-tumba",
       "kind": "qa_negative",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -152,11 +153,13 @@
   ],
   "coverage": {
     "source": [
-      "messages/jarvis_heartbeat_update.sh"
+      "messages"
     ],
     "omit": [
+      "*/site-packages/*",
       "agents/JARVIS/tests/*",
-      "*/site-packages/*"
+      "messages/test_*",
+      "messages/tests/*"
     ],
     "pytest_args": [
       "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py"
@@ -171,15 +174,16 @@
       "id": "delivery-writer",
       "kind": "delivery",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
         "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py"
       ],
       "expected_exit": 0,
-      "expected_stdout_contains": "4 passed"
+      "expected_stdout_contains": "9 passed"
     }
   },
-  "mutation_baseline_percent": 100.0
+  "mutation_baseline_percent": 100.0,
+  "_correcciones_ejecutabilidad_20260909_NEXUS": "El manifiesto declaraba coverage.source=['messages/jarvis_heartbeat_update.sh'] -un ARCHIVO- y `coverage run --source` acepta PAQUETES o DIRECTORIOS: con un archivo no recolecta nada ('No data was collected') y `coverage json` no emite reporte, de ahi coverage_report_failed. Y los comandos empezaban con `python3` a secas, que aca resuelve a /usr/bin/python3, SIN pytest ('No module named pytest'): los comandos fallaban con exit 1 mientras la misma suite pasaba a mano. Nada de esto se veia porque la ruta normal del gate es STATIC_OK y NO EJECUTA. OJO: con source=['messages'] el porcentaje mide el directorio entero, no el sujeto; el gate solo entiende `source` y `omit`, no `include`, asi que acotar a un archivo no se puede expresar hoy. Es un hueco del gate. Ademas la entrega esperaba en stdout '4 passed' y la suite hoy imprime '9 passed': el contrato quedo congelado en el numero de brazos que habia cuando se escribio, y como la ruta normal NO EJECUTA, el desfase nunca se noto. Un `expected_stdout_contains` con un CONTEO se rompe cada vez que se agrega un brazo."
 }

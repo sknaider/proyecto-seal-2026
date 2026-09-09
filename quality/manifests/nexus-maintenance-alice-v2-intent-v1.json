@@ -8,19 +8,20 @@
     "evidence": "ADA reprodujo el auto-revival a las 03:45:01: nexus_service_watch reinició seal-alice-dm-poller durante el cutover ALICE-V2. El parche consulta la intención al detectar y la revalida inmediatamente antes del restart. Control 4/4 y 2/2 mutantes muertos; pendiente revisión de NEXUS.",
     "reviewed_sha256": {
       "memory/nexus_maintenance.py": "c1bcab727cca938c8384dacfe920c46c2412824d8cb8f6c37cdfc61931e27aa7",
-      "memory/test_nexus_maintenance_cutover.py": "307d75c7a820f01da4de11ea2f2f2b3f051c191b9266b377ff591aba94fd626c"
+      "memory/test_nexus_maintenance_cutover.py": "a711f56ee0840cdce2605eec291d2a1a1666c8f0a1e870a0b7a67ef1f4102cf7"
     },
     "reviewer": "NEXUS",
     "date": "2026-09-07",
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "evidence": "Revision 7-sep 15:08. Ejerci la logica con los CUATRO estados del marcador, no solo el de la entrega: ausente -> v2=False, 6 servicios vigilados; ALICE-V2 -> True, 4; ALICE-V1 -> False, 6; 'alice-v2' con espacios y minusculas -> True, 4. Falla del lado SEGURO: si no puede leer el marcador vigila MAS unidades, no menos. 5 tests hermeticos en verde (usan tmp_path y la variable SEAL_ALICE_ACTIVE_BODY_PATH, no /etc). SALVEDAD: la evidencia de entrega describe un escenario que HOY no se puede reproducir -/etc/seal/alice_cuerpo_activo NO existe y los dos servicios v1 estan ACTIVE, no inactive-. Corri proactive_maintenance.py frequent con SEAL_PROACTIVE_FIX=off y no emitio svc_down para esos dos, pero eso no ejercita el camino: no los reporta porque estan vivos. Lo que firmo es el comportamiento del codigo, verificado con los cuatro estados; NO firmo la reproduccion del escenario de cutover, que necesita el marcador.",
+      "evidence": "Re-firma 9-sep. Control 5/5 PASSED con los tests de hoy (eran 4 cuando se firmo). Los 2 mutantes de ADA RE-CORRIDOS sobre los bytes de hoy: detector-vuelve-a-lista-fija KILLED (1 failed, 4 passed), omite-recheck-antes-del-restart KILLED (1 failed, 4 passed). 2/2, score 100. Copia fresca del sujeto antes de cada mutante y sha verificado igual tras restaurar (c1bcab727cca938c). El brazo nuevo es test_fixer_rechecks_cutover_intent_before_restart, que es justo el que mata al segundo mutante.",
       "reviewed_sha256": {
         "memory/nexus_maintenance.py": "c1bcab727cca938c8384dacfe920c46c2412824d8cb8f6c37cdfc61931e27aa7",
         "memory/test_nexus_maintenance_cutover.py": "a711f56ee0840cdce2605eec291d2a1a1666c8f0a1e870a0b7a67ef1f4102cf7"
       },
-      "manifest_digest": "6a75fdb42116beba255f2ec67fd5a3012af2592828ea4a0bf1b1f6ac6eb137a1"
+      "manifest_digest": "4b219333e6ac3fa79737173a3cb262e01e77fbebae81fdb18f95b2b33e6cf86c",
+      "signed_at": "2026-09-09T17:51:06Z"
     }
   },
   "deletions": [],
@@ -35,7 +36,7 @@
       "id": "unit-cutover-intent",
       "kind": "unit",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -47,7 +48,7 @@
       "id": "positive-v1-contract-without-marker",
       "kind": "qa_positive",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -59,7 +60,7 @@
       "id": "negative-v1-omitted-during-v2",
       "kind": "qa_negative",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -71,7 +72,7 @@
       "id": "race-recheck-before-restart",
       "kind": "qa_control",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -82,10 +83,11 @@
   ],
   "coverage": {
     "source": [
-      "memory/nexus_maintenance.py"
+      "memory"
     ],
     "omit": [
-      "tests/*",
+      "memory/test_*",
+      "memory/tests/*",
       "*/site-packages/*"
     ],
     "pytest_args": [
@@ -93,7 +95,8 @@
       "memory/test_nexus_maintenance_cutover.py"
     ],
     "baseline_percent": 0.0,
-    "timeout": 120
+    "timeout": 120,
+    "_por_que_source_es_el_DIRECTORIO": "Decia source=['memory/nexus_maintenance.py'] y el gate fallaba con coverage_report_failed. Causa aislada: `coverage run --source` acepta PAQUETES o DIRECTORIOS, no un archivo; con un archivo no recolecta nada -'No data was collected'- y `coverage json` no produce reporte. Medido tambien con el nombre de modulo (source=nexus_maintenance): tampoco recolecta, porque no es importable desde la raiz. OJO -y lo digo en vez de taparlo-: con el directorio el porcentaje pasa a medir memory/ ENTERO (~68.000 sentencias, ~1%), no el sujeto. Como baseline_percent es 0.0, el numero NO vincula: esta cobertura no prueba nada sobre el sujeto. El gate solo entiende `source` y `omit`, no `include`, asi que acotar a un archivo no se puede expresar hoy. Eso es un hueco del gate, no de este carril."
   },
   "mutation_evidence": "quality/mutation-nexus-maintenance-alice-v2-intent-v1.json",
   "mutation_baseline_percent": 100.0,
@@ -104,7 +107,7 @@
       "id": "delivery-proactive-dry-run",
       "kind": "delivery",
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -113,5 +116,6 @@
       "expected_exit": 0,
       "expected_stdout_contains": "1 passed"
     }
-  }
+  },
+  "_por_que_el_interprete_es_explicito": "Los comandos decian `python3` a secas, que resuelve a /usr/bin/python3: 'No module named pytest'. Los 4 comandos y el de delivery fallaban con exit 1 mientras la misma suite pasaba a mano. Un manifiesto que nombra el interprete del sistema no se puede ejecutar en este repo."
 }

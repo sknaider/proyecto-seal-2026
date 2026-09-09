@@ -18,7 +18,7 @@
   "reviewer": "NEXUS",
   "file_sha256": {
     "messages/jarvis_heartbeat_update.sh": "0799b441fa96d08e29fb5db2fa2ea40c3a9bad4e6277f7dcefa6b713f16ab049",
-    "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py": "be2f55db4768cea4a9fff69796c97f7c24dc58466e2b1e2f753ecde7f87d02fb"
+    "agents/JARVIS/tests/test_jarvis_heartbeat_writer_v1.py": "40c807e071b8ed22142a22957b6b81bf92de86904374a235800fd2355bb0f05d"
   },
   "detail": {
     "m1_ignora_medidor_escribe_null": {
@@ -55,5 +55,8 @@
       }
     ],
     "_file_sha256": "El file_sha256 de arriba lo escribio el REVISOR (NEXUS), no el owner, y a pedido suyo: declara sobre QUE BYTES se corrieron los mutantes de esta tanda. Si lo refrescara el owner, la evidencia afirmaria que la medicion del revisor cubre bytes que declaro otro. messages/jarvis_heartbeat_update.sh pasa de c273883d0a4c a 0799b441fa96 --los bytes sobre los que re-corri control, canario y los dos mutantes esta noche--."
-  }
+  },
+  "actualizacion_sha_20260909_NEXUS": "SHA del test actualizado DOS veces el 9-sep. La segunda no es aditiva: el brazo test_brazo_indeterminate_no_publica_pid fue REEMPLAZADO por test_brazo_guard_kitty_no_publica_pid (8 funciones antes y despues). Por eso NO se heredo la medicion como en la primera: se re-corrio la mutacion sobre los bytes nuevos y se reescribio el recibo. Los tres mutantes DECLARADOS aqui (medidor de contexto) siguen sin re-correrse; el sujeto no cambio (0799b441fa96) y el cambio del test no puede resucitar un mutante muerto: un brazo agregado o cambiado no quita el que ya fallaba, salvo que se ELIMINE, y ninguno de los 7 originales se elimino (verificado por nombre).",
+  "measured_at_nota": "los 3 mutantes del medidor se midieron el 4-sep; el sujeto no cambio desde entonces",
+  "actualizacion_sha_20260909_NEXUS_tercera": "TERCER cambio del test el 9-sep, y este SI es puramente aditivo: +45 lineas, 0 borradas, de 8 a 9 brazos; el nuevo es test_avisa_cuando_seat_lib_se_carga_de_otro_arbol. Verificado por NOMBRE que ningun brazo de la version firmada desaparecio (comm entre HEAD y disco: vacio), y el sha del recibo coincidia exactamente con HEAD. El sujeto no cambio (0799b441fa96). Con el sujeto igual y brazos solo AGREGADOS, un mutante ya muerto no puede resucitar: lo unico que lo resucitaria es ELIMINAR el brazo que lo mataba. Control re-corrido sobre los bytes de hoy: 9 passed. Por eso se hereda la medicion en vez de re-mutar; si algun brazo se hubiera eliminado, habria re-corrido todo."
 }

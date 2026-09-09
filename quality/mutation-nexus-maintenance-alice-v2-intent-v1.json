@@ -5,9 +5,13 @@
   "subject": "memory/nexus_maintenance.py",
   "file_sha256": {
     "memory/nexus_maintenance.py": "c1bcab727cca938c8384dacfe920c46c2412824d8cb8f6c37cdfc61931e27aa7",
-    "memory/test_nexus_maintenance_cutover.py": "307d75c7a820f01da4de11ea2f2f2b3f051c191b9266b377ff591aba94fd626c"
+    "memory/test_nexus_maintenance_cutover.py": "a711f56ee0840cdce2605eec291d2a1a1666c8f0a1e870a0b7a67ef1f4102cf7"
   },
-  "harness": ["bash", "-lc", "PYTHONPATH=memory python3 -m pytest -q memory/test_nexus_maintenance_cutover.py"],
+  "harness": [
+    "bash",
+    "-lc",
+    "PYTHONPATH=memory python3 -m pytest -q memory/test_nexus_maintenance_cutover.py"
+  ],
   "_doc": "Precheck de ADA en copias aisladas. NEXUS debe repetir o reemplazar esta evidencia durante la revisión independiente.",
   "mutants": [
     {
@@ -16,7 +20,8 @@
       "mutation": "detect_services itera _WATCH en vez de _watch_services()",
       "why": "Reviviría poller y bridge v1 aunque el cuerpo activo sea ALICE-V2.",
       "result": "KILLED",
-      "observed": "1 failed, 3 passed"
+      "observed": "1 failed, 4 passed",
+      "rerun_by": "NEXUS"
     },
     {
       "id": "omite-recheck-antes-del-restart",
@@ -24,14 +29,15 @@
       "mutation": "elimina el segundo chequeo de intención dentro de fix_restart",
       "why": "Una detección previa al cutover podría ejecutar después y revivir v1.",
       "result": "KILLED",
-      "observed": "1 failed, 3 passed"
+      "observed": "1 failed, 4 passed",
+      "rerun_by": "NEXUS"
     }
   ],
   "control_sujeto_sin_mutar": {
     "result": "GREEN",
-    "observed": "4 passed",
-    "donde": "copia aislada",
-    "por": "ADA"
+    "observed": "5 passed",
+    "donde": "arbol, con copia fresca del sujeto antes de CADA mutante",
+    "por": "NEXUS"
   },
   "killed": 2,
   "survived": 0,
@@ -40,5 +46,6 @@
   "suspicious": 0,
   "timeout": 0,
   "total": 2,
-  "mutation_score_percent": 100.0
+  "mutation_score_percent": 100.0,
+  "_re_corrida": "9-sep: la evidencia quedo stale porque el ARCHIVO DE TESTS cambio (paso de 4 a 5 brazos); el sujeto no. Re-corri los dos mutantes de ADA contra los bytes de hoy en vez de solo actualizar los SHA: una evidencia cuyo sha se actualiza sin volver a mutar no prueba nada sobre los tests nuevos. Anclas contadas con python -grep -Fc cuenta LINEAS y da un conteo falso con anclas multilinea-."
 }
