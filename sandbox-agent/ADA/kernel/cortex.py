@@ -133,7 +133,7 @@ def _get_llm() -> MultiTierLLMClient:
     triangle_timeout = float(os.environ.get("ADA_TRIANGLE_TIMEOUT", "180.0"))
     claude_enabled = ADA_CLAUDE_FLAG.exists() and bool(os.environ.get("ANTHROPIC_API_KEY"))
     claude_model = os.environ.get("ADA_CLAUDE_MODEL", "claude-opus-4-7")
-    ollama_model = os.environ.get("ADA_OLLAMA_MODEL", "qwen2.5:7b")
+    ollama_model = os.environ.get("ADA_OLLAMA_MODEL", "qwen2.5:3b")
 
     signature = (
         f"{triangle_url}|{triangle_model}|{triangle_timeout}|"

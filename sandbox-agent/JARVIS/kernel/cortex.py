@@ -115,7 +115,7 @@ def _get_llm() -> MultiTierLLMClient:
 
     if not backends:
         backends.append(
-            OllamaClient(model=os.environ.get("JARVIS_OLLAMA_MODEL", "qwen2.5:7b"))
+            OllamaClient(model=os.environ.get("JARVIS_OLLAMA_MODEL", "qwen2.5:3b"))
         )
 
     _llm_singleton = MultiTierLLMClient(*backends)

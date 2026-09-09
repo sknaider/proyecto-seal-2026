@@ -1,0 +1,133 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "cortex-model-3b-fallback-20260908",
+  "owner": "JARVIS",
+  "independent_reviewer": "ALICE",
+  "subjects": [
+    "sandbox-agent/ADA/kernel/cortex.py",
+    "sandbox-agent/ALICE/kernel/cortex.py",
+    "sandbox-agent/JARVIS/kernel/cortex.py",
+    "sandbox-agent/NEXUS/kernel/cortex.py"
+  ],
+  "tests": [
+    "sandbox-agent/tests/test_cortex_model_3b_fallback_20260908.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-no-7b-literal",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "sandbox-agent/tests/test_cortex_model_3b_fallback_20260908.py",
+        "-k",
+        "unit"
+      ]
+    },
+    {
+      "id": "qa_positive-3b-default",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "sandbox-agent/tests/test_cortex_model_3b_fallback_20260908.py",
+        "-k",
+        "qa_positive"
+      ]
+    },
+    {
+      "id": "qa_negative-no-7b-fallback",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "sandbox-agent/tests/test_cortex_model_3b_fallback_20260908.py",
+        "-k",
+        "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-files-exist",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "sandbox-agent/tests/test_cortex_model_3b_fallback_20260908.py",
+        "-k",
+        "qa_control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "sandbox-agent"
+    ],
+    "omit": [
+      "sandbox-agent/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "sandbox-agent/tests/test_cortex_model_3b_fallback_20260908.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 30
+  },
+  "_por_que": "Los 4 cortex.py de sandbox-agent (ADA/ALICE/JARVIS/NEXUS) tenian qwen2.5:7b como fallback por defecto (6.1 GB VRAM). Se cambio a qwen2.5:3b (1.8 GB, 84 tok/s). William ordeno: 'optimiza eso'. No es critical_path segun quality/policy.json — no requiere mutation_evidence.",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "ALICE",
+    "reviewed_sha256": {
+      "sandbox-agent/ADA/kernel/cortex.py": "69803c6ab9949185bbe5ae0a95503787c3e4e4c42d3ef7b82b7b700a035a4919",
+      "sandbox-agent/ALICE/kernel/cortex.py": "ddb83127b25d267b021bf9a1f044eea8ad19f769836ea2437f9d9bb555c47134",
+      "sandbox-agent/JARVIS/kernel/cortex.py": "fa388b3bd53643ae87d4be18f73f586c0b3a2cdb7fd808c2b791c4e6b10e425b",
+      "sandbox-agent/NEXUS/kernel/cortex.py": "efdbc1d6e90d21a3aaed7e90d1bb40c0f2276bffcb8b634bb3feef5cbb797938",
+      "sandbox-agent/tests/test_cortex_model_3b_fallback_20260908.py": "4a4f79bf2f32e8f6fec22b0d761c679577678d662887e8b170a998e3f8741da7"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-09T00:15:35Z",
+      "evidence": "Verificado en disco: 4/4 cortex.py (ADA, ALICE, JARVIS, NEXUS) — ninguno contiene 'qwen2.5:7b' como literal ni como default de os.environ.get. Todos contienen 'qwen2.5:3b'. SHAs coinciden con los esperados. Tests ejecutados: 4/4 PASSED (test_qa_positive_all_cortex_use_3b_default, test_qa_negative_no_cortex_has_7b_fallback, test_qa_control_all_cortex_files_exist, test_unit_no_7b_literal_anywhere). Cambio no-critico: sandbox-agent/** no esta en critical_paths — mutation_evidence no requerida. Aprobado.",
+      "reviewed_sha256": {
+        "sandbox-agent/ADA/kernel/cortex.py": "69803c6ab9949185bbe5ae0a95503787c3e4e4c42d3ef7b82b7b700a035a4919",
+        "sandbox-agent/ALICE/kernel/cortex.py": "ddb83127b25d267b021bf9a1f044eea8ad19f769836ea2437f9d9bb555c47134",
+        "sandbox-agent/JARVIS/kernel/cortex.py": "fa388b3bd53643ae87d4be18f73f586c0b3a2cdb7fd808c2b791c4e6b10e425b",
+        "sandbox-agent/NEXUS/kernel/cortex.py": "efdbc1d6e90d21a3aaed7e90d1bb40c0f2276bffcb8b634bb3feef5cbb797938",
+        "sandbox-agent/tests/test_cortex_model_3b_fallback_20260908.py": "4a4f79bf2f32e8f6fec22b0d761c679577678d662887e8b170a998e3f8741da7"
+      },
+      "manifest_digest": "5d3ffa7911352217eb01da047ed6fb5b6ac829afe47ded699a413984ee138b7f"
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "effect": "Los 4 cortex.py usan qwen2.5:3b como fallback Ollama. qwen2.5:7b no aparece en ninguno.",
+    "evidence": "4/4 tests PASSED. test_unit_no_7b_literal_anywhere y test_qa_negative_no_cortex_has_7b_fallback verifican por AST y substring que 7b no esta.",
+    "assertion": "Ningun cortex.py contiene 'qwen2.5:7b' como fallback de os.environ.get.",
+    "command": {
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "sandbox-agent/tests/test_cortex_model_3b_fallback_20260908.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  }
+}

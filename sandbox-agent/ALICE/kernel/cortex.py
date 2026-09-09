@@ -96,7 +96,7 @@ def _get_llm() -> MultiTierLLMClient:
             )
         )
 
-    backends.append(OllamaClient(model=os.environ.get("ALICE_OLLAMA_MODEL", "qwen2.5:7b")))
+    backends.append(OllamaClient(model=os.environ.get("ALICE_OLLAMA_MODEL", "qwen2.5:3b")))
 
     _llm_singleton = MultiTierLLMClient(*backends)
     return _llm_singleton
