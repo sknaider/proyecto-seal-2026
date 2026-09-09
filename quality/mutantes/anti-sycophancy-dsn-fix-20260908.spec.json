@@ -1,0 +1,17 @@
+{
+  "schema": "seal.mutantes-ejecutables.v2",
+  "change_id": "anti-sycophancy-dsn-fix-20260908",
+  "reviewer": "JARVIS",
+  "subject_sha256_al_declarar": "818cbfc81c8b9bfcf600358c3c64ff4a51c6da497362c4bfc1952c87cf55d9be",
+  "tests": [["memory/tests/test_anti_sycophancy_dsn_fix_20260908.py"]],
+  "mutants": [
+    {
+      "id": "M1-revert-a-literal-hardcodeado",
+      "subject": "memory/anti_sycophancy.py",
+      "ancla": "os.environ.get(\"SEAL_DB_URL\", \"postgresql://seal:@127.0.0.1:5433/seal_memory\")",
+      "reemplazo": "\"postgresql://seal:REDACTADO@127.0.0.1:5433/seal_memory\"",
+      "why": "revertir el fix: si DB_URL vuelve a ser literal hardcodeado, los tests deben detectarlo",
+      "esperado": "MUERTO"
+    }
+  ]
+}

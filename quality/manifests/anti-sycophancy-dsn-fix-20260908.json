@@ -1,0 +1,100 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "anti-sycophancy-dsn-fix-20260908",
+  "owner": "JARVIS",
+  "independent_reviewer": "ALICE",
+  "subjects": ["memory/anti_sycophancy.py"],
+  "tests": ["memory/tests/test_anti_sycophancy_dsn_fix_20260908.py"],
+  "commands": [
+    {
+      "id": "unit-dsn-fix",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q", "-p", "no:cacheprovider",
+        "memory/tests/test_anti_sycophancy_dsn_fix_20260908.py",
+        "-k", "positive or negative or control"
+      ]
+    },
+    {
+      "id": "qa_positive-env-var",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_anti_sycophancy_dsn_fix_20260908.py",
+        "-k", "qa_positive"
+      ]
+    },
+    {
+      "id": "qa_negative-no-literal",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_anti_sycophancy_dsn_fix_20260908.py",
+        "-k", "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-import-os",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_anti_sycophancy_dsn_fix_20260908.py",
+        "-k", "qa_control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": ["memory"],
+    "omit": ["memory/tests/*", "memory/test_*"],
+    "pytest_args": ["-q", "memory/tests/test_anti_sycophancy_dsn_fix_20260908.py"],
+    "baseline_percent": 0.0,
+    "timeout": 60
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-anti-sycophancy-dsn-fix-20260908.json",
+  "mutation_spec": "quality/mutantes/anti-sycophancy-dsn-fix-20260908.spec.json",
+  "_por_que": "memory/anti_sycophancy.py tenia DB_URL hardcodeado (primero credencial real en recovery commit f8cf0b8, luego REDACTADO como placeholder en bf59df8). Se reemplaza por os.environ.get(SEAL_DB_URL) para eliminar cualquier secreto del codigo fuente. El commit de recuperacion f8cf0b8 en github/recovery-20260907 tiene credencial real — reportado a William por DM para decision de rotacion.",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "ALICE",
+    "reviewed_sha256": {
+      "memory/anti_sycophancy.py": "818cbfc81c8b9bfcf600358c3c64ff4a51c6da497362c4bfc1952c87cf55d9be",
+      "memory/tests/test_anti_sycophancy_dsn_fix_20260908.py": "908c0efa3c198f45978a3f49a76b56b54d4e1411eea8f34d506493c8e322fdc8"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-08T23:48:00Z",
+      "evidence": "Mutante M1 KILLED verificado en scratchpad /tmp/mut_antisyco_OdCffH (arbol vivo intacto, CWD en scratchpad): reemplazar os.environ.get por literal hardcodeado mata 4 tests (test_qa_positive_db_url_usa_environ, test_qa_positive_no_literal_con_password, test_qa_negative_no_redactado, test_qa_negative_no_hardcoded_literal), 1 passed. Control sin mutar: 5/5 PASSED. SHAs verificados en disco: anti_sycophancy.py=818cbfc8, test=908c0efa.",
+      "reviewed_sha256": {
+        "memory/anti_sycophancy.py": "818cbfc81c8b9bfcf600358c3c64ff4a51c6da497362c4bfc1952c87cf55d9be",
+        "memory/tests/test_anti_sycophancy_dsn_fix_20260908.py": "908c0efa3c198f45978a3f49a76b56b54d4e1411eea8f34d506493c8e322fdc8"
+      },
+      "manifest_digest": "97a7f74c5584df3031fb032b22e167ff325d87d9867f7c153c1ffb51875383b7"
+    }
+  },
+  "delivery": {
+    "status": "verified",
+    "effect": "DB_URL en anti_sycophancy.py lee SEAL_DB_URL del entorno. La palabra REDACTADO y cualquier credencial literal fueron eliminadas.",
+    "evidence": "5/5 tests PASSED. Mutante M1 KILLED: revertir a literal hardcodeado mata 4 tests.",
+    "assertion": "anti_sycophancy.py no contiene cadenas postgresql://...@... literales. DB_URL = os.environ.get(...).",
+    "command": {
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_anti_sycophancy_dsn_fix_20260908.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  }
+}

@@ -25,9 +25,11 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
+import os
+
 import asyncpg
 
-DB_URL = "postgresql://seal:REDACTADO@localhost:5433/seal_memory"
+DB_URL = os.environ.get("SEAL_DB_URL", "postgresql://seal:@127.0.0.1:5433/seal_memory")
 
 # Validation phrases — agreement without evidence
 VALIDATION_PATTERNS = [

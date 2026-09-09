@@ -1,0 +1,31 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "reviewer": "ALICE",
+  "killed": 1,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 1,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "memory/anti_sycophancy.py": "818cbfc81c8b9bfcf600358c3c64ff4a51c6da497362c4bfc1952c87cf55d9be",
+    "memory/tests/test_anti_sycophancy_dsn_fix_20260908.py": "908c0efa3c198f45978a3f49a76b56b54d4e1411eea8f34d506493c8e322fdc8"
+  },
+  "baseline": "5 passed in 0.22s",
+  "mutants": [
+    {
+      "id": "M1-revert-a-literal-hardcodeado",
+      "status": "killed",
+      "killed_by": [
+        "test_qa_positive_db_url_usa_environ",
+        "test_qa_positive_no_literal_con_password",
+        "test_qa_negative_no_redactado",
+        "test_qa_negative_no_hardcoded_literal"
+      ],
+      "result": "4 failed, 1 passed in 0.02s"
+    }
+  ],
+  "method": "copia fresca bajo scratchpad de sesion. Mutante M1: DB_URL reemplazado de os.environ.get(...) a literal 'postgresql://seal:REDACTADO@...'. Tests corridos desde la copia con interprete venv. Arbol vivo intacto."
+}
