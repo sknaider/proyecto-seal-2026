@@ -120,7 +120,8 @@
     "quality/manifests/u116-isolated-claude-transport.json",
     "quality/manifests/unit-failed-notify-20260905.json",
     "quality/manifests/validador-candado-v1.json",
-    "quality/manifests/nerves-model-3b-fallback-20260908.json"
+    "quality/manifests/nerves-model-3b-fallback-20260908.json",
+    "quality/manifests/awareness-consolidation-3b-20260909.json"
   ],
   "policy_id": "william-golden-quality-rule-2026-08-03",
   "required_qa_arms": [

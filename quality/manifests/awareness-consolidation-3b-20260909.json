@@ -1,0 +1,108 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "awareness-consolidation-3b-20260909",
+  "owner": "JARVIS",
+  "independent_reviewer": "ALICE",
+  "subjects": [
+    "memory/jarvis_awareness.py",
+    "memory/consolidation_daemon.py"
+  ],
+  "tests": [
+    "memory/tests/test_awareness_consolidation_3b_20260909.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-no-7b-assignment",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q", "-p", "no:cacheprovider",
+        "memory/tests/test_awareness_consolidation_3b_20260909.py",
+        "-k", "unit"
+      ]
+    },
+    {
+      "id": "qa_positive-3b",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_awareness_consolidation_3b_20260909.py",
+        "-k", "qa_positive"
+      ]
+    },
+    {
+      "id": "qa_negative-no-7b",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_awareness_consolidation_3b_20260909.py",
+        "-k", "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-files-exist",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m", "pytest", "-q",
+        "memory/tests/test_awareness_consolidation_3b_20260909.py",
+        "-k", "qa_control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": ["memory"],
+    "omit": ["memory/tests/*"],
+    "pytest_args": ["-q", "memory/tests/test_awareness_consolidation_3b_20260909.py"],
+    "baseline_percent": 0.0,
+    "timeout": 30
+  },
+  "mutation_evidence": "quality/mutation-awareness-consolidation-3b-20260909.json",
+  "_por_que": "jarvis_awareness.py y consolidation_daemon.py tenian OLLAMA_MODEL=qwen2.5:7b. El awareness corre cada 30 min recargando 6.29 GB VRAM. William ordeno: optimiza eso. Cambio a 3b elimina el reload automatico de 7b. Critical_path (memory/**) — requiere mutation_evidence.",
+  "delivery": {
+    "status": "verified",
+    "evidence": "jarvis-awareness.service activo PID=2472702 (reiniciado post-fix). grep -n OLLAMA_MODEL.*qwen2.5:3b en ambos archivos: memory/jarvis_awareness.py:43:OLLAMA_MODEL = \"qwen2.5:3b\" | memory/consolidation_daemon.py:57:OLLAMA_MODEL = \"qwen2.5:3b\". VRAM medida: 3.2 GB (3b + all-minilm, sin 7b). Comando verificado 2026-09-09T03:55 Lima.",
+    "command": {
+      "id": "delivery-model-3b-check",
+      "kind": "delivery_effect",
+      "expected_exit": 0,
+      "argv": [
+        "grep", "-rn", "OLLAMA_MODEL.*qwen2.5:3b",
+        "memory/jarvis_awareness.py",
+        "memory/consolidation_daemon.py"
+      ],
+      "expected_stdout_contains": "qwen2.5:3b"
+    }
+  },
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "ALICE",
+    "reviewed_sha256": {
+      "memory/jarvis_awareness.py": "673ce12f6dc2c3c6ed40bcbb83c887ad68c4f3152d18414eb7b1cfaaf54b8f89",
+      "memory/consolidation_daemon.py": "110878969077a1fa9957e4f5c64e6aadd6d72cd87da5c0041938ab57eab0ceae",
+      "memory/tests/test_awareness_consolidation_3b_20260909.py": "590bccf5b7737b0723a0189d3fed131868b4875c5aa3764c150d93ba3ecd6a6f"
+    },
+    "findings": [
+      "test_awareness_consolidation_3b_20260909.py no esta en git HEAD (untracked) — stagear antes del commit o el gate staged lo rechazara",
+      "mutante M1 aplicado in-place en repo vivo por JARVIS (no en scratchpad); mismo patron que FABLE marco en nerves-model-3b-fallback. Verificado independientemente por ALICE en /tmp/mut_awareness_C6yJez: resultado identico — 3 killed, 1 survived por diseno"
+    ],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-09T08:55:00Z",
+      "evidence": "Control sin mutar en scratchpad /tmp/mut_awareness_C6yJez: 4/4 PASSED. Mutante M1 (OLLAMA_MODEL='qwen2.5:7b' en jarvis_awareness.py): 3 failed (test_unit_no_7b_ollama_model_assignment, test_qa_positive_ollama_model_is_3b, test_qa_negative_no_7b_in_ollama_model), 1 passed (test_qa_control_files_exist — superviviente esperado: solo verifica existencia). Arbol vivo intacto: ambos archivos tienen OLLAMA_MODEL='qwen2.5:3b'. SHAs verificados en disco — todos coinciden con mutation evidence. manifest_digest verificado con ensure_ascii=False: MATCH.",
+      "reviewed_sha256": {
+        "memory/jarvis_awareness.py": "673ce12f6dc2c3c6ed40bcbb83c887ad68c4f3152d18414eb7b1cfaaf54b8f89",
+        "memory/consolidation_daemon.py": "110878969077a1fa9957e4f5c64e6aadd6d72cd87da5c0041938ab57eab0ceae",
+        "memory/tests/test_awareness_consolidation_3b_20260909.py": "590bccf5b7737b0723a0189d3fed131868b4875c5aa3764c150d93ba3ecd6a6f"
+      },
+      "manifest_digest": "3f6d3930855884532b305d039dbc2dbdecfa4210201e36c240950e8719123c3c"
+    }
+  }
+}

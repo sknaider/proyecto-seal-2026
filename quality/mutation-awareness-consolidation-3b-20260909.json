@@ -1,0 +1,28 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "tool": "Mutante M1 manual: OLLAMA_MODEL revertido a 7b en jarvis_awareness.py; tests corren contra archivo en disco; restauracion verificada.",
+  "workspace": "awareness-consolidation-3b-20260909",
+  "mutation_target": "memory/jarvis_awareness.py",
+  "killed": 3,
+  "survived": 1,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 4,
+  "mutation_score_percent": 75.0,
+  "detail": {
+    "control_positivo": "4 passed (codigo con 3b en ambos archivos)",
+    "control_de_restauracion": "4 passed (restaurado a 3b post-mutante)",
+    "mutantes": [
+      "M1 OLLAMA_MODEL='qwen2.5:7b' en jarvis_awareness.py (reversion): test_unit_no_7b_ollama_model_assignment FALLA, test_qa_positive_ollama_model_is_3b FALLA, test_qa_negative_no_7b_in_ollama_model FALLA. 3/4 MUEREN.",
+      "M_survived: test_qa_control_files_exist — inmortal por diseno (solo verifica existencia del archivo, no el contenido)"
+    ]
+  },
+  "file_sha256": {
+    "memory/jarvis_awareness.py": "673ce12f6dc2c3c6ed40bcbb83c887ad68c4f3152d18414eb7b1cfaaf54b8f89",
+    "memory/consolidation_daemon.py": "110878969077a1fa9957e4f5c64e6aadd6d72cd87da5c0041938ab57eab0ceae",
+    "memory/tests/test_awareness_consolidation_3b_20260909.py": "590bccf5b7737b0723a0189d3fed131868b4875c5aa3764c150d93ba3ecd6a6f"
+  },
+  "reviewer": "ALICE"
+}

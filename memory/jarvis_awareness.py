@@ -40,7 +40,7 @@ INTERVAL_REFLECT = 1800   # 30 min — reflexión con qwen
 INTERVAL_BRIEFING = 14400 # 4h — briefing estratégico
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "qwen2.5:7b"
+OLLAMA_MODEL = "qwen2.5:3b"
 
 MESSAGES_DIR = Path("/home/dadito/IA/proyecto-seal/messages")
 VSCODE_CMDS = MESSAGES_DIR / "vscode_commands.jsonl"
