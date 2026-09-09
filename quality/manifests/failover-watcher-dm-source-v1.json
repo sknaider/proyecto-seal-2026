@@ -19,7 +19,7 @@
       "reviewed_at": "2026-09-04T03:25:28.254101+00:00",
       "reviewed_sha256": {
         "messages/failover_watcher.py": "e418ccf6542676224db8fc89e96ea9920f7f8cc0bdbd309d3ba71195f05d0457",
-        "messages/tests/test_failover_watcher_dm_source.py": "b06873bf2e4a715c5929d05b460705c353dbda1909246dade46698da486f4bf0"
+        "messages/tests/test_failover_watcher_dm_source.py": "2ef5edd242b1912e6a52f26199c2e4411538072d4f6fb7eeada192fab9f5fcb7"
       },
       "manifest_digest": "d591e868df650e814b0a1dcae156728fcc1428cad2771148f42748563f3b6e3d",
       "verdict": "APPROVED",

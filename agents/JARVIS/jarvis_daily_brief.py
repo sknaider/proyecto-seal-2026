@@ -36,19 +36,22 @@ def hallazgos_unidades() -> list[str]:
 
 
 def hallazgos_respaldo(hoy: dt.date) -> list[str]:
-    h: list[str] = []
-    if not BACKUPS.is_dir():
-        return [f"NO_MEDIBLE respaldo · {BACKUPS} no montado"]
-    fotos = sorted(p.name for p in BACKUPS.glob("20*") if p.is_dir())
-    if not fotos or fotos[-1] not in (str(hoy), str(hoy - dt.timedelta(days=1))):
-        h.append(f"respaldo NFS · última foto {fotos[-1] if fotos else 'NINGUNA'} (hoy {hoy})")
-    if fotos:
-        ult = BACKUPS / fotos[-1]
-        if not any(p.suffix == ".dump" for p in ult.iterdir()):
-            h.append(f"respaldo NFS · la foto {fotos[-1]} no tiene dump publicado")
-        if any(p.name.endswith(".partial") for p in ult.iterdir()):
-            h.append(f"respaldo NFS · dump .partial colgado en {fotos[-1]} (pg_dump no terminó con rc=0)")
-    return h
+    try:
+        if not BACKUPS.is_dir():
+            return [f"NO_MEDIBLE respaldo · {BACKUPS} no montado"]
+        h: list[str] = []
+        fotos = sorted(p.name for p in BACKUPS.glob("20*") if p.is_dir())
+        if not fotos or fotos[-1] not in (str(hoy), str(hoy - dt.timedelta(days=1))):
+            h.append(f"respaldo NFS · última foto {fotos[-1] if fotos else 'NINGUNA'} (hoy {hoy})")
+        if fotos:
+            ult = BACKUPS / fotos[-1]
+            if not any(p.suffix == ".dump" for p in ult.iterdir()):
+                h.append(f"respaldo NFS · la foto {fotos[-1]} no tiene dump publicado")
+            if any(p.name.endswith(".partial") for p in ult.iterdir()):
+                h.append(f"respaldo NFS · dump .partial colgado en {fotos[-1]} (pg_dump no terminó con rc=0)")
+        return h
+    except OSError as e:
+        return [f"NO_MEDIBLE respaldo · {BACKUPS} error E/S ({e.errno})"]
 
 
 def hallazgos_disco() -> list[str]:

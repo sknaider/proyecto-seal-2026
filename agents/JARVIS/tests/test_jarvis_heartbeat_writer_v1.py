@@ -306,3 +306,80 @@ def test_cien_por_ciento_se_escribe_como_100():
         meter = _stub_meter(o, "print('⚕ JARVIS │ 950K/950K auto │ [██████████] 100% │ 2s', end='')\n")
         data, rc = _correr_writer_con_medidor(pr, o, meter)
     assert rc == 0 and data["context_percent"] == 100 and data["context_source"] == "seal_context_meter"
+
+
+def test_brazo_guard_kitty_no_publica_pid():
+    """BRAZO — guarda pid: el pid asignado por el fallback kitty se BORRA antes de publicar.
+
+    Este es el único camino donde la guarda de la línea 380 borra un pid NO vacío:
+      1. /proc sintético vacío  →  _JARVIS_N=0, _JARVIS_ILEG=0
+      2. Fallback kitty (lns 241-248) detecta pgrep→kitty→bash→claude y asigna
+         JARVIS_PID="<pid>" con JARVIS_RUNTIME="claude_kitty"
+      3. case claude_kitty → RUNTIME_STATUS="indeterminate"
+      4. Guarda: [ "indeterminate" = "present_unique" ] || JARVIS_PID=""  <- dispara aquí
+      5. JARVIS_PID="" antes de escribir el JSON
+
+    Sin la guarda (mutante: quitar o neutralizar la línea 380), el pid del proceso
+    claude bajo kitty se publicaría con status=indeterminate → violation del contrato.
+
+    Fixture: pgrep y ps inyectados por PATH para simular la cadena kitty→bash→claude.
+    Control del instrumento: si JARVIS_RUNTIME no es claude_kitty, la fixture no vale
+    y el assert de status falla primero.
+    """
+    FAKE_KITTY = "99901"
+    FAKE_BASH  = "99902"
+    FAKE_CLAUD = "99903"
+
+    with tempfile.TemporaryDirectory() as pr, \
+         tempfile.TemporaryDirectory() as o, \
+         tempfile.TemporaryDirectory() as bintmp:
+        # Proc raíz vacío → N=0, ILEG=0 → activa fallback kitty
+        binpath = pathlib.Path(bintmp)
+
+        # pgrep sintético: intercepta búsqueda de kitty, pasa el resto al real
+        pgrep_sh = binpath / "pgrep"
+        pgrep_sh.write_text(
+            f"#!/bin/sh\n"
+            f"for a in \"$@\"; do case \"$a\" in *kitty*) echo {FAKE_KITTY}; exit 0;; esac; done\n"
+            f"exec \"$(command -v pgrep 2>/dev/null || echo /usr/bin/pgrep)\" \"$@\" 2>/dev/null\n",
+            encoding="utf-8",
+        )
+        pgrep_sh.chmod(0o755)
+
+        # ps sintético: devuelve la cadena kitty→bash→claude para nuestros pids
+        ps_sh = binpath / "ps"
+        ps_sh.write_text(
+            f"#!/bin/sh\n"
+            f"ppid=''; prev=''\n"
+            f"for a in \"$@\"; do [ \"$prev\" = '--ppid' ] && ppid=\"$a\"; prev=\"$a\"; done\n"
+            f"if [ \"$ppid\" = '{FAKE_KITTY}' ]; then echo {FAKE_BASH}; exit 0; fi\n"
+            f"if [ \"$ppid\" = '{FAKE_BASH}'  ]; then echo '{FAKE_CLAUD} claude'; exit 0; fi\n"
+            f"exec \"$(command -v ps 2>/dev/null || echo /bin/ps)\" \"$@\" 2>/dev/null\n",
+            encoding="utf-8",
+        )
+        ps_sh.chmod(0o755)
+
+        new_path = f"{bintmp}:{os.environ.get('PATH', '/usr/bin:/bin')}"
+        subprocess.run(
+            ["bash", str(WRITER)],
+            check=False, capture_output=True, text=True, timeout=180,
+            env={**os.environ,
+                 "JARVIS_PROC_ROOT": str(pr),
+                 "JARVIS_MESSAGES_DIR": str(o),
+                 "JARVIS_HB_DRYRUN": "1",
+                 "PATH": new_path},
+        )
+        data = json.loads((pathlib.Path(o) / "jarvis_claude_heartbeat.json").read_text())
+
+    # Control del instrumento: si no es indeterminate (claude_kitty), la fixture falló
+    assert "indeterminate" in data["runtime_detection_status"], (
+        f"fixture no activó el camino kitty: status={data['runtime_detection_status']!r}\n"
+        f"  esperado: runtime_detection_status contiene 'indeterminate' (via claude_kitty)\n"
+        f"  verificar: pgrep/ps sintéticos accesibles por PATH={bintmp}")
+    # La guarda de la línea 380 debe haber limpiado el pid que asignó el fallback
+    assert str(data.get("process_pid", "0")) in ("0", ""), (
+        f"pid del claude-bajo-kitty NO debe publicarse con status=indeterminate: "
+        f"process_pid={data.get('process_pid')!r}\n"
+        f"  guarda (línea 380): [ \"$RUNTIME_STATUS\" = \"present_unique\" ] || JARVIS_PID=\"\"\n"
+        f"  sin la guarda, {FAKE_CLAUD!r} saldría publicado con status=indeterminate"
+    )

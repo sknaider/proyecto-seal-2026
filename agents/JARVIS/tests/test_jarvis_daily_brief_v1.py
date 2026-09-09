@@ -52,3 +52,23 @@ def test_control_foto_de_hoy_con_dump_no_es_hallazgo(brief, tmp_path):
 def test_control_render_con_hallazgos_los_lista(brief):
     t = brief.render(["unidad en failed · `x.service`", "disco · 50 GB libres"], dt.date(2026, 9, 7))
     assert "2 hallazgo(s)" in t and t.count("\n- ") == 2
+
+
+def test_brazo_nfs_error_io_da_no_medible(brief, monkeypatch, tmp_path):
+    """BRAZO — NFS en error E/S: is_dir() lanza OSError(EIO) → NO_MEDIBLE respaldo.
+
+    FABLE REJECT: hallazgos_respaldo() solo capturaba 'no montado' (is_dir()=False).
+    Un mount NFS en I/O error no devuelve False: lanza OSError errno=5 (EIO).
+    Fix: try/except OSError alrededor del cuerpo completo de hallazgos_respaldo().
+    Simulamos con MagicMock(is_dir → OSError(EIO)), que es exactamente el traceback de FABLE.
+    """
+    import errno as _errno
+    from unittest.mock import MagicMock
+    fake_backups = MagicMock()
+    fake_backups.__str__ = lambda self: "/mnt/spark-2/backups_seal"
+    fake_backups.is_dir.side_effect = OSError(_errno.EIO, "Input/output error", "/mnt/spark-2/backups_seal")
+    monkeypatch.setattr(brief, "BACKUPS", fake_backups)
+    h = brief.hallazgos_respaldo(dt.date.today())
+    assert len(h) == 1, f"esperado 1 hallazgo NO_MEDIBLE; got: {h}"
+    assert "NO_MEDIBLE" in h[0] and "respaldo" in h[0], h
+    assert "E/S" in h[0] or "error" in h[0].lower(), h

@@ -64,3 +64,66 @@ def test_cifrado_fuera_de_canal_dm_tampoco_crea_pendiente():
 def test_control_pytest_disponible():
     import pytest  # noqa: F401
     assert callable(fw._is_dm_source)
+
+
+def test_brazo_provenance_no_verificada_no_dispara(monkeypatch):
+    """BRAZO (a) — guarda _trusted_origin: from:William sin provenance verificada no entra al failover.
+
+    FW-c FABLE: un mensaje con from:William pero provenance.verified=False o ausente
+    satisface _trusted_origin=False → la línea 439 no pasa → no crea pendiente.
+    Sin la guarda, cualquier jsonl con from:William falsificado activaría el failover.
+    """
+    def _msg_no_provenance(prov):
+        return {
+            "id": "api_test_fw_noprov_1",
+            "from": "William",
+            "to": "EQUIPO",
+            "type": "conversation",
+            "channel": "web_chat",
+            "message": "alguien puede ayudarme con esto?",
+            "provenance": prov,
+        }
+
+    casos = {
+        "provenance_ausente":            None,
+        "provenance_verified_false":     {"verified": False, "verified_sender": "William"},
+        "provenance_sender_distinto":    {"verified": True,  "verified_sender": "OTRO"},
+        "provenance_vacio":              {},
+    }
+    for nombre, prov in casos.items():
+        msg = _msg_no_provenance(prov)
+        pending, activity = {}, {}
+        fw._process_message(msg, pending, activity, time.time())
+        assert pending == {}, (
+            f"{nombre}: mensaje sin provenance verificada NO debe crear pendiente; "
+            f"_trusted_origin debe rechazarlo\n"
+            f"  provenance={prov!r}"
+        )
+
+
+def test_brazo_post_agente_usa_wake_interno_no_escritor_publico(monkeypatch, tmp_path):
+    """BRAZO (b) — _post a agente: escribe en seal_events_<AGENTE>.log, NUNCA llama send_agent_message_sync.
+
+    FW-d FABLE: si _post para agentes llamara send_agent_message_sync, cada ping de failover
+    aparecería en el chat general (visible para William como ruido). La guarda es la línea 261:
+        if to_agent.upper() != "WILLIAM": → _internal_wake → return  (send_agent_message_sync nunca se alcanza)
+    """
+    wake_calls = []
+    send_calls = []
+
+    monkeypatch.setattr(fw, "_internal_wake", lambda to, text, sid=None: wake_calls.append((to, text)))
+    monkeypatch.setattr(fw, "send_agent_message_sync", lambda *a, **k: send_calls.append((a, k)))
+    # EVENTS_DIR mock no necesario: _internal_wake está mockeado antes de tocar el filesystem
+
+    fw._post("ADA", "tomá la posta en el mensaje api_test_fw_001", source_id="api_test_fw_001")
+
+    assert len(wake_calls) == 1, (
+        f"_internal_wake debe llamarse una vez para ping a agente; llamadas={wake_calls!r}"
+    )
+    assert wake_calls[0][0].upper() == "ADA", (
+        f"_internal_wake debe recibir 'ADA'; recibió {wake_calls[0][0]!r}"
+    )
+    assert send_calls == [], (
+        f"send_agent_message_sync NO debe llamarse para ping a agente; llamadas={send_calls!r}\n"
+        f"  guarda (línea 261): if to_agent.upper() != 'WILLIAM': ... return"
+    )
