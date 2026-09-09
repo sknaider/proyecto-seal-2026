@@ -120,10 +120,23 @@ def test_ruta_completa_deniega():
     assert r["hookSpecificOutput"]["permissionDecision"] == "deny"
 
 
-def test_ruta_completa_avisa_sin_bloquear():
+def test_ruta_completa_con_variable_AHORA_DENIEGA():
+    """ACTUALIZADO 8-sep-2026 (decision de JARVIS, carril NEXUS).
+
+    Este brazo esperaba `allow` + aviso y llevaba en ROJO desde el 7-sep 10:06.
+    No era una regresion: el guardian se volvio MAS estricto y devuelve `deny`
+    para un borrado cuyo argumento es una variable. El comportamiento estricto
+    gana -es la regla de oro de William del 9-ago- y lo que se corrige es el
+    test, no la guarda.
+
+    Se conserva la exigencia de que el motivo EXPLIQUE: una denegacion sin
+    razon deja al que la recibe sin saber que escribir en su lugar, y eso fue
+    lo que congelo a dos agentes el 1-sep.
+    """
     r = hook.check_bash_safety('[ -n "$D" ] && rm -rf "$D"')
-    assert r["hookSpecificOutput"]["permissionDecision"] == "allow"
-    assert r["hookSpecificOutput"]["additionalContext"]
+    assert r["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert r["hookSpecificOutput"]["permissionDecisionReason"].strip(), (
+        "una denegacion sin motivo no le dice al agente que escribir en su lugar")
 
 
 def test_ruta_completa_no_molesta_el_trabajo_normal():
