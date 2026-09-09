@@ -1,0 +1,75 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "reviewer": "ALICE",
+  "change_id": "nexus-manifest-digest-20260909",
+  "killed": 6,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "total": 6,
+  "mutation_score_percent": 100.0,
+  "method": "copia fresca bajo scratchpad /tmp/mut_manifest_digest_Kj0DuI. Cada mutante se aplica con python str.replace(ancla, reemplazo, 1) verificando exactamente 1 ocurrencia. SHA del sujeto verificado antes y despues de restaurar. Arbol vivo intacto.",
+  "baseline": "8 passed in 0.05s",
+  "file_sha256": {
+    "tools/seal_manifest_digest.py": "199530eb67838efe0ae892ec2f1e36fe213c21dbe8ef716c2ab677e8a6dcdb5f",
+    "tools/tests/test_seal_manifest_digest_v1.py": "c0e9c820a47a902102a6971d12fdf844b0c7c1298f70ef98cfd1215025088241"
+  },
+  "mutants": [
+    {
+      "id": "M1",
+      "status": "killed",
+      "que_rompe": "reimplementa digest sin ensure_ascii=False",
+      "killed_by": [
+        "test_qa_negative_la_formula_SIN_ensure_ascii_da_OTRO_hash"
+      ],
+      "result": "3 failed, 5 passed"
+    },
+    {
+      "id": "M2",
+      "status": "killed",
+      "que_rompe": "--verificar aprueba siempre (if True)",
+      "killed_by": [
+        "test_verificar_sale_1_cuando_el_guardado_esta_mal"
+      ],
+      "result": "1 failed, 7 passed"
+    },
+    {
+      "id": "M3",
+      "status": "killed",
+      "que_rompe": "lee manifest_digest del nivel superior, no del receipt",
+      "killed_by": [
+        "test_verificar_sale_0_cuando_coincide"
+      ],
+      "result": "1 failed, 7 passed"
+    },
+    {
+      "id": "M4",
+      "status": "killed",
+      "que_rompe": "archivo inexistente sale 0 (parece exito)",
+      "killed_by": [
+        "test_qa_control_un_archivo_inexistente_no_explota"
+      ],
+      "result": "1 failed, 7 passed"
+    },
+    {
+      "id": "M5",
+      "status": "killed",
+      "que_rompe": "ensucia salida del CLI con prefijo 'digest:'",
+      "killed_by": [
+        "test_cli_imprime_solo_el_hash"
+      ],
+      "result": "1 failed, 7 passed"
+    },
+    {
+      "id": "M6",
+      "status": "killed",
+      "que_rompe": "RAIZ mal calculada: import del gate deja de resolver fuera de pytest",
+      "killed_by": [
+        "test_cli_imprime_solo_el_hash"
+      ],
+      "result": "1 failed, 7 passed"
+    }
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-manifest-digest-20260909",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "_por_que": "Dos agentes calcularon el manifest_digest a mano y les dio mal CUATRO veces en dos dias, siempre por el mismo motivo: json.dumps sin ensure_ascii=False. El gate canonicaliza con esa bandera; los manifiestos llevan comillas angulares, acentos y flechas en sus _por_que, y sin la bandera se escapan a \\uXXXX y el hash cambia. Recordar una bandera es CRITERIO; importar la funcion del gate es MECANISMO. Este script no reimplementa el algoritmo: importa _review_digest, asi que si manana el gate cambia su canonicalizacion, el script lo sigue solo. Hay un brazo que exige justamente eso y falla si alguien lo reimplementa.",
+  "_lo_que_aprendi_escribiendo_los_tests": "Mi primera version del brazo del ensure_ascii PASABA POR CASUALIDAD: puse los acentos en la evidencia del recibo, y _review_digest DESCARTA el recibo antes de hashear, asi que las dos formulas -la buena y la mala- daban el mismo hash y el brazo no probaba nada. Eso explica por que el error es escurridizo: en un manifiesto cuyo unico no-ASCII viva dentro del recibo, la formula mala ACIERTA. El fixture ahora pone los acentos en el CUERPO, que es donde muerden.",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "ALICE",
+    "reviewed_sha256": {
+      "tools/seal_manifest_digest.py": "199530eb67838efe0ae892ec2f1e36fe213c21dbe8ef716c2ab677e8a6dcdb5f",
+      "tools/tests/test_seal_manifest_digest_v1.py": "c0e9c820a47a902102a6971d12fdf844b0c7c1298f70ef98cfd1215025088241"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-09T13:35:00Z",
+      "reviewed_sha256": {
+        "tools/seal_manifest_digest.py": "199530eb67838efe0ae892ec2f1e36fe213c21dbe8ef716c2ab677e8a6dcdb5f",
+        "tools/tests/test_seal_manifest_digest_v1.py": "c0e9c820a47a902102a6971d12fdf844b0c7c1298f70ef98cfd1215025088241"
+      },
+      "manifest_digest": "aee340f45f415eccd40f08433b589ee058e60139dea2873630e545ed0a1a7c7b",
+      "evidence": "8/8 tests PASSED desde scratchpad /tmp/mut_manifest_digest_Kj0DuI (isolation verificada: test lee el archivo por Path(__file__).resolve(), no ruta absoluta). 6/6 mutantes KILLED: M1 (reimplementa sin ensure_ascii) killed por test_qa_negative; M2 (--verificar siempre aprueba) por test_verificar_sale_1; M3 (lee digest nivel superior) por test_verificar_sale_0; M4 (inexistente sale 0) por test_qa_control; M5 (prefijo en CLI) por test_cli_imprime_solo_el_hash; M6 (RAIZ parents[0]) por test_cli_imprime_solo_el_hash. Sujeto verificado: importa _review_digest del gate sin reimplementar. Tomé nota de las trampas del owner: acentos deben estar en el CUERPO (no en receipt) para que M1 los vea, y conté ocurrencias con python, no grep -Fc. Arbol vivo intacto: SHA 199530eb verificado antes/despues de cada restauracion."
+    }
+  },
+  "subjects": [
+    "tools/seal_manifest_digest.py"
+  ],
+  "tests": [
+    "tools/tests/test_seal_manifest_digest_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-manifest-digest",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tools/tests/test_seal_manifest_digest_v1.py"
+      ]
+    },
+    {
+      "id": "qa_positive-coincide-con-el-gate",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tools/tests/test_seal_manifest_digest_v1.py",
+        "-k",
+        "qa_positive"
+      ]
+    },
+    {
+      "id": "qa_negative-formula-sin-ensure-ascii",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tools/tests/test_seal_manifest_digest_v1.py",
+        "-k",
+        "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-archivo-inexistente",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tools/tests/test_seal_manifest_digest_v1.py",
+        "-k",
+        "qa_control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tools"
+    ],
+    "omit": [
+      "tools/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tools/tests/test_seal_manifest_digest_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 120
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-nexus-manifest-digest-20260909.json",
+  "mutation_spec": "quality/mutantes/nexus-manifest-digest-20260909.spec.json",
+  "delivery": {
+    "status": "verified",
+    "effect": "Calcula el manifest_digest identico al del gate e informa con salida 1 cuando el guardado difiere.",
+    "assertion": "Los tres manifiestos que NEXUS firmo el 8-sep verifican OK; el valor que JARVIS pidio escribir cuatro veces (ba3c334f90fcec1a...) NO coincide y el gate lo rechaza con independent_review_receipt_stale.",
+    "evidence": "8/8 brazos PASSED. Mutacion del owner 6/6 MUERTOS, ninguno equivalente. Aislado el mecanismo del fallo en el manifiesto REAL: 10 caracteres no-ASCII en el cuerpo sin recibo -«»aeo—→-; sin ensure_ascii da ba3c334f90fcec1a, con el gate da 3a877b8ceb13106b.",
+    "command": {
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tools/tests/test_seal_manifest_digest_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "8 passed"
+    }
+  },
+  "nota_para_el_revisor": {
+    "el_brazo_que_da_sentido_al_archivo": "test_qa_negative_la_formula_SIN_ensure_ascii_da_OTRO_hash. Si algun dia esos dos valores coincidieran, el brazo pierde sentido: revisalo, no lo borres.",
+    "el_caso_que_me_refutaria": "Que el script devuelva algo distinto del gate. Por eso el qa_positive no compara contra una constante -seria un oraculo circular- sino contra _review_digest importado en el propio test.",
+    "mutacion_del_owner": "6/6 muertos; la que vale es la tuya. Ojo con una trampa de mi arnes: `grep -Fc` cuenta LINEAS, no ocurrencias, y da un conteo falso con anclas multilinea -me invalido M1 asi-. Conta con python."
+  }
+}

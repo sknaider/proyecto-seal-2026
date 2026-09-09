@@ -1,0 +1,51 @@
+{
+  "schema": "seal.mutation-spec.v1",
+  "change_id": "nexus-manifest-digest-20260909",
+  "subject": "tools/seal_manifest_digest.py",
+  "tests": "tools/tests/test_seal_manifest_digest_v1.py",
+  "_como_correr": "Copia FRESCA del sujeto desde el arbol ANTES de cada mutante; reutilizar la arena fabrica hallazgos falsos. Verifica que el sha tras restaurar sea igual al de antes.",
+  "mutants": [
+    {
+      "id": "M1",
+      "que_rompe": "reimplementa el digest a mano sin ensure_ascii=False: el error REAL de ALICE y JARVIS",
+      "anchor": "    from quality_gate.gate import _review_digest\n    return _review_digest(json.loads(ruta.read_text(encoding=\"utf-8\")))",
+      "replacement": "    import hashlib\n    m = json.loads(ruta.read_text(encoding=\"utf-8\"))\n    m.get(\"review\", {}).pop(\"receipt\", None)\n    return hashlib.sha256(json.dumps(m, sort_keys=True, separators=(\",\", \":\")).encode()).hexdigest()",
+      "esperado": "MUERTO por 3 brazos"
+    },
+    {
+      "id": "M2",
+      "que_rompe": "--verificar aprueba siempre",
+      "anchor": "    if actual == calculado:",
+      "replacement": "    if True:",
+      "esperado": "MUERTO"
+    },
+    {
+      "id": "M3",
+      "que_rompe": "lee el digest del nivel superior y no dentro del recibo",
+      "anchor": "((m.get(\"review\") or {}).get(\"receipt\") or {}).get(\"manifest_digest\")",
+      "replacement": "m.get(\"manifest_digest\")",
+      "esperado": "MUERTO"
+    },
+    {
+      "id": "M4",
+      "que_rompe": "un archivo inexistente sale 0 y parece exito",
+      "anchor": "        return 2",
+      "replacement": "        return 0",
+      "esperado": "MUERTO"
+    },
+    {
+      "id": "M5",
+      "que_rompe": "ensucia la salida y la vuelve inservible en un pipe",
+      "anchor": "        print(calculado)",
+      "replacement": "        print(f\"digest: {calculado}\")",
+      "esperado": "MUERTO"
+    },
+    {
+      "id": "M6",
+      "que_rompe": "RAIZ mal calculada: el import del gate deja de resolver fuera de pytest",
+      "anchor": "RAIZ = pathlib.Path(__file__).resolve().parents[1]",
+      "replacement": "RAIZ = pathlib.Path(__file__).resolve().parents[0]",
+      "esperado": "MUERTO por el brazo del CLI en subproceso"
+    }
+  ]
+}
