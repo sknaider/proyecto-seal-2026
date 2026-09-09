@@ -12,8 +12,8 @@
     "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py"
   ],
   "source_sha256": {
-    "agents/JARVIS/jarvis_daily_brief.py": "7245cfc9b002732cd8be9663fbf67e9fba966ba2640f785fb540cc07708873ab",
-    "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py": "854c33bb4375582c19c66519e713f63cbfcd576e204f275129ad22d629a868f9"
+    "agents/JARVIS/jarvis_daily_brief.py": "885f228b1584b5272f584c2753a6be5bb6347cfd64ffe5ec56a0a6107674afe8",
+    "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py": "65da298a890a8d676b6384d8012c9afc9a9bf2156efce1988c21cb68df063fbd"
   },
   "implementation_head": "54bd56551737bab4080c57a34e83316a761e2a0d",
   "commands": [
@@ -114,11 +114,12 @@
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "ALICE",
       "reviewed_sha256": {
-        "agents/JARVIS/jarvis_daily_brief.py": "7245cfc9b002732cd8be9663fbf67e9fba966ba2640f785fb540cc07708873ab",
-        "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py": "854c33bb4375582c19c66519e713f63cbfcd576e204f275129ad22d629a868f9"
+        "agents/JARVIS/jarvis_daily_brief.py": "885f228b1584b5272f584c2753a6be5bb6347cfd64ffe5ec56a0a6107674afe8",
+        "agents/JARVIS/tests/test_jarvis_daily_brief_v1.py": "65da298a890a8d676b6384d8012c9afc9a9bf2156efce1988c21cb68df063fbd"
       },
-      "manifest_digest": "3192c0f23da7fdd41c4fdb68332d42dce4ce9f2fee780299cea93990b953931d",
-      "evidence": "Revision por REFUTADORES, no corriendo los ejemplos del owner. Los 7 brazos pasan. R1 -el que crei un hallazgo y me REFUTO-: con 0 hallazgos el brief publica igual un 'sin hallazgos'. Fui a la regla de William del 2-ago esperando confirmar el defecto y dice, textual: 'si no hay hallazgo, se dice hoy no hay nada y se acabo'. El comportamiento CUMPLE la instruccion literal. Queda la tension con su derivada -'emision condicionada al hallazgo, no al reloj'- que anoto como decision de diseño del owner, NO como defecto. R2 filtracion: con 16 hallazgos reales, 0 patrones de secreto en el texto renderizado. R3 sin credencial: falla cerrado y lo DICE - 'NO_MEDIBLE db · SEAL_BRIEF_DSN ausente (fail-closed: no se usa otra credencial)'-, que es lo correcto: no cae al DSN compartido. R4 publicacion: publicar() usa scripts/seal_send.py con --message-file y clave de idempotencia por dia; no hay curl crudo ni ruta que mande sin pasar por el writer. LIMITE DE MI REVISION: no ejerci el timer de las 06:00 ni una publicacion real; mi prueba llega hasta el render y las funciones de hallazgo."
+      "manifest_digest": "43f827117e8694ddb369674f94dd1bd68031125150120b2ce20ecf97c533485c",
+      "signed_at": "2026-09-09T13:05:00Z",
+      "evidence": "Re-firma por fix FABLE: hallazgos_respaldo() ahora captura OSError (NFS en error E/S devuelve NO_MEDIBLE en lugar de morir). Brazo nuevo test_brazo_nfs_error_io_da_no_medible verificado — simula is_dir() lanzando OSError(EIO), confirma un hallazgo NO_MEDIBLE respaldo en salida. 8/8 tests passed (corridos desde el repo, control y branzo NFS incluidos). SHAs verificados en disco: coinciden con reviewed_sha256. Refutadores R1-R4 del receipt anterior siguen validos — no cambia la logica de credenciales, publicacion ni filtrado de secretos."
     }
   }
 }

@@ -211,3 +211,73 @@ def test_control_no_vacuo(monkeypatch, capsys):
     assert "Found 2 memories" in salida, "el sujeto debe haber leido NUESTRAS filas"
     with pytest.raises(AssertionError):
         assert "esta linea no aparece en la salida" in salida
+
+
+def test_brazo_pg_falla_antes_del_increment_dice_sin_escribir(monkeypatch, capsys):
+    """BRAZO EM-f: get_embedding lanza -> la línea FAIL dice 'sin escribir', no 'PG OK'.
+
+    La guarda línea 90:
+        estado = "PG OK, espejo Qdrant fallo" if ok > antes_de_esta else "sin escribir"
+    Distingue: Qdrant falla DESPUÉS de ok+=1 → "PG OK" | get_embedding/UPDATE falla ANTES → "sin escribir"
+    EM-f cambia ok>antes_de_esta por True → con PG sin escribir, imprime "PG OK" (miente).
+    """
+    registro = {
+        "filas": [_FilaFalsa(id=300, agent="JARVIS", category="fact", content="memoria 0",
+                             importance=5, source="test", created_at=_AhoraFalso(),
+                             valence=0, arousal=0, dominance=0, scope="agent")],
+        "escritos_en_pg": [],
+        "espejados": [],
+    }
+
+    asyncpg_falso = types.ModuleType("asyncpg")
+
+    async def create_pool(_dsn, **_kw):
+        registro["dsn_recibido"] = _dsn
+        return _PoolFalso(registro)
+
+    asyncpg_falso.create_pool = create_pool
+
+    qdrant_falso = types.ModuleType("qdrant_client")
+    qdrant_falso.AsyncQdrantClient = lambda **_kw: _QdrantFalso(registro, revienta=False)
+    modelos_falsos = types.ModuleType("qdrant_client.models")
+
+    class _PointStruct:
+        def __init__(self, id, vector, payload):  # noqa: A002
+            self.id = id
+
+    modelos_falsos.PointStruct = _PointStruct
+    qdrant_falso.models = modelos_falsos
+
+    embeddings_falso = types.ModuleType("embeddings")
+
+    async def _get_embedding_revienta(_texto: str):
+        raise RuntimeError("encoder timeout — get_embedding lanza antes del UPDATE de PG")
+
+    embeddings_falso.get_embedding = _get_embedding_revienta
+    secretos_falso = types.ModuleType("seal_secrets")
+    secretos_falso.pg_dsn = lambda required=True: "postgresql://doble@localhost/doble"
+
+    for nombre, mod in (
+        ("asyncpg", asyncpg_falso),
+        ("qdrant_client", qdrant_falso),
+        ("qdrant_client.models", modelos_falsos),
+        ("embeddings", embeddings_falso),
+        ("seal_secrets", secretos_falso),
+    ):
+        monkeypatch.setitem(sys.modules, nombre, mod)
+
+    spec = importlib.util.spec_from_file_location("sujeto_embeddings_brazo_emf", SUJETO)
+    mod = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, "sujeto_embeddings_brazo_emf", mod)
+    spec.loader.exec_module(mod)
+    asyncio.run(mod.main())
+    salida = capsys.readouterr().out
+
+    assert "sin escribir" in salida, (
+        f"get_embedding lanzó ANTES del UPDATE: el FAIL debe decir 'sin escribir';\n"
+        f"si dice 'PG OK' la guarda (línea 90: ok>antes_de_esta) está rota:\n{salida}"
+    )
+    assert "PG OK, espejo Qdrant fallo" not in salida, (
+        f"'PG OK' miente: PG no escribió nada (get_embedding falló primero)\n"
+        f"  guarda: estado = 'PG OK...' if ok > antes_de_esta else 'sin escribir'"
+    )

@@ -20,12 +20,13 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "manifest_digest": "3aa70649ab059bf579b7c50a1f6d6ae9f328f4d0af3fc0f4972f0dfe8adc65ba",
+      "signed_at": "2026-09-09T12:41:29Z",
+      "evidence": "Re-revision NEXUS 9-sep tras agregarse test_brazo_pg_falla_antes_del_increment_dice_sin_escribir. Cambio del test PURAMENTE ADITIVO (+70 -0, de 7 a 8 funciones, ninguna eliminada ni renombrada; verificado comparando nombres contra HEAD). Sujeto sin cambios (e3df9ed3814c). 8/8 VERDES.\nMUTACION propia, arena limpia (el sujeto se recopia del arbol ANTES de cada mutante), control 8 passed:\n  E1  el reporte SIEMPRE dice 'PG OK, espejo Qdrant fallo'   MUERTO por el brazo NUEVO\n  E2  el reporte SIEMPRE dice 'sin escribir'                 MUERTO por el brazo preexistente\nLos dos brazos son COMPLEMENTARIOS: cubren las dos direcciones de la misma distincion. Uno solo dejaba viva la mitad -que es justo lo que el carril arreglo el 4-sep, cuando un except tapaba dos fallas distintas y reportaba la peor: '0/10 regenerated' con los 10 escritos en Postgres.",
       "reviewed_sha256": {
         "memory/fix_missing_embeddings.py": "e3df9ed3814c0ca34350351713e5f0a90b4a48d9f7ba64df89d2b2b0d1a61f54",
-        "memory/test_fix_missing_embeddings_reporte.py": "bb13c420debb9e611b227100bdd866f92d1143f9b5405448d5dd5625473cdb77"
+        "memory/test_fix_missing_embeddings_reporte.py": "2f840596fff9475a3be8c4f3cf7ede9039e4c6f0b03cf4d73cfb7d0681baa5c9"
       },
-      "evidence": "NEXUS revisor independiente, 4-sep-2026 13:05, TRAS REFUTAR la version anterior. Control (sin mutar) PRIMERO en copia aislada de 84 KB con solo el sujeto y su test: 7 passed. CANARIO, y es la prueba que decide: un `raise` en la primera linea del modulo mata 6 de 7 tests. En la version REFUTADA el mismo canario daba 6 passed -- ningun test importaba el sujeto: cinco leian el codigo como TEXTO con ast y el negativo REIMPLEMENTABA el bucle dentro del propio test, con sus update_postgres/upsert_qdrant locales. Probaba que esa forma de escribir el bucle es correcta, no que el modulo la tuviera. MUTANTES: los cuatro que SOBREVIVIAN ahora mueren. (1) volver a tapar las dos fallas en una --el defecto ORIGINAL que este manifiesto existe para cerrar-- 1 failed; (2) que el aviso mienta diciendo que el recall depende de Qdrant, 1 failed; (3) contar espejados aunque el upsert reviente, 1 failed; (4) no avisar cuando el espejo quedo atras, 1 failed. EL DEFECTO QUE CIERRA, y por eso importa: el UPDATE de Postgres ocurre ANTES del upsert a Qdrant y un unico `except` reportaba 'sin escribir' cuando en Postgres ya estaban los 10. El job decia 0/10 habiendo hecho el trabajo -- un reporte que miente sobre su propio exito hace que alguien lo vuelva a correr o lo de por roto. LO QUE NO REFUTE NUNCA: el arreglo en si, ni la evidencia por efecto de JARVIS (0 memorias con embedding NULL). Refute la afirmacion de que estaba PROTEGIDO, que es distinto. ALCANCE: no ejecute el job contra Postgres ni Qdrant reales; la verificacion viva es de JARVIS."
+      "manifest_digest": "3f4e24328c8d4d5fcce3fc953dcca45f8eec5d877090ab85e638d9ce8156555e"
     }
   },
   "subjects": [
@@ -36,7 +37,7 @@
   ],
   "source_sha256": {
     "memory/fix_missing_embeddings.py": "e3df9ed3814c0ca34350351713e5f0a90b4a48d9f7ba64df89d2b2b0d1a61f54",
-    "memory/test_fix_missing_embeddings_reporte.py": "bb13c420debb9e611b227100bdd866f92d1143f9b5405448d5dd5625473cdb77"
+    "memory/test_fix_missing_embeddings_reporte.py": "2f840596fff9475a3be8c4f3cf7ede9039e4c6f0b03cf4d73cfb7d0681baa5c9"
   },
   "commands": [
     {

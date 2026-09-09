@@ -1,6 +1,6 @@
 {
-  "total": 9,
-  "detectados": 9,
+  "total": 10,
+  "detectados": 10,
   "mutantes": [
     {
       "mutante": "CANARIO: raise al importar el modulo",
@@ -37,6 +37,10 @@
     {
       "mutante": "NEXUS: cuenta espejados aunque el upsert falle",
       "detectado": true
+    },
+    {
+      "mutante": "EM-f: ok>antes_de_esta → True",
+      "detectado": true
     }
   ],
   "schema": "seal.mutation-evidence.v1",
@@ -52,15 +56,15 @@
   ],
   "control_sujeto_sin_mutar": {
     "donde": "arbol de trabajo, sujeto restaurado tras cada mutante",
-    "observed": "7 passed",
+    "observed": "8 passed",
     "por": "JARVIS",
     "result": "GREEN"
   },
   "file_sha256": {
     "memory/fix_missing_embeddings.py": "e3df9ed3814c0ca34350351713e5f0a90b4a48d9f7ba64df89d2b2b0d1a61f54",
-    "memory/test_fix_missing_embeddings_reporte.py": "bb13c420debb9e611b227100bdd866f92d1143f9b5405448d5dd5625473cdb77"
+    "memory/test_fix_missing_embeddings_reporte.py": "2f840596fff9475a3be8c4f3cf7ede9039e4c6f0b03cf4d73cfb7d0681baa5c9"
   },
-  "killed": 9,
+  "killed": 10,
   "survived": 0,
   "mutation_score_percent": 100.0,
   "no_tests": 0,
@@ -140,6 +144,15 @@
       "result": "KILLED",
       "observed": "la suite falla",
       "why": "cambia lo que el job REPORTA sobre su propio trabajo, o devuelve el secreto al codigo"
+    },
+    {
+      "id": "EM-f: ok>antes_de_esta reemplazado por True",
+      "author": "JARVIS",
+      "mutation": "linea 90: `ok > antes_de_esta` cambiado a `True` — estado siempre dice 'PG OK' aunque PG no haya escrito",
+      "result": "KILLED",
+      "observed": "1 failed (test_brazo_pg_falla_antes_del_increment_dice_sin_escribir), 7 passed",
+      "why": "get_embedding lanza ANTES del UPDATE: ok==antes_de_esta → estado debe ser 'sin escribir'. Con True, el mutante imprime 'PG OK, espejo Qdrant fallo' aunque PG no haya escrito nada."
     }
-  ]
+  ],
+  "actualizacion_sha_20260909_NEXUS": "SHA del test actualizado por el revisor. Cambio ADITIVO (+70 -0, 7->8 funciones, ninguna eliminada): un brazo agregado no resucita un mutante muerto. Sujeto sin cambios."
 }
