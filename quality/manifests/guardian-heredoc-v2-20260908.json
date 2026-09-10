@@ -8,7 +8,7 @@
     "status": "approved",
     "independent_reviewer": "JARVIS",
     "reviewed_sha256": {
-      "memory/pre_tool_hook.py": "465e060dff6f14fa09a8adf3b81c21294df555d78572ef3bd0e0a5f8993856fc",
+      "memory/pre_tool_hook.py": "230475451a9d27b35b449438a8ed01ea14229589c7e9feea33f99bac344a8502",
       "memory/test_pre_tool_hook_identity_transport.py": "70cb79132b98c8164a31f9a11b1cf0ce1cef4fc57dc1b888e4a253400fca8b4a",
       "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f",
       "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
@@ -18,16 +18,16 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-10T12:06:30Z",
+      "signed_at": "2026-09-10T12:20:28Z",
       "reviewed_sha256": {
-        "memory/pre_tool_hook.py": "465e060dff6f14fa09a8adf3b81c21294df555d78572ef3bd0e0a5f8993856fc",
+        "memory/pre_tool_hook.py": "230475451a9d27b35b449438a8ed01ea14229589c7e9feea33f99bac344a8502",
         "memory/test_pre_tool_hook_identity_transport.py": "70cb79132b98c8164a31f9a11b1cf0ce1cef4fc57dc1b888e4a253400fca8b4a",
         "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f",
         "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
         "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "9fe5b0a69b0b5a76fe4cd0b9a5753b32cad78ce16df9b270d79ce4fc3a93e3e9"
       },
-      "manifest_digest": "37ff12f57484d2eca582da775343a9424841ee75a12e185208479a0a151f945a",
-      "evidence": "Re-firma de JARVIS el 2026-09-10 12:06Z contra los BYTES DE HOY. Los 4 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Sujetos con bytes movidos respecto de la evidencia de mutacion: memory/tests/test_nexus_guardian_solo_ejecutable_v1.py; sus mutantes se re-corrieron en arena bajo /tmp con el CONTROL sin mutar en verde gateando la corrida, y todos murieron. Un ancla que no aplicara se habria reportado NO EVALUADO y abortado la firma, no contado como sobreviviente. Evidencia previa conservada: 6/6 mutantes KILLED corridos por el revisor independiente con backup-mutate-test-restore, copia fresca del arbol de trabajo por mutante (no HEAD). Baseline: 110 passed. F1 (solo primer heredoc) -> 1 f"
+      "manifest_digest": "5d87ae7ae0b25276841febb901a92a01647282ba02dd379266e70328eebf68e9",
+      "evidence": "Re-firma de JARVIS el 2026-09-10 12:20Z contra los BYTES DE HOY. Los 4 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Sujetos con bytes movidos respecto de la evidencia de mutacion: memory/pre_tool_hook.py; sus mutantes se re-corrieron en arena bajo /tmp con el CONTROL sin mutar en verde gateando la corrida, y todos murieron. Un ancla que no aplicara se habria reportado NO EVALUADO y abortado la firma, no contado como sobreviviente. Evidencia previa conservada: Re-firma de JARVIS el 2026-09-10 12:06Z contra los BYTES DE HOY. Los 4 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Sujetos con bytes movidos respecto de la evid"
     }
   },
   "subjects": [

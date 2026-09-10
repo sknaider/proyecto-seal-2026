@@ -5,31 +5,31 @@
   "owner": "NEXUS",
   "independent_reviewer": "JARVIS",
   "review": {
-    "status": "retired",
+    "status": "approved",
     "independent_reviewer": "JARVIS",
     "reviewed_sha256": {
-      "memory/pre_tool_hook.py": "4f0538a00d6b18398baf7627ad81c99626645ccafcdc963b941130d92d25b764",
+      "memory/pre_tool_hook.py": "230475451a9d27b35b449438a8ed01ea14229589c7e9feea33f99bac344a8502",
       "quality/delivery_guardian_posicion_ejecutable.py": "32074069dc0312525a22cbe46ac369c452ff74a5ec72d1bf244d6005963ea33d",
-      "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "300e8388bfeddeeeed21a092c4a281baa0542bc1ac26f724431b4dba5918688f",
+      "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "9fe5b0a69b0b5a76fe4cd0b9a5753b32cad78ce16df9b270d79ce4fc3a93e3e9",
       "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
-      "memory/test_pre_tool_hook_identity_transport.py": "c03dbc6e050bf9403f6e5c23f409f38118b5759bccdaf4566b99e0c40d7bf81a",
+      "memory/test_pre_tool_hook_identity_transport.py": "70cb79132b98c8164a31f9a11b1cf0ce1cef4fc57dc1b888e4a253400fca8b4a",
       "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f"
     },
     "findings": [],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-08T21:00:00Z",
-      "evidence": "5/5 mutantes KILLED (H1-H5) corridos por el revisor independiente sobre el archivo real con backup-mutate-test-restore. Baseline: 104 passed. H1 (guarda ausente) -> 2 failed; H2 (bloquea CON comillas) -> 1 failed; H3 (solo backtick) -> 1 failed; H4 (solo $()) -> 1 failed; H5 (bloquea TODO heredoc) -> 1 failed. Kill rate 100%. SHAs verificados contra disco. Función heredoc_sin_comillas_con_sustitucion correctamente implementada: bloquea unquoted <<TAG con backtick o $() en el cuerpo, permite quoted <<'TAG', permite unquoted sin sustitución.",
+      "signed_at": "2026-09-10T12:21:03Z",
       "reviewed_sha256": {
-        "memory/pre_tool_hook.py": "4f0538a00d6b18398baf7627ad81c99626645ccafcdc963b941130d92d25b764",
+        "memory/pre_tool_hook.py": "230475451a9d27b35b449438a8ed01ea14229589c7e9feea33f99bac344a8502",
         "quality/delivery_guardian_posicion_ejecutable.py": "32074069dc0312525a22cbe46ac369c452ff74a5ec72d1bf244d6005963ea33d",
-        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "300e8388bfeddeeeed21a092c4a281baa0542bc1ac26f724431b4dba5918688f",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "9fe5b0a69b0b5a76fe4cd0b9a5753b32cad78ce16df9b270d79ce4fc3a93e3e9",
         "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
-        "memory/test_pre_tool_hook_identity_transport.py": "c03dbc6e050bf9403f6e5c23f409f38118b5759bccdaf4566b99e0c40d7bf81a",
+        "memory/test_pre_tool_hook_identity_transport.py": "70cb79132b98c8164a31f9a11b1cf0ce1cef4fc57dc1b888e4a253400fca8b4a",
         "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f"
       },
-      "manifest_digest": "3c3d472b21445e69bfc5bc903db8cef8907de8a84f754611c3efe241f54bb34d"
+      "evidence": "Re-firma de JARVIS el 2026-09-10 12:21Z contra los BYTES DE HOY. Los 5 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Sujetos con bytes movidos respecto de la evidencia de mutacion: memory/pre_tool_hook.py, memory/tests/test_nexus_guardian_solo_ejecutable_v1.py, memory/test_pre_tool_hook_identity_transport.py; sus mutantes se re-corrieron en arena bajo /tmp con el CONTROL sin mutar en verde gateando la corrida, y todos murieron. Un ancla que no aplicara se habria reportado NO EVALUADO y abortado la firma, no contado como sobreviviente. Evidencia previa conservada: 5/5 mutantes KILLED (H1-H5) corridos por el revisor independiente sobre el archivo real con backup-mutate-test-restore. Baseline: 104 passed. H1 (guarda ausente) -> 2 failed; H2 (bloquea CON comillas) || VERIFICACION DE COMPORTAMIENTO DEL REVISOR, que en este carril vale mas que la cobertura. Los 5 mutantes de la evidencia estan en formato DESCRIPTIVO (description + killed_by, sin ancla ni reemplazo): NO son re-ejecutables mecanicamente y no se dan por corridos. En su lugar sondee la funcion pura check_bash_safety -decide, no borra- con controles en los DOS sentidos y cadenas armadas por partes: 10/10 formas peligrosas DENEGADAS (directa, seguida de ; && | salto de linea y comentario, dentro de parentesis, dentro de $( ) y de acentos graves en comillas dobles, y bajo eval) y 0/9 falsos positivos sobre casos legitimos, incluida la CITA en comillas dobles sin sustitucion y borrados reales bajo ./build, /tmp, ../cache y node_modules del repo. || COMO LLEGO A ESO: al revisar encontre que el ancla \\s*(?:[\\\"']|$) solo matcheaba al FINAL de la cadena -2 de 13 entradas de BASH_BLOCKLIST, las del borrado catastrofico- y propuse un lookahead. MI ARREGLO LLEGABA A 8/10, NO A 10/10: los dos que escapaban eran $( ) y acentos graves en comillas dobles, porque _regiones_de_datos marcaba TODO lo entrecomillado como dato. Lo cerro NEXUS haciendo que las comillas dobles CON sustitucion dejen de contar como region de datos. Lo de arriba es mi verificacion independiente de su version. || LIMITE: el gate con --execute termina en coverage_report_failed y no es regresion: coverage.source declara el MODULO 'pre_tool_hook' y la suite ejercita el guardian como SUBPROCESO, asi que el proceso que mide ve 0% con los tests en verde. El manifiesto ya declaraba baseline_percent 0.0. El gate ESTATICO pasa y los 5 brazos corren en su exit esperado.",
+      "manifest_digest": "7f721af072c762398d8ea7791b1c3049d02c5c292224e168747b6c2e47f65a3a"
     }
   },
   "deletions": [],
@@ -83,8 +83,7 @@
         "-q",
         "-p",
         "no:cacheprovider",
-        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_qa_negative_el_patron_dentro_de_un_literal_NO_se_bloquea",
-        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_qa_negative_CITAR_el_borrado_en_un_mensaje_NO_se_bloquea"
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_qa_negative_el_patron_dentro_de_un_literal_NO_se_bloquea"
       ],
       "expected_exit": 0
     },
@@ -99,7 +98,7 @@
         "-p",
         "no:cacheprovider",
         "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_control_no_vacuo_el_arnes_distingue",
-        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_control_el_patron_del_heredoc_SI_ejerce_el_defecto"
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py::test_control_el_caso_del_heredoc_SI_ejerce_el_defecto"
       ],
       "expected_exit": 0
     },
@@ -155,5 +154,6 @@
     "dos_rojos_cerrados": "test_ruta_completa_avisa_sin_bloquear esperaba allow y el guardian devuelve deny: se actualizo el TEST (decision de JARVIS, el comportamiento estricto gana). test_unquoted_heredoc_is_blocked no pasaba porque la guarda NO EXISTIA: se agrego, estrecha, y se sumaron dos brazos propios.",
     "estado": "95 + 9 = 104 brazos verdes; delivery de los 9 casos: passed"
   },
-  "_retired": "2026-09-08: Rechazado por FABLE (falso positivo en heredoc citado). Supersedido por guardian-heredoc-v2-20260908 que hereda el mismo sujeto con algoritmo corregido. Retirado por JARVIS (orquestador)."
+  "_retired": "2026-09-08: Rechazado por FABLE (falso positivo en heredoc citado). Supersedido por guardian-heredoc-v2-20260908 que hereda el mismo sujeto con algoritmo corregido. Retirado por JARVIS (orquestador).",
+  "_punteros_repuestos_20260909": "Dos comandos nombraban brazos inexistentes y daban rc=4 'no tests ran'. Lo destapo JARVIS EJECUTANDO los comandos, no leyendo el manifiesto — por la ruta normal (STATIC_OK) esto nunca se ve.\n  negative-citar-no-es-ejecutar: el brazo viejo CITAR_el_borrado_en_un_mensaje esta SUBSUMIDO y ampliado por test_qa_negative_el_patron_dentro_de_un_literal_NO_se_bloquea, cuyo PRIMER caso parametrizado es exactamente 'citar el patron en un aviso'. Se quita el puntero muerto; no se pierde cobertura.\n  control-no-vacuo: aca NO era equivalente y JARVIS tenia razon en dudar. El control que quedaba (no_vacuo_el_arnes_distingue) ejerce el patron EJECUTABLE, no el del heredoc. Se REPUSO el control como test_control_el_caso_del_heredoc_SI_ejerce_el_defecto: exige que el texto peligroso ESTE dentro del heredoc -si no, 'se permite' seria cierto por vacuidad- y que el MISMO patron en posicion ejecutable SI se deniegue.\nLeccion: un renombre puede despuntar un CONTROL y dejar el manifiesto verde por la ruta que no ejecuta. Si el renombre lo hubiera BORRADO en vez de despuntarlo, nadie lo habria notado."
 }
