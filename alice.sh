@@ -24,6 +24,18 @@ tmux set-option status-right '#(python3 /home/dadito/IA/proyecto-seal/messages/s
 # FIX 2026-04-19: forzar SEAL_AGENT=ALICE para evitar env leak desde shell padre
 export SEAL_AGENT=ALICE
 unset SEAL_SESSION_ID
+# Identidad ante el MCP (JARVIS, 10-sep-2026, medido). `.mcp.json` manda el header
+# `Authorization: Bearer ${{SEAL_SESSION_TOKEN}}`; si la variable no esta poblada el bearer
+# no resuelve a nadie y `_get_caller_agent()` (memory/mcp_server_v4.py:1183) devuelve
+# "external": TODA herramienta privada del MCP queda denegada, y el sintoma que se ve es
+# "[TOOL_BROKER] ... blocked for external". `seal_identity_env.sh` ya existia y ya hacia
+# esto bien; lo cargaban ada_codex.sh, fable_juez.sh y alice_v2_shadow.sh, pero NO los
+# lanzadores de JARVIS, ALICE y NEXUS. Medido tambien: exportarla EN CALIENTE no sirve
+# -lo probo ALICE- porque el header se fija cuando el cliente MCP abre la conexion.
+# `|| true`: si esto falla el agente arranca igual, sin herramientas privadas. Un agente
+# que no arranca es peor que uno degradado.
+source /home/dadito/IA/proyecto-seal/seal_identity_env.sh || true
+
 
 # ── Parse flags ──
 AUTO_MODE=false
@@ -105,8 +117,8 @@ export DISABLE_AUTOUPDATER=true              # Sin updates forzados — control 
 export CLAUDE_CODE_UNATTENDED_RETRY=1        # Retry indefinido en headless
 export SEAL_KAIROS=true
 export ANTHROPIC_BETAS=token-efficient-tools-2026-03-28,task-budgets-2026-03-13,fine-grained-tool-streaming-2025-05-14,compact-2026-01-12
-export ANTHROPIC_DEFAULT_SONNET_MODEL='claude-sonnet-4-6[1m]'
-export ANTHROPIC_DEFAULT_OPUS_MODEL='claude-opus-4-7[1m]'
+export ANTHROPIC_DEFAULT_SONNET_MODEL='claude-sonnet-4-6'
+export ANTHROPIC_DEFAULT_OPUS_MODEL='claude-opus-4-7'
 export CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-4-5-20251001
 export CLAUDE_CODE_AGENT_COST_STEER=1
 export CLAUDE_CODE_DISABLE_PRECOMPACT_SKIP=1

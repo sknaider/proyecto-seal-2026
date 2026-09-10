@@ -11,6 +11,18 @@ cd /home/dadito/IA/proyecto-seal/memory
 export SEAL_AGENT=JARVIS
 unset SEAL_SESSION_ID
 
+# Identidad ante el MCP (JARVIS, 10-sep-2026, medido). `.mcp.json` manda el header
+# `Authorization: Bearer ${SEAL_SESSION_TOKEN}`; si la variable no esta poblada el bearer
+# no resuelve a nadie y `_get_caller_agent()` (memory/mcp_server_v4.py:1183) devuelve
+# "external": TODA herramienta privada del MCP queda denegada, y el sintoma que se ve es
+# "[TOOL_BROKER] ... blocked for external". `seal_identity_env.sh` ya existia y ya hacia
+# esto bien; lo cargaban ada_codex.sh, fable_juez.sh y alice_v2_shadow.sh, pero NO los
+# lanzadores de JARVIS, ALICE y NEXUS. Medido tambien: exportarla EN CALIENTE no sirve
+# -lo probo ALICE- porque el header se fija cuando el cliente MCP abre la conexion.
+# `|| true`: si esto falla el agente arranca igual, sin herramientas privadas. Un agente
+# que no arranca es peor que uno degradado.
+source /home/dadito/IA/proyecto-seal/seal_identity_env.sh || true
+
 # ── Auto-tmux: sesión propia seal-jarvis para barra de contexto independiente ──
 if [ -z "$TMUX" ]; then
   tmux kill-session -t "seal-jarvis" 2>/dev/null
@@ -157,8 +169,8 @@ export ENABLE_CLAUDE_CODE_SM_COMPACT=true    # -80% costo compactación via sess
 export CLAUDE_CODE_AGENT_COST_STEER=1        # Router oficial Anthropic — elige modelo por costo (flag filtrado 19-abr)
 export CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-4-5-20251001  # Subagents Task() usan haiku por default — ID completo (más determinista que alias)
 export CLAUDE_CODE_DISABLE_PRECOMPACT_SKIP=1 # Garantiza que pre_compact_hook siempre dispara — preserva working_state
-export ANTHROPIC_DEFAULT_SONNET_MODEL='claude-sonnet-4-6[1m]'
-export ANTHROPIC_DEFAULT_OPUS_MODEL='claude-opus-4-7[1m]'
+export ANTHROPIC_DEFAULT_SONNET_MODEL='claude-sonnet-4-6'
+export ANTHROPIC_DEFAULT_OPUS_MODEL='claude-opus-4-7'
 # NOTA: CLAUDE_CODE_COORDINATOR_MODE=1 disponible pero NO forzado — limita a AgentTool+SendMessage+TaskStop
 # JARVIS puede activarlo manualmente para tareas de orquestación pura
 

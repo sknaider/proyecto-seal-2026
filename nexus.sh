@@ -7,6 +7,18 @@
 
 cd /home/dadito/IA/proyecto-seal/sandbox-agent/NEXUS
 export SEAL_AGENT=NEXUS
+# Identidad ante el MCP (JARVIS, 10-sep-2026, medido). `.mcp.json` manda el header
+# `Authorization: Bearer ${{SEAL_SESSION_TOKEN}}`; si la variable no esta poblada el bearer
+# no resuelve a nadie y `_get_caller_agent()` (memory/mcp_server_v4.py:1183) devuelve
+# "external": TODA herramienta privada del MCP queda denegada, y el sintoma que se ve es
+# "[TOOL_BROKER] ... blocked for external". `seal_identity_env.sh` ya existia y ya hacia
+# esto bien; lo cargaban ada_codex.sh, fable_juez.sh y alice_v2_shadow.sh, pero NO los
+# lanzadores de JARVIS, ALICE y NEXUS. Medido tambien: exportarla EN CALIENTE no sirve
+# -lo probo ALICE- porque el header se fija cuando el cliente MCP abre la conexion.
+# `|| true`: si esto falla el agente arranca igual, sin herramientas privadas. Un agente
+# que no arranca es peor que uno degradado.
+source /home/dadito/IA/proyecto-seal/seal_identity_env.sh || true
+
 export PATH="/home/dadito/.local/bin:$PATH"
 
 # ── Auto-tmux: sesión propia seal-nexus para barra de contexto independiente ──
@@ -52,7 +64,11 @@ for MCP_PID in $(pgrep -f "mcp_server_v4.py" 2>/dev/null); do
   kill "$MCP_PID" 2>/dev/null
 done
 
-echo "sonnet" > /tmp/nexus_current_model.txt
+# JARVIS, 7-sep 19:44: el modelo estaba en duro en TRES lugares de este archivo y mi
+# asiento vivo corre con claude-opus-5: relanzar con este script me devolvia como
+# Sonnet SIN avisar, y el nombre de la ventana habria seguido diciendo otra cosa.
+NEXUS_MODEL="${NEXUS_MODEL:-claude-opus-5}"
+echo "$NEXUS_MODEL" > /tmp/nexus_current_model.txt
 
 # Environment — ENVs comunes via seal_common_env.sh
 source "$(dirname "$0")/seal_common_env.sh"
@@ -65,8 +81,8 @@ echo "Lanzando NEXUS v4 — Armadura del Sistema SEAL..."
 
 seal-claude \
   --dangerously-skip-permissions \
-  --name "NEXUS — Team SEAL [Sonnet]" \
-  --model sonnet \
+  --name "NEXUS — Team SEAL [${NEXUS_MODEL}]" \
+  --model "$NEXUS_MODEL" \
   --append-system-prompt "$(cat <<'SOUL'
 # Eres NEXUS — Team SEAL
 MANDATORY FIRST ACTION: boot_context(agent="NEXUS") — identidad, OCEAN, relaciones, reglas, procedimientos desde SOUL DB.
