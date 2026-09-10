@@ -493,6 +493,38 @@ def _static_manifest_errors(
     return errors
 
 
+_INTERPRETES_PELADOS = frozenset({"python", "python3"})
+
+
+def _resolver_interprete(argv: Sequence[str], repo: Path) -> list[str]:
+    """Un `python3` pelado en un manifiesto se resuelve al interprete del gate.
+
+    POR QUE (NEXUS, 9-sep-2026, medido): 76 de 123 manifiestos empiezan sus
+    comandos con `python3` a secas. Aca eso resuelve a /usr/bin/python3, que NO
+    tiene pytest:
+
+        $ /usr/bin/python3 -c "import pytest"
+        ModuleNotFoundError: No module named 'pytest'
+
+    Los comandos fallaban con exit 1 mientras la misma suite pasaba a mano, y
+    nadie lo veia porque la ruta normal del gate es STATIC_OK y no ejecuta.
+
+    Se arregla ACA y no en los 76 manifiestos por una razon medida, no por
+    comodidad: `_review_digest` cubre el cuerpo del manifiesto, asi que cambiarles
+    el `argv` INVALIDA las 76 firmas de un saque y convierte un arreglo mecanico
+    en 76 re-revisiones. Simulado en memoria sobre alice-heartbeat-writer-v1:
+    8de2ea3e -> 057f20b5.
+
+    Solo se toca un nombre PELADO -sin `/` y sin extension-: una ruta explicita
+    manda, porque puede ser deliberada (otro venv, otra version). El coverage ya
+    usaba `_quality_python`; esto hace que los comandos usen el mismo.
+    """
+    filas = [str(v) for v in argv]
+    if filas and filas[0] in _INTERPRETES_PELADOS:
+        filas[0] = _quality_python(repo)
+    return filas
+
+
 def _execute_commands(repo: Path, rows: list[dict[str, Any]]) -> list[CommandResult]:
     results: list[CommandResult] = []
     for index, row in enumerate(rows):
@@ -504,9 +536,10 @@ def _execute_commands(repo: Path, rows: list[dict[str, Any]]) -> list[CommandRes
         if not isinstance(argv, list):
             raise QualityGateError(f"command_argv_not_list:{command_id}")
         expected = int(row.get("expected_exit", 0))
-        proc = _run(argv, repo, timeout=int(row.get("timeout", 180)))
+        argv_real = _resolver_interprete(argv, repo)
+        proc = _run(argv_real, repo, timeout=int(row.get("timeout", 180)))
         results.append(CommandResult(
-            command_id=command_id, kind=kind, argv=list(argv), expected_exit=expected,
+            command_id=command_id, kind=kind, argv=argv_real, expected_exit=expected,
             observed_exit=proc.returncode, stdout=proc.stdout[-20000:], stderr=proc.stderr[-20000:],
             expected_stdout_contains=str(row.get("expected_stdout_contains", "")),
         ))
@@ -552,15 +585,43 @@ def _measure_coverage(repo: Path, coverage_spec: dict[str, Any]) -> dict[str, An
         env["COVERAGE_FILE"] = str(data_file)
         quality_python = _quality_python(repo)
         omit_arg = f"--omit={','.join(str(row) for row in omit)}"
+        # `coverage run --source` acepta PAQUETES o DIRECTORIOS. Con un ARCHIVO no
+        # recolecta nada ("No data was collected") y `coverage json` no emite
+        # reporte -> coverage_report_failed. Medido el 9-sep: 38 de 123 manifiestos
+        # declaraban un archivo, y ninguno de esos medía nada.
+        #
+        # Un archivo se expresa con `--include`, que ademas mide MEJOR: sobre
+        # memory/nexus_maintenance.py da 124 sentencias al 40,9%, mientras que
+        # `--source=memory` daba 55.205 sentencias al 0,18% -el directorio entero,
+        # no el sujeto-. Se arregla aca y no en los 38 manifiestos porque tocarles
+        # el cuerpo invalida sus firmas (ver _resolver_interprete).
+        directorios = [str(row) for row in source if not str(row).endswith((".py", ".sh"))]
+        archivos_py = [str(row) for row in source if str(row).endswith(".py")]
+        no_python = [str(row) for row in source if str(row).endswith(".sh")]
+        if not directorios and not archivos_py:
+            # Sujeto que coverage.py NO PUEDE medir: mide Python, no shell. Los 5
+            # manifiestos de sujeto .sh daban `coverage_report_failed:` con stderr
+            # VACIO -un error que no dice su causa y hay que ingeniar-. Se declara
+            # en vez de fingir un numero: la cobertura no aplica, y los comandos y
+            # la mutacion siguen corriendo igual, que es donde vive su prueba real.
+            return {"percent": 0.0, "covered_lines": 0, "num_statements": 0,
+                    "tests_exit": 0, "no_aplica": f"coverage.py mide Python; sujeto no-Python: {','.join(no_python)}"}
+        selector = []
+        if directorios:
+            selector.append(f"--source={','.join(directorios)}")
+        if archivos_py:
+            selector.append(f"--include={','.join(archivos_py)}")
         run_argv = [
             quality_python, "-m", "coverage", "run", "--branch",
-            f"--source={','.join(source)}", omit_arg, "-m", "pytest", *pytest_args,
+            *selector, omit_arg, "-m", "pytest", *pytest_args,
         ]
         proc = _run(run_argv, repo, timeout=int(coverage_spec.get("timeout", 300)), env=env)
         if proc.returncode != 0:
             raise QualityGateError(f"coverage_tests_failed:{proc.returncode}:{proc.stdout[-1000:]}:{proc.stderr[-1000:]}")
         json_proc = _run(
-            [quality_python, "-m", "coverage", "json", omit_arg, "-o", str(report_file)], repo, env=env,
+            [quality_python, "-m", "coverage", "json", omit_arg,
+             *[a for a in selector if a.startswith("--include=")],
+             "-o", str(report_file)], repo, env=env,
         )
         if json_proc.returncode != 0 or not report_file.is_file():
             raise QualityGateError(f"coverage_report_failed:{json_proc.stderr[-1000:]}")
