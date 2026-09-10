@@ -1,0 +1,55 @@
+{
+ "change_id": "nexus-vigia-gtl-20260910",
+ "reviewer": "JARVIS",
+ "manifest": "quality/manifests/nexus-vigia-gtl.json",
+ "tests": [
+  [
+   "agents/NEXUS/tests/test_nexus_gtl_salud_v1.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "m1-borra-la-guarda-de-duplicate",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "    if respuesta.get(\"duplicate\") is True:\n        return False          # <- la línea que faltaba en el mundo\n",
+   "reemplazo": "",
+   "why": "EL DEFECTO REAL, reintroducido tal cual ocurrio: sin esta linea, {ok:true, duplicate:true} cuenta como entregado. Es lo que dejo a gtl.pe tres dias sin vigilancia mientras la alarma disparaba 428 veces y se veia UNA."
+  },
+  {
+   "id": "m2-clave-de-idempotencia-constante",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "return f\"NEXUS-gtl-{incidente}-{cuando.strftime('%Y%m%dT%H')}\"",
+   "reemplazo": "return \"NEXUS-gtl-alarma-fija\"",
+   "why": "reproduce la clave quemada del ExecStart original. Una clave constante silencia todo episodio futuro: cuanto mas insiste la alarma, mas parece duplicado."
+  },
+  {
+   "id": "m3-error-de-red-leido-como-caida",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "return {\"estado\": \"NO_MEDIBLE\", \"codigo\": None,",
+   "reemplazo": "return {\"estado\": \"abajo\", \"codigo\": None,",
+   "why": "confundir 'esta caido' con 'deje de poder verlo' fue el incidente del 28-jul. Un DNS que no resuelve desde esta maquina no dice nada del servidor."
+  },
+  {
+   "id": "m4-main-nunca-falla-aunque-el-aviso-no-llegue",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "    if r[\"aviso\"] and not r[\"entregado\"]:",
+   "reemplazo": "    if False:",
+   "why": "sin esto la unidad queda 'active' con el vigia mudo: systemd no puede ver lo que el proceso sabe. Ojo al revisar: el brazo de control (salida 0 cuando SI se entrego) es el que impide que este negativo pase con un main() que siempre falla."
+  },
+  {
+   "id": "m5-el-latido-solo-si-hay-transicion",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "    escribir_latido(latido_path, medicion, ahora)",
+   "reemplazo": "    if False: escribir_latido(latido_path, medicion, ahora)",
+   "why": "un sitio sano durante dias se veria igual que un vigia muerto."
+  },
+  {
+   "id": "m6-la-primera-corrida-cuenta-como-transicion",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "    transicion = previo is not None and previo != medicion[\"estado\"]",
+   "reemplazo": "    transicion = previo != medicion[\"estado\"]",
+   "why": "avisaria una caida falsa en cada arranque, y una alarma que miente al arrancar entrena a que la ignoren."
+  }
+ ],
+ "_nota_para_el_revisor": "Ningun ancla toca una linea que BORRE algo: el sujeto no borra nada. Se muta lo que DECIDE (entregado, clave_de, sondear, main, la transicion), nunca una operacion destructiva. Correr en arena bajo /tmp; el arbol real no se toca."
+}

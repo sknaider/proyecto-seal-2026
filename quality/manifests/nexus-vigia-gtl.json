@@ -4,7 +4,30 @@
   "owner": "NEXUS",
   "independent_reviewer": "JARVIS",
   "review": {
-    "status": "pending"
+    "status": "approved",
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "agents/NEXUS/gtl_salud_daemon.py": "53cfeae3de973278ff9cc6191bb61bba1299aecc4ec20abeb84757284f322c9a",
+      "agents/NEXUS/unidades/nexus-gtl-salud.service": "df183a3cd7a0d8e4353c2dbbbdc5f7c76d677ebbebba1be43ec5c01d66a383c2",
+      "agents/NEXUS/unidades/nexus-gtl-salud.timer": "a56ceb765bd72f45b93480dbf11ee087c771b72eb5f3dc444145cd2da4273722",
+      "agents/NEXUS/unidades/nexus-gtl-watchdog.service": "0e3e4e87db3d710e7c40b166785eb50fbf08307c6cf5c0de48f3a44332b4778e",
+      "agents/NEXUS/tests/test_nexus_gtl_salud_v1.py": "ce55cad88cb13b508432cf979a84cc2d5d600e1d08f805ac3a507a9767b4f332"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-10T19:05:51Z",
+      "reviewed_sha256": {
+        "agents/NEXUS/gtl_salud_daemon.py": "53cfeae3de973278ff9cc6191bb61bba1299aecc4ec20abeb84757284f322c9a",
+        "agents/NEXUS/unidades/nexus-gtl-salud.service": "df183a3cd7a0d8e4353c2dbbbdc5f7c76d677ebbebba1be43ec5c01d66a383c2",
+        "agents/NEXUS/unidades/nexus-gtl-salud.timer": "a56ceb765bd72f45b93480dbf11ee087c771b72eb5f3dc444145cd2da4273722",
+        "agents/NEXUS/unidades/nexus-gtl-watchdog.service": "0e3e4e87db3d710e7c40b166785eb50fbf08307c6cf5c0de48f3a44332b4778e",
+        "agents/NEXUS/tests/test_nexus_gtl_salud_v1.py": "ce55cad88cb13b508432cf979a84cc2d5d600e1d08f805ac3a507a9767b4f332"
+      },
+      "manifest_digest": "111fa842340e5b27b60e7097bf6b4128dc51bdc5aa8c42176951683e0c7eccf1",
+      "evidence": "Revision CORRIDA por JARVIS, no heredada. (1) Suite en el arbol: 26 passed. (2) Control en arena aislada sin mutar: 26 passed -el instrumento no estaba inerte-. (3) Los SEIS mutantes del spec ejecutable aplicados por mi, uno por arena: 6/6 MUEREN, 0 vivos, score 100%. (4) Verificado en el CODIGO y no en el test que la salida 2 existe y esta condicionada a 'hubo aviso y NO se entrego' (gtl_salud_daemon.py:209-211), y que hay brazo de CONTROL que exige salida 0 cuando SI se entrego: sin ese control el negativo pasaria aunque main() saliera 2 siempre. (5) El brazo de duplicado usa la respuesta LITERAL del servidor con el id real de la unica alarma entregada en tres dias. LIMITE DECLARADO: no verifique el comportamiento del timer sostenido en el tiempo, solo la corrida puntual y el latido en disco. SECUENCIA QUE VALE REGISTRAR: mi primera vuelta dio 5/6 con m3 NO_APLICADO porque el renombre a NO_MEDIBLE -que pedi YO despues de la mutacion- invalido su ancla. Un renombre pedido por el revisor descongela el expediente que acaba de firmar."
+    }
   },
   "deletions": [],
   "subjects": [
@@ -100,6 +123,6 @@
     }
   },
   "mutation_evidence": "quality/mutation-nexus-vigia-gtl.json",
-  "mutation_spec": null,
-  "_por_que": "El vigia anterior se perdio el 7-sep y NUNCA estuvo versionado; su unidad quedo como un cascaron que systemd carga sin error. El watchdog que lo vigilaba disparo 428 veces en tres dias y se vio UNA, porque su --idempotency-key era una constante quemada y el servidor respondia ok:true junto con duplicate:true. De ahi la regla que este sujeto codifica: un envio duplicado NO esta entregado."
+  "mutation_spec": "quality/mutantes/nexus-vigia-gtl-20260910.spec.json",
+  "_por_que": "El vigia anterior se perdio el 7-sep y NUNCA estuvo versionado; su unidad quedo como un cascaron que systemd carga sin error. El watchdog que lo vigilaba disparo 428 veces en tres dias y se vio UNA, porque su --idempotency-key era una constante quemada y el servidor respondia ok:true junto con duplicate:true. De ahi la regla que este sujeto codifica: un envio duplicado NO esta entregado. El estado NO_MEDIBLE lleva el nombre que le puso ALICE en su vigia paralelo del mismo dia; los dos llegamos por separado a distinguir 'no responde' de 'no puedo verlo'."
 }
