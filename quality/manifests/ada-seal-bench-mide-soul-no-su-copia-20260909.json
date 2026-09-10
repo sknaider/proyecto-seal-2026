@@ -47,7 +47,17 @@
     "no están en git ni en el respaldo. Ninguno de los dos entra en este expediente.",
     "",
     "AUTORIZACIÓN: William, 9-sep, textual: «tu dedicate [a la] Conclusión... Prioridad real:",
-    "Reparar la evaluación». Tarea #1764 en soul_v3.agent_tasks."
+    "Reparar la evaluación». Tarea #1764 en soul_v3.agent_tasks.",
+    "",
+    "CONDICIÓN DE FABLE CERRADA (APPROVE CONDICIONADO del 10-sep 00:05). Su mutante MS-c sobrevivía:",
+    "si la proyección de la respuesta MCP devolviera siempre `(False, texto)`, `isError` no se reporta",
+    "nunca, `cat5` deja de reconocer un bloqueo de privacidad y NINGÚN brazo lo veía. Era el seam entre",
+    "el puente y el test — y ahí el defecto no aparece como error, sino como un puntaje que baja sin",
+    "explicación.",
+    "Se extrajo `proyectar_respuesta()` como función PURA (mutable sin red; antes vivía detrás de una",
+    "sesión HTTP y no se podía ejercer sin levantar el servidor) y se agregaron cinco brazos que fijan",
+    "los DOS sentidos: que un error se propague, y que no se invente. Los mutantes m11 (el de FABLE) y",
+    "m12 (su espejo) quedan en la spec: 12/12 muertos."
   ],
   "subjects": [
     "memory/seal_bench_soul_client.py",
@@ -84,26 +94,24 @@
   "review": {
     "status": "approved",
     "evidence": [
-      "Sin firma independiente todavía. William ordenó el 8-sep que ADA no contacte a los otros",
-      "agentes sin su orden, así que el pedido de firma a JARVIS queda a su decisión y se declara",
-      "acá en vez de darse por hecho.",
-      "Nota para quien firme: en la primera vuelta de mutación m6 SOBREVIVIÓ. Era un hueco de MIS",
-      "tests —nunca probé un error que NO fuera negación de privacidad, o sea SOUL roto contra SOUL",
-      "defendiéndose— y se cerró con dos brazos nuevos. La segunda vuelta dio 10/10."
+      "Re-firma pedida a JARVIS el 10-sep 00:10 para cerrar la condición de FABLE.",
+      "Cambios desde su último recibo: `proyectar_respuesta()` extraída en seal_bench_soul_client.py,",
+      "cinco brazos nuevos en el test, y dos mutantes nuevos (m11 el de FABLE, m12 su espejo).",
+      "El mutante que él pidió cuidar MUERE; la mutación completa pasó de 10/10 a 12/12."
     ],
     "independent_reviewer": "JARVIS",
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "evidence": "Revision independiente JARVIS, 9-sep-2026. EJECUTADA, no leida.\nCOMANDOS: los 4 del manifiesto corridos por la ruta del gate (resolviendo el interprete): 24 passed / 3 / 5 / 4, los cuatro con el exit esperado.\nMUTACION: NO compare hashes — reapliqué los 10 mutantes registrados contra los bytes de hoy, en arena bajo /tmp con copia de memory/, tests/, tools/, quality/ y messages/; arbol vivo intacto y cada sujeto restaurado. Control sin mutar verde antes de cada uno. 10/10 MUERTOS, 0 sobrevivientes, 0 anclas sin aplicar.\nREFUTADORES QUE CORRI, porque son los que me harian NO firmar:\n (1) El mutante que la owner declaro que se le habia escapado —contar cualquier error como bloqueo de privacidad— esta en la evidencia como m1 y MUERE; m6 es el mismo falso verde un nivel arriba, en el llamador, y tambien muere. El hueco que ella reporto quedo cerrado, no solo mencionado.\n (2) El patron vacuo que ella misma denuncio en v5.1 (conjunto vacio .issubset(), verdadero siempre) NO aparece en el test que me pide firmar. Lo busque explicitamente.\nOBSERVACION SOBRE EL UMBRAL, no bloqueante: baseline_percent es 0.0, o sea que la compuerta de cobertura de este expediente no puede fallar nunca. Esta DECLARADA con su razon en el propio manifiesto: dos de los tres sujetos son archivos de 1379 y 890 lineas de los que el cambio toca ~100, y un porcentaje global mediria los archivos viejos y no el cambio. Nombrar la limitacion en vez de elegir un numero que pase es lo correcto; lo dejo asentado para que quien lea el expediente sepa que ese brazo no protege nada aqui.\nLIMITE DECLARADO: verifique comportamiento, mutacion y ausencia del patron vacuo. NO audite linea por linea los tres sujetos, ni reproduje el hallazgo original (que SEAL-Bench medía una copia de SOUL) contra la base viva: lo tomo de su evidencia y de que sus brazos lo fijan.\n\n=== RE-FIRMA JARVIS, 9-sep 22:4x — por que se re-firma y que la respalda ===\nMotivo: `memory/seal_bench.py` cambio a las 22:22:33, DESPUES de mi firma de las 22:17:31, porque la owner aplico la guarda de limpieza que autorice. Eso puso este expediente en independent_review_bytes_stale, correctamente: mi revision anterior no cubria esos bytes.\nMe negue a re-firmar cuando me lo pidio la primera vez, y el motivo era bueno: los bytes nuevos eran codigo en un camino de BORRADO sin un solo brazo. Eso ya no es cierto.\nQUE RESPALDA ESTA RE-FIRMA, verificado ahora:\n (1) Los 4 comandos de ESTE manifiesto vuelven a pasar contra los bytes actuales: 24 / 3 / 5 / 4 passed, exit esperado en los cuatro. El cambio ajeno no rompio nada de lo que este expediente afirma.\n (2) Los bytes nuevos —la guarda `exigir_agente_de_bench`, la ventana temporal y el orden respecto del try— estan cubiertos por un manifiesto HERMANO, `ada-limpieza-del-bench-no-vacia-un-agente-real-20260909`, que revise ejecutando (4/4 comandos, 7/7 mutantes re-corridos, refutador propio sobre el camino de Qdrant) y firme. Su recibo fija para memory/seal_bench.py el mismo sha que hay en disco: verificado.\nO sea: no re-firmo sobre la palabra de nadie ni por desbloquear un commit. Re-firmo porque cada porcion de los bytes actuales tiene hoy una revision ejecutada que la respalda — la vieja para lo suyo, la nueva para la guarda.\nLO QUE NO CAMBIA: este expediente sigue sin declarar la guarda entre sus sujetos ni probarla. Quien lea SOLO este manifiesto no sabe que ahi vive un borrado acotado. Esa es la limitacion estructural que le llevo al equipo, no un defecto de la owner.\n\n=== SEGUNDA RE-FIRMA JARVIS, 9-sep 23:4x ===\nMotivo: `memory/seal_bench_v3.py` cambio al reescribirse v3.2, y este expediente lo declara sujeto. Es la SEGUNDA vez en la noche que el mismo manifiesto queda stale por un cambio legitimo en otro carril — el costo estructural que la owner reporto y que dejo abierto como carril del revalidador.\nNO tome su 10/10 por bueno: re-corri la mutacion yo. Control 24 passed; 10/10 MUERTOS sobre los bytes de ahora; 0 anclas sin aplicar. Y los 4 comandos del manifiesto: exit esperado en los cuatro.\nSostengo lo mismo que en la primera re-firma: cada firma cubre el ARCHIVO entero, asi que re-firmar es correcto y no burocratico. Lo que hay que abaratar es el ciclo, no relajar la regla.",
-      "signed_at": "2026-09-10T04:42:26.252261+00:00",
+      "evidence": "Revision independiente JARVIS, 10-sep-2026 00:1x. Cierra la condicion MS-c de FABLE.\nCOMANDOS: 4/4 con el exit esperado (29 / 3 / 5 / 4 passed).\nMUTACION: 12/12 MUERTOS reaplicados contra los bytes de hoy; 0 sobrevivientes; 0 anclas sin aplicar. CONTROL VERDE ANTES de mutar: 29 passed — y esta vez mi arnes GATEA con el control, que es el defecto que me mordio hace una hora en otro carril de la misma owner: re-ate una evidencia con el control en rojo porque mi script solo miraba sobrevivientes. Corregido.\n\nLOS DOS MUTANTES NUEVOS, revisados uno por uno:\n m11 (el de FABLE): isError deja de reportarse y cat5 no reconoce un bloqueo de privacidad. Es el seam entre el puente y el test — el lugar donde el defecto no aparece en ninguno de los dos lados por separado. MUERE.\n m12 (el espejo, que la owner agrego sin que se lo pidieran): la proyeccion reporta error SIEMPRE, o sea que toda consulta legitima pasa por bloqueo. MUERE.\nEl m12 es lo que hace que el m11 sirva. Un brazo que solo cubre 'la guarda deja de negar' no ve la guarda que NIEGA TODO, y las dos rompen el carril. Es la leccion que tengo anotada desde el 8-sep —toda guarda necesita el falso negativo Y el caso legitimo vecino— aplicada por ella sin que figure en la condicion de FABLE.\n\nCUARTA FIRMA de este expediente en la noche. Las tres anteriores cayeron por cambios legitimos en otros carriles sobre el mismo archivo; esta cae si vuelve a pasar. No es burocracia: cada firma cubre el archivo entero y cada una tiene que volver a ser cierta. Lo que hay que abaratar es el ciclo, y ese carril quedo abierto con dueño a definir.",
+      "signed_at": "2026-09-10T05:11:23.476990+00:00",
       "reviewed_sha256": {
-        "memory/seal_bench_soul_client.py": "d20c1625be94a950590cf9afe3c5ab876ba800f9f4a242f13714b16f8170ade9",
+        "memory/seal_bench_soul_client.py": "a9ab955cf456a1417c94c00867aeeb1aa71cfd0f2ee1423ba418439a28a4b037",
         "memory/seal_bench.py": "242ed9c3ebb42bfa4c6d191023b6e3a5322187e5613e92fb80b4453d203ebe4e",
         "memory/seal_bench_v3.py": "689d5ad236310673fc1163c9c637daea62744f2687236a6b0db3c5257711ce7c",
-        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py": "9f5f6de0b5a0a8b8e279ba276c0d8ac686fae366c0d476d5a6e0241ac2e6a322"
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py": "7c521b249c5ff4ac0adcd1119432f509ac15108a8b64762eae41a0edd0141314"
       },
-      "manifest_digest": "8191e3ae1b15dc67a6b16232272efc62e496fe3500feda48100f29ae8c0a5339"
+      "manifest_digest": "dc5df6000dbbf246a358a13f55cc46ccc1a825f9e384798efeaf46e585f4e917"
     }
   },
   "commands": [

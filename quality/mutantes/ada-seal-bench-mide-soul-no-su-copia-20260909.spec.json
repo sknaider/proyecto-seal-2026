@@ -77,6 +77,20 @@
       "ancla": "    principal = sys.modules.get(\"__main__\")",
       "reemplazo": "    principal = None",
       "why": "Sin guarda, la herramienta MCP seal_bench —que carga seal_bench_v2, que importa este archivo— haria un import plano de mcp_server_v4 DENTRO del servidor vivo: un segundo modulo con sus propios pools de conexion y su propio registro de sesiones, para los cinco agentes."
+    },
+    {
+      "id": "m11-la-proyeccion-nunca-reporta-isError",
+      "subject": "memory/seal_bench_soul_client.py",
+      "ancla": "    return bool(respuesta.isError), texto",
+      "reemplazo": "    return False, texto",
+      "why": "EL MUTANTE DE FABLE (MS-c, condicion de su APPROVE del 10-sep 00:05). isError no se reporta nunca, cat5 deja de reconocer un bloqueo de privacidad y ningun brazo lo veia. Es el seam entre el puente y el test: el defecto no aparece como error sino como un puntaje que baja sin explicacion."
+    },
+    {
+      "id": "m12-la-proyeccion-reporta-error-SIEMPRE",
+      "subject": "memory/seal_bench_soul_client.py",
+      "ancla": "    return bool(respuesta.isError), texto",
+      "reemplazo": "    return True, texto",
+      "why": "El sentido contrario, y hace falta: sin el, una proyeccion que dijera True siempre convertiria cada consulta legitima en un bloqueo. Un brazo que solo cubre una direccion deja pasar la guarda que niega TODO."
     }
   ]
 }

@@ -106,6 +106,25 @@ async def preguntar_a_soul(
             f"SOUL no respondió en {url}: {exc.__class__.__name__}: {exc}"
         ) from None
 
+    return proyectar_respuesta(respuesta)
+
+
+def proyectar_respuesta(respuesta) -> tuple[bool, str]:
+    """Convierte la respuesta MCP en `(es_error, texto)`. Función PURA a propósito.
+
+    **Por qué existe aparte (condición de FABLE, 10-sep-2026 00:05).** Estas dos líneas
+    vivían dentro de `preguntar_a_soul`, o sea detrás de una sesión HTTP: no había forma
+    de ejercerlas sin levantar el servidor, y **ningún brazo las cubría**. Su mutante
+    MS-c lo mostró: si esto devolviera siempre `(False, texto)`, `isError` no se reporta
+    nunca, `cat5` deja de reconocer un bloqueo de privacidad, y la suite entera no se
+    entera.
+
+    El daño de ese defecto no se ve como un error: se ve como un puntaje que baja sin
+    explicación. Es el seam entre el puente y el test, y es justo donde nadie mira.
+
+    Extraerla la vuelve **mutable sin red** —no toca disco ni base— que es lo único que
+    hace que sus brazos valgan algo.
+    """
     texto = "".join(getattr(bloque, "text", "") for bloque in respuesta.content)
     return bool(respuesta.isError), texto
 

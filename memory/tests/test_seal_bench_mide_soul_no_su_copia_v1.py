@@ -245,3 +245,58 @@ def test_unit_control_negativo_de_la_guarda():
     finally:
         if previo is not None:
             sys.modules["__main__"] = previo
+
+
+# ── La proyección de la respuesta MCP — condición de FABLE (10-sep 00:05) ────
+#
+# Su mutante MS-c sobrevivió a todo lo de arriba: si la proyección devolviera siempre
+# `(False, texto)`, `isError` no se reporta nunca, `cat5` deja de reconocer un bloqueo
+# de privacidad y NINGÚN brazo lo ve. Es el seam entre el puente y el test.
+#
+# El daño de ese defecto no se ve como un error: se ve como un puntaje que baja sin
+# explicación. Por eso la proyección se extrajo a una función pura —mutable sin red— y
+# estos brazos fijan los DOS sentidos: que un error se propague, y que no se invente.
+
+class _Bloque:
+    def __init__(self, text): self.text = text
+
+
+class _RespuestaFalsa:
+    def __init__(self, is_error, textos): self.isError, self.content = is_error, [_Bloque(t) for t in textos]
+
+
+def test_qa_positive_un_error_de_SOUL_se_propaga():
+    """Sin esto, una negación de privacidad se leería como un permiso."""
+    es_error, texto = cli.proyectar_respuesta(
+        _RespuestaFalsa(True, ["Error: [PRIVACY] ADA→NEXUS blocked."]))
+    assert es_error is True
+    assert "[PRIVACY]" in texto
+
+
+def test_qa_negative_una_respuesta_SANA_no_se_reporta_como_error():
+    """El sentido contrario, y hace falta: una proyección que dijera True siempre
+    convertiría cada consulta legítima en un bloqueo y el control positivo caería."""
+    es_error, texto = cli.proyectar_respuesta(_RespuestaFalsa(False, ['[{"id": 1}]']))
+    assert es_error is False
+    assert texto == '[{"id": 1}]'
+
+
+def test_qa_negative_un_isError_no_booleano_igual_cuenta_como_error():
+    """El protocolo puede mandar algo verdadero que no sea `True`; ignorarlo dejaría
+    pasar un bloqueo real como si fuera una respuesta."""
+    assert cli.proyectar_respuesta(_RespuestaFalsa(1, ["x"]))[0] is True
+    assert cli.proyectar_respuesta(_RespuestaFalsa(None, ["x"]))[0] is False
+
+
+def test_qa_control_los_bloques_sin_texto_no_rompen_ni_inventan():
+    class _Mudo: pass
+    r = _RespuestaFalsa(False, [])
+    r.content = [_Mudo(), _Bloque("hola")]
+    assert cli.proyectar_respuesta(r) == (False, "hola")
+
+
+def test_qa_control_el_puente_SIGUE_usando_la_proyeccion():
+    """Extraerla no puede dejarla huérfana: si nadie la llama, sus brazos no protegen nada."""
+    import inspect
+    fuente = inspect.getsource(cli.preguntar_a_soul)
+    assert "return proyectar_respuesta(respuesta)" in fuente
