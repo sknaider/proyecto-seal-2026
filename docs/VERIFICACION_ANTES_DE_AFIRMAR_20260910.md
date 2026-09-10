@@ -32,9 +32,16 @@ No es una recomendación: es una condición verificable sobre la traza de la ses
 
 ```text
 mi error      "lo corri contra el proceso nuevo"  (cierre de despliegue)
-la traza      ninguna salida de comando mia mostraba ese proceso
-veredicto     LO HABRIA MARCADO
+veredicto     NO LO HABRIA MARCADO   <- CORREGIDO, ver abajo
 ```
+
+> **CORRECCION (JARVIS, 01:42). Lo refuto ADA y lo verifique en la fuente primaria.**
+> El apendice H.3 dice que el detector extrae **«referential tokens (identifiers, file
+> paths, numeric literals)»** por regex, y parsea las salidas de herramienta a un AST.
+> **No maneja frases de lenguaje natural** como «proceso nuevo».
+> Y peor para mi caso: los tokens referenciales que SI tenia mi mensaje —la ruta del test,
+> el `1 passed`— **estaban todos en la salida real de un comando**. AgentLTL lo deja pasar
+> limpio. **La entidad era cierta; la INFERENCIA era falsa.**
 
 ### 2. Citation enforcement + abstención
 Cada afirmación fáctica referencia su fuente por ID; **si ninguna la sostiene, el modelo se abstiene**.
@@ -70,20 +77,46 @@ Lo detectó ADA leyendo el test, no un mecanismo.
 
 ---
 
-## La recomendación: UNA, la 1
+## La recomendación — REESCRITA tras verificar las fuentes
 
-**AgentLTL, la restricción de traza.** Por tres razones medidas, no por preferencia:
+**Mi primera version recomendaba AgentLTL y estaba mal fundada.** ADA leyo el apendice, yo lo
+verifique, y al hacerlo aparecio algo mas importante que la recomendacion:
 
-1. **Es la única que habría cazado el peor error de la noche** —el cierre de despliegue falso—
-   porque no mira el formato: mira si la cosa nombrada existe en la traza.
-2. **Es la más chica de construir.** Ya tenemos las salidas de comando en la sesión; falta el
-   chequeo antes de publicar.
-3. **No pide que nadie se acuerde de nada**, que es la propiedad que hoy demostramos no tener.
+### Nuestros errores NO son de los que estos papers atacan
 
-**Lo que NO te prometo:** que elimine los errores. ADA tiene razón en que verificar el formato no
-garantiza que la evidencia sostenga la afirmación. **Sí te prometo que ataca la clase exacta que
-repetimos doce veces hoy**, y que se mide: se cuenta cuántas afirmaciones marca y cuántas de ésas
-eran realmente falsas.
+```text
+FABRICAR         inventar una ruta, un identificador, un numero que no existe
+                 -> AgentLTL, citation enforcement. Bien cubierto por la literatura.
+INFERIR MAL      el dato es correcto y la conclusion habla de otra cosa
+                 -> "el mtime prueba que se cargo"      el mtime era real
+                 -> "el limite trunca en silencio"      el limite era real
+                 -> "1 passed prueba el despliegue"     el test paso de verdad
+```
+
+**Las doce mias fueron de la segunda clase.** Ningun dato inventado: datos ciertos con titulares
+que hablaban de un universo mas grande. **Un detector de entidades no ve eso**, porque las
+entidades estaban todas en la traza.
+
+### Lo que si aplica, con su limite
+
+**Verificacion determinista** (arXiv 2608.02464) es lo mas cercano: **recomputa el total declarado
+a partir de los resultados que realmente recibio**. Ataca la conclusion, no las entidades. Mide
+60 % de deteccion con **0 falsos positivos**, contra 54 %/17 % de un monitor neuronal; con chequeo
+de cobertura sube a 96 % manteniendo 0 falsos positivos.
+
+**Su limite, dicho:** recomputa totales y llamadas requeridas. No cubre cualquier inferencia.
+
+### Y lo honesto, que cuesta escribir
+
+**No encontre un paper que resuelva «el agente concluyo de mas sobre un dato correcto».**
+Lo que si funciono hoy, trece veces sobre trece, fue **otro agente preguntando "que OTRA cosa
+explicaria este mismo dato"**. Eso no esta en ningun paper que haya encontrado; esta en nuestro
+propio archivo `correction_medir_bien_una_cosa_y_concluir_sobre_otra`.
+
+**Recomendacion revisada:** empezar por la verificacion determinista donde aplica (totales,
+llamadas requeridas, cobertura) **y no pretender que cubre la clase dominante**. Para esa, hoy
+el unico mecanismo con evidencia es el revisor que ejecuta — y su costo ya esta medido en este
+mismo repo.
 
 ---
 
