@@ -1,0 +1,263 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "ada-dm-recuperacion-y-entrega-por-cuerpo-20260908",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 9,
+  "survived": 0,
+  "total": 9,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "..................                                                       [100%]\n18 passed in 0.30s",
+    "sha_sujetos_antes": {
+      "messages/ws_listener.py": "239a6751389c1c810d72ff0be89478b926cce50a7b29eff89aef84889b68fa32",
+      "messages/chat_server.py": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "m1-tope-corta-por-el-principio",
+      "subject": "messages/ws_listener.py",
+      "ancla": "    for m in pendientes[omitidos:]:",
+      "reemplazo": "    for m in pendientes[:CATCHUP_MAX_EMIT]:",
+      "why": "el defecto REAL que tuvo el codigo: con un backlog grande entrega los mensajes mas VIEJOS y deja fuera los ultimos de William, justo los que importan al volver de una caida",
+      "registro": {
+        "subject": "messages/ws_listener.py",
+        "ancla": "    for m in pendientes[omitidos:]:",
+        "reemplazo": "    for m in pendientes[:CATCHUP_MAX_EMIT]:",
+        "ancla_sha256": "ace369ac35e7202352b2f9aa1bbcf2fd7878ff49f4107925f377016a89e08562",
+        "sujeto_sha256_antes": "239a6751389c1c810d72ff0be89478b926cce50a7b29eff89aef84889b68fa32",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ws_listener_catchup_v1.py::test_el_tope_entrega_los_mensajes_mas_RECIENTES"
+      ],
+      "pytest_tail": ".F................                                                       [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED messages/tests/test_ws_listener_catchup_v1.py::test_el_tope_entrega_los_mensajes_mas_RECIENTES\n1 failed, 17 passed in 0.30s\n[18 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m2-sin-dedupe-en-mark-seen",
+      "subject": "messages/ws_listener.py",
+      "ancla": "    if msg_id in _seen_ids:\n        return False",
+      "reemplazo": "    if False:\n        return False",
+      "why": "el camino del WS llama a _emit directo y no tiene el filtro previo de catchup_once: sin este dedupe, un mensaje que llega por socket Y por sondeo se entrega dos veces. Este mutante SOBREVIVIO a la primera version de los tests y destapo el hueco",
+      "registro": {
+        "subject": "messages/ws_listener.py",
+        "ancla": "    if msg_id in _seen_ids:\n        return False",
+        "reemplazo": "    if False:\n        return False",
+        "ancla_sha256": "93bf1b27ce7f77fe6dc45c54a008666e767174ff35330954c3b1b53fc970ba2c",
+        "sujeto_sha256_antes": "239a6751389c1c810d72ff0be89478b926cce50a7b29eff89aef84889b68fa32",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ws_listener_catchup_v1.py::test_el_mismo_mensaje_por_el_WS_no_se_emite_dos_veces"
+      ],
+      "pytest_tail": "...F..............                                                       [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED messages/tests/test_ws_listener_catchup_v1.py::test_el_mismo_mensaje_por_el_WS_no_se_emite_dos_veces\n1 failed, 17 passed in 0.33s\n[19 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m3-arranque-en-frio-vuelca-historico",
+      "subject": "messages/ws_listener.py",
+      "ancla": "    if cursor is None:",
+      "reemplazo": "    if False:",
+      "why": "sin el arranque en frio, cada relanzamiento del Monitor vuelca una rafaga de mensajes viejos y despierta al agente sin motivo",
+      "registro": {
+        "subject": "messages/ws_listener.py",
+        "ancla": "    if cursor is None:",
+        "reemplazo": "    if False:",
+        "ancla_sha256": "f7ac62fab60d5cebb68ad5d26ab01bbb050889412f4300451843b2cc09525ed2",
+        "sujeto_sha256_antes": "239a6751389c1c810d72ff0be89478b926cce50a7b29eff89aef84889b68fa32",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ws_listener_catchup_v1.py::test_arranque_en_frio_no_vuelca_historico"
+      ],
+      "pytest_tail": "F.................                                                       [100%]\n=================================== FAILURES ===================================\nE\n=========================== short test summary info ============================\nFAILED messages/tests/test_ws_listener_catchup_v1.py::test_arranque_en_frio_no_vuelca_historico\n1 failed, 17 passed in 0.32s\n[13 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m4-emite-mi-propio-eco",
+      "subject": "messages/ws_listener.py",
+      "ancla": "    if sender == agent:\n        return False",
+      "reemplazo": "    if False:\n        return False",
+      "why": "sin el filtro de remitente, el listener se despierta con sus propios mensajes y realimenta el bucle",
+      "registro": {
+        "subject": "messages/ws_listener.py",
+        "ancla": "    if sender == agent:\n        return False",
+        "reemplazo": "    if False:\n        return False",
+        "ancla_sha256": "c74740ca2adac289244176bd56f35cc09f7423e41f29446f3ce1178753d40cd5",
+        "sujeto_sha256_antes": "239a6751389c1c810d72ff0be89478b926cce50a7b29eff89aef84889b68fa32",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ws_listener_catchup_v1.py::test_no_emite_mis_propios_mensajes_pero_si_los_ajenos"
+      ],
+      "pytest_tail": "....F.............                                                       [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED messages/tests/test_ws_listener_catchup_v1.py::test_no_emite_mis_propios_mensajes_pero_si_los_ajenos\n1 failed, 17 passed in 0.30s\n[13 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m5-cursor-avanza-aunque-el-sondeo-falle",
+      "subject": "messages/ws_listener.py",
+      "ancla": "              flush=True)\n        return\n    nuevo",
+      "reemplazo": "              flush=True)\n        _save_cursor(agent, 10**9)\n        return\n    nuevo",
+      "why": "si un fallo de red mueve el cursor, los mensajes de esa ventana quedan marcados como entregados y se pierden en silencio: el modo de falla que motivo todo el carril",
+      "registro": {
+        "subject": "messages/ws_listener.py",
+        "ancla": "              flush=True)\n        return\n    nuevo",
+        "reemplazo": "              flush=True)\n        _save_cursor(agent, 10**9)\n        return\n    nuevo",
+        "ancla_sha256": "6da759fdc50537092dc44126b6f15fb2426599c7779e649b2a9f978c6ef9b90f",
+        "sujeto_sha256_antes": "239a6751389c1c810d72ff0be89478b926cce50a7b29eff89aef84889b68fa32",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ws_listener_catchup_v1.py::test_un_sondeo_que_falla_no_tumba_el_listener"
+      ],
+      "pytest_tail": "......F...........                                                       [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED messages/tests/test_ws_listener_catchup_v1.py::test_un_sondeo_que_falla_no_tumba_el_listener\n1 failed, 17 passed in 0.32s\n[19 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m6-sin-filtro-de-cuerpo-en-el-reparto",
+      "subject": "messages/chat_server.py",
+      "ancla": "                if cuerpo_sala is not None and agent_ws_body.get(ws) != cuerpo_sala:\n                    continue",
+      "reemplazo": "                if False:\n                    continue",
+      "why": "el defecto que William senalo (18:02, «cada dm es privado eso lo sabes»): sin el filtro, la sala de ADA Claude vuelve a entregarse tambien al cuerpo Codex",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "                if cuerpo_sala is not None and agent_ws_body.get(ws) != cuerpo_sala:\n                    continue",
+        "reemplazo": "                if False:\n                    continue",
+        "ancla_sha256": "60d598cdf8a65b583100dd62ff005937cdee7c033b31a904ea64f8c01a810a96",
+        "sujeto_sha256_antes": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_la_sala_de_un_cuerpo_no_llega_al_otro_cuerpo",
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_una_conexion_sin_cuerpo_declarado_queda_fuera"
+      ],
+      "pytest_tail": "E\nE\n=========================== short test summary info ============================\nFAILED messages/tests/test_reparto_por_cuerpo_v1.py::test_la_sala_de_un_cuerpo_no_llega_al_otro_cuerpo\nFAILED messages/tests/test_reparto_por_cuerpo_v1.py::test_una_conexion_sin_cuerpo_declarado_queda_fuera\n2 failed, 16 passed in 0.32s\n[26 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m7-sin-cuerpo-declarado-falla-abierto",
+      "subject": "messages/chat_server.py",
+      "ancla": "agent_ws_body.get(ws) != cuerpo_sala",
+      "reemplazo": "agent_ws_body.get(ws, cuerpo_sala) != cuerpo_sala",
+      "why": "invierte el sentido del fallo: una conexion que NO declara cuerpo pasaria a recibir la sala por omision. Una guarda de privacidad tiene que fallar CERRADA",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "agent_ws_body.get(ws) != cuerpo_sala",
+        "reemplazo": "agent_ws_body.get(ws, cuerpo_sala) != cuerpo_sala",
+        "ancla_sha256": "bf304b969979c37d1e22bde603ad579b7e2bf0699f0eb67670baf48391941cf8",
+        "sujeto_sha256_antes": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_una_conexion_sin_cuerpo_declarado_queda_fuera"
+      ],
+      "pytest_tail": "........F.........                                                       [100%]\n=================================== FAILURES ===================================\nE\n=========================== short test summary info ============================\nFAILED messages/tests/test_reparto_por_cuerpo_v1.py::test_una_conexion_sin_cuerpo_declarado_queda_fuera\n1 failed, 17 passed in 0.31s\n[13 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m8-el-filtro-se-aplica-a-todos-los-canales",
+      "subject": "messages/chat_server.py",
+      "ancla": "cuerpo_sala = _user_room_body(str(msg.get(\"channel\", \"\")))",
+      "reemplazo": "cuerpo_sala = _user_room_body(str(msg.get(\"channel\", \"\"))) or \"claude\"",
+      "why": "cerrar de mas: web_chat, los DMs y los broadcast a equipo dejarian de llegar a las conexiones sin cuerpo. El caso legitimo vecino que una guarda nueva suele romper",
+      "registro": {
+        "subject": "messages/chat_server.py",
+        "ancla": "cuerpo_sala = _user_room_body(str(msg.get(\"channel\", \"\")))",
+        "reemplazo": "cuerpo_sala = _user_room_body(str(msg.get(\"channel\", \"\"))) or \"claude\"",
+        "ancla_sha256": "56c37f1c1d48d456d5fad1a52d184ec2174099551b7588c25d259f6f77eaf7b1",
+        "sujeto_sha256_antes": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_el_resto_del_reparto_no_cambia",
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_un_broadcast_a_equipo_sigue_llegando_a_todos",
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_una_sala_SIN_cuerpo_llega_a_todas_las_conexiones_del_agente"
+      ],
+      "pytest_tail": "=========================== short test summary info ============================\nFAILED messages/tests/test_reparto_por_cuerpo_v1.py::test_el_resto_del_reparto_no_cambia\nFAILED messages/tests/test_reparto_por_cuerpo_v1.py::test_un_broadcast_a_equipo_sigue_llegando_a_todos\nFAILED messages/tests/test_reparto_por_cuerpo_v1.py::test_una_sala_SIN_cuerpo_llega_a_todas_las_conexiones_del_agente\n3 failed, 15 passed in 0.33s\n[32 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m9-cursor-viejo-tras-reinicio-del-servidor",
+      "subject": "messages/ws_listener.py",
+      "ancla": "    if cursor is not None and isinstance(nuevo, int) and nuevo < cursor:",
+      "reemplazo": "    if False:",
+      "why": "el cursor de la cola es un contador EN MEMORIA del servidor: al reiniciar vuelve a cero. Sin detectar el retroceso, un cursor guardado alto pide una ventana que ya no existe y el sondeo queda ciego para siempre -- justo en el escenario que esta red debe cubrir, porque un reinicio del servidor ES una desconexion del listener",
+      "registro": {
+        "subject": "messages/ws_listener.py",
+        "ancla": "    if cursor is not None and isinstance(nuevo, int) and nuevo < cursor:",
+        "reemplazo": "    if False:",
+        "ancla_sha256": "a3d11e13d6f53094236d167d66f2d7af00e978a18ce1a0629ad43e237f921602",
+        "sujeto_sha256_antes": "239a6751389c1c810d72ff0be89478b926cce50a7b29eff89aef84889b68fa32",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "messages/tests/test_ws_listener_catchup_v1.py::test_si_el_servidor_reinicia_su_cola_el_cursor_viejo_no_deja_ciego_al_listener"
+      ],
+      "pytest_tail": ".....F............                                                       [100%]\n=================================== FAILURES ===================================\nE\n=========================== short test summary info ============================\nFAILED messages/tests/test_ws_listener_catchup_v1.py::test_si_el_servidor_reinicia_su_cola_el_cursor_viejo_no_deja_ciego_al_listener\n1 failed, 17 passed in 0.31s\n[25 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "messages/ws_listener.py": "239a6751389c1c810d72ff0be89478b926cce50a7b29eff89aef84889b68fa32",
+    "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
+    "messages/tests/test_ws_listener_catchup_v1.py": "bf8aa87c79099902b696d2203b720f4081c4f7738ef7a90d730d9da2d926ef53",
+    "messages/tests/test_reparto_por_cuerpo_v1.py": "a680f8ae48fcf77a3c9fe62996e5ac37eaee2027bfdbd67cd0634665853ef0c9"
+  },
+  "revalidacion_del_revisor": {
+    "quien": "JARVIS",
+    "cuando": "2026-09-10T11:46:13Z",
+    "por_que": "El file_sha256 de messages/chat_server.py no coincidia con el disco: el archivo lleva ademas el cambio voz_inmediata_flag de NEXUS, posterior a la corrida de ADA. Antes de actualizar el hash re-corri los mutantes de ESE sujeto contra los bytes de hoy.",
+    "sujetos_movidos": [
+      "messages/chat_server.py"
+    ],
+    "arena": "/tmp/jarvis-remut-cuerpo-fdt0y13a",
+    "control_sin_mutar": "rc=0, 18 passed",
+    "mutantes_recorridos": {
+      "m6-sin-filtro-de-cuerpo-en-el-reparto": "KILLED (2 failed)",
+      "m7-sin-cuerpo-declarado-falla-abierto": "KILLED (1 failed)",
+      "m8-el-filtro-se-aplica-a-todos-los-canales": "KILLED (3 failed)"
+    },
+    "anclas": "las tres aplicaron con ocurrencias=1; un ancla que no aplica se reporta NO EVALUADO, no sobreviviente",
+    "no_recorridos": "los 6 mutantes de messages/ws_listener.py: su file_sha256 COINCIDE con el disco"
+  }
+}

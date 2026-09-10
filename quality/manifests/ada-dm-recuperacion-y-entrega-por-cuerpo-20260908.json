@@ -1,0 +1,146 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "ada-dm-recuperacion-y-entrega-por-cuerpo-20260908",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "_doc": [
+    "William, 8-sep-2026 17:0x: «te escribi tu dm y no contestas revisa», «tu dm no esta conectado revisa», «te dije que reparares tu dm». Y 18:02: «cada dm es privado eso lo sabes».",
+    "DEFECTO 1 -- la sala user:1:ada-claude no tenia NINGUNA red de recuperacion. El WS de agentes es efimero (_push_to_agents entrega solo a quien esta conectado en ese instante); el outbox durable no la cubre porque seal_message_delivery.needs_guarantee() solo mira channel.startswith('dm:'); el feed en disco la excluye A PROPOSITO por privacidad (_log_paths_for/_user_room_agent); y el catch-up de arranque /api/chat/messages/agent filtra channel LIKE 'web_chat%'. Ademas ADA no esta en _ACK_ENABLED_AGENTS. Resultado medido: con el Monitor detenido entre 16:43 y 17:31, seis mensajes de William en su sala no llegaron nunca, incluido db_153601 con una orden suya.",
+    "ARREGLO 1 -- la red ya existia y nadie la usaba: /api/agents/poll?agent=X&since=<cursor> sirve la cola en memoria filtrada por destinatario (solo localhost), y la sala SI esta ahi porque _default_to devuelve 'ADA'. ws_listener.py la consume: catch-up en cada conexion + sondeo cada 60 s (delata ademas un socket zombi, que no lanza excepcion), cursor persistido en .ws_cursor_<AGENTE>, dedupe por id y arranque en frio que fija el cursor sin volcar historico.",
+    "Defecto que encontro el propio test: el tope por sondeo cortaba la lista por el PRINCIPIO, entregando lo mas viejo y dejando fuera los dos ultimos mensajes de William -- justo los que importan al volver de una caida. Corregido: se entregan los mas recientes y se avisa cuantos se omitieron. Y un mutante SOBREVIVIO (quitar el dedupe de _mark_seen) porque catchup_once filtra por _seen_ids ANTES de emitir: el camino del WS no estaba cubierto. Test agregado; el mutante ahora muere.",
+    "DEFECTO 2 -- la sala cerraba la ESCRITURA pero no la ENTREGA. channel_acl si distingue cuerpo (ADA Codex no puede postear en la sala de ADA Claude), pero agent_ws se indexa por NOMBRE de agente y los dos cuerpos hacen el handshake como 'ADA', asi que los mensajes de William para ADA Claude tambien viajaban al cuerpo Codex. Se cerro un eje y quedo abierto el gemelo.",
+    "ARREGLO 2 -- el handshake de /ws/agents acepta un campo OPCIONAL body/instance; agent_ws_body[ws] guarda el cuerpo por conexion (y se limpia en los dos puntos de descarte); _push_to_agents entrega un canal user:<uid>:<agente>-<cuerpo> SOLO a las conexiones de ese cuerpo. FALLA CERRADO: una conexion que no declara cuerpo queda fuera, en vez de recibir por omision. Todo lo demas del reparto queda igual (web_chat, DMs, broadcast a equipo, y las salas user:<uid>:<agente> sin sufijo). ws_listener.py lo declara con --body o derivandolo de SEAL_RUNTIME_INSTANCE (ADA_CLAUDE -> claude). Efecto colateral que tambien cierra: si un cuerpo escribiera en la sala sin `to` explicito, _default_to caia a 'equipo' y el mensaje se habria repartido a los cinco; el filtro es por CANAL, asi que ya no puede pasar.",
+    "DESPLIEGUE VERIFICADO: seal-chat reiniciado 2026-09-08 18:05:01 (systemctl --user restart; seal_self_repair.py NO tiene accion para esa unidad, asi que el reinicio va SIN RECIBO del broker y se declara); code_hash cargado 5bddeeea09af == sha256 del archivo en disco; los cinco agentes reconectados (ADA 2, NEXUS 2, ALICE 2, JARVIS 3, FABLE 1); Studio sirviendo y 401 sin sesion. Prueba viva con tres oyentes simultaneos y un mensaje real a la sala: cuerpo claude RECIBIO, cuerpo codex NO, sin cuerpo declarado NO. Ida y vuelta con William probados: db_153718 llego por el WS y api_ada_1788908324231774273 salio.",
+    "Autorizado por William en su sala (18:02 «cada dm es privado eso lo sabes», 18:02:49 «ok»). Monitor nuevo levantado ANTES de bajar el viejo en los dos relanzamientos: cero segundos sordos (regla de William 17:05, «nunca apagues el monitor»)."
+  ],
+  "deletions": [],
+  "subjects": [
+    "messages/ws_listener.py",
+    "messages/chat_server.py"
+  ],
+  "tests": [
+    "messages/tests/test_ws_listener_catchup_v1.py",
+    "messages/tests/test_reparto_por_cuerpo_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-recuperacion-y-cuerpo",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_ws_listener_catchup_v1.py",
+        "messages/tests/test_reparto_por_cuerpo_v1.py"
+      ]
+    },
+    {
+      "id": "positive-lo-perdido-se-recupera-y-el-cuerpo-dueno-recibe",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_ws_listener_catchup_v1.py::test_el_tope_entrega_los_mensajes_mas_RECIENTES",
+        "messages/tests/test_ws_listener_catchup_v1.py::test_no_emite_mis_propios_mensajes_pero_si_los_ajenos",
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_la_sala_de_un_cuerpo_no_llega_al_otro_cuerpo"
+      ]
+    },
+    {
+      "id": "negative-el-otro-cuerpo-y-el-sin-cuerpo-no-reciben",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_una_conexion_sin_cuerpo_declarado_queda_fuera",
+        "messages/tests/test_ws_listener_catchup_v1.py::test_arranque_en_frio_no_vuelca_historico",
+        "messages/tests/test_ws_listener_catchup_v1.py::test_el_mismo_mensaje_por_el_WS_no_se_emite_dos_veces",
+        "messages/tests/test_ws_listener_catchup_v1.py::test_un_sondeo_que_falla_no_tumba_el_listener"
+      ]
+    },
+    {
+      "id": "control-nada-cambia-fuera-de-las-salas-de-cuerpo",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_el_resto_del_reparto_no_cambia",
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_un_broadcast_a_equipo_sigue_llegando_a_todos",
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_una_sala_SIN_cuerpo_llega_a_todas_las_conexiones_del_agente",
+        "messages/tests/test_reparto_por_cuerpo_v1.py::test_lectura_del_canal"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages/ws_listener.py"
+    ],
+    "omit": [
+      "messages/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-p",
+      "no:cacheprovider",
+      "messages/tests/test_ws_listener_catchup_v1.py",
+      "messages/tests/test_reparto_por_cuerpo_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 180,
+    "_note": "chat_server.py se ejercita por _user_room_body y _push_to_agents con WebSockets falsos; el archivo entero (6000+ lineas, otros carriles vivos) no se mide por cobertura."
+  },
+  "mutation_evidence": "quality/mutation-ada-dm-recuperacion-y-entrega-por-cuerpo-20260908.json",
+  "delivery": {
+    "status": "verified",
+    "evidence": "8-sep-2026 17:31-18:08 Lima. (1) Monitor con catch-up levantado 17:31:59 ANTES de bajar el viejo (cero segundos sordos, regla de William de las 17:05). (2) seal-chat reiniciado 18:05:01 con systemctl --user (seal_self_repair.py NO tiene accion para esa unidad: reinicio SIN RECIBO del broker, se declara); /__version code_hash 5bddeeea09af == sha256 del archivo en disco. (3) Los cinco agentes reconectados: ADA 2, NEXUS 2, ALICE 2, JARVIS 3, FABLE 1. Studio sirviendo, 401 sin sesion. (4) EFECTO de la recuperacion: con el cursor puesto atras, catchup_once recupero db_153601 y db_153617 -los dos mensajes de William que se habian perdido con el Monitor detenido- y un segundo sondeo no repitio ningun id. (5) EFECTO de la privacidad por cuerpo, con tres oyentes simultaneos contra el servidor vivo y un mensaje real a user:1:ada-claude: cuerpo claude RECIBIO, cuerpo codex NO recibio, conexion sin cuerpo declarado NO recibio. (6) Ida y vuelta con William: db_153718 llego por el WS y api_ada_1788908324231774273 salio. Handshake medido: body=claude, body=codex, body=None segun lo declarado.  ||  RE-VERIFICACION DEL REVISOR (JARVIS, 10-sep-2026 06:5x Lima): el chequeo esperaba 5bddeeea09af, que era el despliegue del 8-sep. Medido hoy: /__version del daemon vivo reporta code_hash 3c8822cead12..., IDENTICO al sha256 de messages/chat_server.py en disco -- es decir, el servicio corre BYTES QUE NO ESTAN EN GIT (HEAD tiene 4e00ae6f90af), porque el archivo suma el cambio voz_inmediata_flag de NEXUS. Actualizo el hash esperado a los bytes que efectivamente corren y que son los que revise. LO QUE NO RE-CORRI, y va dicho: la prueba de EFECTO en vivo con tres oyentes simultaneos contra el servidor real. Esa evidencia es de ADA, del 8-sep, y describe un despliegue anterior; no la re-hice porque exige publicar en la sala privada user:1:ada-claude. La garantia de comportamiento sobre los bytes de hoy viene de los cuatro brazos (18/3/4/9 passed) y de los tres mutantes de chat_server re-corridos con control verde.",
+    "command": {
+      "argv": [
+        "curl",
+        "-s",
+        "http://localhost:8765/__version"
+      ],
+      "expected_stdout_contains": "3c8822cead12"
+    }
+  },
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "messages/ws_listener.py": "239a6751389c1c810d72ff0be89478b926cce50a7b29eff89aef84889b68fa32",
+      "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
+      "messages/tests/test_ws_listener_catchup_v1.py": "bf8aa87c79099902b696d2203b720f4081c4f7738ef7a90d730d9da2d926ef53",
+      "messages/tests/test_reparto_por_cuerpo_v1.py": "a680f8ae48fcf77a3c9fe62996e5ac37eaee2027bfdbd67cd0634665853ef0c9"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-10T11:47:33Z",
+      "reviewed_sha256": {
+        "messages/ws_listener.py": "239a6751389c1c810d72ff0be89478b926cce50a7b29eff89aef84889b68fa32",
+        "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
+        "messages/tests/test_ws_listener_catchup_v1.py": "bf8aa87c79099902b696d2203b720f4081c4f7738ef7a90d730d9da2d926ef53",
+        "messages/tests/test_reparto_por_cuerpo_v1.py": "a680f8ae48fcf77a3c9fe62996e5ac37eaee2027bfdbd67cd0634665853ef0c9"
+      },
+      "manifest_digest": "97289d52dfbfc5c0bc614e1190ae035b38f57da3b489dae3369baa7752eefff8",
+      "evidence": "JARVIS re-ejecuto el expediente contra los BYTES DE HOY, no contra los declarados. Comandos con el interprete de calidad: unit 18 passed, positivo 3, negativo 4, control 9. La evidencia de mutacion declaraba un file_sha256 de messages/chat_server.py DISTINTO al de disco (el archivo lleva ademas el cambio voz_inmediata_flag de NEXUS), asi que re-corri los tres mutantes de ese sujeto en arena /tmp/jarvis-remut-cuerpo-fdt0y13a con el control gateando la corrida: control sin mutar 18 passed (rc=0); m6-sin-filtro-de-cuerpo KILLED (2 failed), m7-sin-cuerpo-declarado-falla-abierto KILLED (1 failed), m8-el-filtro-se-aplica-a-todos-los-canales KILLED (3 failed). Las tres anclas aplicaron con ocurrencias=1. Los 6 mutantes de ws_listener.py NO se re-corrieron: el file_sha256 de ese sujeto COINCIDE con el disco, su evidencia sigue fresca. OBSERVACION no bloqueante: test_reparto_por_cuerpo_v1.py:20 usa os.environ.setdefault('SEAL_PG_DSN', ...), que en una sesion con esa variable poblada conserva la DSN del entorno en vez de la noop; medido en esta sesion la variable esta ausente y el test corre aislado."
+    }
+  }
+}
