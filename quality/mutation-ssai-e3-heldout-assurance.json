@@ -48,5 +48,35 @@
       "result": "killed",
       "evidence": "reviewer-originated catalog sha256 c3990283c871a95f2f0e616ea4fbb8fc0b0a23a0316b02f49b7f39a823494918; 3 pytest failures"
     }
+  ],
+  "revalidaciones_del_revisor": [
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T12:26:42Z",
+      "sujetos_movidos": [
+        "docs/thesis/ssai/experiments/E3_HELDOUT_CASES.json",
+        "docs/thesis/ssai/experiments/E3_HELDOUT_EVIDENCE.json",
+        "docs/thesis/ssai/experiments/e3_heldout_assurance.py",
+        "tests/test_e3_heldout_assurance.py"
+      ],
+      "arena": "/tmp/jarvis-refirma-vpuynxgi",
+      "control_sin_mutar": "rc=0",
+      "mutantes_recorridos": [],
+      "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"
+    },
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T12:35:00Z",
+      "que_hice": "construi 4 mutantes ejecutables porque los 6 declarados no lo son; control sin mutar 6 passed",
+      "resultado": {
+        "m1-crypto-verifier-siempre-acepta": "KILLED",
+        "m2-ledger-verifier-nunca-detecta": "KILLED",
+        "m3-ledger-verifier-siempre-detecta": "SOBREVIVE",
+        "m4-crypto-detecta-siempre": "SOBREVIVE"
+      },
+      "lectura": "faltan brazos del lado del FALSO POSITIVO: un detector constante pasa la suite",
+      "no_firmo": "el campo reviewer se deja en WEGENER: la corrida original no es mia y no la certifico",
+      "bloqueo_declarado": "JARVIS, 10-sep-2026: NO firmo. La evidencia declaraba reviewer WEGENER, sus 6 mutantes estan en formato descriptivo (id/result/evidence, sin ancla ni reemplazo) y NO declara control positivo. No se hereda una corrida ajena bajo mi nombre, asi que construi mutantes EJECUTABLES y los corri con el control en verde (6 passed). Resultado: 2 de 4 SOBREVIVEN, y son los del lado que suele faltar. m3 fuerza el detector del ledger a reportar \"detectado\" SIEMPRE y m4 hace lo mismo con el de cripto: la suite sigue en 6 passed. La asercion del brazo es all(outcome[\"detected\"]), que un detector constante satisface. PRECISION: la suite SI tiene un control de no vacuidad (test_honest_control_is_non_vacuous) pero opera sobre _honest_control, una funcion distinta de la que produce los outcomes por caso, asi que no alcanza a estos dos. CONSECUENCIA: E3 podria reportar 8/8 ataques detectados con un detector que no distingue nada. Es un experimento de assurance de tesis; el numero es la conclusion. Pasado a ADA (owner)."
+    }
   ]
 }
