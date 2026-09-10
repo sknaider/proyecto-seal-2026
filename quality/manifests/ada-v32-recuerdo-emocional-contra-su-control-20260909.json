@@ -1,0 +1,204 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "ada-v32-recuerdo-emocional-contra-su-control-20260909",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "_doc": [
+    "EL DEFECTO: `v3.2 Emotional Memory Precision` plantaba 5 memorias emocionales y 50 neutras",
+    "bajo un agente sintético y buscaba con `_search_memories`, la copia de la búsqueda que vive",
+    "dentro del benchmark. Sembraba datos falsos y le tomaba examen a una reimplementación: su 20 %",
+    "no decía nada sobre SOUL.",
+    "",
+    "AHORA le pregunta a SOUL por MCP autenticado, sobre las memorias que REALMENTE tiene, y no",
+    "escribe una sola fila. Dos brazos:",
+    "    20 consultas emocionales   ¿cuántas memorias de |valencia| > 0.7 devuelve?",
+    "    20 consultas TÉCNICAS      el mismo conteo, sin una palabra emocional",
+    "",
+    "EL BRAZO DE CONTROL ES LO QUE CONVIERTE EL NÚMERO EN AFIRMACIÓN. Con sólo el primero, una tasa",
+    "alta no distingue «el mecanismo emocional funciona» de «la búsqueda funciona y el corpus está",
+    "cargado de emoción». Medido contra el sistema vivo el 9-sep:",
+    "    emocionales  7/43 = 16.3 %      técnicas 0/58 = 0.0 %      Fisher p = 0.0019",
+    "Es la primera vez que se puede afirmar que SOUL recuerda distinto lo emocional midiendo el",
+    "sistema y no una copia suya.",
+    "",
+    "FISHER Y NO SOLAPAMIENTO DE INTERVALOS. Mi primer script comparó los IC, los vio solaparse y",
+    "concluyó «no puedo afirmarlo». Con el test correcto la diferencia estaba ahí (p=0.0203 en esa",
+    "muestra). Comparar solapamiento de IC es conservador y produce falsos negativos: estuve a un",
+    "paso de reportar un «no se puede afirmar» que era mío, no de los datos.",
+    "",
+    "EL RITMO NO ES UNA OPTIMIZACIÓN, ES UNA CORTESÍA OBLIGATORIA. `memory_hybrid_search` está",
+    "limitada a 30 req/min y ese contador es GLOBAL por herramienta: `_rate_check(tool_name)` ni",
+    "recibe el agente. La primera versión disparaba 40 consultas seguidas, se comía su propio",
+    "presupuesto —SOUL devolvía [RATE_LIMIT] y el test informaba «sin datos»— y de paso dejaba sin",
+    "búsquedas a los otros cuatro agentes durante un minuto. Con 2.5 s la corrida tarda ~107 s a",
+    "propósito y midió 0 consultas frenadas. Efecto lateral medido: el control pasó de 29 a 58",
+    "resultados, porque antes el propio límite se comía la mitad del brazo que debía refutarme.",
+    "",
+    "TRES MUTANTES SOBREVIVIERON LA PRIMERA VUELTA y los tres enseñaron algo distinto:",
+    "  m2 (aflojar 0.05 -> 0.5): mis brazos sólo cubrían «señal clarísima» y «ninguna señal»;",
+    "     faltaba el caso TIBIO, una diferencia real con muestra insuficiente.",
+    "  m5 (abs(valence) -> valence): mi pool falso ni leía el SQL, así que no notaba que se tiraba",
+    "     el miedo, la tristeza y la frustración — 195 de 429 memorias reales de ADA. Un doble que",
+    "     no modela lo que sustituye deja ciega a la suite.",
+    "  m8: el mutante estaba MAL ESCRITO por mí y no achicaba nada. Un mutante que no muta se ve",
+    "     exactamente igual que un test flojo.",
+    "",
+    "LÍMITE DECLARADO: el resultado depende de la composición real de la memoria del agente, así",
+    "que se mueve con el tiempo — a propósito. Por eso el criterio es la DIFERENCIA contra su",
+    "propio control y no un umbral absoluto. La vara del 0.30 en la escala del puntaje es elegida,",
+    "no medida, y el detalle lo dice en vez de esconderlo. n chico dice QUE hay señal, no CUÁNTA.",
+    "",
+    "AUTORIZACIÓN: William, 9-sep, «disenhalo confio en ti y aplicalo a soul». Tarea #1764."
+  ],
+  "subjects": [
+    "memory/seal_bench_v3.py"
+  ],
+  "tests": [
+    "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py"
+  ],
+  "coverage": {
+    "source": [
+      "seal_bench_v3"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300,
+    "_note": [
+      "Umbral 0 declarado, con la objeción de JARVIS incorporada: un umbral 0 significa que este",
+      "brazo NO protege nada. El sujeto tiene ~900 líneas y nueve categorías que abren conexiones;",
+      "el cambio toca ~120. La evidencia real son los 8 mutantes."
+    ]
+  },
+  "mutation_evidence": "quality/mutation-ada-v32-recuerdo-emocional-contra-su-control-20260909.json",
+  "mutation_target": "memory/seal_bench_v3.py",
+  "mutation_baseline_percent": 100.0,
+  "review": {
+    "status": "approved",
+    "evidence": [
+      "Pedida a JARVIS el 9-sep. OJO AL FIRMAR: `memory/seal_bench_v3.py` ya es sujeto del",
+      "expediente `ada-seal-bench-mide-soul-no-su-copia-20260909`, comiteado y firmado. Al cambiar",
+      "el archivo, ese recibo y su evidencia de mutación quedan stale: hacen falta las DOS cosas,",
+      "re-correr su arena y re-firmarlo. Ya me pasó con `seal_bench.py` esta misma noche."
+    ],
+    "independent_reviewer": "JARVIS",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "Revision independiente JARVIS, 9-sep-2026. EJECUTADA.\nCOMANDOS: 4/4 con el exit esperado (19 / 3 / 5 / 5 passed).\nMUTACION: los 8 mutantes reaplicados contra los bytes de hoy en arena bajo /tmp; control 19 passed; 8/8 MUERTOS, 0 sobrevivientes, 0 anclas sin aplicar. Arbol vivo intacto, sujeto restaurado.\n\nREFUTADOR PROPIO — aca el riesgo no es mecanico sino CIENTIFICO, asi que corri otra cosa que los mutantes: un brazo de control que da 0 % puede ser un control real o puede ser cero por trivialidad. Si las consultas 'de control' fueran temas que el corpus no tiene, el 0 % no refutaria nada y el 16,3 % emocional quedaria sin contraste.\nMIRE LAS 20 CONSULTAS DE CONTROL una por una: configuracion de postgres y pgvector, puerto del MCP, reinicio de un servicio systemd, esquema de la tabla memories, indices HNSW, formato del manifiesto de calidad, rutas de tokens, arnes de mutacion, unidad de systemd del chat, parametros de embeddings, DSN, estructura del repo, protocolo de mensajes, registro de tareas, hash de commit, coleccion de qdrant, timers, ruta del venv, puerto 8771, archivo de politica. Son temas de los que SOUL INDUDABLEMENTE tiene memorias — de hecho varios los toque yo hoy mismo. Y la owner reporta que ese brazo devuelve 58 resultados: la busqueda encuentra, lo que no encuentra es senal emocional.\nESO ES UN CONTROL REAL, y es lo que convierte 16,3 % vs 0 % (Fisher p=0,0019) en una afirmacion en vez de un numero. Sin ese brazo, '16 %' no distingue «el mecanismo emocional funciona» de «la busqueda funciona y el corpus esta lleno de emocion». Era el unico motivo por el que no habria firmado.\n\nLIMITE DECLARADO: no reproduje la corrida contra la base viva (tarda 107 s a proposito y consume presupuesto de busqueda COMPARTIDO por los cinco). Verifique el diseno del control, los brazos y la mutacion; el numero concreto 7/43 vs 0/58 lo tomo de su evidencia. Un revisor que quiera cerrar ese brazo debe correrlo cuando el resto del equipo no este consultando.",
+      "signed_at": "2026-09-10T04:04:42.279723+00:00",
+      "reviewed_sha256": {
+        "memory/seal_bench_v3.py": "689d5ad236310673fc1163c9c637daea62744f2687236a6b0db3c5257711ce7c",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py": "2db1231031b22665c5ce12b4c944a612f86391bffb9c67d23b1ca4184de491d0"
+      },
+      "manifest_digest": "72cd487be4c75cd5f6bebd8e09ab414c60cab743b684bd4d2d8a586ccfa65644"
+    }
+  },
+  "commands": [
+    {
+      "id": "unit-fisher-y-los-dos-brazos",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py"
+      ]
+    },
+    {
+      "id": "positive-con-señal-real-puntua-y-declara-su-vara",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_positive_señal_fuerte_puntua_alto",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_positive_el_detalle_declara_su_escala_y_su_limite",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_negative_la_emocion_NEGATIVA_cuenta_igual"
+      ]
+    },
+    {
+      "id": "negative-sin-señal-sin-datos-o-sin-poder-preguntar-es-cero",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_negative_sin_diferencia_entre_brazos_da_cero",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_negative_un_brazo_sin_datos_no_puntua",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_negative_todo_frenado_por_rate_limit_da_cero_Y_LO_DICE",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_negative_una_diferencia_tibia_no_alcanza_para_puntuar",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_negative_el_control_con_MAS_carga_emocional_no_puntua"
+      ]
+    },
+    {
+      "id": "control-el-brazo-que-refuta-existe-se-consulta-y-no-esta-contaminado",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_control_las_consultas_de_control_se_ejecutan",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_control_ninguna_consulta_de_control_lleva_carga_emocional",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_control_los_dos_brazos_tienen_tamaño_comparable",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_control_la_pausa_entre_consultas_respeta_el_limite_compartido",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_control_las_consultas_no_salen_de_las_memorias_buscadas"
+      ]
+    }
+  ],
+  "delivery": {
+    "status": "verified",
+    "evidence": [
+      "VERIFICADO POR EFECTO contra SOUL en producción, con ritmo:",
+      "",
+      "  cd memory && seal_bench_v3.py --dry-run --category 2",
+      "    antes:  20.0  (medía la copia del benchmark sobre datos sembrados)",
+      "    ahora:  54.3  emocionales 7/43 = 16.3 % · técnicas 0/58 = 0.0 %",
+      "            Fisher p = 0.00187 · consultas frenadas por rate limit: 0 · 107 s",
+      "",
+      "  refutadores corridos con dobles, sin gastar el presupuesto compartido:",
+      "    los dos brazos devuelven lo mismo   score 0   (p = 1.0)",
+      "    un brazo sin datos                  score 0   con su error",
+      "    todo frenado por rate limit         score 0   y lo DICE en el detalle",
+      "    señal fuerte                        score 100",
+      "",
+      "El puntaje sigue siendo FAIL (el umbral de la suite es 70) y está bien que lo sea: SOUL",
+      "recuerda emocional por encima de su control, pero sólo el 16 % de lo que devuelve tiene",
+      "carga alta. El número ahora significa algo, que era el punto."
+    ],
+    "command": {
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py::test_qa_negative_sin_diferencia_entre_brazos_da_cero"
+      ],
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

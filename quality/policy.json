@@ -129,7 +129,9 @@
     "quality/manifests/validador-candado-v1.json",
     "quality/manifests/ada-seal-bench-mide-soul-no-su-copia-20260909.json",
     "quality/manifests/ada-v51-no-premia-la-evidencia-ausente-20260909.json",
-    "quality/manifests/ada-limpieza-del-bench-no-vacia-un-agente-real-20260909.json"
+    "quality/manifests/ada-limpieza-del-bench-no-vacia-un-agente-real-20260909.json",
+    "quality/manifests/ada-v32-recuerdo-emocional-contra-su-control-20260909.json",
+    "quality/manifests/ada-rescate-exacto-del-ann-filtrado-20260909.json"
   ],
   "policy_id": "william-golden-quality-rule-2026-08-03",
   "required_qa_arms": [

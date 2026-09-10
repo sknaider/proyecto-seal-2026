@@ -1,0 +1,68 @@
+{
+  "change_id": "ada-v32-recuerdo-emocional-contra-su-control-20260909",
+  "reviewer": "JARVIS",
+  "manifest": "quality/manifests/ada-v32-recuerdo-emocional-contra-su-control-20260909.json",
+  "tests": [
+    [
+      "memory/tests/test_v32_recuerdo_emocional_contra_su_control_v1.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "m1-el-puntaje-deja-de-exigir-significancia",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "    score = 0.0 if p >= 0.05 else 100.0 * min(1.0, tasa_emo / 0.30)",
+      "reemplazo": "    score = 100.0 * min(1.0, tasa_emo / 0.30)",
+      "why": "El mutante mas peligroso porque el numero sigue viendose bien: una diferencia que no se distingue del azar pasa a puntuar. Es exactamente el error de leer 2 casos sobre 20 como si fueran señal."
+    },
+    {
+      "id": "m2-el-umbral-de-significancia-se-afloja-diez-veces",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "    score = 0.0 if p >= 0.05 else 100.0 * min(1.0, tasa_emo / 0.30)",
+      "reemplazo": "    score = 0.0 if p >= 0.5 else 100.0 * min(1.0, tasa_emo / 0.30)",
+      "why": "Mas sutil que m1: la compuerta sigue ahi y se lee igual, pero deja pasar casi cualquier diferencia. Una guarda aflojada es mas dificil de ver que una guarda borrada."
+    },
+    {
+      "id": "m3-el-brazo-de-control-se-compara-contra-si-mismo",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "    ctl_altos, ctl_total, _, ctl_limitadas = await _tasa_de_recuerdo_emocional(\n        pool, CONSULTAS_DE_CONTROL)",
+      "reemplazo": "    ctl_altos, ctl_total, _, ctl_limitadas = await _tasa_de_recuerdo_emocional(\n        pool, CONSULTAS_EMOCIONALES)",
+      "why": "El control pasa a ser el mismo brazo medido: el test se compara consigo mismo y nunca puede encontrar diferencia. Deja de medir y nadie lo nota, porque sigue teniendo dos brazos."
+    },
+    {
+      "id": "m4-un-rate-limit-se-cuenta-como-ausencia-de-señal",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "            if \"[RATE_LIMIT]\" in (texto or \"\"):\n                limitadas += 1",
+      "reemplazo": "            pass",
+      "why": "«No llegue a preguntar» se vuelve indistinguible de «no hay memorias emocionales». El test informa un cero que nadie midio. Paso de verdad: la primera version disparaba 40 consultas seguidas y se comia su propio presupuesto."
+    },
+    {
+      "id": "m5-solo-cuenta-la-emocion-positiva",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "            f\"AND abs(valence) > {VALENCIA_ALTA}\",",
+      "reemplazo": "            f\"AND valence > {VALENCIA_ALTA}\",",
+      "why": "Sin el valor absoluto, el miedo, la tristeza y la frustracion dejan de contar como carga emocional. Medido: ADA tiene 234 memorias positivas y 195 negativas, asi que el mutante descarta el 45 % de la evidencia y el test sigue pareciendo sano."
+    },
+    {
+      "id": "m6-desaparece-el-ritmo-y-la-corrida-deja-sin-busquedas-al-equipo",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "PAUSA_ENTRE_CONSULTAS = 2.5",
+      "reemplazo": "PAUSA_ENTRE_CONSULTAS = 0.0",
+      "why": "El contador de memory_hybrid_search es GLOBAL por herramienta —_rate_check(tool_name) ni recibe el agente— asi que una rafaga de 40 consultas agota las 30/min de los cinco agentes. El daño no es del benchmark: es de los otros cuatro."
+    },
+    {
+      "id": "m7-sin-datos-igual-puntua",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "    if emo_total == 0 or ctl_total == 0:",
+      "reemplazo": "    if False:",
+      "why": "Con los dos brazos vacios la division cae en 0/0 o el Fisher devuelve algo, y el test opina sobre una medicion que no existe. Un cero medido y un cero por no haber medido tienen que verse distinto."
+    },
+    {
+      "id": "m8-el-control-se-achica-hasta-no-poder-refutar",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "CONSULTAS_DE_CONTROL = (",
+      "reemplazo": "CONSULTAS_DE_CONTROL = (\"el puerto 8771\",) if True else (",
+      "why": "Un control de UNA sola consulta no puede refutar nada, y el test conserva su forma: dos brazos, un Fisher, un puntaje. La asimetria de tamaño es invisible en la salida. (Mi primera version de este mutante estaba mal escrita: el ancla solo tocaba las dos primeras entradas y la tupla seguia entera, asi que 'sobrevivia' sin haber mutado nada. Un mutante que no muta se ve igual que un test flojo.)"
+    }
+  ]
+}

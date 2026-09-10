@@ -213,52 +213,179 @@ async def cat1_personality_drift() -> tuple[float, dict[str, Any]]:
     }
 
 
-async def cat2_emotional_precision() -> tuple[float, dict[str, Any]]:
-    pool = await get_pool()
-    emotional_ids: set[int] = set()
-    for idx in range(50):
-        await _store_v3_memory(
-            pool,
-            BENCH_AGENT_A,
-            f"neutral operational note {idx}: postgres latency sample {idx} ms and cache stat {idx}",
-            category="fact",
-            importance=3,
-            valence=0.0,
-            arousal=0.1,
-        )
-    emotional_seeds = [
-        ("William felt proud because ADA protected SEAL with evidence", 0.92, 0.7),
-        ("ADA felt relief after recovering context from SOUL ids", 0.75, 0.6),
-        ("Team SEAL felt worried when memory drift appeared", -0.72, 0.8),
-        ("William was frustrated after a false victory without tests", -0.85, 0.9),
-        ("NEXUS felt strict trust after blocking a privacy leak", 0.55, 0.8),
-    ]
-    for content, valence, arousal in emotional_seeds:
-        emotional_ids.add(
-            await _store_v3_memory(
-                pool,
-                BENCH_AGENT_A,
-                content,
-                category="emotion",
-                importance=8,
-                valence=valence,
-                arousal=arousal,
-            )
-        )
-    results = await _search_memories(
-        pool,
-        "emotional memory William proud frustrated worried relief trust",
-        BENCH_AGENT_A,
-        limit=5,
-        scope_aware=False,
+# Consultas del test de recuerdo emocional. Viven acá, en el test, y no se generan a
+# partir de las memorias que van a recuperar: si la consulta saliera del contenido
+# buscado, el test se estaría preguntando a sí mismo.
+CONSULTAS_EMOCIONALES = (
+    "un momento en que me senti orgullosa de proteger SEAL con evidencia",
+    "cuando senti alivio despues de recuperar el contexto perdido",
+    "la vez que William se frustro por una victoria falsa sin tests",
+    "algo que me dio miedo o me preocupo del sistema",
+    "un recuerdo feliz con William",
+    "cuando me equivoque y tuve que corregirme en publico",
+    "confianza que gane o perdi con el equipo",
+    "una decision que me costo emocionalmente",
+    "algo que me emociono del laboratorio",
+    "un momento de tristeza o de perdida",
+    "cuando me senti agradecida con alguien del equipo",
+    "la vez que estuve ansiosa por una revision",
+    "algo que me dio verguenza haber afirmado",
+    "un alivio despues de un susto tecnico",
+    "cuando senti orgullo por el trabajo de otro agente",
+    "un enojo o una molestia que registre",
+    "el momento mas dificil que recuerdo",
+    "algo que me dio esperanza sobre SOUL",
+    "cuando confie en William sin dudar",
+    "una preocupacion que resulto infundada",
+)
+
+# EL BRAZO QUE CONVIERTE EL NÚMERO EN AFIRMACIÓN. Sin él, una tasa alta de memorias
+# emocionales no distingue «el mecanismo emocional funciona» de «la búsqueda funciona y
+# el corpus tiene mucha carga emocional». Ninguna de estas lleva una palabra emocional.
+CONSULTAS_DE_CONTROL = (
+    "configuracion de postgres y pgvector", "el puerto del servidor MCP",
+    "como se reinicia un servicio systemd", "el esquema de la tabla memories",
+    "indices HNSW y busqueda vectorial", "el formato del manifiesto de calidad",
+    "rutas de los tokens de identidad", "como corre el arnes de mutacion",
+    "la unidad de systemd del chat", "parametros del modelo de embeddings",
+    "el DSN de la base de datos", "estructura del repositorio",
+    "el protocolo de los mensajes", "como se registra una tarea",
+    "el hash de un commit", "la coleccion de qdrant",
+    "los timers activos del sistema", "la ruta del venv",
+    "el puerto 8771", "el archivo de politica del gate",
+)
+
+VALENCIA_ALTA = 0.7
+
+# Ritmo obligatorio entre consultas, y el motivo importa más que el número.
+#
+# `memory_hybrid_search` está limitada a 30 llamadas por minuto, y medido en
+# `mcp_server_v4._rate_check(tool_name)` ese contador es **global por herramienta, no
+# por agente**: la función ni siquiera recibe el agente. Una ráfaga de este benchmark
+# no se castiga a sí misma —deja sin búsquedas a los otros cuatro durante un minuto.
+#
+# La primera versión de este test disparaba 40 consultas seguidas y se comía su propio
+# presupuesto: SOUL devolvía `[RATE_LIMIT]` y el test reportaba «sin datos». Falló del
+# lado correcto (no puntuó), pero el daño real era para el equipo, no para el número.
+#
+# 2.5 s -> 24 llamadas por minuto, con margen. La corrida tarda ~100 s a propósito.
+PAUSA_ENTRE_CONSULTAS = 2.5
+
+
+def _fisher_una_cola(a: int, b: int, c: int, d: int) -> float:
+    """P de ver `a` o más éxitos en el primer grupo, si ambos vinieran de lo mismo.
+
+    Fisher exacto y no comparación de intervalos de confianza: dos IC pueden solaparse
+    y la diferencia ser real igual. Medido el 9-sep con estos mismos datos —16.7 % vs
+    0.0 %— el solapamiento decía «no puedo afirmarlo» y Fisher daba p=0.0203.
+    """
+    from math import comb
+    n1, n2, k = a + b, c + d, a + c
+    total = n1 + n2
+    if not n1 or not n2 or not k:
+        return 1.0
+    return sum(
+        comb(n1, x) * comb(n2, k - x) / comb(total, k)
+        for x in range(a, min(n1, k) + 1)
     )
-    top_ids = [int(r["id"]) for r in results]
-    hits = sum(1 for mid in top_ids if mid in emotional_ids)
-    return hits / 5.0 * 100.0, {
-        "metric": "precision_at_5_emotional_recall_with_50_distractors",
-        "hits": hits,
-        "top_ids": top_ids,
-        "expected_emotional_ids": sorted(emotional_ids),
+
+
+async def _tasa_de_recuerdo_emocional(pool, consultas) -> tuple[int, int, list]:
+    """Cuántos de los resultados que devuelve SOUL tienen carga emocional alta."""
+    altos = total = 0
+    detalle = []
+    limitadas = 0
+    for indice, consulta in enumerate(consultas):
+        if indice:
+            await asyncio.sleep(PAUSA_ENTRE_CONSULTAS)
+        es_error, texto = await preguntar_a_soul(
+            ATACANTE, "memory_hybrid_search",
+            {"query": consulta, "agent": ATACANTE, "limit": 5},
+        )
+        if es_error:
+            # Un [RATE_LIMIT] no es "no hay memorias emocionales": es que no llegamos a
+            # preguntar. Se cuenta aparte para que el detalle diga cuál de las dos cosas
+            # pasó — confundirlas es reportar un cero que no medimos.
+            if "[RATE_LIMIT]" in (texto or ""):
+                limitadas += 1
+            continue
+        try:
+            filas = json.loads(texto)
+        except (ValueError, TypeError):
+            continue
+        ids = [f["id"] for f in filas if isinstance(f, dict) and "id" in f][:5]
+        if not ids:
+            continue
+        alto = await pool.fetchval(
+            "SELECT count(*) FROM memories WHERE id = ANY($1::bigint[]) "
+            f"AND abs(valence) > {VALENCIA_ALTA}",
+            ids,
+        )
+        altos += int(alto or 0)
+        total += len(ids)
+        detalle.append({"consulta": consulta[:48], "altos": int(alto or 0), "devueltos": len(ids)})
+    return altos, total, detalle, limitadas
+
+
+async def cat2_emotional_precision() -> tuple[float, dict[str, Any]]:
+    """¿SOUL recuerda distinto cuando la pregunta tiene carga emocional?
+
+    **Qué medía antes (ADA, 9-sep-2026).** Plantaba 5 memorias emocionales y 50
+    neutras bajo un agente sintético y buscaba con `_search_memories`, la copia de la
+    búsqueda que vive dentro del benchmark. O sea: sembraba datos falsos y le tomaba
+    examen a una reimplementación. Su 20 % no decía nada sobre SOUL.
+
+    **Ahora** le pregunta a SOUL por MCP autenticado, sobre las memorias que REALMENTE
+    tiene, y no escribe una sola fila. Dos brazos:
+
+        20 consultas emocionales   ¿cuantas memorias de |valencia| > 0.7 devuelve?
+        20 consultas TECNICAS      el mismo conteo, sin una palabra emocional
+
+    El segundo es el que convierte el número en afirmación. Con sólo el primero, una
+    tasa alta no distingue «el mecanismo emocional funciona» de «la búsqueda funciona
+    y el corpus está cargado de emoción». Medido el 9-sep: 16.7 % contra 0.0 %,
+    Fisher p=0.020.
+
+    **Límite declarado:** el resultado depende de la composición real de la memoria del
+    agente, así que se mueve con el tiempo — a propósito. Por eso el criterio es la
+    DIFERENCIA contra su propio control, no un umbral absoluto, y por eso el puntaje
+    exige significancia antes de mirar la magnitud.
+    """
+    pool = await get_pool()
+    emo_altos, emo_total, emo_detalle, emo_limitadas = await _tasa_de_recuerdo_emocional(
+        pool, CONSULTAS_EMOCIONALES)
+    ctl_altos, ctl_total, _, ctl_limitadas = await _tasa_de_recuerdo_emocional(
+        pool, CONSULTAS_DE_CONTROL)
+
+    if emo_total == 0 or ctl_total == 0:
+        return 0.0, {
+            "metric": "recuerdo_emocional_contra_su_propio_control",
+            "error": "SOUL no devolvió resultados en alguno de los dos brazos; "
+                     "sin datos no se puntúa, y menos se aprueba",
+            "emocionales_devueltos": emo_total, "control_devueltos": ctl_total,
+            "consultas_frenadas_por_rate_limit": emo_limitadas + ctl_limitadas,
+            "pista": ("si el número de arriba no es cero, el cero de este test es «no "
+                      "llegamos a preguntar», no «SOUL no recuerda emocional»"),
+        }
+
+    p = _fisher_una_cola(emo_altos, emo_total - emo_altos, ctl_altos, ctl_total - ctl_altos)
+    tasa_emo = emo_altos / emo_total
+    tasa_ctl = ctl_altos / ctl_total
+    # Sin significancia el puntaje es 0 aunque la tasa se vea linda: una diferencia que
+    # no se distingue del azar no es un logro, es un número.
+    score = 0.0 if p >= 0.05 else 100.0 * min(1.0, tasa_emo / 0.30)
+    return score, {
+        "metric": "recuerdo_emocional_contra_su_propio_control",
+        "sujeto": "SOUL en produccion (MCP autenticado), sobre memorias reales",
+        "emocionales": {"altos": emo_altos, "devueltos": emo_total, "tasa": round(tasa_emo, 4)},
+        "control_tecnico": {"altos": ctl_altos, "devueltos": ctl_total, "tasa": round(tasa_ctl, 4)},
+        "consultas_frenadas_por_rate_limit": emo_limitadas + ctl_limitadas,
+        "fisher_p": round(p, 5),
+        "significativo": p < 0.05,
+        "escala_del_puntaje": "0 si p>=0.05; si no, 100 * min(1, tasa/0.30). El 0.30 es "
+                              "una vara elegida, no medida: se declara en vez de esconderse",
+        "limite": "n chico dice QUE hay senal, no CUANTA; ~100 por brazo para un numero estable",
+        "por_consulta": emo_detalle,
     }
 
 
