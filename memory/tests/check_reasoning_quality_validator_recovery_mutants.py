@@ -8,6 +8,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import tempfile
 
 
@@ -63,7 +64,14 @@ def run_test(work: pathlib.Path) -> int:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(work)
     return subprocess.run(
-        ["python3", "-m", "pytest", "-q", str(work / "memory" / TEST.name)],
+        # `sys.executable`, NO un `python3` pelado (JARVIS, 10-sep-2026, medido).
+        # Un `python3` a secas resuelve al interprete del PATH, que en esta maquina es
+        # /usr/bin/python3 y NO tiene pytest. Con eso el control positivo daba rc=1 y los
+        # nueve mutantes "morian" por la MISMA razon trivial: un 100% hueco. Medido lado
+        # a lado el mismo dia: con el PATH normal -> control ok:false, killed 9/9; con el
+        # venv de calidad primero -> control ok:true, killed 9/9. El mismo generador que
+        # obligo a _resolver_interprete en el gate (76 de 123 manifiestos).
+        [sys.executable, "-m", "pytest", "-q", str(work / "memory" / TEST.name)],
         cwd=work,
         env=env,
         stdout=subprocess.DEVNULL,
@@ -107,7 +115,15 @@ def main() -> int:
         "survived": len(details) - killed - suspicious,
         "suspicious": suspicious,
         "total": len(details),
-        "mutation_score_percent": round(100.0 * killed / len(details), 1),
+        # El score NO se publica como numero cuando el control esta rojo. Con el control
+        # en rojo todo mutante muere trivialmente y ese 100.0 es el numero que alguien
+        # copia a un manifiesto y otro firma. Un campo que dice INVALIDO no se copia por
+        # distraccion; un 100.0 si. El exit code ya era correcto: lo enganoso era la salida.
+        "mutation_score_percent": (
+            round(100.0 * killed / len(details), 1) if positive_rc == 0
+            else "INVALIDO: el control positivo sobre la copia SIN MUTAR fallo; "
+                 "todo mutante muere por esa misma razon y el porcentaje no significa nada"
+        ),
         "positive_control_unmutated_copy": {"rc": positive_rc, "ok": positive_rc == 0},
         "reviewer": "pending",
         "file_sha256": {

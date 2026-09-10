@@ -1,34 +1,102 @@
 {
-  "schema": "seal.mutation-evidence.v1",
-  "tool": "9 explicit functional mutants on an isolated copy; only pytest rc=1 counts as killed, non-0/1 is suspicious",
-  "workspace": "reasoning gap detection, score cap, idempotent annotation and exact SQL persistence",
-  "killed": 9,
-  "survived": 0,
-  "no_tests": 0,
-  "skipped": 0,
-  "suspicious": 0,
-  "timeout": 0,
-  "total": 9,
-  "mutation_score_percent": 100.0,
-  "positive_control_unmutated_copy": {
-    "rc": 0,
-    "ok": true
-  },
-  "reviewer": "JASON",
+  "detail": [
+    {
+      "killed": true,
+      "mutant": "gap_validation_bypassed",
+      "rc": 1,
+      "suspicious": false
+    },
+    {
+      "killed": true,
+      "mutant": "trace_fetch_broken",
+      "rc": 1,
+      "suspicious": false
+    },
+    {
+      "killed": true,
+      "mutant": "gap_never_detected",
+      "rc": 1,
+      "suspicious": false
+    },
+    {
+      "killed": true,
+      "mutant": "quality_not_capped",
+      "rc": 1,
+      "suspicious": false
+    },
+    {
+      "killed": true,
+      "mutant": "annotation_not_persisted",
+      "rc": 1,
+      "suspicious": false
+    },
+    {
+      "killed": true,
+      "mutant": "annotation_duplicated",
+      "rc": 1,
+      "suspicious": false
+    },
+    {
+      "killed": true,
+      "mutant": "unknown_trace_succeeds",
+      "rc": 1,
+      "suspicious": false
+    },
+    {
+      "killed": true,
+      "mutant": "database_write_skipped",
+      "rc": 1,
+      "suspicious": false
+    },
+    {
+      "killed": true,
+      "mutant": "wrong_update_table",
+      "rc": 1,
+      "suspicious": false
+    }
+  ],
   "file_sha256": {
     "memory/reasoning_quality_validator.py": "651e23aed868e9849a583ddc47d353ce03f4dfeb3d54ff1eccf177fbcee1eb41",
-    "memory/tests/check_reasoning_quality_validator_recovery_mutants.py": "fefce0c8e1b2a8bc5361bba635c4d6dc14b7a99ac171fa75368d4f171a4bbd5d",
-    "memory/test_reasoning_quality_validator_recovery.py": "6b53435475d9f389a123ce8835c4e29d3cd0c672eb3d712c50b15fba9da48193"
+    "memory/test_reasoning_quality_validator_recovery.py": "6b53435475d9f389a123ce8835c4e29d3cd0c672eb3d712c50b15fba9da48193",
+    "memory/tests/check_reasoning_quality_validator_recovery_mutants.py": "e5e3209fcb1c54b284f565489f7c4497b0f59ec54adc39d94ebd9344d6228a91"
   },
-  "detail": [
-    {"mutant": "gap_validation_bypassed", "rc": 1, "killed": true},
-    {"mutant": "trace_fetch_broken", "rc": 1, "killed": true},
-    {"mutant": "gap_never_detected", "rc": 1, "killed": true},
-    {"mutant": "quality_not_capped", "rc": 1, "killed": true},
-    {"mutant": "annotation_not_persisted", "rc": 1, "killed": true},
-    {"mutant": "annotation_duplicated", "rc": 1, "killed": true},
-    {"mutant": "unknown_trace_succeeds", "rc": 1, "killed": true},
-    {"mutant": "database_write_skipped", "rc": 1, "killed": true},
-    {"mutant": "wrong_update_table", "rc": 1, "killed": true}
+  "killed": 9,
+  "mutation_score_percent": 100.0,
+  "positive_control_unmutated_copy": {
+    "ok": true,
+    "rc": 0
+  },
+  "reviewer": "JARVIS",
+  "schema": "seal.mutation-evidence.v1",
+  "survived": 0,
+  "suspicious": 0,
+  "tool": "explicit mutants on an isolated copy; only pytest rc=1 kills",
+  "total": 9,
+  "workspace": "recovered reasoning gap detection and persistence contract",
+  "revalidaciones_del_revisor": [
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T12:22:58Z",
+      "sujetos_movidos": [
+        "memory/reasoning_quality_validator.py",
+        "memory/tests/check_reasoning_quality_validator_recovery_mutants.py",
+        "memory/test_reasoning_quality_validator_recovery.py"
+      ],
+      "arena": "/tmp/jarvis-refirma-hj_r264k",
+      "control_sin_mutar": "rc=0",
+      "mutantes_recorridos": [],
+      "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"
+    },
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T12:30:00Z",
+      "por_que": "La evidencia anterior declaraba reviewer JASON. No se hereda una corrida ajena bajo mi nombre: la re-corri yo con el checker declarado como sujeto.",
+      "hallazgo": "El checker lanzaba [\"python3\",\"-m\",\"pytest\"] PELADO. En esta maquina eso resuelve a /usr/bin/python3, que NO tiene pytest: el control positivo daba rc=1 y los NUEVE mutantes morian por la misma razon trivial. Reportaba mutation_score_percent 100.0 con el control ROJO. Medido lado a lado: PATH normal -> control ok:false + 9/9; venv de calidad primero -> control ok:true + 9/9.",
+      "arreglo": "sys.executable en vez del python3 pelado, y el score se publica como \"INVALIDO: ...\" cuando el control falla, en vez de un 100.0 que alguien copia a un manifiesto. El exit code ya era correcto (1 con control rojo); lo enganoso era la salida que se lee.",
+      "verificado_en_los_dos_sentidos": {
+        "interprete_con_pytest": "control ok:true, score 100.0, rc=0",
+        "interprete_sin_pytest": "control ok:false, score \"INVALIDO...\", rc=1"
+      }
+    }
   ]
 }

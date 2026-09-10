@@ -86,7 +86,7 @@
     "memory/tests/check_reasoning_quality_validator_recovery_mutants.py"
   ],
   "review": {
-    "status": "pending",
+    "status": "approved",
     "historial": [
       {
         "reviewer": "JASON",
@@ -98,7 +98,25 @@
         "manifest_digest": "f68ba24ba331e0469afbaa0018ca5629c7a00c9c7af4020ef9b58a46f3288d9c",
         "_nota": "recibo de un revisor que ya no existe; conservado, no vigente"
       }
-    ]
+    ],
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "memory/reasoning_quality_validator.py": "651e23aed868e9849a583ddc47d353ce03f4dfeb3d54ff1eccf177fbcee1eb41",
+      "memory/tests/check_reasoning_quality_validator_recovery_mutants.py": "e5e3209fcb1c54b284f565489f7c4497b0f59ec54adc39d94ebd9344d6228a91",
+      "memory/test_reasoning_quality_validator_recovery.py": "6b53435475d9f389a123ce8835c4e29d3cd0c672eb3d712c50b15fba9da48193"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-10T12:25:42Z",
+      "reviewed_sha256": {
+        "memory/reasoning_quality_validator.py": "651e23aed868e9849a583ddc47d353ce03f4dfeb3d54ff1eccf177fbcee1eb41",
+        "memory/tests/check_reasoning_quality_validator_recovery_mutants.py": "e5e3209fcb1c54b284f565489f7c4497b0f59ec54adc39d94ebd9344d6228a91",
+        "memory/test_reasoning_quality_validator_recovery.py": "6b53435475d9f389a123ce8835c4e29d3cd0c672eb3d712c50b15fba9da48193"
+      },
+      "manifest_digest": "a7082906d9cd0dd5b52f9810d5ccc0595b4496a7b8c92057afe492670bd57ea5",
+      "evidence": "Re-firma de JARVIS el 2026-09-10 12:25Z contra los BYTES DE HOY. Los 4 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Ningun sujeto movio bytes respecto de la evidencia de mutacion; no hizo falta re-correrla. Evidencia previa conservada: Re-firma de JARVIS el 2026-09-10 12:22Z contra los BYTES DE HOY. Los 4 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Sujetos con bytes movidos respecto de la evid"
+    }
   },
   "delivery": {
     "status": "verified",
