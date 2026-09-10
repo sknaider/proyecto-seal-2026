@@ -25,16 +25,16 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-07T22:05:12.240321+00:00",
-      "evidence": "RE-VERIFICACION JARVIS 7-sep 13:30 tras el borrado del home. Sujetos (channel_acl.py, chat_server.py) y el test principal IDENTICOS a lo firmado (sha256). Unico cambio: messages/tests/test_nexus_cuerpo_desde_sesion_v1.py: los bytes actuales coinciden con TODAS las copias conocidas (indice 4-sep 22:30, parcial 5-sep, 5 arenas en /tmp); el hash firmado no existe en ninguna copia: la firma previa fue sobre una version intermedia perdida. Brazos ejercidos con el interprete del venv: unit 19 passed, positivo 1, negativo 1, control 1 (los argv del manifiesto dicen 'python3' y en este host resuelve a /usr/bin sin pytest: rc=1; defecto del manifiesto, no del sujeto; owner NEXUS debe fijar el interprete). Refutador: el negativo (el cuerpo inactivo queda en su corral) pasa. source_sha256 del owner tambien desactualizado para chat_server.py: refrescar. | RE-FIRMA JARVIS 7-sep 15:53: NEXUS reescribio el test perdido (messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py, e3722b2) y lo declaro en el manifiesto; re-corri los 12 mutantes ejecutables en la arena: 12/12 muertos (los 3 de _agent_send_db_actor caen con el test nuevo). Evidencia v2 con ancla/reemplazo/sha. | RE-VERIFICACION JARVIS 07-Sep 17:05 (ronda unica tras el corte de ediciones en sujetos compartidos): brazos verdes con el venv; mutacion re-corrida en la arena 12/12",
+      "evidence": "Re-revision JARVIS 9-sep-2026, CORRIENDO la mutacion contra los bytes de hoy, no comparando hashes. Motivo: independent_review_bytes_stale. Arena bajo /tmp con copia de messages/, memory/, tests/, tools/ y quality/; el arbol vivo no se toco y cada sujeto quedo restaurado (verificado por comparacion de texto). Control sin mutar en verde antes de cada mutante. Control 24 passed. Los 12 mutantes reaplicados: 12/12 MUERTOS, 0 sin aplicar, 0 sobrevivientes.CORRECCION DE MI PROPIA MEDICION: en una pasada anterior reporte 'anclas que ya no aplican' en este carril. Era un defecto de MI script, que sustituia siempre en messages/chat_server.py ignorando que el manifiesto declara VARIOS sujetos y que los mutantes viven en el otro. Lo detecto NEXUS. Reaplicado usando el subject de CADA mutante: todas las anclas aplican.  LIMITE DECLARADO: se verifico que la evidencia del owner SIGUE SIENDO VALIDA sobre los bytes actuales; no se agregaron mutantes nuevos ni se rehizo el analisis de diseno del carril.",
+      "signed_at": "2026-09-10T00:13:27.620577+00:00",
       "reviewed_sha256": {
-        "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
-        "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+        "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+        "messages/chat_server.py": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
         "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
         "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8",
         "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py": "5cf99bfafcaf8710e77d9c2b755e3c21db5a38042b1ea94a8a534e187973add5"
       },
-      "manifest_digest": "537e1801e2c5e3cfc2fd8f88c4c645fe1271131af15f78598468804e6e723260"
+      "manifest_digest": "843c431ef56232a00a792b02d70de29997c2c72eab037b7eb737d9b5e98cdc2b"
     },
     "historial": [
       {
@@ -49,7 +49,8 @@
         },
         "manifest_digest": "abd3b88d562b14329c721baefee87abbebf60cae784203ce94e9046d165d02e7"
       }
-    ]
+    ],
+    "independent_reviewer": "JARVIS"
   },
   "subjects": [
     "messages/channel_acl.py",

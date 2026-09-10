@@ -39,10 +39,10 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-08T20:05:00Z",
-      "evidence": "Re-firma JARVIS 8-sep: chat_server.py actualizado a SHA 4e00ae6f tras cambios sala-privada de ADA. SHAs verificados: chat_server.py=4e00ae6f, test_nexus_private_flag_gates_reads_v1.py=0b95aaf1.",
+      "evidence": "Re-revision JARVIS 9-sep-2026, CORRIENDO la mutacion, no comparando hashes. Motivo: el expediente estaba con independent_review_bytes_stale porque messages/chat_server.py cambio despues de la firma anterior. Arena bajo /tmp con copia completa de messages/ y tests/; el arbol vivo no se toco y el sujeto quedo restaurado (verificado por comparacion de texto). Control sin mutar: verde. Los 3 mutantes de la evidencia REAPLICADOS contra los bytes de hoy: sus 3 anclas siguen siendo unicas en el sujeto actual y los 3 MUEREN. Ningun sobreviviente y ninguna ancla caduca. Comandos del manifiesto corridos como los ejecuta el gate (resolviendo el `python3` pelado al interprete del gate, segun _resolver_interprete): 4/4 con el exit esperado.",
+      "signed_at": "2026-09-10T00:03:55.812830+00:00",
       "reviewed_sha256": {
-        "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+        "messages/chat_server.py": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
         "tests/test_nexus_private_flag_gates_reads_v1.py": "0b95aaf1b4a3a3a480f19fa93c7886e2968086a7c82796e002ed2f0b0ca443f8"
       },
       "manifest_digest": "d56c772e72c6be8d0a5a71ab01ed047adcaf09a09df1e913cbfcc501e4611537"

@@ -323,10 +323,30 @@
     }
   ],
   "file_sha256": {
-    "messages/channel_acl.py": "ebdbc4723dca0e1737900e062362a50d0b81b60c0f9614eae9a819b54bebff51",
-    "messages/chat_server.py": "d5fc8620efaa665a6c6dad6a51267a676a30d775f0e73e01b3991a7d2ff805cc",
+    "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+    "messages/chat_server.py": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
     "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
     "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8",
     "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py": "5cf99bfafcaf8710e77d9c2b755e3c21db5a38042b1ea94a8a534e187973add5"
+  },
+  "_re_verificacion": "2026-09-08T19:30:00Z JARVIS: re-corridos 12 mutantes contra channel_acl.py=6ac8f8e1... y chat_server.py=4e00ae6f... (post ADA sala-privada). 12/12 KILLED. Tests: 24 passed.",
+  "re_verificacion_revisor": {
+    "revisor": "JARVIS",
+    "fecha": "2026-09-10T00:13:49.033694+00:00",
+    "motivo": "Un sujeto del manifiesto cambio despues de la corrida del owner y esta evidencia quedo atada a bytes que ya no existen (mutation_evidence_stale). NO se rehizo la evidencia: se REAPLICARON los mutantes que el owner ya tenia registrados, contra los bytes de hoy, usando el `subject` declarado por CADA mutante.",
+    "metodo": "Arena bajo /tmp; arbol vivo intacto; cada sujeto restaurado y verificado por comparacion de texto; control sin mutar en verde antes de cada mutante.",
+    "resultado": "12/12 MUERTOS, 0 sin aplicar, 0 sobrevivientes (control 24 passed)",
+    "sha_antes_de_la_reverificacion": {
+      "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+      "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+      "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
+      "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8",
+      "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py": "5cf99bfafcaf8710e77d9c2b755e3c21db5a38042b1ea94a8a534e187973add5"
+    },
+    "archivos_cuyos_bytes_cambiaron": [
+      "messages/chat_server.py"
+    ],
+    "correccion_de_una_medicion_mia": "En una pasada previa reporte 'anclas que ya no aplican' en tres de estos carriles. Era un defecto de mi script, que sustituia siempre en messages/chat_server.py e ignoraba que el manifiesto declara VARIOS sujetos. Lo detecto NEXUS. Reaplicado por el subject de cada mutante, todas las anclas aplican.",
+    "limite_declarado": "Se verifico que la evidencia del owner sigue siendo valida sobre los bytes actuales. No se agregaron mutantes ni se rehizo el analisis de diseno."
   }
 }

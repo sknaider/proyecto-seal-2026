@@ -37,7 +37,7 @@
       "kind": "unit",
       "expected_exit": 0,
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -49,7 +49,7 @@
       "kind": "qa_positive",
       "expected_exit": 0,
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -63,7 +63,7 @@
       "kind": "qa_negative",
       "expected_exit": 0,
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -77,7 +77,7 @@
       "kind": "qa_control",
       "expected_exit": 0,
       "argv": [
-        "python3",
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
         "-m",
         "pytest",
         "-q",
@@ -119,14 +119,34 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "NEXUS",
-      "manifest_digest": "e061461a9b0a4440a12d50b5d6779b3002d5eee9c76c098c2cb9e44e8bc0fd96",
+      "signed_at": "2026-09-09T23:33:30Z",
+      "evidence": "Control independiente 11/11 PASSED. Mutacion REPRODUCIDA con sus anclas -no reconstruida-: 12/12 MUERTOS, sujeto restaurado con sha verificado igual (3b08c236caa37d8a). Corregi el hallazgo que le hice en el otro carril: aca la evidencia SI trae ancla, reemplazo, sha del ancla y conteo de ocurrencias, mas de lo que pedi. Respondida su pregunta refutadora sobre los 3 brazos agregados, midiendo QUE brazo mata cada mutante y recorriendo la cobertura con y sin cada uno: 2 de 3 son matadores UNICOS; el tercero (test_el_insert_escribe_las_ocho_columnas_del_contrato) no mata ningun mutante en exclusiva PERO SI SOSTIENE COBERTURA: sin el, 23.906 y el carril NO cumple el baseline. Mi medicion inicial decia lo contrario porque use `pytest --deselect`, que en este arbol es INERTE; re-medido con `-k not <test>`. El brazo se queda. Cobertura 25.589 >= baseline 25.0 con --branch, el mismo instrumento del gate.",
       "reviewed_sha256": {
         "memory/consolidate.py": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec",
         "quality/delivery_consolidate_schema.sh": "de590d6348e116c870fa544cc362ffb1482c4025b95d34496986cbf7256dd2ec",
-        "memory/tests/test_consolidate_schema_v1.py": "3ea3ccb67f0c01294f89de95d516e7b5461e31a1ca399ada663f77152eb57757"
+        "memory/tests/test_consolidate_schema_v1.py": "9c2478a471b5951a2d79fc1ae1cc7f07b6157d4774ec2c9f8f5628e164646ca6"
       },
-      "evidence": "Revision independiente de NEXUS, 5-sep-2026, en DOS rondas. Copia del arbol del INDICE, PYTHONDONTWRITEBYTECODE=1, __pycache__ borrado entre corridas y verificacion de que el archivo CAMBIO tras cada mutacion. Arbol vivo intacto.\n\nCONTROL: 10 passed (eran 9 en la ronda 1).\nCANARIO (raise al importar consolidate): error de coleccion -> la suite ejecuta el sujeto.\n\nMUTANTES, los cinco re-corridos en la ronda 2 --no solo el que motivo el cambio, que es la regla que adopte anoche tras ver que cerrar un hueco puede destapar otro--:\n1. el validador falla ABIERTO (no levanta): 4 failed. MUERE.\n2. el validador ya no se LLAMA antes de escribir: 1 failed. MUERE.\n3. vuelve a row['time'] en el formateador: 4 failed. MUERE.\n4. table_schema apunta a un esquema inexistente: 1 failed. MUERE. En la ronda 1 SOBREVIVIA.\n5. se quita el filtro de esquema entero: 4 failed. MUERE. En la ronda 1 SOBREVIVIA, y era el grave: sin filtro, una tabla event_log de CUALQUIER otro esquema satisface el contrato y el paso 0 aprueba un esquema vivo que NO cumple --falla ABIERTO, justo lo que viene a impedir--.\n\nLA CAUSA DE LOS DOS SOBREVIVIENTES, cerrada por el owner: el doble de la conexion respondia por la FORMA del SQL (`if 'information_schema.columns' in sql`) e IGNORABA el WHERE, asi que ningun cambio en el filtro era visible. Ahora simula DOS esquemas --el actual y un señuelo `otro` con ref_id-- y aplica el filtro solo si la consulta lo trae.\n\nMETODO, dos correcciones mias: (a) en la ronda 1 mi mutante de REQUIRED_COLUMNS no se aplico --el assert fallo-- y la corrida siguiente fue del archivo sin mutar con '9 passed'; no lo conte ni como muerto ni como vivo. (b) en la ronda 2 mi primer intento del mutante 1 dejo el archivo SIN COMPILAR y pytest dio 'error during collection': un mutante que rompe la sintaxis no es un mutante muerto, es un mutante invalido. Se re-aplico por indice de linea con `ast.parse` verificando que el archivo compila ANTES de correr.\n\nRE-FIRMA sobre los bytes de la pieza 2. El recibo anterior caduco por bytes_stale al tocar el owner el mismo archivo compartido para consolidate-dedup-bounded --no por un cambio en lo que yo revise: verifique que el commit 20cf6eb37 contiene EXACTAMENTE los bytes que firme (06b2f058fcaf)--. Lo que cambio en consolidate.py es merge_redundant, que es de la pieza 2 y esta cubierto por su propio manifiesto y sus mutantes. Las tres propiedades de ESTE manifiesto --el SELECT sin ref_id, created_at en el formateador, y el paso 0 validando antes de escribir-- no fueron tocadas; re-corri sus cinco mutantes en la ronda 2 y los cinco mueren."
-    }
+      "manifest_digest": "4a6be10777b26faa098c368bcd2f78eed8e548f0732b79af4b4f0310d324c002"
+    },
+    "reviewed_sha256": {
+      "memory/consolidate.py": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec",
+      "quality/delivery_consolidate_schema.sh": "de590d6348e116c870fa544cc362ffb1482c4025b95d34496986cbf7256dd2ec",
+      "memory/tests/test_consolidate_schema_v1.py": "9c2478a471b5951a2d79fc1ae1cc7f07b6157d4774ec2c9f8f5628e164646ca6"
+    },
+    "findings": [
+      {
+        "id": "brazo-sin-peso",
+        "severidad": "baja",
+        "estado": "RETIRADO_POR_EL_REVISOR",
+        "detalle": "RETRACTADO. Afirme que test_el_insert_escribe_las_ocho_columnas_del_contrato no sostenia cobertura porque medi 'con y sin el' usando `pytest --deselect`. ESA BANDERA ES INERTE EN ESTE ARBOL: no deselecciona, no falla y no avisa — corren los 11 tests igual. Mi 'identico 25.589' era el MISMO numero medido dos veces.\nMedido de nuevo con `-k \"not <test>\"`, que si funciona (10 passed, 1 deselected):\n   con el brazo   25.589  CUMPLE\n   sin el brazo   23.906  NO CUMPLE\nEl brazo SI carga peso: sin el, el carril cae por debajo del baseline. Lo detecto el OWNER al borrarlo de verdad, no yo. Un instrumento inerte no da error: da el numero de control y parece que confirma."
+      },
+      {
+        "id": "deselect-inerte",
+        "severidad": "alta",
+        "estado": "abierto",
+        "detalle": "`pytest --deselect archivo::test` NO deselecciona en este arbol, con ruta relativa ni absoluta, y no emite ningun aviso. Verificado por el revisor: sin bandera 11 passed, con bandera 11 passed, con `-k \"not <test>\"` 10 passed 1 deselected. CUALQUIER medicion de 'con y sin este brazo' hecha con --deselect en este repo es invalida y parece confirmar. Excede este carril; queda declarado para el equipo."
+      }
+    ]
   },
   "delivery": {
     "status": "verified",

@@ -121,10 +121,10 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "evidence": "Relevo de revisor NEXUS→JARVIS (7-sep-2026 18:10; NEXUS sin señal desde 16:19, plazo 18:00 vencido). La firma anterior quedó bytes_stale por el ROOT relativo de ada_codex_remote_bridge.py:32 (commit ed0ee0d, ALICE). Brazos con el venv: unit-bridge-runtime-instance rc=0 :: 8 passed in 0.04s; positive-la-firma-llega-al-payload rc=0 :: 3 passed in 0.04s; negative-sin-variable-no-inventa-firma rc=0 :: 3 passed in 0.04s; control-el-test-anterior-puede-fallar rc=0 :: 1 passed in 0.04s. Re-mutación en arena aprobada con 5 mutantes ejecutables sobre la firma runtime_instance del bridge (variable equivocada, firma inventada por default, asignación bajo if False, lectura desde SESSION_KEY, sin recorte a 40): 5/5 muertos; evidencia quality/mutation-bridge-runtime-instance-20260905.v2.json (la anterior tenía 0 mutantes). Refutador: «firma inventada por default» y «lectura desde SESSION_KEY» son los dos modos en que una etiqueta falsa o una credencial llegarían al payload; ambos mueren.",
-      "signed_at": "2026-09-07T23:04:20.425072+00:00",
+      "evidence": "Re-revision JARVIS 9-sep-2026, CORRIENDO la mutacion contra los bytes de hoy, no comparando hashes. Motivo: independent_review_bytes_stale. Arena bajo /tmp con copia de messages/, memory/, tests/, tools/ y quality/; el arbol vivo no se toco y cada sujeto quedo restaurado (verificado por comparacion de texto). Control sin mutar en verde antes de cada mutante. Control 8 passed. Los 5 mutantes reaplicados: 5/5 MUERTOS, 0 sobrevivientes. LIMITE DECLARADO: se verifico que la evidencia del owner SIGUE SIENDO VALIDA sobre los bytes actuales; no se agregaron mutantes nuevos ni se rehizo el analisis de diseno del carril.",
+      "signed_at": "2026-09-10T00:13:27.759400+00:00",
       "reviewed_sha256": {
-        "messages/ada_codex_remote_bridge.py": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+        "messages/ada_codex_remote_bridge.py": "ff60ec5b94cc9cb3f9b226294b2f5b11a0261a7f7e9ea53b58c002362a763136",
         "quality/delivery_bridge_runtime_instance.sh": "15f55af4dcc495e40c0215c5264f059420f89a784d2beb0ae06cbffde2bfb28a",
         "messages/tests/test_bridge_runtime_instance_v1.py": "7f84ed804800f271724d7b4196ecb604f04085ff162292cd0d3809f57fd75585"
       },

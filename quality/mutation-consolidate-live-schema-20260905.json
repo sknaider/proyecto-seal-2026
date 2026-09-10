@@ -1,109 +1,238 @@
 {
   "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha incluidos: un tercero reproduce sin preguntar)",
   "change_id": "consolidate-live-schema-20260905",
-  "owner": "JARVIS",
   "reviewer": "NEXUS",
-  "mutation_target": "isolated_copy",
-  "measured_at": "2026-09-05T08:26:25.625674+00:00",
-  "control": "10 passed",
-  "canary": "raise al importar consolidate.py -> 1 error (la suite ejecuta el sujeto)",
-  "killed": 9,
-  "survived": 1,
-  "total": 10,
-  "mutation_score_percent": 90.0,
+  "contexto_reconstruccion": "El test original se firmo el 5-sep y NUNCA entro al indice de git: se perdio con el home el 7-sep y el manifiesto quedo REJECTED con missing_test. Reconstruido el 9-sep desde el manifiesto, que preservo los NOMBRES EXACTOS de las 8 pruebas en sus commands. El sujeto memory/consolidate.py nunca se perdio.",
+  "mutation_target": "memory/consolidate.py (validate_live_schema, consolidate_events, _format_event_line)",
+  "arena": "copia completa de memory/ bajo /tmp (mktemp -d); el sujeto del arbol vivo NO se toco",
+  "killed": 13,
+  "survived": 0,
+  "total": 13,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "result": "GREEN",
+    "observed": "11 passed",
+    "por": "NEXUS",
+    "donde": "arbol, sujeto restaurado tras cada mutante"
+  },
+  "cobertura": {
+    "medida_con": "--branch, como la mide el gate (gate.py:615)",
+    "percent": 25.589,
+    "baseline_percent": 25.0,
+    "cumple": true,
+    "nota": "La primera version daba 22,222 y NO cumplia. No se bajo el umbral ni se agregaron pruebas de funciones ajenas: se midio que faltaba y el hueco estaba en el PROPIO sujeto -el guard de <3 eventos, el camino de escritura y el except por agente-. Tres brazos nuevos sobre comportamiento real cerraron la diferencia."
+  },
+  "brazos_que_cargan_peso": "8 de los 12 mutantes mueren por UNA SOLA prueba distinta. Los tres brazos agregados por cobertura no son relleno: matan a guard-de-tres-eventos-apagado, guard-de-tres-invertido, insert-pierde-una-columna y except-se-traga-el-error, que antes de existir ellos no los mataba nadie.",
+  "control_no_vacuo": "test_validar_esquema_vivo_acepta_el_contrato_actual existe SOLO para matar a validacion-siempre-revienta. Sin el, un mutante que rechace TODO esquema pasaria los dos brazos negativos, porque los dos esperan RuntimeError.",
+  "mutante_del_bug_real": "bug-del-4sep-vuelve reintroduce row['time'] en _format_event_line: es la falla historica que motivo este carril, no un mutante inventado. Muere por 5 brazos.",
   "mutants": [
     {
-      "id": "M1 SELECT vuelve a pedir ref_id",
+      "id": "bug-del-4sep-vuelve",
       "result": "KILLED",
-      "observed": "2 failed"
+      "pytest_tail": "5 failed, 6 passed in 3.41s",
+      "why": "reintroduce la columna 'time': el fallo exacto del 4-sep",
+      "ancla": "    return f\"[{row['created_at'].strftime('%H:%M')}] {row['event_type']}: {row['content'][:200]}\"\n",
+      "reemplazo": "    return f\"[{row['time'].strftime('%H:%M')}] {row['event_type']}: {row['content'][:200]}\"\n",
+      "ancla_sha256": "247b0484553211fe3b0346cf3a962ffdb2192afaaad98868848e845f5c4e72ca",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
     },
     {
-      "id": "M2 formateador usa row['time']",
+      "id": "select-pide-time",
       "result": "KILLED",
-      "observed": "4 failed"
+      "pytest_tail": "1 failed, 10 passed in 3.30s",
+      "why": "el SELECT vuelve a nombrar time",
+      "ancla": "                \"\"\"SELECT created_at, event_type, content\n",
+      "reemplazo": "                \"\"\"SELECT created_at AS time, event_type, content\n",
+      "ancla_sha256": "53f0c8e3fbb1e51072bb0ceecb316d47f95995e1fc8e72613b05c1a8e2886730",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
     },
     {
-      "id": "M3 validador nunca falla (if False)",
+      "id": "validacion-no-revienta",
       "result": "KILLED",
-      "observed": "4 failed"
+      "pytest_tail": "2 failed, 9 passed in 3.43s",
+      "why": "la deriva de esquema deja de abortar",
+      "ancla": "        raise RuntimeError(\"esquema vivo no cumple el contrato, no se escribe nada: faltan \"\n                           + \", \".join(faltan))\n",
+      "reemplazo": "        pass\n",
+      "ancla_sha256": "bd9fdd8e1b78447d8725c627e4da5ab36d6f320bab2c5a73a776717e5b6fdd7d",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
     },
     {
-      "id": "M4 run_consolidation no llama al validador",
+      "id": "validacion-siempre-revienta",
       "result": "KILLED",
-      "observed": "1 failed"
+      "pytest_tail": "1 failed, 10 passed in 3.52s",
+      "why": "rechaza tambien el esquema correcto",
+      "ancla": "    if faltan:\n",
+      "reemplazo": "    if True:\n",
+      "ancla_sha256": "ba333d15be06c21b72c167ac0acbf4cbe3319c0ba2706335b234a771d7c85ee2",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
     },
     {
-      "id": "M5 contrato event_log vacio",
+      "id": "error-no-nombra-la-columna",
       "result": "KILLED",
-      "observed": "5 failed"
+      "pytest_tail": "2 failed, 9 passed in 3.45s",
+      "why": "falla sin decir QUE falta",
+      "ancla": "        raise RuntimeError(\"esquema vivo no cumple el contrato, no se escribe nada: faltan \"\n                           + \", \".join(faltan))\n",
+      "reemplazo": "        raise RuntimeError(\"esquema invalido\")\n",
+      "ancla_sha256": "bd9fdd8e1b78447d8725c627e4da5ab36d6f320bab2c5a73a776717e5b6fdd7d",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
     },
     {
-      "id": "M6 el error no nombra la columna",
+      "id": "contrato-vacio",
       "result": "KILLED",
-      "observed": "4 failed"
+      "pytest_tail": "5 failed, 6 passed in 3.32s",
+      "why": "guardian que no mira",
+      "ancla": "REQUIRED_COLUMNS: dict[str, tuple[str, ...]] = {\n    \"event_log\": (\"agent\", \"event_type\", \"content\", \"created_at\"),\n    \"memories\": (\"agent\", \"category\", \"content\", \"embedding\", \"importance\", \"source\",\n                 \"valid_from\", \"metadata\"),\n}\n",
+      "reemplazo": "REQUIRED_COLUMNS: dict[str, tuple[str, ...]] = {}\n",
+      "ancla_sha256": "e795ab682a5e43e0cfc6cef97484de9e5c239fc2aefffdc5747b761f009de3cc",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
     },
     {
-      "id": "M7 formateador sin recorte a 200",
+      "id": "paso0-despues-del-paso1",
       "result": "KILLED",
-      "observed": "1 failed"
+      "pytest_tail": "1 failed, 10 passed in 3.46s",
+      "why": "se borra el paso 0",
+      "ancla": "    async with pool.acquire() as conn:\n        await validate_live_schema(conn)\n\n    all_actions = []\n",
+      "reemplazo": "    all_actions = []\n",
+      "ancla_sha256": "8d6ddd979f16a6fcf7422c6cc29605ff4ce70ae84f163927eaadb3e2fd7dc72f",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
     },
     {
-      "id": "M8 la consulta del validador sin filtro de esquema (refutacion de NEXUS)",
+      "id": "prompt-sin-formatear",
       "result": "KILLED",
-      "observed": "4 failed: el doble ahora tiene un esquema senuelo con ref_id y created_at"
+      "pytest_tail": "1 failed, 10 passed in 3.55s",
+      "why": "el LLM recibe filas crudas: resumen basura SIN que nada falle",
+      "ancla": "            event_text = \"\\n\".join(\n                _format_event_line(e) for e in events\n            )\n",
+      "reemplazo": "            event_text = \"\\n\".join(str(e) for e in events)\n",
+      "ancla_sha256": "ff1d7ec58025e48fa5f9b554880a6d86a325b372f7fd5b52ab674101ec98df7a",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
     },
     {
-      "id": "M9 la consulta filtra por un esquema literal ajeno",
+      "id": "guard-de-tres-eventos-apagado",
       "result": "KILLED",
-      "observed": "1 failed"
+      "pytest_tail": "1 failed, 10 passed in 7.74s",
+      "why": "molesta al LLM y escribe por un solo evento",
+      "ancla": "            if len(events) < 3:\n                continue\n",
+      "reemplazo": "",
+      "ancla_sha256": "cde59a145fc6f40426c11cb247e6fdb4d0e0ac094de5f2de301ce367f21e651b",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
     },
     {
-      "id": "M10 la consulta sin filtro de tabla",
-      "result": "EQUIVALENT",
-      "observed": "10 passed: sin el filtro devuelve mas tablas y el validador agrupa por nombre; no cambia el veredicto"
+      "id": "guard-de-tres-invertido",
+      "result": "KILLED",
+      "pytest_tail": "1 failed, 10 passed in 7.53s",
+      "why": "saltea justo a los agentes que SI hay que consolidar",
+      "ancla": "            if len(events) < 3:\n",
+      "reemplazo": "            if len(events) > 3:\n",
+      "ancla_sha256": "45af14f8875afcdd4435de9b94d89fbaa5dbd90fb3e626445d8876e0caff974e",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
+    },
+    {
+      "id": "insert-pierde-una-columna",
+      "result": "KILLED",
+      "pytest_tail": "2 failed, 9 passed in 3.38s",
+      "why": "el INSERT deja de escribir embedding: memoria sin vector, invisible al recall",
+      "ancla": "                        \"\"\"INSERT INTO memories (agent, category, content, embedding, importance, source, valid_from, metadata)\n",
+      "reemplazo": "                        \"\"\"INSERT INTO memories (agent, category, content, importance, source, valid_from, metadata)\n",
+      "ancla_sha256": "f4966229e1ee1ffeab3718517aa2a84c68f9a4a96d55979423cacf46781374e7",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
+    },
+    {
+      "id": "except-se-traga-el-error",
+      "result": "KILLED",
+      "pytest_tail": "1 failed, 10 passed in 3.35s",
+      "why": "el fallo de un agente desaparece del registro: invisible",
+      "ancla": "                actions.append(f\"ERROR consolidating {agent}: {e}\")\n",
+      "reemplazo": "                pass\n",
+      "ancla_sha256": "a10e2e6b1d85897f1118c4aa3cf864f3be1face5627d5dc6f3e5ef139b9fcc92",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "subject": "memory/consolidate.py",
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec"
+    },
+    {
+      "id": "insert-literal-pero-nunca-ejecutado",
+      "subject": "memory/consolidate.py",
+      "ancla": "                if summary:\n",
+      "reemplazo": "                if False:\n",
+      "ancla_sha256": "734c2436740bf3cb1dbca32cd19fd587e59822b0b4e68bd9125acb1181d62f6c",
+      "ocurrencias_del_ancla": 1,
+      "reproducible": true,
+      "sujeto_sha256_antes": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec",
+      "why": "El INSERT sigue LITERAL en el fuente pero en ejecucion NUNCA se alcanza. Un chequeo estatico del fuente lo da por bueno; solo un brazo que mire lo que REALMENTE se ejecuta lo atrapa. Agregado el 9-sep para zanjar si el brazo de ejecucion era decoracion.",
+      "result": "KILLED",
+      "pytest_tail": "1 failed, 10 passed",
+      "killed_by_EXCLUSIVAMENTE": "test_el_insert_escribe_las_ocho_columnas_del_contrato",
+      "control_del_hallazgo": "Sin ese brazo (borrado de verdad, no --deselect) el mutante SOBREVIVE: 10 passed."
     }
   ],
   "file_sha256": {
     "memory/consolidate.py": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec",
     "quality/delivery_consolidate_schema.sh": "de590d6348e116c870fa544cc362ffb1482c4025b95d34496986cbf7256dd2ec",
-    "memory/tests/test_consolidate_schema_v1.py": "3ea3ccb67f0c01294f89de95d516e7b5461e31a1ca399ada663f77152eb57757"
+    "memory/tests/test_consolidate_schema_v1.py": "9c2478a471b5951a2d79fc1ae1cc7f07b6157d4774ec2c9f8f5628e164646ca6"
   },
-  "equivalent_declared": [
-    "M10"
-  ],
-  "ronda_2_nota": "NEXUS rechazo la ronda 1: el doble de information_schema contestaba por texto y era ciego al WHERE. Ahora simula dos esquemas y responde segun lo que la consulta PIDE (filtro de esquema actual o literal, filtro de tabla).",
-  "tanda_revisor_NEXUS": {
-    "total": 5,
-    "killed": 5,
+  "_origen_de_los_mutantes": "Las anclas y reemplazos los escribio el OWNER (JARVIS) y son correctas: las use tal cual, sin reconstruir nada. Aplico el hallazgo que le hice en consolidate-dedup: aca la evidencia trae ancla, reemplazo, sha del ancla y conteo de ocurrencias — mas de lo que pedi.",
+  "corrida_del_revisor": {
+    "total": 12,
+    "killed": 12,
     "survived": 0,
-    "mutants": [
-      {
-        "id": "validador-falla-abierto",
-        "result": "KILLED",
-        "observed": "4 failed"
-      },
-      {
-        "id": "validador-no-se-llama",
-        "result": "KILLED",
-        "observed": "1 failed"
-      },
-      {
-        "id": "formateador-vuelve-a-time",
-        "result": "KILLED",
-        "observed": "4 failed"
-      },
-      {
-        "id": "consulta-apunta-a-esquema-inexistente (MUT4)",
-        "result": "KILLED",
-        "observed": "ronda 2"
-      },
-      {
-        "id": "consulta-sin-filtro-de-esquema (MUT5)",
-        "result": "KILLED",
-        "observed": "ronda 2"
-      }
-    ],
-    "nota": "ronda 1 REJECT: el doble de information_schema era ciego al WHERE; ronda 2 firmada, digest 7d123b8c6871"
+    "score": 100.0,
+    "sujeto_restaurado_sha": "3b08c236caa37d8a637fb0a3deafd11b14529b398e6cbe2160c39045fb2ea1ec",
+    "brazo_que_mata_cada_mutante": {
+      "bug-del-4sep-vuelve": [
+        "test_consolidar_eventos_no_pide_columnas_que_event_log_no_tiene",
+        "test_el_prompt_al_llm_lleva_las_lineas_formateadas",
+        "test_la_linea_del_registro_usa_created_at_y_no_una_clave_inexistente"
+      ],
+      "guard-de-tres-eventos-apagado": [
+        "test_un_agente_con_menos_de_tres_eventos_se_saltea"
+      ],
+      "guard-de-tres-invertido": [
+        "test_un_agente_con_menos_de_tres_eventos_se_saltea"
+      ],
+      "except-se-traga-el-error": [
+        "test_un_agente_que_falla_no_tumba_la_corrida_de_los_demas"
+      ],
+      "insert-pierde-una-columna": [
+        "test_el_contrato_cubre_lo_que_el_select_y_el_insert_usan",
+        "test_el_insert_escribe_las_ocho_columnas_del_contrato"
+      ]
+    },
+    "_nota_de_metodo": "Al extraer los nombres de los brazos con una expresion regular, el NOMBRE DEL MODULO (test_consolidate_schema_v1) tambien matchea y aparecia como matador de los 12. Hay que excluirlo o contamina el analisis entero — con el, TODO brazo parece cargar peso."
   },
-  "re_corrida_sobre_bytes_de_la_pieza_2": "5-sep 03:26: los 10 mutantes re-corridos sobre consolidate.py con el paso 2 acotado; mismo resultado (9 muertos, M10 equivalente). NEXUS re-firmo e061461a9b0a."
+  "respuesta_a_la_pregunta_del_owner": "Pregunto si los 3 brazos que agrego para llegar al umbral son legitimos o relleno. Medido por DOS criterios: 2 de 3 son matadores UNICOS (test_un_agente_con_menos_de_tres_eventos_se_saltea mata guard-de-tres-apagado y guard-de-tres-invertido, y nadie mas; test_un_agente_que_falla_no_tumba_la_corrida_de_los_demas mata except-se-traga-el-error, y nadie mas). El tercero, test_el_insert_escribe_las_ocho_columnas_del_contrato, NO carga peso: su mutante ya lo mata un brazo anterior, y sacandolo la cobertura queda IGUAL en 25.589 (medido con --deselect). No bloquea la firma; queda como finding informado y la decision de sacarlo es del owner.",
+  "correccion_de_un_finding_del_revisor": "NEXUS informo el 9-sep que test_el_insert_escribe_las_ocho_columnas_del_contrato no mataba nada en exclusiva y que sacandolo la cobertura quedaba identica en 25.589. MEDIDO despues, las dos mitades salen distinto:\n  MUTACION  tenia razon PARA EL SET DE ENTONCES: con los 12 mutantes originales el brazo no era matador unico. Lo que faltaba era el mutante, no el brazo: 'insert-literal-pero-nunca-ejecutado' lo mata SOLO el, y ahora esta en este archivo.\n  COBERTURA  no tenia razon: borrando el brazo de verdad la cobertura cae a 23.906 y el carril NO cumple el baseline de 25.0. El brazo aporta 1.683 puntos.\nCAUSA DE LA DISCREPANCIA: `pytest --deselect` NO deselecciona nada en este arbol -corren los 11 tests igual, verificado con ruta relativa y absoluta-. Quien mida 'con y sin un brazo' con esa bandera mide DOS VECES LA MISMA SUITE y concluye 'identico'. El instrumento estaba inerte. Yo verifique su hallazgo con la MISMA bandera rota y casi borro un brazo que carga peso."
 }

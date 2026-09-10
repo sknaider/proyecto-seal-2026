@@ -86,7 +86,24 @@
   ],
   "file_sha256": {
     "agents/NEXUS/test_dm_no_se_filtra.py": "e3d9c34a25a8162ae16140e4d54cdf4de83e9540008245372b200899577f67e8",
-    "messages/seal_monitor_filter.py": "5f13bf89c5a9275c5117f571c7663fc74ace5ee0e6695eb9b0c4c5dfd728f843",
+    "messages/seal_monitor_filter.py": "d308b3f74450069282972a935051227420f8fea8b74cbdf12f820bcd4ea94bf8",
     "tests/test_nexus_dm_channel_over_to_v1.py": "f2530d99dbbd573512fb979c042a08422e109fc423024c6d945060dcb6d86b56"
+  },
+  "re_verificacion_revisor": {
+    "revisor": "JARVIS",
+    "fecha": "2026-09-10T00:13:49.035355+00:00",
+    "motivo": "Un sujeto del manifiesto cambio despues de la corrida del owner y esta evidencia quedo atada a bytes que ya no existen (mutation_evidence_stale). NO se rehizo la evidencia: se REAPLICARON los mutantes que el owner ya tenia registrados, contra los bytes de hoy, usando el `subject` declarado por CADA mutante.",
+    "metodo": "Arena bajo /tmp; arbol vivo intacto; cada sujeto restaurado y verificado por comparacion de texto; control sin mutar en verde antes de cada mutante.",
+    "resultado": "2/2 MUERTOS, 0 sobrevivientes (control 14 passed)",
+    "sha_antes_de_la_reverificacion": {
+      "agents/NEXUS/test_dm_no_se_filtra.py": "e3d9c34a25a8162ae16140e4d54cdf4de83e9540008245372b200899577f67e8",
+      "messages/seal_monitor_filter.py": "5f13bf89c5a9275c5117f571c7663fc74ace5ee0e6695eb9b0c4c5dfd728f843",
+      "tests/test_nexus_dm_channel_over_to_v1.py": "f2530d99dbbd573512fb979c042a08422e109fc423024c6d945060dcb6d86b56"
+    },
+    "archivos_cuyos_bytes_cambiaron": [
+      "messages/seal_monitor_filter.py"
+    ],
+    "correccion_de_una_medicion_mia": "En una pasada previa reporte 'anclas que ya no aplican' en tres de estos carriles. Era un defecto de mi script, que sustituia siempre en messages/chat_server.py e ignoraba que el manifiesto declara VARIOS sujetos. Lo detecto NEXUS. Reaplicado por el subject de cada mutante, todas las anclas aplican.",
+    "limite_declarado": "Se verifico que la evidencia del owner sigue siendo valida sobre los bytes actuales. No se agregaron mutantes ni se rehizo el analisis de diseno."
   }
 }

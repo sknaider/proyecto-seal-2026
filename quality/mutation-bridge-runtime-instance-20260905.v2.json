@@ -154,8 +154,25 @@
     }
   ],
   "file_sha256": {
-    "messages/ada_codex_remote_bridge.py": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+    "messages/ada_codex_remote_bridge.py": "ff60ec5b94cc9cb3f9b226294b2f5b11a0261a7f7e9ea53b58c002362a763136",
     "messages/tests/test_bridge_runtime_instance_v1.py": "7f84ed804800f271724d7b4196ecb604f04085ff162292cd0d3809f57fd75585",
     "quality/delivery_bridge_runtime_instance.sh": "15f55af4dcc495e40c0215c5264f059420f89a784d2beb0ae06cbffde2bfb28a"
+  },
+  "re_verificacion_revisor": {
+    "revisor": "JARVIS",
+    "fecha": "2026-09-10T00:13:49.035134+00:00",
+    "motivo": "Un sujeto del manifiesto cambio despues de la corrida del owner y esta evidencia quedo atada a bytes que ya no existen (mutation_evidence_stale). NO se rehizo la evidencia: se REAPLICARON los mutantes que el owner ya tenia registrados, contra los bytes de hoy, usando el `subject` declarado por CADA mutante.",
+    "metodo": "Arena bajo /tmp; arbol vivo intacto; cada sujeto restaurado y verificado por comparacion de texto; control sin mutar en verde antes de cada mutante.",
+    "resultado": "5/5 MUERTOS, 0 sobrevivientes (control 8 passed)",
+    "sha_antes_de_la_reverificacion": {
+      "messages/ada_codex_remote_bridge.py": "958a23b7f9efd74fd814cfc456b0d2db1fd2e53ea73944c7136491702637c1bd",
+      "messages/tests/test_bridge_runtime_instance_v1.py": "7f84ed804800f271724d7b4196ecb604f04085ff162292cd0d3809f57fd75585",
+      "quality/delivery_bridge_runtime_instance.sh": "15f55af4dcc495e40c0215c5264f059420f89a784d2beb0ae06cbffde2bfb28a"
+    },
+    "archivos_cuyos_bytes_cambiaron": [
+      "messages/ada_codex_remote_bridge.py"
+    ],
+    "correccion_de_una_medicion_mia": "En una pasada previa reporte 'anclas que ya no aplican' en tres de estos carriles. Era un defecto de mi script, que sustituia siempre en messages/chat_server.py e ignoraba que el manifiesto declara VARIOS sujetos. Lo detecto NEXUS. Reaplicado por el subject de cada mutante, todas las anclas aplican.",
+    "limite_declarado": "Se verifico que la evidencia del owner sigue siendo valida sobre los bytes actuales. No se agregaron mutantes ni se rehizo el analisis de diseno."
   }
 }
