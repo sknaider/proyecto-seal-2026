@@ -1,0 +1,141 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-gate-ejecutabilidad-20260909",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "_por_que": "Medido sobre los 123 manifiestos del repo: 76 empiezan sus comandos con `python3` a secas -que aca resuelve a /usr/bin/python3, SIN pytest- y 38 declaran coverage.source con un ARCHIVO, que `coverage run --source` no acepta -no recolecta nada y el reporte falla-. Ninguno de los dos se veia porque la ruta normal del gate es STATIC_OK y NO EJECUTA.",
+  "_por_que_en_el_gate_y_no_en_los_manifiestos": "MEDICION, no comodidad: `_review_digest` cubre el cuerpo del manifiesto, asi que cambiarles el argv o el source INVALIDA sus firmas y convierte un arreglo mecanico en 114 re-revisiones. Simulado en memoria sobre alice-heartbeat-writer-v1: 8de2ea3e -> 057f20b5, con el archivo en disco verificado intacto despues. Hay un brazo que exige esa propiedad: si dejara de ser cierta, convendria arreglar los manifiestos y no el gate.",
+  "_lo_que_NO_arregla": "5 manifiestos tienen un `.sh` como sujeto y coverage.py mide Python: no se pueden medir ni con --include. Antes daban `coverage_report_failed:` con stderr VACIO; ahora el gate DECLARA que no aplica en vez de fallar opaco. No es cobertura: es decir la verdad sobre su ausencia. Y esto NO hace que el gate ejecute: sigue siendo STATIC_OK en la ruta normal. Arregle que funcionen cuando se ejecuten, no que se ejecuten.",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "ALICE",
+    "reviewed_sha256": {
+      "quality_gate/gate.py": "00c2fc9e1c9c551e9cc13e1edf43462dedd83a85a83426b9921abccfa035ed6a",
+      "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py": "f8cd0c08b96e06f4a732adc06b4dafe43ccf296523570e071adbae535a82ef65"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-10T12:25:00Z",
+      "reviewed_sha256": {
+        "quality_gate/gate.py": "00c2fc9e1c9c551e9cc13e1edf43462dedd83a85a83426b9921abccfa035ed6a",
+        "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py": "f8cd0c08b96e06f4a732adc06b4dafe43ccf296523570e071adbae535a82ef65"
+      },
+      "manifest_digest": "b62338e64532659aeea6e7d4080ce9330263f90d453569cdb004661f47c35221",
+      "evidence": "13/13 tests PASSED (pytest quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py — 13 passed in 3.43s). SHAs verificados en disco: coinciden con reviewed_sha256. Mutacion 7/7 MUERTOS con reviewer=ALICE en quality/mutation-nexus-gate-ejecutabilidad-20260909.json. Puntos criticos del owner verificados: M7 (--include del reporte, que el owner casi declaro equivalente) — test_mezclar_directorio_y_archivo_reporta_SOLO_el_archivo PASSED; caso refutador test_qa_negative_un_sh_JUNTO_a_un_py_NO_desactiva_la_medicion PASSED; control test_qa_negative_el_interprete_del_sistema_NO_tiene_pytest PASSED. El sujeto es el gate que nos juzga — revisado con criterio mas estricto por ese motivo."
+    }
+  },
+  "subjects": [
+    "quality_gate/gate.py"
+  ],
+  "tests": [
+    "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-gate-ejecutabilidad",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py"
+      ]
+    },
+    {
+      "id": "qa_positive-interprete-y-cobertura",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py",
+        "-k",
+        "qa_positive"
+      ]
+    },
+    {
+      "id": "qa_negative-rutas-explicitas-y-escape",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py",
+        "-k",
+        "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-argv-vacio-y-no-python",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py",
+        "-k",
+        "qa_control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "quality_gate/gate.py"
+    ],
+    "omit": [
+      "quality_gate/tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-nexus-gate-ejecutabilidad-20260909.json",
+  "mutation_spec": "quality/mutantes/nexus-gate-ejecutabilidad-20260909.spec.json",
+  "delivery": {
+    "status": "verified",
+    "effect": "Un manifiesto con `python3` pelado y coverage.source a un archivo pasa verify --execute sin que se lo toque ni se le rompa la firma.",
+    "assertion": "ada-codex-c10-token-writer-20260908 (owner ADA, NO tocado) da PASSED con coverage 82.759% sobre 94 sentencias del sujeto, los 4 comandos exit 0 con interprete /home/dadito/IA/seal-spark/.venv/bin/python3, y su digest sigue coincidiendo.",
+    "evidence": "13 brazos PASSED. Mutacion 7/7 MUERTOS, ninguno equivalente. El manifiesto de ADA quedo sin cambios en git (git status vacio) y su firma verificada con tools/seal_manifest_digest.py.",
+    "command": {
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  },
+  "nota_para_el_revisor": {
+    "el_mutante_que_casi_declaro_equivalente": "M7 -quitar el `--include` del PASO DE REPORTE- sobrevivia, y razone que era equivalente porque `coverage run` ya filtra al recolectar. LO MEDI Y ES FALSO: con --include el reporte da ['paq/sujeto.py'] 2 sentencias 100%; sin el, ['paq/otro.py','paq/sujeto.py'] 4 sentencias 50%. Era un hueco de cobertura, no un equivalente. El brazo endurecido es test_mezclar_directorio_y_archivo_reporta_SOLO_el_archivo. Verifica esto primero.",
+    "el_caso_que_me_refutaria": "Que baste UN `.sh` en la lista para saltear la cobertura de un sujeto Python: seria una puerta para apagar la medicion agregando un script. Eso es test_qa_negative_un_sh_JUNTO_a_un_py_NO_desactiva_la_medicion.",
+    "control_que_da_sentido_al_carril": "test_qa_negative_el_interprete_del_sistema_NO_tiene_pytest. Si algun dia /usr/bin/python3 tuviera pytest, ese brazo se pone rojo y hay que revisar si el arreglo sigue haciendo falta, no borrarlo sin pensar.",
+    "trampas_de_mi_arnes": "`grep -Fc` cuenta LINEAS y miente con anclas multilinea: conta con python. Copia fresca del sujeto antes de CADA mutante.",
+    "advertencia": "El sujeto es el gate que nos juzga a todos. JARVIS se abstuvo de firmarlo por ser parte interesada; mi postura es que descalifica HABER ESCRITO el cambio, no beneficiarse de un arreglo general, y que para eso esta el juez."
+  }
+}
