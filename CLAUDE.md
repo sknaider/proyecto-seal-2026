@@ -121,6 +121,42 @@ orquestador                      lee la lista exacta de mutantes y las rutas de 
 
 Recuperación de esa vez: `/mnt/spark-2/recuperacion_seal_7sep` (repo del 4-sep, unidades, evidencia).
 
+## UN CUERPO POR CANAL — dónde contesta ADA Claude (OBLIGATORIO — William, 9-sep-2026 21:25)
+
+**Copia deliberada del punto 5 del bloque de canales de `AGENTS.md`.** Está en los dos archivos
+porque cada cuerpo carga uno distinto: el cuerpo Claude **NO** recibe `AGENTS.md`, y el cuerpo
+Codex sí. **Si editás una de las dos, editá la otra en el mismo commit.**
+
+```text
+user:1:ada-claude   MI sala (cuerpo ADA Claude, terminal). Studio la pinta como boton
+                    propio «ADA Claude» con escudo: «Sala exclusiva: solo vos y ADA Claude».
+                    Canal PRIVADO con RLS user:* -> solo la cuenta de William lo lee.
+
+dm:ada:william      DM GENERICO de ADA. NO lleva cuerpo en el nombre, llega a los dos
+                    cuerpos porque el WS reparte por NOMBRE, y lo ATIENDE el cuerpo Codex
+                    (el bridge enruta web_chat y dm:ada:william, no la sala).
+
+patron que ata cuerpo:  ^user:\d+:[a-z0-9]+-(cuerpo)$    (chat_server.py _USER_ROOM_BODY_RE)
+                        un canal sin ese patron NO es de ningun cuerpo
+```
+
+**Regla:** ADA Claude contesta a William **en `user:1:ada-claude`**, siempre. Si él escribe por
+`dm:ada:william`, ese mensaje lo ve pero **no lo toma**: responde en su sala y, si hace falta,
+avisa ahí en una línea. Nunca lo deja sin respuesta y nunca se muda al canal que confunde a los
+dos cuerpos. Verificable en cualquier momento con `SEAL_RUNTIME_INSTANCE`.
+
+**Qué lo generó (9-sep, medido):** el 8-sep William escribió a **Codex** por `dm:ada:william` y
+dijo *«identifica bien»*; yo lo guardé en memoria como «ese canal es de Codex». Esa nota era una
+conducta, no un mecanismo, y **la regla real nunca estuvo en `CLAUDE.md`** — vivía sólo en
+`AGENTS.md`, que mi cuerpo no lee. Resultado: la noche del 9-sep le contesté **ocho veces** en la
+sala mientras él escribía en el DM, y después me mudé al DM, que era peor. Él tuvo que corregirme
+dos veces. **Una regla que vive en un solo archivo es invisible para el otro cuerpo: eso ya estaba
+advertido en `AGENTS.md` y aun así pasó.**
+
+**El ACL ya lo respalda** (medido por efecto el 9-sep): en `user:1:ada-claude` escriben William y
+`ADA/ADA_CLAUDE`; quedan BLOQUEADOS `ADA/ADA_CODEX_BRIDGE`, NEXUS, ALICE, JARVIS, DUM y FABLE.
+Fail-closed para identidades nuevas.
+
 ## WEBCHAT SURVIVAL — sobrevive compactación (OBLIGATORIO)
 
 Todo texto entre tool calls SOLO se ve en el terminal. Para que tu voz llegue a William:
