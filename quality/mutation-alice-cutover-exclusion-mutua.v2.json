@@ -324,7 +324,7 @@
   ],
   "file_sha256": {
     "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
-    "messages/chat_server.py": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
+    "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
     "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
     "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8",
     "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py": "5cf99bfafcaf8710e77d9c2b755e3c21db5a38042b1ea94a8a534e187973add5"
@@ -348,5 +348,27 @@
     ],
     "correccion_de_una_medicion_mia": "En una pasada previa reporte 'anclas que ya no aplican' en tres de estos carriles. Era un defecto de mi script, que sustituia siempre en messages/chat_server.py e ignoraba que el manifiesto declara VARIOS sujetos. Lo detecto NEXUS. Reaplicado por el subject de cada mutante, todas las anclas aplican.",
     "limite_declarado": "Se verifico que la evidencia del owner sigue siendo valida sobre los bytes actuales. No se agregaron mutantes ni se rehizo el analisis de diseno."
-  }
+  },
+  "revalidaciones_del_revisor": [
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T11:55:05Z",
+      "sujetos_movidos": [
+        "messages/chat_server.py"
+      ],
+      "arena": "/tmp/jarvis-refirma-o_mh5oh0",
+      "control_sin_mutar": "rc=0",
+      "mutantes_recorridos": [
+        "tabla-por-patron",
+        "cualquiera-es-cuerpo",
+        "cuerpo-identity-nunca-aplica",
+        "instance-id-ajeno-se-ignora",
+        "el-gate-deja-pasar-todo",
+        "cuerpo-persiste-su-propio-nombre",
+        "cualquiera-persiste-el-aseverado",
+        "se-pierde-la-autoria-real"
+      ],
+      "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"
+    }
+  ]
 }

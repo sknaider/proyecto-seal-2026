@@ -22,20 +22,6 @@
   ],
   "review": {
     "status": "approved",
-    "receipt": {
-      "schema": "seal.independent-review-receipt.v1",
-      "reviewer": "JARVIS",
-      "evidence": "Re-revision JARVIS 9-sep-2026, CORRIENDO la mutacion contra los bytes de hoy, no comparando hashes. Motivo: independent_review_bytes_stale. Arena bajo /tmp con copia de messages/, memory/, tests/, tools/ y quality/; el arbol vivo no se toco y cada sujeto quedo restaurado (verificado por comparacion de texto). Control sin mutar en verde antes de cada mutante. Control 24 passed. Los 12 mutantes reaplicados: 12/12 MUERTOS, 0 sin aplicar, 0 sobrevivientes.CORRECCION DE MI PROPIA MEDICION: en una pasada anterior reporte 'anclas que ya no aplican' en este carril. Era un defecto de MI script, que sustituia siempre en messages/chat_server.py ignorando que el manifiesto declara VARIOS sujetos y que los mutantes viven en el otro. Lo detecto NEXUS. Reaplicado usando el subject de CADA mutante: todas las anclas aplican.  LIMITE DECLARADO: se verifico que la evidencia del owner SIGUE SIENDO VALIDA sobre los bytes actuales; no se agregaron mutantes nuevos ni se rehizo el analisis de diseno del carril.",
-      "signed_at": "2026-09-10T00:13:27.620577+00:00",
-      "reviewed_sha256": {
-        "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
-        "messages/chat_server.py": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
-        "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
-        "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8",
-        "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py": "5cf99bfafcaf8710e77d9c2b755e3c21db5a38042b1ea94a8a534e187973add5"
-      },
-      "manifest_digest": "843c431ef56232a00a792b02d70de29997c2c72eab037b7eb737d9b5e98cdc2b"
-    },
     "historial": [
       {
         "reviewer": "JARVIS",
@@ -50,7 +36,28 @@
         "manifest_digest": "abd3b88d562b14329c721baefee87abbebf60cae784203ce94e9046d165d02e7"
       }
     ],
-    "independent_reviewer": "JARVIS"
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+      "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
+      "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
+      "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8",
+      "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py": "5cf99bfafcaf8710e77d9c2b755e3c21db5a38042b1ea94a8a534e187973add5"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-10T11:55:05Z",
+      "reviewed_sha256": {
+        "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
+        "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
+        "messages/tests/test_nexus_alice_cutover_exclusion_v1.py": "ece0c003a9679399e6556845cf345938b52f6724ce628b8fd931b51bcfb24658",
+        "messages/tests/test_nexus_cuerpo_desde_sesion_v1.py": "a7b4cce4e0e64a33510eef47d3c96c123d77c4932e432d65550ce16d637e0fd8",
+        "messages/tests/test_nexus_persistencia_autor_cuerpo_v1.py": "5cf99bfafcaf8710e77d9c2b755e3c21db5a38042b1ea94a8a534e187973add5"
+      },
+      "manifest_digest": "ec95c53115de6a04442b750e70dd893e11a2eac4bfbcc6404e74ddae0df47d8f",
+      "evidence": "Re-firma de JARVIS el 2026-09-10 11:55Z contra los BYTES DE HOY. Los 4 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Sujetos con bytes movidos respecto de la evidencia de mutacion: messages/chat_server.py; sus mutantes se re-corrieron en arena bajo /tmp con el CONTROL sin mutar en verde gateando la corrida, y todos murieron. Un ancla que no aplicara se habria reportado NO EVALUADO y abortado la firma, no contado como sobreviviente. Evidencia previa conservada: Re-revision JARVIS 9-sep-2026, CORRIENDO la mutacion contra los bytes de hoy, no comparando hashes. Motivo: independent_review_bytes_stale. Arena bajo /tmp con copia de messages/, memory/, tests/, too"
+    }
   },
   "subjects": [
     "messages/channel_acl.py",
