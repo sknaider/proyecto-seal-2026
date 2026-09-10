@@ -1,0 +1,141 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-voz-inmediata-20260909",
+  "owner": "NEXUS",
+  "independent_reviewer": "ALICE",
+  "_por_que": "William, 9-sep, dos ordenes: «60 segundos como maximo» y «la app de claude responde al momento, quiero igual las respuestas de esa manera o un agente designado, me gustaria que sea alice». El relevo por demora YA EXISTIA (CASCADE_TURN_TIMEOUT_S, pedido por el mismo William el 2-sep) pero vivia SOLO dentro de `if mode == \"cascade\"`, y su queja cayo en modo `direct`, donde no habia relevo alguno. Yo afirme en publico que el relevo no existia porque grepe chat_server.py y la logica vive aca: casi construyo un duplicado. Se bajo el plazo a 60 s y se agrego `voz_inmediata()`, una bandera fail-closed con UN nombre.",
+  "_por_que_una_envoltura": "`_assignments_del_turno` tiene SEIS `return`, uno por modo. Editandolos de a uno, olvidarse de un modo era facil Y EL SINTOMA SERIA SILENCIO: ese modo seguiria haciendo esperar a William y nadie lo notaria. La envoltura aplica la regla una sola vez sobre lo que devuelva cualquier modo. Hay un brazo por modo que lo exige.",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "ALICE",
+    "reviewed_sha256": {
+      "messages/soul_coordination.py": "1b7afb7a807e8fa0cef32516d998b2c3094f3889959e2a5ced67ac8af13fab6e",
+      "messages/tests/test_nexus_voz_inmediata_v1.py": "e530285a146d522bde22b3d1e8e87e0c34c3343382d5d6f1c85f86d2c621115d"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-09T22:50:00Z",
+      "reviewed_sha256": {
+        "messages/soul_coordination.py": "1b7afb7a807e8fa0cef32516d998b2c3094f3889959e2a5ced67ac8af13fab6e",
+        "messages/tests/test_nexus_voz_inmediata_v1.py": "e530285a146d522bde22b3d1e8e87e0c34c3343382d5d6f1c85f86d2c621115d"
+      },
+      "manifest_digest": "0d32c234a23e606b5a6984b081beb6d2ec4bc59c1be049dd7a29e672a94b5f23",
+      "evidence": "28/28 tests PASSED desde scratchpad /tmp/mut_voz_inmediata_BMVw5k (estructura messages/tests/ replicada). SHAs verificados en disco: coinciden con reviewed_sha256. Mutacion 7/7 MUERTOS corrida por ALICE: M1 (envoltura inerte) 11 failed; M2 (voz a todos) 12 failed; M3 (plazo a 90s) 3 failed; M4 (bandera acepta basura) 3 failed; M5 (envoltura come kwargs) 2 failed; M6 (pisa el motivo) 1 failed; M7 (sustituye al lead) 5 failed incluyendo [cascade]. Verificado el punto critico del owner: M7 sobrevivia antes de parametrizar el brazo por modo — con la suite actual muere en [cascade], [execution] y [discussion]. Delivery verificado por efecto: db_154358 (modo cascade, lead JARVIS) trajo ALICE public_write=True con razon 'voz inmediata' — evento observado en vivo por ALICE en produccion. Archivo de evidencia de mutacion creado por la revisora (faltaba en disco): quality/mutation-nexus-voz-inmediata-20260909.json. Deuda declarada por el owner: sin recibo de procedencia del restart (seal_self_repair.py no tiene accion para seal-chat) — limitacion conocida, no bloquea la firma."
+    }
+  },
+  "subjects": [
+    "messages/soul_coordination.py"
+  ],
+  "tests": [
+    "messages/tests/test_nexus_voz_inmediata_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-voz-inmediata",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_nexus_voz_inmediata_v1.py"
+      ]
+    },
+    {
+      "id": "qa_positive-publica-en-todos-los-modos",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_nexus_voz_inmediata_v1.py",
+        "-k",
+        "TODOS_los_modos or NO_le_quita"
+      ]
+    },
+    {
+      "id": "qa_negative-fail-closed",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_nexus_voz_inmediata_v1.py",
+        "-k",
+        "qa_negative"
+      ]
+    },
+    {
+      "id": "qa_control-envoltura-inerte",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "messages/tests/test_nexus_voz_inmediata_v1.py",
+        "-k",
+        "qa_control"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "messages"
+    ],
+    "omit": [
+      "messages/tests/*",
+      "messages/test_*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "messages/tests/test_nexus_voz_inmediata_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 180
+  },
+  "_coverage_no_vincula": "source es el DIRECTORIO porque `coverage run --source` no acepta un archivo: con uno no recolecta nada. El porcentaje mide messages/ entero, no el sujeto, y baseline 0.0 lo deja sin fuerza. El gate no entiende `include`. Hueco del gate, declarado, no tapado.",
+  "mutation_baseline_percent": 100.0,
+  "mutation_evidence": "quality/mutation-nexus-voz-inmediata-20260909.json",
+  "mutation_spec": "quality/mutantes/nexus-voz-inmediata-20260909.spec.json",
+  "delivery": {
+    "status": "verified",
+    "effect": "ALICE recibe public_write en todos los modos sin esperar turno; el lead conserva el suyo; los otros tres siguen con turno unico; el relevo por demora pasa el turno a los 60 s.",
+    "assertion": "En un turno REAL de produccion (db_154358, modo cascade, lead JARVIS) la asignacion trajo JARVIS public_write=True 'cascade turn open' y ALICE public_write=True 'voz inmediata'.",
+    "evidence": "28 brazos PASSED. Mutacion 7/7 MUERTOS. Proceso vivo verificado: /__version devuelve module_hashes.soul_coordination=1b7afb7a807e8fa0..., igual al sha del archivo. Control de regresion: la suite del council da 3 failed/46 passed IGUAL que en HEAD (medido extrayendo HEAD a un tmp ANTES de tocar), asi que esas 3 rojas son previas y ajenas.",
+    "command": {
+      "argv": [
+        "/home/dadito/IA/seal-spark/.venv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "messages/tests/test_nexus_voz_inmediata_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "passed"
+    }
+  },
+  "nota_para_el_revisor": {
+    "el_hallazgo_que_mas_importa": "M7 -«al dar la voz inmediata, callar a los demas»- SOBREVIVIA a 25 brazos en verde. Mi test probaba en modo `direct`, donde ALICE NO figura en las filas y se toma la rama que la AGREGA; la linea que M7 muta esta en la rama que VOLTEA una fila existente, y a esa SOLO se llega en `cascade`. El brazo pasaba por el camino equivocado. Parametrizado por modo, M7 muere y falla EXACTAMENTE [cascade]. Verifica esto primero.",
+    "el_caso_que_me_refutaria": "Que la voz inmediata abra la puerta a los cinco y le devuelva el flood a William. Ese es test_los_OTROS_siguen_con_turno_unico.",
+    "trampas_de_mi_arnes": "`grep -Fc` cuenta LINEAS y miente con anclas multilinea: conta con python. Y copia fresca del sujeto ANTES de cada mutante.",
+    "deuda_declarada": "Reinicie con `systemctl --user` porque seal_self_repair.py no tiene accion para seal-chat: NO hay recibo de procedencia. El despliegue ya esta vivo desde antes de esta firma, por orden directa de William («Arranca»)."
+  }
+}

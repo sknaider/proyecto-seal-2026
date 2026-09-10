@@ -1,0 +1,58 @@
+{
+  "schema": "seal.mutation-spec.v1",
+  "change_id": "nexus-voz-inmediata-20260909",
+  "subject": "messages/soul_coordination.py",
+  "tests": "messages/tests/test_nexus_voz_inmediata_v1.py",
+  "_como_correr": "Copia FRESCA del sujeto desde el arbol ANTES de cada mutante; anclas contadas con python, no con grep -Fc.",
+  "mutants": [
+    {
+      "id": "M1-envoltura-inerte",
+      "que_rompe": "la voz inmediata nunca se aplica",
+      "anchor": "    designado = voz_inmediata(voz_inmediata_flag)",
+      "replacement": "    designado = None",
+      "esperado": "MUERTO (8 brazos)"
+    },
+    {
+      "id": "M2-voz-a-todos",
+      "que_rompe": "le da la voz a los cinco: devuelve el flood",
+      "anchor": "        if str(fila.get(\"agent\") or \"\").upper() == designado:",
+      "replacement": "        if True:",
+      "esperado": "MUERTO (8 brazos)"
+    },
+    {
+      "id": "M3-plazo-vuelve-a-90",
+      "que_rompe": "ignora la orden de los 60 s",
+      "anchor": "CASCADE_TURN_TIMEOUT_S: float = 60.0",
+      "replacement": "CASCADE_TURN_TIMEOUT_S: float = 90.0",
+      "esperado": "MUERTO (3 brazos)"
+    },
+    {
+      "id": "M4-bandera-acepta-basura",
+      "que_rompe": "un archivo con cualquier cosa habilita a alguien",
+      "anchor": "    return nombre if nombre.isalpha() else None",
+      "replacement": "    return nombre or None",
+      "esperado": "MUERTO (3 brazos)"
+    },
+    {
+      "id": "M5-envoltura-come-kwargs",
+      "que_rompe": "turn_opened_at/now se pierden: muere el relevo por tiempo",
+      "anchor": "    filas = _assignments_del_turno(mode, lead, **kwargs)",
+      "replacement": "    filas = _assignments_del_turno(mode, lead)",
+      "esperado": "MUERTO (2 brazos)"
+    },
+    {
+      "id": "M6-pisa-el-motivo",
+      "que_rompe": "marca voz_inmediata a quien ya tenia el turno: borra la razon real",
+      "anchor": "            if fila.get(\"public_write\") is not True:",
+      "replacement": "            if True:",
+      "esperado": "MUERTO (1 brazo)"
+    },
+    {
+      "id": "M7-sustituye-al-lead",
+      "que_rompe": "al dar la voz inmediata, CALLA a los demas",
+      "anchor": "                fila[\"public_write\"] = True",
+      "replacement": "                fila[\"public_write\"] = True\n                for otra in filas:\n                    if otra is not fila: otra[\"public_write\"] = False",
+      "esperado": "MUERTO SOLO en [cascade] — sobrevivia antes de parametrizar el brazo por modo"
+    }
+  ]
+}

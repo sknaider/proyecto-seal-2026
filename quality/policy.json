@@ -12,6 +12,7 @@
   "independent_review_required": true,
   "known_defect_patterns": "quality/known-defect-patterns.json",
   "manifests": [
+    "quality/manifests/ada-agent-task-update-rechaza-campos-20260909.json",
     "quality/manifests/ada-codex-c10-token-writer-20260908.json",
     "quality/manifests/ada-daily-brief-20260908.json",
     "quality/manifests/ada-sala-privada-user-room-20260908.json",
@@ -72,13 +73,16 @@
     "quality/manifests/nexus-detector-unidades-horneadas-20260907.json",
     "quality/manifests/nexus-dm-poller-replacement-20260908.json",
     "quality/manifests/nexus-espera-postgres-operator-20260908.json",
+    "quality/manifests/nexus-gate-ejecutabilidad-20260909.json",
     "quality/manifests/nexus-hook-captura-guarda-20260908.json",
     "quality/manifests/nexus-maintenance-alice-v2-intent-v1.json",
+    "quality/manifests/nexus-manifest-digest-20260909.json",
     "quality/manifests/nexus-mcp-postgres-dsn-desde-archivo-20260907.json",
     "quality/manifests/nexus-panel-soul-coverage-20260909.json",
     "quality/manifests/nexus-rescate-dm-monitor-20260908.json",
     "quality/manifests/nexus-seat-detector.json",
     "quality/manifests/nexus-storea-rotation-oracle.json",
+    "quality/manifests/nexus-voz-inmediata-20260909.json",
     "quality/manifests/ocean-integrity-v2.json",
     "quality/manifests/panel-soul-release-links.json",
     "quality/manifests/past-attribution-harness.json",
@@ -122,8 +126,7 @@
     "quality/manifests/tool-result-budget-inert-v1.json",
     "quality/manifests/u116-isolated-claude-transport.json",
     "quality/manifests/unit-failed-notify-20260905.json",
-    "quality/manifests/validador-candado-v1.json",
-    "quality/manifests/nexus-manifest-digest-20260909.json"
+    "quality/manifests/validador-candado-v1.json"
   ],
   "policy_id": "william-golden-quality-rule-2026-08-03",
   "required_qa_arms": [
