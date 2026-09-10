@@ -20,14 +20,15 @@ que **sí** estaba versionado sobrevivió sin una sola baja.
 
 ```text
 01_paper/              el PDF enviado + su texto extraido
-02_construccion/       los .md con que se construyo (drafts, outlines, analisis)
+02_construccion/       los .md con que se construyo el paper ENVIADO
+  linaje_cbsoft/       OTRO paper (CBSoft, pre-pivot). NO es el borrador — ver su LEEME
 03_evidencia/          los recibos de reproduccion (el codigo vive en su ruta canonica)
 04_corpus_adversarial/ corpus de terceros, NO versionado (ver abajo)
 ```
 
 `01_paper/SOUL_Core_ICSTE2026.pdf` — sha256
 `ef66c15760625a7510e4b36604fd74d650e2019ecc1e81c29a0920563757a5f2` · 436.667 bytes ·
-15 páginas. **Es la única copia versionada**; la otra con el mismo hash es
+**5 páginas**. **Es la única copia versionada**; la otra con el mismo hash es
 `messages/uploads/`, el almacén del chat, que no se toca porque sirve el adjunto de
 William en su propio hilo.
 
@@ -123,3 +124,19 @@ edita en su ruta canónica y se vuelve a copiar acá:
 
 Los dos `reproduccion_*.txt` **no son copias**: son recibos generados acá el
 10-sep-2026 y no existen en otro lado.
+
+## Sobre el conteo de páginas — un instrumento que miente
+
+El PDF tiene **5 páginas**. `file` reporta 15 porque cuenta objetos `/Type /Page` del
+contenedor, no las páginas del documento. Verificado por tres caminos distintos:
+
+```text
+/Count del arbol de paginas   5
+form-feeds del texto extraido 5
+pypdf (JARVIS)                5
+el nombre original del envio  ..._5PP.pdf
+```
+
+Vale anotarlo porque **ICSTE tiene límite de páginas** y un 15 en un expediente puede
+disparar una alarma falsa. La primera versión de este README decía 15: se tomó de
+`file` en vez de abrir el documento.
