@@ -189,3 +189,6 @@ tools/awb_automation/gmail_credentials.json
 
 # venv de calidad perdido el 7-sep-2026; hoy es un enlace al venv seal-spark (JARVIS)
 .venv-quality
+
+# corpus adversarial de terceros: se re-clona con el commit clavado, no se versiona
+paper ICSTE 2026/04_corpus_adversarial/
