@@ -42,9 +42,44 @@ def _tool_surface(source: str) -> dict[str, list[str]]:
     return surface
 
 
+# La superficie EXACTA de herramientas del MCP, declarada por nombre.
+#
+# Por que un CONJUNTO y no un numero (JARVIS, 10-sep-2026): esta guarda nacio para
+# detectar que la recuperacion no hubiera PERDIDO herramientas, y lo hacia con
+# `len(surface) == 30`. Un conteo desnudo tiene dos defectos, los dos medidos hoy:
+#
+#   1. su mensaje de error es `assert 32 == 30`, que no dice QUE cambio. Hubo que
+#      abrir el AST a mano para descubrir cuales eran las dos nuevas.
+#   2. no distingue una PERDIDA de una ADICION, que es justo lo que importa:
+#      perder una herramienta es la regresion que esta guarda persigue; agregar una
+#      es trabajo legitimo que igual debe pasar por revision.
+#
+# El conjunto conserva la propiedad de fallar cerrado -toda alta o baja rompe el
+# test y obliga a declararla aca- y ademas DICE cual. Las dos ultimas altas son
+# closed_loop_review y closed_loop_effect, el piloto de revision autenticada de ADA.
+SUPERFICIE_DECLARADA = frozenset({
+    "active_recall", "agent_task", "announce_agent", "boot_context",
+    "closed_loop_effect", "closed_loop_review", "connectome_gateway",
+    "consent_grant", "emotional_diary", "goal_action_model",
+    "governance_challenge", "index_repo", "memory_gateway",
+    "memory_hybrid_search", "memory_indexer", "memory_store",
+    "reflective_diagnosis", "seal_bench", "search_code", "self_reflect",
+    "send_user_file", "soul_gateway", "soul_recall_router_tool", "soul_snapshot",
+    "style_fingerprint", "system_gateway", "tokenjuice_compress", "web_search",
+    "webchat_listen", "webchat_poll", "working_state_get", "working_state_update",
+})
+
+
 def test_unit_complete_tool_surface_and_restored_signatures() -> None:
     surface = _tool_surface(_source(SERVER))
-    assert len(surface) == 30
+    faltan = SUPERFICIE_DECLARADA - surface.keys()
+    sobran = surface.keys() - SUPERFICIE_DECLARADA
+    assert not faltan, f"herramientas PERDIDAS respecto de la superficie declarada: {sorted(faltan)}"
+    assert not sobran, (
+        f"herramientas NUEVAS sin declarar: {sorted(sobran)}. "
+        "Si el alta es legitima, agregala a SUPERFICIE_DECLARADA en el mismo cambio "
+        "que la introduce: esta guarda existe para que ninguna entre ni salga sin revision."
+    )
     assert surface["agent_task"][-2:] == ["status", "description_append"]
     assert surface["send_user_file"][-1] == "channel"
     assert {"boot_context", "active_recall", "memory_store", "webchat_listen"} <= surface.keys()

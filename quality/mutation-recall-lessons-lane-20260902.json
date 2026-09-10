@@ -22,15 +22,15 @@
   "reviewer": "JARVIS",
   "notes_defense_in_depth": "el bloque de active_recall que invoca el carril está en try/except (aditivo); no se muta porque su killer requeriría el pool real.",
   "file_sha256": {
+    "memory/mcp_server_v4.py": "711efb609698b4267e613770ead459fea49ac1d6ad258e043b6a61a4926c7918",
     "memory/instinct_cron.py": "0a5eecdbb5cebe0d24104ec8c1f25436966c64b0b3bb7c9f2e14e462793da48f",
-    "memory/mcp_server_v4.py": "ae84eb707953ee0b7fb0018afe7e669ebfaa2cace0303e748e8038abbe022ebf",
     "memory/tests/check_mcp_surface_recovery_mutants.py": "9962bc82b39bbe07d7986a5597d4e4fe43932c77a9d6acc62de186b3e56399d1",
     "memory/tests/check_recall_lessons_lane_mutants.py": "8fda6cdbd7add7077b6ed91867a00d85bed9c8e2f5c4eb768dea659263614e8a",
+    "tools/seal_memory_files_ingest.py": "ce3309d8697277fb3110aaf3bdc87f87d55e34db025825984a83f00d7dd729fb",
+    "memory/tests/test_mcp_surface_recovery_20260903.py": "681c5d39233f0e2a952cd99159d6e7dfa0523190beb2df38d02e9ef716a68cf1",
     "memory/tests/test_active_recall_hook.py": "64350b038ff9de0cd665c84894e4b7744ca3ad193ff4d88234cc6034a0584b3c",
-    "memory/tests/test_mcp_surface_recovery_20260903.py": "a911ec93957f746133d92a0bbd5f87b448cfb84a57b6d3b5fe1ca8db05faf9ba",
-    "memory/tests/test_memory_files_ingest_author.py": "af375b27fd7eb2c9483730b9e8366be004b9482d5d0aa71329f1b4289b11d8ee",
     "memory/tests/test_recall_lessons_lane.py": "976aab067d77ceb80a1ee1f24334a20afe1e76b27a35c81be19c89cee44da651",
-    "tools/seal_memory_files_ingest.py": "ce3309d8697277fb3110aaf3bdc87f87d55e34db025825984a83f00d7dd729fb"
+    "memory/tests/test_memory_files_ingest_author.py": "af375b27fd7eb2c9483730b9e8366be004b9482d5d0aa71329f1b4289b11d8ee"
   },
   "detail": {
     "lessons_lane": {
@@ -182,5 +182,19 @@
   },
   "tmp_dir": "/tmp/seal-mutants-lessons-lane-bapzwhsa",
   "mutation_target": "arena_aprobada_fable_20260907 (ambos arneses del manifiesto corridos dentro del contenedor uid 65534)",
-  "_recorrida_20260907": "Re-corrida por el revisor JARVIS en la arena aprobada por FABLE tras el cambio autorizado de mcp_server_v4.py (0ac4bdf, G2 en el arranque). Arneses: memory/tests/check_recall_lessons_lane_mutants.py y check_mcp_surface_recovery_mutants.py (propios del manifiesto)."
+  "_recorrida_20260907": "Re-corrida por el revisor JARVIS en la arena aprobada por FABLE tras el cambio autorizado de mcp_server_v4.py (0ac4bdf, G2 en el arranque). Arneses: memory/tests/check_recall_lessons_lane_mutants.py y check_mcp_surface_recovery_mutants.py (propios del manifiesto).",
+  "revalidaciones_del_revisor": [
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T12:10:36Z",
+      "sujetos_movidos": [
+        "memory/mcp_server_v4.py",
+        "memory/tests/test_mcp_surface_recovery_20260903.py"
+      ],
+      "arena": "/tmp/jarvis-refirma-4z6ngpk_",
+      "control_sin_mutar": "rc=0",
+      "mutantes_recorridos": [],
+      "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"
+    }
+  ]
 }

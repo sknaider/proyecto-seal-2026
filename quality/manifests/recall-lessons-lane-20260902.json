@@ -108,25 +108,6 @@
   "review": {
     "status": "approved",
     "evidence": "REVISION INDEPENDIENTE JARVIS, dos rondas, mutantes propios sobre COPIA en tempdir. CANARIO: raise al importar tools/seal_memory_files_ingest.py -> 1 error, o sea que la suite ejecuta el sujeto. RONDA 1: control 13 passed; 3 de 4 mutantes muertos -- volver al literal 'JARVIS' en ingested_by (1 failed), buscar el autor en el BODY en vez del head (6 failed), exigir el campo SIN indentar (6 failed). SOBREVIVIA quitar `re.I`: la regex aceptaba 'Author:' en mayuscula y ningun test lo comprobaba. RONDA 2, tras el test que agrego el owner: control 16 passed y los TRES mueren -- sin re.I 2 failed; literal JARVIS 1 failed; autor en el BODY 9 failed. ATRIBUCION: el manifiesto declaraba independent_reviewer=JASON y me negue a firmar bajo un nombre ajeno; el owner lo corrigio a JARVIS antes de esta firma. PROCEDENCIA, que es lo que este cambio arregla: el ingestor marcaba como 'JARVIS' filas ingestadas por cualquiera (las 67 del 4-sep las corrio ADA y decian JARVIS) y perdia el `author:` del frontmatter por leerlo del cuerpo. Medido aparte por mi: de 911 archivos, 52 declaran autor (JARVIS 31, ALICE 14, ADA 7) y 859 no; el arreglo sirve para lo que venga, y el reproceso de los 52 es opcional.",
-    "receipt": {
-      "schema": "seal.independent-review-receipt.v1",
-      "reviewer": "JARVIS",
-      "evidence": "REVISION INDEPENDIENTE JARVIS, dos rondas, mutantes propios sobre COPIA en tempdir. CANARIO: raise al importar tools/seal_memory_files_ingest.py -> 1 error, o sea que la suite ejecuta el sujeto. RONDA 1: control 13 passed; 3 de 4 mutantes muertos -- volver al literal 'JARVIS' en ingested_by (1 failed), buscar el autor en el BODY en vez del head (6 failed), exigir el campo SIN indentar (6 failed). SOBREVIVIA quitar `re.I`: la regex aceptaba 'Author:' en mayuscula y ningun test lo comprobaba. RONDA 2, tras el test que agrego el owner: control 16 passed y los TRES mueren -- sin re.I 2 failed; literal JARVIS 1 failed; autor en el BODY 9 failed. ATRIBUCION: el manifiesto declaraba independent_reviewer=JASON y me negue a firmar bajo un nombre ajeno; el owner lo corrigio a JARVIS antes de esta firma. PROCEDENCIA, que es lo que este cambio arregla: el ingestor marcaba como 'JARVIS' filas ingestadas por cualquiera (las 67 del 4-sep las corrio ADA y decian JARVIS) y perdia el `author:` del frontmatter por leerlo del cuerpo. Medido aparte por mi: de 911 archivos, 52 declaran autor (JARVIS 31, ALICE 14, ADA 7) y 859 no; el arreglo sirve para lo que venga, y el reproceso de los 52 es opcional. | RE-VERIFICACION JARVIS 7-sep (hora real: ver signed_at): unico sujeto cambiado memory/mcp_server_v4.py en 0ac4bdf (NEXUS, G2 en el arranque repuesto con autorizacion del orquestador; helper _g2_encendida fuera de cualquier @mcp.tool). Brazos con el venv: unit 47 passed, positivo 3, negativo 3, control 4. El carril de lecciones y la superficie MCP recuperada no cambian; el cambio es aditivo y detras de bandera apagada. | mutacion re-corrida en la arena: 19/19 muertos (8/8 carril de lecciones + 11/11 superficie MCP). | RE-VERIFICACION JARVIS 07-Sep 17:06 (ronda unica tras el corte de ediciones en sujetos compartidos): brazos verdes con el venv",
-      "signed_at": "2026-09-07T22:06:18.778711+00:00",
-      "mutation_target": "isolated_copy",
-      "reviewed_sha256": {
-        "memory/mcp_server_v4.py": "ae84eb707953ee0b7fb0018afe7e669ebfaa2cace0303e748e8038abbe022ebf",
-        "memory/instinct_cron.py": "0a5eecdbb5cebe0d24104ec8c1f25436966c64b0b3bb7c9f2e14e462793da48f",
-        "memory/tests/check_mcp_surface_recovery_mutants.py": "9962bc82b39bbe07d7986a5597d4e4fe43932c77a9d6acc62de186b3e56399d1",
-        "memory/tests/check_recall_lessons_lane_mutants.py": "8fda6cdbd7add7077b6ed91867a00d85bed9c8e2f5c4eb768dea659263614e8a",
-        "tools/seal_memory_files_ingest.py": "ce3309d8697277fb3110aaf3bdc87f87d55e34db025825984a83f00d7dd729fb",
-        "memory/tests/test_mcp_surface_recovery_20260903.py": "a911ec93957f746133d92a0bbd5f87b448cfb84a57b6d3b5fe1ca8db05faf9ba",
-        "memory/tests/test_active_recall_hook.py": "64350b038ff9de0cd665c84894e4b7744ca3ad193ff4d88234cc6034a0584b3c",
-        "memory/tests/test_recall_lessons_lane.py": "976aab067d77ceb80a1ee1f24334a20afe1e76b27a35c81be19c89cee44da651",
-        "memory/tests/test_memory_files_ingest_author.py": "af375b27fd7eb2c9483730b9e8366be004b9482d5d0aa71329f1b4289b11d8ee"
-      },
-      "manifest_digest": "a7ed5eed08d1d50e05c8f9fa35c818c5a2bb878b01684289ac676470606b2e93"
-    },
     "historial": [
       {
         "reviewer": "JARVIS",
@@ -160,7 +141,37 @@
         },
         "manifest_digest": "e4d39e1b08a428db74a9a18702e7a9c8c1b505b1101de999aed9b8d56b1bee69"
       }
-    ]
+    ],
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "memory/mcp_server_v4.py": "711efb609698b4267e613770ead459fea49ac1d6ad258e043b6a61a4926c7918",
+      "memory/instinct_cron.py": "0a5eecdbb5cebe0d24104ec8c1f25436966c64b0b3bb7c9f2e14e462793da48f",
+      "memory/tests/check_mcp_surface_recovery_mutants.py": "9962bc82b39bbe07d7986a5597d4e4fe43932c77a9d6acc62de186b3e56399d1",
+      "memory/tests/check_recall_lessons_lane_mutants.py": "8fda6cdbd7add7077b6ed91867a00d85bed9c8e2f5c4eb768dea659263614e8a",
+      "tools/seal_memory_files_ingest.py": "ce3309d8697277fb3110aaf3bdc87f87d55e34db025825984a83f00d7dd729fb",
+      "memory/tests/test_mcp_surface_recovery_20260903.py": "681c5d39233f0e2a952cd99159d6e7dfa0523190beb2df38d02e9ef716a68cf1",
+      "memory/tests/test_active_recall_hook.py": "64350b038ff9de0cd665c84894e4b7744ca3ad193ff4d88234cc6034a0584b3c",
+      "memory/tests/test_recall_lessons_lane.py": "976aab067d77ceb80a1ee1f24334a20afe1e76b27a35c81be19c89cee44da651",
+      "memory/tests/test_memory_files_ingest_author.py": "af375b27fd7eb2c9483730b9e8366be004b9482d5d0aa71329f1b4289b11d8ee"
+    },
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-10T12:10:36Z",
+      "reviewed_sha256": {
+        "memory/mcp_server_v4.py": "711efb609698b4267e613770ead459fea49ac1d6ad258e043b6a61a4926c7918",
+        "memory/instinct_cron.py": "0a5eecdbb5cebe0d24104ec8c1f25436966c64b0b3bb7c9f2e14e462793da48f",
+        "memory/tests/check_mcp_surface_recovery_mutants.py": "9962bc82b39bbe07d7986a5597d4e4fe43932c77a9d6acc62de186b3e56399d1",
+        "memory/tests/check_recall_lessons_lane_mutants.py": "8fda6cdbd7add7077b6ed91867a00d85bed9c8e2f5c4eb768dea659263614e8a",
+        "tools/seal_memory_files_ingest.py": "ce3309d8697277fb3110aaf3bdc87f87d55e34db025825984a83f00d7dd729fb",
+        "memory/tests/test_mcp_surface_recovery_20260903.py": "681c5d39233f0e2a952cd99159d6e7dfa0523190beb2df38d02e9ef716a68cf1",
+        "memory/tests/test_active_recall_hook.py": "64350b038ff9de0cd665c84894e4b7744ca3ad193ff4d88234cc6034a0584b3c",
+        "memory/tests/test_recall_lessons_lane.py": "976aab067d77ceb80a1ee1f24334a20afe1e76b27a35c81be19c89cee44da651",
+        "memory/tests/test_memory_files_ingest_author.py": "af375b27fd7eb2c9483730b9e8366be004b9482d5d0aa71329f1b4289b11d8ee"
+      },
+      "manifest_digest": "97022da57af0bf036e1bc407c0fc4851072d09488ea57b68759dead89568a153",
+      "evidence": "Re-firma de JARVIS el 2026-09-10 12:10Z contra los BYTES DE HOY. Los 4 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Sujetos con bytes movidos respecto de la evidencia de mutacion: memory/mcp_server_v4.py, memory/tests/test_mcp_surface_recovery_20260903.py; sus mutantes se re-corrieron en arena bajo /tmp con el CONTROL sin mutar en verde gateando la corrida, y todos murieron. Un ancla que no aplicara se habria reportado NO EVALUADO y abortado la firma, no contado como sobreviviente. Evidencia previa conservada: REVISION INDEPENDIENTE JARVIS, dos rondas, mutantes propios sobre COPIA en tempdir. CANARIO: raise al importar tools/seal_memory_files_ingest.py -> 1 error, o sea que la suite ejecuta el sujeto. RONDA"
+    }
   },
   "delivery": {
     "status": "verified",
