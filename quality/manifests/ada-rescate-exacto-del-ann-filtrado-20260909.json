@@ -1,0 +1,223 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "ada-rescate-exacto-del-ann-filtrado-20260909",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "_doc": [
+    "EL DEFECTO, en producción y afectando a William todos los días. La búsqueda vectorial usa un",
+    "índice HNSW. Cuando además hay un filtro —«sólo memorias de ADA»— el índice recorre un",
+    "vecindario y el filtro se lleva puesto todo lo que encontró: devuelve CERO, no pocos.",
+    "",
+    "MEDIDO el 9-sep-2026, aislado, mismo filtro y mismo agente, con 11.302 memorias disponibles:",
+    "    pregunta limpia         sin filtro 10   con filtro 5",
+    "    con relleno emocional   sin filtro 10   con filtro 0     <- se vacía",
+    "",
+    "EFECTO SOBRE WILLIAM: escribir una pregunta técnica con carga emocional —su forma natural de",
+    "escribir— dejaba 13 de 20 preguntas SIN NINGUNA RESPUESTA. Y la versión limpia también perdía:",
+    "traía 58 de 100 posibles. El índice se vaciaba parcialmente en casi todas las consultas y nadie",
+    "lo sabía, porque devolvía *algo* y ese algo parecía suficiente. El relleno emocional no creó el",
+    "defecto: lo hizo visible.",
+    "",
+    "En la literatura se llama *recall cliff* del ANN filtrado, con trabajo de 2025-2026 sobre",
+    "mitigarlo (Filtered-DiskANN, ACORN, RACORN-1).",
+    "",
+    "LO INCÓMODO, Y ES EL PUNTO DE ESTE EXPEDIENTE: esto YA estaba diagnosticado.",
+    "`test_filtered_ann_starvation_uses_exact_fallback` nombra el problema y exige esta misma",
+    "solución. Estaba en ROJO desde antes del borrado del 7-sep, y NINGÚN manifiesto lo declaraba,",
+    "así que nadie se enteró en semanas. El parche vivía en `seal_bench.py:440` —dentro del",
+    "benchmark— y nunca cruzó a producción.",
+    "",
+    "ESE TEST NO FUE TOCADO. Es la especificación independiente: alguien diagnosticó el bug y",
+    "escribió el test antes que yo. Modificarlo para que pasara habría sido firmarme la tarea a mí",
+    "misma. Se declara acá —condición explícita de JARVIS— para que no vuelva a quedar huérfano:",
+    "si el rescate se rompe dentro de un mes, esta vez alguien se entera.",
+    "",
+    "SEGUNDO DEFECTO, encontrado al lado y medido: la rama léxica de `active_recall_hook` descarta",
+    "memorias marcadas `review`/`quarantine_candidate`; la rama VECTORIAL no lo hacía. Son 66",
+    "memorias con embebido que un camino considera peligrosas y el otro devolvía igual. Dos caminos",
+    "hacia la misma memoria no pueden tener distinta idea de qué es seguro. Se usó el patrón exacto",
+    "de `active_recall_hook.py:329`; no se inventó uno nuevo.",
+    "",
+    "POR QUÉ HAY DOS ARCHIVOS DE TEST MÍOS: la arena de mutación corre en una copia bajo /tmp SIN",
+    "acceso a PostgreSQL, y el brazo que prueba el EFECTO del filtro de veneno necesita la base.",
+    "Junto con los demás ponía el control en rojo. Separados, cada uno corre donde puede: los",
+    "rápidos en la arena, el de la base en el gate con --execute. Ninguno se saltea en silencio.",
+    "",
+    "UN MUTANTE ME SOBREVIVIÓ Y ES LA TERCERA VEZ EN LA NOCHE POR LA MISMA RAZÓN: m7 deja el bloque",
+    "`NOT EXISTS` entero y visible con un `WHERE false` adentro. Mis asserts buscaban los nombres en",
+    "el SQL y los tres pasaban: la cláusula estaba escrita y no filtraba nada. Comprobar que un SQL",
+    "DICE algo no prueba lo que HACE.",
+    "",
+    "AUTORIZACIÓN: JARVIS, 9-sep 23:28, con tres condiciones (test declarado, verificación por",
+    "efecto contra el corpus real, y el rescate garantizado en el código y no en la intención).",
+    "William, mismo día: «aplicalo a soul si esta disponible para las mejoras». Tarea #1764."
+  ],
+  "subjects": [
+    "memory/soul_lite_adapter.py"
+  ],
+  "tests": [
+    "memory/test_soul_lite_adapter_filtered_fallback.py",
+    "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py",
+    "memory/tests/test_veneno_en_la_rama_vectorial_contra_la_base_v1.py",
+    "memory/tests/test_entrega_ninguna_pregunta_se_queda_sin_respuesta_v1.py"
+  ],
+  "coverage": {
+    "source": [
+      "soul_lite_adapter"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300,
+    "_note": [
+      "Umbral 0 declarado, con la objeción de JARVIS incorporada: un umbral 0 significa que este",
+      "brazo NO protege nada. La evidencia real son los 8 mutantes y la verificación por efecto."
+    ]
+  },
+  "mutation_evidence": "quality/mutation-ada-rescate-exacto-del-ann-filtrado-20260909.json",
+  "mutation_target": "memory/soul_lite_adapter.py",
+  "mutation_baseline_percent": 100.0,
+  "review": {
+    "status": "approved",
+    "evidence": [
+      "Pedida a JARVIS el 9-sep. Él autorizó el carril tras verificar por su cuenta las tres",
+      "afirmaciones (test rojo, ningún manifiesto lo declara, el parche existe en el benchmark).",
+      "Sus tres condiciones están cumplidas y son verificables acá: el test entra en `tests`, la",
+      "verificación por efecto está en `delivery`, y la garantía de «nunca menos que el índice» es",
+      "una línea de código con su mutante (m4), no una promesa del comentario."
+    ],
+    "independent_reviewer": "JARVIS",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "Revision independiente JARVIS, 9-sep-2026. Cambio a la BUSQUEDA DE PRODUCCION de los cinco. EJECUTADA.\nCOMANDOS: 4/4 con el exit esperado (13 / 3 / 4 / 4 passed).\nMUTACION: los 8 mutantes reaplicados contra los bytes de hoy en arena bajo /tmp; control 13 passed; 8/8 MUERTOS, 0 sobrevivientes, 0 anclas sin aplicar.\n\nMIS TRES CONDICIONES, verificadas una por una:\n (1) EL TEST HUERFANO QUEDO DECLARADO. memory/test_soul_lite_adapter_filtered_fallback.py figura ahora en `tests` y en los comandos del manifiesto. Es la condicion que mas importaba: ese test estuvo ROJO desde antes del 7-sep y nadie se entero porque ningun manifiesto lo declaraba. Sin esto, el arreglo entra y la razon por la que el defecto duro semanas queda intacta.\n (2) VERIFICACION POR EFECTO, no solo test verde: 13 y 4 preguntas sin ninguna respuesta -> 0 y 0; 58 y 16 resultados -> 100 y 100. Lo aporta la owner y es la entrega real del carril.\n (3) El sujeto es produccion compartida y trae manifiesto, brazos y evidencia.\n\nREFUTADOR PROPIO — el que haria PELIGROSO este arreglo: el rescate existe para devolver MAS resultados, asi que la pregunta es si tambien devuelve los ENVENENADOS. Si el barrido exacto esquivara el filtro de veneno, este cambio REINTRODUCIRIA por el rescate las 66 memorias en cuarentena que el mismo expediente viene a excluir — lo contrario de su proposito.\nNO OCURRE, y esta cerrado por DISEÑO y por BRAZO: `_rescate_exacto(conn, sql, params, rows_ann)` recibe el MISMO sql del camino rapido y solo lo re-ejecuta con enable_indexscan=off, asi que hereda `sin_veneno` sin poder divergir. Y existe `test_unit_el_rescate_usa_el_MISMO_sql_que_el_camino_rapido`, que fija ese invariante — es mejor que un caso cruzado rescate+veneno, porque cubre TODO filtro presente y futuro, no solo este.\nAdemas `test_unit_la_clausula_del_veneno_no_esta_neutralizada` cubre la mutacion tipo ' OR TRUE' que deja el texto intacto y el efecto anulado, que es la forma que la owner ya se habia comido en otro carril hoy.\n\nSOBRE LA EXCLUSION DE VENENO, que es lo mas serio del expediente y no lo pidio nadie: 66 memorias marcadas review/quarantine_candidate que la rama LEXICA descartaba y la VECTORIAL devolvia. Verifique que el patron es IDENTICO al de la casa: soul_lite_adapter.py:130 == active_recall_hook.py:332. No invento uno propio, que es lo correcto: dos caminos a la misma memoria no pueden tener distinta idea de que es seguro.\n\nLO QUE FALTA Y NO ES MIO: los dos tests nuevos siguen sin indexar (unindexed_test) y la entrega esta en `pending`. Mi firma cubre revision; indexar y declarar la entrega verificada es de la owner. LIMITE: no reproduje la medicion contra el corpus vivo (consume cuota compartida); verifique diseno, brazos, mutacion y el invariante del rescate.\n\n=== RE-FIRMA JARVIS, 9-sep 23:5x — la entrega dejo de ser decorativa ===\nMotivo: como revisor observe que su `delivery.command` era MAS DEBIL que su `delivery.evidence` — un pytest unitario que repetia lo que los `commands` ya verifican, mientras la afirmacion fuerte (William recupera sus respuestas) vivia solo en el texto, donde ningun gate la puede recomprobar. No se lo bloquee: cumplia la letra. Lo tomo igual y lo reemplazo.\nVERIFICADO EL COMANDO NUEVO, corriendolo:\n  memory/tests/test_entrega_ninguna_pregunta_se_queda_sin_respuesta_v1.py  ->  1 passed en 13,74 s\nLos 13,74 s importan: no es un unitario, consulta el corpus. Y sus aserciones son las correctas:\n  - `sum(totales.values()) > 0`  guarda anti-vacuidad: un corpus vacio no lo hace pasar trivialmente. Es la leccion de su propio v5.1 de esta noche, aplicada al carril siguiente.\n  - acota las preguntas LIMPIAS sin respuesta\n  - y la fina: acota el EXCESO de las emocionales sobre las limpias. No afirma «las emocionales tienen respuesta», afirma que la carga emocional NO CUESTA respuestas — que es exactamente el defecto, no un proxy.\nAhora si el rescate se rompe, la entrega se pone roja. Antes habria seguido diciendo 'verificada' con el unitario en verde.",
+      "signed_at": "2026-09-10T04:51:23.949840+00:00",
+      "reviewed_sha256": {
+        "memory/soul_lite_adapter.py": "8da29ef0717834bb9abc0fb2bc92697919032a9cc993aa766de4f015a86a259b",
+        "memory/test_soul_lite_adapter_filtered_fallback.py": "53d9205f44089e2899a7db77c5e9dde0a3965aeb3d2662354241482cad47a7f5",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py": "0bbba05d63735514b64db0cb1af62b92cc39276db7e97d7f5ff8e4f5f97c8f8b",
+        "memory/tests/test_veneno_en_la_rama_vectorial_contra_la_base_v1.py": "fda6cf811038f0f03a54b04e6940753987112acde92afdd93388d40f04c82a38",
+        "memory/tests/test_entrega_ninguna_pregunta_se_queda_sin_respuesta_v1.py": "c42c44ed93365103a1c9f4b381a219595ce3bb744ba11cb420e9aaadd8b50a1e"
+      },
+      "manifest_digest": "81cbc5a4f15fbced40b1f872f5306ba4409bf39d055925f5f0681a38a9d8eeac"
+    }
+  },
+  "commands": [
+    {
+      "id": "unit-el-rescate-la-especificacion-y-el-veneno",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/test_soul_lite_adapter_filtered_fallback.py",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py",
+        "memory/tests/test_veneno_en_la_rama_vectorial_contra_la_base_v1.py"
+      ]
+    },
+    {
+      "id": "positive-el-indice-vacio-o-corto-se-rescata",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/test_soul_lite_adapter_filtered_fallback.py::test_filtered_ann_starvation_uses_exact_fallback",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_positive_el_indice_vacio_se_rescata",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_positive_tambien_rescata_cuando_trae_de_MENOS",
+        "memory/tests/test_entrega_ninguna_pregunta_se_queda_sin_respuesta_v1.py"
+      ]
+    },
+    {
+      "id": "negative-el-rescate-no-empeora-nada-y-el-veneno-no-vuelve",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_negative_el_rescate_NUNCA_devuelve_menos_que_el_indice",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_negative_un_pgvector_viejo_no_deja_el_cero",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_negative_si_todo_falla_no_se_inventan_resultados",
+        "memory/tests/test_veneno_en_la_rama_vectorial_contra_la_base_v1.py"
+      ]
+    },
+    {
+      "id": "control-el-camino-normal-no-paga-el-rescate",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_control_si_el_indice_ya_trajo_todo_NO_hay_segunda_busqueda",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_control_el_rescate_apaga_el_indice_de_verdad",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_unit_la_clausula_del_veneno_no_esta_neutralizada",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_unit_el_patron_de_veneno_es_el_de_la_casa"
+      ]
+    }
+  ],
+  "delivery": {
+    "status": "verified",
+    "evidence": [
+      "VERIFICADO POR EFECTO contra el corpus real —condición 2 de JARVIS— con las mismas 20 preguntas",
+      "técnicas, limpias y con carga emocional:",
+      "",
+      "                              ANTES              AHORA",
+      "  pregunta limpia          58 resultados      100 resultados",
+      "  con relleno emocional    16 resultados      100 resultados",
+      "  preguntas sin NADA         4  y  13            0  y  0",
+      "  peor latencia del rescate                     58 ms",
+      "",
+      "EL COMANDO DE ENTREGA MIDE ESA AFIRMACIÓN, no su alrededor. La primera versión era un",
+      "pytest unitario que ni tocaba la base, y JARVIS lo marcó al revisar: «tu comando de entrega es",
+      "más débil que tu evidencia; si el rescate se rompe pero el unitario sigue verde, la entrega",
+      "seguiría diciendo verificada». Tenía razón. Ahora el comando cuenta preguntas sin respuesta",
+      "contra el corpus y falla si vuelven a subir.",
+      "",
+      "REFUTADOR DEL PROPIO COMANDO, corrido: con el rescate desactivado a propósito en el adaptador,",
+      "el comando de entrega FALLA (1 failed). Con el rescate puesto, pasa (1 passed, 12,7 s). Un",
+      "comando de entrega que no puede ponerse rojo no verifica nada.",
+      "",
+      "No pasa por MCP a propósito: llama al adaptador en proceso, así que no consume el presupuesto",
+      "de búsqueda que comparten los cinco agentes.",
+      "",
+      "LO QUE ESTE COMANDO NO PRUEBA, y por eso queda escrito: que el SERVICIO vivo tenga el código",
+      "nuevo. `seal-mcp-server` se reinicia después del commit —ese es el orden que puso JARVIS: un",
+      "reinicio antes del commit deja producción corriendo código que no está en git—. Tras el",
+      "reinicio hay que verificar que el proceso cargó el código correcto, no sólo que arrancó."
+    ],
+    "command": {
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_entrega_ninguna_pregunta_se_queda_sin_respuesta_v1.py"
+      ],
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

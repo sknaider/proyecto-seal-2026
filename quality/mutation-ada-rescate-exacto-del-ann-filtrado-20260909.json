@@ -1,0 +1,228 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "ada-rescate-exacto-del-ann-filtrado-20260909",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 8,
+  "survived": 0,
+  "total": 8,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "............                                                             [100%]\n12 passed in 0.04s",
+    "sha_sujetos_antes": {
+      "memory/soul_lite_adapter.py": "8da29ef0717834bb9abc0fb2bc92697919032a9cc993aa766de4f015a86a259b"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "m1-el-rescate-desaparece-y-vuelve-el-cero",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "            if len(rows) < limit:\n                rows = await self._rescate_exacto(conn, sql, params, rows)",
+      "reemplazo": "            pass",
+      "why": "EL DEFECTO ORIGINAL: el indice filtrado se vacia y la busqueda devuelve cero teniendo 11.302 memorias. Medido sobre William: 13 de 20 preguntas sin ninguna respuesta cuando escribe con carga emocional.",
+      "registro": {
+        "subject": "memory/soul_lite_adapter.py",
+        "ancla": "            if len(rows) < limit:\n                rows = await self._rescate_exacto(conn, sql, params, rows)",
+        "reemplazo": "            pass",
+        "ancla_sha256": "eb854d7226cc46dcce7327d64096d7b5e2e1753adf7fdf59a70a009eec6fbac8",
+        "sujeto_sha256_antes": "8da29ef0717834bb9abc0fb2bc92697919032a9cc993aa766de4f015a86a259b",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/test_soul_lite_adapter_filtered_fallback.py::test_filtered_ann_starvation_uses_exact_fallback",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_positive_el_indice_vacio_se_rescata",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_positive_tambien_rescata_cuando_trae_de_MENOS",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_control_el_rescate_apaga_el_indice_de_verdad",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_negative_un_pgvector_viejo_no_deja_el_cero",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_unit_el_rescate_usa_el_MISMO_sql_que_el_camino_rapido"
+      ],
+      "pytest_tail": "FAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_positive_el_indice_vacio_se_rescata\nFAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_positive_tambien_rescata_cuando_trae_de_MENOS\nFAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_control_el_rescate_apaga_el_indice_de_verdad\nFAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_negative_un_pgvector_viejo_no_deja_el_cero\nFAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_unit_el_rescate_usa_el_MISMO_sql_que_el_camino_rapido\n6 failed, 6 passed in 0.05s\n[32 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m2-el-rescate-solo-se-dispara-con-cero-absoluto",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "            if len(rows) < limit:",
+      "reemplazo": "            if len(rows) == 0:",
+      "why": "El mutante mas sutil y el que mas se parece a una decision razonable: «rescato solo si no vino NADA». Pero medido, la version limpia tambien perdia —58 de 100 posibles— porque el indice se vaciaba PARCIALMENTE en casi todas las consultas. Devolver algo no es devolver lo que hay.",
+      "registro": {
+        "subject": "memory/soul_lite_adapter.py",
+        "ancla": "            if len(rows) < limit:",
+        "reemplazo": "            if len(rows) == 0:",
+        "ancla_sha256": "52660d45fdafeff1801be925bd97cdc1d56b55b09b8801ab789adee3cf9a2757",
+        "sujeto_sha256_antes": "8da29ef0717834bb9abc0fb2bc92697919032a9cc993aa766de4f015a86a259b",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/test_soul_lite_adapter_filtered_fallback.py::test_filtered_ann_starvation_uses_exact_fallback",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_positive_tambien_rescata_cuando_trae_de_MENOS"
+      ],
+      "pytest_tail": "==== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/test_soul_lite_adapter_filtered_fallback.py::test_filtered_ann_starvation_uses_exact_fallback\nFAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_positive_tambien_rescata_cuando_trae_de_MENOS\n2 failed, 10 passed in 0.05s\n[22 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m3-el-rescate-se-dispara-SIEMPRE",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "            if len(rows) < limit:",
+      "reemplazo": "            if True:",
+      "why": "El mutante en la direccion contraria, y hace falta: sin el, un arreglo que barriera exacto en TODAS las consultas pasaria los brazos positivos. Cada busqueda pagaria el barrido completo y el arreglo seria peor que el bug.",
+      "registro": {
+        "subject": "memory/soul_lite_adapter.py",
+        "ancla": "            if len(rows) < limit:",
+        "reemplazo": "            if True:",
+        "ancla_sha256": "52660d45fdafeff1801be925bd97cdc1d56b55b09b8801ab789adee3cf9a2757",
+        "sujeto_sha256_antes": "8da29ef0717834bb9abc0fb2bc92697919032a9cc993aa766de4f015a86a259b",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_control_si_el_indice_ya_trajo_todo_NO_hay_segunda_busqueda"
+      ],
+      "pytest_tail": "...F........                                                             [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_control_si_el_indice_ya_trajo_todo_NO_hay_segunda_busqueda\n1 failed, 11 passed in 0.04s\n[11 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m4-el-rescate-se-queda-con-el-resultado-peor",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "        return rows if len(rows) >= len(rows_ann) else rows_ann",
+      "reemplazo": "        return rows",
+      "why": "Si el barrido exacto trajera menos que el indice —por un timeout, por un plan raro— el arreglo EMPEORARIA el resultado en vez de mejorarlo. Un rescate que puede devolver menos que lo rescatado no es un rescate.",
+      "registro": {
+        "subject": "memory/soul_lite_adapter.py",
+        "ancla": "        return rows if len(rows) >= len(rows_ann) else rows_ann",
+        "reemplazo": "        return rows",
+        "ancla_sha256": "a3305e3c029f4a9833b803f5f420161bf00c1d34c7c293521c54085787aa7546",
+        "sujeto_sha256_antes": "8da29ef0717834bb9abc0fb2bc92697919032a9cc993aa766de4f015a86a259b",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_negative_el_rescate_NUNCA_devuelve_menos_que_el_indice"
+      ],
+      "pytest_tail": ".....F......                                                             [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_negative_el_rescate_NUNCA_devuelve_menos_que_el_indice\n1 failed, 11 passed in 0.04s\n[11 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m5-un-pgvector-viejo-se-queda-con-el-cero",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "        except Exception:",
+      "reemplazo": "        except ValueError:",
+      "why": "`hnsw.iterative_scan` no existe antes de pgvector 0.8 y aborta la transaccion con un error que no es ValueError. Sin ese camino de reintento, el arreglo falla justo en el servidor donde el bug es peor, y falla en silencio.",
+      "registro": {
+        "subject": "memory/soul_lite_adapter.py",
+        "ancla": "        except Exception:",
+        "reemplazo": "        except ValueError:",
+        "ancla_sha256": "013bb15e59f62af9c6da2c19b1f946d1b9e713014bcc8b6f4463731acabcdc9e",
+        "sujeto_sha256_antes": "8da29ef0717834bb9abc0fb2bc92697919032a9cc993aa766de4f015a86a259b",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_negative_un_pgvector_viejo_no_deja_el_cero"
+      ],
+      "pytest_tail": "......F.....                                                             [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_negative_un_pgvector_viejo_no_deja_el_cero\n1 failed, 11 passed in 0.07s\n[36 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m6-el-barrido-exacto-deja-de-apagar-el-indice",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "                await conn.execute(\"SET LOCAL enable_indexscan = off\")\n                rows = await conn.fetch(sql, *params)\n        except Exception:",
+      "reemplazo": "                rows = await conn.fetch(sql, *params)\n        except Exception:",
+      "why": "El rescate repite la misma consulta CON el mismo indice que acaba de fallar: dos veces el mismo cero, con el doble de latencia. Es un arreglo que se ve activo en los logs y no arregla nada.",
+      "registro": {
+        "subject": "memory/soul_lite_adapter.py",
+        "ancla": "                await conn.execute(\"SET LOCAL enable_indexscan = off\")\n                rows = await conn.fetch(sql, *params)\n        except Exception:",
+        "reemplazo": "                rows = await conn.fetch(sql, *params)\n        except Exception:",
+        "ancla_sha256": "21d08b841fbc1559301281212756ba22b9b31e57bfe638eb12a70b69840c3129",
+        "sujeto_sha256_antes": "8da29ef0717834bb9abc0fb2bc92697919032a9cc993aa766de4f015a86a259b",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/test_soul_lite_adapter_filtered_fallback.py::test_filtered_ann_starvation_uses_exact_fallback",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_control_el_rescate_apaga_el_indice_de_verdad"
+      ],
+      "pytest_tail": "F...F.......                                                             [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/test_soul_lite_adapter_filtered_fallback.py::test_filtered_ann_starvation_uses_exact_fallback\nFAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_qa_control_el_rescate_apaga_el_indice_de_verdad\n2 failed, 10 passed in 0.05s\n[22 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m7-la-rama-vectorial-vuelve-a-devolver-memorias-envenenadas",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "              AND NOT EXISTS (\n                SELECT 1 FROM soul_v3.memory_poisoning_feedback poison",
+      "reemplazo": "              AND NOT EXISTS (\n                SELECT 1 FROM soul_v3.memory_poisoning_feedback poison WHERE false AND true",
+      "why": "Medido: 66 memorias con embebido que la rama lexica descarta por 'review'/'quarantine_candidate' y que la vectorial devolvia igual. Dos caminos hacia la misma memoria con distinta idea de que es seguro. El mutante deja el bloque VISIBLE en el SQL y sin efecto, que es como reaparecen estas cosas.",
+      "registro": {
+        "subject": "memory/soul_lite_adapter.py",
+        "ancla": "              AND NOT EXISTS (\n                SELECT 1 FROM soul_v3.memory_poisoning_feedback poison",
+        "reemplazo": "              AND NOT EXISTS (\n                SELECT 1 FROM soul_v3.memory_poisoning_feedback poison WHERE false AND true",
+        "ancla_sha256": "858113669056a3404b9c52af53946b29eebc48995337e3376c0f888bbe796313",
+        "sujeto_sha256_antes": "8da29ef0717834bb9abc0fb2bc92697919032a9cc993aa766de4f015a86a259b",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_unit_la_clausula_del_veneno_no_esta_neutralizada"
+      ],
+      "pytest_tail": "...........F                                                             [100%]\n=================================== FAILURES ===================================\nE\n=========================== short test summary info ============================\nFAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_unit_la_clausula_del_veneno_no_esta_neutralizada\n1 failed, 11 passed in 0.05s\n[22 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m8-el-rescate-usa-su-propio-SQL",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "                rows = await self._rescate_exacto(conn, sql, params, rows)",
+      "reemplazo": "                rows = await self._rescate_exacto(conn, sql.replace(sin_veneno, ''), params, rows)",
+      "why": "El rescate deja de compartir el SQL del camino rapido y pierde un filtro por el camino. Es la forma en que un arreglo de recall se convierte en un agujero de seguridad: mas resultados, y algunos que no deberian estar.",
+      "registro": {
+        "subject": "memory/soul_lite_adapter.py",
+        "ancla": "                rows = await self._rescate_exacto(conn, sql, params, rows)",
+        "reemplazo": "                rows = await self._rescate_exacto(conn, sql.replace(sin_veneno, ''), params, rows)",
+        "ancla_sha256": "a857ac9882ecfd7df6cda334ca414e627130dd851441beeb88a98fd316d8c301",
+        "sujeto_sha256_antes": "8da29ef0717834bb9abc0fb2bc92697919032a9cc993aa766de4f015a86a259b",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/test_soul_lite_adapter_filtered_fallback.py::test_filtered_ann_starvation_uses_exact_fallback",
+        "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_unit_el_rescate_usa_el_MISMO_sql_que_el_camino_rapido"
+      ],
+      "pytest_tail": "E\nE\n=========================== short test summary info ============================\nFAILED memory/test_soul_lite_adapter_filtered_fallback.py::test_filtered_ann_starvation_uses_exact_fallback\nFAILED memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py::test_unit_el_rescate_usa_el_MISMO_sql_que_el_camino_rapido\n2 failed, 10 passed in 0.05s\n[31 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "memory/soul_lite_adapter.py": "8da29ef0717834bb9abc0fb2bc92697919032a9cc993aa766de4f015a86a259b",
+    "memory/test_soul_lite_adapter_filtered_fallback.py": "53d9205f44089e2899a7db77c5e9dde0a3965aeb3d2662354241482cad47a7f5",
+    "memory/tests/test_entrega_ninguna_pregunta_se_queda_sin_respuesta_v1.py": "c42c44ed93365103a1c9f4b381a219595ce3bb744ba11cb420e9aaadd8b50a1e",
+    "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py": "0bbba05d63735514b64db0cb1af62b92cc39276db7e97d7f5ff8e4f5f97c8f8b",
+    "memory/tests/test_veneno_en_la_rama_vectorial_contra_la_base_v1.py": "fda6cf811038f0f03a54b04e6940753987112acde92afdd93388d40f04c82a38"
+  }
+}

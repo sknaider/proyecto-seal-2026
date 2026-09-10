@@ -1,0 +1,69 @@
+{
+  "change_id": "ada-rescate-exacto-del-ann-filtrado-20260909",
+  "reviewer": "JARVIS",
+  "manifest": "quality/manifests/ada-rescate-exacto-del-ann-filtrado-20260909.json",
+  "tests": [
+    [
+      "memory/test_soul_lite_adapter_filtered_fallback.py",
+      "memory/tests/test_rescate_exacto_del_ann_filtrado_v1.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "m1-el-rescate-desaparece-y-vuelve-el-cero",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "            if len(rows) < limit:\n                rows = await self._rescate_exacto(conn, sql, params, rows)",
+      "reemplazo": "            pass",
+      "why": "EL DEFECTO ORIGINAL: el indice filtrado se vacia y la busqueda devuelve cero teniendo 11.302 memorias. Medido sobre William: 13 de 20 preguntas sin ninguna respuesta cuando escribe con carga emocional."
+    },
+    {
+      "id": "m2-el-rescate-solo-se-dispara-con-cero-absoluto",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "            if len(rows) < limit:",
+      "reemplazo": "            if len(rows) == 0:",
+      "why": "El mutante mas sutil y el que mas se parece a una decision razonable: «rescato solo si no vino NADA». Pero medido, la version limpia tambien perdia —58 de 100 posibles— porque el indice se vaciaba PARCIALMENTE en casi todas las consultas. Devolver algo no es devolver lo que hay."
+    },
+    {
+      "id": "m3-el-rescate-se-dispara-SIEMPRE",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "            if len(rows) < limit:",
+      "reemplazo": "            if True:",
+      "why": "El mutante en la direccion contraria, y hace falta: sin el, un arreglo que barriera exacto en TODAS las consultas pasaria los brazos positivos. Cada busqueda pagaria el barrido completo y el arreglo seria peor que el bug."
+    },
+    {
+      "id": "m4-el-rescate-se-queda-con-el-resultado-peor",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "        return rows if len(rows) >= len(rows_ann) else rows_ann",
+      "reemplazo": "        return rows",
+      "why": "Si el barrido exacto trajera menos que el indice —por un timeout, por un plan raro— el arreglo EMPEORARIA el resultado en vez de mejorarlo. Un rescate que puede devolver menos que lo rescatado no es un rescate."
+    },
+    {
+      "id": "m5-un-pgvector-viejo-se-queda-con-el-cero",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "        except Exception:",
+      "reemplazo": "        except ValueError:",
+      "why": "`hnsw.iterative_scan` no existe antes de pgvector 0.8 y aborta la transaccion con un error que no es ValueError. Sin ese camino de reintento, el arreglo falla justo en el servidor donde el bug es peor, y falla en silencio."
+    },
+    {
+      "id": "m6-el-barrido-exacto-deja-de-apagar-el-indice",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "                await conn.execute(\"SET LOCAL enable_indexscan = off\")\n                rows = await conn.fetch(sql, *params)\n        except Exception:",
+      "reemplazo": "                rows = await conn.fetch(sql, *params)\n        except Exception:",
+      "why": "El rescate repite la misma consulta CON el mismo indice que acaba de fallar: dos veces el mismo cero, con el doble de latencia. Es un arreglo que se ve activo en los logs y no arregla nada."
+    },
+    {
+      "id": "m7-la-rama-vectorial-vuelve-a-devolver-memorias-envenenadas",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "              AND NOT EXISTS (\n                SELECT 1 FROM soul_v3.memory_poisoning_feedback poison",
+      "reemplazo": "              AND NOT EXISTS (\n                SELECT 1 FROM soul_v3.memory_poisoning_feedback poison WHERE false AND true",
+      "why": "Medido: 66 memorias con embebido que la rama lexica descarta por 'review'/'quarantine_candidate' y que la vectorial devolvia igual. Dos caminos hacia la misma memoria con distinta idea de que es seguro. El mutante deja el bloque VISIBLE en el SQL y sin efecto, que es como reaparecen estas cosas."
+    },
+    {
+      "id": "m8-el-rescate-usa-su-propio-SQL",
+      "subject": "memory/soul_lite_adapter.py",
+      "ancla": "                rows = await self._rescate_exacto(conn, sql, params, rows)",
+      "reemplazo": "                rows = await self._rescate_exacto(conn, sql.replace(sin_veneno, ''), params, rows)",
+      "why": "El rescate deja de compartir el SQL del camino rapido y pierde un filtro por el camino. Es la forma en que un arreglo de recall se convierte en un agujero de seguridad: mas resultados, y algunos que no deberian estar."
+    }
+  ]
+}

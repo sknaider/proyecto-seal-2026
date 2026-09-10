@@ -51,6 +51,50 @@ class PgVectorAdapter:
     def __init__(self, get_pool_fn):
         self._get_pool = get_pool_fn
 
+    @staticmethod
+    async def _rescate_exacto(conn, sql: str, params, rows_ann):
+        """Repite la búsqueda SIN el índice aproximado cuando el filtro lo dejó vacío.
+
+        **El defecto (medido por ADA el 9-sep-2026).** La búsqueda vectorial rápida usa
+        un índice HNSW. Cuando además hay un filtro —«sólo memorias de ADA»— el índice
+        recorre un vecindario y el filtro se lleva puesto todo lo que encontró: no
+        devuelve pocos resultados, devuelve **cero**. Aislado, mismo filtro, mismo
+        agente y con 11.302 memorias disponibles:
+
+            pregunta limpia         sin filtro 10   con filtro 5
+            con relleno emocional   sin filtro 10   con filtro 0   <- se vacia
+
+        En la literatura se llama *recall cliff* del ANN filtrado. Efecto sobre William,
+        que escribe con carga emocional: 13 de 20 preguntas técnicas se quedaban **sin
+        ninguna respuesta**.
+
+        **Esto ya estaba diagnosticado y nunca se arregló.** El test
+        `test_filtered_ann_starvation_uses_exact_fallback` nombra el problema y exige
+        esta solución; estaba en ROJO y ningún manifiesto lo declaraba, así que nadie se
+        enteró. El parche vivía en `seal_bench.py:440` —dentro del benchmark— y nunca
+        cruzó a producción.
+
+        Se dispara sólo cuando el camino rápido trajo MENOS de lo pedido, así que el
+        caso normal no paga nada. Cuando se dispara, un barrido exacto es caro; es el
+        precio de devolver algo en vez de mentir con un cero.
+        """
+        try:
+            async with conn.transaction():
+                # `hnsw.iterative_scan` (pgvector >= 0.8) hace que el índice siga
+                # recorriendo hasta juntar los k que sobreviven al filtro.
+                await conn.execute("SET LOCAL hnsw.iterative_scan = relaxed_order")
+                await conn.execute("SET LOCAL enable_indexscan = off")
+                rows = await conn.fetch(sql, *params)
+        except Exception:
+            # Un pgvector viejo no conoce ese parámetro y aborta la transacción. El
+            # barrido exacto NO depende de él, así que se reintenta sin esa línea: sin
+            # este camino, un servidor viejo se quedaría con el cero del índice.
+            async with conn.transaction():
+                await conn.execute("SET LOCAL enable_indexscan = off")
+                rows = await conn.fetch(sql, *params)
+        # El rescate nunca puede devolver MENOS que el camino rápido.
+        return rows if len(rows) >= len(rows_ann) else rows_ann
+
     async def query_points(
         self,
         collection_name: str,
@@ -73,6 +117,20 @@ class PgVectorAdapter:
 
         where_sql = " AND ".join(where_clauses) if where_clauses else "TRUE"
 
+        # Exclusión de memorias envenenadas, con el mismo patrón que ya usa la rama
+        # léxica en `active_recall_hook.py`. Faltaba acá: medido el 9-sep-2026, hay 66
+        # memorias con embebido que la rama léxica descarta por `review` o
+        # `quarantine_candidate` y que la rama VECTORIAL sí podía devolver. Dos caminos
+        # hacia la misma memoria no pueden tener distinta idea de qué es seguro.
+        sin_veneno = """
+              AND NOT EXISTS (
+                SELECT 1 FROM soul_v3.memory_poisoning_feedback poison
+                WHERE poison.memory_id = memories.id
+                  AND poison.content_hash_sha256 = trim(memories.content_hash_sha256)
+                  AND poison.decision IN ('review','quarantine_candidate')
+              )
+        """
+
         sql = f"""
             SELECT id, content, agent, category, importance, source,
                    created_at, valence, arousal, dominance, scope,
@@ -80,12 +138,15 @@ class PgVectorAdapter:
                    (1 - (embedding <=> '{vec_literal}'::vector)) as score
             FROM memories
             WHERE embedding IS NOT NULL AND {where_sql} {score_filter}
+            {sin_veneno}
             ORDER BY embedding <=> '{vec_literal}'::vector
             LIMIT {limit}
         """
 
         async with pool.acquire() as conn:
             rows = await conn.fetch(sql, *params)
+            if len(rows) < limit:
+                rows = await self._rescate_exacto(conn, sql, params, rows)
 
         points = []
         for row in rows:
