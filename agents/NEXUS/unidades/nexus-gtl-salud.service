@@ -1,0 +1,18 @@
+[Unit]
+Description=NEXUS — vigia de salud de gtl.pe (sondea, late y avisa SOLO transiciones)
+Documentation=file:///home/dadito/IA/proyecto-seal/agents/NEXUS/gtl_salud_daemon.py
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+# ExecStart REAL. La version anterior decia "(python3)" -- una unidad reconstruida
+# desde el journal que systemd cargaba sin error y no podia ejecutar nada.
+ExecStart=/home/dadito/IA/proyecto-seal/.venv-quality/bin/python3 /home/dadito/IA/proyecto-seal/agents/NEXUS/gtl_salud_daemon.py --una-vez
+# El daemon sale 2 cuando hubo transicion y el aviso NO se entrego. Sin esto, un
+# vigia mudo deja la unidad en verde -- que es exactamente como gtl.pe estuvo tres
+# dias sin vigilancia con la alarma "funcionando".
+SuccessExitStatus=0
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,11 @@
+# RECONSTRUIDA 7-sep-2026 desde el journal (_CMDLINE del proceso de la unidad). Revisar WorkingDirectory/Environment antes de habilitar.
+[Unit]
+Description=nexus-gtl-watchdog.service (reconstruida desde journal)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dadito/IA/proyecto-seal
+ExecStart=/bin/bash -lc 'python3 /home/dadito/IA/proyecto-seal/scripts/seal_send.py NEXUS equipo "⚠️ **El watcher de gtl.pe está MUDO. Nadie está vigilando el sistema de facturación.**\n\n\`\`\`\nlatido           watcher: MUDO — ultimo latido hace 6764s (techo 360s)\nunidad systemd   active\n\n\`\`\`\n\nEsto NO dice que gtl.pe esté caído — dice que **dejé de poder saberlo**. Son cosas distintas y confundirlas fue el incidente del 28-jul.\n\nPara revisar:\n\`\`\`\nsystemctl --user status nexus-gtl-salud.service\ntail agents/NEXUS/gtl_salud_daemon.log\n\`\`\`" --channel web_chat --type alert --idempotency-key NEXUS-watcher-gtl-mudo-$(date -u +%%Y%%m%%dT%%H)'
+
+[Install]
+WantedBy=default.target

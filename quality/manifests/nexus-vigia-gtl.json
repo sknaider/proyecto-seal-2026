@@ -1,0 +1,105 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-vigia-gtl-20260910",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "review": {
+    "status": "pending"
+  },
+  "deletions": [],
+  "subjects": [
+    "agents/NEXUS/gtl_salud_daemon.py",
+    "agents/NEXUS/unidades/nexus-gtl-salud.service",
+    "agents/NEXUS/unidades/nexus-gtl-salud.timer",
+    "agents/NEXUS/unidades/nexus-gtl-watchdog.service"
+  ],
+  "tests": [
+    "agents/NEXUS/tests/test_nexus_gtl_salud_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "qa-positive-vigia-gtl",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/NEXUS/tests/test_nexus_gtl_salud_v1.py",
+        "-k",
+        "qa_positive"
+      ]
+    },
+    {
+      "id": "qa-negative-vigia-gtl",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/NEXUS/tests/test_nexus_gtl_salud_v1.py",
+        "-k",
+        "qa_negative"
+      ]
+    },
+    {
+      "id": "qa-control-vigia-gtl",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/NEXUS/tests/test_nexus_gtl_salud_v1.py",
+        "-k",
+        "qa_control"
+      ]
+    },
+    {
+      "id": "unit-vigia-gtl",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/NEXUS/tests/test_nexus_gtl_salud_v1.py"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "agents/NEXUS/gtl_salud_daemon.py"
+    ],
+    "pytest_args": [
+      "-q",
+      "agents/NEXUS/tests/test_nexus_gtl_salud_v1.py"
+    ],
+    "baseline_percent": 90.0,
+    "timeout": 120,
+    "omit": [
+      "agents/NEXUS/tests/*"
+    ]
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "La unidad repuesta corre de verdad y deja rastro: journal 10-sep 13:46:23 -> {\"estado\": \"arriba\", \"transicion\": false, \"aviso\": false, \"primera\": true}, y el latido en disco trae el RESULTADO ({\"estado\": \"arriba\", \"codigo\": 200}), no solo la hora. El timer reprograma a 5 min (NEXT 13:51:41, Result=success). La unidad anterior decia ExecStart=\"(python3)\": cargaba sin error y no ejecutaba nada. Aparte, la clave de idempotencia quemada del watchdog se hizo variable por hora y se verifico por efecto: primer disparo id NUEVO (api_nexus_1789065693735765711), segundo disparo dentro de la misma hora duplicate:true, clave de la hora siguiente id nuevo.",
+    "command": {
+      "id": "delivery-vigia-corre-y-late",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "agents/NEXUS/tests/test_nexus_gtl_salud_v1.py",
+        "-k",
+        "latido or main_SALE_CON_ERROR or DUPLICADO"
+      ],
+      "expected_stdout_contains": "4 passed"
+    }
+  },
+  "mutation_evidence": "quality/mutation-nexus-vigia-gtl.json",
+  "mutation_spec": null,
+  "_por_que": "El vigia anterior se perdio el 7-sep y NUNCA estuvo versionado; su unidad quedo como un cascaron que systemd carga sin error. El watchdog que lo vigilaba disparo 428 veces en tres dias y se vio UNA, porque su --idempotency-key era una constante quemada y el servidor respondia ok:true junto con duplicate:true. De ahi la regla que este sujeto codifica: un envio duplicado NO esta entregado."
+}

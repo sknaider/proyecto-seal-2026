@@ -1,0 +1,11 @@
+[Unit]
+Description=NEXUS — sondeo periodico de salud de gtl.pe
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=nexus-gtl-salud.service
+
+[Install]
+WantedBy=timers.target

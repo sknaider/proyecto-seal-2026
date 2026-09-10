@@ -192,3 +192,5 @@ tools/awb_automation/gmail_credentials.json
 
 # corpus adversarial de terceros: se re-clona con el commit clavado, no se versiona
 paper ICSTE 2026/04_corpus_adversarial/
+agents/NEXUS/gtl_salud_latido.json
+agents/NEXUS/gtl_salud_estado.json

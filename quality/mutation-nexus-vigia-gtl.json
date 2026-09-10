@@ -1,0 +1,103 @@
+{
+ "schema": "seal.mutation-evidence.v1",
+ "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha)",
+ "change_id": "nexus-vigia-gtl-20260910",
+ "reviewer": "JARVIS",
+ "generado_por": "NEXUS; el revisor JARVIS re-corrio por su cuenta el control y m4",
+ "mutation_target": "arena temporal bajo /tmp (copia del sujeto y sus brazos; el arbol real no se toca)",
+ "tool": "inline (copia + una ancla por mutante + pytest)",
+ "killed": 6,
+ "survived": 0,
+ "total": 6,
+ "no_tests": 0,
+ "skipped": 0,
+ "suspicious": 0,
+ "timeout": 0,
+ "mutation_score_percent": 100.0,
+ "control_sujeto_sin_mutar": {
+  "rc": 0,
+  "pytest_tail": "26 passed in 0.01s",
+  "sha_sujetos_antes": {
+   "agents/NEXUS/gtl_salud_daemon.py": "11bb4fa1322e1618412ca337af5f43f9e5162b7c706bfdb2e27ad527c20123fd"
+  }
+ },
+ "limpieza": {
+  "sujetos_restaurados": true,
+  "arena": "/tmp/nexus-mut-ev-wnp4x87z"
+ },
+ "mutants": [
+  {
+   "id": "m1-borra-la-guarda-de-duplicate",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "    if respuesta.get(\"duplicate\") is True:\n        return False          # <- la línea que faltaba en el mundo\n",
+   "reemplazo": "",
+   "aplicado": true,
+   "sha_mutado": "81f0528ed760cf2dd4eee215593821aa63812263ef1af32112a64a342776da39",
+   "rc": 1,
+   "pytest_tail": "3 failed, 23 passed in 0.03s",
+   "resultado": "MUERE"
+  },
+  {
+   "id": "m2-clave-de-idempotencia-constante",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "return f\"NEXUS-gtl-{incidente}-{cuando.strftime('%Y%m%dT%H')}\"",
+   "reemplazo": "return \"NEXUS-gtl-alarma-fija\"",
+   "aplicado": true,
+   "sha_mutado": "a224e22693dcc8ddc828850dbd8edbb38aa1b7551178aa7ad3e080f0f5558b79",
+   "rc": 1,
+   "pytest_tail": "3 failed, 23 passed in 0.03s",
+   "resultado": "MUERE"
+  },
+  {
+   "id": "m3-error-de-red-leido-como-caida",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "return {\"estado\": \"no_se_puede_saber\", \"codigo\": None,",
+   "reemplazo": "return {\"estado\": \"abajo\", \"codigo\": None,",
+   "aplicado": true,
+   "sha_mutado": "1fc835ca5534c1c0b239d44552edd819c6a33f9c47b69b5c7d92f80116a724c5",
+   "rc": 1,
+   "pytest_tail": "1 failed, 25 passed in 0.02s",
+   "resultado": "MUERE"
+  },
+  {
+   "id": "m4-main-nunca-falla-aunque-el-aviso-no-llegue",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "    if r[\"aviso\"] and not r[\"entregado\"]:",
+   "reemplazo": "    if False:",
+   "aplicado": true,
+   "sha_mutado": "dfaf6824f9eed146d4fd76f6fea3d55b2378f291c01b8e616eeaf2679cfd869c",
+   "rc": 1,
+   "pytest_tail": "1 failed, 25 passed in 0.02s",
+   "resultado": "MUERE"
+  },
+  {
+   "id": "m5-el-latido-solo-si-hay-transicion",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "    escribir_latido(latido_path, medicion, ahora)",
+   "reemplazo": "    if False: escribir_latido(latido_path, medicion, ahora)",
+   "aplicado": true,
+   "sha_mutado": "84aac010b157d76d109a4355f039b98d2337b68dd7c9fc30f2dc0208e4f0ef82",
+   "rc": 1,
+   "pytest_tail": "2 failed, 24 passed in 0.04s",
+   "resultado": "MUERE"
+  },
+  {
+   "id": "m6-la-primera-corrida-cuenta-como-transicion",
+   "subject": "agents/NEXUS/gtl_salud_daemon.py",
+   "ancla": "    transicion = previo is not None and previo != medicion[\"estado\"]",
+   "reemplazo": "    transicion = previo != medicion[\"estado\"]",
+   "aplicado": true,
+   "sha_mutado": "a4d37e1cb53a9996bfe0905cb24a129f5c38243dac629bbe6d6bffffc9cd7712",
+   "rc": 1,
+   "pytest_tail": "1 failed, 25 passed in 0.02s",
+   "resultado": "MUERE"
+  }
+ ],
+ "file_sha256": {
+  "agents/NEXUS/gtl_salud_daemon.py": "11bb4fa1322e1618412ca337af5f43f9e5162b7c706bfdb2e27ad527c20123fd",
+  "agents/NEXUS/unidades/nexus-gtl-salud.service": "df183a3cd7a0d8e4353c2dbbbdc5f7c76d677ebbebba1be43ec5c01d66a383c2",
+  "agents/NEXUS/unidades/nexus-gtl-salud.timer": "a56ceb765bd72f45b93480dbf11ee087c771b72eb5f3dc444145cd2da4273722",
+  "agents/NEXUS/unidades/nexus-gtl-watchdog.service": "0e3e4e87db3d710e7c40b166785eb50fbf08307c6cf5c0de48f3a44332b4778e",
+  "agents/NEXUS/tests/test_nexus_gtl_salud_v1.py": "796183de24836f891c5df3ec3e5d90e4862b20ff928980be704ce5cc5a707525"
+ }
+}
