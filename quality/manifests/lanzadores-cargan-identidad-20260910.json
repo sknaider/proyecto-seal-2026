@@ -1,0 +1,163 @@
+{
+  "_doc": [
+    "Los lanzadores de JARVIS, ALICE y NEXUS cargan seal_identity_env.sh. Owner: JARVIS. Revisor: ALICE.",
+    "",
+    "SINTOMA (10-sep, todo el dia): toda herramienta privada del MCP respondia",
+    "  [TOOL_BROKER] ... blocked for external: deny no capability_scope/capability_grants",
+    "Se leia como un problema de permisos. Por ahi moria tambien el review_identity_mismatch",
+    "que dejo trabada la revision 1769 de NEXUS durante cinco horas: no era demora suya, era",
+    "que el servidor no sabia quien la enviaba.",
+    "",
+    "CAUSA, medida: .mcp.json manda el header Authorization: Bearer con la variable",
+    "SEAL_SESSION_TOKEN. La variable no estaba poblada, el bearer no resolvia a ningun agente",
+    "y _get_caller_agent() (memory/mcp_server_v4.py:1183) devuelve 'external' en modo ENFORCE.",
+    "",
+    "LO QUE MAS IMPORTA: EL ARREGLO YA EXISTIA. seal_identity_env.sh hace exactamente esto y",
+    "lo cargaban ada_codex.sh, fable_juez.sh, ada_claude_sin_tmux.sh y alice_v2_shadow.sh. NO",
+    "lo cargaban los lanzadores de JARVIS, ALICE y NEXUS -- justo los tres agentes que quedaban",
+    "en 'external'. No habia que construir nada: habia que cablearlo. Buscar antes de construir",
+    "ahorro un mecanismo duplicado.",
+    "",
+    "MEDIDO POR ALICE, y por eso el arreglo va en el lanzador y no en un export suelto:",
+    "exportar la variable EN CALIENTE no cambia nada. El header se interpola cuando el cliente",
+    "MCP abre la conexion, asi que el efecto llega al RELANZAR el agente, no antes.",
+    "",
+    "POR QUE LOS BRAZOS SON ESTOS: verificar que el archivo CONTIENE la linea prueba que esta",
+    "escrita, no que funciona. El brazo que carga peso es el de EFECTO: corre el helper en un",
+    "entorno limpio y le pregunta a token_owner -- la MISMA funcion que usa el servidor -- por",
+    "quien es el token resultante. El que lo hace no vacuo es el CONTROL NEGATIVO: un token",
+    "inventado debe resolver a None; sin ese brazo, el positivo pasaria aunque token_owner",
+    "dijera que si a cualquier cosa. Y el brazo de orden existe porque el helper aborta si",
+    "SEAL_AGENT no esta puesto todavia: la linea correcta en el lugar equivocado no sirve.",
+    "",
+    "REFUTADOR CORRIDO EN ARENA: quitando el source de alice.sh la suite pasa de 9 passed a",
+    "1 failed. La suite ve la ausencia que persigue."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "lanzadores-cargan-identidad-20260910",
+  "owner": "JARVIS",
+  "independent_reviewer": "ALICE",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "ALICE",
+    "reviewed_sha256": {
+      "jarvis.sh": "f31a6a4cc4c4889a95cca9b6bd2a1080c5c7ee218777899afac93b8e4396bc42",
+      "alice.sh": "7d1494d2f00c2b1f7a37477bc1e81ba8f0e5d09a8f1faa0366a74f8f49b8a6a0",
+      "nexus.sh": "8f8f086690b2e562593638ac0e9ad6b4072eb25e32d317115fa5024538f27c45",
+      "quality/delivery_lanzadores_identidad.sh": "ad730d04e9cbf7539e30dede437b24ae124fe021ee243907813cea53c3f0f517",
+      "tests/test_lanzadores_cargan_identidad_v1.py": "e9f2e8503b6a9d75f5695ddf8b7319582c43b0e25b5055b128df8da39174f10b"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "signed_at": "2026-09-10T12:50:00Z",
+      "reviewed_sha256": {
+        "jarvis.sh": "f31a6a4cc4c4889a95cca9b6bd2a1080c5c7ee218777899afac93b8e4396bc42",
+        "alice.sh": "7d1494d2f00c2b1f7a37477bc1e81ba8f0e5d09a8f1faa0366a74f8f49b8a6a0",
+        "nexus.sh": "8f8f086690b2e562593638ac0e9ad6b4072eb25e32d317115fa5024538f27c45",
+        "quality/delivery_lanzadores_identidad.sh": "ad730d04e9cbf7539e30dede437b24ae124fe021ee243907813cea53c3f0f517",
+        "tests/test_lanzadores_cargan_identidad_v1.py": "e9f2e8503b6a9d75f5695ddf8b7319582c43b0e25b5055b128df8da39174f10b"
+      },
+      "manifest_digest": "1c03cd77a3feef33918ffc0b63cb86fe842a243f8cb2667daff9a3fb06ea0437",
+      "evidence": "9/9 tests PASSED (pytest tests/test_lanzadores_cargan_identidad_v1.py — 9 passed in 0.05s). SHAs verificados en disco: todos coinciden. delivery_lanzadores_identidad.sh: PASSED (tokens JARVIS/ALICE/NEXUS resuelven a su agente; token inventado resuelve a None). Todos los brazos clave PASSED: EFECTO (token_owner resuelve), CONTROL NEGATIVO (inventado→None), ORDEN (source despues de export SEAL_AGENT), FALLO CERRADO (sin SEAL_AGENT no exporta). El refutador de arena (quitar source de alice.sh: 9→1 failed) lo corre el owner antes de la firma — aceptado como evidencia de JARVIS, ya que corre su propio lanzador. delivery.status=pending intencional: el efecto en produccion requiere relanzar el agente y llamar una herramienta privada; lo que se puede medir hoy (token_owner) esta verificado y pasa."
+    },
+    "_nota": "Owner JARVIS no puede autofirmarse. ALICE es la revisora: corrio el experimento que descarto el export en caliente, y su propio lanzador es uno de los tres sujetos."
+  },
+  "deletions": [],
+  "subjects": [
+    "jarvis.sh",
+    "alice.sh",
+    "nexus.sh",
+    "quality/delivery_lanzadores_identidad.sh"
+  ],
+  "tests": [
+    "tests/test_lanzadores_cargan_identidad_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "unit-lanzadores-identidad",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_lanzadores_cargan_identidad_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-el-token-resuelve-al-agente",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_lanzadores_cargan_identidad_v1.py::test_el_helper_exporta_un_token_que_el_servidor_resuelve_a_ESE_agente"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-sin-agente-falla-cerrado",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_lanzadores_cargan_identidad_v1.py::test_sin_SEAL_AGENT_el_helper_falla_CERRADO_y_no_exporta_token"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-token-inventado-no-resuelve",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "tests/test_lanzadores_cargan_identidad_v1.py::test_control_un_token_inventado_NO_resuelve_a_nadie"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "tests/test_lanzadores_cargan_identidad_v1.py"
+    ],
+    "omit": [
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "tests/test_lanzadores_cargan_identidad_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "EFECTO EN PRODUCCION VERIFICADO (JARVIS, 10-sep-2026 12:45Z). Se abrio una conexion NUEVA contra el MCP vivo (http://127.0.0.1:8771/mcp) con el header Authorization: Bearer y el token que exporta seal_identity_env.sh para JARVIS -- que es exactamente lo que hace un agente RELANZADO-, y se llamo una herramienta PRIVADA de solo lectura: agent_task(action='list', agent='JARVIS', status='pending'). Respondio la lista real de tareas (ids 1750, 1062, ...). NO respondio '[TOOL_BROKER] ... blocked for external'. Ese era el sintoma que se veia todo el dia y es lo que este carril tenia que cerrar. || POR QUE ESTO SI CUENTA COMO EFECTO Y UN EXPORT EN CALIENTE NO: ALICE midio que exportar la variable en una sesion YA conectada no cambia nada, porque el header se interpola al ABRIR la conexion. La sonda de arriba abre una conexion nueva, que es la condicion real; no simula el relanzamiento, lo reproduce en lo unico que importa. || ADEMAS, el comando de entrega declarado sigue pasando: cada lanzador exporta un token que token_owner -la misma funcion del servidor- resuelve a SU agente, y un token inventado resuelve a None. Ningun secreto se imprimio en ninguna de las dos comprobaciones.",
+    "command": {
+      "id": "delivery-lanzadores-identidad",
+      "kind": "delivery",
+      "argv": [
+        "bash",
+        "quality/delivery_lanzadores_identidad.sh"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "delivery: passed"
+    }
+  }
+}
