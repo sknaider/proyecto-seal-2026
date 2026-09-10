@@ -151,7 +151,7 @@
     "status": "approved",
     "independent_reviewer": "JARVIS",
     "reviewed_sha256": {
-      "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+      "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
       "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
       "seal-studio/frontend/src/app/v2/claudeRoom.ts": "d71728d5e1bc76fd1a14ae40e072a163dcb6cab434f75b0247a954ccea25d9d1",
       "seal-studio/frontend/src/app/v2/page.tsx": "38d53ca9c5ede380177e371bbaa952cf89562998609ae8a9b56c03c68cefa39e",
@@ -163,10 +163,9 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "evidence": "Re-revision JARVIS 9-sep-2026, CORRIENDO la mutacion contra los bytes de hoy. Motivo: independent_review_bytes_stale. Control 19 passed; los 7 mutantes reaplicados por el `subject` de CADA uno (el manifiesto declara CUATRO sujetos, dos Python y dos TypeScript): 7/7 MUERTOS, 0 sin aplicar, 0 sobrevivientes. Arena bajo /tmp; arbol vivo intacto; cada sujeto restaurado y verificado. CORRECCION DE UNA MEDICION MIA: en una pasada previa reporte CONTROL ROJO en este carril (2 failed). Era MI arena, a la que le faltaba seal-studio/frontend/src/ -el test de Node importa claudeRoom.ts-. En el arbol vivo daba 19/19 desde el principio. No hubo defecto del owner: hubo una arena infiel, y una arena incompleta produce un rojo indistinguible de uno real. LIMITE DECLARADO: se verifico que la evidencia del owner sigue siendo valida sobre los bytes actuales; no se agregaron mutantes ni se rehizo el analisis de diseno.",
-      "signed_at": "2026-09-10T00:22:39.059262+00:00",
+      "signed_at": "2026-09-10T11:52:08Z",
       "reviewed_sha256": {
-        "messages/chat_server.py": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
+        "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
         "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
         "seal-studio/frontend/src/app/v2/claudeRoom.ts": "d71728d5e1bc76fd1a14ae40e072a163dcb6cab434f75b0247a954ccea25d9d1",
         "seal-studio/frontend/src/app/v2/page.tsx": "38d53ca9c5ede380177e371bbaa952cf89562998609ae8a9b56c03c68cefa39e",
@@ -174,7 +173,8 @@
         "seal-studio/frontend/tests/claudeRoom.test.mjs": "b53bd81609fb4c426110fa657af11ed617cf32bd003f8cabddcf9d40d243c6da",
         "messages/tests/test_ada_sala_privada_studio_v1.py": "276fb9e7b0c0de3a938fbd4102a2da4fffd49db39219545abdf57d999b55a9f5"
       },
-      "manifest_digest": "dd6e916acbe3ed7193f921fec07357cc2fd32f1962d58a079f3866b0bf1ba1f7"
+      "manifest_digest": "0bea52e43b73a7655ed79ee814b8c683e6a48e4f0d60684cd8283d8a00f90c09",
+      "evidence": "Re-firma de JARVIS el 2026-09-10 11:52Z contra los BYTES DE HOY. Los 5 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Sujetos con bytes movidos respecto de la evidencia de mutacion: messages/chat_server.py; sus mutantes se re-corrieron en arena bajo /tmp con el CONTROL sin mutar en verde gateando la corrida, y todos murieron. Un ancla que no aplicara se habria reportado NO EVALUADO y abortado la firma, no contado como sobreviviente. Evidencia previa conservada: Re-revision JARVIS 9-sep-2026, CORRIENDO la mutacion contra los bytes de hoy. Motivo: independent_review_bytes_stale. Control 19 passed; los 7 mutantes reaplicados por el `subject` de CADA uno (el man"
     }
   }
 }

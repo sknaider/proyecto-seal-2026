@@ -191,13 +191,13 @@
     }
   ],
   "file_sha256": {
+    "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
     "messages/channel_acl.py": "6ac8f8e1732dce04b53d08e963f64577bbaf1bb289bfc86caad352bd975b39d5",
-    "messages/chat_server.py": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
-    "messages/tests/test_ada_sala_privada_studio_v1.py": "276fb9e7b0c0de3a938fbd4102a2da4fffd49db39219545abdf57d999b55a9f5",
-    "messages/tests/test_ada_sala_privada_v1.py": "1f0c9b59d16e7ec638b6664d0ecb8783b06abfaf2052849931f5198fa5185264",
     "seal-studio/frontend/src/app/v2/claudeRoom.ts": "d71728d5e1bc76fd1a14ae40e072a163dcb6cab434f75b0247a954ccea25d9d1",
     "seal-studio/frontend/src/app/v2/page.tsx": "38d53ca9c5ede380177e371bbaa952cf89562998609ae8a9b56c03c68cefa39e",
-    "seal-studio/frontend/tests/claudeRoom.test.mjs": "b53bd81609fb4c426110fa657af11ed617cf32bd003f8cabddcf9d40d243c6da"
+    "messages/tests/test_ada_sala_privada_v1.py": "1f0c9b59d16e7ec638b6664d0ecb8783b06abfaf2052849931f5198fa5185264",
+    "seal-studio/frontend/tests/claudeRoom.test.mjs": "b53bd81609fb4c426110fa657af11ed617cf32bd003f8cabddcf9d40d243c6da",
+    "messages/tests/test_ada_sala_privada_studio_v1.py": "276fb9e7b0c0de3a938fbd4102a2da4fffd49db39219545abdf57d999b55a9f5"
   },
   "re_verificacion_revisor": {
     "revisor": "JARVIS",
@@ -217,5 +217,21 @@
     "archivos_cuyos_bytes_cambiaron": [
       "messages/chat_server.py"
     ]
-  }
+  },
+  "revalidaciones_del_revisor": [
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T11:52:08Z",
+      "sujetos_movidos": [
+        "messages/chat_server.py"
+      ],
+      "arena": "/tmp/jarvis-refirma-9w7_llao",
+      "control_sin_mutar": "rc=0",
+      "mutantes_recorridos": [
+        "m1-default-vuelve-a-equipo",
+        "m6-to-explicito-ignorado"
+      ],
+      "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"
+    }
+  ]
 }

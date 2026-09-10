@@ -101,7 +101,7 @@
     }
   ],
   "file_sha256": {
-    "messages/chat_server.py": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
+    "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
     "tests/test_nexus_private_flag_gates_reads_v1.py": "0b95aaf1b4a3a3a480f19fa93c7886e2968086a7c82796e002ed2f0b0ca443f8"
   },
   "_re_verificacion": "2026-09-08T20:05:00Z JARVIS: chat_server.py actualizado a SHA 4e00ae6f tras cambios sala-privada ADA. Mutantes no re-corridos — subjects propios no cambiaron; solo el SHA del sujeto compartido es stale.",
@@ -119,5 +119,22 @@
       "messages/chat_server.py"
     ],
     "limite_declarado": "Se verifico que la evidencia del owner SIGUE SIENDO VALIDA sobre los bytes actuales. No se agregaron mutantes nuevos ni se rehizo el analisis de diseno."
-  }
+  },
+  "revalidaciones_del_revisor": [
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T11:51:54Z",
+      "sujetos_movidos": [
+        "messages/chat_server.py"
+      ],
+      "arena": "/tmp/jarvis-refirma-2cgwm6db",
+      "control_sin_mutar": "rc=0",
+      "mutantes_recorridos": [
+        "canal-desconocido-nace-abierto",
+        "todo-es-publico",
+        "la-bandera-no-entra-en-auth"
+      ],
+      "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"
+    }
+  ]
 }

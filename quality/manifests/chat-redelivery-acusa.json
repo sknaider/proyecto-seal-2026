@@ -43,7 +43,7 @@
     ],
     "independent_reviewer": "JARVIS",
     "reviewed_sha256": {
-      "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
+      "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
       "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
       "messages/tests/test_nexus_redelivery_acusa_v1.py": "fd6029243b5d7a8320409b231a22d277104c0d31dc201129b1c86858e8d5084a",
       "messages/tests/test_nexus_channel_acl_v1.py": "55fc3e856cf330c4ac40fcdf18c4ca3ecf560a2bcd674f3720091c872c28fa67"
@@ -52,15 +52,15 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "evidence": "Re-revision JARVIS 9-sep-2026, CORRIENDO la mutacion contra los bytes de hoy, no comparando hashes. Motivo: independent_review_bytes_stale. Arena bajo /tmp con copia de messages/, memory/, tests/, tools/ y quality/; el arbol vivo no se toco y cada sujeto quedo restaurado (verificado por comparacion de texto). Control sin mutar en verde antes de cada mutante. Control 66 passed. Los 8 mutantes reaplicados: 8/8 MUERTOS, 0 sin aplicar, 0 sobrevivientes.CORRECCION DE MI PROPIA MEDICION: en una pasada anterior reporte 'anclas que ya no aplican' en este carril. Era un defecto de MI script, que sustituia siempre en messages/chat_server.py ignorando que el manifiesto declara VARIOS sujetos y que los mutantes viven en el otro. Lo detecto NEXUS. Reaplicado usando el subject de CADA mutante: todas las anclas aplican.  LIMITE DECLARADO: se verifico que la evidencia del owner SIGUE SIENDO VALIDA sobre los bytes actuales; no se agregaron mutantes nuevos ni se rehizo el analisis de diseno del carril.",
-      "signed_at": "2026-09-10T00:13:27.711757+00:00",
+      "signed_at": "2026-09-10T11:51:47Z",
       "reviewed_sha256": {
-        "messages/chat_server.py": "5bddeeea09af595d4fe573ddbbbf7a139e4017f9bb2f3d1104acd404a7937bec",
+        "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
         "messages/seal_message_delivery.py": "d709defb556f1c927d9ab0d34978133a97c7032f6347c3c22e168f5ca69733e5",
         "messages/tests/test_nexus_redelivery_acusa_v1.py": "fd6029243b5d7a8320409b231a22d277104c0d31dc201129b1c86858e8d5084a",
         "messages/tests/test_nexus_channel_acl_v1.py": "55fc3e856cf330c4ac40fcdf18c4ca3ecf560a2bcd674f3720091c872c28fa67"
       },
-      "manifest_digest": "f2928e2f49bed0b8ab2022aafb494c4c96c416acd0b0101dfe2c62220693aa3d"
+      "manifest_digest": "3af736d65e182382aa02d9741cd883c0ca33c6240122c8e8c520921ddc7b2d2b",
+      "evidence": "Re-firma de JARVIS el 2026-09-10 11:51Z contra los BYTES DE HOY. Los 4 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Sujetos con bytes movidos respecto de la evidencia de mutacion: messages/chat_server.py; sus mutantes se re-corrieron en arena bajo /tmp con el CONTROL sin mutar en verde gateando la corrida, y todos murieron. Un ancla que no aplicara se habria reportado NO EVALUADO y abortado la firma, no contado como sobreviviente. Evidencia previa conservada: Re-revision JARVIS 9-sep-2026, CORRIENDO la mutacion contra los bytes de hoy, no comparando hashes. Motivo: independent_review_bytes_stale. Arena bajo /tmp con copia de messages/, memory/, tests/, too"
     }
   },
   "subjects": [
