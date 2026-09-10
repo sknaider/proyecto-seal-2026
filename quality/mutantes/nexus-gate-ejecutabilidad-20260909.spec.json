@@ -1,0 +1,51 @@
+{
+  "schema": "seal.mutation-spec.v1",
+  "change_id": "nexus-gate-ejecutabilidad-20260909",
+  "subject": "quality_gate/gate.py",
+  "tests": "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py",
+  "_como_correr": "Copia FRESCA del sujeto antes de CADA mutante; anclas contadas con python.",
+  "mutants": [
+    {
+      "id": "M1-resolver-inerte",
+      "anchor": "    if filas and filas[0] in _INTERPRETES_PELADOS:",
+      "replacement": "    if False:",
+      "esperado": "MUERTO (2)"
+    },
+    {
+      "id": "M2-pisa-rutas-explicitas",
+      "anchor": "    if filas and filas[0] in _INTERPRETES_PELADOS:",
+      "replacement": "    if filas:",
+      "esperado": "MUERTO (2)"
+    },
+    {
+      "id": "M3-reporta-el-argv-viejo",
+      "anchor": "            command_id=command_id, kind=kind, argv=argv_real, expected_exit=expected,",
+      "replacement": "            command_id=command_id, kind=kind, argv=list(argv), expected_exit=expected,",
+      "esperado": "MUERTO (1)"
+    },
+    {
+      "id": "M4-archivos-van-a-source",
+      "anchor": "            selector.append(f\"--include={','.join(archivos_py)}\")",
+      "replacement": "            selector.append(f\"--source={','.join(archivos_py)}\")",
+      "esperado": "MUERTO (4)"
+    },
+    {
+      "id": "M5-escape-con-un-sh",
+      "anchor": "        if not directorios and not archivos_py:",
+      "replacement": "        if no_python:",
+      "esperado": "MUERTO (1)"
+    },
+    {
+      "id": "M6-no-aplica-finge-100",
+      "anchor": "            return {\"percent\": 0.0, \"covered_lines\": 0, \"num_statements\": 0,",
+      "replacement": "            return {\"percent\": 100.0, \"covered_lines\": 0, \"num_statements\": 0,",
+      "esperado": "MUERTO (1)"
+    },
+    {
+      "id": "M7-json-sin-include",
+      "anchor": "             *[a for a in selector if a.startswith(\"--include=\")],",
+      "replacement": "             *[],",
+      "esperado": "MUERTO (1) — SOBREVIVIA antes de endurecer el brazo del caso mixto; NO es equivalente, medido"
+    }
+  ]
+}

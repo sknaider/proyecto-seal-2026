@@ -101,3 +101,32 @@ def test_control_el_guardian_esta_VIVO_en_el_subproceso():
     )
     assert p.returncode == 0, f"el hook fallo: {p.stderr[:200]}"
     assert "deny" in (p.stdout or ""), "el hook no denego nada: puede estar crasheando"
+
+
+def test_control_el_caso_del_heredoc_SI_ejerce_el_defecto():
+    """Anti-vacuidad del brazo negativo, repuesto el 9-sep tras un renombre.
+
+    QUE LO GENERA. El manifiesto declaraba un comando apuntando a
+    `test_control_el_patron_del_heredoc_SI_ejerce_el_defecto`, un brazo que ya no
+    existe con ese nombre. JARVIS lo destapo al EJECUTAR los comandos (rc=4, "no
+    tests ran"), no al leer el manifiesto. Revisado por mi como owner:
+
+      el qa_negative viejo   -> subsumido y AMPLIADO por
+                                test_qa_negative_el_patron_dentro_de_un_literal_NO_se_bloquea,
+                                cuyo primer caso ES «citar el patron en un aviso»
+      este control           -> NO estaba cubierto. El control que quedo
+                                (`no_vacuo_el_arnes_distingue`) ejerce el patron
+                                EJECUTABLE, no el del heredoc.
+
+    QUE PRUEBA. Que el caso del heredoc no pasa por ser inofensivo: el texto
+    peligroso ESTA ahi dentro. Sin esto, «el heredoc se permite» podria ser cierto
+    simplemente porque el comando no contiene nada que valga la pena bloquear, y
+    el brazo negativo seria verde sin ejercer el defecto.
+    """
+    heredoc = "cat <<'EOF' > a.md\n" + f"ojo con {D} en produccion\n" + "EOF"
+    assert D in heredoc, "el caso no lleva el patron: el negativo seria vacuo"
+    assert decide(heredoc) == "permite", "citar dentro de un literal no se bloquea"
+    # y el control que le da sentido: el MISMO patron, ejecutable, SI se deniega
+    assert decide(f"psql -c \"{D} memories\"") == "deniega", (
+        "si esto se permitiera, el 'permite' del heredoc no probaria nada: "
+        "el guardian estaria permitiendo el patron en cualquier posicion")
