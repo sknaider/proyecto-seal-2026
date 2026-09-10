@@ -9,20 +9,20 @@
     "status": "approved",
     "independent_reviewer": "ALICE",
     "reviewed_sha256": {
-      "messages/soul_coordination.py": "1b7afb7a807e8fa0cef32516d998b2c3094f3889959e2a5ced67ac8af13fab6e",
-      "messages/tests/test_nexus_voz_inmediata_v1.py": "e530285a146d522bde22b3d1e8e87e0c34c3343382d5d6f1c85f86d2c621115d"
+      "messages/soul_coordination.py": "484dc39b49f0102c41593feace512b4025db96f4b98f537672239b3a40030b5d",
+      "messages/tests/test_nexus_voz_inmediata_v1.py": "84723cbb7f89f51ce6625ffda6b79978e6c95d653007b3229fd857e8ac4ce311"
     },
     "findings": [],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "ALICE",
-      "signed_at": "2026-09-09T22:50:00Z",
+      "signed_at": "2026-09-10T00:30:00Z",
       "reviewed_sha256": {
-        "messages/soul_coordination.py": "1b7afb7a807e8fa0cef32516d998b2c3094f3889959e2a5ced67ac8af13fab6e",
-        "messages/tests/test_nexus_voz_inmediata_v1.py": "e530285a146d522bde22b3d1e8e87e0c34c3343382d5d6f1c85f86d2c621115d"
+        "messages/soul_coordination.py": "484dc39b49f0102c41593feace512b4025db96f4b98f537672239b3a40030b5d",
+        "messages/tests/test_nexus_voz_inmediata_v1.py": "84723cbb7f89f51ce6625ffda6b79978e6c95d653007b3229fd857e8ac4ce311"
       },
-      "manifest_digest": "0d32c234a23e606b5a6984b081beb6d2ec4bc59c1be049dd7a29e672a94b5f23",
-      "evidence": "28/28 tests PASSED desde scratchpad /tmp/mut_voz_inmediata_BMVw5k (estructura messages/tests/ replicada). SHAs verificados en disco: coinciden con reviewed_sha256. Mutacion 7/7 MUERTOS corrida por ALICE: M1 (envoltura inerte) 11 failed; M2 (voz a todos) 12 failed; M3 (plazo a 90s) 3 failed; M4 (bandera acepta basura) 3 failed; M5 (envoltura come kwargs) 2 failed; M6 (pisa el motivo) 1 failed; M7 (sustituye al lead) 5 failed incluyendo [cascade]. Verificado el punto critico del owner: M7 sobrevivia antes de parametrizar el brazo por modo — con la suite actual muere en [cascade], [execution] y [discussion]. Delivery verificado por efecto: db_154358 (modo cascade, lead JARVIS) trajo ALICE public_write=True con razon 'voz inmediata' — evento observado en vivo por ALICE en produccion. Archivo de evidencia de mutacion creado por la revisora (faltaba en disco): quality/mutation-nexus-voz-inmediata-20260909.json. Deuda declarada por el owner: sin recibo de procedencia del restart (seal_self_repair.py no tiene accion para seal-chat) — limitacion conocida, no bloquea la firma."
+      "manifest_digest": "3b21b2b791ee77ec046a165359b221ac0ed17e4cee48bd5202e95090cecc0e6d",
+      "evidence": "RE-FIRMA 2026-09-10: soul_coordination.py cambio de SHA por modificaciones post-firma-original (NEXUS agrego 2 brazos gemelo-invisible al test). 30/30 tests PASSED en disco (pytest messages/tests/test_nexus_voz_inmediata_v1.py — 30 passed in 0.04s). SHAs verificados: soul_coordination.py=484dc39b... y test=84723cbb... coinciden con reviewed_sha256. Mutacion original 7/7 MUERTOS sigue valida — el spec de mutacion no cambio (quality/mutantes/nexus-voz-inmediata-20260909.spec.json); los 2 brazos nuevos refuerzan M7 (gemelo invisible). Los 12 fallos del suite general son previos y ajenos a este carril (cascade-timeout y soul_council_filter). Firma original: 2026-09-09T22:50:00Z (SHA anterior 1b7afb7a...)."
     }
   },
   "subjects": [

@@ -48,6 +48,12 @@ def _install_council(monkeypatch, *, prior_ret, capture):
         build_assignments=lambda *a, **k: [{"agent": "JARVIS", "role": "lead", "public_write": True}],
         SoulCoordinationStore=lambda pool: _FakeStore(pool, prior_ret),
         LEAD_STICKINESS_WINDOW_S=90,
+        # El handler pasa `voz_inmediata_flag=_council._VOZ_INMEDIATA_PATH` desde el
+        # 9-sep (NEXUS): el doble tiene que declararlo o el wiring revienta con
+        # AttributeError antes de llegar a lo que este brazo mide. Se apunta a una
+        # ruta INEXISTENTE a proposito: asi el doble no lee la bandera de produccion
+        # y el test no depende del estado real del sistema.
+        _VOZ_INMEDIATA_PATH="/nonexistent/.voz_inmediata",
     )
     monkeypatch.setattr(chat_server, "_council", fake)
     monkeypatch.setattr(chat_server, "_coordination_mode", lambda: "ENFORCE")

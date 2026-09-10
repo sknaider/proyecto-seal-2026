@@ -88,11 +88,44 @@ def cascade_order(flag_path: str | None = None) -> tuple[str, ...]:
 # deja fuera a 3 de 4 en sus respuestas lentas.  Por eso cada salto se REGISTRA
 # (cascade_state="skipped_timeout"): sin el conteo no se puede decidir si 90 s
 # es poco, y el número es lo único que permite subirlo con criterio.
-CASCADE_TURN_TIMEOUT_S: float = 90.0
+CASCADE_TURN_TIMEOUT_S: float = 60.0
+# 9-sep-2026, William, textual: «60 segundos como maximo». Bajado de 90 a 60.
+# El comentario de arriba conserva la orden del 2-sep porque explica POR QUE
+# existe el timeout; lo que cambio hoy es el numero, no el motivo.
 
 # Fail-closed: sin el archivo de control, el comportamiento es el de SIEMPRE
 # (discussion).  Un archivo ausente NUNCA debe estrenar un modo nuevo sobre el
 # coordinador de los cinco.
+_VOZ_INMEDIATA_PATH = "/home/dadito/IA/proyecto-seal/messages/.voz_inmediata"
+
+
+def voz_inmediata(flag_path: str | None = None) -> str | None:
+    """Agente con voz permanente: contesta SIEMPRE, sin esperar turno.
+
+    William, 9-sep-2026: «sabes que la app de claude responde al momento, quiero
+    igual las respuestas de esa manera o un agente designado, me gustaria que sea
+    alice».
+
+    El turno unico nacio para que cinco partes tecnicos iguales no lo ahogaran, y
+    ese problema sigue siendo real: por eso NO se apaga el coordinador. Lo que se
+    hace es sacar a UN agente de la cola, igual que ya estaban exentos el saludo y
+    el afecto (regla suya del 31-jul). Los otros cuatro siguen con turno unico y
+    solo salen si tienen algo que la voz inmediata no cubrio.
+
+    Fail-closed y sin recompilar: el archivo ausente deja el comportamiento de
+    SIEMPRE, y cambiar quien responde es escribir otro nombre adentro. Un archivo
+    ausente NUNCA debe estrenar un comportamiento nuevo sobre el coordinador.
+    """
+    import pathlib          # import local, mismo idioma que ada_cascade_ready
+    try:
+        nombre = pathlib.Path(flag_path or _VOZ_INMEDIATA_PATH).read_text(
+            encoding="utf-8").strip().upper()
+    except Exception:
+        return None
+    # Un archivo vacio o con basura no habilita a nadie: exige un nombre limpio.
+    return nombre if nombre.isalpha() else None
+
+
 _CASCADE_FLAG_PATH = "/home/dadito/IA/proyecto-seal/messages/.cascade_mode"
 
 
@@ -527,6 +560,58 @@ def choose_lead(
 
 
 def build_assignments(
+    mode: str,
+    lead: str,
+    *,
+    voz_inmediata_flag: str | None = None,
+    **kwargs: Any,
+) -> list[dict[str, Any]]:
+    """Assignments del turno, mas la voz inmediata si hay una designada.
+
+    Es una ENVOLTURA a proposito. El cuerpo (`_assignments_del_turno`) tiene seis
+    `return` distintos —uno por modo— y editarlos de a uno era la forma segura de
+    olvidarse de alguno: el modo olvidado seguiria haciendo esperar a William y
+    nadie lo notaria, porque el sintoma es silencio. Aca la regla se aplica una
+    sola vez, sobre lo que haya devuelto cualquier modo.
+    """
+    filas = _assignments_del_turno(mode, lead, **kwargs)
+    # LA CONFIGURACION NO SE LEE ACA. `voz_inmediata_flag` es una RUTA explicita y
+    # `None` significa «no hay designado», NO «andá a buscarlo al disco».
+    #
+    # POR QUE (NEXUS, 9-sep-2026, lo destapo ADA): la primera version leia la
+    # bandera de produccion por defecto, asi que `build_assignments` dejaba de ser
+    # una funcion pura y pasaba a depender de un archivo del repo. Resultado: TRES
+    # tests de `coordinator-cutover` que llaman sin bandera —y que codifican «solo
+    # el lead publica»— se pusieron rojos, porque veian la ALICE de produccion.
+    # Yo habia afirmado «sin regresion» midiendo la suite EQUIVOCADA
+    # (test_soul_council_filter.py en vez de test_soul_coordination.py).
+    #
+    # Quien resuelve la configuracion es el SERVIDOR, que es quien vive en
+    # produccion; la logica del turno se queda pura y testeable.
+    designado = voz_inmediata(voz_inmediata_flag) if voz_inmediata_flag else None
+    if not designado:
+        return filas
+    for fila in filas:
+        if str(fila.get("agent") or "").upper() == designado:
+            # Ya tenia la voz por su turno: no se toca el motivo, que dice por que.
+            if fila.get("public_write") is not True:
+                fila["public_write"] = True
+                fila["voz_inmediata"] = True
+                fila["reason"] = (
+                    f"voz inmediata: {designado} contesta sin esperar turno "
+                    "(William, 9-sep) — el turno unico sigue rigiendo para el resto"
+                )
+            return filas
+    # No estaba en las filas (p. ej. fuera de la cadena de cascada): se la agrega.
+    filas.append({
+        "agent": designado, "role": "speaker", "public_write": True,
+        "voz_inmediata": True,
+        "reason": f"voz inmediata: {designado} contesta sin esperar turno (William, 9-sep)",
+    })
+    return filas
+
+
+def _assignments_del_turno(
     mode: str,
     lead: str,
     *,

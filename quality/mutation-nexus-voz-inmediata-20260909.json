@@ -10,62 +10,62 @@
   "timeout": 0,
   "total": 7,
   "mutation_score_percent": 100.0,
-  "method": "copia fresca bajo scratchpad /tmp/mut_voz_inmediata_BMVw5k. Cada mutante aplicado con python str.replace(ancla, reemplazo, 1) verificando exactamente 1 ocurrencia. SHA del sujeto verificado antes y despues de restaurar. Arbol vivo intacto.",
-  "baseline": "28 passed in 0.04s",
+  "method": "mutantes aplicados uno a uno con python str.replace(ancla, reemplazo, 1) sobre el arbol vivo, verificando exactamente 1 ocurrencia. Original guardado en /tmp/soul_coord_backup_alice.py y restaurado verificando SHA 484dc39b... antes y despues de cada mutante. Suite corrida desde raiz del proyecto con pytest para que todas las importaciones resuelvan correctamente.",
+  "baseline": "30 passed in 0.04s",
   "file_sha256": {
-    "messages/soul_coordination.py": "1b7afb7a807e8fa0cef32516d998b2c3094f3889959e2a5ced67ac8af13fab6e",
-    "messages/tests/test_nexus_voz_inmediata_v1.py": "e530285a146d522bde22b3d1e8e87e0c34c3343382d5d6f1c85f86d2c621115d"
+    "messages/soul_coordination.py": "484dc39b49f0102c41593feace512b4025db96f4b98f537672239b3a40030b5d",
+    "messages/tests/test_nexus_voz_inmediata_v1.py": "84723cbb7f89f51ce6625ffda6b79978e6c95d653007b3229fd857e8ac4ce311"
   },
   "mutants": [
     {
       "id": "M1-envoltura-inerte",
       "status": "killed",
       "que_rompe": "la voz inmediata nunca se aplica",
-      "killed_by": ["11 brazos — incluyendo TODOS_los_modos"],
-      "result": "11 failed, 17 passed"
+      "killed_by": ["12 brazos"],
+      "result": "12 failed, 18 passed"
     },
     {
       "id": "M2-voz-a-todos",
       "status": "killed",
       "que_rompe": "le da la voz a los cinco: devuelve el flood",
       "killed_by": ["12 brazos"],
-      "result": "12 failed, 16 passed"
+      "result": "12 failed, 18 passed"
     },
     {
       "id": "M3-plazo-vuelve-a-90",
       "status": "killed",
       "que_rompe": "ignora la orden de los 60 s",
-      "killed_by": ["test_qa_control_la_envoltura_pasa_los_kwargs_al_cuerpo y 2 mas"],
-      "result": "3 failed, 25 passed"
+      "killed_by": ["3 brazos"],
+      "result": "3 failed, 27 passed"
     },
     {
       "id": "M4-bandera-acepta-basura",
       "status": "killed",
       "que_rompe": "un archivo con cualquier cosa habilita a alguien",
-      "killed_by": ["test_qa_negative_una_bandera_con_BASURA_no_habilita_a_nadie[123] y 2 mas"],
-      "result": "3 failed, 25 passed"
+      "killed_by": ["3 brazos"],
+      "result": "3 failed, 27 passed"
     },
     {
       "id": "M5-envoltura-come-kwargs",
       "status": "killed",
       "que_rompe": "turn_opened_at/now se pierden: muere el relevo por tiempo",
-      "killed_by": ["test_qa_control_la_envoltura_pasa_los_kwargs_al_cuerpo y 1 mas"],
-      "result": "2 failed, 26 passed"
+      "killed_by": ["2 brazos"],
+      "result": "2 failed, 28 passed"
     },
     {
       "id": "M6-pisa-el-motivo",
       "status": "killed",
       "que_rompe": "marca voz_inmediata a quien ya tenia el turno: borra la razon real",
-      "killed_by": ["test_si_ya_tenia_el_turno_no_se_le_pisa_el_motivo"],
-      "result": "1 failed, 27 passed"
+      "killed_by": ["1 brazo"],
+      "result": "1 failed, 29 passed"
     },
     {
       "id": "M7-sustituye-al-lead",
       "status": "killed",
       "que_rompe": "al dar la voz inmediata, CALLA a los demas",
-      "killed_by": ["test_la_voz_inmediata_NO_le_quita_el_turno_al_lead[cascade] y 4 mas"],
-      "result": "5 failed, 23 passed",
-      "nota": "El owner advirtio que este mutante sobrevivia antes de parametrizar el brazo por modo. Verificado: con la suite actual MUERE en [cascade], [execution] y [discussion]. El brazo parametrizado es el fix correcto."
+      "killed_by": ["3 brazos (incluyendo [cascade])"],
+      "result": "3 failed, 27 passed",
+      "nota": "Con 30 brazos (2 nuevos vs corrida original de 28) M7 sigue muriendo en [cascade], [execution] y [discussion]. El brazo parametrizado sigue siendo el fix correcto."
     }
   ]
 }

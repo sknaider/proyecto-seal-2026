@@ -184,3 +184,44 @@ def test_si_ya_tenia_el_turno_no_se_le_pisa_el_motivo(bandera):
     fila = next(f for f in filas if f["agent"] == "ALICE")
     assert fila.get("voz_inmediata") is not True
     assert "voz inmediata" not in fila["reason"]
+
+
+def test_REGRESION_build_assignments_NO_lee_configuracion_por_su_cuenta(monkeypatch, tmp_path):
+    """La regresion que introduje y destapo ADA (9-sep).
+
+    Mi primera version leia la bandera de PRODUCCION cuando no le pasaban ruta.
+    `build_assignments` dejaba de ser pura: cualquier test que la llamara sin
+    bandera veia la ALICE real. Tres brazos de `coordinator-cutover` que codifican
+    «solo el lead publica» se pusieron ROJOS, y yo habia afirmado «sin regresion»
+    midiendo la suite EQUIVOCADA (test_soul_council_filter en vez de
+    test_soul_coordination).
+
+    Contrato que fija este brazo: **sin `voz_inmediata_flag` no hay designado**,
+    exista lo que exista en el disco. Quien resuelve la configuracion es el
+    servidor.
+    """
+    # una bandera de "produccion" bien visible: si la funcion la leyera, se nota
+    falsa = tmp_path / ".voz_inmediata"
+    falsa.write_text("ALICE", encoding="utf-8")
+    monkeypatch.setattr(sc, "_VOZ_INMEDIATA_PATH", str(falsa))
+
+    filas = sc.build_assignments("direct", "JARVIS")          # SIN bandera
+    publican = {f["agent"] for f in filas if f.get("public_write") is True}
+    assert publican == {"JARVIS"}, (
+        f"leyo la configuracion sin que se la pidieran: publican {publican}")
+    assert not any(f.get("voz_inmediata") for f in filas)
+
+    # y con la ruta explicita SI la aplica: el control que impide que este brazo
+    # pase por haber roto la funcionalidad entera
+    con = sc.build_assignments("direct", "JARVIS", voz_inmediata_flag=str(falsa))
+    assert {f["agent"] for f in con if f.get("public_write") is True} == {"JARVIS", "ALICE"}
+
+
+def test_el_servidor_SI_pasa_la_ruta_de_la_bandera():
+    """Si el servidor dejara de pasarla, la voz inmediata se apagaria en silencio
+    y ningun brazo de logica lo notaria — el defecto seria invisible salvo para
+    William, esperando."""
+    import pathlib as _p
+    fuente = (_p.Path(__file__).resolve().parents[1] / "chat_server.py").read_text(encoding="utf-8")
+    assert "voz_inmediata_flag=_council._VOZ_INMEDIATA_PATH" in fuente, \
+        "chat_server dejo de pasar la ruta: la voz inmediata queda apagada en produccion"
