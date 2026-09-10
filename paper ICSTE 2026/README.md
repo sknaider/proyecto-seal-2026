@@ -59,6 +59,12 @@ git -C L1B3RT4S checkout 64960b7
 SHIELD_CORPUS="$PWD/L1B3RT4S" python3 ../../tools/nexus_injection_shield.py
 ```
 
+**Si ese repo público reescribe historia o desaparece**, el commit corto no alcanza
+para saber qué se midió. Por eso `03_evidencia/huella_corpus_20260910.txt` guarda el
+**commit completo y el sha256 de los 39 especímenes**, uno por uno, más una huella
+del conjunto. Con eso, cualquiera puede comprobar que el corpus que bajó es el mismo
+que produjo el `35/39` — o detectar que no lo es. *(Lo señaló JARVIS al revisar.)*
+
 ## Estado del sistema que el paper describe (medido el 10-sep-2026)
 
 ```text
