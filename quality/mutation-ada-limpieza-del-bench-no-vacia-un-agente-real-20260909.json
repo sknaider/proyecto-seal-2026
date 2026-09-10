@@ -1,0 +1,204 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "ada-limpieza-del-bench-no-vacia-un-agente-real-20260909",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 7,
+  "survived": 0,
+  "total": 7,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "..........................                                               [100%]\n26 passed in 3.84s",
+    "sha_sujetos_antes": {
+      "memory/seal_bench.py": "242ed9c3ebb42bfa4c6d191023b6e3a5322187e5613e92fb80b4453d203ebe4e"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "m1-el-candado-deja-pasar-cualquier-nombre",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    if nombre not in _AGENTES_DE_BENCH:",
+      "reemplazo": "    if False:",
+      "why": "EL DEFECTO ORIGINAL: la limpieza vuelve a aceptar cualquier nombre. Es el estado exacto en que un nombre mal configurado ejecuta DELETE FROM memories WHERE agent = 'ADA' al final de cada corrida, en el camino feliz y en silencio.",
+      "registro": {
+        "subject": "memory/seal_bench.py",
+        "ancla": "    if nombre not in _AGENTES_DE_BENCH:",
+        "reemplazo": "    if False:",
+        "ancla_sha256": "6073930b8de2048433e407a47ee182267fa4215a8a479ce9f7852a651a7772c6",
+        "sujeto_sha256_antes": "242ed9c3ebb42bfa4c6d191023b6e3a5322187e5613e92fb80b4453d203ebe4e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta[SENUELO_QUE_NO_ES_BENCH]",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta[AGENTE_INVENTADO_PARA_ESTE_TEST]",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta[BENCH_ALPHA_EXTRA]",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta[bench_alpha]",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta[]",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta[",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_none_levanta",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_con_un_nombre_señuelo_NO_se_emite_un_solo_DELETE",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_tampoco_si_el_nombre_malo_es_el_SEGUNDO",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_el_candado_NO_se_lo_traga_el_except_de_la_limpieza_vectorial"
+      ],
+      "pytest_tail": "FAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta[\nFAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_none_levanta\nFAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_con_un_nombre_señuelo_NO_se_emite_un_solo_DELETE\nFAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_tampoco_si_el_nombre_malo_es_el_SEGUNDO\nFAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_el_candado_NO_se_lo_traga_el_except_de_la_limpieza_vectorial\n10 failed, 16 passed in 4.01s\n[20 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m2-la-lista-cerrada-se-afloja-a-un-prefijo",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    if nombre not in _AGENTES_DE_BENCH:",
+      "reemplazo": "    if not nombre.startswith(\"BENCH\"):",
+      "why": "Parece una simplificacion razonable —«todos los de bench empiezan con BENCH»— y abre la puerta a cualquier nombre nuevo que empiece igual, sin que nadie lo haya declarado. Una lista cerrada y un prefijo se leen parecido y no protegen lo mismo.",
+      "registro": {
+        "subject": "memory/seal_bench.py",
+        "ancla": "    if nombre not in _AGENTES_DE_BENCH:",
+        "reemplazo": "    if not nombre.startswith(\"BENCH\"):",
+        "ancla_sha256": "6073930b8de2048433e407a47ee182267fa4215a8a479ce9f7852a651a7772c6",
+        "sujeto_sha256_antes": "242ed9c3ebb42bfa4c6d191023b6e3a5322187e5613e92fb80b4453d203ebe4e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta[BENCH_ALPHA_EXTRA]"
+      ],
+      "pytest_tail": "..........F...............                                               [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta[BENCH_ALPHA_EXTRA]\n1 failed, 25 passed in 4.27s\n[8 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m3-el-candado-se-vuelve-insensible-a-mayusculas",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    nombre = (agent or \"\").strip()",
+      "reemplazo": "    nombre = (agent or \"\").strip().upper()",
+      "why": "Otro aflojamiento que parece amable: acepta 'bench_alpha'. Pero el nombre del agente es una clave, no un texto para humanos, y aceptar variantes convierte un error de configuracion en una corrida que borra bajo otro nombre.",
+      "registro": {
+        "subject": "memory/seal_bench.py",
+        "ancla": "    nombre = (agent or \"\").strip()",
+        "reemplazo": "    nombre = (agent or \"\").strip().upper()",
+        "ancla_sha256": "eae491d00cef8bbe7377b0e680fac976a65ad8290e8f67251005d3b9bb454e03",
+        "sujeto_sha256_antes": "242ed9c3ebb42bfa4c6d191023b6e3a5322187e5613e92fb80b4453d203ebe4e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta[bench_alpha]"
+      ],
+      "pytest_tail": "...........F..............                                               [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta[bench_alpha]\n1 failed, 25 passed in 4.09s\n[10 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m4-los-espacios-rompen-una-corrida-legitima",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    nombre = (agent or \"\").strip()",
+      "reemplazo": "    nombre = (agent or \"\")",
+      "why": "El mutante en la direccion CONTRARIA, y hace falta: sin el, un candado que rechazara TODO pasaria los brazos negativos. Este falla el caso legitimo con espacios alrededor, o sea prueba que el validador todavia distingue en vez de negar siempre.",
+      "registro": {
+        "subject": "memory/seal_bench.py",
+        "ancla": "    nombre = (agent or \"\").strip()",
+        "reemplazo": "    nombre = (agent or \"\")",
+        "ancla_sha256": "eae491d00cef8bbe7377b0e680fac976a65ad8290e8f67251005d3b9bb454e03",
+        "sujeto_sha256_antes": "242ed9c3ebb42bfa4c6d191023b6e3a5322187e5613e92fb80b4453d203ebe4e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_positive_los_espacios_alrededor_no_rompen_una_corrida_legitima"
+      ],
+      "pytest_tail": "......F...................                                               [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_positive_los_espacios_alrededor_no_rompen_una_corrida_legitima\n1 failed, 25 passed in 4.47s\n[23 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m5-el-candado-deja-de-invocarse-antes-de-los-borrados",
+      "subject": "memory/seal_bench.py",
+      "ancla": "        agent = exigir_agente_de_bench(agent)\n        # Orden seguro para las claves foráneas: hijos antes que padres.",
+      "reemplazo": "        # Orden seguro para las claves foráneas: hijos antes que padres.",
+      "why": "El validador queda intacto y perfecto, y nadie lo llama. Es el mutante que sobrevive a una revision que solo mira la funcion de la guarda. SEGURO de correr: los tests sostienen un pool FALSO, asi que ningun DELETE sale de proceso.",
+      "registro": {
+        "subject": "memory/seal_bench.py",
+        "ancla": "        agent = exigir_agente_de_bench(agent)\n        # Orden seguro para las claves foráneas: hijos antes que padres.",
+        "reemplazo": "        # Orden seguro para las claves foráneas: hijos antes que padres.",
+        "ancla_sha256": "3306567272d7dc7b909a60f19f8451e4c6405958adda7a7c16507977c8898cb2",
+        "sujeto_sha256_antes": "242ed9c3ebb42bfa4c6d191023b6e3a5322187e5613e92fb80b4453d203ebe4e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_con_un_nombre_señuelo_NO_se_emite_un_solo_DELETE",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_tampoco_si_el_nombre_malo_es_el_SEGUNDO"
+      ],
+      "pytest_tail": "................FF........                                               [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_con_un_nombre_señuelo_NO_se_emite_un_solo_DELETE\nFAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_tampoco_si_el_nombre_malo_es_el_SEGUNDO\n2 failed, 24 passed in 4.02s\n[22 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m6-el-candado-vuelve-adentro-del-try-que-se-traga-todo",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    nombres = [exigir_agente_de_bench(a) for a in (BENCH_AGENT_A, BENCH_AGENT_B)]",
+      "reemplazo": "    nombres = [a for a in (BENCH_AGENT_A, BENCH_AGENT_B)]",
+      "why": "El candado se saca de delante del try y los nombres pasan sin validar. El `except Exception: pass` que cubre un Qdrant caido se convierte en el que silencia un borrado mal apuntado, y la corrida termina «bien». Lo encontro un test: con el candado adentro, si el cliente fallaba al construirse la validacion ni siquiera llegaba a correr.",
+      "registro": {
+        "subject": "memory/seal_bench.py",
+        "ancla": "    nombres = [exigir_agente_de_bench(a) for a in (BENCH_AGENT_A, BENCH_AGENT_B)]",
+        "reemplazo": "    nombres = [a for a in (BENCH_AGENT_A, BENCH_AGENT_B)]",
+        "ancla_sha256": "82f13283c63a6a70d433988b262db816d47b41d92ca0f76b77f909c205f1d757",
+        "sujeto_sha256_antes": "242ed9c3ebb42bfa4c6d191023b6e3a5322187e5613e92fb80b4453d203ebe4e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_el_candado_NO_se_lo_traga_el_except_de_la_limpieza_vectorial"
+      ],
+      "pytest_tail": "........................F.                                               [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_el_candado_NO_se_lo_traga_el_except_de_la_limpieza_vectorial\n1 failed, 25 passed in 3.85s\n[20 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m7-la-ventana-desaparece-y-vuelve-a-borrar-todo-lo-del-agente",
+      "subject": "memory/seal_bench.py",
+      "ancla": "                    f\"DELETE FROM {tabla} WHERE agent = $1 AND created_at >= $2\",",
+      "reemplazo": "                    f\"DELETE FROM {tabla} WHERE agent = $1 AND created_at >= $2 OR TRUE\",",
+      "why": "El segundo candado anulado por precedencia de operadores, que es como se rompe de verdad y no borrando la clausula. `A AND B OR TRUE` es siempre cierto: la corrida se lleva TODO, tambien lo de corridas anteriores, y el SQL sigue mencionando created_at para quien lo lea por encima.",
+      "registro": {
+        "subject": "memory/seal_bench.py",
+        "ancla": "                    f\"DELETE FROM {tabla} WHERE agent = $1 AND created_at >= $2\",",
+        "reemplazo": "                    f\"DELETE FROM {tabla} WHERE agent = $1 AND created_at >= $2 OR TRUE\",",
+        "ancla_sha256": "f40ef6862fdfacdcd74ad6b226ce4eb3a048e3ec84a8b59fc5083530bf90cf05",
+        "sujeto_sha256_antes": "242ed9c3ebb42bfa4c6d191023b6e3a5322187e5613e92fb80b4453d203ebe4e",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_control_el_SQL_acotado_es_exactamente_el_esperado"
+      ],
+      "pytest_tail": "=================================== FAILURES ===================================\nE\nE\n=========================== short test summary info ============================\nFAILED memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_control_el_SQL_acotado_es_exactamente_el_esperado\n1 failed, 25 passed in 4.03s\n[27 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "memory/seal_bench.py": "242ed9c3ebb42bfa4c6d191023b6e3a5322187e5613e92fb80b4453d203ebe4e",
+    "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py": "575a8b6d717e6b2e120d8daf5b0c4d38287410e2cdb0e04c7e1d29aa56a9af7e"
+  }
+}

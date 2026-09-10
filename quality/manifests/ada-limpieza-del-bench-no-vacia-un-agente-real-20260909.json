@@ -1,0 +1,218 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "ada-limpieza-del-bench-no-vacia-un-agente-real-20260909",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "_doc": [
+    "CONDICIÓN 1 DE JARVIS para autorizar que el benchmark tenga identidad propia en SOUL:",
+    "«primero angostar la limpieza, después crear el agente». Este expediente es esa condición.",
+    "",
+    "EL DEFECTO: la limpieza borraba `WHERE agent = $1` sin más. Inocuo mientras el nombre sea",
+    "sintético —y por eso nadie lo miró en meses—, pero su radio de explosión escrito no era «lo",
+    "que creó esta corrida» sino TODO lo que le pertenece a ese agente:",
+    "",
+    "    DELETE FROM memories WHERE agent = $1     x 6 tablas + Qdrant",
+    "",
+    "La opción que YO había propuesto (que el benchmark escribiera como ADA) habría ejecutado",
+    "`DELETE FROM memories WHERE agent = 'ADA'` al final de cada corrida, en el camino feliz y en",
+    "silencio. Yo la estimé como «ensucia mi memoria con ~55 filas»: estaba mal por varios órdenes",
+    "de magnitud. Lo vio JARVIS porque le avisé que la limpieza borra filas.",
+    "Es la misma familia que el 7-sep: una guarda cuyo alcance era más ancho que su propósito.",
+    "",
+    "DOS CANDADOS:",
+    "  1. el nombre tiene que estar en una lista CERRADA de agentes de benchmark; si no, LEVANTA.",
+    "     No es un prefijo por comodidad y no se saltea en silencio: un borrado que no sabe a quién",
+    "     apunta no se ejecuta.",
+    "  2. sólo se borra lo creado desde que arrancó la corrida, para no llevarse filas de una",
+    "     corrida anterior del mismo agente de test.",
+    "",
+    "QUÉ SE MARCA `# GUARDA-DESTRUCTIVA` Y QUÉ NO — distinción de JARVIS, y es la parte que más",
+    "vale de este expediente. La regla del 7-sep dice que el arnés no muta las guardas destructivas,",
+    "y eso deja viva una pregunta: si no se puede mutar, ¿cómo sabemos que sus tests atraparían una",
+    "guarda rota? La salida es separar dos cosas que la regla trata como una:",
+    "    exigir_agente_de_bench()  DECIDE: compara cadenas y levanta. No recibe pool, no borra.",
+    "                              Mutarla es SEGURO, y es lo único que hace que sus brazos valgan.",
+    "    las líneas con DELETE      BORRAN: mutar ahí no simula el peligro, lo ejecuta. Nunca.",
+    "El 7-sep quemó un home mutando una guarda que BORRABA. Ésta no borra: decide.",
+    "",
+    "TRES COSAS QUE ENCONTRARON LOS TESTS Y LOS MUTANTES, NO UNA REVISIÓN:",
+    "",
+    "  a) Mi propio docstring afirmaba que estos tests «no tocan la base». ERA FALSO: la limpieza",
+    "     de Qdrant vivía dentro de la misma función y los brazos de control abrían una conexión",
+    "     REAL y borraban puntos. Eran puntos de agentes de benchmark, así que el daño fue ninguno,",
+    "     pero la afirmación de seguridad no era cierta. Lo delató un UserWarning de qdrant_client.",
+    "",
+    "  b) El candado de la limpieza vectorial estaba DENTRO del `try` cuyas excepciones se silencian",
+    "     con `except Exception: pass`. Si el cliente fallaba al construirse, la validación de",
+    "     nombres ni siquiera llegaba a ejecutarse y la función terminaba «bien». Una guarda dentro",
+    "     de un bloque cuyas excepciones se tragan no es una guarda. Ahora valida ANTES del try.",
+    "",
+    "  c) Mi brazo de la ventana comprobaba que el SQL CONTUVIERA `created_at >= $2`. El mutante m7",
+    "     le agrega ` OR TRUE`: la condición pasa a ser siempre cierta, se borra todo igual, y el",
+    "     texto sigue mencionando created_at para quien lo lea por encima. Ahora se compara la",
+    "     sentencia ENTERA. Comprobar que un SQL contiene un fragmento no prueba lo que hace.",
+    "",
+    "Y una cuarta, del mismo tipo: el fixture que sustituye la limpieza vectorial estaba tapando",
+    "justo la función que dos brazos querían probar, así que «pasaban» sin ejercer nada. Se captura",
+    "la función real antes de que el fixture la reemplace.",
+    "",
+    "SEGURIDAD DE LOS TESTS: ninguno toca PostgreSQL (pool falso que sólo anota el SQL) ni el índice",
+    "vectorial (doble, y donde se usa la función real la URL apunta a un puerto muerto). Todos los",
+    "nombres son SEÑUELO: ninguno nombra a ADA, JARVIS, ALICE, NEXUS, DUM ni FABLE.",
+    "",
+    "AUTORIZACIÓN: William, 9-sep, «Prioridad real: reparar la evaluación» + «dale a jarvis».",
+    "JARVIS autorizó la identidad y el reinicio del MCP, con esta condición primero. Tarea #1764."
+  ],
+  "subjects": [
+    "memory/seal_bench.py"
+  ],
+  "tests": [
+    "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py"
+  ],
+  "coverage": {
+    "source": [
+      "seal_bench"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300,
+    "_note": [
+      "Umbral 0 declarado, y JARVIS ya marcó con razón que un umbral 0 significa que este brazo NO",
+      "protege nada. Lo dejo igual y lo digo: el sujeto son 1400 líneas de las que el cambio toca",
+      "~120, y un porcentaje global mediría el archivo viejo. La evidencia real son los 7 mutantes."
+    ]
+  },
+  "mutation_evidence": "quality/mutation-ada-limpieza-del-bench-no-vacia-un-agente-real-20260909.json",
+  "mutation_target": "memory/seal_bench.py",
+  "mutation_baseline_percent": 100.0,
+  "review": {
+    "status": "approved",
+    "evidence": [
+      "Pedida a JARVIS el 9-sep, es su condición 1 y él ya revisó la guarda por efecto antes de que",
+      "tuviera brazos (BENCH_ALPHA pasa; SENUELO, BENCH_ALPHA_EXTRA, bench_alpha y vacío levantan).",
+      "Nota para quien firme: en la primera vuelta SOBREVIVIERON m6 y m7, y los dos eran huecos MÍOS",
+      "—uno porque el fixture tapaba la función bajo prueba, otro porque yo comprobaba texto y no",
+      "comportamiento—. Cerrados, segunda vuelta 7/7. El m6 además obligó a mover el candado fuera",
+      "del try, que es un diseño mejor que el que yo había escrito."
+    ],
+    "independent_reviewer": "JARVIS",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "Revision independiente JARVIS, 9-sep-2026. Carril DESTRUCTIVO: revisado con el rigor que eso pide, y EJECUTADO.\nCOMANDOS: 4/4 con el exit esperado (26 / 8 / 11 / 5 passed).\nMUTACION: los 7 mutantes reaplicados contra los bytes de hoy en arena bajo /tmp. Control 26 passed. 7/7 MUERTOS, 0 sobrevivientes, 0 anclas sin aplicar.\n\nLO QUE VERIFIQUE POR SER UN BORRADO, y es lo que distingue este expediente del incidente del 7-sep:\n (1) NOMBRES REALES EN LOS TESTS. El archivo nombra ADA/JARVIS/ALICE/NEXUS/DUM/FABLE/William en test_qa_negative_ningun_agente_real_esta_en_la_lista. NO es una violacion de la regla del 7-sep: ese brazo hace `assert real not in _AGENTES_DE_BENCH`, pertenencia a un conjunto. No invoca nada y no borra nada. El brazo que SI ejercita la limpieza usa el senuelo 'SENUELO_QUE_NO_ES_BENCH' via monkeypatch, y comprueba que se emitan CERO deletes.\n (2) EL POOL ES UN DOBLE. `PoolFalso.execute` anota el SQL y no lo ejecuta; nada llega a PostgreSQL. Por eso el mutante m7, que si toca la linea del borrado, es seguro AQUI. La condicion que lo vuelve seguro es el doble, no una licencia general: con un pool real, mutar esa linea ejecutaria el peligro, que es exactamente lo que paso el 7-sep.\n (3) LA DIVISION QUE PROPUSE SE APLICO BIEN. El validador `exigir_agente_de_bench` DECIDE y se muta (m1 lo anula, m2 lo afloja a prefijo, m3 a mayusculas, m4 rompe el strip); las lineas que BORRAN estan marcadas GUARDA-DESTRUCTIVA. m5 y m6 mutan el punto de INVOCACION —que el candado deje de llamarse, o vuelva adentro del try que traga— sin tocar el DELETE.\n\nREFUTADOR PROPIO, buscando el hueco que sus brazos no cubrieran: la limpieza tiene DOS caminos de borrado, SQL y Qdrant, y la owner solo documento haber arreglado el orden respecto del try. Verifique el de Qdrant: `nombres = [exigir_agente_de_bench(a) for a in (...)]` se calcula ANTES del try y el bucle recorre `nombres` validados, no las constantes crudas. Los dos caminos quedan cubiertos. No encontre hueco.\n\nLIMITE DECLARADO: verifique la guarda y sus brazos con dobles. NO ejecute la limpieza contra PostgreSQL ni Qdrant reales, a proposito: correr un borrado real para comprobar que un borrado esta acotado es la forma de fallo del 7-sep. Un operador puede cerrar ese brazo en un entorno desechable, nunca aqui.",
+      "signed_at": "2026-09-10T03:35:27.149835+00:00",
+      "reviewed_sha256": {
+        "memory/seal_bench.py": "242ed9c3ebb42bfa4c6d191023b6e3a5322187e5613e92fb80b4453d203ebe4e",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py": "575a8b6d717e6b2e120d8daf5b0c4d38287410e2cdb0e04c7e1d29aa56a9af7e"
+      },
+      "manifest_digest": "6d552e89066756eaa66e21f55b6e8914f89f3f548fd867eb9793384e2216a918"
+    }
+  },
+  "commands": [
+    {
+      "id": "unit-la-guarda-y-la-ventana",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py"
+      ]
+    },
+    {
+      "id": "positive-los-agentes-de-bench-declarados-si-pasan",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_positive_los_agentes_de_bench_pasan",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_positive_los_espacios_alrededor_no_rompen_una_corrida_legitima",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_positive_la_lista_cubre_las_tres_generaciones"
+      ]
+    },
+    {
+      "id": "negative-ningun-nombre-ajeno-llega-a-un-DELETE",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_un_nombre_que_no_es_de_bench_levanta",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_none_levanta",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_ningun_agente_real_esta_en_la_lista",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_con_un_nombre_señuelo_NO_se_emite_un_solo_DELETE",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_tampoco_si_el_nombre_malo_es_el_SEGUNDO",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_el_candado_NO_se_lo_traga_el_except_de_la_limpieza_vectorial"
+      ]
+    },
+    {
+      "id": "control-la-limpieza-legitima-sigue-funcionando-y-sigue-acotada",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_control_con_agentes_validos_si_borra",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_control_el_SQL_acotado_es_exactamente_el_esperado",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_control_todas_las_tablas_declaradas_se_limpian",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_control_un_qdrant_caido_NO_rompe_la_corrida",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_control_la_limpieza_vectorial_se_sigue_llamando"
+      ]
+    }
+  ],
+  "delivery": {
+    "status": "verified",
+    "evidence": [
+      "VERIFICADO POR EFECTO, con el pool falso registrando el SQL realmente emitido:",
+      "",
+      "  nombre señuelo  -> LimpiezaFueraDeAlcance y CERO sentencias DELETE emitidas",
+      "  nombre válido   -> 12 DELETE, todos acotados con `created_at >= $2` salvo identity",
+      "                     (no tiene created_at; queda cubierta por el candado del nombre)",
+      "  Qdrant caído    -> la corrida no se rompe; nombre señuelo -> levanta igual",
+      "",
+      "  el benchmark sigue corriendo con la guarda puesta:",
+      "    seal_bench_v3.py --dry-run   score_avg=91.11 passed=8/9, sin críticas",
+      "",
+      "PENDIENTE DECLARADO, y es lo que sigue: esto es la condición 1 de tres. Todavía NO existe la",
+      "identidad propia del benchmark en SOUL (condición 2: que escriba sólo sus propias filas), y",
+      "el `operator-only` de `run` se queda como está (condición 3). Sin esas dos, v3.2 y v4 siguen",
+      "midiendo la copia."
+    ],
+    "command": {
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py::test_qa_negative_con_un_nombre_señuelo_NO_se_emite_un_solo_DELETE"
+      ],
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

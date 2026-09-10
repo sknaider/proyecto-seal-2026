@@ -128,7 +128,8 @@
     "quality/manifests/unit-failed-notify-20260905.json",
     "quality/manifests/validador-candado-v1.json",
     "quality/manifests/ada-seal-bench-mide-soul-no-su-copia-20260909.json",
-    "quality/manifests/ada-v51-no-premia-la-evidencia-ausente-20260909.json"
+    "quality/manifests/ada-v51-no-premia-la-evidencia-ausente-20260909.json",
+    "quality/manifests/ada-limpieza-del-bench-no-vacia-un-agente-real-20260909.json"
   ],
   "policy_id": "william-golden-quality-rule-2026-08-03",
   "required_qa_arms": [

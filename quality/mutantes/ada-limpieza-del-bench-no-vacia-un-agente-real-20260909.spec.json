@@ -1,0 +1,75 @@
+{
+  "change_id": "ada-limpieza-del-bench-no-vacia-un-agente-real-20260909",
+  "reviewer": "JARVIS",
+  "manifest": "quality/manifests/ada-limpieza-del-bench-no-vacia-un-agente-real-20260909.json",
+  "_doc": [
+    "QUE SE MUTA Y QUE NO, siguiendo la distincion de JARVIS del 9-sep-2026:",
+    "  exigir_agente_de_bench() DECIDE (compara cadenas y levanta; no recibe pool, no",
+    "  ejecuta ningun DELETE) -> mutarla es SEGURO, y es lo unico que hace que sus",
+    "  brazos valgan algo.",
+    "  Las lineas `await pool.execute(\"DELETE ...\")` BORRAN -> no se mutan jamas, van",
+    "  marcadas # GUARDA-DESTRUCTIVA. Tampoco se muta _AGENTES_DE_BENCH: corromper esa",
+    "  lista es lo unico catastrofico del bloque.",
+    "  El 7-sep quemamos un home mutando una guarda que BORRABA. Esta no borra: decide.",
+    "",
+    "POR QUE ES SEGURO CORRER ESTOS MUTANTES: los tests usan un pool FALSO que solo",
+    "anota el SQL, una doble para Qdrant, y nombres SEÑUELO que no existen. Ni con el",
+    "validador anulado se ejecuta algo contra un agente real."
+  ],
+  "tests": [
+    [
+      "memory/tests/test_limpieza_del_bench_no_puede_vaciar_un_agente_real_v1.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "m1-el-candado-deja-pasar-cualquier-nombre",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    if nombre not in _AGENTES_DE_BENCH:",
+      "reemplazo": "    if False:",
+      "why": "EL DEFECTO ORIGINAL: la limpieza vuelve a aceptar cualquier nombre. Es el estado exacto en que un nombre mal configurado ejecuta DELETE FROM memories WHERE agent = 'ADA' al final de cada corrida, en el camino feliz y en silencio."
+    },
+    {
+      "id": "m2-la-lista-cerrada-se-afloja-a-un-prefijo",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    if nombre not in _AGENTES_DE_BENCH:",
+      "reemplazo": "    if not nombre.startswith(\"BENCH\"):",
+      "why": "Parece una simplificacion razonable —«todos los de bench empiezan con BENCH»— y abre la puerta a cualquier nombre nuevo que empiece igual, sin que nadie lo haya declarado. Una lista cerrada y un prefijo se leen parecido y no protegen lo mismo."
+    },
+    {
+      "id": "m3-el-candado-se-vuelve-insensible-a-mayusculas",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    nombre = (agent or \"\").strip()",
+      "reemplazo": "    nombre = (agent or \"\").strip().upper()",
+      "why": "Otro aflojamiento que parece amable: acepta 'bench_alpha'. Pero el nombre del agente es una clave, no un texto para humanos, y aceptar variantes convierte un error de configuracion en una corrida que borra bajo otro nombre."
+    },
+    {
+      "id": "m4-los-espacios-rompen-una-corrida-legitima",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    nombre = (agent or \"\").strip()",
+      "reemplazo": "    nombre = (agent or \"\")",
+      "why": "El mutante en la direccion CONTRARIA, y hace falta: sin el, un candado que rechazara TODO pasaria los brazos negativos. Este falla el caso legitimo con espacios alrededor, o sea prueba que el validador todavia distingue en vez de negar siempre."
+    },
+    {
+      "id": "m5-el-candado-deja-de-invocarse-antes-de-los-borrados",
+      "subject": "memory/seal_bench.py",
+      "ancla": "        agent = exigir_agente_de_bench(agent)\n        # Orden seguro para las claves foráneas: hijos antes que padres.",
+      "reemplazo": "        # Orden seguro para las claves foráneas: hijos antes que padres.",
+      "why": "El validador queda intacto y perfecto, y nadie lo llama. Es el mutante que sobrevive a una revision que solo mira la funcion de la guarda. SEGURO de correr: los tests sostienen un pool FALSO, asi que ningun DELETE sale de proceso."
+    },
+    {
+      "id": "m6-el-candado-vuelve-adentro-del-try-que-se-traga-todo",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    nombres = [exigir_agente_de_bench(a) for a in (BENCH_AGENT_A, BENCH_AGENT_B)]",
+      "reemplazo": "    nombres = [a for a in (BENCH_AGENT_A, BENCH_AGENT_B)]",
+      "why": "El candado se saca de delante del try y los nombres pasan sin validar. El `except Exception: pass` que cubre un Qdrant caido se convierte en el que silencia un borrado mal apuntado, y la corrida termina «bien». Lo encontro un test: con el candado adentro, si el cliente fallaba al construirse la validacion ni siquiera llegaba a correr."
+    },
+    {
+      "id": "m7-la-ventana-desaparece-y-vuelve-a-borrar-todo-lo-del-agente",
+      "subject": "memory/seal_bench.py",
+      "ancla": "                    f\"DELETE FROM {tabla} WHERE agent = $1 AND created_at >= $2\",",
+      "reemplazo": "                    f\"DELETE FROM {tabla} WHERE agent = $1 AND created_at >= $2 OR TRUE\",",
+      "why": "El segundo candado anulado por precedencia de operadores, que es como se rompe de verdad y no borrando la clausula. `A AND B OR TRUE` es siempre cierto: la corrida se lleva TODO, tambien lo de corridas anteriores, y el SQL sigue mencionando created_at para quien lo lea por encima."
+    }
+  ]
+}

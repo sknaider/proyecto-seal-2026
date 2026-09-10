@@ -145,8 +145,19 @@ async def _run_test(name: str, category: str, func) -> TestResult:
         )
 
 
+_INICIO_DE_CORRIDA = None
+
+
 async def _setup_bench_identity(pool):
-    """Create bench test agents in identity table if they don't exist."""
+    """Create bench test agents in identity table if they don't exist.
+
+    Anota además el instante en que arranca la corrida: la limpieza sólo borra lo
+    creado desde acá, para no llevarse filas de una corrida anterior del mismo agente
+    de test. Se marca al preparar los agentes porque es lo primero que hace el
+    benchmark; cualquier fila suya es posterior a este punto.
+    """
+    global _INICIO_DE_CORRIDA
+    _INICIO_DE_CORRIDA = datetime.now(timezone.utc)
     for agent in (BENCH_AGENT_A, BENCH_AGENT_B):
         # Ensure agent row exists (identity has FK → agents)
         await pool.execute("""
@@ -168,22 +179,136 @@ async def _setup_bench_identity(pool):
         )
 
 
-async def _cleanup_bench_data(pool):
-    """Remove all bench-specific data after tests."""
+# ── La limpieza del benchmark y su guarda ────────────────────────────────────
+#
+# **Por qué existe esta guarda (ADA, 9-sep-2026; la exigió JARVIS al autorizar que
+# el benchmark tenga identidad propia en SOUL).**
+#
+# Hasta hoy la limpieza borraba `WHERE agent = $1` sin más. Es inocuo mientras el
+# nombre sea sintético, y por eso nadie lo miró en meses. Pero el radio de explosión
+# escrito ahí no es «lo que creó esta corrida»: es **todo lo que le pertenece a ese
+# agente**. Alcanza con que el nombre esté mal —una variable de entorno, un copiar y
+# pegar, un mutante de revisión— para que al final de la corrida, en el camino feliz
+# y en silencio, se ejecute:
+#
+#     DELETE FROM memories WHERE agent = 'ADA'     -> toda la memoria, no 55 filas
+#     DELETE FROM identity WHERE agent = 'ADA'     -> la identidad
+#
+# Es la misma familia que el borrado del home del 7-sep: **una guarda cuyo alcance
+# era más ancho que su propósito.** Ahí también todo funcionó como estaba escrito.
+#
+# Dos candados, y el primero es el que importa:
+#   1. el nombre tiene que estar en la lista de agentes de benchmark. No es un
+#      chequeo de prefijo por comodidad: es una lista cerrada, y ante la duda LEVANTA
+#      en vez de seguir. Un borrado que no sabe a quién apunta no se ejecuta.
+#   2. sólo se borra lo creado DESDE que arrancó la corrida, para que ni siquiera
+#      dentro del agente de test se toquen filas de una corrida anterior.
+#
+# **Qué se marca `# GUARDA-DESTRUCTIVA` y qué NO, que no es lo mismo** (distinción de
+# JARVIS, 9-sep-2026, revisando esta guarda). La regla del 7-sep dice que el arnés no
+# muta las guardas destructivas, y eso deja viva una pregunta: si no se puede mutar,
+# ¿cómo sabemos que sus tests atraparían una guarda rota? La salida es separar dos
+# cosas que la regla trata como una sola:
+#
+#     exigir_agente_de_bench()   DECIDE: compara cadenas y levanta. No recibe pool,
+#                                no ejecuta ningún DELETE. Mutarla es SEGURO —y es lo
+#                                único que hace que sus brazos valgan algo.
+#
+#     el llamador con el DELETE  BORRA: ahí mutar no simula el peligro, lo ejecuta.
+#                                Esas líneas no se mutan jamás.
+#
+# El 7-sep nos quemó mutar una guarda que **borraba**. Ésta no borra: decide. Por eso
+# la marca va sobre los DELETE y sobre la lista de nombres, no sobre el validador.
+# Los tests negativos usan nombres SEÑUELO igual, nunca el de un agente real.
+
+# GUARDA-DESTRUCTIVA — corromper esta lista es lo único catastrófico de este bloque.
+_AGENTES_DE_BENCH = frozenset({
+    "BENCH_ALPHA", "BENCH_BETA",           # seal_bench.py
+    "BENCH_V3_ALPHA", "BENCH_V3_BETA",     # seal_bench_v3.py
+    "BENCH_V4_ALPHA", "BENCH_V4_BETA",     # seal_bench_v4.py
+})
+
+# Tablas con `created_at`, o sea acotables a la ventana de la corrida.
+_TABLAS_DE_BENCH_CON_FECHA = (
+    "instinct_activations",
+    "instincts",
+    "reasoning_traces",
+    "inner_monologue",
+    "memories",
+)
+
+
+class LimpiezaFueraDeAlcance(RuntimeError):
+    """Se pidió borrar datos de algo que no es un agente de benchmark."""
+
+
+def exigir_agente_de_bench(agent: str) -> str:
+    """Devuelve el nombre sólo si es un agente de benchmark declarado; si no, LEVANTA.
+
+    Falla cerrado a propósito y ruidosamente. Saltear la limpieza en silencio dejaría
+    filas colgadas y nadie se enteraría; levantar deja el problema a la vista con el
+    nombre exacto que lo causó.
+    """
+    nombre = (agent or "").strip()
+    if nombre not in _AGENTES_DE_BENCH:
+        raise LimpiezaFueraDeAlcance(
+            f"la limpieza del benchmark sólo puede borrar agentes de benchmark; "
+            f"recibió {nombre!r}. Si es un agente nuevo del bench, agregalo a "
+            f"_AGENTES_DE_BENCH; si es un agente real, esto acaba de evitar que se "
+            f"borrara su memoria entera."
+        )
+    return nombre
+
+
+async def _cleanup_bench_data(pool, desde=None):
+    """Borra lo que creó ESTA corrida, y sólo de agentes de benchmark.
+
+    `desde` es el instante en que arrancó la corrida. Si no se pasa, se usa el que
+    `_setup_bench_identity` anotó al preparar los agentes — así los dos llamadores
+    (v1 y v2) quedan acotados sin cambiar sus firmas. Si tampoco hay eso, se conserva
+    el comportamiento anterior, que sigue siendo seguro porque el candado del nombre
+    ya pasó: se borra todo lo del agente de TEST, nunca lo de un agente real.
+    """
+    desde = desde if desde is not None else _INICIO_DE_CORRIDA
     for agent in (BENCH_AGENT_A, BENCH_AGENT_B):
-        # Delete in FK-safe order: children before parents
-        await pool.execute("DELETE FROM instinct_activations WHERE agent = $1", agent)
-        await pool.execute("DELETE FROM instincts WHERE agent = $1", agent)
-        await pool.execute("DELETE FROM reasoning_traces WHERE agent = $1", agent)
-        await pool.execute("DELETE FROM inner_monologue WHERE agent = $1", agent)
-        await pool.execute("DELETE FROM memories WHERE agent = $1", agent)
+        # GUARDA-DESTRUCTIVA — antes de cualquier DELETE, y para los dos nombres.
+        agent = exigir_agente_de_bench(agent)
+        # Orden seguro para las claves foráneas: hijos antes que padres.
+        for tabla in _TABLAS_DE_BENCH_CON_FECHA:
+            if desde is None:
+                await pool.execute(f"DELETE FROM {tabla} WHERE agent = $1", agent)
+            else:
+                await pool.execute(
+                    f"DELETE FROM {tabla} WHERE agent = $1 AND created_at >= $2",
+                    agent, desde,
+                )
+        # `identity` no tiene `created_at` y es una fila por agente, creada por
+        # _setup_bench_identity. Queda cubierta por el candado del nombre.
         await pool.execute("DELETE FROM identity WHERE agent = $1", agent)
-    # Clean Qdrant
+    await _limpiar_qdrant_de_bench()
+
+
+async def _limpiar_qdrant_de_bench():
+    """La mitad vectorial de la limpieza, aparte para poder no ejecutarla en un test.
+
+    Estaba metida dentro de `_cleanup_bench_data`, y por eso un test que sólo quería
+    ver qué SQL se emitía **abría igual una conexión real a Qdrant y borraba puntos**.
+    Los borrados eran de agentes de benchmark, así que el daño fue ninguno; el
+    problema es que yo había escrito en ese test que no tocaba nada, y era falso. Lo
+    delató un `UserWarning` de `qdrant_client`, no una revisión.
+    """
+    # El candado va ANTES del `try`, y esto lo encontró un test, no una revisión.
+    # Estaba adentro, y el `except Exception: pass` —que existe para que un Qdrant
+    # caído no rompa la corrida— se comía todo lo que pasara ahí dentro. Peor: si el
+    # cliente fallaba al construirse, la validación de nombres **ni siquiera llegaba a
+    # ejecutarse** y la función terminaba «bien». Una guarda dentro de un bloque cuyas
+    # excepciones se silencian no es una guarda.
+    nombres = [exigir_agente_de_bench(a) for a in (BENCH_AGENT_A, BENCH_AGENT_B)]
     try:
         from qdrant_client import AsyncQdrantClient
         from qdrant_client.models import Filter, FieldCondition, MatchValue
         qdrant = AsyncQdrantClient(url=settings.qdrant_url)
-        for agent in (BENCH_AGENT_A, BENCH_AGENT_B):
+        for agent in nombres:
             await qdrant.delete(
                 collection_name=settings.qdrant_collection,
                 points_selector=Filter(must=[
