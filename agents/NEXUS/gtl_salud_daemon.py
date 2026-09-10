@@ -36,6 +36,11 @@ DECISIONES QUE PARECEN DETALLES Y NO LO SON:
 * **No se afirma que gtl.pe esté caído cuando el sondeo falla desde acá.** DNS que no
   resuelve, red local, proxy: eso es «no puedo saberlo», y se dice así. Confundir
   «está caído» con «dejé de poder verlo» fue el incidente del 28-jul.
+
+  El estado se llama **`NO_MEDIBLE`, y el nombre es de ALICE**: el 10-sep ella escribió
+  un vigía para gtl.pe en paralelo con éste —chocamos, quedó éste— y su script ya
+  distinguía `OK` de `NO_MEDIBLE`. Los dos llegamos por separado a que «no responde» y
+  «no puedo verlo» son cosas distintas; ella le puso la palabra que lo dice en una.
 """
 from __future__ import annotations
 
@@ -96,7 +101,7 @@ def clave_de(incidente: str, cuando: _dt.datetime) -> str:
 def sondear(url: str = DESTINO, timeout: float = 10.0, abrir=None) -> dict:
     """Devuelve {"estado", "codigo", "detalle"}.
 
-    `estado` es uno de: "arriba", "abajo", "no_se_puede_saber".
+    `estado` es uno de: "arriba", "abajo", "NO_MEDIBLE".
     """
     abrir = abrir or urllib.request.urlopen
     try:
@@ -109,7 +114,7 @@ def sondear(url: str = DESTINO, timeout: float = 10.0, abrir=None) -> dict:
         return {"estado": "abajo", "codigo": int(e.code), "detalle": f"HTTP {e.code}"}
     except Exception as e:
         # NO es "gtl.pe esta caido": es "no puedo saberlo desde aca".
-        return {"estado": "no_se_puede_saber", "codigo": None,
+        return {"estado": "NO_MEDIBLE", "codigo": None,
                 "detalle": f"{type(e).__name__}: {e}"}
 
 

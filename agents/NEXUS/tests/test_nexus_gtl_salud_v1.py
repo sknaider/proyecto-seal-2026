@@ -101,7 +101,7 @@ def test_un_error_de_RED_no_afirma_que_el_sitio_este_caido():
     def explota(u, timeout=None):
         raise OSError("Name or service not known")
     r = g.sondear("http://x", abrir=explota)
-    assert r["estado"] == "no_se_puede_saber"
+    assert r["estado"] == "NO_MEDIBLE"   # el nombre es de ALICE (colision del 10-sep)
     assert r["estado"] != "abajo"
 
 
