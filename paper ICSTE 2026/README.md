@@ -22,11 +22,12 @@ que **sí** estaba versionado sobrevivió sin una sola baja.
 01_paper/              el PDF enviado + su texto extraido
 02_construccion/       los .md con que se construyo el paper ENVIADO
   linaje_cbsoft/       OTRO paper (CBSoft, pre-pivot). NO es el borrador — ver su LEEME
+  versiones_previas/   la v9 espanola congelada y la v10 que NO se envio — ver su LEEME
 03_evidencia/          los recibos de reproduccion (el codigo vive en su ruta canonica)
 04_corpus_adversarial/ corpus de terceros, NO versionado (ver abajo)
 ```
 
-`01_paper/SOUL_Core_ICSTE2026.pdf` — sha256
+`01_paper/JK1208_SOUL_Core_Final_Submitted.pdf` — sha256
 `ef66c15760625a7510e4b36604fd74d650e2019ecc1e81c29a0920563757a5f2` · 436.667 bytes ·
 **5 páginas**. **Es la única copia versionada**; la otra con el mismo hash es
 `messages/uploads/`, el almacén del chat, que no se toca porque sirve el adjunto de
