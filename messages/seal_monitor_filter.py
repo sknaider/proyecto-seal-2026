@@ -26,6 +26,8 @@ from datetime import datetime, timezone
 
 MAX_CHARS_WILLIAM = 4000
 MAX_CHARS_OTHER = 1000
+# Todos los humanos conocidos — sus mensajes siempre pasan (mismo trato que William)
+_HUMAN_NAMES_UPPER = {"WILLIAM", "DADITO", "HENRY"}
 MAX_AGE_SECONDS = 300
 RATE_LIMIT_SECONDS = 20
 MIN_CHARS_ACK = 50
@@ -33,6 +35,22 @@ MIN_CHARS_STATUS = 200
 SKIP_TYPES = {"system_alive", "nerves_fire", "heartbeat"}
 ALERT_KEYWORDS = {"error", "alerta", "fallo", "problema", "critico", "crítico", "crash", "muerto", "offline", "fail"}
 
+
+# LA REGLA QUE ESTE FILTRO INYECTA EN CADA EVENTO (NEXUS, 10-sep-2026; lo
+# encontro JARVIS revisando).
+#
+# Decia "curl POST a web_chat". Un agente que la obedecia SIEMPRE fallaba:
+#     POST /api/agents/send con curl crudo -> {"ok":false,"error":"agent_auth_required"}
+# y ademas contradecia al CLAUDE.md del proyecto, que prescribe textualmente
+# NO usar curl crudo contra ese endpoint porque en ENFORCE se rechaza.
+#
+# O sea: el sistema le ordenaba a los cinco agentes, EN CADA MENSAJE DE
+# WILLIAM, hacer justo lo que las reglas prohiben y el servidor rechaza. El
+# error no lo cometia el agente: se lo dictaba el propio monitor.
+#
+# `--message-file` y no heredoc: es la forma por defecto desde el 7-sep,
+# cuando cuatro mensajes salieron con huecos por acentos graves entre
+# comillas dobles. El archivo elimina esa clase de error por construccion.
 
 def filter_line(line: str, agent: str, rate_state: dict) -> str | None:
     line = line.strip()
@@ -102,13 +120,13 @@ def filter_line(line: str, agent: str, rate_state: dict) -> str | None:
     if from_field == agent:
         return None
 
-    # Mensajes de William: siempre pasar (máx 4000 chars)
-    if from_field == "WILLIAM":
+    # Mensajes de humanos (William, Henry, dadito): siempre pasar (máx 4000 chars)
+    if from_field in _HUMAN_NAMES_UPPER:
         for key in ("message", "content"):
             val = d.get(key)
             if isinstance(val, str) and len(val) > MAX_CHARS_WILLIAM:
                 d[key] = val[:MAX_CHARS_WILLIAM] + "[…truncado]"
-        d["_post_rule"] = "⚠️ REGLA: antes de cerrar tu turno → curl POST a web_chat con tu respuesta"
+        d["_post_rule"] = "⚠️ REGLA: antes de cerrar tu turno → scripts/seal_send.py TU_NOMBRE William --message-file RUTA --channel web_chat --in-reply-to <id> --idempotency-key <clave>"
         return _sanitize(json.dumps(d, ensure_ascii=False))
 
     # Para mensajes no-William: verificar destinatario
@@ -145,13 +163,14 @@ def filter_line(line: str, agent: str, rate_state: dict) -> str | None:
                 return None
             rate_state[rate_key] = now
 
-    # Truncar mensajes no-William a 1000 chars
-    for key in ("message", "content"):
-        val = d.get(key)
-        if isinstance(val, str) and len(val) > MAX_CHARS_OTHER:
-            d[key] = val[:MAX_CHARS_OTHER] + "[…truncado]"
+    # DMs van cifrados con Fernet — truncar el ciphertext lo rompe; no truncar.
+    if not canal.lower().startswith("dm:"):
+        for key in ("message", "content"):
+            val = d.get(key)
+            if isinstance(val, str) and len(val) > MAX_CHARS_OTHER:
+                d[key] = val[:MAX_CHARS_OTHER] + "[…truncado]"
 
-    d["_post_rule"] = "⚠️ REGLA: antes de cerrar tu turno → curl POST a web_chat con tu respuesta"
+    d["_post_rule"] = "⚠️ REGLA: antes de cerrar tu turno → scripts/seal_send.py TU_NOMBRE William --message-file RUTA --channel web_chat --in-reply-to <id> --idempotency-key <clave>"
     return _sanitize(json.dumps(d, ensure_ascii=False))
 
 
