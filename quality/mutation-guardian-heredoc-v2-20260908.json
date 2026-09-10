@@ -14,7 +14,7 @@
     "memory/test_pre_tool_hook_identity_transport.py": "70cb79132b98c8164a31f9a11b1cf0ce1cef4fc57dc1b888e4a253400fca8b4a",
     "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f",
     "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
-    "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "9fe5b0a69b0b5a76fe4cd0b9a5753b32cad78ce16df9b270d79ce4fc3a93e3e9"
+    "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "f9b57ccfbbea84cd21331bd2392834d7510bba2c12339242c906f7a7195cfdb8"
   },
   "baseline": "110 passed",
   "mutants": [
@@ -90,6 +90,17 @@
         "memory/pre_tool_hook.py"
       ],
       "arena": "/tmp/jarvis-refirma-4elkrdu2",
+      "control_sin_mutar": "rc=0",
+      "mutantes_recorridos": [],
+      "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"
+    },
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T12:29:48Z",
+      "sujetos_movidos": [
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py"
+      ],
+      "arena": "/tmp/jarvis-refirma-uv7iztyz",
       "control_sin_mutar": "rc=0",
       "mutantes_recorridos": [],
       "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"

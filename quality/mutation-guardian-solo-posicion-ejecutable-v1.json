@@ -13,11 +13,11 @@
   "total": 5,
   "mutation_score_percent": 100.0,
   "file_sha256": {
-    "memory/pre_tool_hook.py": "4f0538a00d6b18398baf7627ad81c99626645ccafcdc963b941130d92d25b764",
+    "memory/pre_tool_hook.py": "230475451a9d27b35b449438a8ed01ea14229589c7e9feea33f99bac344a8502",
     "quality/delivery_guardian_posicion_ejecutable.py": "32074069dc0312525a22cbe46ac369c452ff74a5ec72d1bf244d6005963ea33d",
-    "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "300e8388bfeddeeeed21a092c4a281baa0542bc1ac26f724431b4dba5918688f",
+    "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "f9b57ccfbbea84cd21331bd2392834d7510bba2c12339242c906f7a7195cfdb8",
     "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
-    "memory/test_pre_tool_hook_identity_transport.py": "c03dbc6e050bf9403f6e5c23f409f38118b5759bccdaf4566b99e0c40d7bf81a",
+    "memory/test_pre_tool_hook_identity_transport.py": "70cb79132b98c8164a31f9a11b1cf0ce1cef4fc57dc1b888e4a253400fca8b4a",
     "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f"
   },
   "baseline": {
@@ -29,7 +29,10 @@
       "id": "H1",
       "subject": "memory/pre_tool_hook.py",
       "description": "guarda ausente: heredoc_sin_comillas_con_sustitucion siempre retorna None (reemplaza la condicion con pass)",
-      "killed_by": ["test_heredoc_sin_comillas_con_dolar_parentesis_tambien_se_bloquea", "test_unquoted_heredoc_is_blocked_before_shell_can_expand_text"],
+      "killed_by": [
+        "test_heredoc_sin_comillas_con_dolar_parentesis_tambien_se_bloquea",
+        "test_unquoted_heredoc_is_blocked_before_shell_can_expand_text"
+      ],
       "result": "2 failed, 102 passed",
       "status": "KILLED"
     },
@@ -37,7 +40,9 @@
       "id": "H2",
       "subject": "memory/pre_tool_hook.py",
       "description": "bloquea tambien CON comillas: elimina el 'if m.group(1): continue'",
-      "killed_by": ["test_quoted_heredoc_and_stdin_style_remain_available"],
+      "killed_by": [
+        "test_quoted_heredoc_and_stdin_style_remain_available"
+      ],
       "result": "1 failed, 103 passed",
       "status": "KILLED"
     },
@@ -45,7 +50,9 @@
       "id": "H3",
       "subject": "memory/pre_tool_hook.py",
       "description": "solo mira backtick, no $(): condicion reducida a 'if backtick in cuerpo'",
-      "killed_by": ["test_heredoc_sin_comillas_con_dolar_parentesis_tambien_se_bloquea"],
+      "killed_by": [
+        "test_heredoc_sin_comillas_con_dolar_parentesis_tambien_se_bloquea"
+      ],
       "result": "1 failed, 103 passed",
       "status": "KILLED"
     },
@@ -53,7 +60,9 @@
       "id": "H4",
       "subject": "memory/pre_tool_hook.py",
       "description": "solo mira $(), no backtick: condicion reducida a 'if $() in cuerpo'",
-      "killed_by": ["test_unquoted_heredoc_is_blocked_before_shell_can_expand_text"],
+      "killed_by": [
+        "test_unquoted_heredoc_is_blocked_before_shell_can_expand_text"
+      ],
       "result": "1 failed, 103 passed",
       "status": "KILLED"
     },
@@ -61,9 +70,37 @@
       "id": "H5",
       "subject": "memory/pre_tool_hook.py",
       "description": "bloquea TODO heredoc sin importar el contenido: return tag incondicionalmente",
-      "killed_by": ["test_heredoc_sin_comillas_y_SIN_sustitucion_sigue_permitido"],
+      "killed_by": [
+        "test_heredoc_sin_comillas_y_SIN_sustitucion_sigue_permitido"
+      ],
       "result": "1 failed, 103 passed",
       "status": "KILLED"
+    }
+  ],
+  "revalidaciones_del_revisor": [
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T12:21:03Z",
+      "sujetos_movidos": [
+        "memory/pre_tool_hook.py",
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py",
+        "memory/test_pre_tool_hook_identity_transport.py"
+      ],
+      "arena": "/tmp/jarvis-refirma-pycf2l4d",
+      "control_sin_mutar": "rc=0",
+      "mutantes_recorridos": [],
+      "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"
+    },
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T12:29:58Z",
+      "sujetos_movidos": [
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py"
+      ],
+      "arena": "/tmp/jarvis-refirma-s4ykr8ox",
+      "control_sin_mutar": "rc=0",
+      "mutantes_recorridos": [],
+      "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"
     }
   ]
 }
