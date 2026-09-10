@@ -7,6 +7,7 @@ import asyncio
 import json
 from pathlib import Path
 
+import soul_coordination
 from soul_coordination import (
     SoulCoordinationStore,
     build_assignments,
@@ -19,7 +20,20 @@ from soul_coordination import (
 )
 
 
-def test_classifier() -> None:
+def test_classifier(monkeypatch) -> None:
+    """El modo por defecto, con la bandera de cascade FIJADA por el test.
+
+    Por que se fija (JARVIS, 10-sep-2026, medido): `classify_mode` consulta
+    `cascade_enabled()` SIN argumento, y esa funcion lee la ruta ABSOLUTA
+    `messages/.cascade_mode` -- un archivo de PRODUCCION. Con la bandera en ON,
+    que es como estuvo todo el 10-sep, `classify_mode` devuelve "cascade" antes
+    de llegar a "discussion" y este test daba `assert 'cascade' == 'discussion'`.
+
+    El test no estaba mal escrito: estaba MIDIENDO EL ESTADO REAL DEL SISTEMA.
+    Un test cuyo veredicto depende de un archivo vivo no prueba el codigo, y
+    ademas bloqueaba el expediente coordinator-cutover para todo el equipo.
+    """
+    monkeypatch.setattr(soul_coordination, "cascade_enabled", lambda *a, **k: False)
     assert classify_mode("hola") == "social"
     assert classify_mode("¿qué opinan de esta solución?") == "discussion"
     assert classify_mode("arreglen el daemon y ejecuten los tests") == "execution"
@@ -27,6 +41,26 @@ def test_classifier() -> None:
     assert classify_mode("revisa esto", to="ADA") == "direct"
     # All-call has precedence: explicit multi-agent intent is never guessed from a client flag.
     assert classify_mode("equipo arreglen producción") == "execution"
+
+
+def test_classifier_con_cascade_encendido(monkeypatch) -> None:
+    """El brazo que faltaba: con la bandera en ON el modo cambia, y hay algo que NO cambia.
+
+    Mientras el test heredaba la bandera de produccion, la rama `cascade` no
+    estaba cubierta por NINGUNA asercion deliberada: se colaba en todas y las
+    rompia. Fijarla en los dos sentidos convierte un acoplamiento accidental en
+    dos casos medidos.
+    """
+    monkeypatch.setattr(soul_coordination, "cascade_enabled", lambda *a, **k: True)
+    # Lo que la bandera SI captura: lo que en modo normal caeria en `discussion`.
+    assert classify_mode("¿qué opinan de esta solución?") == "cascade"
+    # Y lo que NO captura, medido -no supuesto: mi primera version afirmaba que
+    # `cascade` se comia tambien estos dos y el codigo me refuto. La bandera se
+    # consulta DESPUES de execution/direct/roundtable, asi que solo alcanza al
+    # residuo conversacional. Esa frontera es justo lo que este brazo fija.
+    assert classify_mode("arreglen el daemon y ejecuten los tests") == "execution"
+    assert classify_mode("revisa esto", to="ADA") == "direct"
+    assert classify_mode("todos respondan con una frase") == "roundtable"
 
 
 def test_lead_and_assignments() -> None:

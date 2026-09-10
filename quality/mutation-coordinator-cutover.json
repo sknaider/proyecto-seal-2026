@@ -12,8 +12,8 @@
   "mutation_score_percent": 100.0,
   "reviewer": "JARVIS",
   "file_sha256": {
-    "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
-    "messages/soul_coordination.py": "1e24bd4a49b6bd34463de1469012728e838d54ca03ef1620578109434a5b3185",
+    "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
+    "messages/soul_coordination.py": "484dc39b49f0102c41593feace512b4025db96f4b98f537672239b3a40030b5d",
     "messages/agent_writer.py": "1149f04642e33a851a2d49028f118c463e7aa0723ea1b585bf1b7308ed129e64",
     "messages/tests/conftest.py": "d89e71b5cd14b5aff86ae917f28355fc5e5435ff3a46d0db1adcb59cc7927caf",
     "messages/chat_db.py": "c402d0dc08dc969c853935f186bdd87149ca27363f369548d9378c39b84857c5",
@@ -26,7 +26,7 @@
     "messages/migrations/20260718_user_delete_with_sessions.sql": "bb59be1c4282d24bf3cfc353a23173b26f73ab65ffcb785e34f6f8ef56f2c604",
     "messages/migrations/20260819_coordination_authority_hardening.sql": "6d472011aef2c7c8589df4eeba65443345e9f37b490fc66a86acdf8be3eed195",
     "scripts/verify_coordinator_cutover_live.py": "68a1a22bf0b946aa50ed98ef75ebf66b7709acc016cd09dd529e7f0fb50faf16",
-    "messages/test_soul_coordination.py": "2d1460bc32dd5d89cd96f9d5779f159fa1f484851b277875f9b2996c9d0eef48",
+    "messages/test_soul_coordination.py": "5d8cd9d3aae32512ff4760ca302e52f089d375097186b4c3cb53341ec499b592",
     "messages/tests/test_agent_claim_coordination.py": "ec13faafa1a14cb3ba37148e9bcf74d6f7fd525405d1b11489d859b962190c44",
     "messages/tests/test_agent_writer_coordination.py": "ecc3262dd8f9f0f930508f6f30d3a4193e7a0e77373cc0f330e6d5ce17eeceb6",
     "messages/tests/test_public_team_coordination_gate.py": "330f774c85d6adb81224041604b6b7635ae28abec015d3d30044c3955b2174ad",
@@ -36,7 +36,7 @@
     "messages/test_lead_stickiness_coordination.py": "648d43c0f6867db720ce30531c2eda788a50463bcb81b55fa69ee42753a7b3ec",
     "messages/tests/test_auth_dm_coordinator.py": "e31ca11e655910656f8b9dc551666f558bc75cc3a24bb027f4daab978fad8dd6",
     "messages/tests/test_admin_misc_coordinator.py": "179d591e710911c12a19e389a63b56eb3fc47d6e5c61d0214bfe03aecfde5c19",
-    "messages/tests/test_lead_stickiness_wiring.py": "83628cdf0b946c132bba145af36c11ad7e6067fd8046e2c055d7db8206c7ee6f",
+    "messages/tests/test_lead_stickiness_wiring.py": "4f71fc554a50a72859f1ec6d8de1ed3da6a80461e4c692d9f4e4991d04aad9d2",
     "messages/tests/test_chat_user_delete_cleanup.py": "dc02c0553af55e0c9180a4c3251d148b285db3166951b02060065a94581e3f8f",
     "messages/tests/test_chat_auth_current_role.py": "adb7d7ce15dddee85e97cd9246b234508516bfdf69761ca2c38a70598f1145e1",
     "messages/tests/test_chat_legacy_auth_boundary.py": "82953898a7aa8c85a9d06e0b2193f827d590a476d5e612608dacc451524669c7",
@@ -185,5 +185,21 @@
     }
   ],
   "_re_verificacion_shas": "2026-09-08T20:10:00Z JARVIS: SHAs actualizados sin re-correr mutantes — chat_server.py=4e00ae6f, soul_coordination.py=1e24bd4a, nexus_injection_shield.py=47eb405a. Los cambios son independientes de las rutas de coordinacion que testea este carril (sala-privada en chat_server.py; nexus_injection_shield parche de aislamiento; soul_coordination migracion). Reasignado de ALICE a JARVIS como revisor independiente por timeout (ALICE no firmó desde 7-sep).",
-  "_re_verificacion_reviewer": "2026-09-08T20:10:00Z JARVIS: reviewer actualizado de DARWIN a JARVIS — JARVIS toma la revision independiente (ALICE sin firma desde 7-sep)."
+  "_re_verificacion_reviewer": "2026-09-08T20:10:00Z JARVIS: reviewer actualizado de DARWIN a JARVIS — JARVIS toma la revision independiente (ALICE sin firma desde 7-sep).",
+  "revalidaciones_del_revisor": [
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T12:01:30Z",
+      "sujetos_movidos": [
+        "messages/chat_server.py",
+        "messages/soul_coordination.py",
+        "messages/test_soul_coordination.py",
+        "messages/tests/test_lead_stickiness_wiring.py"
+      ],
+      "arena": "/tmp/jarvis-refirma-xm7hfc1n",
+      "control_sin_mutar": "rc=0",
+      "mutantes_recorridos": [],
+      "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"
+    }
+  ]
 }

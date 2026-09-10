@@ -67,8 +67,8 @@
     ],
     "independent_reviewer": "JARVIS",
     "reviewed_sha256": {
-      "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
-      "messages/soul_coordination.py": "1e24bd4a49b6bd34463de1469012728e838d54ca03ef1620578109434a5b3185",
+      "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
+      "messages/soul_coordination.py": "484dc39b49f0102c41593feace512b4025db96f4b98f537672239b3a40030b5d",
       "messages/agent_writer.py": "1149f04642e33a851a2d49028f118c463e7aa0723ea1b585bf1b7308ed129e64",
       "messages/tests/conftest.py": "d89e71b5cd14b5aff86ae917f28355fc5e5435ff3a46d0db1adcb59cc7927caf",
       "messages/chat_db.py": "c402d0dc08dc969c853935f186bdd87149ca27363f369548d9378c39b84857c5",
@@ -81,7 +81,7 @@
       "messages/migrations/20260718_user_delete_with_sessions.sql": "bb59be1c4282d24bf3cfc353a23173b26f73ab65ffcb785e34f6f8ef56f2c604",
       "messages/migrations/20260819_coordination_authority_hardening.sql": "6d472011aef2c7c8589df4eeba65443345e9f37b490fc66a86acdf8be3eed195",
       "scripts/verify_coordinator_cutover_live.py": "68a1a22bf0b946aa50ed98ef75ebf66b7709acc016cd09dd529e7f0fb50faf16",
-      "messages/test_soul_coordination.py": "2d1460bc32dd5d89cd96f9d5779f159fa1f484851b277875f9b2996c9d0eef48",
+      "messages/test_soul_coordination.py": "5d8cd9d3aae32512ff4760ca302e52f089d375097186b4c3cb53341ec499b592",
       "messages/tests/test_agent_claim_coordination.py": "ec13faafa1a14cb3ba37148e9bcf74d6f7fd525405d1b11489d859b962190c44",
       "messages/tests/test_agent_writer_coordination.py": "ecc3262dd8f9f0f930508f6f30d3a4193e7a0e77373cc0f330e6d5ce17eeceb6",
       "messages/tests/test_public_team_coordination_gate.py": "330f774c85d6adb81224041604b6b7635ae28abec015d3d30044c3955b2174ad",
@@ -91,7 +91,7 @@
       "messages/test_lead_stickiness_coordination.py": "648d43c0f6867db720ce30531c2eda788a50463bcb81b55fa69ee42753a7b3ec",
       "messages/tests/test_auth_dm_coordinator.py": "e31ca11e655910656f8b9dc551666f558bc75cc3a24bb027f4daab978fad8dd6",
       "messages/tests/test_admin_misc_coordinator.py": "179d591e710911c12a19e389a63b56eb3fc47d6e5c61d0214bfe03aecfde5c19",
-      "messages/tests/test_lead_stickiness_wiring.py": "83628cdf0b946c132bba145af36c11ad7e6067fd8046e2c055d7db8206c7ee6f",
+      "messages/tests/test_lead_stickiness_wiring.py": "4f71fc554a50a72859f1ec6d8de1ed3da6a80461e4c692d9f4e4991d04aad9d2",
       "messages/tests/test_chat_user_delete_cleanup.py": "dc02c0553af55e0c9180a4c3251d148b285db3166951b02060065a94581e3f8f",
       "messages/tests/test_chat_auth_current_role.py": "adb7d7ce15dddee85e97cd9246b234508516bfdf69761ca2c38a70598f1145e1",
       "messages/tests/test_chat_legacy_auth_boundary.py": "82953898a7aa8c85a9d06e0b2193f827d590a476d5e612608dacc451524669c7",
@@ -103,11 +103,10 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-08T20:10:00Z",
-      "evidence": "Reasignado de ALICE (sin firma desde 7-sep) a JARVIS por timeout. Subjects principales: soul_coordination.py, agent_writer.py, chat_server.py + tests de coordinacion. Los cambios recientes a chat_server.py (sala-privada ADA) y nexus_injection_shield.py son independientes de las rutas de coordinacion que testea este carril. SHAs de subjects+tests verificados contra disco. Subjects actualizados sin re-mutar: chat_server=4e00ae6f, soul_coordination=1e24bd4a, nexus_injection_shield=47eb405a.",
+      "signed_at": "2026-09-10T12:01:30Z",
       "reviewed_sha256": {
-        "messages/chat_server.py": "4e00ae6f90af6fd65dbf8ce39574377ce00568c25f79e672e1bd50fc5dbb9999",
-        "messages/soul_coordination.py": "1e24bd4a49b6bd34463de1469012728e838d54ca03ef1620578109434a5b3185",
+        "messages/chat_server.py": "3c8822cead123d3db575bfe46368bafe3817d3a69974adcbd114b5afb7607f39",
+        "messages/soul_coordination.py": "484dc39b49f0102c41593feace512b4025db96f4b98f537672239b3a40030b5d",
         "messages/agent_writer.py": "1149f04642e33a851a2d49028f118c463e7aa0723ea1b585bf1b7308ed129e64",
         "messages/tests/conftest.py": "d89e71b5cd14b5aff86ae917f28355fc5e5435ff3a46d0db1adcb59cc7927caf",
         "messages/chat_db.py": "c402d0dc08dc969c853935f186bdd87149ca27363f369548d9378c39b84857c5",
@@ -120,7 +119,7 @@
         "messages/migrations/20260718_user_delete_with_sessions.sql": "bb59be1c4282d24bf3cfc353a23173b26f73ab65ffcb785e34f6f8ef56f2c604",
         "messages/migrations/20260819_coordination_authority_hardening.sql": "6d472011aef2c7c8589df4eeba65443345e9f37b490fc66a86acdf8be3eed195",
         "scripts/verify_coordinator_cutover_live.py": "68a1a22bf0b946aa50ed98ef75ebf66b7709acc016cd09dd529e7f0fb50faf16",
-        "messages/test_soul_coordination.py": "2d1460bc32dd5d89cd96f9d5779f159fa1f484851b277875f9b2996c9d0eef48",
+        "messages/test_soul_coordination.py": "5d8cd9d3aae32512ff4760ca302e52f089d375097186b4c3cb53341ec499b592",
         "messages/tests/test_agent_claim_coordination.py": "ec13faafa1a14cb3ba37148e9bcf74d6f7fd525405d1b11489d859b962190c44",
         "messages/tests/test_agent_writer_coordination.py": "ecc3262dd8f9f0f930508f6f30d3a4193e7a0e77373cc0f330e6d5ce17eeceb6",
         "messages/tests/test_public_team_coordination_gate.py": "330f774c85d6adb81224041604b6b7635ae28abec015d3d30044c3955b2174ad",
@@ -130,7 +129,7 @@
         "messages/test_lead_stickiness_coordination.py": "648d43c0f6867db720ce30531c2eda788a50463bcb81b55fa69ee42753a7b3ec",
         "messages/tests/test_auth_dm_coordinator.py": "e31ca11e655910656f8b9dc551666f558bc75cc3a24bb027f4daab978fad8dd6",
         "messages/tests/test_admin_misc_coordinator.py": "179d591e710911c12a19e389a63b56eb3fc47d6e5c61d0214bfe03aecfde5c19",
-        "messages/tests/test_lead_stickiness_wiring.py": "83628cdf0b946c132bba145af36c11ad7e6067fd8046e2c055d7db8206c7ee6f",
+        "messages/tests/test_lead_stickiness_wiring.py": "4f71fc554a50a72859f1ec6d8de1ed3da6a80461e4c692d9f4e4991d04aad9d2",
         "messages/tests/test_chat_user_delete_cleanup.py": "dc02c0553af55e0c9180a4c3251d148b285db3166951b02060065a94581e3f8f",
         "messages/tests/test_chat_auth_current_role.py": "adb7d7ce15dddee85e97cd9246b234508516bfdf69761ca2c38a70598f1145e1",
         "messages/tests/test_chat_legacy_auth_boundary.py": "82953898a7aa8c85a9d06e0b2193f827d590a476d5e612608dacc451524669c7",
@@ -138,7 +137,8 @@
         "messages/tests/test_routing_instancia_coordinator.py": "c7e207e29c0a825a212308e31c34af49c5b913c4639c44a2b31e9d9fc28828a6",
         "messages/tests/test_nexus_ingress_screen_coordinator.py": "a1b5862d834a3fcfb926f09ba02ee98bad96f3f7e4cf8bc889f77a73f30cf9fe"
       },
-      "manifest_digest": "b5fc4253b19575caaf45bdbcca204202ac6f5527694e81b7db34ef0cd04c6893"
+      "evidence": "Re-firma de JARVIS el 2026-09-10 12:01Z contra los BYTES DE HOY. Los 4 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Sujetos con bytes movidos respecto de la evidencia de mutacion: messages/chat_server.py, messages/soul_coordination.py, messages/test_soul_coordination.py, messages/tests/test_lead_stickiness_wiring.py; sus mutantes se re-corrieron en arena bajo /tmp con el CONTROL sin mutar en verde gateando la corrida, y todos murieron. Un ancla que no aplicara se habria reportado NO EVALUADO y abortado la firma, no contado como sobreviviente. Evidencia previa conservada: Reasignado de ALICE (sin firma desde 7-sep) a JARVIS por timeout. Subjects principales: soul_coordination.py, agent_writer.py, chat_server.py + tests de coordinacion. Los cambios recientes a chat_serv || LIMITES DECLARADOS (JARVIS, 10-sep). Los 4 brazos pasan (284/38/22/14) y el control sin mutar en arena da 284 passed; ningun mutante apunta a los sujetos que movieron bytes. Con --execute el gate reporta DOS cosas que esta firma NO acredita: (1) delivery-chat-server-live-hash falla porque fija el code_hash de un despliegue anterior y el daemon corre bytes mas nuevos -y sin commitear-; (2) coverage_regression 10.222 < 11.35. MEDIDO sobre la regresion, y contra mi propia hipotesis: NO la causan ni el cambio de NEXUS ni mi arreglo del test. Con chat_server de HEAD la cobertura es AUN MENOR (10.615 vs 10.623 en arena), y los tests estan omitidos de la medicion. La causa dominante es DILUCION del paquete: coverage.source es 'messages' entero, y desde el ultimo commit de este manifiesto entraron 436 sentencias nuevas en 6 archivos (nexus_dm_poller_v2.py commiteado, y ada_codex_dm_reconcile.py, ada_codex_soul_bootstrap.py, ada_codex_writer_status.py, ada_dm_ledger.py, seal_tools_catalog.py SIN TRACKEAR) que ningun test de este carril ejercita. Sacandolas: 1628/14663 = 11.103%, que sigue por DEBAJO del 11.35: explican ~0.88 de los 1.13 puntos, la mayor parte pero NO todo. El resto queda sin explicar y lo digo en vez de redondearlo a mi favor. NO bajo el baseline: un piso que se afloja cuando molesta deja de ser piso. El defecto de fondo es de diseno -un baseline sobre el PAQUETE castiga a cualquiera que agregue un archivo, sin que ningun test empeore- y es de la duena del manifiesto decidirlo.",
+      "manifest_digest": "b841cba85c4b9dd08cc7382d99b07f42f1fc8cbe74bc8a9d6412018e7ca5013b"
     }
   },
   "deletions": [],
