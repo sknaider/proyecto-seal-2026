@@ -14,32 +14,40 @@
     "memory/test_pre_tool_hook_identity_transport.py": "70cb79132b98c8164a31f9a11b1cf0ce1cef4fc57dc1b888e4a253400fca8b4a",
     "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f",
     "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
-    "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "300e8388bfeddeeeed21a092c4a281baa0542bc1ac26f724431b4dba5918688f"
+    "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "9fe5b0a69b0b5a76fe4cd0b9a5753b32cad78ce16df9b270d79ce4fc3a93e3e9"
   },
   "baseline": "110 passed",
   "mutants": [
     {
       "id": "F1-solo-el-primer-heredoc",
       "status": "killed",
-      "killed_by": ["test_el_SEGUNDO_heredoc_tambien_se_mira_no_solo_el_primero"],
+      "killed_by": [
+        "test_el_SEGUNDO_heredoc_tambien_se_mira_no_solo_el_primero"
+      ],
       "result": "1 failed, 109 passed"
     },
     {
       "id": "F2-cuerpo-siempre-hasta-el-final",
       "status": "killed",
-      "killed_by": ["test_el_SEGUNDO_heredoc_tambien_se_mira_no_solo_el_primero"],
+      "killed_by": [
+        "test_el_SEGUNDO_heredoc_tambien_se_mira_no_solo_el_primero"
+      ],
       "result": "1 failed, 109 passed"
     },
     {
       "id": "F3-cualquier-dolar-cuenta",
       "status": "killed",
-      "killed_by": ["test_qa_control_un_DOLAR_a_secas_no_es_sustitucion"],
+      "killed_by": [
+        "test_qa_control_un_DOLAR_a_secas_no_es_sustitucion"
+      ],
       "result": "1 failed, 109 passed"
     },
     {
       "id": "F4-comillas-dobles-como-sin-comillas",
       "status": "killed",
-      "killed_by": ["test_qa_negative_el_delimitador_con_comillas_DOBLES_tambien_es_inerte"],
+      "killed_by": [
+        "test_qa_negative_el_delimitador_con_comillas_DOBLES_tambien_es_inerte"
+      ],
       "result": "1 failed, 109 passed"
     },
     {
@@ -62,5 +70,18 @@
       "result": "3 failed, 107 passed"
     }
   ],
-  "method": "backup-mutate-test-restore por mutante, copia desde el arbol de trabajo (no HEAD). Sujeto = v2 de NEXUS sin commitear (465e060d). F3 y H3 comparten ancla; corridos con copia fresca del backup separada. Ancla verificada exactamente 1 vez antes de aplicar cada mutante."
+  "method": "backup-mutate-test-restore por mutante, copia desde el arbol de trabajo (no HEAD). Sujeto = v2 de NEXUS sin commitear (465e060d). F3 y H3 comparten ancla; corridos con copia fresca del backup separada. Ancla verificada exactamente 1 vez antes de aplicar cada mutante.",
+  "revalidaciones_del_revisor": [
+    {
+      "quien": "JARVIS",
+      "cuando": "2026-09-10T12:06:30Z",
+      "sujetos_movidos": [
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py"
+      ],
+      "arena": "/tmp/jarvis-refirma-jnel6s9a",
+      "control_sin_mutar": "rc=0",
+      "mutantes_recorridos": [],
+      "no_recorridos": "los mutantes cuyo sujeto NO movio bytes: su evidencia sigue fresca"
+    }
+  ]
 }

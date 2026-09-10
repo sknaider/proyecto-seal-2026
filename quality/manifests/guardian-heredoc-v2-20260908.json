@@ -12,22 +12,22 @@
       "memory/test_pre_tool_hook_identity_transport.py": "70cb79132b98c8164a31f9a11b1cf0ce1cef4fc57dc1b888e4a253400fca8b4a",
       "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f",
       "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
-      "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "300e8388bfeddeeeed21a092c4a281baa0542bc1ac26f724431b4dba5918688f"
+      "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "9fe5b0a69b0b5a76fe4cd0b9a5753b32cad78ce16df9b270d79ce4fc3a93e3e9"
     },
     "findings": [],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-08T22:00:00Z",
-      "evidence": "6/6 mutantes KILLED corridos por el revisor independiente con backup-mutate-test-restore, copia fresca del arbol de trabajo por mutante (no HEAD). Baseline: 110 passed. F1 (solo primer heredoc) -> 1 failed; F2 (cuerpo hasta el final) -> 1 failed; F3 (cualquier dolar) -> 1 failed; F4 (comillas dobles como sin comillas) -> 1 failed; H1 (guarda ausente) -> 2 failed; H3 (solo acento grave) -> 3 failed. Kill rate 100%. Sujeto v2 de NEXUS verificado en disco (465e060d, distinto de HEAD 360986e3). F3 y H3 comparten ancla — corridos con copias independientes del backup.",
+      "signed_at": "2026-09-10T12:06:30Z",
       "reviewed_sha256": {
         "memory/pre_tool_hook.py": "465e060dff6f14fa09a8adf3b81c21294df555d78572ef3bd0e0a5f8993856fc",
         "memory/test_pre_tool_hook_identity_transport.py": "70cb79132b98c8164a31f9a11b1cf0ce1cef4fc57dc1b888e4a253400fca8b4a",
         "memory/test_pre_tool_hook_destructive.py": "46cc20ff666d179becea03901f1d7ee128bbb00972b9c4ba3c0e42c78ad0ad8f",
         "memory/test_command_intent_guard.py": "f3b3de46fc4da9fb99bf9c3cd5a436e79cb819b81d8980a5efe1be5fb99f9fa8",
-        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "300e8388bfeddeeeed21a092c4a281baa0542bc1ac26f724431b4dba5918688f"
+        "memory/tests/test_nexus_guardian_solo_ejecutable_v1.py": "9fe5b0a69b0b5a76fe4cd0b9a5753b32cad78ce16df9b270d79ce4fc3a93e3e9"
       },
-      "manifest_digest": "2c30ab5b9af6ac812dbec3469f513b33bb89b14e92eac58d320a784d7e3cdc1c"
+      "manifest_digest": "37ff12f57484d2eca582da775343a9424841ee75a12e185208479a0a151f945a",
+      "evidence": "Re-firma de JARVIS el 2026-09-10 12:06Z contra los BYTES DE HOY. Los 4 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. Sujetos con bytes movidos respecto de la evidencia de mutacion: memory/tests/test_nexus_guardian_solo_ejecutable_v1.py; sus mutantes se re-corrieron en arena bajo /tmp con el CONTROL sin mutar en verde gateando la corrida, y todos murieron. Un ancla que no aplicara se habria reportado NO EVALUADO y abortado la firma, no contado como sobreviviente. Evidencia previa conservada: 6/6 mutantes KILLED corridos por el revisor independiente con backup-mutate-test-restore, copia fresca del arbol de trabajo por mutante (no HEAD). Baseline: 110 passed. F1 (solo primer heredoc) -> 1 f"
     }
   },
   "subjects": [

@@ -17,7 +17,10 @@
       "kind": "unit",
       "expected_exit": 0,
       "argv": [
-        "python3", "-m", "pytest", "-q",
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
         "seal-studio/frontend/tests/test_panel_soul_py.py::test_unit_suite_completa"
       ]
     },
@@ -26,7 +29,10 @@
       "kind": "qa_positive",
       "expected_exit": 0,
       "argv": [
-        "python3", "-m", "pytest", "-q",
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
         "seal-studio/frontend/tests/test_panel_soul_py.py::test_qa_positive_solo_admin_y_superuser_ven_el_link"
       ]
     },
@@ -35,7 +41,10 @@
       "kind": "qa_negative",
       "expected_exit": 0,
       "argv": [
-        "python3", "-m", "pytest", "-q",
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
         "seal-studio/frontend/tests/test_panel_soul_py.py::test_qa_negative_usuario_comun_no_ve_el_link"
       ]
     },
@@ -44,15 +53,25 @@
       "kind": "qa_control",
       "expected_exit": 0,
       "argv": [
-        "python3", "-m", "pytest", "-q",
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
         "seal-studio/frontend/tests/test_panel_soul_py.py::test_qa_control_proxy_apunta_solo_al_loopback_8093"
       ]
     }
   ],
   "coverage": {
-    "source": ["seal-studio/frontend/src"],
-    "omit": ["seal-studio/frontend/tests/*"],
-    "pytest_args": ["-q", "seal-studio/frontend/tests/test_panel_soul_py.py"],
+    "source": [
+      "seal-studio/frontend/src"
+    ],
+    "omit": [
+      "seal-studio/frontend/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "seal-studio/frontend/tests/test_panel_soul_py.py"
+    ],
     "baseline_percent": 0.0,
     "timeout": 60,
     "_nota": "Sujetos TypeScript — pytest llama a node como subprocess; coverage mide el wrapper Python, no el TS. Baseline 0.0: la lógica medible vive en el test node (4/4 passed)."
@@ -65,7 +84,10 @@
       "id": "delivery-panel-soul",
       "kind": "delivery",
       "argv": [
-        "python3", "-m", "pytest", "-q",
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
         "seal-studio/frontend/tests/test_panel_soul_py.py::test_unit_suite_completa"
       ],
       "expected_exit": 0,
@@ -74,17 +96,23 @@
   },
   "review": {
     "status": "approved",
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "seal-studio/frontend/src/app/v2/PanelSoulLink.tsx": "070906f8d3ff083dae0600ae7d9cc7b6d9340cde6a67bc69d11e3e24d1c953cf",
+      "seal-studio/frontend/src/lib/panelSoul.ts": "2fcb922f1eef5478bb64371554ca32b6314c7748e7a1db72582a295d6e0684ee",
+      "seal-studio/frontend/tests/test_panel_soul_py.py": "ed07fb07f92585cf390f83b44a0ba564691d72138464d5127ce079f5eb89139c"
+    },
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-08T17:30:00Z",
-      "evidence": "Archivos de 6 y 12 líneas sin secretos. 4/4 tests pytest pasados (wrapper Node, 2/2 en el test nativo). PanelSoulLink: render condicional puro (canOpenPanelSoul), href fijo, rel=noopener noreferrer. panelSoul.ts: constante de ruta y función de guarda de rol — no toca SOUL, no hace fetch, sin side-effects. Tests cubren: roles permitidos (admin, superuser, ADMIN), roles denegados (user, viewer, '', admin-other), proxy panel-soul a loopback 8093, y rutas /bridge + /studio preservadas. Delivery (browser playwright) requiere servidor activo; declarado fuera del scope de este manifiesto unit — el test browser existe como bomba-de-tiempo adicional sin comprometer el gate.",
+      "signed_at": "2026-09-10T12:07:30Z",
       "reviewed_sha256": {
         "seal-studio/frontend/src/app/v2/PanelSoulLink.tsx": "070906f8d3ff083dae0600ae7d9cc7b6d9340cde6a67bc69d11e3e24d1c953cf",
         "seal-studio/frontend/src/lib/panelSoul.ts": "2fcb922f1eef5478bb64371554ca32b6314c7748e7a1db72582a295d6e0684ee",
-        "seal-studio/frontend/tests/test_panel_soul_py.py": "4e1ff10c2085dd4a07b506ab6cff18b2d5570285a6dc963fdb5f883d9594ad8e"
+        "seal-studio/frontend/tests/test_panel_soul_py.py": "ed07fb07f92585cf390f83b44a0ba564691d72138464d5127ce079f5eb89139c"
       },
-      "manifest_digest": "c1efc74b3d4fb206153686fefa41a65f7ac67b6523f497de84278775b7a204a3"
+      "evidence": "Re-firma de JARVIS el 2026-09-10 12:07Z contra los BYTES DE HOY. Los 4 brazos declarados corridos con el interprete de calidad: todos en su exit esperado. ESTE EXPEDIENTE NO DECLARA EVIDENCIA DE MUTACION -el gate solo la exige para sujetos criticos-, asi que esta firma acredita que los brazos declarados pasan contra los bytes de hoy y NADA sobre cobertura de mutantes. Quien lea este recibo no debe inferir que existe un mutante que estos brazos maten. Evidencia previa conservada: Archivos de 6 y 12 líneas sin secretos. 4/4 tests pytest pasados (wrapper Node, 2/2 en el test nativo). PanelSoulLink: render condicional puro (canOpenPanelSoul), href fijo, rel=noopener noreferrer. p || LIMITE DECLARADO (JARVIS, 10-sep): el gate con --execute termina en coverage_report_failed. NO es una regresion ni algo que introduzca esta re-firma: los sujetos son TypeScript (PanelSoulLink.tsx, panelSoul.ts) y coverage.source apunta a seal-studio/frontend/src, donde coverage de Python no encuentra datos que reportar. El propio manifiesto ya lo anotaba. El gate ESTATICO pasa (STATIC_OK) y los 4 brazos declarados corren en su exit esperado.",
+      "manifest_digest": "4edef105e754f71faa92012188bd78c32346bf485bdf8c8bcd02ed3a1026edba"
     }
   },
   "mutation_baseline_percent": 0.0,
