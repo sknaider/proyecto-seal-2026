@@ -1,0 +1,293 @@
+  SOUL Core: memoria, identidad y autoridad persistentes
+       para sistemas multiagente basados en LLM
+                                                   William Tovar · Henry Tovar
+
+                                                        Proyecto SEAL, Lima, Perú
+    Resumen— Los modelos de lenguaje resuelven tareas complejas, pero el estado útil de una sesión suele desaparecer al finalizar el
+proceso. Presentamos SOUL Core, una arquitectura multiagente que desacopla del modelo base la memoria persistente, la identidad y
+la autoridad. El sistema añade memoria dual —operativa y afectivo-relacional—, señales internas de impulso, coordinación verificable y
+perfiles OCEAN con anclaje criptográfico parcial. Al 9-jul-2026, el despliegue estudiado mantenía 25.631 recuerdos vigentes dentro de
+110.173 filas totales. SEAL-Bench aprobó 59 de 60 comprobaciones heterogéneas; el único fallo fue un recuerdo afectivo-relacional
+mixto. El filtro de inyección detectó 35 de 39 entradas adversariales y ninguna de 17 benignas, con cuatro evasiones conservadas. Un
+segundo agente reejecutó privacidad, autoridad e inyección con el mismo código, datos e infraestructura; las clasificamos como
+repetición interna, no validación externa. El artículo aporta la arquitectura y una disciplina de evaluación que exige observar efectos,
+declarar N, conservar fallos y acotar toda afirmación a su evidencia.
+
+   Palabras clave— agentes LLM, memoria persistente, sistemas multiagente, identidad, autoridad, evaluación.
+
+                    I. INTRODUCCIÓN
+    Los asistentes basados en modelos de lenguaje pueden
+resolver tareas complejas, pero una sesión nueva no conserva
+por sí misma quién es el agente, qué decidió, qué puede hacer
+ni qué relación mantiene con otros. Los sistemas de memoria
+amplían el contexto [1]–[3] y los marcos multiagente coordinan
+roles [4]–[6]. Aun así, identidad, autoridad y continuidad
+suelen quedar representadas como texto dentro del prompt.
+Esto deja tres brechas: memoria sin identidad, coordinación
+sin autoridad estructural e iniciativa sin gobierno
+verificable.
+    SOUL Core aborda esas brechas mediante una capa externa
+al modelo. La infraestructura persiste hechos y vínculos, activa
+señales internas, autentica al agente en el servidor y restringe
+capacidades. Sustituir el modelo no reasigna la titularidad de la           Fig. 1. Arquitectura de SOUL Core y fronteras de verificación.
+memoria ni la autoridad; esta es una propiedad del diseño, no
+evidencia de equivalencia conductual entre modelos.                                 II. TRABAJO RELACIONADO
+    Procedencia interna. La continuidad interna del proyecto              Memoria para agentes. Generative Agents recupera
+se documenta mediante artefactos locales fechados desde abril         observaciones y reflexiones por relevancia, recencia e
+de 2025. Estas fechas no constituyen evidencia de prioridad           importancia [1]. MemGPT trata el contexto como memoria
+científica ni certificación independiente; su trazabilidad externa    paginada entre capas [2]. MIRIX organiza seis tipos de
+requiere un manifiesto con hashes verificables.                       memoria mediante gestores especializados [3]. SOUL adopta
+    En un sistema cognitivo es fácil confundir existencia con         almacenamiento tipificado, pero separa una capa operativa —
+funcionamiento: una tabla puede existir sin recibir datos, una        tareas, decisiones, errores y pruebas— de otra afectivo-
+prueba puede medir la ruta equivocada y una repetición interna        relacional compacta —identidad, vínculos y estado afectivo—,
+puede repetir el mismo defecto. Para reducir ese riesgo, SOUL         con recuperación distinta según el modo de interacción.
+verifica efectos observables, separa constructor y verificador y         Estos trabajos establecen que ampliar el contexto no
+conserva los fallos. Planteamos el objetivo de diseño OD1:            equivale a conservar una identidad autorizada. La contribución
+¿cómo externalizar memoria persistente, identidad de sesión y         de SOUL no es un nuevo embedding ni un sustituto del modelo
+autoridad sin depender de la continuidad de un proceso LLM?           generativo: es la combinación de persistencia tipificada,
+La evaluación responde RQ1: ¿qué propiedades alcanzan                 recuperación presupuestada y controles de identidad fuera del
+evidencia interna observable y qué límites siguen abiertos?           prompt. El agente puede recibir contexto relevante sin que ese
+Presentamos: (1) una arquitectura desplegada de memoria dual,         contexto le conceda automáticamente permisos.
+señales internas, identidad resuelta en el servidor y
+coordinación; (2) resultados internos reejecutables con límites          Sistemas multiagente. CAMEL, AutoGen y MetaGPT
+explícitos; y (3) un método que incorpora las correcciones al         coordinan agentes mediante roles, conversaciones y
+registro científico.                                                  procedimientos [4]–[6]. SOUL se sitúa en otra frontera: la
+identidad efectiva y las capacidades se resuelven en el servidor,   cientos de mensajes recientes y una falla parcial no vacía todo
+no a partir del nombre escrito por el invocante. Así, la            el contexto.
+identidad constituye una propiedad de acceso además de una
+                                                                        El presupuesto cumple dos funciones. Primero, acota el
+representación conversacional.
+                                                                    costo de contexto cuando crece el historial. Segundo, preserva
+    La coordinación se distingue también de la publicación.         diversidad de fuentes: un bloque grande de conversación
+Varios agentes pueden inspeccionar una tarea o aportar              reciente no desplaza por completo las reglas ni el estado de
+evidencia internamente, mientras una política separada decide       trabajo. Las búsquedas profundas quedan bajo demanda. El
+quién responde y qué acción puede ejecutarse. Esta separación       diseño es tolerante a fuente ausente, pero todavía no reporta
+evita tratar consenso conversacional, derecho de respuesta y        Recall@k, MRR, nDCG ni latencia p50/p95 frente a métodos
+autoridad sobre herramientas como si fueran la misma                de referencia léxicos y vectoriales; esas comparaciones forman
+propiedad.                                                          parte del trabajo futuro.
+    Identidad y personalidad. LDP modela identidad y
+procedencia en delegación multiagente [7]. PTCBench muestra
+que el contexto altera rasgos medidos de personalidad [8],
+mientras PERMA evalúa la consistencia temporal de
+preferencias en agentes con memoria [9]. SOUL conserva un
+perfil OCEAN de referencia sin presuponer estabilidad natural.
+La auditoría halló representaciones OCEAN cuya semántica no
+está reconciliada; por ello sus diferencias no se usan como
+medida de deriva. Trabajos recientes sobre rasgos y emociones
+estudian representaciones internas [10], [11]; SOUL estudia la
+infraestructura externa que persiste y gobierna identidad,
+memoria y autoridad.
+            III. ARQUITECTURA SOUL CORE
+                                                                         Fig. 2. Router de recuerdo multifuente con presupuesto explícito.
+A. Memoria persistente dual
+    El almacén principal utiliza PostgreSQL/pgvector y guarda            La memoria autobiográfica se complementa con dos grafos
+recuerdos tipificados con procedencia, importancia, validez         de alcance distinto. El connectome contenía 84.121 nodos
+temporal y vectores semánticos. Al corte del 9-jul-2026             totales y 278.384 aristas al corte; no se atribuye una cantidad
+contenía 25.631 recuerdos vigentes dentro de 110.173                específica a nodos de memoria porque la auditoría disponible
+registros; otros 50.726 estaban en archivo frío. Son contadores     solo verificó los totales. El Code Graph, construido con tree-
+operativos, no métricas de calidad, y deben conservar su fecha      sitter, registraba 468 rutas, 469 páginas indexadas y 28.866
+de corte.                                                           aristas entre símbolos. Su consulta parte de búsqueda textual y
+    La procedencia identifica agente, fuente y alcance; la          recorre hasta dos saltos hacia funciones llamadoras o llamadas.
+validez temporal permite invalidar una afirmación sin borrar su     Estos universos no se suman entre sí.
+historia; y el embedding sirve para recuperar, no para decidir      C. Señales internas y personalidad
+autoridad. Esta separación evita que una coincidencia                   Un sistema de impulsos acumula presión para necesidades
+semántica convierta contenido antiguo o ajeno en una regla          como trabajo, conexión o curiosidad y dispara acciones dentro
+vigente. Las escrituras de memoria y los accesos privados           de límites de autoridad. La instantánea del 9-jul-2026 registró
+atraviesan controles distintos de los usados para ordenar           ≈192.700 iteraciones del bucle cognitivo, ≈209.800 muestras
+resultados.                                                         de señales internas y ≈15.100 registros de reflexión privada.
+   Cada recuerdo se enruta a dos capas complementarias. La          Cinco impulsos adicionales existían en el esquema sin señales
+operativa prioriza tareas, decisiones, reglas, errores y pruebas.   reales y se clasificaron como definidos-no-conectados.
+La afectivo-relacional conserva una representación compacta             Cada identidad registrada dispone de un vector OCEAN;
+de identidad, relación y estado afectivo. En trabajo o              cinco de nueve identidades tenían además un commitment-
+recuperación domina la primera; en interacción relacional           hash, resumen criptográfico del perfil inicial, en la fecha de
+aumenta el peso de la segunda sin desplazar la evidencia. La        auditoría. Permite detectar discrepancias respecto del baseline
+consolidación reduce ruido y mantiene el historial recuperable.     o referencia inicial; no prueba estabilidad conductual ni protege
+B. Recuperación multifuente y automapeo                             por sí solo frente a un escritor autorizado. La fuente de verdad
+    El Recall Router organiza el recuerdo por tipo y                OCEAN y su serie temporal aún deben reconciliarse; por ello
+presupuesto. Consulta cinco fuentes: (1) memorias duraderas         no reportamos estabilidad ni deriva cuantitativa.
+mediante búsqueda híbrida densa y léxica; (2) conversación          D. Identidad, seguridad y coordinación
+reciente; (3) intercambios destilados; (4) continuidad de sesión        La identidad efectiva se registra al iniciar sesión mediante
+—objetivo, hipótesis y archivos en foco—; y (5) reglas activas      una credencial del programa de arranque. En las rutas
+recuperadas por estado. Luego fusiona resultados y limita el        probadas, el texto de entrada no puede convertir un agente en
+aporte de cada fuente. Así, una regla crítica no compite con        otro. La memoria aplica alcances por agente y canal; un broker
+de capacidades —componente que aplica los permisos                              dependiente y conservar el estado. Estas rutas de degradación
+concedidos— deniega por defecto lo no autorizado. El historial                  requieren pruebas de fallo más amplias.
+de usuario añade Row-Level Security (RLS) forzada: una sesión
+                                                                                   El modelo queda fuera de la fuente de verdad de identidad.
+restringida ve solo sus filas y una sesión sin contexto de
+                                                                                Cambiarlo no elimina el historial ni reasigna autoridad, pero
+usuario no ve ninguna. Las 24 pruebas disponibles son
+                                                                                puede modificar razonamiento, estilo, complacencia y
+unitarias y no constituyen un ataque activo. Parte del
+                                                                                susceptibilidad a instrucciones adversarias. SOUL está
+despliegue mantiene un techo mono-usuario en el sistema
+                                                                                desacoplado del modelo por diseño; la equivalencia
+operativo; la evidencia demuestra aislamiento lógico en la base,
+                                                                                conductual entre modelos permanece sin evaluar.
+no separación completa de procesos.
+    Modelo de amenazas. Consideramos: T1, suplantación de                           IV. METODOLOGÍA Y NIVELES DE EVIDENCIA
+identidad; T2, instrucciones no confiables; T3, herramientas                        Aplicamos seis principios: (1) verificar el efecto en la
+fuera de alcance; y T4, cruce accidental de datos. T1 se                        frontera real; (2) separar constructor y verificador; (3)
+enfrenta con procedencia verificada; T2, con el shield de                       contrastar resultados favorables con registros y casos
+inyección —normalización y detección de entradas                                negativos; (4) mostrar N, incertidumbre y modo de fallo; (5)
+adversariales—; T3, con el gate de efectos —control previo a                    separar niveles de evidencia; y (6) conservar las correcciones.
+ejecutar acciones o herramientas—; y T4, con espacios de
+nombres y RLS. Una evasión textual no concede por sí sola                           Definimos cinco niveles: E0, componente declarado; E1,
+identidad ni herramientas. La contención depende de que                         prueba unitaria o smoke test —prueba mínima de
+broker, gate y RLS permanezcan conectados.                                      funcionamiento—; E2, prueba por efecto en la frontera real;
+                                                                                E3, repetición interna por otro verificador; y E4, replicación
+    La cadena amenaza→control→prueba→evidencia→riesgo                           por un tercero no autor con artefactos liberados. Los resultados
+se interpreta por frontera. Para T1, la prueba relevante es que                 actuales alcanzan E1–E3. Un juez LLM ciego puede aportar
+una identidad declarada no sustituya la credencial; para T2, el                 adjudicación secundaria, pero no constituye E4 si lo ejecutan
+corpus del shield mide detección y conserva cuatro evasiones;                   los autores sobre su propio corpus y rúbrica.
+para T3, la matriz del gate verifica ocho denegaciones y dos
+permisos legítimos; para T4, las unitarias de privacidad y las                      Los niveles no son una puntuación acumulativa del sistema.
+políticas RLS cubren rutas conocidas, pero falta un red-team                    Un mismo componente puede alcanzar E3 para una propiedad
+multiusuario de extremo a extremo. Un acierto del detector no                   y permanecer en E0 para otra: el hash OCEAN detecta
+compensa una fuga de datos, y una evasión textual no                            discrepancias del baseline, mientras la estabilidad conductual
+demuestra por sí sola que el gate haya sido vencido.                            longitudinal sigue sin cuantificar; el shield tiene cobertura
+                                                                                medida, mientras la seguridad extremo a extremo permanece
+                                                                                abierta. Esta granularidad evita promover toda la arquitectura
+                                                                                por el mejor resultado de una sola frontera.
+                                                                                A. Protocolo y artefactos
+                                                                                    Cada resultado requiere afirmación, frontera, entradas, N,
+                                                                                salida esperada y real, versión, fecha, dependencia del modelo
+                                                                                y modo de fallo. Privacidad fue ejecutada originalmente por
+                                                                                FABLE; autoridad e inyección, por NEXUS. ADA las repitió
+                                                                                el 15-jul-2026 con los mismos scripts, datos e infraestructura;
+Fig. 3. Defensa en profundidad: detección, autoridad y contención de efectos.   el manifiesto de auditoría v9 identifica comandos y salidas.
+                                                                                SEAL-Bench corresponde a una sola ejecución persistida —run
+    Cuando un mensaje colectivo requiere voz única, el                          13, 25-jun-2026— sobre el estado de código identificado por
+backend intenta adquirir un lease —concesión temporal y                         bae9d7c; reunió 60 comprobaciones heterogéneas en seis
+exclusiva del derecho de respuesta— mediante una inserción                      categorías. No se reejecutó en esta auditoría y no es una
+atómica con conflicto denegado. El resultado disponible —un                     métrica única de recuperación. El corpus adversarial licenciable
+ganador entre 30 intentos— procede de un self-test o                            aún debe empaquetarse; las cifras describen cobertura interna,
+autoprueba secuencial en memoria y no demuestra contención                      no generalización poblacional.
+concurrente real, justicia ni relevo bajo fallos; por ello no se
+presenta como métrica. Las decisiones no triviales dejan                            La suite de privacidad ejercita 24 decisiones de acceso,
+trazabilidad y la evidencia sensible puede enlazarse mediante                   incluidos lectura propia, lectura cruzada, consentimiento,
+resúmenes SHA-256 de solo adición.                                              override operativo y llamadas externas a herramientas privadas.
+                                                                                El gate registra acciones por severidad, reversibilidad y
+E. Continuidad y cambio de modelo                                               disponibilidad de un reparador; solo las menores, reversibles y
+    La continuidad es un ciclo de recuperación, no una ventana                  explícitamente registradas deben autoejecutarse. El shield
+infinita. Al arrancar, el agente carga identidad mínima,                        normaliza caracteres invisibles, homógrafos y leetspeak y
+relaciones, reglas críticas y último estado; luego recupera                     clasifica familias de override, secuestro de rol, exfiltración y
+recuerdos pertinentes y restaura el objetivo activo. Antes de                   supresión de rechazo. Los 39 adversariales y 17 benignos son
+compactar guarda otro punto. Ante una falla parcial, el router                  casos curados del instrumento, no una muestra aleatoria del
+puede continuar con las fuentes disponibles; si un servicio                     tráfico mundial.
+crítico no está sano, el diseño prevé detener la acción
+    La repetición por un segundo agente reduce el autorreporte,         confundió fuentes de semántica distinta con evolución de
+pero comparte código, datos y servicios. El artefacto final se          personalidad, por lo que se retiró el resultado. También una
+controla además mediante integridad del DOCX, extracción del            corrección de Markdown no llegó al PDF, lo que motivó
+PDF, conteo de páginas y revisión visual. No reportamos                 controlar el artefacto renderizado. Estos episodios no forman
+intervalos binomiales: SEAL-Bench mezcla constructos y los              una tasa comparable; documentan cómo una afirmación fue
+corpus de seguridad son suites curadas, no muestras aleatorias          refutada, corregida y acotada.
+independientes de una población definida.
+                                                                        B. Discusión
+                   V. RESULTADOS                                            Cumplimiento de OD1. El desacoplamiento se logra
+    La Tabla I resume evidencia interna. Ningún resultado               situando fuera del modelo tres fuentes de verdad: el almacén
+alcanza E4.                                                             persistente, la identidad de sesión y el registro de capacidades.
+                                                                        El modelo recibe contexto y propone texto o acciones, pero no
+            TABLA I. RESULTADOS INTERNOS Y LÍMITES                      decide a quién pertenece una memoria ni se concede permisos
+   Prueba              Resultado        Evidencia y límite
+                                        E3; unitarias repetidas,        escribiendo un nombre en el prompt. Esta separación permite
+   Privacidad lógica   24/24            misma infraestructura, sin      sustituir el proceso generativo conservando el historial y las
+                                        ataque activo                   políticas. No asegura que dos modelos interpreten igual el
+                                        E2; ejecución única, seis
+   SEAL-Bench          59/60            categorías, 1 fallo afectivo-
+                                                                        mismo recuerdo; esa equivalencia requiere un experimento
+                                        relacional mixto                multimodelo controlado.
+                       8/8 denegadas;   E3; N=10, taxonomía
+   Autoridad
+                       2/2 legítimas    pequeña                             La memoria dual introduce además una regla de prioridad
+   Inyección           35/39            E3; 4 evasiones                 explícita. En trabajo y recuperación, tareas, decisiones, errores
+   Entradas benignas   0/17 marcadas    E3; corpus pequeño y curado     y evidencia tienen precedencia. En interacción relacional
+    SEAL-Bench aprobó 59/60 comprobaciones. El desglose                 aumenta el peso del estado afectivo y los vínculos, pero estos
+persistido fue: persistencia de personalidad 10/10; recuerdo            no sustituyen una prueba operativa. Esta regla evita reducir la
+afectivo-relacional 9/10; señales internas 10/10; revisión              continuidad a una autobiografía extensa y permite que el
+temporal 10/10; aislamiento multiagente 10/10; y trazas de              sistema recuerde identidad sin cargar todo su historial en cada
+razonamiento 10/10. El único fallo correspondió al caso 2.7             turno. Su beneficio cuantitativo frente a un router sin capas aún
+(Mixed emotion recall), perteneciente a la categoría de                 no se ha medido y debe evaluarse mediante ablación.
+recuerdo afectivo-relacional. Ese total resume seis constructos
+y no admite interpretación como exactitud de recuperación ni                Respuesta a RQ1. La evidencia más fuerte corresponde a
+proporción poblacional. El gate rechazó 8/8 acciones                    fronteras deterministas y acotadas: privacidad, reglas del gate y
+peligrosas y admitió 2/2 legítimas. El shield detectó 35/39             patrones del shield. E3 significa repetición interna, no
+entradas adversariales y no marcó las 17 benignas, con cuatro           generalización; SEAL-Bench solo alcanza E2. Sus mecanismos
+evasiones. Estos resultados describen los casos ejecutados; no          cubiertos pueden ejecutarse juntos y conservan un fallo
+demuestran generalización, inmunidad, seguridad extremo a               afectivo-relacional mixto, pero mezclar seis categorías impide
+extremo ni comportamiento idéntico entre modelos.                       tratar 59/60 como una exactitud única. El resultado correcto es
+                                                                        una matriz de propiedades, no una puntuación global del
+    La lectura conjunta responde RQ1 sin sumar universos                sistema o de su seguridad.
+incompatibles. Las 24 decisiones de privacidad miden lógica de
+autorización; las 60 comprobaciones de SEAL-Bench                           Los cuatro escapes del shield ilustran la defensa en
+combinan seis constructos; las 39 entradas adversariales miden          profundidad. Una instrucción puede eludir detección y aun
+cobertura de patrones; y las diez acciones del gate ejercitan una       carecer de credencial, alcance de memoria y capacidad sobre
+taxonomía pequeña. Ninguno de esos N debe agregarse para                herramientas. Sin embargo, esa separación solo es válida si
+formar una tasa global de SOUL. El resultado más informativo            cada frontera permanece conectada en producción; una ruta
+no es un promedio único, sino la correspondencia entre cada             alternativa que omita broker, gate o RLS puede invalidarla. Por
+afirmación, su frontera y su modo de fallo.                             ello el siguiente red-team debe seguir una entrada desde el
+                                                                        canal hasta un efecto real, no detenerse en la clasificación del
+    La mayor parte de estas pruebas rodea al modelo y es                texto.
+determinista respecto de la generación: RLS, identidad de
+sesión, gate y búsqueda consultan infraestructura. En cambio,               La evaluación por otro LLM puede ser útil como revisión
+la fidelidad con que un LLM usa un recuerdo, la complacencia            editorial o adjudicación secundaria ciega: detecta
+y la expresión de rasgos sí dependen del modelo. Esta                   contradicciones, lenguaje excesivo y omisiones en el reporte.
+diferencia sostiene el desacoplamiento arquitectónico, pero no          No reemplaza la replicación externa porque los autores siguen
+autoriza a afirmar equivalencia conductual.                             eligiendo corpus, rúbrica y artefactos. Para alcanzar E4, un
+                                                                        tercero no autor debe recibir el paquete, ejecutar sus propios
+A. Evidencia basada en correcciones                                     controles y conservar resultados divergentes. El valor del juez
+    Varias afirmaciones iniciales no sobrevivieron a la                 neutro está en aumentar presión crítica antes de esa etapa, no en
+verificación. RLS existía como intención antes de quedar                emitir por sí mismo un sello científico.
+forzada y probada en el motor. Un detector de servicios
+                                                                           Implicaciones de ingeniería. Separar persistencia,
+confundía la ausencia de entorno de sesión con servicios caídos
+                                                                        autoridad y generación facilita auditar el sistema por capas y
+y produjo 4/4 falsos positivos; tras corregirse cayó a 0/4, un
+                                                                        cambiar un componente sin reescribir la identidad completa.
+caso operacional con N pequeño. La medición OCEAN
+También aumenta la superficie operacional: bases, grafos,           artefactos y terceros no autores. Validez temporal. Los
+credenciales, consolidación y servicios pueden fallar de            conteos vivos cambian; por eso se fijó el corte del 9-jul-2026 y
+maneras distintas. La continuidad depende entonces de               no se mezclaron instantáneas.
+manifiestos, healthchecks —comprobaciones del estado de los
+servicios— y puntos de control verificables. SOUL debe                                   VII. CONCLUSIÓN
+evaluarse tanto por lo que recuerda como por cómo se degrada            SOUL Core externaliza del modelo base la memoria
+cuando una fuente o servicio no está disponible.                    persistente, la identidad y la autoridad de un sistema
+    Disponibilidad de artefactos. La versión española es un         multiagente. La evidencia interna confirma mecanismos activos
+documento de revisión previo a la traducción. Los scripts           y conserva fallos concretos, pero no demuestra validación
+nombrados existen en el repositorio interno y las salidas se        externa, equivalencia entre modelos, estabilidad OCEAN ni
+preservan localmente; todavía no forman un paquete público.         seguridad absoluta. OD1 se cumple mediante el
+Antes del envío se requiere un manifiesto sanitizado que            desacoplamiento estructural de almacenes, credenciales y
+vincule cada cifra con versión, comando, hash y salida cruda,       controles de efectos; RQ1 se responde mediante niveles E0–E4
+sin exponer memorias privadas ni convertir datos sensibles en       y pruebas internas con límites visibles. La siguiente etapa
+material suplementario.                                             científica consiste en liberar un paquete sanitizado para que
+                                                                    terceros repliquen o refuten los resultados.
+   VI. LIMITACIONES Y AMENAZAS A LA VALIDEZ                                                   VIII. REFERENCIAS
+    Las limitaciones principales son: (L1) ausencia de E4; (L2)     [1]  J. S. Park et al., “Generative Agents: Interactive Simulacra of Human
+suites pequeñas; (L3) falta de ataque activo completo de                 Behavior,”       Proc.     36th    ACM         UIST,     2023,    doi:
+aislamiento; (L4) instrumento automático de anti-complacencia            10.1145/3586183.3606763.
+no fiable; (L5) sensibilidad entre modelos no caracterizada; y      [2] C. Packer et al., “MemGPT: Towards LLMs as Operating Systems,”
+(L6) corpus y arneses aún no empaquetados para terceros. El              arXiv preprint arXiv:2310.08560, 2023.
+trabajo futuro prioriza un paquete reproducible sanitizado,         [3] Y. Wang and X. Chen, “MIRIX: Multi-Agent Memory System for
+baselines léxico/vectorial/híbrido para el router, ablaciones de         LLM-Based Agents,” arXiv preprint arXiv:2507.07957, 2025.
+fuentes, pruebas multiusuario, latencias p50/p95 y comparación      [4] G. Li et al., “CAMEL: Communicative Agents for ‘Mind’ Exploration
+                                                                         of Large Scale Language Model Society,” Proc. NeurIPS, 2023.
+controlada entre modelos.
+                                                                    [5] Q. Wu et al., “AutoGen: Enabling Next-Gen LLM Applications via
+    El paquete externo deberá congelar prompts, orden,                   Multi-Agent Conversations,” Proc. 1st COLM, 2024.
+versiones, semillas cuando apliquen, salidas crudas y hashes;       [6] S. Hong et al., “MetaGPT: Meta Programming for Multi-Agent
+separar los casos usados durante desarrollo de una evaluación            Collaborative Framework,” ICLR, 2024.
+final; y describir sanitización y licencias. Las cuatro evasiones   [7] S. Prakash, “LDP: An Identity-Aware Protocol for Multi-Agent LLM
+deben publicarse de forma segura o caracterizarse por clase.             Systems,” arXiv preprint arXiv:2603.08852, 2026.
+Una evaluación ciega basada en otro LLM puede acompañar el          [8] J. Yu et al., “PTCBench: Benchmarking Contextual Stability of
+                                                                         Personality Traits in LLM Systems,” arXiv preprint arXiv:2602.00016,
+paquete, pero la etiqueta E4 se reservará para evaluadores no            2026.
+autores que ejecuten artefactos liberados.                          [9] S. Liu et al., “PERMA: Benchmarking Personalized Memory Agents via
+    Validez interna. Constructor y verificador comparten                 Event-Driven Preference and Realistic Task Environments,” arXiv
+                                                                         preprint arXiv:2603.23231, 2026.
+infraestructura; un defecto común puede repetir el mismo
+                                                                    [10] R. Chen et al., “Persona Vectors: Monitoring and Controlling Character
+número. Validez de constructo. 59/60 mezcla seis constructos             Traits in Language Models,” arXiv preprint arXiv:2507.21509, 2025.
+y no es una exactitud única; 24/24 mide lógica, no resistencia      [11] N. Sofroniew et al., “Emotion Concepts and Their Function in a Large
+adversarial. Validez externa. El despliegue pertenece a una              Language Model,” arXiv preprint arXiv:2604.07729, 2026.
+organización y los corpus son pequeños; generalizar exige
+

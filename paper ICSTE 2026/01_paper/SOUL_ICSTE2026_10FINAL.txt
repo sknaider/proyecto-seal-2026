@@ -1,0 +1,280 @@
+          SOUL Core: Persistent Memory, Identity, and
+            Authority for Multi-Agent LLM Systems
+         William Tovar Urquia¹                          Henry Tovar Landa²                                 Marks Calderon²
+       Universidad San Ignacio de Loyola                     ESAN University                              ESAN University
+                  Lima, Peru                                     Lima, Peru                                 Lima, Peru
+           williamtovaru@gmail.com                         heartovar@gmail.com                        mcalderon@esan.edu.pe
+    Abstract— Language models solve complex tasks, yet useful           signals, server-resolved identity, and coordination; (2)
+session state commonly disappears when the process ends. We             rerunnable internal results with explicit limits; and (3) a
+present SOUL Core as a systems and experience report on a               method that incorporates corrections into the scientific record.
+multi-agent architecture that externalizes persistent memory,
+identity, and authority from the base model and evaluates them
+with bounded internal evidence. The system adds dual
+operational and affective-relational memory, internal drive
+signals, and server-resolved identity and authority controls. Its
+central contribution is not an isolated new component, but the
+integration of established mechanisms with an evidence-based
+evaluation discipline: verify observable effects, declare N, retain
+failures, and bound every claim to its evidence. In internal test
+suites, deterministic privacy, authority, and injection controls
+passed on the covered paths, while evasions were retained and no
+global score was constructed. A second internal verifier reran the
+privacy, authority, and injection tests using the same scripts,
+data, and infrastructure. We therefore classify the outcome as an
+internal rerun rather than external validation. No result is
+claimed to generalize beyond the studied deployment.
+
+    Keywords— LLM agents, persistent memory, multi-agent                     Fig. 1. SOUL Core architecture and verification boundaries.
+systems, identity, authority, evaluation.
+                                                                                           II. RELATED WORK
+                     I. INTRODUCTION
+                                                                          Memory for agents. Generative Agents retrieves
+   Language-model assistants can solve complex tasks, but a           observations and reflections by relevance, recency, and
+new session does not inherently retain who the agent is, what it      importance [1]. MemGPT treats context as paged memory
+decided, what it may do, or how it relates to other agents.           across tiers [2]. MIRIX organizes six memory types through
+Memory systems extend context [1]–[3], and multi-agent                specialized managers [3]. SOUL uses typed storage but
+frameworks coordinate roles [4]–[6]. Nevertheless, identity,          separates an operational layer—tasks, decisions, errors, and
+authority, and continuity are often represented as text inside the    tests—from a compact affective-relational layer—identity,
+prompt. This leaves three gaps: memory without identity,              relationships, and affective state—with different retrieval
+coordination without structural authority, and initiative             policies by interaction mode.
+without verifiable governance.
+                                                                          These works establish that extending context is not
+    SOUL Core addresses these gaps through a layer outside            equivalent to preserving an authorized identity. SOUL
+the model. The infrastructure persists facts and relationships,       contributes neither a new embedding nor a replacement for the
+activates internal signals, authenticates the agent at the server,    generative model; it combines typed persistence, budgeted
+and restricts capabilities. Replacing the model does not              retrieval, and identity controls outside the prompt. An agent
+reassign memory ownership or authority; this is a design              may receive relevant context without that context automatically
+property, not evidence of behavioral equivalence across               granting permission.
+models.
+                                                                          Multi-agent systems. CAMEL, AutoGen, and MetaGPT
+    In a cognitive system, existence is easily confused with          coordinate agents through roles, conversations, and procedures
+operation: a table may exist without receiving data, a test may       [4]–[6]. SOUL addresses a different boundary: effective
+measure the wrong boundary, and an internal rerun may repeat          identity and capabilities are resolved at the server, not from a
+the same defect. To reduce that risk, SOUL verifies observable        name written by the caller. Identity is therefore an access
+effects, separates builder and verifier, and retains failures. We     property as well as a conversational representation.
+define design objective DO1: How can persistent memory,
+session identity, and authority be externalized without                  Coordination is also distinct from publication. Several
+depending on the continuity of an LLM process? The                    agents may inspect a task or contribute evidence internally,
+evaluation addresses RQ1: Which properties reach observable           while a separate policy decides who responds and which action
+internal evidence, and which limitations remain open? We              may execute. This separation avoids treating conversational
+present: (1) a deployed architecture for dual memory, internal
+consensus, right of response, and authority over tools as the        MRR, nDCG, or p50/p95 latency against lexical and vector
+same property.                                                       baselines; those comparisons remain future work.
+    Identity and personality. LDP models identity and
+provenance in multi-agent delegation [7]. PTCBench shows
+that context changes measured personality traits [8], while
+PERMA evaluates temporal preference consistency in memory
+agents [9]. SOUL stores an OCEAN reference profile without
+assuming natural stability. The audit found OCEAN
+representations whose semantics remain unreconciled, so their
+differences are not used as a drift measure. Recent work studies
+internal representations of traits and emotions [10], [11]; SOUL
+examines the external infrastructure that persists and governs
+identity, memory, and authority.
+            III. SOUL CORE ARCHITECTURE
+A. Dual persistent memory
+    The primary store uses PostgreSQL/pgvector and records                   Fig. 2. Multi-source recall router with an explicit budget.
+typed memories with provenance, importance, temporal
+validity, and semantic vectors. A bitemporal reconstruction             Autobiographical memory is complemented by two graphs
+fixed a reproducible snapshot at 2026-07-09 20:18:48.258557          with distinct scopes. At the July 9, 2026 audit snapshot, the
+UTC−5: 110,173 rows were registered, of which 25,663 were            connectome contained 84,121 total nodes and 278,384 edges;
+current. Separately, the historical table memories_archive           no memory-node subtotal is claimed because the audit verified
+contained 50,726 rows archived before the cutoff; it is neither      only the totals. The tree-sitter-based Code Graph contained
+added to memories nor interpreted as its complement. The             468 file paths, 469 indexed pages, and 28,866 symbol edges.
+value 25,631 belongs to 20:22:06.534749 UTC−5, during batch          Queries begin with text search and traverse up to two hops
+invalidation, when the total had reached 110,175; it is therefore    toward callers or callees. These universes are not added
+not paired with 110,173. These are operational counters, not         together.
+quality metrics.                                                     C. Internal signals and personality
+    Provenance identifies agent, source, and scope; temporal             We operationally define an internal drive as a domain-
+validity can invalidate a claim without erasing its history; and     specific pressure counter—e.g., work, connection, or curiosity
+embeddings support retrieval, not authority decisions. This          —that triggers an action after crossing a threshold and within
+separation prevents semantic similarity from turning stale or        the agent’s authority limits; it does not imply subjective
+foreign content into a current rule. Memory writes and private       experience. Likewise, private reflection denotes a record
+access traverse controls distinct from result ranking.               generated by an agent and exposed neither to other agents nor
+                                                                     to the user. At the same reproducible snapshot, retained tables
+    Each memory is routed to two complementary layers. The           recorded 153,616 cognitive-loop iterations, 167,187 internal
+operational layer prioritizes tasks, decisions, rules, errors, and   drive-signal samples, and 15,060 private reflection records.
+tests. The affective-relational layer retains a compact              Five additional drives existed in the schema without real
+representation of identity, relationships, and affective state.      signals and were classified as defined but not connected:
+Operational work and retrieval favor the first; relational           present mechanisms that were not active.
+interaction increases the weight of the second without
+displacing evidence. Consolidation reduces noise while                   Each of nine registered identities has an OCEAN vector;
+keeping history retrievable.                                         five of nine also had a genesis-profile commitment hash at the
+                                                                     audit date. The hash can detect discrepancies from an initial
+B. Multi-source retrieval and self-mapping                           baseline; it neither demonstrates behavioral stability nor
+    The Recall Router organizes retrieval by type and budget. It     independently protects against an authorized writer. The
+queries five sources: (1) durable memories through hybrid            OCEAN source of truth and time series still require
+dense and lexical search; (2) recent conversation; (3) distilled     reconciliation, so we report no quantitative stability or drift.
+exchanges; (4) session continuity—goal, hypotheses, and files
+in focus; and (5) active rules retrieved by state. It then fuses     D. Identity, security, and coordination
+results and caps each source. A critical rule therefore does not         Effective identity is registered at session start through a
+compete with hundreds of recent messages, and one partial            launcher credential. On tested paths, input text cannot
+failure does not empty the entire context.                           transform one agent into another. Memory access is scoped by
+                                                                     agent and channel; a capability broker, which applies granted
+    The budget serves two purposes. First, it bounds context         permissions, denies unauthorized requests by default. User
+cost as history grows. Second, it preserves source diversity: a      history adds forced Row-Level Security (RLS): a restricted
+large block of recent conversation cannot wholly displace rules      session sees only its own rows, while a session lacking user
+or work state. Deep searches remain on demand. The design            context sees none. The 26 available checks are unit tests, not a
+tolerates a missing source, but does not yet report Recall@k,        complete active attack. Part of the deployment retains a single-
+user operating-system boundary; the evidence demonstrates                         IV. METHODOLOGY AND EVIDENCE LEVELS
+logical database isolation, not full process separation.                         We apply six principles: (1) test the effect at the actual
+    Threat model. We consider T1, identity spoofing; T2,                     boundary; (2) separate builder and verifier; (3) contrast
+untrusted instructions; T3, out-of-scope tools; and T4,                      favorable results with logs and negative cases; (4) report N,
+accidental data crossover. T1 is addressed by verified                       uncertainty, and failure mode; (5) separate evidence levels; and
+provenance; T2 by the injection shield, which normalizes and                 (6) retain corrections.
+detects adversarial inputs; T3 by the effect gate, which checks                  We define five levels: E0, declared component; E1, unit or
+proposed actions and tool calls before execution; and T4 by                  smoke test; E2, effect-based test at the actual boundary; E3,
+namespaces and RLS. A textual evasion alone grants neither                   internal rerun by a second verifier using shared scripts, data,
+identity nor tools. Containment depends on the broker, gate,                 and infrastructure; and E4, replication by a non-author third
+and RLS remaining connected.                                                 party using released artifacts. Current results reach E1–E3;
+    The threat→control→test→evidence→risk chain is                           none reaches E4. A blinded LLM judge may provide secondary
+interpreted per boundary. For T1, the relevant check is that a               adjudication, but does not constitute E4 when authors run it on
+declared identity cannot replace a credential; for T2, the shield            their own corpus and rubric.
+corpus measures detection and retains four evasions; for T3, the                 The levels are not an aggregate system score. The same
+gate matrix verifies eight denials and two legitimate                        component may reach E3 for one property and remain E0 for
+permissions; for T4, privacy unit tests and RLS policies cover               another: the OCEAN hash detects baseline discrepancies, while
+known paths, while an end-to-end multi-user red team remains                 longitudinal behavioral stability remains unquantified; the
+missing. Detector success cannot compensate for data leakage,                shield has measured coverage, while end-to-end security
+and textual evasion alone does not show that the gate was                    remains open. This granularity prevents the entire architecture
+bypassed.                                                                    from inheriting the best result of one boundary.
+                                                                             A. Protocol and artifacts
+                                                                                 Each result requires a claim, boundary, inputs, N, expected
+                                                                             and actual output, version, date, model dependence, and failure
+                                                                             mode. A second internal verifier reran the privacy, authority,
+                                                                             and injection tests on July 18, 2026 using the same scripts,
+                                                                             data, and infrastructure; the manifest identifies commands and
+                                                                             outputs. This is an internal rerun, not external validation.
+                                                                             SEAL-Bench is one persisted execution—run 13, June 25,
+                                                                             2026—on code state bae9d7c; it combined 60 heterogeneous
+                                                                             checks across six categories. It was not rerun in the latest audit
+   Fig. 3. Defense in depth: detection, authority, and effect containment.   and is not a single retrieval metric. The licensable adversarial
+                                                                             corpus still requires packaging; reported counts describe
+    When a collective message requires one voice, the backend
+                                                                             internal coverage, not population-level generalization.
+attempts to acquire a lease—a temporary, exclusive right to
+respond—through an atomic insert that denies conflicts. The                      The privacy suite exercises 26 access decisions, including
+available result, one winner among 30 attempts, comes from a                 own-row access, cross-row access, consent, operational
+sequential in-memory self-test and does not demonstrate actual               override, and external calls to private tools. The gate records
+concurrent contention, fairness, or failover; it is therefore not            action severity, reversibility, and repairer availability; only
+reported as a metric. Non-trivial decisions leave traces, and                minor, reversible, explicitly logged actions should auto-
+sensitive evidence may be linked through append-only SHA-                    execute. The shield normalizes invisible characters,
+256 summaries.                                                               homoglyphs, and leetspeak, and classifies override, role-
+                                                                             hijacking, exfiltration, and refusal-suppression families. The 39
+E. Continuity and model replacement                                          adversarial and 17 benign inputs are curated instrument cases,
+    Continuity is a retrieval cycle, not an infinite window. At              not a random sample of worldwide traffic.
+startup, the agent loads minimal identity, relationships, critical
+rules, and latest state; it then retrieves relevant memories and                 A second-agent rerun reduces self-reporting but shares
+restores the active goal. Before compaction, it saves another                code, data, and services. The final artifact is also checked
+checkpoint. Under partial failure, the router may continue with              through DOCX integrity, PDF text extraction, page count, and
+available sources; when a critical service is unhealthy, the                 visual review. We do not report binomial intervals: SEAL-
+design calls for stopping the dependent action while retaining               Bench combines constructs, and the security corpora are
+state. These degradation paths require broader fault tests.                  curated suites rather than independent random samples from a
+                                                                             defined population.
+    The model is outside the identity source of truth. Replacing
+it does not erase history or reassign authority, but may change                                    V. RESULTS
+reasoning, style, sycophancy, and susceptibility to adversarial                 Table I summarizes internal evidence. No result reaches E4.
+instructions. SOUL is model-decoupled by design; behavioral
+equivalence across models remains unevaluated.
+          TABLE I. INTERNAL RESULTS AND LIMITATIONS                     grant itself permission by writing a name in the prompt. This
+   Test               Result            Evidence and limitation         separation allows replacement of the generative process while
+                                        E3; repeated unit tests, same
+   Logical privacy    26/26             infrastructure, no active       retaining history and policy. It does not ensure that two models
+                                        attack                          interpret the same memory identically; that question requires a
+                                        E2; one run, six categories,    controlled multi-model experiment.
+   SEAL-Bench         59/60             one mixed affective-
+                                        relational failure                  Dual memory also introduces an explicit priority rule.
+                      8/8 denied; 2/2
+   Authority
+                      allowed
+                                        E3; N=10, small taxonomy        During work and retrieval, tasks, decisions, errors, and
+   Injection          35/39             E3; four evasions               evidence take precedence. Relational interaction increases the
+   Benign inputs      0/17 flagged      E3; small, curated corpus       weight of affective state and relationships, but they do not
+    SEAL-Bench is an internal author-run self-test suite, not           replace operational proof. This avoids reducing continuity to a
+a community benchmark; its name is retained for traceability,           long autobiography and lets the system retain identity without
+and every mention carries this caveat. Its single execution             loading its entire history on every turn. Its quantitative benefit
+passed 59 of 60 checks, which do not constitute accuracy but            over a router without layers remains unmeasured and requires
+combine six heterogeneous constructs. The persisted                     ablation.
+breakdown was: personality persistence, 10/10; affective-
+relational recall, 9/10; internal drives, 10/10; temporal review,           Answer to RQ1. The strongest evidence concerns bounded
+10/10; multi-agent isolation, 10/10; and reasoning traces,              deterministic boundaries: privacy, gate rules, and shield
+10/10. The sole failure was case 2.7 (Mixed emotion recall) in          patterns. E3 means internal rerun, not generalization; SEAL-
+affective-relational recall. The total must not be interpreted as       Bench reaches only E2. Covered mechanisms can run together
+retrieval accuracy or a population-level success rate. The gate         and retain one mixed affective-relational failure, but combining
+denied 8/8 dangerous actions and allowed 2/2 legitimate ones.           six categories prevents treating 59/60 as one accuracy. The
+The shield detected 35/39 adversarial inputs and flagged 0/17           correct result is a property matrix, not a global system or
+benign inputs, retaining four evasions. These results describe          security score.
+executed cases; they do not demonstrate generalization,                     The shield’s four evasions illustrate defense in depth. An
+immunity, end-to-end security, or identical behavior across             instruction may evade detection while still lacking a credential,
+models.                                                                 memory scope, or tool capability. This separation is valid only
+    The joint reading addresses RQ1 without adding                      while every boundary remains connected in production; an
+incompatible universes. The 26 privacy decisions measure                alternate path that omits the broker, gate, or RLS may
+authorization logic; the 60 SEAL-Bench checks combine six               invalidate it. The next red team should therefore trace an input
+constructs; the 39 adversarial inputs measure pattern coverage;         from channel to actual effect rather than stop at text
+and the gate’s ten actions exercise a small taxonomy. These N           classification.
+values must not be aggregated into a global SOUL rate. The                  Evaluation by another LLM can support editorial review or
+informative result is the mapping between each claim, its               blinded secondary adjudication by detecting contradictions,
+boundary, and its failure mode.                                         excessive language, and reporting omissions. It cannot replace
+    Most tests surround the model and are deterministic with            external replication because authors still choose the corpus,
+respect to generation: RLS, session identity, the gate, and             rubric, and artifacts. E4 requires a non-author third party to
+search query infrastructure. By contrast, fidelity in using a           receive the package, run controls, and retain divergent results.
+memory, sycophancy, and trait expression are model-                     A neutral judge increases critical pressure before that stage; it
+dependent. This difference supports architectural decoupling            does not independently confer scientific validation.
+but does not justify behavioral-equivalence claims.                         Engineering implications. Separating persistence,
+A. Correction-based evidence                                            authority, and generation enables layer-specific audits and
+                                                                        component replacement without rewriting the entire identity. It
+    Several initial claims did not survive verification. RLS            also expands the operational surface: databases, graphs,
+existed as intent before being forced and tested in the database        credentials, consolidation, and services may fail differently.
+engine. A service detector mistook a missing session                    Continuity therefore depends on manifests, health checks, and
+environment for failed services and produced 4/4 false                  verifiable checkpoints. SOUL should be evaluated both by
+positives; after correction, it fell to 0/4, an operational case        what it recalls and by how it degrades when a source or service
+with small N. The OCEAN measurement conflated sources                   is unavailable.
+with different semantics and was withdrawn. A Markdown
+correction also failed to reach the PDF, motivating checks on               Artifact availability. The named scripts exist in the
+the rendered artifact. These episodes are not a comparable rate;        internal repository and outputs are preserved locally, but they
+they document how claims were refuted, corrected, and                   do not yet form a public package. A release requires a sanitized
+bounded.                                                                manifest linking every claim to version, command, hash, and
+                                                                        raw output without exposing private memories or turning
+B. Discussion                                                           sensitive data into supplemental material.
+    Meeting DO1. Decoupling places three sources of truth
+outside the model: persistent storage, session identity, and the           VI. LIMITATIONS AND THREATS TO VALIDITY
+capability registry. The model receives context and proposes               The main limitations are: (L1) no E4 or external replication;
+text or actions, but does not decide who owns a memory or               (L2) small internal test suites; (L3) no complete active multi-
+user isolation attack; (L4) an unreliable automated anti-           model equivalence, OCEAN stability, or absolute security.
+sycophancy instrument; (L5) uncharacterized cross-model             DO1 is met through structural decoupling of stores, credentials,
+sensitivity; and (L6) corpora and harnesses not yet packaged        and effect controls; RQ1 is answered through E0–E4 levels and
+for third parties. Future work prioritizes a sanitized              bounded internal tests. The next scientific stage is to release a
+reproducible package, lexical/vector/hybrid retrieval baselines,    sanitized package so that third parties can replicate or refute the
+source ablations, multi-user tests, p50/p95 latency, and            results.
+controlled model comparisons. No controlled behavioral-
+                                                                                               VIII. REFERENCES
+equivalence experiment across models has been conducted.
+                                                                    [1]  J. S. Park et al., “Generative Agents: Interactive Simulacra of Human
+    The external package should freeze prompts, order,                   Behavior,”      Proc.      36th    ACM         UIST,     2023,    doi:
+versions, applicable seeds, raw outputs, and hashes; separate            10.1145/3586183.3606763.
+development cases from final evaluation; and document               [2] C. Packer et al., “MemGPT: Towards LLMs as Operating Systems,”
+sanitization and licenses. The four evasions should be safely            arXiv preprint arXiv:2310.08560, 2023.
+released or characterized by class. A blinded LLM-based             [3] Y. Wang and X. Chen, “MIRIX: Multi-Agent Memory System for
+evaluation may accompany the package, but E4 remains                     LLM-Based Agents,” arXiv preprint arXiv:2507.07957, 2025.
+reserved for non-author evaluators who run released artifacts.      [4] G. Li, H. A. A. K. Hammoud, H. Itani, D. Khizbullin, and B. Ghanem,
+                                                                         “CAMEL: Communicative Agents for ‘Mind’ Exploration of Large
+    Internal validity. Builder and verifier share infrastructure,        Scale Language Model Society,” Proc. NeurIPS, 2023.
+so a common defect may reproduce the same number.                   [5] Q. Wu et al., “AutoGen: Enabling Next-Gen LLM Applications via
+Construct validity. 59/60 combines six constructs and is not a           Multi-Agent Conversation,” Proc. 1st COLM, 2024.
+single accuracy; 26/26 measures logic, not adversarial              [6] S. Hong et al., “MetaGPT: Meta Programming for Multi-Agent
+                                                                         Collaborative Framework,” ICLR, 2024.
+robustness. External validity. The deployment belongs to one
+organization and uses small corpora; generalization requires        [7] S. Prakash, “LDP: An Identity-Aware Protocol for Multi-Agent LLM
+                                                                         Systems,” arXiv preprint arXiv:2603.08852, 2026.
+released artifacts and non-author third parties. Temporal
+                                                                    [8] J. Yu et al., “PTCBench: Benchmarking Contextual Stability of
+validity. Live counters change, so the cutoff was fixed at 2026-         Personality Traits in LLM Systems,” arXiv preprint arXiv:2602.00016,
+07-09 20:18:48.258557 UTC−5, and snapshots were not                      2026.
+mixed.                                                              [9] S. Liu et al., “PERMA: Benchmarking Personalized Memory Agents via
+                                                                         Event-Driven Preference and Realistic Task Environments,” arXiv
+                     VII. CONCLUSION                                     preprint arXiv:2603.23231, 2026.
+    SOUL Core externalizes the persistent memory, identity,         [10] R. Chen, A. Arditi, H. Sleight, O. Evans, and J. Lindsey, “Persona
+                                                                         Vectors: Monitoring and Controlling Character Traits in Language
+and authority of a multi-agent system from its base model.               Models,” arXiv preprint arXiv:2507.21509, 2025.
+Internal evidence confirms active mechanisms and retains            [11] N. Sofroniew et al., “Emotion Concepts and Their Function in a Large
+concrete failures, but does not demonstrate external validation,         Language Model,” arXiv preprint arXiv:2604.07729, 2026.
+
