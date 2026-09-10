@@ -96,6 +96,39 @@ def _report_run_ids() -> set[int]:
     return {int(match) for match in re.findall(r"\|\s*(\d{4,})\s*\|", text)}
 
 
+def construir_checks_de_evidencia(
+    *,
+    report_exists: bool,
+    report_ids: set[int],
+    found_ids: set[int],
+    passed_ids: set[int],
+) -> dict[str, bool]:
+    """Las cuatro casillas de v5.1, aparte para poder probarlas sin base de datos.
+
+    **El defecto que arregla (ADA, 9-sep-2026).** Hasta hoy las dos últimas eran
+    `report_ids.issubset(...)` a secas. Cuando el reporte de evidencia desapareció
+    con el borrado del 7-sep, `report_ids` quedó VACÍO — y el conjunto vacío es
+    subconjunto de todo, así que las dos daban True **porque la evidencia faltaba**.
+    El test publicaba 50 % sin haber mirado una sola fila de la base.
+
+    Es la forma más pura del verde que no prueba nada: no falla, no avisa, y el
+    número que muestra es la mitad de un examen que nunca se tomó. Sin ids no hay
+    nada que replicar, y el arreglo es decirlo en vez de dejar que la vacuidad
+    conteste que sí.
+
+    Está extraída a una función pura a propósito: la lógica vivía dentro de una
+    corrutina que abre una conexión, o sea sólo se podía "probar" leyendo el código.
+    Un test que mira el texto no ejecuta nada.
+    """
+    hay_ids = bool(report_ids)
+    return {
+        "report_exists": report_exists,
+        "report_has_required_ids": REQUIRED_RUN_IDS.issubset(report_ids),
+        "db_has_report_ids": hay_ids and report_ids.issubset(found_ids),
+        "all_report_ids_passed": hay_ids and report_ids.issubset(passed_ids),
+    }
+
+
 async def cat1_external_evidence_gate() -> tuple[float, dict[str, Any]]:
     report_ids = _report_run_ids()
     conn = await asyncpg.connect(DB_URL)
@@ -113,12 +146,12 @@ async def cat1_external_evidence_gate() -> tuple[float, dict[str, Any]]:
         await conn.close()
     found_ids = {int(row["id"]) for row in rows}
     passed_ids = {int(row["id"]) for row in rows if row["passed"] and int(row["score"]) >= 90}
-    checks = {
-        "report_exists": REPORT_PATH.exists(),
-        "report_has_required_ids": REQUIRED_RUN_IDS.issubset(report_ids),
-        "db_has_report_ids": report_ids.issubset(found_ids),
-        "all_report_ids_passed": report_ids.issubset(passed_ids),
-    }
+    checks = construir_checks_de_evidencia(
+        report_exists=REPORT_PATH.exists(),
+        report_ids=report_ids,
+        found_ids=found_ids,
+        passed_ids=passed_ids,
+    )
     return sum(checks.values()) / len(checks) * 100.0, {
         "metric": "external_evidence_ids_replay",
         "checks": checks,

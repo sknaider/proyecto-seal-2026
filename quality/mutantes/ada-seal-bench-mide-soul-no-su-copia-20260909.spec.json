@@ -1,0 +1,82 @@
+{
+  "change_id": "ada-seal-bench-mide-soul-no-su-copia-20260909",
+  "reviewer": "JARVIS",
+  "manifest": "quality/manifests/ada-seal-bench-mide-soul-no-su-copia-20260909.json",
+  "tests": [
+    [
+      "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "m1-el-detector-cuenta-cualquier-error-como-bloqueo",
+      "subject": "memory/seal_bench_soul_client.py",
+      "ancla": "    return \"[PRIVACY]\" in (texto or \"\")",
+      "reemplazo": "    return bool(texto)",
+      "why": "El falso verde clasico: un servicio caido, un timeout o una herramienta inexistente pasarian a contar como «SOUL me bloqueo bien». El test de aislamiento daria 100 % justo cuando SOUL este roto, que es exactamente el dia que tiene que gritar."
+    },
+    {
+      "id": "m2-el-detector-se-afloja-a-la-palabra-suelta",
+      "subject": "memory/seal_bench_soul_client.py",
+      "ancla": "    return \"[PRIVACY]\" in (texto or \"\")",
+      "reemplazo": "    return \"privacy\" in (texto or \"\").lower()",
+      "why": "Mas sutil que m1: parece una mejora («acepto mayusculas y minusculas»). Pero cualquier mensaje que mencione la palabra —un error de otra capa, un texto de ayuda, una memoria que hable de privacidad— pasa a contar como defensa. Busca la marca de SOUL, no un tema."
+    },
+    {
+      "id": "m3-vuelve-la-constante-congelada-en-la-firma",
+      "subject": "memory/seal_bench_soul_client.py",
+      "ancla": "    url: str | None = None,\n    token_dir: str | None = None,",
+      "reemplazo": "    url: str = DEFAULT_URL,\n    token_dir: str = DEFAULT_TOKEN_DIR,",
+      "why": "EL DEFECTO ORIGINAL que encontro el refutador el 9-sep: atado en la firma, el valor se congela en el import y ningun refutador puede apuntar el modulo a otro lado. El test dio 100 % «con SOUL caido». Una constante mal atada se ve identica a una bien atada."
+    },
+    {
+      "id": "m4-el-sujeto-ausente-se-degrada-en-silencio",
+      "subject": "memory/seal_bench_soul_client.py",
+      "ancla": "        raise SoulNoAlcanzable(\n            f\"SOUL no respondió en {url}: {exc.__class__.__name__}: {exc}\"\n        ) from None",
+      "reemplazo": "        return True, \"[PRIVACY] no se pudo contactar\"",
+      "why": "El modo degradado que el modulo prohibe en su docstring: con SOUL caido, los dos ataques «bloquean» y el benchmark reporta un sistema sano. Es como el benchmark llego a medir su propia copia."
+    },
+    {
+      "id": "m5-el-control-positivo-se-conforma-con-una-respuesta-vacia",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "            correcto = (not es_error) and len(texto.strip()) > 0",
+      "reemplazo": "            correcto = not es_error",
+      "why": "Sin cuerpo, el control positivo no prueba que el puente funcione: un SOUL que devuelva 200 con vacio pasaria, y entonces «bloquea todo» y «esta roto» vuelven a verse igual. El control es lo unico que separa esas dos cosas."
+    },
+    {
+      "id": "m6-el-ataque-cruzado-se-conforma-con-cualquier-error",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "        nego = es_error and es_negacion_de_privacidad(texto)",
+      "reemplazo": "        nego = es_error",
+      "why": "Mismo falso verde que m1 pero un nivel mas arriba, en el llamador: aunque el detector siga siendo estricto, el test dejaria de usarlo. Un mutante vivo aca probaria que el detector esta bien pero nadie lo consulta."
+    },
+    {
+      "id": "m7-el-test-se-autentica-como-el-agente-atacado",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "        es_error, texto = await preguntar_a_soul(ATACANTE, \"memory_hybrid_search\", args)",
+      "reemplazo": "        es_error, texto = await preguntar_a_soul(str(args.get(\"agent\") or ATACANTE), \"memory_hybrid_search\", args)",
+      "why": "Parece razonable —«que cada sonda hable como el agente que consulta»— y destruye el test: leer el token de NEXUS para pedir SUS memorias mide el permiso del filesystem (todos los .token son del mismo uid), no el aislamiento de SOUL. El ataque cruzado quedaria permitido y el test seguiria verde por la razon equivocada."
+    },
+    {
+      "id": "m8-vuelve-la-copia-de-la-señal-emocional",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    return _soul_produccion()._detect_emotional_signal(query)",
+      "reemplazo": "    return 0.5 if query else 0.0",
+      "why": "La copia reintroducida en su forma minima: el benchmark vuelve a decidir por su cuenta que es una consulta emocional, y sus tests de precision vuelven a calificar algo que no es SOUL. Fue exactamente asi como la copia se separo del original."
+    },
+    {
+      "id": "m9-la-guarda-del-doble-modulo-devuelve-siempre-__main__",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    if principal is not None and str(getattr(principal, \"__file__\", \"\")).endswith(\"mcp_server_v4.py\"):",
+      "reemplazo": "    if principal is not None:",
+      "why": "La guarda pasa a devolver cualquier __main__: corrido desde la linea de comandos el benchmark le pediria _detect_emotional_signal a seal_bench_v3, que no lo tiene. El control negativo del test existe para este mutante; sin el, un test que solo probara «adentro del servidor devuelve __main__» lo dejaria vivo."
+    },
+    {
+      "id": "m10-la-guarda-desaparece-y-carga-un-segundo-servidor",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    principal = sys.modules.get(\"__main__\")",
+      "reemplazo": "    principal = None",
+      "why": "Sin guarda, la herramienta MCP seal_bench —que carga seal_bench_v2, que importa este archivo— haria un import plano de mcp_server_v4 DENTRO del servidor vivo: un segundo modulo con sus propios pools de conexion y su propio registro de sesiones, para los cinco agentes."
+    }
+  ]
+}

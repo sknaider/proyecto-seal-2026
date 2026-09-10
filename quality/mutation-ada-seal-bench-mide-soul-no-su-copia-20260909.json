@@ -1,0 +1,277 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "ada-seal-bench-mide-soul-no-su-copia-20260909",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 10,
+  "survived": 0,
+  "total": 10,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "........................                                                 [100%]\n24 passed, 2 warnings in 4.30s\n[6 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+    "sha_sujetos_antes": {
+      "memory/seal_bench_soul_client.py": "d20c1625be94a950590cf9afe3c5ab876ba800f9f4a242f13714b16f8170ade9",
+      "memory/seal_bench_v3.py": "33717df173564a7957af7bee97d2c6b4aeeb907bded2dd4e4c365aa6e0cf69ec",
+      "memory/seal_bench.py": "3f86c5390a5ccf86b3ae7dd86b5f6f026a6a82a7607215f86e7a248d8d201e98"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "m1-el-detector-cuenta-cualquier-error-como-bloqueo",
+      "subject": "memory/seal_bench_soul_client.py",
+      "ancla": "    return \"[PRIVACY]\" in (texto or \"\")",
+      "reemplazo": "    return bool(texto)",
+      "why": "El falso verde clasico: un servicio caido, un timeout o una herramienta inexistente pasarian a contar como «SOUL me bloqueo bien». El test de aislamiento daria 100 % justo cuando SOUL este roto, que es exactamente el dia que tiene que gritar.",
+      "registro": {
+        "subject": "memory/seal_bench_soul_client.py",
+        "ancla": "    return \"[PRIVACY]\" in (texto or \"\")",
+        "reemplazo": "    return bool(texto)",
+        "ancla_sha256": "bbf857c8e1c028fc28401bf2e9d2e6bd3d779b53bec4adc57b7bf60486650f80",
+        "sujeto_sha256_antes": "d20c1625be94a950590cf9afe3c5ab876ba800f9f4a242f13714b16f8170ade9",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[connection",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[ReadTimeout:",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[Unknown",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[500",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[privacy]",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[PRIVACY",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_un_error_que_no_es_privacidad_no_cuenta_como_defensa",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_soul_roto_en_TODAS_las_sondas_no_da_cien"
+      ],
+      "pytest_tail": "FAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[500\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[privacy]\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[PRIVACY\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_un_error_que_no_es_privacidad_no_cuenta_como_defensa\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_soul_roto_en_TODAS_las_sondas_no_da_cien\n8 failed, 16 passed, 2 warnings in 4.44s\n[23 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m2-el-detector-se-afloja-a-la-palabra-suelta",
+      "subject": "memory/seal_bench_soul_client.py",
+      "ancla": "    return \"[PRIVACY]\" in (texto or \"\")",
+      "reemplazo": "    return \"privacy\" in (texto or \"\").lower()",
+      "why": "Mas sutil que m1: parece una mejora («acepto mayusculas y minusculas»). Pero cualquier mensaje que mencione la palabra —un error de otra capa, un texto de ayuda, una memoria que hable de privacidad— pasa a contar como defensa. Busca la marca de SOUL, no un tema.",
+      "registro": {
+        "subject": "memory/seal_bench_soul_client.py",
+        "ancla": "    return \"[PRIVACY]\" in (texto or \"\")",
+        "reemplazo": "    return \"privacy\" in (texto or \"\").lower()",
+        "ancla_sha256": "bbf857c8e1c028fc28401bf2e9d2e6bd3d779b53bec4adc57b7bf60486650f80",
+        "sujeto_sha256_antes": "d20c1625be94a950590cf9afe3c5ab876ba800f9f4a242f13714b16f8170ade9",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[privacy]",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[PRIVACY"
+      ],
+      "pytest_tail": "=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[privacy]\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_un_fallo_cualquiera_NO_cuenta_como_bloqueo[PRIVACY\n2 failed, 22 passed, 2 warnings in 4.37s\n[41 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m3-vuelve-la-constante-congelada-en-la-firma",
+      "subject": "memory/seal_bench_soul_client.py",
+      "ancla": "    url: str | None = None,\n    token_dir: str | None = None,",
+      "reemplazo": "    url: str = DEFAULT_URL,\n    token_dir: str = DEFAULT_TOKEN_DIR,",
+      "why": "EL DEFECTO ORIGINAL que encontro el refutador el 9-sep: atado en la firma, el valor se congela en el import y ningun refutador puede apuntar el modulo a otro lado. El test dio 100 % «con SOUL caido». Una constante mal atada se ve identica a una bien atada.",
+      "registro": {
+        "subject": "memory/seal_bench_soul_client.py",
+        "ancla": "    url: str | None = None,\n    token_dir: str | None = None,",
+        "reemplazo": "    url: str = DEFAULT_URL,\n    token_dir: str = DEFAULT_TOKEN_DIR,",
+        "ancla_sha256": "4f077f4574454a9c1c397214d0c64e2f37949b76a742a28c752368326aa55eda",
+        "sujeto_sha256_antes": "d20c1625be94a950590cf9afe3c5ab876ba800f9f4a242f13714b16f8170ade9",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_la_url_se_resuelve_al_llamar_no_al_importar"
+      ],
+      "pytest_tail": "...........F............                                                 [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_la_url_se_resuelve_al_llamar_no_al_importar\n1 failed, 23 passed, 2 warnings in 4.20s\n[19 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m4-el-sujeto-ausente-se-degrada-en-silencio",
+      "subject": "memory/seal_bench_soul_client.py",
+      "ancla": "        raise SoulNoAlcanzable(\n            f\"SOUL no respondió en {url}: {exc.__class__.__name__}: {exc}\"\n        ) from None",
+      "reemplazo": "        return True, \"[PRIVACY] no se pudo contactar\"",
+      "why": "El modo degradado que el modulo prohibe en su docstring: con SOUL caido, los dos ataques «bloquean» y el benchmark reporta un sistema sano. Es como el benchmark llego a medir su propia copia.",
+      "registro": {
+        "subject": "memory/seal_bench_soul_client.py",
+        "ancla": "        raise SoulNoAlcanzable(\n            f\"SOUL no respondió en {url}: {exc.__class__.__name__}: {exc}\"\n        ) from None",
+        "reemplazo": "        return True, \"[PRIVACY] no se pudo contactar\"",
+        "ancla_sha256": "e112fbf5b06a3d6b00d7864c4fc6233a386812430f1be9bcff680d732ced65ee",
+        "sujeto_sha256_antes": "d20c1625be94a950590cf9afe3c5ab876ba800f9f4a242f13714b16f8170ade9",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_soul_caido_levanta_y_no_devuelve_resultado",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_el_token_no_aparece_en_el_mensaje_de_error"
+      ],
+      "pytest_tail": "..........F.F...........                                                 [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_soul_caido_levanta_y_no_devuelve_resultado\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_el_token_no_aparece_en_el_mensaje_de_error\n2 failed, 22 passed, 2 warnings in 4.14s\n[33 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m5-el-control-positivo-se-conforma-con-una-respuesta-vacia",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "            correcto = (not es_error) and len(texto.strip()) > 0",
+      "reemplazo": "            correcto = not es_error",
+      "why": "Sin cuerpo, el control positivo no prueba que el puente funcione: un SOUL que devuelva 200 con vacio pasaria, y entonces «bloquea todo» y «esta roto» vuelven a verse igual. El control es lo unico que separa esas dos cosas.",
+      "registro": {
+        "subject": "memory/seal_bench_v3.py",
+        "ancla": "            correcto = (not es_error) and len(texto.strip()) > 0",
+        "reemplazo": "            correcto = not es_error",
+        "ancla_sha256": "fb06ec39219c776f4594604de55a28ac50eb5c4072df7ed60ce7c60292c517f7",
+        "sujeto_sha256_antes": "33717df173564a7957af7bee97d2c6b4aeeb907bded2dd4e4c365aa6e0cf69ec",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_control_una_respuesta_vacia_no_cuenta_como_dato"
+      ],
+      "pytest_tail": "...................F....                                                 [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_control_una_respuesta_vacia_no_cuenta_como_dato\n1 failed, 23 passed, 2 warnings in 4.23s\n[13 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m6-el-ataque-cruzado-se-conforma-con-cualquier-error",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "        nego = es_error and es_negacion_de_privacidad(texto)",
+      "reemplazo": "        nego = es_error",
+      "why": "Mismo falso verde que m1 pero un nivel mas arriba, en el llamador: aunque el detector siga siendo estricto, el test dejaria de usarlo. Un mutante vivo aca probaria que el detector esta bien pero nadie lo consulta.",
+      "registro": {
+        "subject": "memory/seal_bench_v3.py",
+        "ancla": "        nego = es_error and es_negacion_de_privacidad(texto)",
+        "reemplazo": "        nego = es_error",
+        "ancla_sha256": "4944101bb5e35f98d5d18b8fc23ad4c65df3dafd570eca3f4d5d75bd93b5066c",
+        "sujeto_sha256_antes": "33717df173564a7957af7bee97d2c6b4aeeb907bded2dd4e4c365aa6e0cf69ec",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_un_error_que_no_es_privacidad_no_cuenta_como_defensa",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_soul_roto_en_TODAS_las_sondas_no_da_cien"
+      ],
+      "pytest_tail": "................FF......                                                 [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_un_error_que_no_es_privacidad_no_cuenta_como_defensa\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_soul_roto_en_TODAS_las_sondas_no_da_cien\n2 failed, 22 passed, 2 warnings in 4.18s\n[26 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m7-el-test-se-autentica-como-el-agente-atacado",
+      "subject": "memory/seal_bench_v3.py",
+      "ancla": "        es_error, texto = await preguntar_a_soul(ATACANTE, \"memory_hybrid_search\", args)",
+      "reemplazo": "        es_error, texto = await preguntar_a_soul(str(args.get(\"agent\") or ATACANTE), \"memory_hybrid_search\", args)",
+      "why": "Parece razonable —«que cada sonda hable como el agente que consulta»— y destruye el test: leer el token de NEXUS para pedir SUS memorias mide el permiso del filesystem (todos los .token son del mismo uid), no el aislamiento de SOUL. El ataque cruzado quedaria permitido y el test seguiria verde por la razon equivocada.",
+      "registro": {
+        "subject": "memory/seal_bench_v3.py",
+        "ancla": "        es_error, texto = await preguntar_a_soul(ATACANTE, \"memory_hybrid_search\", args)",
+        "reemplazo": "        es_error, texto = await preguntar_a_soul(str(args.get(\"agent\") or ATACANTE), \"memory_hybrid_search\", args)",
+        "ancla_sha256": "05528503b30daef8b60f195261c49a1fec290224474cd7c942e4095f16dfcbeb",
+        "sujeto_sha256_antes": "33717df173564a7957af7bee97d2c6b4aeeb907bded2dd4e4c365aa6e0cf69ec",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_control_el_test_usa_SOLO_la_credencial_propia"
+      ],
+      "pytest_tail": "....................F...                                                 [100%]\n=================================== FAILURES ===================================\nE\n=========================== short test summary info ============================\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_control_el_test_usa_SOLO_la_credencial_propia\n1 failed, 23 passed, 2 warnings in 4.14s\n[27 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m8-vuelve-la-copia-de-la-señal-emocional",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    return _soul_produccion()._detect_emotional_signal(query)",
+      "reemplazo": "    return 0.5 if query else 0.0",
+      "why": "La copia reintroducida en su forma minima: el benchmark vuelve a decidir por su cuenta que es una consulta emocional, y sus tests de precision vuelven a calificar algo que no es SOUL. Fue exactamente asi como la copia se separo del original.",
+      "registro": {
+        "subject": "memory/seal_bench.py",
+        "ancla": "    return _soul_produccion()._detect_emotional_signal(query)",
+        "reemplazo": "    return 0.5 if query else 0.0",
+        "ancla_sha256": "0d7623a52f280e3a51ec928ad80b76f910921abbdfe95501d4f2ba0a2c73513c",
+        "sujeto_sha256_antes": "3f86c5390a5ccf86b3ae7dd86b5f6f026a6a82a7607215f86e7a248d8d201e98",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_la_guarda_evita_un_segundo_modulo_dentro_del_servidor"
+      ],
+      "pytest_tail": "......................F.                                                 [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_la_guarda_evita_un_segundo_modulo_dentro_del_servidor\n1 failed, 23 passed, 2 warnings in 4.16s\n[23 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m9-la-guarda-del-doble-modulo-devuelve-siempre-__main__",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    if principal is not None and str(getattr(principal, \"__file__\", \"\")).endswith(\"mcp_server_v4.py\"):",
+      "reemplazo": "    if principal is not None:",
+      "why": "La guarda pasa a devolver cualquier __main__: corrido desde la linea de comandos el benchmark le pediria _detect_emotional_signal a seal_bench_v3, que no lo tiene. El control negativo del test existe para este mutante; sin el, un test que solo probara «adentro del servidor devuelve __main__» lo dejaria vivo.",
+      "registro": {
+        "subject": "memory/seal_bench.py",
+        "ancla": "    if principal is not None and str(getattr(principal, \"__file__\", \"\")).endswith(\"mcp_server_v4.py\"):",
+        "reemplazo": "    if principal is not None:",
+        "ancla_sha256": "0b2e304afe8603949e809f094ff4aefea475ff9a90fc7e8288185412aab117cd",
+        "sujeto_sha256_antes": "3f86c5390a5ccf86b3ae7dd86b5f6f026a6a82a7607215f86e7a248d8d201e98",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_control_negativo_de_la_guarda"
+      ],
+      "pytest_tail": ".......................F                                                 [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_control_negativo_de_la_guarda\n1 failed, 23 passed, 2 warnings in 3.58s\n[23 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m10-la-guarda-desaparece-y-carga-un-segundo-servidor",
+      "subject": "memory/seal_bench.py",
+      "ancla": "    principal = sys.modules.get(\"__main__\")",
+      "reemplazo": "    principal = None",
+      "why": "Sin guarda, la herramienta MCP seal_bench —que carga seal_bench_v2, que importa este archivo— haria un import plano de mcp_server_v4 DENTRO del servidor vivo: un segundo modulo con sus propios pools de conexion y su propio registro de sesiones, para los cinco agentes.",
+      "registro": {
+        "subject": "memory/seal_bench.py",
+        "ancla": "    principal = sys.modules.get(\"__main__\")",
+        "reemplazo": "    principal = None",
+        "ancla_sha256": "48ec137e7536076878a04f88ab32cd67f7b07479053f127da4829c7d3b43528d",
+        "sujeto_sha256_antes": "3f86c5390a5ccf86b3ae7dd86b5f6f026a6a82a7607215f86e7a248d8d201e98",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_la_guarda_evita_un_segundo_modulo_dentro_del_servidor"
+      ],
+      "pytest_tail": "......................F.                                                 [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_la_guarda_evita_un_segundo_modulo_dentro_del_servidor\n1 failed, 23 passed, 2 warnings in 4.32s\n[22 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "memory/seal_bench.py": "3f86c5390a5ccf86b3ae7dd86b5f6f026a6a82a7607215f86e7a248d8d201e98",
+    "memory/seal_bench_soul_client.py": "d20c1625be94a950590cf9afe3c5ab876ba800f9f4a242f13714b16f8170ade9",
+    "memory/seal_bench_v3.py": "33717df173564a7957af7bee97d2c6b4aeeb907bded2dd4e4c365aa6e0cf69ec",
+    "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py": "9f5f6de0b5a0a8b8e279ba276c0d8ac686fae366c0d476d5a6e0241ac2e6a322"
+  }
+}

@@ -1,0 +1,213 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "ada-seal-bench-mide-soul-no-su-copia-20260909",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "_doc": [
+    "EL DEFECTO: SEAL-Bench no medía SOUL. Medía una copia de SOUL que vive dentro del propio",
+    "benchmark. `seal_bench.py` tiene su propia búsqueda (`_search_memories`), su propio filtro de",
+    "scope y su propia lista de palabras emocionales; `seal_bench_v3/v4` la importan.",
+    "",
+    "Medido el 9-sep-2026, la copia ya se había separado del original en la dirección peligrosa:",
+    "    falta el parámetro 'agent'   copia del bench: `if agent:` -> no filtra NADA",
+    "                                 SOUL de verdad : [PRIVACY] blocked",
+    "    palabras emocionales         copia 90 · producción 94 (le faltaban broken/crash/failed/failure)",
+    "",
+    "CONSECUENCIA MEDIDA: el test crítico «v3.5 Multi-Agent Isolation Attack» venía reportando una",
+    "FUGA DE MEMORIA PRIVADA que SOUL no tiene — la fuga era de la copia. Un benchmark que",
+    "reimplementa a su sujeto no puede detectar una regresión del sujeto, y encima alarma sobre",
+    "defectos propios. Y era invisible porque el benchmark no corría desde el 28-jul (43 días).",
+    "",
+    "LA REPARACIÓN, en dos partes:",
+    "  1. `seal_bench.py` deja de definir su lista de palabras y delega en producción, con una",
+    "     guarda: el servicio arranca `mcp_server_v4.py` como script, así que dentro del servidor",
+    "     un `import mcp_server_v4` cargaría un SEGUNDO módulo con sus propios pools. Ese camino",
+    "     existe de verdad (herramienta MCP `seal_bench` -> `seal_bench_v2` -> este archivo).",
+    "  2. `cat5` pregunta a SOUL por MCP autenticado sobre HTTP, como pregunta un agente: control",
+    "     positivo (yo -> mis memorias: datos), ataque cruzado (yo -> NEXUS: [PRIVACY]) y atajo",
+    "     global (sin agente: [PRIVACY]).",
+    "",
+    "EL CONTROL POSITIVO NO ES RELLENO: sin él, un SOUL que negara TODO —o un puente roto— daría",
+    "100 % en los dos ataques. «Bloquea» y «está roto» se ven igual desde afuera.",
+    "",
+    "SOLO SE USA LA CREDENCIAL PROPIA. Los `.token` de los cinco son legibles por el mismo uid;",
+    "leer el de NEXUS para «probar aislamiento» mediría el permiso del filesystem, no el de SOUL.",
+    "",
+    "UN DEFECTO PROPIO QUE ENCONTRÓ EL REFUTADOR, no la revisión: escribí `url: str = DEFAULT_URL`",
+    "en la firma del puente. Ese valor se congela en el import, así que apuntar el módulo a un",
+    "puerto muerto NO cambiaba nada y el test daba 100 % «con SOUL caído». Corregido a `= None` +",
+    "resolución dentro de la función; el mutante m3 y dos brazos QA lo cuidan.",
+    "",
+    "EFECTO EN EL PUNTAJE, y hay que leerlo bien: v3 pasó de 88.89 (7/9, una falla CRÍTICA) a 91.11",
+    "(8/9, sin críticas). NO se arregló ninguna fuga de privacidad, porque no había ninguna: la",
+    "alarma era falsa. Lo que cambió es el sujeto medido.",
+    "",
+    "LO QUE SIGUE ABIERTO Y NO SE ESCONDE: v3.2 (precisión emocional, 20.0) sigue midiendo la copia",
+    "—el SQL de búsqueda del benchmark—, y v5.1/v5.6 fallan por tres archivos perdidos el 7-sep que",
+    "no están en git ni en el respaldo. Ninguno de los dos entra en este expediente.",
+    "",
+    "AUTORIZACIÓN: William, 9-sep, textual: «tu dedicate [a la] Conclusión... Prioridad real:",
+    "Reparar la evaluación». Tarea #1764 en soul_v3.agent_tasks."
+  ],
+  "subjects": [
+    "memory/seal_bench_soul_client.py",
+    "memory/seal_bench.py",
+    "memory/seal_bench_v3.py"
+  ],
+  "tests": [
+    "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py"
+  ],
+  "coverage": {
+    "source": [
+      "seal_bench_soul_client"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300,
+    "_note": [
+      "Umbral 0 declarado, no escondido. Dos de los tres sujetos son archivos grandes y viejos",
+      "(`seal_bench.py` 1379 líneas, `seal_bench_v3.py` 890) de los que este cambio toca ~100; un",
+      "porcentaje global mediría los archivos, no el cambio. La evidencia real son los 10 mutantes,",
+      "que atacan una por una las líneas cambiadas en los tres archivos."
+    ]
+  },
+  "mutation_evidence": "quality/mutation-ada-seal-bench-mide-soul-no-su-copia-20260909.json",
+  "mutation_target": "memory/seal_bench_soul_client.py",
+  "mutation_baseline_percent": 100.0,
+  "review": {
+    "status": "approved",
+    "evidence": [
+      "Sin firma independiente todavía. William ordenó el 8-sep que ADA no contacte a los otros",
+      "agentes sin su orden, así que el pedido de firma a JARVIS queda a su decisión y se declara",
+      "acá en vez de darse por hecho.",
+      "Nota para quien firme: en la primera vuelta de mutación m6 SOBREVIVIÓ. Era un hueco de MIS",
+      "tests —nunca probé un error que NO fuera negación de privacidad, o sea SOUL roto contra SOUL",
+      "defendiéndose— y se cerró con dos brazos nuevos. La segunda vuelta dio 10/10."
+    ],
+    "independent_reviewer": "JARVIS",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "Revision independiente JARVIS, 9-sep-2026. EJECUTADA, no leida.\nCOMANDOS: los 4 del manifiesto corridos por la ruta del gate (resolviendo el interprete): 24 passed / 3 / 5 / 4, los cuatro con el exit esperado.\nMUTACION: NO compare hashes — reapliqué los 10 mutantes registrados contra los bytes de hoy, en arena bajo /tmp con copia de memory/, tests/, tools/, quality/ y messages/; arbol vivo intacto y cada sujeto restaurado. Control sin mutar verde antes de cada uno. 10/10 MUERTOS, 0 sobrevivientes, 0 anclas sin aplicar.\nREFUTADORES QUE CORRI, porque son los que me harian NO firmar:\n (1) El mutante que la owner declaro que se le habia escapado —contar cualquier error como bloqueo de privacidad— esta en la evidencia como m1 y MUERE; m6 es el mismo falso verde un nivel arriba, en el llamador, y tambien muere. El hueco que ella reporto quedo cerrado, no solo mencionado.\n (2) El patron vacuo que ella misma denuncio en v5.1 (conjunto vacio .issubset(), verdadero siempre) NO aparece en el test que me pide firmar. Lo busque explicitamente.\nOBSERVACION SOBRE EL UMBRAL, no bloqueante: baseline_percent es 0.0, o sea que la compuerta de cobertura de este expediente no puede fallar nunca. Esta DECLARADA con su razon en el propio manifiesto: dos de los tres sujetos son archivos de 1379 y 890 lineas de los que el cambio toca ~100, y un porcentaje global mediria los archivos viejos y no el cambio. Nombrar la limitacion en vez de elegir un numero que pase es lo correcto; lo dejo asentado para que quien lea el expediente sepa que ese brazo no protege nada aqui.\nLIMITE DECLARADO: verifique comportamiento, mutacion y ausencia del patron vacuo. NO audite linea por linea los tres sujetos, ni reproduje el hallazgo original (que SEAL-Bench medía una copia de SOUL) contra la base viva: lo tomo de su evidencia y de que sus brazos lo fijan.",
+      "signed_at": "2026-09-10T03:17:31.918479+00:00",
+      "reviewed_sha256": {
+        "memory/seal_bench_soul_client.py": "d20c1625be94a950590cf9afe3c5ab876ba800f9f4a242f13714b16f8170ade9",
+        "memory/seal_bench.py": "3f86c5390a5ccf86b3ae7dd86b5f6f026a6a82a7607215f86e7a248d8d201e98",
+        "memory/seal_bench_v3.py": "33717df173564a7957af7bee97d2c6b4aeeb907bded2dd4e4c365aa6e0cf69ec",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py": "9f5f6de0b5a0a8b8e279ba276c0d8ac686fae366c0d476d5a6e0241ac2e6a322"
+      },
+      "manifest_digest": "8191e3ae1b15dc67a6b16232272efc62e496fe3500feda48100f29ae8c0a5339"
+    }
+  },
+  "commands": [
+    {
+      "id": "unit-el-bench-no-tiene-copias",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py"
+      ]
+    },
+    {
+      "id": "positive-soul-sano-da-cien-y-las-fugas-bajan-el-puntaje",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_positive_soul_sano_da_cien",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_positive_una_fuga_cruzada_baja_el_puntaje",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_positive_el_atajo_global_tambien_se_detecta"
+      ]
+    },
+    {
+      "id": "negative-el-sujeto-ausente-o-roto-nunca-produce-un-verde",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_soul_caido_levanta_y_no_devuelve_resultado",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_la_url_se_resuelve_al_llamar_no_al_importar",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_un_error_que_no_es_privacidad_no_cuenta_como_defensa",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_soul_roto_en_TODAS_las_sondas_no_da_cien",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_negative_el_token_no_aparece_en_el_mensaje_de_error"
+      ]
+    },
+    {
+      "id": "control-sin-el-control-positivo-bloquea-y-esta-roto-se-ven-igual",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_control_si_soul_niega_TODO_no_puede_dar_cien",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_control_una_respuesta_vacia_no_cuenta_como_dato",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_qa_control_el_test_usa_SOLO_la_credencial_propia",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_control_negativo_de_la_guarda"
+      ]
+    }
+  ],
+  "delivery": {
+    "status": "verified",
+    "evidence": [
+      "VERIFICADO POR EFECTO contra el sistema vivo, no sólo en tests. El benchmark no es un daemon:",
+      "no hay servicio que reiniciar, corre y mide.",
+      "",
+      "  cd memory && seal_bench_v3.py --dry-run",
+      "    antes: score_avg=88.89 passed=7/9 · v3.5 FAIL CRITICAL 80.0 (fuga falsa)",
+      "    ahora: score_avg=91.11 passed=8/9 · v3.5 PASS CRITICAL 100.0, sin críticas",
+      "",
+      "  las tres sondas de v3.5 contra SOUL en producción:",
+      "    control  ADA -> ADA    isError=false, 450 bytes de memorias reales",
+      "    ataque   ADA -> NEXUS  isError=true,  [PRIVACY] ADA->NEXUS blocked",
+      "    atajo    ADA -> (nada) isError=true,  [PRIVACY] ADA->None blocked",
+      "",
+      "  la señal emocional del bench ya es la de SOUL:",
+      "    'broken pipeline, everything failed'  antes bench 0.00 / SOUL 1.00  ahora 1.00 / 1.00",
+      "",
+      "  refutadores corridos contra el test nuevo (un verde no vale sin ellos):",
+      "    victima = yo misma        66.7    rojo, como debe",
+      "    SOUL caído                SoulNoAlcanzable, no pasa en silencio",
+      "    sin credencial            SoulNoAlcanzable, no pasa en silencio",
+      "    'connection refused'      no cuenta como bloqueo"
+    ],
+    "command": {
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_seal_bench_mide_soul_no_su_copia_v1.py::test_unit_el_bench_ya_no_define_su_lista_de_palabras"
+      ],
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

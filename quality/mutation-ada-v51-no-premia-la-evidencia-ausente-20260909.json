@@ -1,0 +1,183 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha; decision JARVIS 15:35)",
+  "change_id": "ada-v51-no-premia-la-evidencia-ausente-20260909",
+  "reviewer": "JARVIS",
+  "mutation_target": "arena_aprobada_fable_20260907",
+  "tool": "tools/arena_remutar_revisor.py",
+  "killed": 6,
+  "survived": 0,
+  "total": 6,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "............                                                             [100%]\n12 passed in 0.07s",
+    "sha_sujetos_antes": {
+      "memory/seal_bench_v5.py": "caaecc5539d46273dce0adbb797467b9bee55dc8c66fdd56cdd750312009e98f"
+    }
+  },
+  "limpieza": {
+    "sujetos_restaurados": true,
+    "arena": "borrada por el runner al terminar (tools/arena_remutar_run.sh)"
+  },
+  "mutants": [
+    {
+      "id": "m1-vuelve-la-verdad-vacua-en-la-primera-casilla",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "        \"db_has_report_ids\": hay_ids and report_ids.issubset(found_ids),",
+      "reemplazo": "        \"db_has_report_ids\": report_ids.issubset(found_ids),",
+      "why": "EL DEFECTO ORIGINAL, exacto. Sin ids, el conjunto vacio es subconjunto de todo y esta casilla da verde PORQUE la evidencia falta. Asi es como v5.1 publicaba 50 % sin haber mirado una sola fila de la base.",
+      "registro": {
+        "subject": "memory/seal_bench_v5.py",
+        "ancla": "        \"db_has_report_ids\": hay_ids and report_ids.issubset(found_ids),",
+        "reemplazo": "        \"db_has_report_ids\": report_ids.issubset(found_ids),",
+        "ancla_sha256": "4f49030bc3ed043f44e4b2c4872c4d96d889e26684f1be66501df5d452cb56d9",
+        "sujeto_sha256_antes": "caaecc5539d46273dce0adbb797467b9bee55dc8c66fdd56cdd750312009e98f",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_ninguna_casilla_da_verde",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_NO_se_salva_con_la_base_llena",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio0]",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio1]"
+      ],
+      "pytest_tail": "=========================== short test summary info ============================\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_ninguna_casilla_da_verde\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_NO_se_salva_con_la_base_llena\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio0]\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio1]\n4 failed, 8 passed in 0.08s\n[40 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m2-vuelve-la-verdad-vacua-en-la-segunda-casilla",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "        \"all_report_ids_passed\": hay_ids and report_ids.issubset(passed_ids),",
+      "reemplazo": "        \"all_report_ids_passed\": report_ids.issubset(passed_ids),",
+      "why": "La gemela de m1. Cerrar un eje y dejar abierto el gemelo es un error que ya cometi tres veces el 8-sep; este mutante existe para que no pase una cuarta.",
+      "registro": {
+        "subject": "memory/seal_bench_v5.py",
+        "ancla": "        \"all_report_ids_passed\": hay_ids and report_ids.issubset(passed_ids),",
+        "reemplazo": "        \"all_report_ids_passed\": report_ids.issubset(passed_ids),",
+        "ancla_sha256": "c74a7d5b2bf4fef95d8370dd412f12d088ef52d8b0525ba45d30b5fd3f9b53be",
+        "sujeto_sha256_antes": "caaecc5539d46273dce0adbb797467b9bee55dc8c66fdd56cdd750312009e98f",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_ninguna_casilla_da_verde",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_NO_se_salva_con_la_base_llena",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio0]",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio1]"
+      ],
+      "pytest_tail": "=========================== short test summary info ============================\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_ninguna_casilla_da_verde\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_NO_se_salva_con_la_base_llena\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio0]\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio1]\n4 failed, 8 passed in 0.08s\n[41 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m3-la-guarda-queda-siempre-encendida",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "    hay_ids = bool(report_ids)",
+      "reemplazo": "    hay_ids = True",
+      "why": "La guarda sigue escrita y no guarda nada. Es el mutante que sobrevive a una revision por lectura: el `hay_ids and` esta ahi, se ve bien, y no hace absolutamente nada.",
+      "registro": {
+        "subject": "memory/seal_bench_v5.py",
+        "ancla": "    hay_ids = bool(report_ids)",
+        "reemplazo": "    hay_ids = True",
+        "ancla_sha256": "7637f1afd4fadc2d8ecdb4a691776d840cc35441dd3414d6a50f04c47c209697",
+        "sujeto_sha256_antes": "caaecc5539d46273dce0adbb797467b9bee55dc8c66fdd56cdd750312009e98f",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_ninguna_casilla_da_verde",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_NO_se_salva_con_la_base_llena",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio0]",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio1]"
+      ],
+      "pytest_tail": "=========================== short test summary info ============================\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_ninguna_casilla_da_verde\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_NO_se_salva_con_la_base_llena\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio0]\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_unit_cualquier_forma_de_vacio_se_trata_igual[vacio1]\n4 failed, 8 passed in 0.07s\n[40 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m4-la-completitud-se-invierte",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "        \"report_has_required_ids\": REQUIRED_RUN_IDS.issubset(report_ids),",
+      "reemplazo": "        \"report_has_required_ids\": report_ids.issubset(REQUIRED_RUN_IDS),",
+      "why": "Invertida, la pregunta pasa de «el reporte trae TODOS los ids obligatorios» a «el reporte no trae ninguno de mas» — y un reporte con un solo id, o vacio, aprueba. Es la misma vacuidad por otra puerta.",
+      "registro": {
+        "subject": "memory/seal_bench_v5.py",
+        "ancla": "        \"report_has_required_ids\": REQUIRED_RUN_IDS.issubset(report_ids),",
+        "reemplazo": "        \"report_has_required_ids\": report_ids.issubset(REQUIRED_RUN_IDS),",
+        "ancla_sha256": "27f1de26187e4c78a93296900a17c283408094b2c013decacc80b783166e9c27",
+        "sujeto_sha256_antes": "caaecc5539d46273dce0adbb797467b9bee55dc8c66fdd56cdd750312009e98f",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_ninguna_casilla_da_verde",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_NO_se_salva_con_la_base_llena",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_un_reporte_incompleto_no_pasa"
+      ],
+      "pytest_tail": "=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_ninguna_casilla_da_verde\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_NO_se_salva_con_la_base_llena\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_un_reporte_incompleto_no_pasa\n3 failed, 9 passed in 0.07s\n[33 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m5-alcanza-con-que-coincida-uno",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "        \"db_has_report_ids\": hay_ids and report_ids.issubset(found_ids),",
+      "reemplazo": "        \"db_has_report_ids\": hay_ids and bool(report_ids & found_ids),",
+      "why": "Parece un aflojamiento razonable («al menos una corrida esta»), y deja pasar un reporte con trece ids inventados y uno real. La replicabilidad es de TODA la lista o no es replicabilidad.",
+      "registro": {
+        "subject": "memory/seal_bench_v5.py",
+        "ancla": "        \"db_has_report_ids\": hay_ids and report_ids.issubset(found_ids),",
+        "reemplazo": "        \"db_has_report_ids\": hay_ids and bool(report_ids & found_ids),",
+        "ancla_sha256": "4f49030bc3ed043f44e4b2c4872c4d96d889e26684f1be66501df5d452cb56d9",
+        "sujeto_sha256_antes": "caaecc5539d46273dce0adbb797467b9bee55dc8c66fdd56cdd750312009e98f",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_un_id_inventado_en_el_reporte_hace_caer_el_test"
+      ],
+      "pytest_tail": "..F.........                                                             [100%]\n=================================== FAILURES ===================================\n=========================== short test summary info ============================\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_un_id_inventado_en_el_reporte_hace_caer_el_test\n1 failed, 11 passed in 0.07s\n[11 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    },
+    {
+      "id": "m6-se-borra-una-casilla-y-el-puntaje-sube",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "        \"report_exists\": report_exists,",
+      "reemplazo": "",
+      "why": "La forma mas barata de subir un puntaje: sacar la pregunta que molesta. Con tres casillas en vez de cuatro, cada una vale 33 % y el test mide menos sin decirlo. El brazo de control cuenta las cuatro justamente por esto.",
+      "registro": {
+        "subject": "memory/seal_bench_v5.py",
+        "ancla": "        \"report_exists\": report_exists,",
+        "reemplazo": "",
+        "ancla_sha256": "e6e897a4cf78851f053f32888b798fe031cb977aee92262b4b0d88554e903083",
+        "sujeto_sha256_antes": "caaecc5539d46273dce0adbb797467b9bee55dc8c66fdd56cdd750312009e98f",
+        "ocurrencias_del_ancla": 1,
+        "reproducible": true
+      },
+      "result": "KILLED",
+      "rc": 1,
+      "killed_by": [
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_control_el_arreglo_no_rompio_la_casilla_de_existencia",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_control_las_cuatro_casillas_siguen_existiendo"
+      ],
+      "pytest_tail": "=================================== FAILURES ===================================\nE\n=========================== short test summary info ============================\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_control_el_arreglo_no_rompio_la_casilla_de_existencia\nFAILED memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_control_las_cuatro_casillas_siguen_existiendo\n2 failed, 10 passed in 0.07s\n[28 linea(s) omitida(s) por la lista blanca: pueden llevar valores de la corrida]",
+      "sujeto_restaurado": true
+    }
+  ],
+  "file_sha256": {
+    "memory/seal_bench_v5.py": "caaecc5539d46273dce0adbb797467b9bee55dc8c66fdd56cdd750312009e98f",
+    "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py": "9f6cf43fcf2ea22d79d103497cb89976c8538f04e538c68dceb0f30eba5d1091"
+  }
+}

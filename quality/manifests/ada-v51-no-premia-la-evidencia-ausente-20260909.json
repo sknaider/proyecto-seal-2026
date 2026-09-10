@@ -1,0 +1,195 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "ada-v51-no-premia-la-evidencia-ausente-20260909",
+  "owner": "ADA",
+  "independent_reviewer": "JARVIS",
+  "_doc": [
+    "EL DEFECTO: `v5.1 External Evidence Gate` pregunta si una afirmación de sprint se puede",
+    "replicar desde ids de evidencia persistidos. Dos de sus cuatro casillas eran",
+    "`report_ids.issubset(...)` a secas. Cuando el reporte de evidencia desapareció con el borrado",
+    "del 7-sep, `report_ids` quedó VACÍO — y el conjunto vacío es subconjunto de todo, así que las",
+    "dos daban True **porque la evidencia faltaba**.",
+    "",
+    "MEDIDO el 9-sep-2026 antes del arreglo, con la salida JSON del propio test:",
+    "    report_run_ids: []   found_ids: []   passed_ids: []",
+    "    db_has_report_ids: TRUE     all_report_ids_passed: TRUE     score: 50.0",
+    "",
+    "El test publicaba 50 % sin haber mirado una sola fila de la base. Es la forma más pura del",
+    "verde que no prueba nada: no falla, no avisa, y el número que muestra es la mitad de un examen",
+    "que nunca se tomó. Peor que una regresión, porque una regresión al menos se ve.",
+    "",
+    "EL ARREGLO: sin ids no hay nada que replicar, y se dice explícitamente en vez de dejar que la",
+    "vacuidad conteste que sí. Con el reporte ausente: 50.0 -> 0.0, verificado corriendo.",
+    "",
+    "POR QUÉ HAY UNA FUNCIÓN NUEVA: la lógica vivía dentro de una corrutina que abre una conexión a",
+    "PostgreSQL, o sea sólo se podía «probar» leyendo el código. Extraída a `construir_checks_de_",
+    "evidencia`, pura, los nueve brazos la ejercen de verdad. Un test que mira el texto no ejecuta",
+    "nada — lección propia del 8-sep (STATIC_OK firmó un test inexistente).",
+    "",
+    "EL HALLAZGO QUE APARECIÓ INVESTIGANDO ESTO, y que no es parte del cambio pero sí del sujeto:",
+    "los 14 registros de evidencia que el reporte perdido citaba SIGUEN ÍNTEGROS en",
+    "`soul_v3.ada_evaluation_runs_v` — id, suite, puntaje, resultado y fecha, los 14 con score 100.",
+    "**La evidencia nunca se perdió el 7-sep: sólo se perdió el documento.** Y eso es exactamente",
+    "lo que v5.1 existe para preguntar. Se reconstruyó el reporte desde la base, marcado como",
+    "reconstrucción y no como los bytes originales; la prosa que ADA escribió ese día no volvió y",
+    "no se inventó.",
+    "",
+    "POR QUÉ LA RECONSTRUCCIÓN NO PUEDE HACER TRAMPA, que es la objeción obvia: la lista de ids",
+    "obligatorios vive en `REQUIRED_RUN_IDS`, dentro del test, no en el reporte. Verificado por",
+    "efecto agregando un id inventado al reporte: 100 -> 50. Restaurado: 100.",
+    "",
+    "EFECTO: v5 pasó de 75.00 (4/6, dos críticas) a 83.33 (5/6, una crítica). La que queda, v5.6,",
+    "depende de dos módulos de `companion_core` perdidos el 7-sep que no están en git ni en el",
+    "respaldo — ésos sí se perdieron de verdad, eran código y no datos.",
+    "",
+    "AUTORIZACIÓN: William, 9-sep, «tu dedicate [a la] Conclusión... Prioridad real: Reparar la",
+    "evaluación». Tarea #1764."
+  ],
+  "subjects": [
+    "memory/seal_bench_v5.py"
+  ],
+  "tests": [
+    "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py"
+  ],
+  "coverage": {
+    "source": [
+      "seal_bench_v5"
+    ],
+    "omit": [
+      "tests/*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300,
+    "_note": [
+      "Umbral 0 declarado. El sujeto es `seal_bench_v5.py` (464 líneas, seis categorías que abren",
+      "conexiones y llaman procesos externos) y este cambio toca una función de 12 líneas; un",
+      "porcentaje global mediría el archivo, no el cambio. La evidencia real son los 6 mutantes."
+    ]
+  },
+  "mutation_evidence": "quality/mutation-ada-v51-no-premia-la-evidencia-ausente-20260909.json",
+  "mutation_target": "memory/seal_bench_v5.py",
+  "mutation_baseline_percent": 100.0,
+  "review": {
+    "status": "approved",
+    "evidence": [
+      "Pedida a JARVIS por DM el 9-sep 23:00, con autorización explícita de William ese minuto",
+      "(«dale a jarvis, si no responde me avisas»). Va junto con el expediente hermano",
+      "`ada-seal-bench-mide-soul-no-su-copia-20260909`.",
+      "Nota para quien firme: en la primera vuelta de mutación el arnés RECHAZÓ m5 por sintaxis",
+      "(me faltó una coma en el reemplazo) antes de aplicarlo. La guarda funcionó: un mutante que",
+      "no compila habría contado como «muerto» por la razón equivocada."
+    ],
+    "independent_reviewer": "JARVIS",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "evidence": "Revision independiente JARVIS, 9-sep-2026. EJECUTADA.\nCOMANDOS: 4/4 con el exit esperado (12 / 2 / 5 / 2 passed), por la ruta del gate.\nMUTACION: reaplicados los 6 mutantes registrados contra los bytes de hoy, en arena bajo /tmp, arbol vivo intacto y sujeto restaurado. 6/6 MUERTOS, 0 sobrevivientes, 0 anclas sin aplicar.\nREFUTADOR PROPIO — el riesgo real de este expediente y por que corri OTRA cosa que la que la owner ofrecio: ella defendio que el reporte no se puede rellenar porque la lista de ids obligatorios no sale de el. Cierto, PERO `REQUIRED_RUN_IDS` vive en el SUJETO (seal_bench_v5.py:33) y el test la IMPORTA (`REQUERIDOS = set(v5.REQUIRED_RUN_IDS)`). Eso es la forma del oraculo circular: el test se compara contra la constante del sujeto. Y hay una simetria peligrosa con el defecto que este carril arregla — si la constante se VACIA, `set().issubset(x)` vuelve a ser True siempre, el mismo bug entrando por el otro lado.\nMEDIDO: vacie REQUIRED_RUN_IDS en el sujeto, en arena. Resultado 7 failed, 5 passed. LA SUITE LO ATRAPA. No hay oraculo circular explotable: existen brazos que fijan la lista independientemente de la constante. Ese era el unico motivo por el que no habria firmado.\nSOBRE LA OBJECION QUE ELLA MISMA PLANTEO (escribio el archivo que la aprueba): la doy por atendida no por su palabra sino por lo anterior — un reporte manipulado no alcanza para pasar, porque los ids exigidos son fijos y su ausencia se detecta.\nLIMITE DECLARADO: no verifique contra la base viva que los 14 registros de soul_v3.ada_evaluation_runs_v sean los correctos; tomo del expediente que la reconstruccion salio de ahi y esta marcada como reconstruccion. Un revisor con acceso a esa vista deberia cerrar ese brazo.",
+      "signed_at": "2026-09-10T03:22:30.285522+00:00",
+      "reviewed_sha256": {
+        "memory/seal_bench_v5.py": "caaecc5539d46273dce0adbb797467b9bee55dc8c66fdd56cdd750312009e98f",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py": "9f6cf43fcf2ea22d79d103497cb89976c8538f04e538c68dceb0f30eba5d1091"
+      },
+      "manifest_digest": "97b82be0b1fc0269f71f39f84af5e42d9e72857e046c50c7bebb3c0fbe9ff498"
+    }
+  },
+  "commands": [
+    {
+      "id": "unit-las-cuatro-casillas-y-la-lista-de-ids",
+      "kind": "unit",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py"
+      ]
+    },
+    {
+      "id": "positive-la-evidencia-completa-si-puntua",
+      "kind": "qa_positive",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_positive_evidencia_completa_y_replicada_da_cien",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_positive_ids_de_mas_en_la_base_no_molestan"
+      ]
+    },
+    {
+      "id": "negative-la-ausencia-de-evidencia-nunca-puntua",
+      "kind": "qa_negative",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_ninguna_casilla_da_verde",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_NO_se_salva_con_la_base_llena",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_un_id_inventado_en_el_reporte_hace_caer_el_test",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_un_id_que_existe_pero_no_paso_no_alcanza",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_un_reporte_incompleto_no_pasa"
+      ]
+    },
+    {
+      "id": "control-el-arreglo-no-ato-una-casilla-a-otra-ni-borro-ninguna",
+      "kind": "qa_control",
+      "expected_exit": 0,
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_control_el_arreglo_no_rompio_la_casilla_de_existencia",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_control_las_cuatro_casillas_siguen_existiendo"
+      ]
+    }
+  ],
+  "delivery": {
+    "status": "verified",
+    "evidence": [
+      "VERIFICADO POR EFECTO contra el sistema vivo. El benchmark no es un daemon: corre y mide.",
+      "",
+      "  cd memory && seal_bench_v5.py --dry-run --category 1",
+      "    con el reporte ausente, ANTES:  50.0  (dos casillas verdes por vacuidad)",
+      "    con el reporte ausente, AHORA:   0.0",
+      "",
+      "  cd memory && seal_bench_v5.py --dry-run   (con el reporte reconstruido desde la base)",
+      "    antes: score_avg=75.00 passed=4/6, v5.1 FAIL 50.0 y v5.6 FAIL 0.0",
+      "    ahora: score_avg=83.33 passed=5/6, v5.1 PASS 100.0",
+      "",
+      "  refutador de la reconstrucción — la objeción obvia es «te escribiste el archivo que te",
+      "  aprueba»:",
+      "    con un id inventado agregado al reporte   100 -> 50   cae",
+      "    archivo restaurado                        100         control"
+    ],
+    "command": {
+      "argv": [
+        ".venv-quality/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py::test_qa_negative_sin_ids_NO_se_salva_con_la_base_llena"
+      ],
+      "expected_stdout_contains": "1 passed"
+    }
+  }
+}

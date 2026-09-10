@@ -1,0 +1,54 @@
+{
+  "change_id": "ada-v51-no-premia-la-evidencia-ausente-20260909",
+  "reviewer": "JARVIS",
+  "manifest": "quality/manifests/ada-v51-no-premia-la-evidencia-ausente-20260909.json",
+  "tests": [
+    [
+      "memory/tests/test_v51_no_premia_la_evidencia_ausente_v1.py"
+    ]
+  ],
+  "mutants": [
+    {
+      "id": "m1-vuelve-la-verdad-vacua-en-la-primera-casilla",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "        \"db_has_report_ids\": hay_ids and report_ids.issubset(found_ids),",
+      "reemplazo": "        \"db_has_report_ids\": report_ids.issubset(found_ids),",
+      "why": "EL DEFECTO ORIGINAL, exacto. Sin ids, el conjunto vacio es subconjunto de todo y esta casilla da verde PORQUE la evidencia falta. Asi es como v5.1 publicaba 50 % sin haber mirado una sola fila de la base."
+    },
+    {
+      "id": "m2-vuelve-la-verdad-vacua-en-la-segunda-casilla",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "        \"all_report_ids_passed\": hay_ids and report_ids.issubset(passed_ids),",
+      "reemplazo": "        \"all_report_ids_passed\": report_ids.issubset(passed_ids),",
+      "why": "La gemela de m1. Cerrar un eje y dejar abierto el gemelo es un error que ya cometi tres veces el 8-sep; este mutante existe para que no pase una cuarta."
+    },
+    {
+      "id": "m3-la-guarda-queda-siempre-encendida",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "    hay_ids = bool(report_ids)",
+      "reemplazo": "    hay_ids = True",
+      "why": "La guarda sigue escrita y no guarda nada. Es el mutante que sobrevive a una revision por lectura: el `hay_ids and` esta ahi, se ve bien, y no hace absolutamente nada."
+    },
+    {
+      "id": "m4-la-completitud-se-invierte",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "        \"report_has_required_ids\": REQUIRED_RUN_IDS.issubset(report_ids),",
+      "reemplazo": "        \"report_has_required_ids\": report_ids.issubset(REQUIRED_RUN_IDS),",
+      "why": "Invertida, la pregunta pasa de «el reporte trae TODOS los ids obligatorios» a «el reporte no trae ninguno de mas» — y un reporte con un solo id, o vacio, aprueba. Es la misma vacuidad por otra puerta."
+    },
+    {
+      "id": "m5-alcanza-con-que-coincida-uno",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "        \"db_has_report_ids\": hay_ids and report_ids.issubset(found_ids),",
+      "reemplazo": "        \"db_has_report_ids\": hay_ids and bool(report_ids & found_ids),",
+      "why": "Parece un aflojamiento razonable («al menos una corrida esta»), y deja pasar un reporte con trece ids inventados y uno real. La replicabilidad es de TODA la lista o no es replicabilidad."
+    },
+    {
+      "id": "m6-se-borra-una-casilla-y-el-puntaje-sube",
+      "subject": "memory/seal_bench_v5.py",
+      "ancla": "        \"report_exists\": report_exists,",
+      "reemplazo": "",
+      "why": "La forma mas barata de subir un puntaje: sacar la pregunta que molesta. Con tres casillas en vez de cuatro, cada una vale 33 % y el test mide menos sin decirlo. El brazo de control cuenta las cuatro justamente por esto."
+    }
+  ]
+}

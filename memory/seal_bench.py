@@ -236,68 +236,43 @@ async def _store_memory(pool, agent: str, content: str, category: str = "fact",
     return mem_id
 
 
-# Emotional signal keywords for valence-boost reranking (mirrors mcp_server_v3.py)
-_BENCH_EMOTIONAL_KEYWORDS: frozenset[str] = frozenset({
-    # English — base forms
-    "positive", "negative", "happy", "sad", "feel", "emotion", "emotional",
-    "joy", "fear", "anger", "trust", "surprise", "love", "hate", "pride",
-    "confident", "confidence", "anxious", "anxiety", "excited", "frustrated",
-    "proud", "worried", "grateful", "satisfied", "disappointed", "hopeful",
-    # English — past tenses / variants
-    "felt", "feeling", "feelings", "deeply", "intense", "intensely",
-    "lost", "losing", "loss", "grief", "regret", "regretful", "missed",
-    "missing", "longing", "hurt", "hurting", "scared", "thrilled",
-    "devastated", "overwhelmed", "relieved", "elated", "devastated",
-    "moved", "touched", "distressed", "upset", "delighted", "content",
-    # Spanish — variantes
-    "positivo", "negativo", "feliz", "triste", "sentir", "emoción", "emocional",
-    "alegría", "miedo", "enojo", "confianza", "sorpresa", "amor", "orgullo",
-    "ansioso", "ansiedad", "emocionado", "frustrado", "preocupado", "agradecido",
-    "satisfecho", "decepcionado", "esperanza", "corrección", "crítico",
-    "profundamente", "intensamente", "perdido", "perdiendo", "duelo",
-    "arrepentido", "herido", "asustado", "aliviado",
-})
+# ── Señal emocional: UNA sola implementación, la de SOUL ──────────────────────
+# Hasta el 9-sep-2026 este archivo tenía su propia copia de las tres listas de
+# palabras y de las dos funciones, tomada de `mcp_server_v3.py` — un servidor que
+# ya no existe. Medido ese día: la copia se había quedado en 90 palabras contra
+# las 94 de producción; le faltaban `broken`, `crash`, `failed`, `failure`. Los
+# tests de precisión emocional (v3.2, v4.1) estaban calificando a la copia vieja,
+# así que su número no decía nada sobre cómo recuerda SOUL.
+#
+# Por eso acá no hay lista propia NI fallback silencioso: si no se puede alcanzar
+# producción, el benchmark falla ruidosamente. Un número sacado de una copia es
+# peor que no tener número, porque se lo cree.
 
-_BENCH_POSITIVE_EMOTION_KEYWORDS: frozenset[str] = frozenset({
-    "positive", "happy", "joy", "love", "pride", "proud", "confident",
-    "confidence", "excited", "grateful", "satisfied", "hopeful", "thrilled",
-    "relieved", "elated", "delighted", "content", "achievement", "achieved",
-    "celebration", "successful", "success", "orgullo", "feliz", "alegría",
-    "confianza", "emocionado", "agradecido", "satisfecho", "esperanza",
-    "aliviado",
-})
 
-_BENCH_NEGATIVE_EMOTION_KEYWORDS: frozenset[str] = frozenset({
-    "negative", "sad", "fear", "anger", "hate", "anxious", "anxiety",
-    "frustrated", "worried", "disappointed", "lost", "losing", "loss",
-    "grief", "regret", "regretful", "missed", "missing", "longing", "hurt",
-    "hurting", "scared", "devastated", "overwhelmed", "distressed", "upset",
-    "crash", "failure", "failed", "broken", "negativo", "triste", "miedo",
-    "enojo", "ansioso", "ansiedad", "frustrado", "preocupado",
-    "decepcionado", "perdido", "perdiendo", "duelo", "arrepentido", "herido",
-    "asustado",
-})
+def _soul_produccion():
+    """El módulo de producción, reusando el ya cargado si corremos DENTRO del servidor.
+
+    `seal-mcp-server.service` arranca `mcp_server_v4.py` como script, así que dentro
+    del servidor ese módulo vive bajo el nombre `__main__`. Un `import mcp_server_v4`
+    ahí adentro cargaría un SEGUNDO módulo, con sus propios pools de conexión y su
+    propio registro de sesiones. Y ese camino existe de verdad: la herramienta MCP
+    `seal_bench` carga `seal_bench_v2`, que importa este archivo.
+    """
+    principal = sys.modules.get("__main__")
+    if principal is not None and str(getattr(principal, "__file__", "")).endswith("mcp_server_v4.py"):
+        return principal
+    import mcp_server_v4
+    return mcp_server_v4
 
 
 def _bench_detect_emotional_signal(query: str) -> float:
-    """Returns 0.0–1.0 indicating emotional signal strength. 1 hit→0.5, 2+→1.0."""
-    lower = query.lower()
-    hits = sum(1 for kw in _BENCH_EMOTIONAL_KEYWORDS
-               if re.search(r'\b' + re.escape(kw) + r'\b', lower))
-    if hits == 0:
-        return 0.0
-    return min(1.0, hits * 0.5)
+    """Delegado a producción. Conserva el nombre porque v3 y v4 ya lo importan."""
+    return _soul_produccion()._detect_emotional_signal(query)
 
 
 def _bench_detect_emotional_polarity(query: str) -> int:
-    lower = query.lower()
-    positive_hits = sum(1 for kw in _BENCH_POSITIVE_EMOTION_KEYWORDS
-                        if re.search(r'\b' + re.escape(kw) + r'\b', lower))
-    negative_hits = sum(1 for kw in _BENCH_NEGATIVE_EMOTION_KEYWORDS
-                        if re.search(r'\b' + re.escape(kw) + r'\b', lower))
-    if positive_hits == negative_hits:
-        return 0
-    return 1 if positive_hits > negative_hits else -1
+    """Delegado a producción, por la misma razón que el anterior."""
+    return _soul_produccion()._detect_emotional_polarity(query)
 
 
 async def _search_memories(pool, query: str, agent: str = None,
