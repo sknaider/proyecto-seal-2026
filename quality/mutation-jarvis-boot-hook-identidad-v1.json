@@ -1,0 +1,70 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "change_id": "jarvis-boot-hook-identidad-v1",
+  "reviewer": "ALICE",
+  "generado_por": "ALICE (revisora independiente) — campana propia, reemplaza la del owner",
+  "fecha": "2026-09-11T09:55:22.399139+00:00",
+  "sujeto": "memory/soul_boot_hook.sh — solo el bloque que DECIDE la identidad",
+  "metodo": "cada mutante se aplica a una COPIA en /tmp y los brazos se apuntan a ella con SEAL_BOOT_HOOK_PATH. El archivo vivo NUNCA se modifica.",
+  "no_mutado_a_proposito": "La guarda `if [ \"$AGENT\" = \"UNKNOWN\" ]` que saltea los efectos NO se muta: adentro viven el kill (143-144) y el pkill (149). Mutarla no simularia el peligro, lo ejecutaria sobre procesos reales de otros agentes (regla del 7-sep-2026, borrado del home). Su cobertura se comprueba por lectura y por el brazo 2, no por mutacion.",
+  "control_copia_sin_mutar": {
+    "exit": 0,
+    "resumen": "16 passed in 1.75s"
+  },
+  "mutantes": [
+    {
+      "mutante": "A1_vuelve_el_default_mudo",
+      "aplicado": true,
+      "exit": 1,
+      "muerto": true,
+      "resumen": "1 failed, 15 passed in 3.75s"
+    },
+    {
+      "mutante": "A2_en_conflicto_gana_el_cmdline",
+      "aplicado": true,
+      "exit": 1,
+      "muerto": true,
+      "resumen": "6 failed, 10 passed in 1.89s"
+    },
+    {
+      "mutante": "A3_persiste_sin_identidad_probada",
+      "aplicado": true,
+      "exit": 1,
+      "muerto": true,
+      "resumen": "7 failed, 9 passed in 3.96s"
+    },
+    {
+      "mutante": "A4_ignora_el_ambiente",
+      "aplicado": true,
+      "exit": 1,
+      "muerto": true,
+      "resumen": "12 failed, 4 passed in 5.85s"
+    },
+    {
+      "mutante": "A5_walk_mas_chico_que_el_roster",
+      "aplicado": true,
+      "exit": 1,
+      "muerto": true,
+      "resumen": "2 failed, 10 passed in 1.36s"
+    },
+    {
+      "mutante": "A6_vuelve_a_dictar_el_comando_crudo",
+      "aplicado": true,
+      "exit": 1,
+      "muerto": true,
+      "resumen": "1 failed, 15 passed in 3.72s"
+    }
+  ],
+  "total": 6,
+  "killed": 6,
+  "survived": 0,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "file_sha256": {
+    "memory/soul_boot_hook.sh": "bda26888fbde3a83484e950d4378de3a3200b15e8cac94f881f015e3bd7ea645",
+    "memory/test_soul_boot_hook_identidad_v1.py": "aa9d10824a1378dc6f8e9e4d9e7cb3829c9d812a41ec7d0ea3825f42319a247c"
+  }
+}

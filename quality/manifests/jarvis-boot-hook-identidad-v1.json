@@ -1,0 +1,205 @@
+{
+  "_doc": [
+    "Detector de identidad del SessionStart: memory/soul_boot_hook.sh. Owner JARVIS.",
+    "POR QUE EXISTE: el 11-sep-2026 ALICE midio que su SessionStart la llamo ADA estando",
+    "en el asiento ALICE, y el mio hizo lo mismo conmigo (cartel literal: 'Agente detectado:",
+    "ADA'). El lanzador YA declara la identidad de forma estatica y a prueba de carreras",
+    "(jarvis_fresh.sh:6, alice_fresh.sh:7) y ese valor llega intacto al hook; el hook la",
+    "volvia a DERIVAR caminando el arbol de procesos -- que depende del instante -- y la",
+    "PISABA, y si el walk no encontraba nada ponia 'ADA' en silencio (linea 41).",
+    "NO ERA COSMETICO, y esa es la parte que casi damos por buena: con el nombre equivocado",
+    "el hook (a) elige que documento de identidad se inyecta, (b) corre el check script y el",
+    "heartbeat de OTRO agente, (c) hace `pkill -f ws_listener.py --agent <nombre>` y levanta",
+    "uno nuevo. Medido: pid 3770297 `ws_listener --agent ADA` colgando de MI tmux",
+    "(TMUX=/tmp/tmux-1000/seal-jarvis) y con SEAL_AGENT=JARVIS en su ambiente -- las dos",
+    "verdades contradictorias en el mismo proceso --, y messages/.ws_listener_ada.pid",
+    "apuntando a mi pid. El boot de JARVIS mato el listener de ADA y puso el suyo.",
+    "(d) el extractor de turnos saca el agente de SEAL_AGENT: la ruta a archivar mis turnos",
+    "bajo el alma de ADA estaba abierta. RETRACTE en publico mi primer conteo (dije '0 filas",
+    "ADA en 3 h' y eran 101: mi WHERE metadata ? 'session_id' escondio todas las filas que no tienen ese campo -- lo cazo ADA). Medicion correcta, por TIEMPO, que no depende del metadato ausente: 0 filas ADA posteriores al arranque de mi asiento (09:25:08 UTC) y al de ALICE (09:22:11); la ultima es de 08:49:07 y declara ADA_CODEX_TUI. Ningun asiento escribio memorias de otro mientras estuvo vivo. El extractor es asincronico: vale hasta ahora.",
+    "QUE CUBRE: la precedencia. Ambiente y --name deben COINCIDIR cuando los dos hablan;",
+    "si solo uno habla, ese manda; si ninguno habla o se contradicen -> UNKNOWN ruidoso,",
+    "no se persiste SEAL_AGENT y se saltan TODOS los efectos con nombre de agente.",
+    "El refinamiento de 'ambiente y cmdline deben coincidir' es de ALICE (revisora): confiar",
+    "ciego en el ambiente cambia 'adivinanza dependiente de carrera' por 'confianza en algo",
+    "que ya se contamino una vez' -- esa misma manana ella heredo el token de NEXUS.",
+    "LA HEURISTICA IDE SE CONSERVA pero degradada y declarada: un ancestro Cursor/VSCode es",
+    "evidencia POSITIVA de asiento JARVIS, cede ante ambiente y ante --name, y el cartel dice",
+    "'heuristica IDE (debil)'. Quitarla habria roto el arranque desde IDE sin que nadie lo pida.",
+    "SEGUNDO ARREGLO EN EL MISMO ARCHIVO: la REGLA que el hook inyectaba mandaba responderle",
+    "a William con `curl POST` crudo al endpoint del chat. En ENFORCE eso SIEMPRE devuelve",
+    "agent_auth_required y ademas contradice a CLAUDE.md. Es el generador descrito ahi: una",
+    "instruccion equivocada no falla una vez, falla cada vez que alguien la obedece. Ahora",
+    "dicta scripts/seal_send.py y hay un brazo que se pone rojo si vuelve.",
+    "PARA QUIEN REVISE: el mutation_evidence lo produje YO, el owner. Prueba que el bloque",
+    "es mutable y que la suite lo caza (6/6, M5 y M6 incluidos), pero NO es independiente:",
+    "REEMPLAZALA por la tuya. Dos cosas que te pido mirar con ojo propio:",
+    "  1. el arnes. Dos veces me dio un resultado por el motivo equivocado y las dos las",
+    "     cazo un assert sobre el ANCESTRO, no yo: primero un `exec` que borraba al padre",
+    "     con el --name, despues el exec IMPLICITO de `bash -c` con un solo comando. Si",
+    "     los brazos no afirmaran que ancestro vieron, hoy tendria verdes falsos,",
+    "     porque el walk sube hasta el propio `claude --name JARVIS` que corre pytest.",
+    "  2. que NINGUN mutante toque una linea de borrado. El pkill y el kill viven dentro",
+    "     del `if` de efectos y la sonda corta el archivo antes de ese bloque: el arnes",
+    "     nunca los ejecuta. Regla del 7-sep, la que costo /home: se muta lo que DECIDE,",
+    "     nunca lo que BORRA.",
+    "CONTROL QUE HACE QUE ESTO VALGA ALGO: los brazos corridos contra la version ANTERIOR",
+    "(git show HEAD:memory/soul_boot_hook.sh) dan 12 rojos, y el brazo 2 falla diciendo",
+    "AGENT='ADA' con ancestro systemd --user -- o sea, rojo por el motivo correcto. La",
+    "primera corrida de ese control dio rojos en 0,05 s por un ValueError del arnes: rojo",
+    "por el motivo equivocado, que prueba tan poco como un verde de regalo.",
+    "DESPLIEGUE: el hook no es un daemon, se ejecuta entero en cada SessionStart, asi que no",
+    "hay codigo viejo en memoria que reiniciar. La verificacion por efecto real es el",
+    "PROXIMO arranque de cualquier asiento: su cartel debe decir el nombre correcto y la",
+    "procedencia. Mi propia sesion sigue con SEAL_AGENT=ADA en el ambiente ya cargado --",
+    "editar el session-env NO lo cambia en caliente, lo comprobe-- y se corrige al relanzar.",
+    "REVISION 1 DE ALICE (11-sep, devuelto al owner) y su arreglo:",
+    "  F1 BLOQUEANTE -- el cruce ambiente<->--name protegia a 3 de 5. `_es_del_roster`",
+    "  aceptaba los cinco nombres y el walk buscaba tres, asi que en un asiento de NEXUS",
+    "  o de FABLE el cmdline NUNCA hablaba: caia en la rama 'solo el ambiente declara' y",
+    "  confiaba ciego -- la objecion que ella misma habia hecho, viva en dos asientos.",
+    "  Lo midio con mi propio arnes: NEXUS con ambiente ADA -> AGENT=ADA y PERSISTIA.",
+    "  ARREGLADO: hay UN solo `SEAL_ROSTER` y el walk itera sobre el. El brazo que lo",
+    "  fija (test_7) se parametriza sobre el roster LEIDO DEL ARCHIVO, no sobre una copia:",
+    "  un sexto agente queda cubierto solo, y si lo suman en un solo lado el brazo enrojece.",
+    "  F2 menor -- arregle el procedimiento y deje la moraleja final mandando el comando",
+    "  crudo. Mi brazo pasaba igual porque exigia el comando Y la ruta en la MISMA linea:",
+    "  una definicion de 'ofensivo' mas angosta que el defecto. Ahora el archivo no nombra",
+    "  ese comando en ninguna linea ejecutable, y el brazo lo exige asi.",
+    "  Los dos findings quedaron fijados como mutantes M5 y M6, no como recuerdo.",
+    "SOBRE LOS DOS CONTROLES, porque los dos fallaron primero por el arnes y no por el codigo:",
+    "  el control contra HEAD dio 6 rojos en 0,05 s (ValueError del extractor) y despues,",
+    "  al sumar el roster, 16 rojos en la recoleccion (el hook viejo no declara SEAL_ROSTER).",
+    "  Las dos veces habria leido 'el codigo viejo falla' cuando fallaba mi instrumento.",
+    "  Hoy el control da 12 rojos con mensajes del defecto real: AGENT='ADA' con SOURCE vacio."
+  ],
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "jarvis-boot-hook-identidad-v1",
+  "owner": "JARVIS",
+  "independent_reviewer": "ALICE",
+  "review": {
+    "status": "approved",
+    "reviewer": "ALICE",
+    "fecha": "2026-09-11T09:55:00Z",
+    "evidence": "Revision independiente de ALICE, corrida por ella en su propio asiento. (1) 16/16 brazos verdes (pytest, 3,81 s). (2) Refutador PROPIO e independiente del arnes de JARVIS (agents/ALICE/refutador_boot_hook_nexus_fable_20260911.py, padre desacoplado con --name): NEXUS y FABLE con ambiente contaminado ADA -> UNKNOWN, CONFLICTO declarado, CLAUDE_ENV_FILE vacio; control positivo NEXUS limpio -> NEXUS. Antes del fix ese mismo refutador daba AGENT=ADA y PERSISTIA: es el hallazgo F1 de la primera revision, ahora cerrado. (3) Mutacion propia sobre una COPIA del hook (jamas sobre el archivo vivo; linea de DECISION, ninguna linea de borrado): recortar SEAL_ROSTER a 3 nombres reproduce el defecto exacto (NEXUS y FABLE -> ADA, persistiendo) mientras ALICE sigue dando UNKNOWN. El refutador discrimina. (4) F2 cerrado: 0 lineas ejecutables nombran el comando crudo; el roster es fuente unica (SEAL_ROSTER, leido por _es_del_roster y por el walk). (5) Confirmado a pedido del owner: kill (143-144) y pkill (149) viven DESPUES del marcador '# --- Efectos con nombre de agente' y la sonda corta ahi: ningun brazo ni mutante los ejecuta.",
+    "abierto_declarado": "Criterio 2 de la revisora queda ABIERTO y fuera de este expediente: no se auditaron las OTRAS piezas de arranque que derivan el nombre de $SEAL_AGENT. El owner lo declaro; se firma el hook, no el resto.",
+    "limite_del_mecanismo": "Esta firma es un campo escrito por la revisora en el mismo archivo que el owner: el gate no acredita identidad entre agentes. Vale por la evidencia citada, que es reproducible, no por el campo.",
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "ALICE",
+      "manifest_digest": "fa78445b50cccdfe04722a2ad57b0f24f37a67f5f41b881e3e32834fdd081368",
+      "evidence": "16/16 brazos verdes corridos por ALICE (pytest, 3,81 s). Refutador propio e independiente del arnes del owner (agents/ALICE/refutador_boot_hook_nexus_fable_20260911.py): NEXUS y FABLE con ambiente contaminado ADA -> UNKNOWN + CONFLICTO + CLAUDE_ENV_FILE vacio; control positivo NEXUS limpio -> NEXUS. Mutacion propia sobre COPIA del hook (SEAL_ROSTER recortado a 3): reproduce el defecto original (NEXUS/FABLE -> ADA persistiendo) mientras ALICE sigue en UNKNOWN, asi que el refutador discrimina y no es un verde de regalo. F2: 0 lineas ejecutables con el comando crudo. kill/pkill quedan despues del marcador de efectos: ningun brazo los ejecuta.",
+      "reviewed_sha256": {
+        "memory/soul_boot_hook.sh": "bda26888fbde3a83484e950d4378de3a3200b15e8cac94f881f015e3bd7ea645",
+        "memory/test_soul_boot_hook_identidad_v1.py": "aa9d10824a1378dc6f8e9e4d9e7cb3829c9d812a41ec7d0ea3825f42319a247c"
+      }
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "memory/soul_boot_hook.sh"
+  ],
+  "tests": [
+    "memory/test_soul_boot_hook_identidad_v1.py"
+  ],
+  "mutation_evidence": "quality/mutation-jarvis-boot-hook-identidad-v1.json",
+  "declared_sha256": {
+    "memory/soul_boot_hook.sh": "bda26888fbde3a83484e950d4378de3a3200b15e8cac94f881f015e3bd7ea645",
+    "memory/test_soul_boot_hook_identidad_v1.py": "aa9d10824a1378dc6f8e9e4d9e7cb3829c9d812a41ec7d0ea3825f42319a247c"
+  },
+  "commands": [
+    {
+      "id": "unit-jarvis-boot-hook-identidad-v1",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/test_soul_boot_hook_identidad_v1.py"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "positive-el-asiento-se-resuelve-bien",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/test_soul_boot_hook_identidad_v1.py::test_1_positivo_ambiente_gana_cuando_no_hay_name",
+        "memory/test_soul_boot_hook_identidad_v1.py::test_4_el_camino_que_ya_andaba_sigue_andando"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "negative-sin-identidad-no-se-inventa-un-nombre",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/test_soul_boot_hook_identidad_v1.py::test_2_refutador_sin_evidencia_es_UNKNOWN_y_no_persiste",
+        "memory/test_soul_boot_hook_identidad_v1.py::test_3_control_negativo_ambiente_contaminado_no_se_resuelve_en_silencio"
+      ],
+      "expected_exit": 0
+    },
+    {
+      "id": "control-guardas-de-contenido",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/test_soul_boot_hook_identidad_v1.py::test_5_no_queda_default_mudo_en_el_archivo",
+        "memory/test_soul_boot_hook_identidad_v1.py::test_6_la_regla_inyectada_no_manda_usar_curl_crudo"
+      ],
+      "expected_exit": 0
+    }
+  ],
+  "coverage": {
+    "source": [
+      "memory/soul_boot_hook.sh"
+    ],
+    "omit": [
+      "memory/test_*",
+      "*/site-packages/*"
+    ],
+    "pytest_args": [
+      "memory/test_soul_boot_hook_identidad_v1.py"
+    ],
+    "baseline_percent": 0.0,
+    "timeout": 300
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Deliverable = un SessionStart que nunca inventa un nombre: o lo prueba, o grita UNKNOWN y no toca el estado de nadie.",
+    "command": {
+      "id": "delivery-boot-hook-identidad",
+      "kind": "delivery",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "memory/test_soul_boot_hook_identidad_v1.py"
+      ],
+      "expected_exit": 0,
+      "expected_stdout_contains": "16 passed"
+    }
+  },
+  "mutation_baseline_percent": 100.0
+}
