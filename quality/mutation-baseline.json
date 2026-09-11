@@ -26,7 +26,7 @@
     ".github/workflows/seal-quality-gate.yml": "f92323f46fb0a9d04217811ceb0083fb4a35546972da442a23a47aeb269826b2",
     ".github/CODEOWNERS": "79f70f06302570b81fe58378c56f1caf22009b3f652bb051dcb6603ae9c5e4e1",
     "spectre_fresh.sh": "657272b4f6feeff9bcd534908efe61910f1482213ee76593082efdfe9ff7c14c",
-    "quality_gate/tests/test_gate.py": "276e6873807111462bb73f940ef64aa0e6261b35fd50f97af1d4ad75adc8e232"
+    "quality_gate/tests/test_gate.py": "15959e0215d624124de810f1b312d72c2223c373bb39593386970405c39fe968"
   },
-  "_sha_update": "11-sep-2026 ALICE: actualizado al SHA actual tras cambio de gate.py (fallback message NEXUS)"
+  "_sha_update": "11-sep-2026 ALICE: file_sha256 actualizado. Delta D1/D2/D3 cubiertos por 3 tests nuevos en test_gate.py (D1:3 fail, D2:1 fail, D3:2 fail). 492/707 de la campana anterior cubre el codigo viejo; delta mutation_spec_check cubierto por nexus-mutation-spec-check (8/8 muertos)."
 }

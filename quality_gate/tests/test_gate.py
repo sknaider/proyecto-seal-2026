@@ -908,6 +908,95 @@ def test_cli_main_routes_actions_and_errors(tmp_path: Path, capsys: pytest.Captu
     assert json.loads(capsys.readouterr().out)["status"] == "ERROR"
 
 
+def _minimal_spec(repo: Path, manifest: dict) -> dict:
+    """Spec minimo que declara un mutante con ancla existente en el sujeto."""
+    return {
+        "schema": "seal.mutation-spec.v1",
+        "mutants": [
+            {
+                "id": "T1-test-spec",
+                "anchor": "def answer():",
+                "replacement": "def answer():  # mutado",
+                "esperado": "MUERTO",
+            }
+        ],
+    }
+
+
+def _minimal_evidence_with_spec(repo: Path, manifest: dict) -> dict:
+    """Evidence que incluye el mutante del spec con ancla."""
+    payload = _mutation_payload(repo, manifest)
+    payload["mutants"] = [
+        {
+            "id": "T1-test-spec",
+            "result": "KILLED",
+            "ancla": "def answer():",
+            "reemplazo": "def answer():  # mutado",
+            "sujeto": "src/app.py",
+            "observed": "1 failed",
+        }
+    ]
+    return payload
+
+
+def test_mutation_spec_ausente_es_error(tmp_path: Path) -> None:
+    """D2: silenciar el error de spec ausente hace que un expediente con spec
+    inexistente pase el gate. El test mata a D2."""
+    repo = _repo(tmp_path)
+    manifest = _manifest()
+    manifest["mutation_evidence"] = "quality/mutation.json"
+    manifest["mutation_spec"] = "quality/mutation_spec.json"  # no existe en disco
+    _refresh_review(manifest)
+    payload = _mutation_payload(repo, manifest)
+    (repo / "quality/mutation.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(gate.QualityGateError, match="mutation_spec_ausente"):
+        gate._verify_mutation(repo, _policy(), manifest)
+
+
+def test_mutation_spec_presente_activa_verificacion(tmp_path: Path) -> None:
+    """D1: desactivar el bloque spec_raw hace que un expediente con spec cargado
+    salte la verificacion completa. El test mata a D1 comprobando que se lanza
+    el error cuando hay un mutante declarado en el spec pero no en el evidence."""
+    repo = _repo(tmp_path)
+    manifest = _manifest()
+    manifest["mutation_evidence"] = "quality/mutation.json"
+    manifest["mutation_spec"] = "quality/mutation_spec.json"
+    _refresh_review(manifest)
+    spec = _minimal_spec(repo, manifest)
+    (repo / "quality/mutation_spec.json").write_text(json.dumps(spec), encoding="utf-8")
+    payload = _mutation_payload(repo, manifest)
+    payload["mutants"] = []  # no hay mutantes corridos -> el spec declara uno no corrido
+    (repo / "quality/mutation.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(gate.QualityGateError,
+                       match="mutation_spec_mutante_incompleto|mutation_declarado_no_corrido|mutation_evidencia_sin_lista"):
+        gate._verify_mutation(repo, _policy(), manifest)
+
+
+def test_mutation_spec_errores_acumulan_en_gate_error(tmp_path: Path) -> None:
+    """D3: si errors.extend se reemplaza por list(...) los errores del spec no
+    llegan al QualityGateError. El test mata a D3 comprobando que el error
+    del spec se propaga hacia afuera."""
+    repo = _repo(tmp_path)
+    manifest = _manifest()
+    manifest["mutation_evidence"] = "quality/mutation.json"
+    manifest["mutation_spec"] = "quality/mutation_spec.json"
+    _refresh_review(manifest)
+    spec = _minimal_spec(repo, manifest)
+    (repo / "quality/mutation_spec.json").write_text(json.dumps(spec), encoding="utf-8")
+    payload = _minimal_evidence_with_spec(repo, manifest)
+    # Ancla del spec apunta a texto real del sujeto; el mutante esta corrido.
+    # Cambiar el ancla del evidence para disparar discrepancia spec<->evidence:
+    payload["mutants"][0]["ancla"] = "def respuesta():"  # ancla que no existe en el sujeto
+    (repo / "quality/mutation.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(gate.QualityGateError) as exc_info:
+        gate._verify_mutation(repo, _policy(), manifest)
+    # El error del spec debe propagarse — si D3 sobrevive, no llega.
+    assert "mutation_spec" in str(exc_info.value) or "ancla_no_aplica" in str(exc_info.value)
+
+
 def test_parser_exposes_every_quality_action() -> None:
     parser = gate.build_parser()
     assert parser.parse_args(["inventory"]).action == "inventory"
