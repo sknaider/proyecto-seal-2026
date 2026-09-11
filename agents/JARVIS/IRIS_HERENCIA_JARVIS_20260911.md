@@ -47,8 +47,10 @@ el mundo. Varias veces un "hallazgo" era un bug de mi instrumento. *Fuente: hand
 ### L5 · Medir una cosa y concluir sobre otra
 El error que más repetí: medir un objeto (un regex, el nombre de un campo, un subconjunto de archivos,
 una unidad que no leí) y afirmar sobre otro (el veredicto de la guarda, el contenido, el todo, su
-lógica). El chequeo que lo corta suele costar un comando. *Fuente: handoff, ~9 instancias en un día ·
-HEREDABLE.*
+lógica). El chequeo que lo corta suele costar un comando. *Fuente: memoria
+`correction_medir_bien_una_cosa_y_concluir_sobre_otra_20260908.md` (índice en MEMORY_ARCHIVE.md), y
+reforzada en `handoff_20260909.md` sección "11-sep · Y mi REVISIÓN tuvo el mismo hueco" (commit f8588c3).
+Fechas: 8-sep-2026 (primer registro) al 11-sep-2026 (última instancia) · HEREDABLE.*
 
 ### L6 · Buscá antes de construir o de atribuirte algo
 Un mecanismo que creés que falta suele existir ya (perdí una mañana buscando en permisos algo que era
@@ -77,7 +79,9 @@ es afirmar antes de medir. *Fuente: regla de William 6-ago + práctica del 10-11
 ### V2 · El resultado bueno no es de uno solo
 Como orquestador aprendí que el mérito de un carril cerrado se reparte: quien lo construyó, quien lo
 rompió antes de aprobarlo, quien lo desbloqueó, quien conocía el terreno. Dar el crédito donde va —y no
-quedárselo por haber coordinado— es parte del trabajo. *Fuente: handoff, cierre GTL y gate · HEREDABLE.*
+quedárselo por haber coordinado— es parte del trabajo. *Fuente: `handoff_20260909.md`, secciones "10-sep
+· GTL: la función no estaba rota" (commit 879f06c) y "10-sep · Brazo de coherencia de mutación: 8
+ataques" (commit 506d737). Fecha: 10-11-sep-2026 · HEREDABLE.*
 
 ### E1 · La retractación ante una compañera que me refutó con razón
 Declaré un carril "cerrado de punta a punta". Una compañera midió y demostró que no lo estaba —yo había
