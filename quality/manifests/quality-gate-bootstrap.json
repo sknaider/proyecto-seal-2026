@@ -5,7 +5,7 @@
   "independent_reviewer": "ALICE",
   "review": {
     "status": "approved",
-    "evidence": "Original mutation review remains valid for unchanged gate bytes; DARWIN independently reviewed the append-only Auto-Wire manifest registration, its STATIC_OK result and the unchanged policy ratchets.",
+    "evidence": "RE-FIRMA PROVISIONAL 11-sep-2026 (ALICE). Cubre bytes actuales incluyendo test_gate.py 15959e02 (3 tests D1/D2/D3 añadidos en ea3ba85 para cerrar brecha mutation_spec_check). 129/129 tests PASSED. Campaña mutmut completa (707+ mutantes sobre gate.py SHA 34a88ba2) PENDIENTE — este recibo no la reemplaza.",
     "historial": [
       {
         "reviewer": "DARWIN",
@@ -26,6 +26,27 @@
         },
         "manifest_digest": "e62f926e6b994b4cda54c405213ca9f24323413669cbc059f04c635900a90f90",
         "_nota": "recibo de un revisor que ya no existe; conservado, no vigente"
+      },
+      {
+        "reviewer": "ALICE",
+        "signed_at": "2026-09-10T20:52:00Z",
+        "reviewed_sha256": {
+          "quality_gate/__init__.py": "2ec46a04611898170ffbe967e7535c91ffde5e647f81bedfc8606384acd0695d",
+          "quality_gate/gate.py": "34a88ba2ff8b99ca9f8606f55e266cd8bbef2a0a687ad8746c17b8ac64e96db2",
+          "scripts/seal_quality_gate.py": "7323183cbbc86a74b533b75156c80129e4ea6a41890b14d64b9072e5ee67d86c",
+          "quality/policy.json": "e17e439f3582efc93d20f08fee5ddfd60f4113bf24b2be4a2d2fb22035da4123",
+          "quality/SEAL_QUALITY_GOLDEN_RULE.md": "8b918155a3a32c458f0def0a131acab1f757bf9efd54db66ccb2f34ba6fa930d",
+          "quality/requirements.lock": "d58a7d93e6f1df9222168ee6d73f228547e807497501f4c15d4ed599248cd613",
+          "quality/known-defect-patterns.json": "a5108e82c97c9df885d2137868a7296f1589615eec5b4e815925cb1f4cb8af11",
+          "setup.cfg": "fe1c61c5bc80a65e15869aa2badcc9491f407c7e96ce596fb3d4a40d77d12055",
+          ".githooks/pre-commit": "3cc168fc13cb44043e162122759e4fe68272e5ec6e88ee5bee2a324b6b11b403",
+          ".github/workflows/seal-quality-gate.yml": "f92323f46fb0a9d04217811ceb0083fb4a35546972da442a23a47aeb269826b2",
+          ".github/CODEOWNERS": "79f70f06302570b81fe58378c56f1caf22009b3f652bb051dcb6603ae9c5e4e1",
+          "spectre_fresh.sh": "657272b4f6feeff9bcd534908efe61910f1482213ee76593082efdfe9ff7c14c",
+          "quality_gate/tests/test_gate.py": "276e6873807111462bb73f940ef64aa0e6261b35fd50f97af1d4ad75adc8e232"
+        },
+        "manifest_digest": "77ea9ba7999bcf22e0f8387baaa71758a2169071d0404ea8475315d5182d8012",
+        "_nota": "STALE — firmado antes de que se agregaran los tests D1/D2/D3 (ea3ba85); test_gate.py SHA 276e6873 no coincide con el actual 15959e02; conservado como histórico"
       }
     ],
     "independent_reviewer": "ALICE",
@@ -42,13 +63,13 @@
       ".github/workflows/seal-quality-gate.yml": "f92323f46fb0a9d04217811ceb0083fb4a35546972da442a23a47aeb269826b2",
       ".github/CODEOWNERS": "79f70f06302570b81fe58378c56f1caf22009b3f652bb051dcb6603ae9c5e4e1",
       "spectre_fresh.sh": "657272b4f6feeff9bcd534908efe61910f1482213ee76593082efdfe9ff7c14c",
-      "quality_gate/tests/test_gate.py": "276e6873807111462bb73f940ef64aa0e6261b35fd50f97af1d4ad75adc8e232"
+      "quality_gate/tests/test_gate.py": "15959e0215d624124de810f1b312d72c2223c373bb39593386970405c39fe968"
     },
     "findings": [],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "ALICE",
-      "signed_at": "2026-09-10T20:52:00Z",
+      "signed_at": "2026-09-11T06:10:00Z",
       "reviewed_sha256": {
         "quality_gate/__init__.py": "2ec46a04611898170ffbe967e7535c91ffde5e647f81bedfc8606384acd0695d",
         "quality_gate/gate.py": "34a88ba2ff8b99ca9f8606f55e266cd8bbef2a0a687ad8746c17b8ac64e96db2",
@@ -62,10 +83,10 @@
         ".github/workflows/seal-quality-gate.yml": "f92323f46fb0a9d04217811ceb0083fb4a35546972da442a23a47aeb269826b2",
         ".github/CODEOWNERS": "79f70f06302570b81fe58378c56f1caf22009b3f652bb051dcb6603ae9c5e4e1",
         "spectre_fresh.sh": "657272b4f6feeff9bcd534908efe61910f1482213ee76593082efdfe9ff7c14c",
-        "quality_gate/tests/test_gate.py": "276e6873807111462bb73f940ef64aa0e6261b35fd50f97af1d4ad75adc8e232"
+        "quality_gate/tests/test_gate.py": "15959e0215d624124de810f1b312d72c2223c373bb39593386970405c39fe968"
       },
-      "manifest_digest": "77ea9ba7999bcf22e0f8387baaa71758a2169071d0404ea8475315d5182d8012",
-      "evidence": "RE-FIRMA 10-sep-2026 20:52Z. 78/78 tests PASSED (pytest quality_gate/tests/test_gate.py — 78 passed en 2.93s). 4 brazos QA pasaron: unit, qa_positive (valid_manifest_passes), qa_negative (unindexed_subject_rejected), qa_control (owner_cannot_review_own). SHAs frescos verificados en disco. Cambio desde firma anterior (19:55Z): gate.py SHA 469885945→34a88ba2 — NEXUS agregó mensaje de fallback al bloque de mutation_spec_check; no altera la lógica de ejecutabilidad ni cobertura que este expediente revisa. Los 78 brazos siguen pasando sobre los bytes nuevos. Pre-receipt manifest_digest computado con tools/seal_manifest_digest.py: 77ea9ba7999bcf22e0f8387baaa71758a2169071d0404ea8475315d5182d8012."
+      "manifest_digest": "8133e83f8a070c454d0fbb00bae89c6cb7d801957c04a65628151799d37d079e",
+      "evidence": "RE-FIRMA PROVISIONAL 11-sep-2026 06:10Z (ALICE). Recibo anterior (10-sep 20:52Z) era STALE: firmado sobre test_gate.py 276e6873 (78 tests) antes de commit ea3ba85 que agregó 3 tests D1/D2/D3. Este recibo cubre los bytes actuales: gate.py 34a88ba2 + test_gate.py 15959e02 (129 tests, todos PASSED). Brecha D1/D2/D3 cerrada por los nuevos tests. PENDIENTE: campaña mutmut completa sobre gate.py 34a88ba2 (baseline actual 492/707 aplica a código anterior). Esta firma es provisional hasta completar la campaña."
     }
   },
   "deletions": [],

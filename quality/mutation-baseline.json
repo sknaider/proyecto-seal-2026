@@ -20,7 +20,7 @@
     "quality/SEAL_QUALITY_GOLDEN_RULE.md": "8b918155a3a32c458f0def0a131acab1f757bf9efd54db66ccb2f34ba6fa930d",
     "quality/requirements.lock": "d58a7d93e6f1df9222168ee6d73f228547e807497501f4c15d4ed599248cd613",
     "quality/known-defect-patterns.json": "a5108e82c97c9df885d2137868a7296f1589615eec5b4e815925cb1f4cb8af11",
-    "quality/manifests/quality-gate-bootstrap.json": "bdb02e5f671156a389ab8e063be5eefc9b8746813e2f7d9f3d81c15237ca2fb3",
+    "quality/manifests/quality-gate-bootstrap.json": "6279ba8b842c1e78cb07b14b8bb3a121eb678b2a05d6e2af37ed5547e9567637",
     "setup.cfg": "fe1c61c5bc80a65e15869aa2badcc9491f407c7e96ce596fb3d4a40d77d12055",
     ".githooks/pre-commit": "3cc168fc13cb44043e162122759e4fe68272e5ec6e88ee5bee2a324b6b11b403",
     ".github/workflows/seal-quality-gate.yml": "f92323f46fb0a9d04217811ceb0083fb4a35546972da442a23a47aeb269826b2",
