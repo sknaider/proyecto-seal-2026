@@ -17,34 +17,67 @@
   "mutants": [
     {
       "id": "G1-sin-candado",
-      "status": "killed",
-      "killed_by": ["test_qa_negative_con_el_candado_TOMADO_por_otro_se_saltea"],
-      "result": "1 failed, 6 passed"
+      "subject": "memory/session_capture_hook.sh",
+      "ancla": "if ! flock -n 9; then\n    exit 0\nfi",
+      "reemplazo": "true",
+      "aplicado": true,
+      "sha_mutado": "4f478fd0ba61d7281626bf1a82833315550caa3b0daea160f93c7ebe34c68c61",
+      "rc": 1,
+      "pytest_tail": "1 failed, 6 passed in 0.24s",
+      "resultado": "MUERE"
     },
     {
       "id": "G2-sin-cadencia",
-      "status": "killed",
-      "killed_by": ["test_qa_negative_una_segunda_corrida_INMEDIATA_se_saltea"],
-      "result": "1 failed, 6 passed"
+      "subject": "memory/session_capture_hook.sh",
+      "ancla": "    if (( ahora - ultima < INTERVALO_MIN_SEG )); then\n        exit 0\n    fi",
+      "reemplazo": "    true",
+      "aplicado": true,
+      "sha_mutado": "2dca8727cb32d55b829784db991488453d16a896bf21b32745607bd662dd5fa7",
+      "rc": 1,
+      "pytest_tail": "1 failed, 6 passed in 0.30s",
+      "resultado": "MUERE"
     },
     {
       "id": "G3-sin-marca",
-      "status": "killed",
-      "killed_by": ["test_qa_control_una_marca_CORRUPTA_no_bloquea", "test_qa_control_la_cadencia_es_POR_AGENTE_no_global"],
-      "result": "6 failed, 1 passed"
+      "subject": "memory/session_capture_hook.sh",
+      "ancla": "echo \"$ahora\" > \"$ULTIMA\"",
+      "reemplazo": "true",
+      "aplicado": true,
+      "sha_mutado": "5b54a253e87e53348e76ca6f54e9d3c0d0050b50176b250aedcb8c42c3f76fa5",
+      "rc": 1,
+      "pytest_tail": "6 failed, 1 passed in 0.21s",
+      "resultado": "MUERE"
     },
     {
       "id": "G4-estado-corrupto-FRENA",
-      "status": "killed",
-      "killed_by": ["test_qa_control_una_marca_CORRUPTA_no_bloquea"],
-      "result": "1 failed, 6 passed"
+      "subject": "memory/session_capture_hook.sh",
+      "ancla": "    [[ \"$ultima\" =~ ^[0-9]+$ ]] || ultima=0",
+      "reemplazo": "    [[ \"$ultima\" =~ ^[0-9]+$ ]] || exit 0",
+      "aplicado": true,
+      "sha_mutado": "ab49dff67fe0c507b373cb9ed2cfd32b66f254a7becd91297a4d3a225d73c4d1",
+      "rc": 1,
+      "pytest_tail": "1 failed, 6 passed in 0.26s",
+      "resultado": "MUERE"
     },
     {
       "id": "G5-estado-DENTRO-del-repo",
-      "status": "killed",
-      "killed_by": ["test_qa_negative_con_el_candado_TOMADO_por_otro_se_saltea", "test_qa_control_el_candado_y_la_marca_viven_fuera_del_repo"],
-      "result": "2 failed, 5 passed"
+      "subject": "memory/session_capture_hook.sh",
+      "ancla": "LOCK=\"$HOME/.local/state/seal/session_capture.lock\"",
+      "reemplazo": "LOCK=\"/home/dadito/IA/proyecto-seal/.session_capture.lock\"",
+      "aplicado": true,
+      "sha_mutado": "c62aed7c0153d18a2cbbfb318d7670f153e6fffccf506121921068aac9aef5d3",
+      "rc": 1,
+      "pytest_tail": "2 failed, 5 passed in 0.24s",
+      "resultado": "MUERE"
     }
   ],
-  "method": "backup-mutate-test-restore por mutante, copia literal bajo scratchpad de sesion (no HEAD, no arbol vivo). Un directorio por mutante, cada uno con su copia del sujeto y del test. Mutacion aplicada via python3 con replace exacto del ancla. Ancla verificada exactamente 1 vez antes de aplicar."
+  "method": "backup-mutate-test-restore por mutante, copia literal bajo scratchpad de sesion (no HEAD, no arbol vivo). Un directorio por mutante, cada uno con su copia del sujeto y del test. Mutacion aplicada via python3 con replace exacto del ancla. Ancla verificada exactamente 1 vez antes de aplicar.",
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "7 passed in 0.24s",
+    "sha_sujetos_antes": {
+      "memory/session_capture_hook.sh": "f840036ab93f6c093711a76e375162c0c054784c43b0d45cd1a34f7066189ffb"
+    }
+  },
+  "generado_por": "JARVIS (revisor): re-corri el spec sobre el sujeto actual, 5/5 MUEREN."
 }

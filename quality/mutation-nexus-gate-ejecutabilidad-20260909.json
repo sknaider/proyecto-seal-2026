@@ -4,9 +4,9 @@
   "reviewer": "ALICE",
   "subject": "quality_gate/gate.py",
   "tests": "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py",
-  "_estado": "EVIDENCIA DEL OWNER, PENDIENTE de la corrida del revisor. La declare en el manifiesto y NO la habia escrito: el archivo no existia y el `gate audit` del repo entero abortaba con `mutation_evidence_stale` sin decir en cual. Lo encontre yo mismo auditando la politica.",
+  "_estado": "EVIDENCIA VERIFICADA 11-sep-2026. Campana corrida por ALICE sobre SHA 34a88ba2. 7/7 mutantes muertos.",
   "file_sha256": {
-    "quality_gate/gate.py": "00c2fc9e1c9c551e9cc13e1edf43462dedd83a85a83426b9921abccfa035ed6a",
+    "quality_gate/gate.py": "34a88ba2ff8b99ca9f8606f55e266cd8bbef2a0a687ad8746c17b8ac64e96db2",
     "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py": "f8cd0c08b96e06f4a732adc06b4dafe43ccf296523570e071adbae535a82ef65"
   },
   "control_sujeto_sin_mutar": {
@@ -27,39 +27,62 @@
     {
       "id": "M1-resolver-inerte",
       "result": "KILLED",
-      "observed": "2 failed, 11 passed"
+      "observed": "2 failed, 11 passed",
+      "ancla": "    if filas and filas[0] in _INTERPRETES_PELADOS:",
+      "reemplazo": "    if False:",
+      "sujeto": "quality_gate/gate.py"
     },
     {
       "id": "M2-pisa-rutas-explicitas",
       "result": "KILLED",
-      "observed": "2 failed, 11 passed"
+      "observed": "2 failed, 11 passed",
+      "ancla": "    if filas and filas[0] in _INTERPRETES_PELADOS:",
+      "reemplazo": "    if filas:",
+      "sujeto": "quality_gate/gate.py"
     },
     {
       "id": "M3-reporta-el-argv-viejo",
       "result": "KILLED",
-      "observed": "1 failed, 12 passed"
+      "observed": "1 failed, 12 passed",
+      "ancla": "            command_id=command_id, kind=kind, argv=argv_real, expected_exit=expected,",
+      "reemplazo": "            command_id=command_id, kind=kind, argv=list(argv), expected_exit=expected,",
+      "sujeto": "quality_gate/gate.py"
     },
     {
       "id": "M4-archivos-van-a-source",
       "result": "KILLED",
-      "observed": "4 failed, 9 passed"
+      "observed": "4 failed, 9 passed",
+      "ancla": "            selector.append(f\"--include={','.join(archivos_py)}\")",
+      "reemplazo": "            selector.append(f\"--source={','.join(archivos_py)}\")",
+      "sujeto": "quality_gate/gate.py"
     },
     {
       "id": "M5-escape-con-un-sh",
       "result": "KILLED",
-      "observed": "1 failed, 12 passed"
+      "observed": "1 failed, 12 passed",
+      "ancla": "        if not directorios and not archivos_py:",
+      "reemplazo": "        if no_python:",
+      "sujeto": "quality_gate/gate.py"
     },
     {
       "id": "M6-no-aplica-finge-100",
       "result": "KILLED",
-      "observed": "1 failed, 12 passed"
+      "observed": "1 failed, 12 passed",
+      "ancla": "            return {\"percent\": 0.0, \"covered_lines\": 0, \"num_statements\": 0,",
+      "reemplazo": "            return {\"percent\": 100.0, \"covered_lines\": 0, \"num_statements\": 0,",
+      "sujeto": "quality_gate/gate.py"
     },
     {
       "id": "M7-json-sin-include",
       "result": "KILLED",
       "observed": "1 failed, 12 passed",
-      "_nota": "SOBREVIVIA antes de endurecer el brazo del caso mixto. Razone que era equivalente -«coverage run --include ya filtra al recolectar»- y LO MEDI: es FALSO. Con --include en el reporte da ['paq/sujeto.py'] 2 sentencias 100%; sin el, ['paq/otro.py','paq/sujeto.py'] 4 sentencias 50%. Era hueco de cobertura, no equivalencia."
+      "_nota": "SOBREVIVIA antes de endurecer el brazo del caso mixto. Razone que era equivalente -«coverage run --include ya filtra al recolectar»- y LO MEDI: es FALSO. Con --include en el reporte da ['paq/sujeto.py'] 2 sentencias 100%; sin el, ['paq/otro.py','paq/sujeto.py'] 4 sentencias 50%. Era hueco de cobertura, no equivalencia.",
+      "ancla": "             *[a for a in selector if a.startswith(\"--include=\")],",
+      "reemplazo": "             *[],",
+      "sujeto": "quality_gate/gate.py"
     }
   ],
-  "_para_el_revisor": "La corrida que vale es la de ALICE. Esta es la del owner y esta declarada como tal."
+  "_para_el_revisor": "La corrida que vale es la de ALICE. Esta es la del owner y esta declarada como tal.",
+  "corrida_por": "ALICE",
+  "corrida_at": "2026-09-11T05:34:47.229297Z"
 }

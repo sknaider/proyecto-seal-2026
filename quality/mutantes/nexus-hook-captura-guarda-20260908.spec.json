@@ -1,54 +1,55 @@
 {
-  "schema": "seal.mutantes-ejecutables.v2",
-  "change_id": "nexus-hook-captura-guarda-20260908",
-  "reviewer": "JARVIS",
-  "subject_sha256_al_declarar": "f840036ab93f6c093711a76e375162c0c054784c43b0d45cd1a34f7066189ffb",
-  "_como_correrlos": "Copia fresca por mutante bajo /tmp con memory/ y memory/tests/; control verde ANTES; el arbol vivo NO se muta.",
-  "tests": [
-    [
-      "memory/tests/test_nexus_hook_captura_guarda_v1.py"
-    ]
-  ],
-  "mutants": [
-    {
-      "id": "G1-sin-candado",
-      "subject": "memory/session_capture_hook.sh",
-      "ancla": "if ! flock -n 9; then\n    exit 0\nfi",
-      "reemplazo": "true",
-      "why": "sin el candado vuelven las capturas simultaneas: se midieron 3 a la vez el 8-sep",
-      "esperado": "MUERTO"
-    },
-    {
-      "id": "G2-sin-cadencia",
-      "subject": "memory/session_capture_hook.sh",
-      "ancla": "    if (( ahora - ultima < INTERVALO_MIN_SEG )); then\n        exit 0\n    fi",
-      "reemplazo": "    true",
-      "why": "sin cadencia, un turno detras de otro dispara captura tras captura",
-      "esperado": "MUERTO"
-    },
-    {
-      "id": "G3-marca-ANTES-del-candado",
-      "subject": "memory/session_capture_hook.sh",
-      "ancla": "echo \"$ahora\" > \"$ULTIMA\"",
-      "reemplazo": "true",
-      "why": "la marca es el observador de la DECISION; si no se escribe, nada distingue pasar de saltear",
-      "esperado": "MUERTO (6 brazos)"
-    },
-    {
-      "id": "G4-estado-corrupto-FRENA",
-      "subject": "memory/session_capture_hook.sh",
-      "ancla": "    [[ \"$ultima\" =~ ^[0-9]+$ ]] || ultima=0",
-      "reemplazo": "    [[ \"$ultima\" =~ ^[0-9]+$ ]] || exit 0",
-      "why": "ante estado ilegible hay que CAPTURAR: frenar seria perder memoria por un archivo roto",
-      "esperado": "MUERTO"
-    },
-    {
-      "id": "G5-estado-DENTRO-del-repo",
-      "subject": "memory/session_capture_hook.sh",
-      "ancla": "LOCK=\"$HOME/.local/state/seal/session_capture.lock\"",
-      "reemplazo": "LOCK=\"/home/dadito/IA/proyecto-seal/.session_capture.lock\"",
-      "why": "el estado en el repo ensucia el arbol y el INDICE COMPARTIDO en cada turno",
-      "esperado": "MUERTO (2 brazos)"
-    }
+ "schema": "seal.mutantes-ejecutables.v2",
+ "change_id": "nexus-hook-captura-guarda-20260908",
+ "reviewer": "JARVIS",
+ "subject_sha256_al_declarar": "f840036ab93f6c093711a76e375162c0c054784c43b0d45cd1a34f7066189ffb",
+ "_como_correrlos": "Copia fresca por mutante bajo /tmp con memory/ y memory/tests/; control verde ANTES; el arbol vivo NO se muta.",
+ "tests": [
+  [
+   "memory/tests/test_nexus_hook_captura_guarda_v1.py"
   ]
+ ],
+ "mutants": [
+  {
+   "id": "G1-sin-candado",
+   "subject": "memory/session_capture_hook.sh",
+   "ancla": "if ! flock -n 9; then\n    exit 0\nfi",
+   "reemplazo": "true",
+   "why": "sin el candado vuelven las capturas simultaneas: se midieron 3 a la vez el 8-sep",
+   "esperado": "MUERTO"
+  },
+  {
+   "id": "G2-sin-cadencia",
+   "subject": "memory/session_capture_hook.sh",
+   "ancla": "    if (( ahora - ultima < INTERVALO_MIN_SEG )); then\n        exit 0\n    fi",
+   "reemplazo": "    true",
+   "why": "sin cadencia, un turno detras de otro dispara captura tras captura",
+   "esperado": "MUERTO"
+  },
+  {
+   "id": "G3-sin-marca",
+   "subject": "memory/session_capture_hook.sh",
+   "ancla": "echo \"$ahora\" > \"$ULTIMA\"",
+   "reemplazo": "true",
+   "why": "la marca es el observador de la DECISION; si no se escribe, nada distingue pasar de saltear",
+   "esperado": "MUERTO (6 brazos)",
+   "_renombrado_10sep": "El spec lo llamaba 'G3-marca-ANTES-del-candado' pero su ancla (echo \"$ahora\" > \"$ULTIMA\" -> true) y su propio `why` describen quitar la marca, que es lo que la evidencia corrio con el nombre 'G3-sin-marca'. El nombre del spec habia quedado de una idea anterior. Se corrige el NOMBRE; el trabajo del mutante NO cambia, asi que la evidencia sigue siendo valida y no hace falta re-correr."
+  },
+  {
+   "id": "G4-estado-corrupto-FRENA",
+   "subject": "memory/session_capture_hook.sh",
+   "ancla": "    [[ \"$ultima\" =~ ^[0-9]+$ ]] || ultima=0",
+   "reemplazo": "    [[ \"$ultima\" =~ ^[0-9]+$ ]] || exit 0",
+   "why": "ante estado ilegible hay que CAPTURAR: frenar seria perder memoria por un archivo roto",
+   "esperado": "MUERTO"
+  },
+  {
+   "id": "G5-estado-DENTRO-del-repo",
+   "subject": "memory/session_capture_hook.sh",
+   "ancla": "LOCK=\"$HOME/.local/state/seal/session_capture.lock\"",
+   "reemplazo": "LOCK=\"/home/dadito/IA/proyecto-seal/.session_capture.lock\"",
+   "why": "el estado en el repo ensucia el arbol y el INDICE COMPARTIDO en cada turno",
+   "esperado": "MUERTO (2 brazos)"
+  }
+ ]
 }

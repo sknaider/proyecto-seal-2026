@@ -14,13 +14,13 @@
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "JARVIS",
-      "signed_at": "2026-09-08T23:15:00Z",
-      "evidence": "12/12 tests PASSED (re-revision tras cursor-fix de produccion). Mutantes originales 5/5 KILLED conservados. Mutante nuevo P6 KILLED: revertir persistencia del cursor (return ahora sin escribir) → test_qa_control_el_PISO_se_persiste_o_el_poller_no_entrega_NUNCA FAILED en copia fresca. Defecto de produccion verificado: sin el fix, 2 pasadas con 0 filas → cursor inexistente → piso avanza solo → ningun DM alcanza el piso jamas. SHAs verificados en disco. Fix es minimal: solo agrega guarda_cursor() en el except de lee_cursor.",
+      "signed_at": "2026-09-10T20:01:30Z",
       "reviewed_sha256": {
         "messages/nexus_dm_poller_v2.py": "0b09a10bc60719440975df9303f8fe6676dcb3d2ba9c5445ec5b872e64e25c63",
         "messages/tests/test_nexus_dm_poller_v2_p1.py": "af2d22daf20eccd700490d6e8f0e005f02573ea79181b9de1b4f7233ce48790c"
       },
-      "manifest_digest": "688344479611915db2174542b4dd7f09817c43fa4617e6446cf626d1fdfab57a"
+      "manifest_digest": "5e3bccd00631fa65e9a06fb32d9428f994a514f2f572a6da3fc54c3e713314fd",
+      "evidence": "Re-firma (3a) tras el arreglo del delivery. VERIFIQUE: la asercion de entrega ya no esta atada al conteo total de la suite ('11 passed') sino al test del EFECTO (-k el_PISO_se_persiste, '1 passed'), que es lo correcto: si borran ese test el gate se pone rojo. Los 4 comandos pasan; la mutacion la re-corri antes: 6/6 MUEREN. CORRIJO MI PROPIO DIAGNOSTICO ANTERIOR: dije que fallaba por 'rc=None en comandos y coverage 25.5%'; era falso -los rc=None eran artefacto de como NEXUS imprimia el JSON, los comandos SI corren, y baseline_percent es 0.0 asi que la cobertura no falla nada-. La causa real era la asercion atada al tamano de la suite. Lei sintomas del JSON y conclui causa sin correr los comandos yo mismo."
     }
   },
   "_por_que": "messages/nexus_dm_poller.py se perdio el 7-sep y corre solo en memoria (PID 32819): no esta en disco, ni en git, ni en el respaldo, y Python no deja el archivo abierto, asi que NO hay forma de recuperarlo. Este es un REEMPLAZO NUEVO con nombre propio. Ponerle el nombre del original haria que todo lo que lo referencia afirme algo falso — la misma regla que se aplico a los dos `consolidate` de JARVIS.",
@@ -117,10 +117,13 @@
         "-m",
         "pytest",
         "-q",
-        "messages/tests/test_nexus_dm_poller_v2_p1.py"
+        "messages/tests/test_nexus_dm_poller_v2_p1.py",
+        "-k",
+        "el_PISO_se_persiste"
       ],
       "expected_exit": 0,
-      "expected_stdout_contains": "11 passed"
+      "expected_stdout_contains": "1 passed",
+      "_por_que_UN_test_y_no_el_archivo": "La asercion anterior era '11 passed' sobre el archivo entero. Alguien agrego un test, el archivo paso a dar '12 passed' y el expediente se puso FAILED sin que nada del sujeto cambiara: la asercion medía el TAMAÑO de la suite, no el efecto entregado. Ahora apunta al unico test que demuestra el efecto de esta entrega --que el piso del cursor se PERSISTE, sin lo cual el poller no entrega NUNCA-- y su numero es 1 mientras ese test exista. Si se borra, el gate se pone rojo, que es lo correcto."
     }
   },
   "tres_defectos_de_los_hermanos_que_NO_hereda": {

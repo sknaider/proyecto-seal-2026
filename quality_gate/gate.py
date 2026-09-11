@@ -20,6 +20,17 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+
+# gate.py se invoca de las DOS formas: `python -m quality_gate.gate` (paquete) y
+# `python quality_gate/gate.py` (script suelto, que es como lo llama el hook de
+# pre-commit). Un import relativo solo funciona en la primera, y con esa sola forma
+# probada el gate se rompe para TODO el equipo en el primer commit.
+try:  # pragma: no cover - depende de como se invoque
+    from . import mutation_spec_check as _mutation_spec_check
+except ImportError:  # ejecutado como script suelto
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import mutation_spec_check as _mutation_spec_check
 from typing import Any, Iterable, Sequence
 
 
@@ -667,8 +678,31 @@ def _verify_mutation(repo: Path, policy: dict[str, Any], manifest: dict[str, Any
         errors.append("mutation_evidence_stale")
     if payload.get("reviewer") != manifest.get("independent_reviewer"):
         errors.append("mutation_reviewer_mismatch")
+
+    # El spec y la evidencia deben describir el MISMO trabajo. Hasta el 10-sep-2026
+    # el gate comprobaba que el recibo EXISTIERA y que sus cuentas cerraran, nunca que
+    # hablara de los mutantes declarados: un expediente podia estar approved al 100%
+    # con un mutante que jamas se ejecuto. Ver quality_gate/mutation_spec_check.py.
+    spec_raw = manifest.get("mutation_spec")
+    if isinstance(spec_raw, str) and spec_raw:
+        spec_path = _repo_path(repo, spec_raw)
+        if not spec_path.exists():
+            errors.append(f"mutation_spec_ausente:{spec_raw}")
+        else:
+            errors.extend(_mutation_spec_check.revisar(
+                manifest, _read_json(spec_path), payload,
+                leer_texto=lambda ruta: _repo_path(repo, ruta).read_text(
+                    encoding="utf-8", errors="replace"),
+                existe=lambda ruta: _repo_path(repo, ruta).exists()))
     if errors:
-        raise QualityGateError(";".join(errors))
+        # NOMBRAR AL CULPABLE. Hasta el 10-sep-2026 esto lanzaba solo el codigo de
+        # error --`mutation_evidence_stale` a secas-- y `staged()` no podia asociarlo
+        # a ningun manifiesto porque la excepcion sale antes. Resultado medido ese
+        # dia: el equipo entero bloqueado, y media hora de un agente para descubrir
+        # a mano cual de los 21 expedientes desfasados lo producia. El diagnostico
+        # cuesta una linea; su ausencia costo una tarde.
+        cual = manifest.get("change_id") or str(raw)
+        raise QualityGateError(f"{cual}:" + f";{cual}:".join(errors))
     return payload
 
 

@@ -17,40 +17,78 @@
   "mutants": [
     {
       "id": "P1-cursor-roto-va-a-1970",
-      "status": "killed",
-      "killed_by": ["test_qa_control_un_cursor_ILEGIBLE_arranca_en_AHORA_no_en_el_principio"],
-      "result": "1 failed, 10 passed"
+      "subject": "messages/nexus_dm_poller_v2.py",
+      "ancla": "        ahora = datetime.now(timezone.utc)",
+      "reemplazo": "        ahora = datetime.fromtimestamp(0, timezone.utc)",
+      "aplicado": true,
+      "sha_mutado": "d013713fe0e935b5352974a6ccf722326676826c3c564555c4ca1bc6a3a8b600",
+      "rc": 1,
+      "pytest_tail": "1 failed, 11 passed in 0.02s",
+      "resultado": "MUERE"
     },
     {
       "id": "P2-el-log-lleva-el-contenido",
-      "status": "killed",
-      "killed_by": ["test_qa_negative_el_resumen_del_log_NO_lleva_el_texto", "test_qa_control_una_pasada_completa_no_filtra_el_texto"],
-      "result": "2 failed, 9 passed"
+      "subject": "messages/nexus_dm_poller_v2.py",
+      "ancla": "            f\"largo={len(fila['content'] or '')} canal={fila['channel']}\")",
+      "reemplazo": "            f\"texto={fila['content']} canal={fila['channel']}\")",
+      "aplicado": true,
+      "sha_mutado": "7fa971417b0c4d7a59307f123807ddfabf88ee2e892fbb73f71a7a25b67a4f17",
+      "rc": 1,
+      "pytest_tail": "2 failed, 10 passed in 0.03s",
+      "resultado": "MUERE"
     },
     {
       "id": "P3-escribe-pisando-el-inbox",
-      "status": "killed",
-      "killed_by": ["test_anexa_sin_pisar_lo_que_ya_estaba"],
-      "result": "1 failed, 10 passed"
+      "subject": "messages/nexus_dm_poller_v2.py",
+      "ancla": "with open(inbox, \"a\", encoding=\"utf-8\") as fh:",
+      "reemplazo": "with open(inbox, \"w\", encoding=\"utf-8\") as fh:",
+      "aplicado": true,
+      "sha_mutado": "ebafa40dba8ab32c0efd6253ae49d1510220ec0fa9c7dce3fad5a0794d34ceb5",
+      "rc": 1,
+      "pytest_tail": "1 failed, 11 passed in 0.02s",
+      "resultado": "MUERE"
     },
     {
       "id": "P4-cursor-avanza-sin-filas",
-      "status": "killed",
-      "killed_by": ["test_qa_negative_sin_filas_NO_toca_el_cursor"],
-      "result": "1 failed, 10 passed"
+      "subject": "messages/nexus_dm_poller_v2.py",
+      "ancla": "    if not filas:\n        return 0",
+      "reemplazo": "    if False:\n        return 0",
+      "aplicado": true,
+      "sha_mutado": "9f1b6c3a454b0f93b58811d66a6c4820793e223922a669d2ece2d4e046f83877",
+      "rc": 1,
+      "pytest_tail": "2 failed, 10 passed in 0.05s",
+      "resultado": "MUERE"
     },
     {
       "id": "P5-cursor-al-minimo",
-      "status": "killed",
-      "killed_by": ["test_el_cursor_avanza_al_MAXIMO_procesado"],
-      "result": "1 failed, 11 passed"
+      "subject": "messages/nexus_dm_poller_v2.py",
+      "ancla": "    guarda_cursor(max(f[\"created_at\"] for f in filas).astimezone(timezone.utc), cursor)",
+      "reemplazo": "    guarda_cursor(min(f[\"created_at\"] for f in filas).astimezone(timezone.utc), cursor)",
+      "aplicado": true,
+      "sha_mutado": "09325da5b774f0182159a276ad7eb46c4b5b47d5f0da9a2e3f33170968d648d2",
+      "rc": 1,
+      "pytest_tail": "1 failed, 11 passed in 0.02s",
+      "resultado": "MUERE"
     },
     {
       "id": "P6-cursor-no-se-persiste-sin-filas",
-      "status": "killed",
-      "killed_by": ["test_qa_control_el_PISO_se_persiste_o_el_poller_no_entrega_NUNCA"],
-      "result": "1 failed, 11 passed"
+      "subject": "messages/nexus_dm_poller_v2.py",
+      "ancla": "        ahora = datetime.now(timezone.utc)\n        try:\n            guarda_cursor(ahora, ruta)\n        except OSError:\n            pass          # si no se puede escribir, mejor seguir que abortar\n        return ahora",
+      "reemplazo": "        return datetime.now(timezone.utc)",
+      "aplicado": true,
+      "sha_mutado": "8f58b907391b4646caaf8beb52712680b2c409440c69a9eaccdfaf0db1ab3c44",
+      "rc": 1,
+      "pytest_tail": "1 failed, 11 passed in 0.02s",
+      "resultado": "MUERE"
     }
   ],
-  "method": "copia fresca por mutante bajo scratchpad de sesion (/tmp/claude-1000/.../scratchpad/mut_poller_<ID>/). Baseline 11 verdes antes de cada mutante. Mutacion aplicada con python3 replace exacto del ancla (verificada antes de aplicar). Tests corridos desde la copia con interprete venv. Arbol vivo intacto."
+  "method": "copia fresca por mutante bajo scratchpad de sesion (/tmp/claude-1000/.../scratchpad/mut_poller_<ID>/). Baseline 11 verdes antes de cada mutante. Mutacion aplicada con python3 replace exacto del ancla (verificada antes de aplicar). Tests corridos desde la copia con interprete venv. Arbol vivo intacto.",
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "12 passed in 0.02s",
+    "sha_sujetos_antes": {
+      "messages/nexus_dm_poller_v2.py": "0b09a10bc60719440975df9303f8fe6676dcb3d2ba9c5445ec5b872e64e25c63"
+    }
+  },
+  "generado_por": "JARVIS (revisor): re-corri el spec sobre el sujeto actual, 6/6 MUEREN."
 }

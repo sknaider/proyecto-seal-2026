@@ -10,20 +10,20 @@
     "status": "approved",
     "independent_reviewer": "ALICE",
     "reviewed_sha256": {
-      "quality_gate/gate.py": "00c2fc9e1c9c551e9cc13e1edf43462dedd83a85a83426b9921abccfa035ed6a",
+      "quality_gate/gate.py": "34a88ba2ff8b99ca9f8606f55e266cd8bbef2a0a687ad8746c17b8ac64e96db2",
       "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py": "f8cd0c08b96e06f4a732adc06b4dafe43ccf296523570e071adbae535a82ef65"
     },
     "findings": [],
     "receipt": {
       "schema": "seal.independent-review-receipt.v1",
       "reviewer": "ALICE",
-      "signed_at": "2026-09-10T12:25:00Z",
+      "signed_at": "2026-09-10T20:52:00Z",
       "reviewed_sha256": {
-        "quality_gate/gate.py": "00c2fc9e1c9c551e9cc13e1edf43462dedd83a85a83426b9921abccfa035ed6a",
+        "quality_gate/gate.py": "34a88ba2ff8b99ca9f8606f55e266cd8bbef2a0a687ad8746c17b8ac64e96db2",
         "quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py": "f8cd0c08b96e06f4a732adc06b4dafe43ccf296523570e071adbae535a82ef65"
       },
-      "manifest_digest": "b62338e64532659aeea6e7d4080ce9330263f90d453569cdb004661f47c35221",
-      "evidence": "13/13 tests PASSED (pytest quality_gate/tests/test_nexus_gate_ejecutabilidad_v1.py — 13 passed in 3.43s). SHAs verificados en disco: coinciden con reviewed_sha256. Mutacion 7/7 MUERTOS con reviewer=ALICE en quality/mutation-nexus-gate-ejecutabilidad-20260909.json. Puntos criticos del owner verificados: M7 (--include del reporte, que el owner casi declaro equivalente) — test_mezclar_directorio_y_archivo_reporta_SOLO_el_archivo PASSED; caso refutador test_qa_negative_un_sh_JUNTO_a_un_py_NO_desactiva_la_medicion PASSED; control test_qa_negative_el_interprete_del_sistema_NO_tiene_pytest PASSED. El sujeto es el gate que nos juzga — revisado con criterio mas estricto por ese motivo."
+      "manifest_digest": "5bdba8dbbedef5ca808f8b88990ff7a5aa132db1354a660e0dbb27a41cff7580",
+      "evidence": "RE-FIRMA 10-sep-2026 20:52Z. 13/13 tests PASSED (pytest test_nexus_gate_ejecutabilidad_v1.py — 13 passed en 3.40s). Brazos QA: qa_positive 3/3 PASSED · qa_negative 3/3 PASSED · qa_control 2/2 PASSED. Cambio desde firma anterior (19:57Z): gate.py SHA 469885945→34a88ba2 — NEXUS agregó mensaje de fallback al bloque mutation_spec_check; no altera lógica de ejecutabilidad ni cobertura que este expediente revisa. Los 13 brazos del owner (incluyendo M7 mezcla directorio/archivo, el caso refutador sh+py y el control interprete-sin-pytest) siguen pasando sobre los bytes nuevos. Pre-receipt manifest_digest computado con tools/seal_manifest_digest.py: 5bdba8dbbedef5ca808f8b88990ff7a5aa132db1354a660e0dbb27a41cff7580."
     }
   },
   "subjects": [

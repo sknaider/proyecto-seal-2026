@@ -1,0 +1,120 @@
+{
+  "schema": "seal.mutation-evidence.v1",
+  "formato_mutantes": "ancla+reemplazo por mutante",
+  "change_id": "nexus-mutation-spec-check-20260910",
+  "reviewer": "JARVIS",
+  "generado_por": "JARVIS (revisor): re-corri sobre los bytes con el mensaje del fallback agregado (35 passed in 0.01s), 8/8 MUEREN.",
+  "mutation_target": "arena temporal bajo /tmp (paquete quality_gate completo; el arbol real no se toca)",
+  "tool": "inline (copia + una ancla por mutante + pytest)",
+  "killed": 8,
+  "survived": 0,
+  "total": 8,
+  "no_tests": 0,
+  "skipped": 0,
+  "suspicious": 0,
+  "timeout": 0,
+  "mutation_score_percent": 100.0,
+  "control_sujeto_sin_mutar": {
+    "rc": 0,
+    "pytest_tail": "35 passed in 0.01s",
+    "sha_sujetos_antes": {
+      "quality_gate/mutation_spec_check.py": "b68bb5c7495e19bfa8124a81969784e19752a62ea889f0ed43abc776c90d0818"
+    }
+  },
+  "limpieza": "arenas bajo /tmp; systemd-tmpfiles las barre",
+  "mutants": [
+    {
+      "id": "n1-la-lista-se-busca-por-NOMBRE-otra-vez",
+      "subject": "quality_gate/mutation_spec_check.py",
+      "ancla": "        if all(isinstance(f, dict) and \"id\" in f for f in valor):\n            return clave, valor",
+      "reemplazo": "        if clave == \"mutants\":\n            return clave, valor",
+      "aplicado": true,
+      "sha_mutado": "854d3bb8c3cf01998c001301c346a4c21d7cd223763954ce8b5e0470a44f5e96",
+      "rc": 1,
+      "pytest_tail": "4 failed, 31 passed in 0.03s",
+      "resultado": "MUERE"
+    },
+    {
+      "id": "n2-la-huella-vuelve-a-ser-el-id",
+      "subject": "quality_gate/mutation_spec_check.py",
+      "ancla": "    return (campo(fila, \"subject\", sujeto_por_defecto),\n            campo(fila, \"ancla\"),\n            campo(fila, \"reemplazo\"))",
+      "reemplazo": "    return (str(fila.get(\"id\", \"\")),)",
+      "aplicado": true,
+      "sha_mutado": "e107e315fe325595551650cd4d2fba201e05cb8bf019b84ed76bf552b7606ce2",
+      "rc": 1,
+      "pytest_tail": "3 failed, 32 passed in 0.03s",
+      "resultado": "MUERE"
+    },
+    {
+      "id": "n3-el-ancla-que-no-aplica-deja-de-importar",
+      "subject": "quality_gate/mutation_spec_check.py",
+      "ancla": "        if veces != 1:",
+      "reemplazo": "        if False:",
+      "aplicado": true,
+      "sha_mutado": "19dcf0ce551cf0eec9efed858f89dbb073fecc63cfb15414d9b1e341734dd009",
+      "rc": 1,
+      "pytest_tail": "2 failed, 33 passed in 0.02s",
+      "resultado": "MUERE"
+    },
+    {
+      "id": "n4-la-deuda-se-calla",
+      "subject": "quality_gate/mutation_spec_check.py",
+      "ancla": "        if not trae_ancla:\n            errores.append(",
+      "reemplazo": "        if False:\n            errores.append(",
+      "aplicado": true,
+      "sha_mutado": "85172acea0681778c07c2f71005518ad23decc5bb6ec78ce4e762342a7c76336",
+      "rc": 1,
+      "pytest_tail": "2 failed, 33 passed in 0.02s",
+      "resultado": "MUERE"
+    },
+    {
+      "id": "n5-la-circularidad-vuelve-a-depender-de-una-lista",
+      "subject": "quality_gate/mutation_spec_check.py",
+      "ancla": "    juzgan = archivos_que_juzgan(manifest)",
+      "reemplazo": "    juzgan = set()",
+      "aplicado": true,
+      "sha_mutado": "8714ac51172ae1d3531db2c565c840ee63dbea9397692f55f761e4ee653840ae",
+      "rc": 1,
+      "pytest_tail": "3 failed, 32 passed in 0.03s",
+      "resultado": "MUERE"
+    },
+    {
+      "id": "n6-el-directorio-deja-de-contar-como-juez",
+      "subject": "quality_gate/mutation_spec_check.py",
+      "ancla": "            elif \"/\" in texto and _parece_test(texto.rstrip(\"/\") + \"/\"):",
+      "reemplazo": "            elif False:",
+      "aplicado": true,
+      "sha_mutado": "bbdebdc79322f48414487b93e30599b830802ccf1c6583cf81ecadacb71e98a6",
+      "rc": 1,
+      "pytest_tail": "1 failed, 34 passed in 0.02s",
+      "resultado": "MUERE"
+    },
+    {
+      "id": "n7-el-mutante-que-no-muta-vuelve-a-pasar",
+      "subject": "quality_gate/mutation_spec_check.py",
+      "ancla": "        if ancla == campo(fila, \"reemplazo\"):",
+      "reemplazo": "        if False:",
+      "aplicado": true,
+      "sha_mutado": "b77cc630fbb0894f363acdffbea1fbb87d7b8f914e9f5229411e93bdc001b058",
+      "rc": 1,
+      "pytest_tail": "1 failed, 34 passed in 0.02s",
+      "resultado": "MUERE"
+    },
+    {
+      "id": "n8-el-denominador-vuelve-a-preguntar-por-los-tests",
+      "subject": "quality_gate/mutation_spec_check.py",
+      "ancla": "            elif sujetos_decl and ruta not in sujetos_decl:",
+      "reemplazo": "            elif False:",
+      "aplicado": true,
+      "sha_mutado": "60d091fd5060890e0fb1a11db0f81064ae97a7a57aee456ab5c52869b8b9d9e4",
+      "rc": 1,
+      "pytest_tail": "2 failed, 33 passed in 0.02s",
+      "resultado": "MUERE"
+    }
+  ],
+  "file_sha256": {
+    "quality_gate/mutation_spec_check.py": "b68bb5c7495e19bfa8124a81969784e19752a62ea889f0ed43abc776c90d0818",
+    "quality_gate/gate.py": "34a88ba2ff8b99ca9f8606f55e266cd8bbef2a0a687ad8746c17b8ac64e96db2",
+    "quality_gate/tests/test_nexus_mutation_spec_check_v1.py": "085c3b5909a0ad7b8bc6479e45a7f6aff7f1ce9df0b624b7cc255f9bf579190c"
+  }
+}

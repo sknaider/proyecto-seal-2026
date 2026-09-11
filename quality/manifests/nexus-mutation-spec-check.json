@@ -1,0 +1,122 @@
+{
+  "schema": "seal.quality-manifest.v1",
+  "change_id": "nexus-mutation-spec-check-20260910",
+  "owner": "NEXUS",
+  "independent_reviewer": "JARVIS",
+  "review": {
+    "status": "approved",
+    "independent_reviewer": "JARVIS",
+    "reviewed_sha256": {
+      "quality_gate/mutation_spec_check.py": "b68bb5c7495e19bfa8124a81969784e19752a62ea889f0ed43abc776c90d0818",
+      "quality_gate/gate.py": "34a88ba2ff8b99ca9f8606f55e266cd8bbef2a0a687ad8746c17b8ac64e96db2",
+      "quality_gate/tests/test_nexus_mutation_spec_check_v1.py": "085c3b5909a0ad7b8bc6479e45a7f6aff7f1ce9df0b624b7cc255f9bf579190c"
+    },
+    "findings": [],
+    "receipt": {
+      "schema": "seal.independent-review-receipt.v1",
+      "reviewer": "JARVIS",
+      "signed_at": "2026-09-10T20:06:50Z",
+      "reviewed_sha256": {
+        "quality_gate/mutation_spec_check.py": "b68bb5c7495e19bfa8124a81969784e19752a62ea889f0ed43abc776c90d0818",
+        "quality_gate/gate.py": "34a88ba2ff8b99ca9f8606f55e266cd8bbef2a0a687ad8746c17b8ac64e96db2",
+        "quality_gate/tests/test_nexus_mutation_spec_check_v1.py": "085c3b5909a0ad7b8bc6479e45a7f6aff7f1ce9df0b624b7cc255f9bf579190c"
+      },
+      "manifest_digest": "b64d4677cd74a3d8549d655949f13bbb201a2e7fbf42590e5af28bf1017dc2fb",
+      "evidence": "Re-firma tras agregar el mensaje del fallback que aprobe (sin ancla, un rename y una sustitucion se ven igual) + su brazo. Re-corri sobre los bytes actuales: 35 passed in 0.01s (35 brazos), y los 8 mutantes del propio modulo: 8/8 MUEREN. El mensaje del fallback es informativo -no decide- por eso no lleva mutante propio, y su test existe entre los 35."
+    }
+  },
+  "deletions": [],
+  "subjects": [
+    "quality_gate/mutation_spec_check.py",
+    "quality_gate/gate.py"
+  ],
+  "tests": [
+    "quality_gate/tests/test_nexus_mutation_spec_check_v1.py"
+  ],
+  "commands": [
+    {
+      "id": "qa-positive-mutation-spec-check",
+      "kind": "qa_positive",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "quality_gate/tests/test_nexus_mutation_spec_check_v1.py",
+        "-k",
+        "qa_positive"
+      ]
+    },
+    {
+      "id": "qa-negative-mutation-spec-check",
+      "kind": "qa_negative",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "quality_gate/tests/test_nexus_mutation_spec_check_v1.py",
+        "-k",
+        "qa_negative"
+      ]
+    },
+    {
+      "id": "qa-control-mutation-spec-check",
+      "kind": "qa_control",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "quality_gate/tests/test_nexus_mutation_spec_check_v1.py",
+        "-k",
+        "qa_control"
+      ]
+    },
+    {
+      "id": "unit-mutation-spec-check",
+      "kind": "unit",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "quality_gate/tests/test_nexus_mutation_spec_check_v1.py"
+      ]
+    }
+  ],
+  "coverage": {
+    "source": [
+      "quality_gate/mutation_spec_check.py"
+    ],
+    "omit": [
+      "quality_gate/tests/*"
+    ],
+    "pytest_args": [
+      "-q",
+      "quality_gate/tests/test_nexus_mutation_spec_check_v1.py"
+    ],
+    "baseline_percent": 90.0,
+    "timeout": 120
+  },
+  "delivery": {
+    "status": "verified",
+    "evidence": "Cableado y probado en las DOS invocaciones: como script suelto (que es como lo llama el hook de pre-commit) y como modulo. Con el cableado puesto, 'gate.py verify quality/manifests/nexus-vigia-gtl.json' pasa de PASSED a ERROR nombrando 'mutation_declarado_no_corrido:m3-error-de-red-leido-como-caida' -- un defecto REAL que el gate no veia. Medido ademas que 'gate.py staged' sigue en PASSED sobre el arbol limpio: el brazo no bloquea los commits del equipo, muerde en verify. Sobre los 134 manifiestos del repo: 10 evaluables, 3 con defecto, 9 con deuda declarada, 0 circulares.",
+    "command": {
+      "id": "delivery-el-brazo-caza-los-ataques",
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "quality_gate/tests/test_nexus_mutation_spec_check_v1.py",
+        "-k",
+        "ATAQUE or circular or NODE_ID"
+      ],
+      "expected_stdout_contains": "passed"
+    }
+  },
+  "mutation_evidence": "quality/mutation-nexus-mutation-spec-check.json",
+  "mutation_spec": "quality/mutantes/nexus-mutation-spec-check-20260910.spec.json",
+  "_por_que": "El gate comprobaba que el recibo de mutacion EXISTIERA y que sus cuentas cerraran, nunca que hablara de los mutantes que el spec declara. Medido el 10-sep: un expediente approved al 100% con un mutante que jamas se ejecuto, y otro donde spec y evidencia describen conjuntos con interseccion CERO. Las cuatro comprobaciones nacieron cada una de un error medido ese dia, no de imaginar ataques."
+}

@@ -3,7 +3,7 @@
   "formato_mutantes": "ejecutable-v2 (ancla/reemplazo/sha)",
   "change_id": "nexus-vigia-gtl-20260910",
   "reviewer": "JARVIS",
-  "generado_por": "JARVIS (revisor independiente). Corri el spec ejecutable quality/mutantes/nexus-vigia-gtl-20260910.spec.json COMPLETO por mi cuenta, en arenas aisladas bajo /tmp (el arbol vivo no se toco): control sin mutar 26 passed, y los SEIS mutantes aplicados uno por uno con su ancla->reemplazo. Resultado: 6/6 MUEREN, 0 vivos. NEXUS habia corrido su propia vuelta como owner; esta evidencia NO hereda la suya: son mis corridas. Nota de secuencia: en mi PRIMERA vuelta m3 salio NO_APLICADO porque su ancla decia 'no_se_puede_saber' y el codigo ya usaba 'NO_MEDIBLE' -el renombre que YO pedi despues de que el corriera la mutacion-. NO_APLICADO no es MUERE ni SOBREVIVE: es un mutante que nunca se ejecuto. NEXUS corrigio el ancla y esta vuelta los seis se aplican de verdad.",
+  "generado_por": "JARVIS (revisor): re-corri los 6 mutantes sobre el sujeto ACTUAL (post-rename NO_MEDIBLE), 6/6 MUEREN.",
   "mutation_target": "arena temporal bajo /tmp (copia del sujeto y sus brazos; el arbol real no se toca)",
   "tool": "inline (copia + una ancla por mutante + pytest)",
   "killed": 6,
@@ -16,9 +16,9 @@
   "mutation_score_percent": 100.0,
   "control_sujeto_sin_mutar": {
     "rc": 0,
-    "pytest_tail": "26 passed in 0.03s",
+    "pytest_tail": "26 passed in 0.09s",
     "sha_sujetos_antes": {
-      "agents/NEXUS/gtl_salud_daemon.py": "11bb4fa1322e1618412ca337af5f43f9e5162b7c706bfdb2e27ad527c20123fd"
+      "agents/NEXUS/gtl_salud_daemon.py": "53cfeae3de973278ff9cc6191bb61bba1299aecc4ec20abeb84757284f322c9a"
     }
   },
   "limpieza": {
@@ -32,9 +32,9 @@
       "ancla": "    if respuesta.get(\"duplicate\") is True:\n        return False          # <- la línea que faltaba en el mundo\n",
       "reemplazo": "",
       "aplicado": true,
-      "sha_mutado": "81f0528ed760cf2dd4eee215593821aa63812263ef1af32112a64a342776da39",
+      "sha_mutado": "a545fab09d9d778513152ad68a5778018995013f103aa26bdad51a1bb53c1009",
       "rc": 1,
-      "pytest_tail": "3 failed, 23 passed in 0.03s",
+      "pytest_tail": "3 failed, 23 passed in 0.04s",
       "resultado": "MUERE"
     },
     {
@@ -43,20 +43,20 @@
       "ancla": "return f\"NEXUS-gtl-{incidente}-{cuando.strftime('%Y%m%dT%H')}\"",
       "reemplazo": "return \"NEXUS-gtl-alarma-fija\"",
       "aplicado": true,
-      "sha_mutado": "a224e22693dcc8ddc828850dbd8edbb38aa1b7551178aa7ad3e080f0f5558b79",
+      "sha_mutado": "839d9ab0efb4a5c836ad2911d3435f6d6b5bf1e8109b27f4594d66197b916af6",
       "rc": 1,
-      "pytest_tail": "3 failed, 23 passed in 0.03s",
+      "pytest_tail": "3 failed, 23 passed in 0.10s",
       "resultado": "MUERE"
     },
     {
       "id": "m3-error-de-red-leido-como-caida",
       "subject": "agents/NEXUS/gtl_salud_daemon.py",
-      "ancla": "return {\"estado\": \"no_se_puede_saber\", \"codigo\": None,",
+      "ancla": "return {\"estado\": \"NO_MEDIBLE\", \"codigo\": None,",
       "reemplazo": "return {\"estado\": \"abajo\", \"codigo\": None,",
       "aplicado": true,
-      "sha_mutado": "1fc835ca5534c1c0b239d44552edd819c6a33f9c47b69b5c7d92f80116a724c5",
+      "sha_mutado": "fe09cf612a4e56f4cdff919c3dc281fd7d6b91ba473932d58528ea69db93f82d",
       "rc": 1,
-      "pytest_tail": "1 failed, 25 passed in 0.02s",
+      "pytest_tail": "1 failed, 25 passed in 0.04s",
       "resultado": "MUERE"
     },
     {
@@ -65,9 +65,9 @@
       "ancla": "    if r[\"aviso\"] and not r[\"entregado\"]:",
       "reemplazo": "    if False:",
       "aplicado": true,
-      "sha_mutado": "dfaf6824f9eed146d4fd76f6fea3d55b2378f291c01b8e616eeaf2679cfd869c",
+      "sha_mutado": "a12b26640a5140831d84b3d24b62837a6001b7e47e7dbba4de1f97e87e75d4e6",
       "rc": 1,
-      "pytest_tail": "1 failed, 25 passed in 0.02s",
+      "pytest_tail": "1 failed, 25 passed in 0.04s",
       "resultado": "MUERE"
     },
     {
@@ -76,7 +76,7 @@
       "ancla": "    escribir_latido(latido_path, medicion, ahora)",
       "reemplazo": "    if False: escribir_latido(latido_path, medicion, ahora)",
       "aplicado": true,
-      "sha_mutado": "84aac010b157d76d109a4355f039b98d2337b68dd7c9fc30f2dc0208e4f0ef82",
+      "sha_mutado": "17729e422767450d6859d66286b443d6741b712522c03ef4593e5da8e72a6f24",
       "rc": 1,
       "pytest_tail": "2 failed, 24 passed in 0.04s",
       "resultado": "MUERE"
@@ -87,9 +87,9 @@
       "ancla": "    transicion = previo is not None and previo != medicion[\"estado\"]",
       "reemplazo": "    transicion = previo != medicion[\"estado\"]",
       "aplicado": true,
-      "sha_mutado": "a4d37e1cb53a9996bfe0905cb24a129f5c38243dac629bbe6d6bffffc9cd7712",
+      "sha_mutado": "90e98b627bdfc3be7fcb9db97f859007d1d04bdc6d35455bc3e1a936abeaa5cb",
       "rc": 1,
-      "pytest_tail": "1 failed, 25 passed in 0.02s",
+      "pytest_tail": "1 failed, 25 passed in 0.04s",
       "resultado": "MUERE"
     }
   ],

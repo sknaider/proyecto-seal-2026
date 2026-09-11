@@ -1,61 +1,62 @@
 {
-  "schema": "seal.mutantes-ejecutables.v2",
-  "change_id": "nexus-dm-poller-replacement-20260908",
-  "reviewer": "JARVIS",
-  "subject_sha256_al_declarar": "0b09a10bc60719440975df9303f8fe6676dcb3d2ba9c5445ec5b872e64e25c63",
-  "tests": [
-    [
-      "messages/tests/test_nexus_dm_poller_v2_p1.py"
-    ]
-  ],
-  "mutants": [
-    {
-      "id": "P1-cursor-roto-va-a-1970",
-      "subject": "messages/nexus_dm_poller_v2.py",
-      "ancla": "        return datetime.now(timezone.utc)",
-      "reemplazo": "        return datetime(1970, 1, 1, tzinfo=timezone.utc)",
-      "why": "un cursor ilegible que arranque en el principio vuelca la historia entera de DMs al inbox",
-      "esperado": "MUERTO"
-    },
-    {
-      "id": "P2-el-log-lleva-el-contenido",
-      "subject": "messages/nexus_dm_poller_v2.py",
-      "ancla": "            f\"largo={len(fila['content'] or '')} canal={fila['channel']}\")",
-      "reemplazo": "            f\"texto={fila['content']} canal={fila['channel']}\")",
-      "why": "es el defecto del hermano: correspondencia privada al journal",
-      "esperado": "MUERTO (2 brazos)"
-    },
-    {
-      "id": "P3-escribe-pisando-el-inbox",
-      "subject": "messages/nexus_dm_poller_v2.py",
-      "ancla": "with open(inbox, \"a\", encoding=\"utf-8\") as fh:",
-      "reemplazo": "with open(inbox, \"w\", encoding=\"utf-8\") as fh:",
-      "why": "el inbox es historial: escribir con w borra los DM anteriores",
-      "esperado": "MUERTO"
-    },
-    {
-      "id": "P4-cursor-avanza-sin-filas",
-      "subject": "messages/nexus_dm_poller_v2.py",
-      "ancla": "    if not filas:\n        return 0",
-      "reemplazo": "    if False:\n        return 0",
-      "why": "avanzar con la busqueda vacia hace que un hueco de red saltee DMs reales",
-      "esperado": "MUERTO"
-    },
-    {
-      "id": "P5-cursor-al-minimo",
-      "subject": "messages/nexus_dm_poller_v2.py",
-      "ancla": "    guarda_cursor(max(f[\"created_at\"] for f in filas).astimezone(timezone.utc), cursor)",
-      "reemplazo": "    guarda_cursor(min(f[\"created_at\"] for f in filas).astimezone(timezone.utc), cursor)",
-      "why": "guardar el minimo reentrega los mismos DM en cada pasada",
-      "esperado": "MUERTO"
-    },
-    {
-      "id": "P6-cursor-no-se-persiste-sin-filas",
-      "subject": "messages/nexus_dm_poller_v2.py",
-      "ancla": "        ahora = datetime.now(timezone.utc)\n        try:\n            guarda_cursor(ahora, ruta)\n        except OSError:\n            pass          # si no se puede escribir, mejor seguir que abortar\n        return ahora",
-      "reemplazo": "        return datetime.now(timezone.utc)",
-      "why": "sin persistir el piso, cada pasada sin filas lo mueve y ningun DM jamas lo alcanza — bloqueo circular hallado en produccion el 8-sep",
-      "esperado": "MUERTO"
-    }
+ "schema": "seal.mutantes-ejecutables.v2",
+ "change_id": "nexus-dm-poller-replacement-20260908",
+ "reviewer": "JARVIS",
+ "subject_sha256_al_declarar": "0b09a10bc60719440975df9303f8fe6676dcb3d2ba9c5445ec5b872e64e25c63",
+ "tests": [
+  [
+   "messages/tests/test_nexus_dm_poller_v2_p1.py"
   ]
+ ],
+ "mutants": [
+  {
+   "id": "P1-cursor-roto-va-a-1970",
+   "subject": "messages/nexus_dm_poller_v2.py",
+   "ancla": "        ahora = datetime.now(timezone.utc)",
+   "reemplazo": "        ahora = datetime.fromtimestamp(0, timezone.utc)",
+   "why": "un cursor ilegible que arranque en el principio vuelca la historia entera de DMs al inbox",
+   "esperado": "MUERTO",
+   "_reparado_10sep": "El ancla apuntaba a `return datetime.now(...)`: la forma que tenia el except ANTES de que se agregara la persistencia del piso. El codigo mejoro y el ancla quedo vieja, asi que el mutante NO se aplicaba y su resultado no significaba nada. Detectado por el brazo mutation_spec_check y reparado por NEXUS el 10-sep. La evidencia debe re-correrse: el revisor es JARVIS."
+  },
+  {
+   "id": "P2-el-log-lleva-el-contenido",
+   "subject": "messages/nexus_dm_poller_v2.py",
+   "ancla": "            f\"largo={len(fila['content'] or '')} canal={fila['channel']}\")",
+   "reemplazo": "            f\"texto={fila['content']} canal={fila['channel']}\")",
+   "why": "es el defecto del hermano: correspondencia privada al journal",
+   "esperado": "MUERTO (2 brazos)"
+  },
+  {
+   "id": "P3-escribe-pisando-el-inbox",
+   "subject": "messages/nexus_dm_poller_v2.py",
+   "ancla": "with open(inbox, \"a\", encoding=\"utf-8\") as fh:",
+   "reemplazo": "with open(inbox, \"w\", encoding=\"utf-8\") as fh:",
+   "why": "el inbox es historial: escribir con w borra los DM anteriores",
+   "esperado": "MUERTO"
+  },
+  {
+   "id": "P4-cursor-avanza-sin-filas",
+   "subject": "messages/nexus_dm_poller_v2.py",
+   "ancla": "    if not filas:\n        return 0",
+   "reemplazo": "    if False:\n        return 0",
+   "why": "avanzar con la busqueda vacia hace que un hueco de red saltee DMs reales",
+   "esperado": "MUERTO"
+  },
+  {
+   "id": "P5-cursor-al-minimo",
+   "subject": "messages/nexus_dm_poller_v2.py",
+   "ancla": "    guarda_cursor(max(f[\"created_at\"] for f in filas).astimezone(timezone.utc), cursor)",
+   "reemplazo": "    guarda_cursor(min(f[\"created_at\"] for f in filas).astimezone(timezone.utc), cursor)",
+   "why": "guardar el minimo reentrega los mismos DM en cada pasada",
+   "esperado": "MUERTO"
+  },
+  {
+   "id": "P6-cursor-no-se-persiste-sin-filas",
+   "subject": "messages/nexus_dm_poller_v2.py",
+   "ancla": "        ahora = datetime.now(timezone.utc)\n        try:\n            guarda_cursor(ahora, ruta)\n        except OSError:\n            pass          # si no se puede escribir, mejor seguir que abortar\n        return ahora",
+   "reemplazo": "        return datetime.now(timezone.utc)",
+   "why": "sin persistir el piso, cada pasada sin filas lo mueve y ningun DM jamas lo alcanza — bloqueo circular hallado en produccion el 8-sep",
+   "esperado": "MUERTO"
+  }
+ ]
 }

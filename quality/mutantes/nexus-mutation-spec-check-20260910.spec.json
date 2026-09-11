@@ -1,0 +1,69 @@
+{
+ "change_id": "nexus-mutation-spec-check-20260910",
+ "reviewer": "JARVIS",
+ "manifest": "quality/manifests/nexus-mutation-spec-check.json",
+ "tests": [
+  [
+   "quality_gate/tests/test_nexus_mutation_spec_check_v1.py"
+  ]
+ ],
+ "mutants": [
+  {
+   "id": "n1-la-lista-se-busca-por-NOMBRE-otra-vez",
+   "subject": "quality_gate/mutation_spec_check.py",
+   "ancla": "        if all(isinstance(f, dict) and \"id\" in f for f in valor):\n            return clave, valor",
+   "reemplazo": "        if clave == \"mutants\":\n            return clave, valor",
+   "why": "reintroduce MI error del 10-sep: buscar una clave llamada 'mutants' y concluir que el recibo esta vacio cuando se llama 'detail'. Medir el NOMBRE del campo y afirmar sobre el CONTENIDO."
+  },
+  {
+   "id": "n2-la-huella-vuelve-a-ser-el-id",
+   "subject": "quality_gate/mutation_spec_check.py",
+   "ancla": "    return (campo(fila, \"subject\", sujeto_por_defecto),\n            campo(fila, \"ancla\"),\n            campo(fila, \"reemplazo\"))",
+   "reemplazo": "    return (str(fila.get(\"id\", \"\")),)",
+   "why": "lo que JARVIS pidio endurecer: un id es una etiqueta editable. Con este mutante, sustituir un mutante por otro conservando el nombre pasa limpio."
+  },
+  {
+   "id": "n3-el-ancla-que-no-aplica-deja-de-importar",
+   "subject": "quality_gate/mutation_spec_check.py",
+   "ancla": "        if veces != 1:",
+   "reemplazo": "        if False:",
+   "why": "el NO_APLICADO vuelve a ser invisible: un mutante que nunca se ejecuta se lee como parte del 100%."
+  },
+  {
+   "id": "n4-la-deuda-se-calla",
+   "subject": "quality_gate/mutation_spec_check.py",
+   "ancla": "        if not trae_ancla:\n            errores.append(",
+   "reemplazo": "        if False:\n            errores.append(",
+   "why": "condicion 2 de JARVIS: sin el aviso, 66 recibos sin ancla pasan como aprobados limpios y el numero que debe bajar no existe."
+  },
+  {
+   "id": "n5-la-circularidad-vuelve-a-depender-de-una-lista",
+   "subject": "quality_gate/mutation_spec_check.py",
+   "ancla": "    juzgan = archivos_que_juzgan(manifest)",
+   "reemplazo": "    juzgan = set()",
+   "why": "ATAQUE 7: si el juez no se lee del argv de los comandos, declarar el test como subject vuelve a evadir la guarda."
+  },
+  {
+   "id": "n6-el-directorio-deja-de-contar-como-juez",
+   "subject": "quality_gate/mutation_spec_check.py",
+   "ancla": "            elif \"/\" in texto and _parece_test(texto.rstrip(\"/\") + \"/\"):",
+   "reemplazo": "            elif False:",
+   "why": "ATAQUE 8: `pytest tools/tests/` apaga la deteccion de circularidad sin que nadie lo note."
+  },
+  {
+   "id": "n7-el-mutante-que-no-muta-vuelve-a-pasar",
+   "subject": "quality_gate/mutation_spec_check.py",
+   "ancla": "        if ancla == campo(fila, \"reemplazo\"):",
+   "reemplazo": "        if False:",
+   "why": "4a regla de JARVIS. Su primera victima fue un fixture mio: un mutante con ancla == reemplazo deja el archivo intacto y su resultado no dice nada."
+  },
+  {
+   "id": "n8-el-denominador-vuelve-a-preguntar-por-los-tests",
+   "subject": "quality_gate/mutation_spec_check.py",
+   "ancla": "            elif sujetos_decl and ruta not in sujetos_decl:",
+   "reemplazo": "            elif False:",
+   "why": "ATAQUE 5: la guarda dependia de que el expediente DECLARARA lo que hay que excluir, y lo que falta nunca se declara."
+  }
+ ],
+ "_nota_para_el_revisor": "Ningun ancla toca una linea que BORRE algo: el sujeto no borra nada, solo decide. Correr en arena bajo /tmp. Control obligatorio: la copia SIN mutar debe dar 34 verdes; si da otra cosa, el instrumento esta inerte y ningun resultado vale."
+}
