@@ -28,5 +28,6 @@
     "spectre_fresh.sh": "657272b4f6feeff9bcd534908efe61910f1482213ee76593082efdfe9ff7c14c",
     "quality_gate/tests/test_gate.py": "15959e0215d624124de810f1b312d72c2223c373bb39593386970405c39fe968"
   },
-  "_sha_update": "11-sep-2026 ALICE: file_sha256 actualizado. Delta D1/D2/D3 cubiertos por 3 tests nuevos en test_gate.py (D1:3 fail, D2:1 fail, D3:2 fail). 492/707 de la campana anterior cubre el codigo viejo; delta mutation_spec_check cubierto por nexus-mutation-spec-check (8/8 muertos)."
+  "_sha_update": "11-sep-2026 ALICE: file_sha256 actualizado. Delta D1/D2/D3 cubiertos por 3 tests nuevos en test_gate.py (D1:3 fail, D2:1 fail, D3:2 fail). 492/707 de la campana anterior cubre el codigo viejo; delta mutation_spec_check cubierto por nexus-mutation-spec-check (8/8 muertos).",
+  "_estado": "PENDIENTE de campana fresca (11-sep-2026 ALICE). Los 492/707 son historicos — corridos sobre SHA 00c2fc9e (gate.py viejo). El delta (mutation_spec_check integration, lineas 688-696) esta cubierto por 3 tests nuevos en test_gate.py (D1/D2/D3 matan por DID NOT RAISE, no por error de arnes). La campana completa con mutmut sobre SHA 34a88ba2 es un pendiente declarado."
 }
